@@ -1000,7 +1000,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('show-status')
+        gjo_mock.assert_called_once_with('show-status', '--format', 'yaml')
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -1022,7 +1022,7 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
 
-        def get_juju_output(command):
+        def get_juju_output(command, *args, **kwargsP):
             raise subprocess.CalledProcessError(1, command)
 
         with patch.object(client, 'get_juju_output',
@@ -1209,6 +1209,41 @@ class TestEnvJujuClient(ClientTest):
                         agent-state: started
                       sub3/0:
                         agent-state: started
+        """)
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with patch('jujupy.GroupReporter.update') as update_mock:
+                    with patch('jujupy.GroupReporter.finish') as finish_mock:
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
+        self.assertEqual([], update_mock.call_args_list)
+        finish_mock.assert_called_once_with()
+
+    def test_wait_for_subordinate_units_with_agent_status(self):
+        value = dedent("""\
+            machines:
+              "0":
+                agent-state: started
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    subordinates:
+                      sub1/0:
+                        agent-status:
+                          current: idle
+              ubuntu:
+                units:
+                  ubuntu/0:
+                    subordinates:
+                      sub2/0:
+                        agent-status:
+                          current: idle
+                      sub3/0:
+                        agent-status:
+                          current: idle
         """)
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         now = datetime.now() + timedelta(days=1)
@@ -2429,7 +2464,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('status')
+        gjo_mock.assert_called_once_with('status', '--format', 'yaml')
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -2451,7 +2486,7 @@ class TestEnvJujuClient1X(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
 
-        def get_juju_output(command):
+        def get_juju_output(command, *args, **kwargs):
             raise subprocess.CalledProcessError(1, command)
 
         with patch.object(client, 'get_juju_output',
@@ -3954,7 +3989,7 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(status.get_open_ports('jenkins/1'), [])
         self.assertEqual(status.get_open_ports('jenkins/2'), ['42/tcp'])
 
-    def test_agent_states(self):
+    def test_agent_states_with_agent_state(self):
         status = Status({
             'machines': {
                 '1': {'agent-state': 'good'},
@@ -3976,6 +4011,29 @@ class TestStatus(FakeHomeTestCase):
         }
         self.assertEqual(expected, status.agent_states())
 
+    def test_agent_states_with_agent_status(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-status': {'current': 'bad'}},
+                        'jenkins/2': {'agent-status': {'current': 'good'}},
+                        'jenkins/3': {},
+                    }
+                }
+            }
+        }, '')
+        expected = {
+            'good': ['1', 'jenkins/2'],
+            'bad': ['jenkins/1'],
+            'no-agent': ['2', 'jenkins/3'],
+        }
+        self.assertEqual(expected, status.agent_states())
+
     def test_check_agents_started_not_started(self):
         status = Status({
             'machines': {
@@ -3994,7 +4052,7 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(status.agent_states(),
                          status.check_agents_started('env1'))
 
-    def test_check_agents_started_all_started(self):
+    def test_check_agents_started_all_started_with_agent_state(self):
         status = Status({
             'machines': {
                 '1': {'agent-state': 'started'},
@@ -4012,6 +4070,30 @@ class TestStatus(FakeHomeTestCase):
                             }
                         },
                         'jenkins/2': {'agent-state': 'started'},
+                    }
+                }
+            }
+        }, '')
+        self.assertIs(None, status.check_agents_started('env1'))
+
+    def test_check_agents_started_all_started_with_agent_status(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'started'},
+                '2': {'agent-state': 'started'},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'agent-status': {'current': 'idle'},
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-status': {'current': 'idle'}
+                                }
+                            }
+                        },
+                        'jenkins/2': {'agent-status': {'current': 'idle'}},
                     }
                 }
             }

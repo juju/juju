@@ -39,7 +39,7 @@ from utility import (
 
 __metaclass__ = type
 
-
+AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
@@ -108,6 +108,16 @@ class JESByDefault(Exception):
 
 def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
+
+
+def coalesce_agent_status(agent_item):
+    """Return the machine agent-state or the unit agent-status."""
+    state = agent_item.get('agent-state')
+    if state is None and agent_item.get('agent-status') is not None:
+        state = agent_item.get('agent-status').get('current')
+    if state is None:
+        state = 'no-agent'
+    return state
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
@@ -391,7 +401,7 @@ class EnvJujuClient:
 
     def show_status(self):
         """Print the status to output."""
-        self.juju(self._show_status, ())
+        self.juju(self._show_status, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
@@ -401,7 +411,8 @@ class EnvJujuClient:
                 if raw:
                     return self.get_juju_output(self._show_status, *args)
                 return Status.from_text(
-                    self.get_juju_output(self._show_status))
+                    self.get_juju_output(
+                        self._show_status, '--format', 'yaml'))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -590,10 +601,9 @@ class EnvJujuClient:
             for name, unit in status.service_subordinate_units(service):
                 if name.startswith(unit_prefix + '/'):
                     subordinate_unit_count += 1
-                    unit_states[unit.get(
-                        'agent-state', 'no-agent')].append(name)
+                    unit_states[coalesce_agent_status(unit)].append(name)
             if (subordinate_unit_count == service_unit_count and
-                    unit_states.keys() == ['started']):
+                    set(unit_states.keys()).issubset(AGENTS_READY)):
                 return None
             return unit_states
         reporter = GroupReporter(sys.stdout, 'started')
@@ -1347,7 +1357,7 @@ class Status:
         """Map agent states to the units and machines in those states."""
         states = defaultdict(list)
         for item_name, item in self.agent_items():
-            states[item.get('agent-state', 'no-agent')].append(item_name)
+            states[coalesce_agent_status(item)].append(item_name)
         return states
 
     def check_agents_started(self, environment_name=None):
@@ -1363,7 +1373,7 @@ class Status:
             if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
-        if states.keys() == ['started']:
+        if set(states.keys()).issubset(AGENTS_READY):
             return None
         for state, entries in states.items():
             if 'error' in state:
