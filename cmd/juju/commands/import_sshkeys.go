@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newImportKeysCommand() cmd.Command {
+// NewImportKeysCommand is used to add new authorized ssh keys for a user.
+func NewImportKeysCommand() cmd.Command {
 	return envcmd.Wrap(&importKeysCommand{})
 }
 
@@ -25,17 +26,18 @@ The keys are imported using ssh-import-id.
 
 // importKeysCommand is used to add new authorized ssh keys for a user.
 type importKeysCommand struct {
-	AuthorizedKeysBase
+	SSHKeysBase
 	user      string
 	sshKeyIds []string
 }
 
 func (c *importKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "import",
+		Name:    "import-ssh-key",
 		Args:    "<ssh key id> [...]",
 		Doc:     importKeysDoc,
 		Purpose: "using ssh-import-id, import new authorized ssh keys for a Juju user",
+		Aliases: []string {"import-ssh-keys"},
 	}
 }
 

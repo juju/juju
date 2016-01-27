@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-func newListKeysCommand() cmd.Command {
+// NewListKeysCommand is used to list the authorized ssh keys.
+func NewListKeysCommand() cmd.Command {
 	return envcmd.Wrap(&listKeysCommand{})
 }
 
@@ -26,16 +27,17 @@ By default, just the key fingerprint is printed. Use --full to display the entir
 
 // listKeysCommand is used to list the authorized ssh keys.
 type listKeysCommand struct {
-	AuthorizedKeysBase
+	SSHKeysBase
 	showFullKey bool
 	user        string
 }
 
 func (c *listKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-ssh-keys",
 		Doc:     listKeysDoc,
 		Purpose: "list authorised ssh keys for a specified user",
+		Aliases: []string {"ssh-key", "ssh-keys", "list-ssh-key"},
 	}
 }
 

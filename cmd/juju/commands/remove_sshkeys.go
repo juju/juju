@@ -14,33 +14,35 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newDeleteKeysCommand() cmd.Command {
-	return envcmd.Wrap(&deleteKeysCommand{})
+// NewRemoveKeysCommand is used to delete ssk keys for a user.
+func NewRemoveKeysCommand() cmd.Command {
+	return envcmd.Wrap(&removeKeysCommand{})
 }
 
-var deleteKeysDoc = `
-Delete existing authorized ssh keys to remove ssh access for the holder of those keys.
+var removeKeysDoc = `
+Remove existing authorized ssh keys to remove ssh access for the holder of those keys.
 The keys to delete are found by specifying either the "comment" portion of the ssh key,
 typically something like "user@host", or the key fingerprint found by using ssh-keygen.
 `
 
-// deleteKeysCommand is used to delete authorised ssh keys for a user.
-type deleteKeysCommand struct {
-	AuthorizedKeysBase
+// removeKeysCommand is used to delete authorised ssh keys for a user.
+type removeKeysCommand struct {
+	SSHKeysBase
 	user   string
 	keyIds []string
 }
 
-func (c *deleteKeysCommand) Info() *cmd.Info {
+func (c *removeKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "delete",
+		Name:    "remove-ssh-key",
 		Args:    "<ssh key id> [...]",
-		Doc:     deleteKeysDoc,
-		Purpose: "delete authorized ssh keys for a Juju user",
+		Doc:     removeKeysDoc,
+		Purpose: "remove authorized ssh keys for a Juju user",
+		Aliases: []string {"remove-ssh-keys"},
 	}
 }
 
-func (c *deleteKeysCommand) Init(args []string) error {
+func (c *removeKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")
@@ -50,11 +52,11 @@ func (c *deleteKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *deleteKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "admin", "the user for which to delete the keys")
+func (c *removeKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.user, "user", "admin", "the user for which to remove the keys")
 }
 
-func (c *deleteKeysCommand) Run(context *cmd.Context) error {
+func (c *removeKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
@@ -67,7 +69,7 @@ func (c *deleteKeysCommand) Run(context *cmd.Context) error {
 	}
 	for i, result := range results {
 		if result.Error != nil {
-			fmt.Fprintf(context.Stderr, "cannot delete key id %q: %v\n", c.keyIds[i], result.Error)
+			fmt.Fprintf(context.Stderr, "cannot remove key id %q: %v\n", c.keyIds[i], result.Error)
 		}
 	}
 	return nil

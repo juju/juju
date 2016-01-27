@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newAddKeysCommand() cmd.Command {
+// NewAddKeysCommand is used to add a new ssh key for a user.
+func NewAddKeysCommand() cmd.Command {
 	return envcmd.Wrap(&addKeysCommand{})
 }
 
@@ -24,17 +25,18 @@ Add new authorised ssh keys to allow the holder of those keys to log on to Juju 
 
 // addKeysCommand is used to add a new authorized ssh key for a user.
 type addKeysCommand struct {
-	AuthorizedKeysBase
+	SSHKeysBase
 	user    string
 	sshKeys []string
 }
 
 func (c *addKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-ssh-key",
 		Args:    "<ssh key> [...]",
 		Doc:     addKeysDoc,
 		Purpose: "add new authorized ssh keys for a Juju user",
+		Aliases: []string {"add-ssh-keys"},
 	}
 }
 

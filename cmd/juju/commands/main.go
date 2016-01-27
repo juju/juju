@@ -167,7 +167,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
 
 	// Manage authorized ssh keys.
-	r.Register(newAuthorizedKeysCommand())
+	r.Register(NewAddKeysCommand())
+	r.Register(NewRemoveKeysCommand())
+	r.Register(NewImportKeysCommand())
+	r.Register(NewListKeysCommand())
 
 	// Manage users and access
 	r.Register(user.NewAddCommand())
