@@ -94,15 +94,17 @@ func (e *exporter) machines() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	e.logger.Debugf("found %d machines", len(machines))
 
 	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
 	defer closer()
 
 	var instData []instanceData
 	instances := make(map[string]instanceData)
-	if err := instanceDataCollection.FindId(nil).All(&instData); err != nil {
+	if err := instanceDataCollection.Find(nil).All(&instData); err != nil {
 		return errors.Annotate(err, "instance data")
 	}
+	e.logger.Debugf("found %d instanceData", len(instData))
 	for _, data := range instData {
 		instances[data.MachineId] = data
 	}
