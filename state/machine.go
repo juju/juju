@@ -44,18 +44,12 @@ const (
 	JobHostUnits
 	JobManageModel
 	JobManageNetworking
-
-	// Deprecated in 1.18.
-	JobManageStateDeprecated
 )
 
 var jobNames = map[MachineJob]multiwatcher.MachineJob{
 	JobHostUnits:        multiwatcher.JobHostUnits,
 	JobManageModel:      multiwatcher.JobManageModel,
 	JobManageNetworking: multiwatcher.JobManageNetworking,
-
-	// Deprecated in 1.18.
-	JobManageStateDeprecated: multiwatcher.JobManageStateDeprecated,
 }
 
 // AllJobs returns all supported machine jobs.

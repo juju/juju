@@ -10,11 +10,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/juju/osenv"
 	statebackups "github.com/juju/juju/state/backups"
 )
 
@@ -30,11 +32,16 @@ const backupsPurpose = "create, manage, and restore backups of juju's state"
 
 // NewSuperCommand returns a new backups super-command.
 func NewSuperCommand() cmd.Command {
+	log := &cmd.Log{
+		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
+	}
+
 	backupsCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "backups",
 		Doc:         backupsDoc,
 		UsagePrefix: "juju",
 		Purpose:     backupsPurpose,
+		Log:         log,
 	})
 	backupsCmd.Register(newCreateCommand())
 	backupsCmd.Register(newInfoCommand())
@@ -70,12 +77,21 @@ type APIClient interface {
 
 // CommandBase is the base type for backups sub-commands.
 type CommandBase struct {
+	// TODO(wallyworld) - remove Log when backup command is flattened.
+	Log *cmd.Log
 	envcmd.EnvCommandBase
 }
 
 // NewAPIClient returns a client for the backups api endpoint.
 func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
+	if c.Log != nil {
+		c.Log.AddFlags(f)
+	}
 }
 
 var newAPIClient = func(c *CommandBase) (APIClient, error) {

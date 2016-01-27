@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envworkermanager
+package modelworkermanager
 
 import (
 	"time"
@@ -17,24 +17,24 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.envworkermanager")
+var logger = loggo.GetLogger("juju.worker.modelworkermanager")
 
-type envWorkersCreator func(InitialState, *state.State) (worker.Worker, error)
+type modelWorkersCreator func(InitialState, *state.State) (worker.Worker, error)
 
-// NewEnvWorkerManager returns a Worker which manages a worker which
-// needs to run on a per environment basis. It takes a function which will
-// be called to start a worker for a new environment. This worker
-// will be killed when an environment goes away.
-func NewEnvWorkerManager(
+// NewModelWorkerManager returns a Worker which manages a worker which
+// needs to run on a per model basis. It takes a function which will
+// be called to start a worker for a new model. This worker
+// will be killed when an model goes away.
+func NewModelWorkerManager(
 	st InitialState,
-	startEnvWorker envWorkersCreator,
-	dyingEnvWorker envWorkersCreator,
+	startModelWorker modelWorkersCreator,
+	dyingModelWorker modelWorkersCreator,
 	delay time.Duration,
 ) worker.Worker {
-	m := &envWorkerManager{
-		st:             st,
-		startEnvWorker: startEnvWorker,
-		dyingEnvWorker: dyingEnvWorker,
+	m := &modelWorkerManager{
+		st:               st,
+		startModelWorker: startModelWorker,
+		dyingModelWorker: dyingModelWorker,
 	}
 	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, delay)
 	go func() {
@@ -48,7 +48,7 @@ func NewEnvWorkerManager(
 // envWorkerManager and/or could be useful to startEnvWorker
 // funcs. It mainly exists to support testing.
 type InitialState interface {
-	WatchEnvironments() state.StringsWatcher
+	WatchModels() state.StringsWatcher
 	ForEnviron(names.ModelTag) (*state.State, error)
 	GetModel(names.ModelTag) (*state.Model, error)
 	ModelUUID() string
@@ -56,25 +56,25 @@ type InitialState interface {
 	MongoSession() *mgo.Session
 }
 
-type envWorkerManager struct {
-	runner         worker.Runner
-	tomb           tomb.Tomb
-	st             InitialState
-	startEnvWorker envWorkersCreator
-	dyingEnvWorker envWorkersCreator
+type modelWorkerManager struct {
+	runner           worker.Runner
+	tomb             tomb.Tomb
+	st               InitialState
+	startModelWorker modelWorkersCreator
+	dyingModelWorker modelWorkersCreator
 }
 
 // Kill satisfies the Worker interface.
-func (m *envWorkerManager) Kill() {
+func (m *modelWorkerManager) Kill() {
 	m.tomb.Kill(nil)
 }
 
 // Wait satisfies the Worker interface.
-func (m *envWorkerManager) Wait() error {
+func (m *modelWorkerManager) Wait() error {
 	return m.tomb.Wait()
 }
 
-func (m *envWorkerManager) loop() error {
+func (m *modelWorkerManager) loop() error {
 	go func() {
 		// When the runner stops, make sure we stop the envWorker as well
 		m.tomb.Kill(m.runner.Wait())
@@ -85,14 +85,14 @@ func (m *envWorkerManager) loop() error {
 		m.runner.Kill()
 		m.tomb.Kill(m.runner.Wait())
 	}()
-	w := m.st.WatchEnvironments()
+	w := m.st.WatchModels()
 	defer w.Stop()
 	for {
 		select {
 		case uuids := <-w.Changes():
-			// One or more environments have changed.
+			// One or more models have changed.
 			for _, uuid := range uuids {
-				if err := m.envHasChanged(uuid); err != nil {
+				if err := m.modelHasChanged(uuid); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -102,11 +102,11 @@ func (m *envWorkerManager) loop() error {
 	}
 }
 
-func (m *envWorkerManager) envHasChanged(uuid string) error {
+func (m *modelWorkerManager) modelHasChanged(uuid string) error {
 	modelTag := names.NewModelTag(uuid)
 	env, err := m.st.GetModel(modelTag)
 	if errors.IsNotFound(err) {
-		return m.envNotFound(modelTag)
+		return m.modelNotFound(modelTag)
 	} else if err != nil {
 		return errors.Annotatef(err, "error loading model %s", modelTag.Id())
 	}
@@ -115,7 +115,7 @@ func (m *envWorkerManager) envHasChanged(uuid string) error {
 	case state.Alive:
 		err = m.envIsAlive(modelTag)
 	case state.Dying:
-		err = m.envIsDying(modelTag)
+		err = m.modelIsDying(modelTag)
 	case state.Dead:
 		err = m.envIsDead(modelTag)
 	}
@@ -123,7 +123,7 @@ func (m *envWorkerManager) envHasChanged(uuid string) error {
 	return errors.Trace(err)
 }
 
-func (m *envWorkerManager) envIsAlive(modelTag names.ModelTag) error {
+func (m *modelWorkerManager) envIsAlive(modelTag names.ModelTag) error {
 	return m.runner.StartWorker(modelTag.Id(), func() (worker.Worker, error) {
 		st, err := m.st.ForEnviron(modelTag)
 		if err != nil {
@@ -136,13 +136,13 @@ func (m *envWorkerManager) envIsAlive(modelTag names.ModelTag) error {
 			}
 		}
 
-		envRunner, err := m.startEnvWorker(m.st, st)
+		envRunner, err := m.startModelWorker(m.st, st)
 		if err != nil {
 			closeState()
 			return nil, errors.Trace(err)
 		}
 
-		// Close State when the runner for the environment is done.
+		// Close State when the runner for the model is done.
 		go func() {
 			envRunner.Wait()
 			closeState()
@@ -152,24 +152,24 @@ func (m *envWorkerManager) envIsAlive(modelTag names.ModelTag) error {
 	})
 }
 
-func dyingEnvWorkerId(uuid string) string {
+func dyingModelWorkerId(uuid string) string {
 	return "dying" + ":" + uuid
 }
 
-// envNotFound stops all workers for that environment.
-func (m *envWorkerManager) envNotFound(modelTag names.ModelTag) error {
+// envNotFound stops all workers for that model.
+func (m *modelWorkerManager) modelNotFound(modelTag names.ModelTag) error {
 	uuid := modelTag.Id()
 	if err := m.runner.StopWorker(uuid); err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.runner.StopWorker(dyingEnvWorkerId(uuid)); err != nil {
+	if err := m.runner.StopWorker(dyingModelWorkerId(uuid)); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *envWorkerManager) envIsDying(modelTag names.ModelTag) error {
-	id := dyingEnvWorkerId(modelTag.Id())
+func (m *modelWorkerManager) modelIsDying(modelTag names.ModelTag) error {
+	id := dyingModelWorkerId(modelTag.Id())
 	return m.runner.StartWorker(id, func() (worker.Worker, error) {
 		st, err := m.st.ForEnviron(modelTag)
 		if err != nil {
@@ -182,13 +182,13 @@ func (m *envWorkerManager) envIsDying(modelTag names.ModelTag) error {
 			}
 		}
 
-		dyingRunner, err := m.dyingEnvWorker(m.st, st)
+		dyingRunner, err := m.dyingModelWorker(m.st, st)
 		if err != nil {
 			closeState()
 			return nil, errors.Trace(err)
 		}
 
-		// Close State when the runner for the environment is done.
+		// Close State when the runner for the model is done.
 		go func() {
 			dyingRunner.Wait()
 			closeState()
@@ -198,7 +198,7 @@ func (m *envWorkerManager) envIsDying(modelTag names.ModelTag) error {
 	})
 }
 
-func (m *envWorkerManager) envIsDead(modelTag names.ModelTag) error {
+func (m *modelWorkerManager) envIsDead(modelTag names.ModelTag) error {
 	uuid := modelTag.Id()
 	err := m.runner.StopWorker(uuid)
 	if err != nil {

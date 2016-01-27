@@ -164,9 +164,9 @@ func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
 	}
 }
 
-// WatchEnvironments returns a StringsWatcher that notifies of changes
-// to the lifecycles of all environments.
-func (st *State) WatchEnvironments() StringsWatcher {
+// WatchModels returns a StringsWatcher that notifies of changes
+// to the lifecycles of all models.
+func (st *State) WatchModels() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
@@ -176,15 +176,15 @@ func (st *State) WatchIPAddresses() StringsWatcher {
 	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
 }
 
-// WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
-// the lifecycles of all environment-scoped volumes.
-func (st *State) WatchEnvironVolumes() StringsWatcher {
+// WatchModelVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all model-scoped volumes.
+func (st *State) WatchModelVolumes() StringsWatcher {
 	return st.watchModelMachinestorage(volumesC)
 }
 
-// WatchEnvironFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all environment-scoped filesystems.
-func (st *State) WatchEnvironFilesystems() StringsWatcher {
+// WatchModelFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all model-scoped filesystems.
+func (st *State) WatchModelFilesystems() StringsWatcher {
 	return st.watchModelMachinestorage(filesystemsC)
 }
 
@@ -346,7 +346,7 @@ func (s *Service) WatchRelations() StringsWatcher {
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
-// the lifecycles of the machines (but not containers) in the environment.
+// the lifecycles of the machines (but not containers) in the model.
 func (st *State) WatchModelMachines() StringsWatcher {
 	members := bson.D{{"$or", []bson.D{
 		{{"containertype", ""}},
@@ -1235,7 +1235,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 }
 
 // ModelConfigWatcher observes changes to the
-// environment configuration.
+// model configuration.
 type ModelConfigWatcher struct {
 	commonWatcher
 	out chan *config.Config
@@ -1244,7 +1244,7 @@ type ModelConfigWatcher struct {
 var _ Watcher = (*ModelConfigWatcher)(nil)
 
 // WatchModelConfig returns a watcher for observing changes
-// to the environment configuration.
+// to the model configuration.
 func (st *State) WatchModelConfig() *ModelConfigWatcher {
 	return newModelConfigWatcher(st)
 }
@@ -1262,7 +1262,7 @@ func newModelConfigWatcher(s *State) *ModelConfigWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive the new environment
+// Changes returns a channel that will receive the new model
 // configuration when a change is detected. Note that multiple changes may
 // be observed as a single event in the channel.
 func (w *ModelConfigWatcher) Changes() <-chan *config.Config {
@@ -1407,7 +1407,7 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
-// Watch returns a watcher for observing changes to an environment.
+// Watch returns a watcher for observing changes to an model.
 func (e *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
 }
@@ -1424,7 +1424,7 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
 }
 
-// WatchForModelConfigChanges returns a NotifyWatcher waiting for the Environ
+// WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change. This differs from WatchModelConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
@@ -2083,7 +2083,7 @@ type colWCfg struct {
 // with the given collection and filter function
 func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
 	// Always ensure that there is at least filtering on the
-	// environment in place.
+	// model in place.
 	if cfg.filter == nil {
 		cfg.filter = st.isForStateEnv
 	} else {
@@ -2229,7 +2229,7 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool, idconv
 		}
 
 		// Strip off the env UUID prefix. We only expect ids for a
-		// single environment.
+		// single model.
 		id, err := st.strictLocalID(id)
 		if err != nil {
 			return errors.Annotatef(err, "collection watcher")

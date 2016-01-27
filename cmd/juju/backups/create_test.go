@@ -40,7 +40,7 @@ func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 
 	out := ctx.Stdout.(*bytes.Buffer).String()
-	if !s.command.Quiet {
+	if !s.command.Log.Quiet {
 		parts := strings.Split(out, MetaResultString)
 		c.Assert(parts, gc.HasLen, 2)
 		c.Assert(parts[0], gc.Equals, "")
@@ -71,7 +71,7 @@ func (s *createSuite) TestHelp(c *gc.C) {
 
 func (s *createSuite) TestNoArgs(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
-	_, err := testing.RunCommand(c, s.wrappedCommand, "--no-metadata")
+	_, err := testing.RunCommand(c, s.wrappedCommand, "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
@@ -79,7 +79,7 @@ func (s *createSuite) TestNoArgs(c *gc.C) {
 
 func (s *createSuite) TestDefaultDownload(c *gc.C) {
 	s.setDownload()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--no-metadata", "--filename", s.defaultFilename)
+	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--quiet", "--filename", s.defaultFilename)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkDownload(c, ctx)
@@ -89,7 +89,7 @@ func (s *createSuite) TestDefaultDownload(c *gc.C) {
 
 func (s *createSuite) TestQuiet(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--no-metadata")
+	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
@@ -103,7 +103,7 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 
 func (s *createSuite) TestNotes(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
-	_, err := testing.RunCommand(c, s.wrappedCommand, "spam", "--no-metadata")
+	_, err := testing.RunCommand(c, s.wrappedCommand, "spam", "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "spam", "Create", "Download")
@@ -111,7 +111,7 @@ func (s *createSuite) TestNotes(c *gc.C) {
 
 func (s *createSuite) TestFilename(c *gc.C) {
 	client := s.setDownload()
-	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz", "--no-metadata")
+	ctx, err := testing.RunCommand(c, s.wrappedCommand, "--filename", "backup.tgz", "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")

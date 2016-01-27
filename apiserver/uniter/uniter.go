@@ -1061,7 +1061,7 @@ func (u *UniterAPIV3) CurrentModel() (params.ModelResult, error) {
 }
 
 // ProviderType returns the provider type used by the current juju
-// environment.
+// model.
 //
 // TODO(dimitern): Refactor the uniter to call this instead of calling
 // ModelConfig() just to get the provider type. Once we have machine

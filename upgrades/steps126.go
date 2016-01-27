@@ -52,7 +52,7 @@ func stateStepsFor126() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				st := context.State()
-				env, err := utils.GetModel(st)
+				env, err := utils.GetEnviron(st)
 				if err != nil {
 					return errors.Annotate(err, "getting provider for upgrade")
 				}

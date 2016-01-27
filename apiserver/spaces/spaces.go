@@ -30,7 +30,7 @@ type API interface {
 // Backing defines the state methods this facede needs, so they can be
 // mocked for testing.
 type Backing interface {
-	// ModelConfig returns the configuration of the environment.
+	// ModelConfig returns the configuration of the model.
 	ModelConfig() (*config.Config, error)
 
 	// AddSpace creates a space.

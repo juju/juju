@@ -72,7 +72,7 @@ func (c *Client) params() (params.Entities, error) {
 	return params.Entities{Entities: []params.Entity{{modelTag.String()}}}, nil
 }
 
-// WatchModelResources starts a watcher for changes to the models's
+// WatchModelResources starts a watcher for changes to the model's
 // machines and services.
 func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults

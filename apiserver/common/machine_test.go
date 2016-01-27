@@ -32,9 +32,6 @@ func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
 		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
 	}, {
-		name: multiwatcher.JobManageStateDeprecated,
-		want: state.JobManageStateDeprecated,
-	}, {
 		name: "invalid",
 		want: -1,
 		err:  `invalid machine job "invalid"`,

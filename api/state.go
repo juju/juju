@@ -162,7 +162,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	if result.LoginResult.ModelTag != "" {
 		modelTag = result.LoginResult.ModelTag
 		// If the server doesn't support login v1, it doesn't support
-		// multiple model, so don't store a server tag.
+		// multiple models, so don't store a server tag.
 		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.ModelTag != "" {

@@ -204,7 +204,7 @@ func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 	return errors.Trace(s.state.RemoveAllBlocksForController())
 }
 
-// WatchAllModels starts watching events for all environments in the
+// WatchAllModels starts watching events for all models in the
 // controller. The returned AllWatcherId should be used with Next on the
 // AllModelWatcher endpoint to receive deltas.
 func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {

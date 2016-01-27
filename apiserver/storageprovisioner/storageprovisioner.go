@@ -258,13 +258,13 @@ func (s *StorageProvisionerAPI) WatchMachines(args params.Entities) (params.Noti
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.st.WatchEnvironVolumes, s.st.WatchMachineVolumes)
+	return s.watchStorageEntities(args, s.st.WatchModelVolumes, s.st.WatchMachineVolumes)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.st.WatchEnvironFilesystems, s.st.WatchMachineFilesystems)
+	return s.watchStorageEntities(args, s.st.WatchModelFilesystems, s.st.WatchMachineFilesystems)
 }
 
 func (s *StorageProvisionerAPI) watchStorageEntities(

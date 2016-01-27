@@ -68,7 +68,7 @@ func (u *UndertakerAPI) ProcessDyingModel() error {
 	return u.st.ProcessDyingModel()
 }
 
-// RemoveModel removes any records of this environment from Juju.
+// RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel() error {
 	err := u.st.RemoveAllModelDocs()
 	if err != nil {
@@ -112,7 +112,7 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 }
 
 // WatchModelResources creates watchers for changes to the lifecycle of an
-// environment's machines and services.
+// model's machines and services.
 func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -121,7 +121,7 @@ func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	}
 }
 
-// ModelConfig returns the environment's configuration.
+// ModelConfig returns the model's configuration.
 func (u *UndertakerAPI) ModelConfig() (params.ModelConfigResult, error) {
 	result := params.ModelConfigResult{}
 

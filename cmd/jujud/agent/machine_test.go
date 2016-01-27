@@ -1466,10 +1466,6 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageNetworki
 	s.checkMetadataWorkerNotRun(c, state.JobManageNetworking, "can manage networking")
 }
 
-func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDeprecated(c *gc.C) {
-	s.checkMetadataWorkerNotRun(c, state.JobManageStateDeprecated, "can manage state (deprecated)")
-}
-
 func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForNonSimpleStreamDependentProviders(c *gc.C) {
 	s.checkMetadataWorkerNotRun(c, state.JobManageModel, "has provider which doesn't depend on simple streams")
 }

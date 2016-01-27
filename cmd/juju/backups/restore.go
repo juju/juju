@@ -66,6 +66,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 
 // SetFlags handles known option flags.
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set model constraints")
 
@@ -193,6 +194,11 @@ func (c *restoreCommand) newClient() (*backups.Client, func() error, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	if c.bootstrap {
 		if err := c.rebootstrap(ctx); err != nil {
 			return errors.Trace(err)

@@ -12,7 +12,7 @@ import (
 )
 
 // DestroyController will attempt to destroy the controller. If the args
-// specify the removal of blocks or the destruction of the environments, this
+// specify the removal of blocks or the destruction of the models, this
 // method will attempt to do so.
 func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
 	controllerEnv, err := s.state.ControllerModel()

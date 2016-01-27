@@ -32,9 +32,6 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 		return state.JobManageModel, nil
 	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}

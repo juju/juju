@@ -108,7 +108,7 @@ func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 		"type": "unknown",
 	})
 
-	obs, err := worker.NewEnvironObserver(s.st)
+	obs, err := worker.NewModelObserver(s.st)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot create a model: no registered provider for "unknown"`,
 	)
@@ -123,7 +123,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("testing", logc, loggo.WARNING), gc.IsNil)
 	defer loggo.RemoveWriter("testing")
 
-	obs, err := worker.NewEnvironObserver(s.st)
+	obs, err := worker.NewModelObserver(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := obs.Environ()

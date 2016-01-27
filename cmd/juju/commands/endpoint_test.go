@@ -283,7 +283,7 @@ func (s *EndpointSuite) getStoreInfo(c *gc.C) configstore.EnvironInfo {
 	return info
 }
 
-// setPreferIPv6ModelConfig sets the "prefer-ipv6" environment
+// setPreferIPv6ModelConfig sets the "prefer-ipv6" model
 // setting to given value.
 func (s *EndpointSuite) setPreferIPv6ModelConfig(c *gc.C, value bool) {
 	// Technically, because prefer-ipv6 is an immutable setting, what

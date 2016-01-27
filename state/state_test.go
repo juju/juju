@@ -1136,7 +1136,6 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageModel, "JobManageModel"},
-	{state.JobManageStateDeprecated, "JobManageState"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
 }
@@ -2305,7 +2304,7 @@ func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
 	wc.AssertChangeInSingleEvent(addr.Value())
 }
 
-func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
+func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Alive environment...
 	alive, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2326,7 +2325,7 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the dead env are reported in initial event.
-	w := s.State.WatchEnvironments()
+	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
@@ -2339,9 +2338,9 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
 
-func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
+func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Initial event reports the state server environment.
-	w := s.State.WatchEnvironments()
+	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(s.State.ModelUUID())
@@ -2435,7 +2434,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.lifecycleWatcher,
 	// which is also used by:
-	//     State.WatchEnvironments
+	//     State.WatchModels
 	//     Service.WatchUnits
 	//     Service.WatchRelations
 	//     State.WatchEnviron

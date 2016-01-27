@@ -38,7 +38,7 @@ type State interface {
 	// AllServices returns all deployed services in the model.
 	AllServices() ([]Service, error)
 
-	// ModelConfig retrieves the environment configuration.
+	// ModelConfig retrieves the model configuration.
 	ModelConfig() (*config.Config, error)
 }
 

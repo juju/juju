@@ -271,7 +271,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
+func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
@@ -281,7 +281,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironVolumes()
+	w := s.State.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0") // initial

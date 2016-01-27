@@ -60,16 +60,16 @@ func WaitForEnviron(w apiwatcher.NotifyWatcher, st ModelConfigGetter, dying <-ch
 }
 
 // ModelConfigObserver interface defines a way to read the
-// environment configuration and watch for changes.
+// model configuration and watch for changes.
 type ModelConfigObserver interface {
 	ModelConfigGetter
 	WatchForModelConfigChanges() (apiwatcher.NotifyWatcher, error)
 }
 
-// EnvironObserver watches the current environment configuration
+// ModelObserver watches the current model configuration
 // and makes it available. It discards invalid environment
 // configurations.
-type EnvironObserver struct {
+type ModelObserver struct {
 	tomb         tomb.Tomb
 	modelWatcher apiwatcher.NotifyWatcher
 	st           ModelConfigObserver
@@ -77,11 +77,11 @@ type EnvironObserver struct {
 	environ      environs.Environ
 }
 
-// NewEnvironObserver waits for the environment to have a valid
-// environment configuration and returns a new environment observer.
-// While waiting for the first environment configuration, it will
+// NewModelObserver waits for the model to have a valid
+// model configuration and returns a new model observer.
+// While waiting for the first model configuration, it will
 // return with tomb.ErrDying if it receives a value on dying.
-func NewEnvironObserver(st ModelConfigObserver) (*EnvironObserver, error) {
+func NewModelObserver(st ModelConfigObserver) (*ModelObserver, error) {
 	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func NewEnvironObserver(st ModelConfigObserver) (*EnvironObserver, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot watch model config")
 	}
-	obs := &EnvironObserver{
+	obs := &ModelObserver{
 		st:           st,
 		environ:      environ,
 		modelWatcher: modelWatcher,
@@ -107,7 +107,7 @@ func NewEnvironObserver(st ModelConfigObserver) (*EnvironObserver, error) {
 	return obs, nil
 }
 
-func (obs *EnvironObserver) loop() error {
+func (obs *ModelObserver) loop() error {
 	for {
 		select {
 		case <-obs.tomb.Dying():
@@ -134,16 +134,16 @@ func (obs *EnvironObserver) loop() error {
 }
 
 // Environ returns the most recent valid Environ.
-func (obs *EnvironObserver) Environ() environs.Environ {
+func (obs *ModelObserver) Environ() environs.Environ {
 	obs.mu.Lock()
 	defer obs.mu.Unlock()
 	return obs.environ
 }
 
-func (obs *EnvironObserver) Kill() {
+func (obs *ModelObserver) Kill() {
 	obs.tomb.Kill(nil)
 }
 
-func (obs *EnvironObserver) Wait() error {
+func (obs *ModelObserver) Wait() error {
 	return obs.tomb.Wait()
 }

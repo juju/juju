@@ -5,8 +5,8 @@
 // and deprovisioning of storage volumes and filesystems, and attaching them
 // to and detaching them from machines.
 //
-// A storage provisioner worker is run at each environment manager, which
-// manages environment-scoped storage such as virtual disk services of the
+// A storage provisioner worker is run at each model manager, which
+// manages model-scoped storage such as virtual disk services of the
 // cloud provider. In addition to this, each machine agent runs a machine-
 // storage provisioner worker that manages storage scoped to that machine,
 // such as loop devices, temporary filesystems (tmpfs), and rootfs.
@@ -159,14 +159,14 @@ type StatusSetter interface {
 }
 
 // ModelAccessor defines an interface used to enable a storage provisioner
-// worker to watch changes to and read environment config, to use when
+// worker to watch changes to and read model config, to use when
 // provisioning storage.
 type ModelAccessor interface {
 	// WatchForModelConfigChanges returns a watcher that will be notified
-	// whenever the environment config changes in state.
+	// whenever the model config changes in state.
 	WatchForModelConfigChanges() (apiwatcher.NotifyWatcher, error)
 
-	// ModelConfig returns the current environment config.
+	// ModelConfig returns the current model config.
 	ModelConfig() (*config.Config, error)
 }
 
@@ -175,7 +175,7 @@ type ModelAccessor interface {
 // of first-class volumes and filesystems.
 //
 // Machine-scoped storage workers will be provided with
-// a storage directory, while environment-scoped workers
+// a storage directory, while model-scoped workers
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
 func NewStorageProvisioner(
@@ -195,7 +195,7 @@ func NewStorageProvisioner(
 		volumes:     v,
 		filesystems: f,
 		life:        l,
-		environ:     e,
+		model:       e,
 		machines:    m,
 		status:      s,
 		clock:       clock,
@@ -218,7 +218,7 @@ type storageprovisioner struct {
 	volumes     VolumeAccessor
 	filesystems FilesystemAccessor
 	life        LifecycleManager
-	environ     ModelAccessor
+	model       ModelAccessor
 	machines    MachineAccessor
 	status      StatusSetter
 	clock       clock.Clock
@@ -235,7 +235,7 @@ func (w *storageprovisioner) Wait() error {
 }
 
 func (w *storageprovisioner) loop() error {
-	var environConfigChanges <-chan struct{}
+	var modelConfigChanges <-chan struct{}
 	var volumesWatcher apiwatcher.StringsWatcher
 	var filesystemsWatcher apiwatcher.StringsWatcher
 	var volumesChanges <-chan []string
@@ -248,12 +248,12 @@ func (w *storageprovisioner) loop() error {
 	var machineBlockDevicesChanges <-chan struct{}
 	machineChanges := make(chan names.MachineTag)
 
-	environConfigWatcher, err := w.environ.WatchForModelConfigChanges()
+	modelConfigWatcher, err := w.model.WatchForModelConfigChanges()
 	if err != nil {
-		return errors.Annotate(err, "watching environ config")
+		return errors.Annotate(err, "watching model config")
 	}
-	defer watcher.Stop(environConfigWatcher, &w.tomb)
-	environConfigChanges = environConfigWatcher.Changes()
+	defer watcher.Stop(modelConfigWatcher, &w.tomb)
+	modelConfigChanges = modelConfigWatcher.Changes()
 
 	// Machine-scoped provisioners need to watch block devices, to create
 	// volume-backed filesystems.
@@ -338,22 +338,22 @@ func (w *storageprovisioner) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case _, ok := <-environConfigChanges:
+		case _, ok := <-modelConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environConfigWatcher)
+				return watcher.EnsureErr(modelConfigWatcher)
 			}
-			environConfig, err := w.environ.ModelConfig()
+			modelConfig, err := w.model.ModelConfig()
 			if err != nil {
-				return errors.Annotate(err, "getting environ config")
+				return errors.Annotate(err, "getting model config")
 			}
-			if ctx.environConfig == nil {
-				// We've received the initial environ config,
+			if ctx.modelConfig == nil {
+				// We've received the initial model config,
 				// so we can begin provisioning storage.
 				if err := startWatchers(); err != nil {
 					return err
 				}
 			}
-			ctx.environConfig = environConfig
+			ctx.modelConfig = modelConfig
 		case changes, ok := <-volumesChanges:
 			if !ok {
 				return watcher.EnsureErr(volumesWatcher)
@@ -486,7 +486,7 @@ func (p *storageprovisioner) maybeStopWatcher(w watcher.Stopper) {
 
 type context struct {
 	scope              names.Tag
-	environConfig      *config.Config
+	modelConfig        *config.Config
 	storageDir         string
 	volumeAccessor     VolumeAccessor
 	filesystemAccessor FilesystemAccessor
