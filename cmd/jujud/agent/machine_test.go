@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
-	apinetworker "github.com/juju/juju/api/networker"
 	apiundertaker "github.com/juju/juju/api/undertaker"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -77,7 +76,6 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
-	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
@@ -1674,75 +1672,6 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	s.assertChannelActive(c, updated, "certificate to be updated")
-}
-
-func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
-	tests := []struct {
-		about          string
-		managedNetwork bool
-		jobs           []state.MachineJob
-		intrusiveMode  bool
-	}{{
-		about:          "network management enabled, network management job set",
-		managedNetwork: true,
-		jobs:           []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
-		intrusiveMode:  true,
-	}, {
-		about:          "network management disabled, network management job set",
-		managedNetwork: false,
-		jobs:           []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
-		intrusiveMode:  false,
-	}, {
-		about:          "network management enabled, network management job not set",
-		managedNetwork: true,
-		jobs:           []state.MachineJob{state.JobHostUnits},
-		intrusiveMode:  false,
-	}, {
-		about:          "network management disabled, network management job not set",
-		managedNetwork: false,
-		jobs:           []state.MachineJob{state.JobHostUnits},
-		intrusiveMode:  false,
-	}}
-	// Perform tests.
-	for i, test := range tests {
-		c.Logf("test #%d: %s", i, test.about)
-
-		modeCh := make(chan bool, 1)
-		s.AgentSuite.PatchValue(&newNetworker, func(
-			st apinetworker.State,
-			conf agent.Config,
-			intrusiveMode bool,
-			configBaseDir string,
-		) (*networker.Networker, error) {
-			select {
-			case modeCh <- intrusiveMode:
-			default:
-			}
-			return networker.NewNetworker(st, conf, intrusiveMode, configBaseDir)
-		})
-
-		attrs := coretesting.Attrs{"disable-network-management": !test.managedNetwork}
-		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-
-		m, _, _ := s.primeAgent(c, test.jobs...)
-		a := s.newAgent(c, m)
-		defer a.Stop()
-		doneCh := make(chan error)
-		go func() {
-			doneCh <- a.Run(nil)
-		}()
-
-		select {
-		case intrusiveMode := <-modeCh:
-			if intrusiveMode != test.intrusiveMode {
-				c.Fatalf("expected networker intrusive mode = %v, got mode = %v", test.intrusiveMode, intrusiveMode)
-			}
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for the networker to start")
-		}
-		s.waitStopped(c, state.JobManageNetworking, a, doneCh)
-	}
 }
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {

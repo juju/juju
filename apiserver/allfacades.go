@@ -35,7 +35,6 @@ import (
 	_ "github.com/juju/juju/apiserver/meterstatus"
 	_ "github.com/juju/juju/apiserver/metricsadder"
 	_ "github.com/juju/juju/apiserver/metricsmanager"
-	_ "github.com/juju/juju/apiserver/networker"
 	_ "github.com/juju/juju/apiserver/provisioner"
 	_ "github.com/juju/juju/apiserver/reboot"
 	_ "github.com/juju/juju/apiserver/resumer"

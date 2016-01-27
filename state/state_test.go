@@ -401,42 +401,6 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
-			about: "network interfaces",
-			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
-				m := f.MakeMachine(c, &factory.MachineParams{})
-				c.Assert(m.Id(), gc.Equals, "0")
-
-				return m.WatchInterfaces()
-			},
-			setUpState: func(st *state.State) bool {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-
-				_, err = st.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
-				c.Assert(err, jc.ErrorIsNil)
-
-				_, err = m.AddNetworkInterface(state.NetworkInterfaceInfo{
-					MACAddress:    "aa:bb:cc:dd:ee:ff",
-					InterfaceName: "eth0",
-					NetworkName:   "net1",
-					IsVirtual:     false,
-				})
-				c.Assert(err, jc.ErrorIsNil)
-				return true
-			},
-			triggerEvent: func(st *state.State) {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-				_, err = m.NetworkInterfaces()
-				c.Assert(err, jc.ErrorIsNil)
-
-				ifaces, err := m.NetworkInterfaces()
-				c.Assert(err, jc.ErrorIsNil)
-				err = ifaces[0].Disable()
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
 			about: "cleanups",
 			getWatcher: func(st *state.State) interface{} {
 				return st.WatchCleanups()

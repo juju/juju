@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
@@ -164,7 +163,6 @@ type Connection interface {
 	Client() *Client
 	Machiner() *machiner.State
 	Resumer() *resumer.API
-	Networker() networker.State
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
 	DiskManager() (*diskmanager.State, error)
