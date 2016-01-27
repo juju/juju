@@ -28,8 +28,15 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+var planURL = "https://api.jujucharms.com/omnibus/v2/plan"
+
 func newDeployCommand() cmd.Command {
-	return envcmd.Wrap(&DeployCommand{})
+	return envcmd.Wrap(&DeployCommand{
+		Steps: []DeployStep{
+			&RegisterMeteredCharm{
+				RegisterURL: planURL + "/authorize",
+				QueryURL:    planURL + "/charm",
+			}}})
 }
 
 type DeployCommand struct {

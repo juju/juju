@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -249,6 +250,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		command := newCommand()
 		r.Register(envcmd.Wrap(command))
 	}
+	rcmd.RegisterAll(r)
 }
 
 func main() {

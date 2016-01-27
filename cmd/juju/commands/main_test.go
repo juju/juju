@@ -201,6 +201,8 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
+	"agree",
+	"allocate",
 	"api-endpoints",
 	"api-info",
 	"add-user",
@@ -212,6 +214,7 @@ var commandNames = []string{
 	"cached-images",
 	"change-user-password",
 	"collect-metrics",
+	"create-budget",
 	"create-environment",
 	"create-model", // alias for create-environment
 	"debug-hooks",
@@ -242,9 +245,11 @@ var commandNames = []string{
 	"init",
 	"kill-controller",
 	"list-all-blocks",
+	"list-budgets",
 	"list-controllers",
 	"list-environments",
 	"list-models", // alias for list-environments
+	"list-plans",
 	"list-shares",
 	"list-users",
 	"login",
@@ -261,12 +266,15 @@ var commandNames = []string{
 	"scp",
 	"service",
 	"set",
+	"set-budget",
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
 	"set-model", // alias for set-environment
+	"set-plan",
 	"share-environment",
 	"share-model", // alias for share-environment
+	"show-budget",
 	"show-user",
 	"space",
 	"ssh",
@@ -282,6 +290,7 @@ var commandNames = []string{
 	"use-model", // alias for use-environment
 	"unblock",
 	"unexpose",
+	"update-allocation",
 	"unset",
 	"unset-env", // alias for unset-environment
 	"unset-environment",
