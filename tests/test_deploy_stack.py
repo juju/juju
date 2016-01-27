@@ -1187,7 +1187,7 @@ class TestBootContext(FakeHomeTestCase):
                 pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
-            'mem=2G'), 0)
+            'mem=2G', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'show-status', '-m', 'bar'), 1)
 
@@ -1215,7 +1215,7 @@ class TestBootContext(FakeHomeTestCase):
                 pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--constraints',
-            'mem=2G'), 0)
+            'mem=2G', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'show-status', '-m', 'bar'), 1)
 
@@ -1243,7 +1243,7 @@ class TestBootContext(FakeHomeTestCase):
                 pass
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar', '--upload-tools',
-            '--constraints', 'mem=2G'), 0)
+            '--constraints', 'mem=2G', '--agent-version', '1.23'), 0)
 
     def test_upload_tools_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1272,7 +1272,7 @@ class TestBootContext(FakeHomeTestCase):
             agent_url='url', agent_stream='devel', region=None)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar',
-            '--constraints', 'mem=2G'), 0)
+            '--constraints', 'mem=2G', '--agent-version', '1.23'), 0)
 
     def test_calls_update_env_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))

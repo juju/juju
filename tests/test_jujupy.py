@@ -818,92 +818,100 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
         with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
+                'bootstrap', ('--constraints', 'mem=2G arch=amd64',
+                              '--agent-version', '2.0'), False)
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
         with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
             mock.assert_called_once_with(
-                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
-                False)
+                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1',
+                                      '--agent-version', '2.0'), False)
 
     def test_bootstrap_non_sudo(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'needs_sudo', lambda: False):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+                'bootstrap', ('--constraints', 'mem=2G',
+                              '--agent-version', '2.0'), False)
 
     def test_bootstrap_sudo(self):
         env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True)
+                'bootstrap', ('--constraints', 'mem=2G',
+                              '--agent-version', '2.0'), True)
 
     def test_bootstrap_upload_tools(self):
         env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap(upload_tools=True)
             mock.assert_called_with(
-                'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
+                'bootstrap', (
+                    '--upload-tools', '--constraints', 'mem=2G',
+                    '--agent-version', '2.0'),
                 True)
 
     def test_bootstrap_args(self):
         env = SimpleEnvironment('foo', {})
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
             client.bootstrap(to='ssh:foo', bootstrap_series='angsty')
         mock.assert_called_with(
-            'bootstrap', ('--constraints', 'mem=2G', '--to', 'ssh:foo',
-                          '--bootstrap-series', 'angsty'),
-            False)
+            'bootstrap', (
+                '--constraints', 'mem=2G', '--agent-version', '2.0',
+                '--to', 'ssh:foo', '--bootstrap-series', 'angsty'), False)
 
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             client.env.juju_home = 'foo'
             with client.bootstrap_async():
                 mock.assert_called_once_with(
-                    client, 'bootstrap', ('--constraints', 'mem=2G'))
+                    client, 'bootstrap', ('--constraints', 'mem=2G',
+                                          '--agent-version', '2.0'))
 
     def test_bootstrap_async_upload_tools(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
-                                          'mem=2G'))
+                                          'mem=2G', '--agent-version', '2.0'))
 
     def test_get_bootstrap_args_to(self):
         env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
         self.assertEqual(args, ('--upload-tools', '--constraints',
-                                'mem=2G', '--to', 'ssh:foo'))
+                                'mem=2G', '--agent-version', '2.0', '--to',
+                                'ssh:foo'))
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = SimpleEnvironment('foo', {})
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=True,
                                          bootstrap_series='angsty')
-        self.assertEqual(args, ('--upload-tools', '--constraints',
-                                'mem=2G', '--bootstrap-series', 'angsty'))
+        self.assertEqual(args, (
+            '--upload-tools', '--constraints', 'mem=2G',
+            '--agent-version', '2.0', '--bootstrap-series', 'angsty'))
 
     def test_create_environment_hypenated_controller(self):
         self.do_create_environment(
