@@ -4,10 +4,12 @@
 package meterstatus
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
@@ -24,6 +26,10 @@ var (
 		return spool.NewSocketListener(path, handler)
 	}
 )
+
+type stopper interface {
+	Stop()
+}
 
 // connectedStatusHandler implements the NotifyWatchHandler interface.
 type connectedStatusHandler struct {
@@ -128,7 +134,7 @@ func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
 }
 
 func (w *connectedStatusHandler) applyStatus(code, info string, abort <-chan struct{}) {
-	logger.Errorf("applying meter status change: %q (%q)", code, info)
+	logger.Tracef("applying meter status change: %q (%q)", code, info)
 	err := w.config.Runner.RunHook(code, info, abort)
 	cause := errors.Cause(err)
 	switch {
@@ -151,6 +157,7 @@ type socketHandler struct {
 // Handle implements the spool.ConnectionHandler interface.
 func (h *socketHandler) Handle(c net.Conn) (err error) {
 	defer func() {
+		io.Copy(ioutil.Discard, c)
 		if err != nil {
 			fmt.Fprintf(c, "%v\n", err)
 		} else {
@@ -158,15 +165,17 @@ func (h *socketHandler) Handle(c net.Conn) (err error) {
 		}
 		c.Close()
 	}()
-	message, err := bufio.NewReader(c).ReadString('\n')
+	err = c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "failed to set the deadline")
 	}
 	var status meterStatus
-	err = json.Unmarshal([]byte(message), &status)
+	decoder := json.NewDecoder(c)
+	err = decoder.Decode(&status)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Errorf("XXX SETTING STATUS %#v", status)
 	h.handler.applyStatus(status.Code, status.Info, nil)
 	return nil
 }
