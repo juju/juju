@@ -243,8 +243,8 @@ func (i *importer) makeMachineDoc(m migration.Machine) *machineDoc {
 	id := m.Id().Id()
 	supported, supportedSet := m.SupportedContainers()
 	supportedContainers := make([]instance.ContainerType, len(supported))
-	for i, c := range supported {
-		supportedContainers[i] = instance.ContainerType(c)
+	for j, c := range supported {
+		supportedContainers[j] = instance.ContainerType(c)
 	}
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
@@ -302,6 +302,9 @@ func (i *importer) makeTools(t migration.AgentTools) *tools.Tools {
 }
 
 func (i *importer) makeAddress(addr migration.Address) address {
+	if addr == nil {
+		return address{}
+	}
 	return address{
 		Value:       addr.Value(),
 		AddressType: addr.Type(),

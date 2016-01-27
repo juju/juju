@@ -91,6 +91,10 @@ func (m *machine) Placement() string {
 }
 
 func (m *machine) Instance() CloudInstance {
+	// To avoid typed nils check nil here.
+	if m.Instance_ == nil {
+		return nil
+	}
 	return m.Instance_
 }
 
@@ -138,10 +142,22 @@ func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 }
 
 func (m *machine) PreferredPublicAddress() Address {
+	// If the preferred address has not been specified, we will have a nil value.
+	// However, if we naively return the *address, we end up with a typed nil,
+	// which doesn't equal 'nil', and this sucks.
+	if m.PreferredPublicAddress_ == nil {
+		return nil
+	}
 	return m.PreferredPublicAddress_
 }
 
 func (m *machine) PreferredPrivateAddress() Address {
+	// If the preferred address has not been specified, we will have a nil value.
+	// However, if we naively return the *address, we end up with a typed nil,
+	// which doesn't equal 'nil', and this sucks.
+	if m.PreferredPrivateAddress_ == nil {
+		return nil
+	}
 	return m.PreferredPrivateAddress_
 }
 
@@ -155,6 +171,10 @@ func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs)
 }
 
 func (m *machine) Tools() AgentTools {
+	// To avoid a typed nil, check before returning.
+	if m.Tools_ == nil {
+		return nil
+	}
 	return m.Tools_
 }
 
