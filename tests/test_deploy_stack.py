@@ -577,7 +577,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
 
         def output(*args, **kwargs):
             output = {
-                ('show-status',): status,
+                ('show-status', '--format', 'yaml'): status,
                 ('ssh', 'dummy-sink/0', GET_TOKEN_SCRIPT): 'fake-token',
             }
             return output[args]
@@ -602,7 +602,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
-                call('show-status'),
+                call('show-status', '--format', 'yaml'),
             ],
             gjo_mock.call_args_list)
 
@@ -786,7 +786,8 @@ class TestTestUpgrade(FakeHomeTestCase):
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
         '--service', 'dummy-source,dummy-sink', 'uname')
-    STATUS = ('juju', '--show-log', 'show-status', '-m', 'foo')
+    STATUS = (
+        'juju', '--show-log', 'show-status', '-m', 'foo', '--format', 'yaml')
     GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo',
                'tools-metadata-url')
 

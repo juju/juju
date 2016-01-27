@@ -401,7 +401,8 @@ class EnvJujuClient:
                 if raw:
                     return self.get_juju_output(self._show_status, *args)
                 return Status.from_text(
-                    self.get_juju_output(self._show_status))
+                    self.get_juju_output(
+                        self._show_status, '--format', 'yaml'))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(

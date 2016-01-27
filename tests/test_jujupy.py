@@ -1000,7 +1000,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('show-status')
+        gjo_mock.assert_called_once_with('show-status', '--format', 'yaml')
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -1022,7 +1022,7 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
 
-        def get_juju_output(command):
+        def get_juju_output(command, *args, **kwargsP):
             raise subprocess.CalledProcessError(1, command)
 
         with patch.object(client, 'get_juju_output',
@@ -2429,7 +2429,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('status')
+        gjo_mock.assert_called_once_with('status', '--format', 'yaml')
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -2451,7 +2451,7 @@ class TestEnvJujuClient1X(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
 
-        def get_juju_output(command):
+        def get_juju_output(command, *args, **kwargs):
             raise subprocess.CalledProcessError(1, command)
 
         with patch.object(client, 'get_juju_output',
