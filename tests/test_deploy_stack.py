@@ -1272,7 +1272,8 @@ class TestBootContext(FakeHomeTestCase):
             agent_url='url', agent_stream='devel', region=None)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar',
-            '--constraints', 'mem=2G', '--agent-version', '1.23'), 0)
+            '--constraints', 'mem=2G', '--agent-version', '1.23',
+            '--bootstrap-series', 'wacky'), 0)
 
     def test_calls_update_env_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
