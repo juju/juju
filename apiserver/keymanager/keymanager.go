@@ -101,7 +101,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 
 	// For now, authorised keys are global, common to all users.
 	var keyInfo []string
-	cfg, configErr := api.state.EnvironConfig()
+	cfg, configErr := api.state.ModelConfig()
 	if configErr == nil {
 		keys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 		keyInfo = parseKeys(keys, arg.Mode)
@@ -149,7 +149,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// TODO(waigani) 2014-03-17 bug #1293324
 	// Pass in validation to ensure SSH keys
 	// have not changed underfoot
-	err := api.state.UpdateEnvironConfig(attrs, nil, nil)
+	err := api.state.UpdateModelConfig(attrs, nil, nil)
 	if err != nil {
 		return fmt.Errorf("writing environ config: %v", err)
 	}
@@ -159,7 +159,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 // currentKeyDataForAdd gathers data used when adding ssh keys.
 func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints set.Strings, err error) {
 	fingerprints = make(set.Strings)
-	cfg, err := api.state.EnvironConfig()
+	cfg, err := api.state.ModelConfig()
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
@@ -319,7 +319,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 func (api *KeyManagerAPI) currentKeyDataForDelete() (
 	keys map[string]string, invalidKeys []string, comments map[string]string, err error) {
 
-	cfg, err := api.state.EnvironConfig()
+	cfg, err := api.state.ModelConfig()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}

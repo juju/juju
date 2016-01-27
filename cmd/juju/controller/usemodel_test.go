@@ -150,14 +150,14 @@ func (s *UseModelSuite) TestUUID(c *gc.C) {
 	_, err := s.run(c, model3UUID)
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-other", model3UUID)
+	s.assertCurrentModel(c, "bob-other", model3UUID)
 }
 
 func (s *UseModelSuite) TestUUIDCorrectOwner(c *gc.C) {
 	_, err := s.run(c, "bob/"+model3UUID)
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-other", model3UUID)
+	s.assertCurrentModel(c, "bob-other", model3UUID)
 }
 
 func (s *UseModelSuite) TestUUIDWrongOwner(c *gc.C) {
@@ -166,14 +166,14 @@ func (s *UseModelSuite) TestUUIDWrongOwner(c *gc.C) {
 	expected := "Specified model owned by bob@local, not charles@local"
 	c.Assert(testing.Stderr(ctx), jc.Contains, expected)
 
-	s.assertCurrentEnvironment(c, "bob-other", model3UUID)
+	s.assertCurrentModel(c, "bob-other", model3UUID)
 }
 
 func (s *UseModelSuite) TestUniqueName(c *gc.C) {
 	_, err := s.run(c, "unique")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "unique", "some-uuid")
+	s.assertCurrentModel(c, "unique", "some-uuid")
 }
 
 func (s *UseModelSuite) TestMultipleNameMatches(c *gc.C) {
@@ -193,21 +193,21 @@ func (s *UseModelSuite) TestUserOwnerOfEnvironment(c *gc.C) {
 	_, err := s.run(c, "tester/test")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "test", model1UUID)
+	s.assertCurrentModel(c, "test", model1UUID)
 }
 
 func (s *UseModelSuite) TestOtherUsersEnvironment(c *gc.C) {
 	_, err := s.run(c, "bob/test")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-test", model2UUID)
+	s.assertCurrentModel(c, "bob-test", model2UUID)
 }
 
 func (s *UseModelSuite) TestRemoteUsersEnvironmentName(c *gc.C) {
 	_, err := s.run(c, "bob@remote/other")
 	c.Assert(err, gc.IsNil)
 
-	s.assertCurrentEnvironment(c, "bob-other", model4UUID)
+	s.assertCurrentModel(c, "bob-other", model4UUID)
 }
 
 func (s *UseModelSuite) TestDisambiguateWrongOwner(c *gc.C) {
@@ -236,13 +236,13 @@ func (s *UseModelSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 	c.Assert(lines[0], gc.Equals, expected)
 	c.Assert(lines[1], gc.Equals, `fake (controller) -> unique`)
 
-	current, err := envcmd.ReadCurrentEnvironment()
+	current, err := envcmd.ReadCurrentModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.Equals, "unique")
 }
 
-func (s *UseModelSuite) assertCurrentEnvironment(c *gc.C, name, uuid string) {
-	current, err := envcmd.ReadCurrentEnvironment()
+func (s *UseModelSuite) assertCurrentModel(c *gc.C, name, uuid string) {
+	current, err := envcmd.ReadCurrentModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.Equals, name)
 

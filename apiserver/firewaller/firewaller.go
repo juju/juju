@@ -22,10 +22,10 @@ func init() {
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 
 	st            *state.State
@@ -60,9 +60,9 @@ func NewFirewallerAPI(
 		st,
 		accessUnitServiceOrMachine,
 	)
-	// EnvironConfig() and WatchForEnvironConfigChanges() are allowed
+	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.
-	environWatcher := common.NewEnvironWatcher(
+	modelWatcher := common.NewModelWatcher(
 		st,
 		resources,
 		authorizer,
@@ -78,8 +78,8 @@ func NewFirewallerAPI(
 		resources,
 		accessMachine,
 	)
-	// WatchEnvironMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewEnvironMachinesWatcher(
+	// WatchModelMachines() is allowed with unrestricted access.
+	machinesWatcher := common.NewModelMachinesWatcher(
 		st,
 		resources,
 		authorizer,
@@ -91,19 +91,19 @@ func NewFirewallerAPI(
 	)
 
 	return &FirewallerAPI{
-		LifeGetter:             lifeGetter,
-		EnvironWatcher:         environWatcher,
-		AgentEntityWatcher:     entityWatcher,
-		UnitsWatcher:           unitsWatcher,
-		EnvironMachinesWatcher: machinesWatcher,
-		InstanceIdGetter:       instanceIdGetter,
-		st:                     st,
-		resources:              resources,
-		authorizer:             authorizer,
-		accessUnit:             accessUnit,
-		accessService:          accessService,
-		accessMachine:          accessMachine,
-		accessEnviron:          accessEnviron,
+		LifeGetter:           lifeGetter,
+		ModelWatcher:         modelWatcher,
+		AgentEntityWatcher:   entityWatcher,
+		UnitsWatcher:         unitsWatcher,
+		ModelMachinesWatcher: machinesWatcher,
+		InstanceIdGetter:     instanceIdGetter,
+		st:                   st,
+		resources:            resources,
+		authorizer:           authorizer,
+		accessUnit:           accessUnit,
+		accessService:        accessService,
+		accessMachine:        accessMachine,
+		accessEnviron:        accessEnviron,
 	}, nil
 }
 

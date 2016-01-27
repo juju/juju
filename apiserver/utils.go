@@ -77,7 +77,7 @@ func validateModelUUID(args validateArgs) (string, error) {
 		return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 	}
 	modelTag := names.NewModelTag(args.modelUUID)
-	if _, err := ssState.GetEnvironment(modelTag); err != nil {
+	if _, err := ssState.GetModel(modelTag); err != nil {
 		return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
 	}
 	logger.Debugf("validate model uuid: %s", args.modelUUID)

@@ -20,7 +20,7 @@ import (
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
-	environConfig, err := st.EnvironConfig()
+	environConfig, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}

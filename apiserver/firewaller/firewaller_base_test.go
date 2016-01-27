@@ -176,15 +176,15 @@ func (s *firewallerBaseSuite) testInstanceId(
 	})
 }
 
-func (s *firewallerBaseSuite) testWatchEnvironMachines(
+func (s *firewallerBaseSuite) testWatchModelMachines(
 	c *gc.C,
 	facade interface {
-		WatchEnvironMachines() (params.StringsWatchResult, error)
+		WatchModelMachines() (params.StringsWatchResult, error)
 	},
 ) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := facade.WatchEnvironMachines()
+	got, err := facade.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",

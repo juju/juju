@@ -45,7 +45,7 @@ func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
 	apiPort := s.Environ.Config().APIPort()
 
 	// Numbers coming over the api are floats, not ints.
-	c.Assert(result, jc.DeepEquals, params.EnvironConfig{
+	c.Assert(result, jc.DeepEquals, params.ModelConfig{
 		"type":       "dummy",
 		"ca-cert":    coretesting.CACert,
 		"state-port": float64(1234),

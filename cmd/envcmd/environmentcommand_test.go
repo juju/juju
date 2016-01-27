@@ -54,8 +54,8 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentModelSet(c *gc.C) {
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "fubar")
@@ -71,7 +71,7 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *gc.C) {
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuEnvEnvKey, "magic")
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "magic")
@@ -103,7 +103,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitSingleConfig(c *gc.C) {
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 	// If there is a current-model file, use that.
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureEnvName(c, "fubar")
 }

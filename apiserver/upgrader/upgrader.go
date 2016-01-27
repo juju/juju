@@ -103,7 +103,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			watch := u.st.WatchForEnvironConfigChanges()
+			watch := u.st.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
 			// in the Watch response. But NotifyWatchers
@@ -122,7 +122,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 
 func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
 	// Get the Agent Version requested in the Environment Config
-	cfg, err := u.st.EnvironConfig()
+	cfg, err := u.st.ModelConfig()
 	if err != nil {
 		return version.Number{}, nil, err
 	}
@@ -170,7 +170,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			// Only return the globally desired agent version if the
-			// asking entity is a machine agent with JobManageEnviron or
+			// asking entity is a machine agent with JobManageModel or
 			// if this API server is running the globally desired agent
 			// version. Otherwise report this API server's current
 			// agent version.

@@ -82,7 +82,7 @@ differences.
 
 ### Jobs, Runners, and Workers
 
-Machine agents all have at least one of two jobs: JobHostUnits and JobManageEnviron.
+Machine agents all have at least one of two jobs: JobHostUnits and JobManageModel.
 Each of these jobs represents a number of tasks the agent needs to execute to
 fulfil its responsibilities; in addition, there are a number of tasks that are
 executed by every machine agent. The terms *task* and *worker* are generally used
@@ -150,7 +150,7 @@ down and (2) just encourages worse layering violations as we progress.
 
 ### State Server Workers
 
-Machines with JobManageEnviron also run a number of other workers, which do
+Machines with JobManageModel also run a number of other workers, which do
 the following.
 
   * Run the API server used by all other workers (in this, and other, agents:

@@ -63,7 +63,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.InstanceId = "instance-id"
-		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
+		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
 	} else {
 		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)

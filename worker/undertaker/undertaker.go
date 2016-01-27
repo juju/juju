@@ -55,7 +55,7 @@ func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) worker
 			return nil
 		}
 
-		cfg, err := client.EnvironConfig()
+		cfg, err := client.ModelConfig()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -93,7 +93,7 @@ func processDyingEnv(client apiundertaker.UndertakerClient, clock uc.Clock, stop
 	if err := client.ProcessDyingModel(); err == nil {
 		return nil
 	}
-	watcher, err := client.WatchEnvironResources()
+	watcher, err := client.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func processDeadEnv(client apiundertaker.UndertakerClient, clock uc.Clock, tod t
 
 	select {
 	case <-clock.After(wait):
-		err := client.RemoveEnviron()
+		err := client.RemoveModel()
 		return errors.Annotate(err, "could not remove all docs for dead model")
 	case <-stopCh:
 		return tomb.ErrDying

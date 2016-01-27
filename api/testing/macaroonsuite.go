@@ -64,7 +64,7 @@ func (s *MacaroonSuite) TearDownTest(c *gc.C) {
 }
 
 // AddModelUser is a convenience function that adds an external
-// user to the current environment. It will panic
+// user to the current model. It will panic
 // if the user name is local.
 func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	if names.NewUserTag(username).IsLocal() {

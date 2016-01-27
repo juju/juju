@@ -47,10 +47,10 @@ type storageMetaDoc struct {
 
 	// origin
 
-	Environment string         `bson:"environment"`
-	Machine     string         `bson:"machine"`
-	Hostname    string         `bson:"hostname"`
-	Version     version.Number `bson:"version"`
+	Model    string         `bson:"model"`
+	Machine  string         `bson:"machine"`
+	Hostname string         `bson:"hostname"`
+	Version  version.Number `bson:"version"`
 }
 
 func (doc *storageMetaDoc) isFileInfoComplete() bool {
@@ -74,7 +74,7 @@ func (doc *storageMetaDoc) validate() error {
 		return errors.New("missing Started")
 	}
 	// We don't check doc.Finished because it doesn't have to be set.
-	if doc.Environment == "" {
+	if doc.Model == "" {
 		return errors.New("missing Model")
 	}
 	if doc.Machine == "" {
@@ -121,7 +121,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta.Started = metadocUnixToTime(doc.Started)
 	meta.Notes = doc.Notes
 
-	meta.Origin.Environment = doc.Environment
+	meta.Origin.Model = doc.Model
 	meta.Origin.Machine = doc.Machine
 	meta.Origin.Hostname = doc.Hostname
 	meta.Origin.Version = doc.Version
@@ -171,7 +171,7 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 	}
 	doc.Notes = meta.Notes
 
-	doc.Environment = meta.Origin.Environment
+	doc.Model = meta.Origin.Model
 	doc.Machine = meta.Origin.Machine
 	doc.Hostname = meta.Origin.Hostname
 	doc.Version = meta.Origin.Version
@@ -315,15 +315,15 @@ func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, e
 }
 
 // newStorageID returns a new ID for a state backup.  The format is the
-// UTC timestamp from the metadata followed by the environment ID:
-// "YYYYMMDD-hhmmss.<env ID>".  This makes the ID a little more human-
+// UTC timestamp from the metadata followed by the model ID:
+// "YYYYMMDD-hhmmss.<model ID>".  This makes the ID a little more human-
 // consumable (in contrast to a plain UUID string).  Ideally we would
-// use some form of environment name rather than the UUID, but for now
+// use some form of model name rather than the UUID, but for now
 // the raw env ID is sufficient.
 var newStorageID = func(doc *storageMetaDoc) string {
 	started := metadocUnixToTime(doc.Started)
 	timestamp := started.Format(backupIDTimestamp)
-	return timestamp + "." + doc.Environment
+	return timestamp + "." + doc.Model
 }
 
 // addStorageMetadata stores metadata for a backup where it can be
@@ -529,7 +529,7 @@ type DB interface {
 	// MongoSession returns the underlying mongodb session.
 	MongoSession() *mgo.Session
 
-	// ModelTag is the concrete environ tag for this database.
+	// ModelTag is the concrete model tag for this database.
 	ModelTag() names.ModelTag
 }
 

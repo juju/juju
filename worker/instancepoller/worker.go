@@ -17,7 +17,7 @@ type updaterWorker struct {
 	tomb tomb.Tomb
 	*aggregator
 
-	observer *worker.EnvironObserver
+	observer *worker.ModelObserver
 }
 
 // NewWorker returns a worker that keeps track of
@@ -44,7 +44,7 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.observer, err = worker.NewEnvironObserver(u.st)
+	u.observer, err = worker.NewModelObserver(u.st)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (u *updaterWorker) loop() (err error) {
 		}
 	}()
 	var w apiwatcher.StringsWatcher
-	w, err = u.st.WatchEnvironMachines()
+	w, err = u.st.WatchModelMachines()
 	if err != nil {
 		return err
 	}

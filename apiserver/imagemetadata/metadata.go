@@ -94,7 +94,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
-	envCfg, err := api.metadata.EnvironConfig()
+	envCfg, err := api.metadata.ModelConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Annotatef(err, "getting environ config")
 	}
@@ -206,7 +206,7 @@ func (api *API) UpdateFromPublishedImages() error {
 }
 
 func (api *API) retrievePublished() error {
-	envCfg, err := api.metadata.EnvironConfig()
+	envCfg, err := api.metadata.ModelConfig()
 	if err != nil {
 		return errors.Annotatef(err, "getting environ config")
 	}

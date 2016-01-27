@@ -110,7 +110,7 @@ func (s stateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, err
 // EnvName returns the name of Juju environment,
 // or an error if environment configuration is not retrievable.
 func (s stateShim) EnvName() (string, error) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

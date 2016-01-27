@@ -86,7 +86,7 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatus
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
-	cfg, err := c.api.stateAccessor.EnvironConfig()
+	cfg, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return params.FullStatus{}, errors.Annotate(err, "could not get environ config")
 	}
@@ -182,7 +182,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 
 	return params.FullStatus{
-		EnvironmentName:  cfg.Name(),
+		ModelName:        cfg.Name(),
 		AvailableVersion: newToolsVersion,
 		Machines:         processMachines(context.machines),
 		Services:         context.processServices(),
@@ -201,7 +201,7 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 
 	latestVersion := env.LatestToolsVersion()
 
-	envConfig, err := c.api.stateAccessor.EnvironConfig()
+	envConfig, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot obtain current environ config")
 	}

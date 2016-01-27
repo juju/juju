@@ -39,9 +39,9 @@ func NewCreateEnvironmentCommandForTest(api CreateEnvironmentAPI, parser func(in
 	return envcmd.WrapController(c), &CreateEnvironmentCommand{c}
 }
 
-// NewEnvironmentsCommandForTest returns a EnvironmentsCommand with the API
+// NewModelsCommandForTest returns a EnvironmentsCommand with the API
 // and userCreds provided as specified.
-func NewEnvironmentsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
+func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
 	return envcmd.WrapController(&environmentsCommand{
 		modelAPI:  modelAPI,
 		sysAPI:    sysAPI,

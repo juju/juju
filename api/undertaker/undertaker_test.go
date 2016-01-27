@@ -22,7 +22,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	client := s.mockClient(c, "ModelInfo", func(response interface{}) {
 		called = true
 		result := response.(*params.UndertakerModelInfoResult)
-		result.Result = params.UndertakerEnvironInfo{}
+		result.Result = params.UndertakerModelInfo{}
 	})
 
 	result, err := client.ModelInfo()
@@ -42,14 +42,14 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *undertakerSuite) TestRemoveEnviron(c *gc.C) {
+func (s *undertakerSuite) TestRemoveModel(c *gc.C) {
 	var called bool
-	client := s.mockClient(c, "RemoveEnviron", func(response interface{}) {
+	client := s.mockClient(c, "RemoveModel", func(response interface{}) {
 		called = true
 		c.Assert(response, gc.IsNil)
 	})
 
-	err := client.RemoveEnviron()
+	err := client.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -76,7 +76,7 @@ func (s *undertakerSuite) mockClient(c *gc.C, expectedRequest string, callback f
 	return undertaker.NewClient(apiCaller)
 }
 
-func (s *undertakerSuite) TestWatchEnvironResourcesGetsChange(c *gc.C) {
+func (s *undertakerSuite) TestWatchModelResourcesGetsChange(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -86,7 +86,7 @@ func (s *undertakerSuite) TestWatchEnvironResourcesGetsChange(c *gc.C) {
 			if resp, ok := response.(*params.NotifyWatchResults); ok {
 				c.Check(objType, gc.Equals, "Undertaker")
 				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "WatchEnvironResources")
+				c.Check(request, gc.Equals, "WatchModelResources")
 
 				a, ok := args.(params.Entities)
 				c.Check(ok, jc.IsTrue)
@@ -102,7 +102,7 @@ func (s *undertakerSuite) TestWatchEnvironResourcesGetsChange(c *gc.C) {
 		})
 
 	client := undertaker.NewClient(apiCaller)
-	w, err := client.WatchEnvironResources()
+	w, err := client.WatchModelResources()
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -112,34 +112,34 @@ func (s *undertakerSuite) TestWatchEnvironResourcesGetsChange(c *gc.C) {
 	}
 }
 
-func (s *undertakerSuite) TestWatchEnvironResourcesError(c *gc.C) {
+func (s *undertakerSuite) TestWatchModelResourcesError(c *gc.C) {
 	var called bool
 
-	// The undertaker feature tests ensure WatchEnvironResources is connected
+	// The undertaker feature tests ensure WatchModelResources is connected
 	// correctly end to end. This test just ensures that the API calls work.
-	client := s.mockClient(c, "WatchEnvironResources", func(response interface{}) {
+	client := s.mockClient(c, "WatchModelResources", func(response interface{}) {
 		called = true
 		c.Check(response, gc.DeepEquals, &params.NotifyWatchResults{Results: []params.NotifyWatchResult(nil)})
 	})
 
-	w, err := client.WatchEnvironResources()
+	w, err := client.WatchModelResources()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 	c.Assert(w, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
+func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	var called bool
 
-	// The undertaker feature tests ensure EnvironConfig is connected
+	// The undertaker feature tests ensure ModelConfig is connected
 	// correctly end to end. This test just ensures that the API calls work.
-	client := s.mockClient(c, "EnvironConfig", func(response interface{}) {
+	client := s.mockClient(c, "ModelConfig", func(response interface{}) {
 		called = true
-		c.Check(response, gc.DeepEquals, &params.EnvironConfigResult{Config: params.EnvironConfig(nil)})
+		c.Check(response, gc.DeepEquals, &params.ModelConfigResult{Config: params.ModelConfig(nil)})
 	})
 
 	// We intentionally don't test the error here. We are only interested that
-	// the EnvironConfig endpoint was called.
-	client.EnvironConfig()
+	// the ModelConfig endpoint was called.
+	client.ModelConfig()
 	c.Assert(called, jc.IsTrue)
 }

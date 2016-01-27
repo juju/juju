@@ -105,14 +105,14 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 
 type withoutStateServerSuite struct {
 	provisionerSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.ModelWatcherTest
 }
 
 var _ = gc.Suite(&withoutStateServerSuite{})
 
 func (s *withoutStateServerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.provisioner, s.State, s.resources, commontesting.HasSecrets)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources, commontesting.HasSecrets)
 }
 
 func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
@@ -545,7 +545,7 @@ func (s *withoutStateServerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
+func (s *withoutStateServerSuite) TestModelConfigNonManager(c *gc.C) {
 	// Now test it with a non-environment manager and make sure
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
@@ -554,7 +554,7 @@ func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertEnvironConfig(c, aProvisioner, commontesting.NoSecrets)
+	s.AssertModelConfig(c, aProvisioner, commontesting.NoSecrets)
 }
 
 func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
@@ -1124,7 +1124,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "static-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1355,10 +1355,10 @@ func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
+func (s *withoutStateServerSuite) TestWatchModelMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := s.provisioner.WatchEnvironMachines()
+	got, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -1377,14 +1377,14 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	// Make sure WatchEnvironMachines fails with a machine agent login.
+	// Make sure WatchModelMachines fails with a machine agent login.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := aProvisioner.WatchEnvironMachines()
+	result, err := aProvisioner.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
@@ -1433,7 +1433,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 		"http-proxy":            "http://proxy.example.com:9000",
 		"allow-lxc-loop-mounts": true,
 	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedProxy := proxy.Settings{
 		Http: "http://proxy.example.com:9000",
@@ -1635,7 +1635,7 @@ func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
 	s.DummyConfig["lxc-default-mtu"] = 9000
 	s.provisionerSuite.SetUpTest(c)
 
-	stateConfig, err := s.State.EnvironConfig()
+	stateConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	value, ok := stateConfig.LXCDefaultMTU()
 	c.Assert(ok, jc.IsTrue)

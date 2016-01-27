@@ -330,7 +330,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			"agent-version":      test.agentVersion,
 			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
-		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+		err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
@@ -351,7 +351,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 
 		// Check expected changes to environ/state.
-		cfg, err := s.State.EnvironConfig()
+		cfg, err := s.State.ModelConfig()
 		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, jc.IsTrue)
@@ -422,7 +422,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	}
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 
@@ -540,7 +540,7 @@ upgrade to this version by running
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
-		cfg, err := s.State.EnvironConfig()
+		cfg, err := s.State.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -562,7 +562,7 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 		"agent-metadata-url": "file://" + toolsDir + "/tools",
 	}
 
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	versions := make([]version.Binary, len(tools))
 	for i, v := range tools {
@@ -699,7 +699,7 @@ best version:
 		}
 
 		// Check agent version doesn't change
-		cfg, err := s.State.EnvironConfig()
+		cfg, err := s.State.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -872,7 +872,7 @@ func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
 }
 
 func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
-	config, err := a.st.EnvironConfig()
+	config, err := a.st.ModelConfig()
 	if err != nil {
 		return make(map[string]interface{}), err
 	}

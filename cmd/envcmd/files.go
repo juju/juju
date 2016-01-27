@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	CurrentEnvironmentFilename = "current-model"
-	CurrentControllerFilename  = "current-controller"
+	CurrentModelFilename      = "current-model"
+	CurrentControllerFilename = "current-controller"
 
 	lockName = "current.lock"
 
@@ -46,25 +46,25 @@ type ServerFile struct {
 // Each of the read and write functions use a fslock to synchronise calls
 // across both the current executable and across different executables.
 
-func getCurrentEnvironmentFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
+func getCurrentModelFilePath() string {
+	return filepath.Join(osenv.JujuHome(), CurrentModelFilename)
 }
 
 func getCurrentControllerFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentControllerFilename)
 }
 
-// ReadCurrentEnvironment reads the file $JUJU_HOME/current-model and
+// ReadCurrentModel reads the file $JUJU_HOME/current-model and
 // return the value stored there.  If the file doesn't exist an empty string
 // is returned and no error.
-func ReadCurrentEnvironment() (string, error) {
+func ReadCurrentModel() (string, error) {
 	lock, err := acquireEnvironmentLock("read current-model")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer lock.Unlock()
 
-	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
+	current, err := ioutil.ReadFile(getCurrentModelFilePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
@@ -94,16 +94,16 @@ func ReadCurrentController() (string, error) {
 	return strings.TrimSpace(string(current)), nil
 }
 
-// WriteCurrentEnvironment writes the envName to the file
+// WriteCurrentModel writes the envName to the file
 // $JUJU_HOME/current-model file.
-func WriteCurrentEnvironment(envName string) error {
+func WriteCurrentModel(envName string) error {
 	lock, err := acquireEnvironmentLock("write current-model")
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer lock.Unlock()
 
-	path := getCurrentEnvironmentFilePath()
+	path := getCurrentModelFilePath()
 	err = ioutil.WriteFile(path, []byte(envName+"\n"), 0644)
 	if err != nil {
 		return errors.Errorf("unable to write to the model file: %q, %s", path, err)
@@ -133,7 +133,7 @@ func WriteCurrentController(controllerName string) error {
 		return errors.Errorf("unable to write to the controller file: %q, %s", path, err)
 	}
 	// If there is a current environment file, remove it.
-	if err := os.Remove(getCurrentEnvironmentFilePath()); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(getCurrentModelFilePath()); err != nil && !os.IsNotExist(err) {
 		logger.Debugf("removing the current controller file due to %s", err)
 		// Best attempt to remove the file we just wrote.
 		os.Remove(path)
@@ -162,7 +162,7 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 // The name of the current environment or controller is returned along with
 // a boolean to express whether the name refers to a controller or environment.
 func CurrentConnectionName() (name string, is_controller bool, err error) {
-	currentEnv, err := ReadCurrentEnvironment()
+	currentEnv, err := ReadCurrentModel()
 	if err != nil {
 		return "", false, errors.Trace(err)
 	} else if currentEnv != "" {
@@ -193,14 +193,14 @@ func currentName() (string, error) {
 	return name, nil
 }
 
-// SetCurrentEnvironment writes out the current environment file and writes a
+// SetCurrentModel writes out the current environment file and writes a
 // standard message to the command context.
-func SetCurrentEnvironment(context *cmd.Context, environmentName string) error {
+func SetCurrentModel(context *cmd.Context, environmentName string) error {
 	current, err := currentName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = WriteCurrentEnvironment(environmentName)
+	err = WriteCurrentModel(environmentName)
 	if err != nil {
 		return errors.Trace(err)
 	}

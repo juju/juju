@@ -95,11 +95,11 @@ type mockEnvironAccessor struct {
 	cfg     *config.Config
 }
 
-func (e *mockEnvironAccessor) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
+func (e *mockEnvironAccessor) WatchForModelConfigChanges() (apiwatcher.NotifyWatcher, error) {
 	return e.watcher, nil
 }
 
-func (e *mockEnvironAccessor) EnvironConfig() (*config.Config, error) {
+func (e *mockEnvironAccessor) ModelConfig() (*config.Config, error) {
 	e.mu.Lock()
 	cfg := e.cfg
 	e.mu.Unlock()
@@ -115,7 +115,7 @@ func (e *mockEnvironAccessor) setConfig(cfg *config.Config) {
 func newMockEnvironAccessor(c *gc.C) *mockEnvironAccessor {
 	return &mockEnvironAccessor{
 		watcher: &mockNotifyWatcher{make(chan struct{}, 1)},
-		cfg:     testing.EnvironConfig(c),
+		cfg:     testing.ModelConfig(c),
 	}
 }
 

@@ -293,8 +293,8 @@ func readSettingsDocInto(st *State, key string, out interface{}) error {
 	// This is required to allow loading of environ settings before the
 	// environment UUID migration has been applied to the settings collection.
 	// Without this, an agent's version cannot be read, blocking the upgrade.
-	if err == mgo.ErrNotFound && key == environGlobalKey {
-		err = settings.FindId(environGlobalKey).One(out)
+	if err == mgo.ErrNotFound && key == modelGlobalKey {
+		err = settings.FindId(modelGlobalKey).One(out)
 	}
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("settings")

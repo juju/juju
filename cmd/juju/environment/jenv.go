@@ -181,7 +181,7 @@ func switchEnvironment(envName string) (string, error) {
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get the default model")
 	}
-	if err := envcmd.WriteCurrentEnvironment(envName); err != nil {
+	if err := envcmd.WriteCurrentModel(envName); err != nil {
 		return "", errors.Trace(err)
 	}
 	return currentEnv, nil

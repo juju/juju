@@ -187,7 +187,7 @@ func setupStoragePool(c *gc.C, st *state.State) {
 	pm := poolmanager.New(state.NewStateSettings(st))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.UpdateEnvironConfig(map[string]interface{}{
+	err = st.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -836,7 +836,7 @@ func (s *serviceSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCha
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the store's test mode is enabled when calling ServiceDeploy.

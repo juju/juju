@@ -259,7 +259,7 @@ var statusTests = []testCase{
 	test( // 0
 		"bootstrap and starting a single instance",
 
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
@@ -333,7 +333,7 @@ var statusTests = []testCase{
 	),
 	test( // 1
 		"instance with different hardware characteristics",
-		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
 			network.NewAddress("10.0.0.1"),
 			network.NewScopedAddress("dummymodel-0.dns", network.ScopePublic),
@@ -360,7 +360,7 @@ var statusTests = []testCase{
 	),
 	test( // 2
 		"instance without addresses",
-		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		expect{
@@ -382,7 +382,7 @@ var statusTests = []testCase{
 	),
 	test( // 3
 		"test pending and missing machines",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		expect{
 			"machine 0 reports pending",
 			M{
@@ -421,7 +421,7 @@ var statusTests = []testCase{
 	test( // 4
 		"add two services and expose one, then add 2 more machines and some units",
 		// step 0
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -894,7 +894,7 @@ var statusTests = []testCase{
 	),
 	test( // 5
 		"a unit with a hook relation error",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -990,7 +990,7 @@ var statusTests = []testCase{
 	),
 	test( // 6
 		"a unit with a hook relation error when the agent is down",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -1187,7 +1187,7 @@ var statusTests = []testCase{
 	// Relation tests
 	test( // 9
 		"complex scenario with multiple related services",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -1362,7 +1362,7 @@ var statusTests = []testCase{
 	),
 	test( // 10
 		"simple peer scenario",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -1464,7 +1464,7 @@ var statusTests = []testCase{
 	// Subordinate tests
 	test( // 11
 		"one service with one subordinate service",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -1792,7 +1792,7 @@ var statusTests = []testCase{
 	test( // 12
 		"machines with containers",
 		// step 0
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -1927,7 +1927,7 @@ var statusTests = []testCase{
 	),
 	test( // 13
 		"service with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -1982,7 +1982,7 @@ var statusTests = []testCase{
 	),
 	test( // 14
 		"unit with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -2037,7 +2037,7 @@ var statusTests = []testCase{
 	),
 	test( // 15
 		"service and unit with out of date charms",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -2094,7 +2094,7 @@ var statusTests = []testCase{
 	),
 	test( // 16
 		"service with local charm not shown as out of date",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -2150,7 +2150,7 @@ var statusTests = []testCase{
 	),
 	test( // 17
 		"deploy two services; set meter statuses on one",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -2880,7 +2880,7 @@ func (a *fakeApiClient) Close() error {
 func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	// Construct an older style status response
 	client := newFakeApiClient(&params.FullStatus{
-		EnvironmentName: "dummymodel",
+		ModelName: "dummymodel",
 		Machines: map[string]params.MachineStatus{
 			"0": {
 				// Agent field intentionally not set
@@ -2890,7 +2890,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
 				Containers:     map[string]params.MachineStatus{},
-				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 				HasVote:        false,
 				WantsVote:      true,
 			},
@@ -3008,7 +3008,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("localhost")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -3072,7 +3072,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -3159,7 +3159,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	ctx := s.newContext(c)
 	steps := []stepper{
 		setToolsUpgradeAvailable{},
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -3306,7 +3306,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -3341,7 +3341,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// Given a machine is started
 		// And the machine's ID is "0"
 		// And the machine's job is to manage the environment
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		// And the machine's address is "dummymodel-0.dns"
@@ -3670,7 +3670,7 @@ func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
 
 var statusTimeTest = test(
 	"status generates timestamps as UTC in ISO format",
-	addMachine{machineId: "0", job: state.JobManageEnviron},
+	addMachine{machineId: "0", job: state.JobManageModel},
 	setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 	startAliveMachine{"0"},
 	setMachineStatus{"0", state.StatusStarted, ""},

@@ -771,7 +771,7 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
 }
 
-func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
+func (s *loginSuite) TestControllerModel(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -787,7 +787,7 @@ func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
 	s.assertRemoteEnvironment(c, st, s.State.ModelTag())
 }
 
-func (s *loginSuite) TestControllerEnvironmentBadCreds(c *gc.C) {
+func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -888,7 +888,7 @@ func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
 	defer cleanup()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
 	envState := s.Factory.MakeEnvironment(c, nil)

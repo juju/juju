@@ -40,7 +40,7 @@ func GetDefaultEnvironment() (string, error) {
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return defaultEnv, nil
 	}
-	if currentEnv, err := ReadCurrentEnvironment(); err != nil {
+	if currentEnv, err := ReadCurrentModel(); err != nil {
 		return "", errors.Trace(err)
 	} else if currentEnv != "" {
 		return currentEnv, nil
@@ -122,9 +122,9 @@ func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-// NewEnvironmentGetter returns a new object which implements the
+// NewModelGetter returns a new object which implements the
 // EnvironmentGetter interface.
-func (c *EnvCommandBase) NewEnvironmentGetter() (EnvironmentGetter, error) {
+func (c *EnvCommandBase) NewModelGetter() (EnvironmentGetter, error) {
 	if c.envGetterErr != nil {
 		return nil, c.envGetterErr
 	}
@@ -167,7 +167,7 @@ func (c *EnvCommandBase) Config(store configstore.Storage, client EnvironmentGet
 	}
 
 	if client == nil {
-		client, err = c.NewEnvironmentGetter()
+		client, err = c.NewModelGetter()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

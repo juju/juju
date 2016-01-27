@@ -112,7 +112,7 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 // fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
 // and caches it in the state blobstore.
 func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) error {
-	cfg, err := h.state.EnvironConfig()
+	cfg, err := h.state.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

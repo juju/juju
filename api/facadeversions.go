@@ -15,7 +15,7 @@ var facadeVersions = map[string]int{
 	"Addresser":                    2,
 	"Agent":                        2,
 	"AllWatcher":                   1,
-	"AllEnvWatcher":                2,
+	"AllModelWatcher":              2,
 	"Annotations":                  2,
 	"Backups":                      1,
 	"Block":                        2,

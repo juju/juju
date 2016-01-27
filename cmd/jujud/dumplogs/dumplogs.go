@@ -115,7 +115,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer st0.Close()
 
-	envs, err := st0.AllEnvironments()
+	envs, err := st0.AllModels()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")
 	}

@@ -152,7 +152,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		errors.Errorf("expacted names.MachineTag, got %T", tag)
 	}
 
-	envCfg, err := p.st.EnvironConfig()
+	envCfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
@@ -199,14 +199,14 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) P
 
 func (p *environProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
+	environConfigChanges = modelWatcher.Changes()
+	defer watcher.Stop(modelWatcher, &p.tomb)
 
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
+	p.environ, err = worker.WaitForEnviron(modelWatcher, p.st, p.tomb.Dying())
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
@@ -229,9 +229,9 @@ func (p *environProvisioner) loop() error {
 			return err
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return watcher.EnsureErr(modelWatcher)
 			}
-			environConfig, err := p.st.EnvironConfig()
+			environConfig, err := p.st.ModelConfig()
 			if err != nil {
 				logger.Errorf("cannot load model configuration: %v", err)
 				return err
@@ -245,7 +245,7 @@ func (p *environProvisioner) loop() error {
 }
 
 func (p *environProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
-	return p.st.WatchEnvironMachines()
+	return p.st.WatchModelMachines()
 }
 
 func (p *environProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
@@ -293,14 +293,14 @@ func NewContainerProvisioner(
 
 func (p *containerProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return err
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
+	environConfigChanges = modelWatcher.Changes()
+	defer watcher.Stop(modelWatcher, &p.tomb)
 
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -322,9 +322,9 @@ func (p *containerProvisioner) loop() error {
 			return err
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return watcher.EnsureErr(modelWatcher)
 			}
-			environConfig, err := p.st.EnvironConfig()
+			environConfig, err := p.st.ModelConfig()
 			if err != nil {
 				logger.Errorf("cannot load model configuration: %v", err)
 				return err

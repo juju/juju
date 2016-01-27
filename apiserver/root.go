@@ -292,7 +292,7 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 // AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
 func (r *apiHandler) AuthEnvironManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageEnviron)
+	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 
 // AuthClient returns whether the authenticated entity is a client

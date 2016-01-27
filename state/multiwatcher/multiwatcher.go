@@ -300,16 +300,13 @@ type MachineJob string
 
 const (
 	JobHostUnits        MachineJob = "JobHostUnits"
-	JobManageEnviron    MachineJob = "JobManageEnviron"
+	JobManageModel      MachineJob = "JobManageModel"
 	JobManageNetworking MachineJob = "JobManageNetworking"
-
-	// Deprecated in 1.18
-	JobManageStateDeprecated MachineJob = "JobManageState"
 )
 
 // NeedsState returns true if the job requires a state connection.
 func (job MachineJob) NeedsState() bool {
-	return job == JobManageEnviron
+	return job == JobManageModel
 }
 
 // AnyJobNeedsState returns true if any of the provided jobs

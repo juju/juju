@@ -67,9 +67,9 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecedence(c *gc.C) {
+func (s *SwitchSimpleSuite) TestCurrentModelHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	envcmd.WriteCurrentEnvironment("fubar")
+	envcmd.WriteCurrentModel("fubar")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
@@ -91,7 +91,7 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "using-model\n")
 }
 
-func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
+func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentModel(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-model", "fubar"})
 	os.Setenv("JUJU_MODEL", "using-model")
@@ -105,7 +105,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	context, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "-> erewhemos-2\n")
-	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	currentEnv, err := envcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentEnv, gc.Equals, "erewhemos-2")
 }

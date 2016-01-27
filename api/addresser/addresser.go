@@ -31,7 +31,7 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-// CanDeallocateAddresses checks if the current environment can
+// CanDeallocateAddresses checks if the current model can
 // deallocate IP addresses.
 func (api *API) CanDeallocateAddresses() (bool, error) {
 	var result params.BoolResult

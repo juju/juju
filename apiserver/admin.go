@@ -207,7 +207,7 @@ func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.E
 		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
 	}
 	for _, job := range machine.Jobs() {
-		if job == state.JobManageEnviron {
+		if job == state.JobManageModel {
 			return entity, nil
 		}
 	}

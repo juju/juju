@@ -1061,7 +1061,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	}})
 }
 
-func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
+func (s *storageProvisionerSuite) TestUpdateModelConfig(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {

@@ -59,10 +59,10 @@ func FakeConfig() Attrs {
 	}
 }
 
-// EnvironConfig returns a default environment configuration suitable for
+// ModelConfig returns a default environment configuration suitable for
 // setting in the state.
-func EnvironConfig(c *gc.C) *config.Config {
-	return CustomEnvironConfig(c, Attrs{"uuid": mustUUID()})
+func ModelConfig(c *gc.C) *config.Config {
+	return CustomModelConfig(c, Attrs{"uuid": mustUUID()})
 }
 
 // mustUUID returns a stringified uuid or panics
@@ -74,9 +74,9 @@ func mustUUID() string {
 	return uuid.String()
 }
 
-// CustomEnvironConfig returns an environment configuration with
+// CustomModelConfig returns an environment configuration with
 // additional specified keys added.
-func CustomEnvironConfig(c *gc.C, extra Attrs) *config.Config {
+func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "1.2.3",
 	}).Merge(extra).Delete("admin-secret", "ca-private-key")

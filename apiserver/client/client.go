@@ -523,7 +523,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	if p.Series == "" {
-		conf, err := c.api.stateAccessor.EnvironConfig()
+		conf, err := c.api.stateAccessor.ModelConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -585,7 +585,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
-	} else if cfg, err := c.api.stateAccessor.EnvironConfig(); err != nil {
+	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
 		return result, err
 	} else {
 		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
@@ -629,7 +629,7 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 // series and type).
 func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	state := c.api.stateAccessor
-	conf, err := state.EnvironConfig()
+	conf, err := state.ModelConfig()
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
@@ -790,11 +790,11 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 }
 
 // ModelGet implements the server-side part of the
-// get-model CLI command.
+// get-model-config CLI command.
 func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	// Get the existing environment config from the state.
-	config, err := c.api.stateAccessor.EnvironConfig()
+	config, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -803,7 +803,7 @@ func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 }
 
 // ModelSet implements the server-side part of the
-// set-model CLI command.
+// set-model-config CLI command.
 func (c *Client) ModelSet(args params.ModelSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -823,11 +823,11 @@ func (c *Client) ModelSet(args params.ModelSet) error {
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.stateAccessor.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
+	return c.api.stateAccessor.UpdateModelConfig(attrs, nil, checkAgentVersion)
 }
 
 // ModelUnset implements the server-side part of the
-// set-model CLI command.
+// set-model-config CLI command.
 func (c *Client) ModelUnset(args params.ModelUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -835,7 +835,7 @@ func (c *Client) ModelUnset(args params.ModelUnset) error {
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.stateAccessor.UpdateEnvironConfig(nil, args.Keys, nil)
+	return c.api.stateAccessor.UpdateModelConfig(nil, args.Keys, nil)
 }
 
 // SetModelAgentVersion sets the model agent version.
@@ -845,7 +845,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	}
 	// Before changing the agent version to trigger an upgrade or downgrade,
 	// we'll do a very basic check to ensure the
-	cfg, err := c.api.stateAccessor.EnvironConfig()
+	cfg, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

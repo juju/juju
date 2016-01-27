@@ -28,10 +28,10 @@ const checksumFormat = "SHA-1, base64 encoded"
 // separately from Metadata due to its use as an argument when
 // requesting the creation of a new backup.
 type Origin struct {
-	Environment string
-	Machine     string
-	Hostname    string
-	Version     version.Number
+	Model    string
+	Machine  string
+	Hostname string
+	Version  version.Number
 }
 
 // UnknownString is a marker value for string fields with unknown values.
@@ -43,10 +43,10 @@ var UnknownVersion = version.MustParse("9999.9999.9999")
 // UnknownOrigin returns a new backups origin with unknown values.
 func UnknownOrigin() Origin {
 	return Origin{
-		Environment: UnknownString,
-		Machine:     UnknownString,
-		Hostname:    UnknownString,
-		Version:     UnknownVersion,
+		Model:    UnknownString,
+		Machine:  UnknownString,
+		Hostname: UnknownString,
+		Version:  UnknownVersion,
 	}
 }
 
@@ -89,7 +89,7 @@ func NewMetadataState(db DB, machine string) (*Metadata, error) {
 	}
 
 	meta := NewMetadata()
-	meta.Origin.Environment = db.ModelTag().Id()
+	meta.Origin.Model = db.ModelTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
 	return meta, nil
@@ -149,7 +149,7 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 
 		Started:     m.Started,
 		Notes:       m.Notes,
-		Environment: m.Origin.Environment,
+		Environment: m.Origin.Model,
 		Machine:     m.Origin.Machine,
 		Hostname:    m.Origin.Hostname,
 		Version:     m.Origin.Version,
@@ -196,10 +196,10 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	}
 	meta.Notes = flat.Notes
 	meta.Origin = Origin{
-		Environment: flat.Environment,
-		Machine:     flat.Machine,
-		Hostname:    flat.Hostname,
-		Version:     flat.Version,
+		Model:    flat.Environment,
+		Machine:  flat.Machine,
+		Hostname: flat.Hostname,
+		Version:  flat.Version,
 	}
 
 	return meta, nil

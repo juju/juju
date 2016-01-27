@@ -46,7 +46,7 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 }
 
 func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) {
-	return context.NewEnvironmentHookContext(
+	return context.NewModelHookContext(
 			"some-context-id",
 			"model-uuid-deadbeef",
 			"some-model-name",

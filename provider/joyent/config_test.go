@@ -234,7 +234,7 @@ var newConfigTests = []configtest{{
 	insert: coretesting.Attrs{"private-key": "foo"},
 }}
 
-func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		doTest(s, i, test, c)
 	}

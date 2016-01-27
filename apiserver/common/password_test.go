@@ -113,7 +113,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			},
 			u("x/4"): &fakeUnitAuthenticator{},
 			u("x/5"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			u("x/6"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
+			u("x/6"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageModel}},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {

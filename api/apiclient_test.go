@@ -137,7 +137,7 @@ func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
 	st.Close()
 
 	// Backwards compatibility, we should succeed if we do not set an
-	// environ tag
+	// model tag
 	info.ModelTag = names.NewModelTag("")
 	st, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)

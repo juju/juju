@@ -128,7 +128,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 
 	icfg.MachineAgentServiceName = env.machineAgentServiceName()
 	icfg.AgentEnvironment = map[string]string{

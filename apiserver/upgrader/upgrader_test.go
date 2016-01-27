@@ -46,9 +46,9 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	// Create a machine to work with
 	var err error
 	// The first machine created is the only one allowed to
-	// JobManageEnviron
+	// JobManageModel
 	s.apiMachine, err = s.State.AddMachine("quantal", state.JobHostUnits,
-		state.JobManageEnviron)
+		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +302,7 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	newer.Patch++
 	err := s.State.SetModelAgentVersion(newer.Number)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

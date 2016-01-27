@@ -46,7 +46,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 }
 func (s *ControllerCommandSuite) TestControllerCommandInitEnvFile(c *gc.C) {
 	// If there is a current-model file, use that.
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "fubar")
 }

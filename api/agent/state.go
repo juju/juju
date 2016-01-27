@@ -54,7 +54,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // agent lives at the same network address as the primary
 // mongo server for the replica set.
 // This call will return an error if the connected
-// agent is not a machine agent with environment-manager
+// agent is not a machine agent with model-manager
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult

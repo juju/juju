@@ -780,7 +780,7 @@ func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (Filesyst
 	if params.Pool != "" {
 		return params, nil
 	}
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return FilesystemParams{}, errors.Trace(err)
 	}

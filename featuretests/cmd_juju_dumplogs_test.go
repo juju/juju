@@ -33,7 +33,7 @@ func (s *dumpLogsCommandSuite) SetUpTest(c *gc.C) {
 func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	// Create a controller machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	err := m.SetMongoPassword(password)

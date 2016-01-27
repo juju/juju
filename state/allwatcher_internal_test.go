@@ -50,11 +50,11 @@ type allWatcherBaseSuite struct {
 
 func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 	s.envCount++
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewEnvironment(cfg, s.owner)
+	_, st, err := s.state.NewModel(cfg, s.owner)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
@@ -660,7 +660,7 @@ func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.state.AddMachine("trusty", JobManageEnviron)
+	m0, err := s.state.AddMachine("trusty", JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
@@ -681,7 +681,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			StatusData: map[string]interface{}{},
 			Life:       multiwatcher.Life("alive"),
 			Series:     "trusty",
-			Jobs:       []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:       []multiwatcher.MachineJob{JobManageModel.ToParams()},
 			Addresses:  []network.Address{},
 			HasVote:    false,
 			WantsVote:  true,
@@ -779,7 +779,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
-			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 			HasVote:                 false,
@@ -985,25 +985,25 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 	}
 }
 
-var _ = gc.Suite(&allEnvWatcherStateSuite{})
+var _ = gc.Suite(&allModelWatcherStateSuite{})
 
-type allEnvWatcherStateSuite struct {
+type allModelWatcherStateSuite struct {
 	allWatcherBaseSuite
 	state1 *State
 }
 
-func (s *allEnvWatcherStateSuite) SetUpTest(c *gc.C) {
+func (s *allModelWatcherStateSuite) SetUpTest(c *gc.C) {
 	s.allWatcherBaseSuite.SetUpTest(c)
 	s.state1 = s.newState(c)
 }
 
-func (s *allEnvWatcherStateSuite) Reset(c *gc.C) {
+func (s *allModelWatcherStateSuite) Reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.
-func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
+func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
 		func() { // in aid of per-loop defers
 			defer s.Reset(c)
@@ -1011,7 +1011,7 @@ func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFunc
 			test0 := changeTestFunc(c, s.state)
 
 			c.Logf("test %d. %s", i, test0.about)
-			b := newAllEnvWatcherStateBacking(s.state)
+			b := NewAllModelWatcherStateBacking(s.state)
 			defer b.Release()
 			all := newStore()
 
@@ -1057,35 +1057,35 @@ func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFunc
 	}
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
 	testChangeAnnotations(c, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeMachines(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeMachines(c *gc.C) {
 	testChangeMachines(c, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeRelations(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeRelations(c *gc.C) {
 	testChangeRelations(c, s.owner, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeServices(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeServices(c *gc.C) {
 	testChangeServices(c, s.owner, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeServicesConstraints(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeServicesConstraints(c *gc.C) {
 	testChangeServicesConstraints(c, s.owner, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeUnits(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeUnits(c *gc.C) {
 	testChangeUnits(c, s.owner, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -1178,11 +1178,11 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
-func (s *allEnvWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the environment the entity belonged to has already died.
 
-	b := newAllEnvWatcherStateBacking(s.state)
+	b := NewAllModelWatcherStateBacking(s.state)
 	defer b.Release()
 	all := newStore()
 
@@ -1204,14 +1204,14 @@ func (s *allEnvWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
 	c.Assert(all.All(), gc.HasLen, 0)
 }
 
-func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 	// Set up 2 environments and ensure that GetAll returns the
 	// entities for both of them.
 	entities0 := s.setUpScenario(c, s.state, 2)
 	entities1 := s.setUpScenario(c, s.state1, 4)
 	expectedEntities := append(entities0, entities1...)
 
-	// allEnvWatcherStateBacking also watches environments so add those in.
+	// allModelWatcherStateBacking also watches environments so add those in.
 	env, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	env1, err := s.state1.Model()
@@ -1233,7 +1233,7 @@ func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 		},
 	)
 
-	b := newAllEnvWatcherStateBacking(s.state)
+	b := NewAllModelWatcherStateBacking(s.state)
 	all := newStore()
 	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1245,9 +1245,9 @@ func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 }
 
 // TestStateWatcher tests the integration of the state watcher with
-// allEnvWatcherStateBacking. Most of the logic is comprehensively
+// allModelWatcherStateBacking. Most of the logic is comprehensively
 // tested elsewhere - this just tests end-to-end.
-func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	st0 := s.state
 	env0, err := st0.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1257,7 +1257,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create some initial machines across 2 environments
-	m00, err := st0.AddMachine("trusty", JobManageEnviron)
+	m00, err := st0.AddMachine("trusty", JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m00.Id(), gc.Equals, "0")
 
@@ -1265,7 +1265,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
-	tw := newTestAllEnvWatcher(st0, c)
+	tw := newTestAllModelWatcher(st0, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created environments and
@@ -1295,7 +1295,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			StatusData: map[string]interface{}{},
 			Life:       multiwatcher.Life("alive"),
 			Series:     "trusty",
-			Jobs:       []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:       []multiwatcher.MachineJob{JobManageModel.ToParams()},
 			Addresses:  []network.Address{},
 			HasVote:    false,
 			WantsVote:  true,
@@ -1395,7 +1395,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
-			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
@@ -1493,7 +1493,7 @@ func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 }
 
 // The testChange* funcs are extracted so the test cases can be used
-// to test both the allWatcher and allEnvWatcher.
+// to test both the allWatcher and allModelWatcher.
 
 func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 	changeTestFuncs := []changeTestFunc{
@@ -2861,8 +2861,8 @@ func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
 	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
 }
 
-func newTestAllEnvWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(newAllEnvWatcherStateBacking(st), st, c)
+func newTestAllModelWatcher(st *State, c *gc.C) *testWatcher {
+	return newTestWatcher(NewAllModelWatcherStateBacking(st), st, c)
 }
 
 type testWatcher struct {

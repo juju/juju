@@ -58,7 +58,7 @@ Continue [y/N]? `[1:]
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	EnvironmentConfig() (map[string]interface{}, error)
+	ModelConfig() (map[string]interface{}, error)
 	DestroyController(destroyEnvs bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(envs ...names.ModelTag) ([]base.ModelStatus, error)
@@ -313,7 +313,7 @@ func (c *destroyCommandBase) getControllerEnviron(info configstore.EnvironInfo, 
 		if sysAPI == nil {
 			return nil, errors.New("unable to get bootstrap information from API")
 		}
-		bootstrapCfg, err = sysAPI.EnvironmentConfig()
+		bootstrapCfg, err = sysAPI.ModelConfig()
 		if params.IsCodeNotImplemented(err) {
 			// Fallback to the client API. Better to encapsulate the logic for
 			// old servers than worry about connecting twice.

@@ -50,8 +50,6 @@ func newCreateCommand() cmd.Command {
 // createCommand is the sub-command for creating a new backup.
 type createCommand struct {
 	CommandBase
-	// Quiet indicates that the full metadata should not be dumped.
-	Quiet bool
 	// NoDownload means the backups archive should not be downloaded.
 	NoDownload bool
 	// Filename is where the backup should be downloaded.
@@ -72,7 +70,7 @@ func (c *createCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
 	f.StringVar(&c.Filename, "filename", notset, "download to this file")
 }
@@ -97,6 +95,11 @@ func (c *createCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *createCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -108,7 +111,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if !c.Quiet {
+	if c.Log != nil && !c.Log.Quiet {
 		if c.NoDownload {
 			fmt.Fprintln(ctx.Stderr, downloadWarning)
 		}

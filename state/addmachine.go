@@ -32,13 +32,13 @@ type MachineTemplate struct {
 
 	// Jobs holds the jobs to run on the machine's instance.
 	// A machine must have at least one job to do.
-	// JobManageEnviron can only be part of the jobs
+	// JobManageModel can only be part of the jobs
 	// when the first (bootstrap) machine is added.
 	Jobs []MachineJob
 
 	// NoVote holds whether a machine running
 	// a state server should abstain from peer voting.
-	// It is ignored if Jobs does not contain JobManageEnviron.
+	// It is ignored if Jobs does not contain JobManageModel.
 	NoVote bool
 
 	// Addresses holds the addresses to be associated with the
@@ -260,7 +260,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 		}
 		jset[j] = true
 	}
-	if jset[JobManageEnviron] {
+	if jset[JobManageModel] {
 		if !allowStateServer {
 			return tmpl, errStateServerNotAllowed
 		}
@@ -672,7 +672,7 @@ var errStateServerNotAllowed = errors.New("state server jobs specified but not a
 func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *StateServerInfo) ([]txn.Op, error) {
 	var newIds, newVotingIds []string
 	for _, doc := range mdocs {
-		if !hasJob(doc.Jobs, JobManageEnviron) {
+		if !hasJob(doc.Jobs, JobManageModel) {
 			continue
 		}
 		newIds = append(newIds, doc.Id)
@@ -699,7 +699,7 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	}
 	ops := []txn.Op{{
 		C:  stateServersC,
-		Id: environGlobalKey,
+		Id: modelGlobalKey,
 		Assert: bson.D{{
 			"$and", []bson.D{
 				{{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}}},
@@ -836,7 +836,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
-				JobManageEnviron,
+				JobManageModel,
 			},
 			Constraints: cons,
 			Placement:   getPlacement(),
@@ -960,7 +960,7 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement [
 			intent.maintain = append(intent.maintain, m)
 		} else {
 			// The machine neither wants to nor has a vote, so remove its
-			// JobManageEnviron job immediately.
+			// JobManageModel job immediately.
 			intent.remove = append(intent.remove, m)
 		}
 	}
@@ -974,13 +974,13 @@ func convertStateServerOps(m *Machine) []txn.Op {
 		C:  machinesC,
 		Id: m.doc.DocID,
 		Update: bson.D{
-			{"$addToSet", bson.D{{"jobs", JobManageEnviron}}},
+			{"$addToSet", bson.D{{"jobs", JobManageModel}}},
 			{"$set", bson.D{{"novote", false}}},
 		},
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 	}, {
 		C:  stateServersC,
-		Id: environGlobalKey,
+		Id: modelGlobalKey,
 		Update: bson.D{
 			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
 			{"$addToSet", bson.D{{"machineids", m.doc.Id}}},
@@ -996,7 +996,7 @@ func promoteStateServerOps(m *Machine) []txn.Op {
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	}, {
 		C:      stateServersC,
-		Id:     environGlobalKey,
+		Id:     modelGlobalKey,
 		Update: bson.D{{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
@@ -1009,7 +1009,7 @@ func demoteStateServerOps(m *Machine) []txn.Op {
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
 	}, {
 		C:      stateServersC,
-		Id:     environGlobalKey,
+		Id:     modelGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
@@ -1020,12 +1020,12 @@ func removeStateServerOps(m *Machine) []txn.Op {
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}, {"hasvote", false}},
 		Update: bson.D{
-			{"$pull", bson.D{{"jobs", JobManageEnviron}}},
+			{"$pull", bson.D{{"jobs", JobManageModel}}},
 			{"$set", bson.D{{"novote", false}}},
 		},
 	}, {
 		C:      stateServersC,
-		Id:     environGlobalKey,
+		Id:     modelGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}
 }

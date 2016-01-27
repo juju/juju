@@ -23,8 +23,8 @@ var logger = loggo.GetLogger("juju.apiserver.instancepoller")
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
-	*common.EnvironWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
@@ -54,15 +54,15 @@ func NewInstancePollerAPI(
 		sti,
 		accessMachine,
 	)
-	// EnvironConfig() and WatchForEnvironConfigChanges() are allowed
+	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.
-	environWatcher := common.NewEnvironWatcher(
+	modelWatcher := common.NewModelWatcher(
 		sti,
 		resources,
 		authorizer,
 	)
-	// WatchEnvironMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewEnvironMachinesWatcher(
+	// WatchModelMachines() is allowed with unrestricted access.
+	machinesWatcher := common.NewModelMachinesWatcher(
 		sti,
 		resources,
 		authorizer,
@@ -79,15 +79,15 @@ func NewInstancePollerAPI(
 	)
 
 	return &InstancePollerAPI{
-		LifeGetter:             lifeGetter,
-		EnvironWatcher:         environWatcher,
-		EnvironMachinesWatcher: machinesWatcher,
-		InstanceIdGetter:       instanceIdGetter,
-		StatusGetter:           statusGetter,
-		st:                     sti,
-		resources:              resources,
-		authorizer:             authorizer,
-		accessMachine:          accessMachine,
+		LifeGetter:           lifeGetter,
+		ModelWatcher:         modelWatcher,
+		ModelMachinesWatcher: machinesWatcher,
+		InstanceIdGetter:     instanceIdGetter,
+		StatusGetter:         statusGetter,
+		st:                   sti,
+		resources:            resources,
+		authorizer:           authorizer,
+		accessMachine:        accessMachine,
 	}, nil
 }
 

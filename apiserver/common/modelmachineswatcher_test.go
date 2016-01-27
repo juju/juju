@@ -15,55 +15,55 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type environMachinesWatcherSuite struct {
+type modelMachinesWatcherSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&environMachinesWatcherSuite{})
+var _ = gc.Suite(&modelMachinesWatcherSuite{})
 
-type fakeEnvironMachinesWatcher struct {
-	state.EnvironMachinesWatcher
+type fakeModelMachinesWatcher struct {
+	state.ModelMachinesWatcher
 	initial []string
 }
 
-func (f *fakeEnvironMachinesWatcher) WatchEnvironMachines() state.StringsWatcher {
+func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	changes := make(chan []string, 1)
 	// Simulate initial event.
 	changes <- f.initial
 	return &fakeStringsWatcher{changes}
 }
 
-func (s *environMachinesWatcherSuite) TestWatchEnvironMachines(c *gc.C) {
+func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironMachinesWatcher(
-		&fakeEnvironMachinesWatcher{initial: []string{"foo"}},
+	e := common.NewModelMachinesWatcher(
+		&fakeModelMachinesWatcher{initial: []string{"foo"}},
 		resources,
 		authorizer,
 	)
-	result, err := e.WatchEnvironMachines()
+	result, err := e.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{"1", []string{"foo"}, nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
-func (s *environMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
+func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("1"),
 		EnvironManager: false,
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironMachinesWatcher(
-		&fakeEnvironMachinesWatcher{},
+	e := common.NewModelMachinesWatcher(
+		&fakeModelMachinesWatcher{},
 		resources,
 		authorizer,
 	)
-	_, err := e.WatchEnvironMachines()
+	_, err := e.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(resources.Count(), gc.Equals, 0)
 }

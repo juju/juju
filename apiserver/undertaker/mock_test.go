@@ -92,7 +92,7 @@ func (m *mockState) Model() (undertaker.Model, error) {
 	return m.env, nil
 }
 
-func (m *mockState) EnvironConfig() (*config.Config, error) {
+func (m *mockState) ModelConfig() (*config.Config, error) {
 	return &config.Config{}, nil
 }
 

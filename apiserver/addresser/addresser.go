@@ -51,7 +51,7 @@ func NewAddresserAPI(
 // getNetworkingEnviron checks if the environment implements NetworkingEnviron
 // and also if it supports IP address allocation.
 func (api *AddresserAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
-	config, err := api.st.EnvironConfig()
+	config, err := api.st.ModelConfig()
 	if err != nil {
 		return nil, false, errors.Annotate(err, "getting model config")
 	}

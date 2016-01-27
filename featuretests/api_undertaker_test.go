@@ -37,7 +37,7 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
 
@@ -55,7 +55,7 @@ func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
 
@@ -73,10 +73,10 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
-	c.Assert(undertakerClient.RemoveEnviron(), gc.ErrorMatches, "an error occurred, unable to remove model")
+	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
@@ -122,11 +122,11 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	c.Assert(info.TimeOfDeath.IsZero(), jc.IsFalse)
 }
 
-func (s *undertakerSuite) TestWatchEnvironResources(c *gc.C) {
+func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	w, err := undertakerClient.WatchEnvironResources()
+	w, err := undertakerClient.WatchModelResources()
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -142,7 +142,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	defer otherSt.Close()
 
 	// Aborts on alive environ.
-	err := undertakerClient.RemoveEnviron()
+	err := undertakerClient.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
 	env, err := otherSt.Model()
@@ -150,20 +150,20 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
 	// Aborts on dying environ.
-	err = undertakerClient.RemoveEnviron()
+	err = undertakerClient.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(undertakerClient.RemoveEnviron(), jc.ErrorIsNil)
+	c.Assert(undertakerClient.RemoveModel(), jc.ErrorIsNil)
 	c.Assert(otherSt.EnsureModelRemoved(), jc.ErrorIsNil)
 }
 
-func (s *undertakerSuite) TestHostedEnvironConfig(c *gc.C) {
+func (s *undertakerSuite) TestHostedModelConfig(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	cfg, err := undertakerClient.EnvironConfig()
+	cfg, err := undertakerClient.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
@@ -177,7 +177,7 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:     []state.MachineJob{state.JobManageEnviron},
+		Jobs:     []state.MachineJob{state.JobManageModel},
 		Password: password,
 		Nonce:    "fake_nonce",
 	})

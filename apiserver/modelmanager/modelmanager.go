@@ -30,7 +30,7 @@ func init() {
 // ModelManager defines the methods on the modelmanager API end
 // point.
 type ModelManager interface {
-	ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.EnvironConfigResult, error)
+	ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error)
 	CreateModel(args params.ModelCreateArgs) (params.Model, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 }
@@ -105,8 +105,8 @@ var configValuesFromStateServer = []string{
 // API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects
 // both of these to be empty.
-func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.EnvironConfigResult, error) {
-	var result params.EnvironConfigResult
+func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error) {
+	var result params.ModelConfigResult
 	if args.Provider != "" {
 		return result, errors.NotValidf("provider value %q", args.Provider)
 	}
@@ -114,7 +114,7 @@ func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (
 		return result, errors.NotValidf("region value %q", args.Region)
 	}
 
-	stateServerEnv, err := em.state.ControllerEnvironment()
+	stateServerEnv, err := em.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -291,7 +291,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	result := params.Model{}
 	// Get the state server model first. We need it both for the state
 	// server owner and the ability to get the config.
-	stateServerEnv, err := em.state.ControllerEnvironment()
+	stateServerEnv, err := em.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -316,7 +316,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := em.state.NewEnvironment(newConfig, ownerTag)
+	model, st, err := em.state.NewModel(newConfig, ownerTag)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
@@ -346,7 +346,7 @@ func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 		return result, errors.Trace(err)
 	}
 
-	models, err := em.state.EnvironmentsForUser(userTag)
+	models, err := em.state.ModelsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

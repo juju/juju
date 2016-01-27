@@ -30,7 +30,7 @@ type Firewaller struct {
 	tomb            tomb.Tomb
 	st              *apifirewaller.State
 	environ         environs.Environ
-	environWatcher  apiwatcher.NotifyWatcher
+	modelWatcher    apiwatcher.NotifyWatcher
 	machinesWatcher apiwatcher.StringsWatcher
 	portsWatcher    apiwatcher.StringsWatcher
 	machineds       map[names.MachineTag]*machineData
@@ -61,12 +61,12 @@ func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
 		}
 	}()
 
-	fw.environWatcher, err = st.WatchForEnvironConfigChanges()
+	fw.modelWatcher, err = st.WatchForModelConfigChanges()
 	if err != nil {
 		return nil, err
 	}
 
-	fw.machinesWatcher, err = st.WatchEnvironMachines()
+	fw.machinesWatcher, err = st.WatchModelMachines()
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
 	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.st, fw.tomb.Dying())
+	fw.environ, err = worker.WaitForEnviron(fw.modelWatcher, fw.st, fw.tomb.Dying())
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +113,12 @@ func (fw *Firewaller) loop() error {
 		select {
 		case <-fw.tomb.Dying():
 			return tomb.ErrDying
-		case _, ok := <-fw.environWatcher.Changes():
+		case _, ok := <-fw.modelWatcher.Changes():
 			logger.Debugf("got environ config changes")
 			if !ok {
-				return watcher.EnsureErr(fw.environWatcher)
+				return watcher.EnsureErr(fw.modelWatcher)
 			}
-			config, err := fw.st.EnvironConfig()
+			config, err := fw.st.ModelConfig()
 			if err != nil {
 				return err
 			}
@@ -669,8 +669,8 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 
 // stopWatchers stops all the firewaller's watchers.
 func (fw *Firewaller) stopWatchers() {
-	if fw.environWatcher != nil {
-		watcher.Stop(fw.environWatcher, &fw.tomb)
+	if fw.modelWatcher != nil {
+		watcher.Stop(fw.modelWatcher, &fw.tomb)
 	}
 	if fw.machinesWatcher != nil {
 		watcher.Stop(fw.machinesWatcher, &fw.tomb)

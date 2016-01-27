@@ -409,7 +409,7 @@ type GetConstraintsResults struct {
 
 // SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
-	ServiceName string //optional, if empty, environment constraints are set.
+	ServiceName string //optional, if empty, model constraints are set.
 	Constraints constraints.Value
 }
 
@@ -481,7 +481,7 @@ type ContainerManagerConfigParams struct {
 	Type instance.ContainerType
 }
 
-// ContainerManagerConfig contains information from the environment config
+// ContainerManagerConfig contains information from the model config
 // that is needed for configuring the container manager.
 type ContainerManagerConfig struct {
 	ManagerConfig map[string]string
@@ -494,7 +494,7 @@ type UpdateBehavior struct {
 	EnableOSUpgrade       bool
 }
 
-// ContainerConfig contains information from the environment config that is
+// ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
 	ProviderType            string
@@ -613,11 +613,11 @@ type LoginResultV1 struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
 
-	// ModelTag is the tag for the environment that is being connected to.
-	ModelTag string `json:"environ-tag,omitempty"`
+	// ModelTag is the tag for the model that is being connected to.
+	ModelTag string `json:"model-tag,omitempty"`
 
-	// ControllerTag is the tag for the environment that holds the API servers.
-	// This is the initial environment created when bootstrapping juju.
+	// ControllerTag is the tag for the model that holds the API servers.
+	// This is the initial model created when bootstrapping juju.
 	ControllerTag string `json:"server-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
@@ -639,7 +639,7 @@ type StateServersSpec struct {
 	NumStateServers int               `json:"num-state-servers"`
 	Constraints     constraints.Value `json:"constraints,omitempty"`
 	// Series is the series to associate with new state server machines.
-	// If this is empty, then the environment's default series is used.
+	// If this is empty, then the model's default series is used.
 	Series string `json:"series,omitempty"`
 	// Placement defines specific machines to become new state server machines.
 	Placement []string `json:"placement,omitempty"`
@@ -781,7 +781,7 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
-// ModelInfo holds information about the Juju environment.
+// ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	DefaultSeries string `json:"DefaultSeries"`
 	ProviderType  string `json:"ProviderType"`

@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// NewEnvironmentsCommand returns a command to list environments.
-func NewEnvironmentsCommand() cmd.Command {
+// NewModelsCommand returns a command to list environments.
+func NewModelsCommand() cmd.Command {
 	return envcmd.WrapController(&environmentsCommand{})
 }
 

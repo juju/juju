@@ -80,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
@@ -89,6 +88,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
@@ -720,7 +720,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	var isEnvironManager bool
 	for _, job := range machineJobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			isEnvironManager = true
 			break
 		}
@@ -750,7 +750,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
 	})
 
-	envConfig, err := st.Model().EnvironConfig()
+	envConfig, err := st.Model().ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
@@ -876,7 +876,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
-		case multiwatcher.JobManageEnviron:
+		case multiwatcher.JobManageModel:
 			runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
 				inner := func(<-chan struct{}) error {
 					agentConfig := a.CurrentConfig()
@@ -891,12 +891,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return toolsversionchecker.New(st.Model(), &checkerParams), nil
 			})
-
-		case multiwatcher.JobManageStateDeprecated:
-			// Legacy environments may set this, but we ignore it.
 		default:
-			// TODO(dimitern): Once all workers moved over to using
-			// the API, report "unknown job type" here.
+			return nil, errors.Errorf("unknown job type %q", job)
 		}
 	}
 
@@ -1058,7 +1054,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
 	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		cfg, err := pr.EnvironConfig()
+		cfg, err := pr.ModelConfig()
 		if err != nil {
 			return errors.Annotate(err, "unable to get environ config")
 		}
@@ -1114,10 +1110,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		switch job {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
-		case state.JobManageEnviron:
+		case state.JobManageModel:
 			useMultipleCPUs()
-			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
-				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
+			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
+				return modelworkermanager.NewModelWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
@@ -1156,11 +1152,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
 			})
-
-		case state.JobManageStateDeprecated:
-			// Legacy environments may set this, but we ignore it.
 		default:
-			logger.Warningf("ignoring unknown job %q", job)
+			return nil, errors.Errorf("unknown job type %q", job)
 		}
 	}
 	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
@@ -1180,7 +1173,7 @@ func (s stateWorkerCloser) Close() error {
 // startEnvWorkers starts state server workers that need to run per
 // environment.
 func (a *MachineAgent) startEnvWorkers(
-	ssSt envworkermanager.InitialState,
+	ssSt modelworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
 	modelUUID := st.ModelUUID()
@@ -1311,7 +1304,7 @@ func (a *MachineAgent) startEnvWorkers(
 
 // undertakerWorker manages the controlled take-down of a dying environment.
 func (a *MachineAgent) undertakerWorker(
-	ssSt envworkermanager.InitialState,
+	ssSt modelworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
 	modelUUID := st.ModelUUID()
@@ -1337,7 +1330,7 @@ func (a *MachineAgent) undertakerWorker(
 }
 
 func (a *MachineAgent) newRunnersForAPIConn(
-	ssSt envworkermanager.InitialState,
+	ssSt modelworkermanager.InitialState,
 	st *state.State,
 ) (
 	worker.Runner,
@@ -1392,7 +1385,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 var getFirewallMode = _getFirewallMode
 
 func _getFirewallMode(apiSt api.Connection) (string, error) {
-	envConfig, err := apiSt.Model().EnvironConfig()
+	envConfig, err := apiSt.Model().ModelConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read model config")
 	}

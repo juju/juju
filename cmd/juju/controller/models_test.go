@@ -85,7 +85,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelsSuite) newCommand() cmd.Command {
-	return controller.NewEnvironmentsCommandForTest(s.api, s.api, s.creds)
+	return controller.NewModelsCommandForTest(s.api, s.api, s.creds)
 }
 
 func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {

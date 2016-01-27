@@ -63,7 +63,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
-	cfg, err := testing.EnvironConfig(c).Apply(ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)

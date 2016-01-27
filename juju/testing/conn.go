@@ -130,7 +130,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.ControllerEnvironment()
+	env, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Owner()
 }
@@ -400,7 +400,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -414,7 +414,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 			secretAttrs[k] = v
 		}
 	}
-	return st.UpdateEnvironConfig(secretAttrs, nil, nil)
+	return st.UpdateModelConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -647,6 +647,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

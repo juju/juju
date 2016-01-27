@@ -200,7 +200,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 	var err error
-	cfg := testing.EnvironConfig(c)
+	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)

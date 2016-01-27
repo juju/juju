@@ -60,7 +60,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = info
-	err = envcmd.WriteCurrentEnvironment(envName)
+	err = envcmd.WriteCurrentModel(envName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -417,8 +417,8 @@ func (*fakeCreateClient) Close() error {
 	return nil
 }
 
-func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.EnvironConfig, error) {
-	return params.EnvironConfig{
+func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
+	return params.ModelConfig{
 		"type":         "dummy",
 		"state-server": false,
 	}, nil

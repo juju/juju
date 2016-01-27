@@ -17,7 +17,7 @@ const instancePollerFacade = "InstancePoller"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 
 	facade base.FacadeCaller
 }
@@ -29,8 +29,8 @@ func NewAPI(caller base.APICaller) *API {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, instancePollerFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		facade:       facadeCaller,
 	}
 }
 
@@ -46,11 +46,11 @@ func (api *API) Machine(tag names.MachineTag) (*Machine, error) {
 
 var newStringsWatcher = watcher.NewStringsWatcher
 
-// WatchEnvironMachines return a StringsWatcher reporting waiting for the
-// environment configuration to change.
-func (api *API) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+// WatchModelMachines return a StringsWatcher reporting waiting for the
+// model configuration to change.
+func (api *API) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := api.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}

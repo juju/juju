@@ -20,8 +20,8 @@ type filesSuite struct {
 
 var _ = gc.Suite(&filesSuite{})
 
-func (s *filesSuite) assertCurrentEnvironment(c *gc.C, environmentName string) {
-	current, err := envcmd.ReadCurrentEnvironment()
+func (s *filesSuite) assertCurrentModel(c *gc.C, environmentName string) {
+	current, err := envcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(current, gc.Equals, environmentName)
 }
@@ -32,18 +32,18 @@ func (s *filesSuite) assertCurrentController(c *gc.C, controllerName string) {
 	c.Assert(current, gc.Equals, controllerName)
 }
 
-func (s *filesSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
-	s.assertCurrentEnvironment(c, "")
+func (s *filesSuite) TestReadCurrentModelUnset(c *gc.C) {
+	s.assertCurrentModel(c, "")
 }
 
 func (s *filesSuite) TestReadCurrentControllerUnset(c *gc.C) {
 	s.assertCurrentController(c, "")
 }
 
-func (s *filesSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+func (s *filesSuite) TestReadCurrentModelSet(c *gc.C) {
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "fubar")
+	s.assertCurrentModel(c, "fubar")
 }
 
 func (s *filesSuite) TestReadCurrentControllerSet(c *gc.C) {
@@ -53,9 +53,9 @@ func (s *filesSuite) TestReadCurrentControllerSet(c *gc.C) {
 }
 
 func (s *filesSuite) TestWriteEnvironmentAddsNewline(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	current, err := ioutil.ReadFile(envcmd.GetCurrentEnvironmentFilePath())
+	current, err := ioutil.ReadFile(envcmd.GetCurrentModelFilePath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(current), gc.Equals, "fubar\n")
 }
@@ -71,23 +71,23 @@ func (s *filesSuite) TestWriteControllerAddsNewline(c *gc.C) {
 func (s *filesSuite) TestWriteEnvironmentRemovesControllerFile(c *gc.C) {
 	err := envcmd.WriteCurrentController("baz")
 	c.Assert(err, jc.ErrorIsNil)
-	err = envcmd.WriteCurrentEnvironment("fubar")
+	err = envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envcmd.GetCurrentControllerFilePath(), jc.DoesNotExist)
 }
 
 func (s *filesSuite) TestWriteControllerRemovesEnvironmentFile(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	err = envcmd.WriteCurrentController("baz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envcmd.GetCurrentEnvironmentFilePath(), jc.DoesNotExist)
+	c.Assert(envcmd.GetCurrentModelFilePath(), jc.DoesNotExist)
 }
 
-func (*filesSuite) TestErrorWritingCurrentEnvironment(c *gc.C) {
+func (*filesSuite) TestErrorWritingCurrentModel(c *gc.C) {
 	// Can't write a file over a directory.
-	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	os.MkdirAll(envcmd.GetCurrentModelFilePath(), 0777)
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, gc.ErrorMatches, "unable to write to the model file: .*")
 }
 
@@ -106,7 +106,7 @@ func (*filesSuite) TestCurrentCommenctionNameMissing(c *gc.C) {
 }
 
 func (*filesSuite) TestCurrentCommenctionNameEnvironment(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	name, isController, err := envcmd.CurrentConnectionName()
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,31 +123,31 @@ func (*filesSuite) TestCurrentCommenctionNameController(c *gc.C) {
 	c.Assert(name, gc.Equals, "baz")
 }
 
-func (s *filesSuite) TestSetCurrentEnvironment(c *gc.C) {
+func (s *filesSuite) TestSetCurrentModel(c *gc.C) {
 	ctx := testing.Context(c)
-	err := envcmd.SetCurrentEnvironment(ctx, "new-model")
+	err := envcmd.SetCurrentModel(ctx, "new-model")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "new-model")
+	s.assertCurrentModel(c, "new-model")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-model\n")
 }
 
-func (s *filesSuite) TestSetCurrentEnvironmentExistingEnv(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+func (s *filesSuite) TestSetCurrentModelExistingEnv(c *gc.C) {
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	err = envcmd.SetCurrentEnvironment(ctx, "new-model")
+	err = envcmd.SetCurrentModel(ctx, "new-model")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "new-model")
+	s.assertCurrentModel(c, "new-model")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-model\n")
 }
 
-func (s *filesSuite) TestSetCurrentEnvironmentExistingController(c *gc.C) {
+func (s *filesSuite) TestSetCurrentModelExistingController(c *gc.C) {
 	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	err = envcmd.SetCurrentEnvironment(ctx, "new-model")
+	err = envcmd.SetCurrentModel(ctx, "new-model")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentEnvironment(c, "new-model")
+	s.assertCurrentModel(c, "new-model")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (controller) -> new-model\n")
 }
 
@@ -160,7 +160,7 @@ func (s *filesSuite) TestSetCurrentController(c *gc.C) {
 }
 
 func (s *filesSuite) TestSetCurrentControllerExistingEnv(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	err = envcmd.SetCurrentController(ctx, "new-sys")

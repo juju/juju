@@ -24,9 +24,9 @@ type allWatcherStateBacking struct {
 	collectionByName map[string]allWatcherStateCollection
 }
 
-// allEnvWatcherStateBacking implements Backing by fetching entities
+// allModelWatcherStateBacking implements Backing by fetching entities
 // for all environments from the State.
-type allEnvWatcherStateBacking struct {
+type allModelWatcherStateBacking struct {
 	st               *State
 	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
@@ -1070,7 +1070,7 @@ func (b *allWatcherStateBacking) Release() error {
 	return nil
 }
 
-func newAllEnvWatcherStateBacking(st *State) Backing {
+func NewAllModelWatcherStateBacking(st *State) Backing {
 	collections := makeAllWatcherCollectionInfo(
 		modelsC,
 		machinesC,
@@ -1083,7 +1083,7 @@ func newAllEnvWatcherStateBacking(st *State) Backing {
 		settingsC,
 		openedPortsC,
 	)
-	return &allEnvWatcherStateBacking{
+	return &allModelWatcherStateBacking{
 		st:               st,
 		stPool:           NewStatePool(st),
 		collectionByName: collections,
@@ -1091,22 +1091,22 @@ func newAllEnvWatcherStateBacking(st *State) Backing {
 }
 
 // Watch watches all the collections.
-func (b *allEnvWatcherStateBacking) Watch(in chan<- watcher.Change) {
+func (b *allModelWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
 		b.st.watcher.WatchCollection(c.name, in)
 	}
 }
 
 // Unwatch unwatches all the collections.
-func (b *allEnvWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
+func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
 		b.st.watcher.UnwatchCollection(c.name, in)
 	}
 }
 
 // GetAll fetches all items that we want to watch from the state.
-func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	envs, err := b.st.AllEnvironments()
+func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
+	envs, err := b.st.AllModels()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
@@ -1127,7 +1127,7 @@ func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
+func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		return errors.Errorf("unknown collection %q in fetch request", change.C)
@@ -1142,7 +1142,7 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 
 	st, err := b.getState(change.C, modelUUID)
 	if err != nil {
-		_, envErr := b.st.GetEnvironment(names.NewModelTag(modelUUID))
+		_, envErr := b.st.GetModel(names.NewModelTag(modelUUID))
 		if errors.IsNotFound(envErr) {
 			// The entity's environment is gone so remove the entity
 			// from the store.
@@ -1167,7 +1167,7 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 	return doc.updated(st, all, id)
 }
 
-func (b *allEnvWatcherStateBacking) idForChange(change watcher.Change) (string, string, error) {
+func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string, string, error) {
 	if change.C == modelsC {
 		modelUUID := change.Id.(string)
 		return modelUUID, modelUUID, nil
@@ -1180,7 +1180,7 @@ func (b *allEnvWatcherStateBacking) idForChange(change watcher.Change) (string, 
 	return modelUUID, id, nil
 }
 
-func (b *allEnvWatcherStateBacking) getState(collName, modelUUID string) (*State, error) {
+func (b *allModelWatcherStateBacking) getState(collName, modelUUID string) (*State, error) {
 	if collName == modelsC {
 		return b.st, nil
 	}
@@ -1193,7 +1193,7 @@ func (b *allEnvWatcherStateBacking) getState(collName, modelUUID string) (*State
 }
 
 // Release implements the Backing interface.
-func (b *allEnvWatcherStateBacking) Release() error {
+func (b *allModelWatcherStateBacking) Release() error {
 	err := b.stPool.Close()
 	return errors.Trace(err)
 }

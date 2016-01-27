@@ -499,19 +499,19 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 	}
 	// It only makes sense to make an environment with the same provider
 	// as the initial environment, or things will break elsewhere.
-	currentCfg, err := factory.st.EnvironConfig()
+	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name":       params.Name,
 		"uuid":       uuid.String(),
 		"type":       currentCfg.Type(),
 		"state-port": currentCfg.StatePort(),
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
+	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Prepare {
 		// Prepare the environment.
@@ -520,7 +520,7 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
-		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
+		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return st

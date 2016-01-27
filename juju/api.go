@@ -208,7 +208,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	// For older servers, the environ tag or server tag may not be set.
+	// For older servers, the model tag or server tag may not be set.
 	// if they are not, we store empty values.
 	var modelUUID string
 	var serverUUID string

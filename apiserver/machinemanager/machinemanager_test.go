@@ -135,7 +135,7 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	return &mockBlock{}, false, nil
 }
 
-func (st *mockState) EnvironConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig() (*config.Config, error) {
 	panic("not implemented")
 }
 

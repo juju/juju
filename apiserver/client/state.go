@@ -42,8 +42,8 @@ type stateInterface interface {
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	EnvironConstraints() (constraints.Value, error)
-	EnvironConfig() (*config.Config, error)
-	UpdateEnvironConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
+	ModelConfig() (*config.Config, error)
+	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 	SetEnvironConstraints(constraints.Value) error
 	ModelUUID() string
 	ModelTag() names.ModelTag

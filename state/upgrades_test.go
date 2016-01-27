@@ -91,7 +91,7 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
-	_, err := s.state.AddMachine("quantal", JobManageEnviron)
+	_, err := s.state.AddMachine("quantal", JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.state.AddMachines([]MachineTemplate{
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},

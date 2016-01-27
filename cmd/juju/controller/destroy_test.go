@@ -46,7 +46,7 @@ type fakeDestroyAPI struct {
 
 func (f *fakeDestroyAPI) Close() error { return nil }
 
-func (f *fakeDestroyAPI) EnvironmentConfig() (map[string]interface{}, error) {
+func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

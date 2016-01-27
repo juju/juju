@@ -76,7 +76,7 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 }
 
 func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
@@ -108,7 +108,7 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 }
 
 func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockAllChanges(c, "TestBlockEnsureAvailabilityDeprecated")
@@ -440,7 +440,7 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := envConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
@@ -491,7 +491,7 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := envConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
@@ -523,7 +523,7 @@ func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {
 
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Create a provisioned state server.
-	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -563,7 +563,7 @@ func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
 
 func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 	// Create a provisioned state server.
-	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1070,7 +1070,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
-	conf, _ := s.State.EnvironConfig()
+	conf, _ := s.State.ModelConfig()
 	info, err := s.APIState.Client().ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
@@ -1441,7 +1441,7 @@ func assertKill(c *gc.C, killer Killer) {
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1810,7 +1810,7 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1831,7 +1831,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
@@ -2075,7 +2075,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 }
 
 func (s *serverSuite) TestClientEnvironmentGet(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2083,7 +2083,7 @@ func (s *serverSuite) TestClientEnvironmentGet(c *gc.C) {
 }
 
 func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := envConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
@@ -2091,14 +2091,14 @@ func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) 
 }
 
 func (s *serverSuite) assertEnvValueMissing(c *gc.C, key string) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)
 }
 
 func (s *serverSuite) TestClientEnvironmentSet(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsFalse)
@@ -2136,7 +2136,7 @@ func (s *serverSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
 }
 
 func (s *serverSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	url := envConfig.AllAttrs()["agent-metadata-url"]
 	c.Assert(url, gc.Equals, "")
@@ -2167,7 +2167,7 @@ func (s *serverSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 }
 
 func (s *serverSuite) TestClientEnvironmentUnset(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModelUnset{[]string{"abc"}}
@@ -2177,7 +2177,7 @@ func (s *serverSuite) TestClientEnvironmentUnset(c *gc.C) {
 }
 
 func (s *serverSuite) TestBlockClientEnvironmentUnset(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.BlockAllChanges(c, "TestBlockClientEnvironmentUnset")
 
@@ -2194,7 +2194,7 @@ func (s *serverSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
 }
 
 func (s *serverSuite) TestClientEnvironmentUnsetError(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// "type" may not be removed, and this will cause an error.
@@ -2325,7 +2325,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 // updateConfig sets config variable with given key to a given value
 // Asserts that no errors were encountered.
 func (s *baseSuite) updateConfig(c *gc.C, key string, block bool) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{key: block}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2558,7 +2558,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 
 	setUpdateBehavior := func(update, upgrade bool) {
-		s.State.UpdateEnvironConfig(
+		s.State.UpdateModelConfig(
 			map[string]interface{}{
 				"enable-os-upgrade":        upgrade,
 				"enable-os-refresh-update": update,

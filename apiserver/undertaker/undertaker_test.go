@@ -114,7 +114,7 @@ func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 	_, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.RemoveEnviron()
+	err = hostedAPI.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
@@ -127,7 +127,7 @@ func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.RemoveEnviron()
+	err = hostedAPI.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
@@ -142,16 +142,16 @@ func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
 	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 
-	err = hostedAPI.RemoveEnviron()
+	err = hostedAPI.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
 }
 
-func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
+func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
 
-	cfg, err := hostedAPI.EnvironConfig()
+	cfg, err := hostedAPI.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 }

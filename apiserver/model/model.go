@@ -14,14 +14,14 @@ func init() {
 
 // ModelAPI implements the API used by the machine model worker.
 type ModelAPI struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*ModelTools
 }
 
 // NewModelAPI creates a new instance of the Model API.
 func NewModelAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ModelAPI, error) {
 	return &ModelAPI{
-		EnvironWatcher: common.NewEnvironWatcher(st, resources, authorizer),
-		ModelTools:     NewEnvironTools(st, authorizer),
+		ModelWatcher: common.NewModelWatcher(st, resources, authorizer),
+		ModelTools:   NewEnvironTools(st, authorizer),
 	}, nil
 }

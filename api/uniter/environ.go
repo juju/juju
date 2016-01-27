@@ -4,7 +4,7 @@
 package uniter
 
 // This module implements a subset of the interface provided by
-// state.Environment, as needed by the uniter API.
+// state.Model, as needed by the uniter API.
 
 // Model represents the state of a model.
 type Model struct {

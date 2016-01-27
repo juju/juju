@@ -117,7 +117,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 // in simplestreams and GETting it, caching the result in toolstorage before returning
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage, st *state.State) (io.ReadCloser, error) {
-	envcfg, err := st.EnvironConfig()
+	envcfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}

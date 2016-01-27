@@ -10,36 +10,36 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// EnvironWatcher implements two common methods for use by various
-// facades - WatchForEnvironConfigChanges and EnvironConfig.
-type EnvironWatcher struct {
-	st         state.EnvironAccessor
+// ModelWatcher implements two common methods for use by various
+// facades - WatchForModelConfigChanges and ModelConfig.
+type ModelWatcher struct {
+	st         state.ModelAccessor
 	resources  *Resources
 	authorizer Authorizer
 }
 
-// NewEnvironWatcher returns a new EnvironWatcher. Active watchers
+// NewModelWatcher returns a new ModelWatcher. Active watchers
 // will be stored in the provided Resources. The two GetAuthFunc
 // callbacks will be used on each invocation of the methods to
 // determine current permissions.
 // Right now, environment tags are not used, so both created AuthFuncs
 // are called with "" for tag, which means "the current environment".
-func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, authorizer Authorizer) *EnvironWatcher {
-	return &EnvironWatcher{
+func NewModelWatcher(st state.ModelAccessor, resources *Resources, authorizer Authorizer) *ModelWatcher {
+	return &ModelWatcher{
 		st:         st,
 		resources:  resources,
 		authorizer: authorizer,
 	}
 }
 
-// WatchForEnvironConfigChanges returns a NotifyWatcher that observes
+// WatchForModelConfigChanges returns a NotifyWatcher that observes
 // changes to the environment configuration.
 // Note that although the NotifyWatchResult contains an Error field,
 // it's not used because we are only returning a single watcher,
 // so we use the regular error return.
-func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
+func (e *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	watch := e.st.WatchForEnvironConfigChanges()
+	watch := e.st.WatchForModelConfigChanges()
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers
@@ -52,11 +52,11 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 	return result, nil
 }
 
-// EnvironConfig returns the current environment's configuration.
-func (e *EnvironWatcher) EnvironConfig() (params.EnvironConfigResult, error) {
-	result := params.EnvironConfigResult{}
+// ModelConfig returns the current environment's configuration.
+func (e *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
+	result := params.ModelConfigResult{}
 
-	config, err := e.st.EnvironConfig()
+	config, err := e.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}

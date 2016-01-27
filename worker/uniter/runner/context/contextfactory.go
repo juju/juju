@@ -277,7 +277,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
-	environConfig, err := f.state.EnvironConfig()
+	environConfig, err := f.state.ModelConfig()
 	if err != nil {
 		return err
 	}

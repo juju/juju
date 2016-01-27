@@ -35,12 +35,12 @@ the end of the command line.
 
 Example:
   
-  juju get-model default-series  (returns the default series for the model)
+  juju get-model-config default-series  (returns the default series for the model)
 `
 
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get-model",
+		Name:    "get-model-config",
 		Args:    "[<model key>]",
 		Purpose: "view model values",
 		Doc:     strings.TrimSpace(getEnvHelpDoc),
