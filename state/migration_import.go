@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
@@ -17,10 +18,12 @@ import (
 
 // Import the database agnostic model representation into the database.
 func (st *State) Import(description migration.Description) (_ *Environment, _ *State, err error) {
+	model := description.Model()
 
+	logger := loggo.GetLogger("juju.state.import-model")
+	logger.Debugf("import starting for model %s", model.Tag().Id())
 	// At this stage, attempting to import a model with the same
 	// UUID as an existing model will error.
-	model := description.Model()
 	envTag := model.Tag()
 	_, err = st.GetEnvironment(envTag)
 	if err == nil {
@@ -39,6 +42,7 @@ func (st *State) Import(description migration.Description) (_ *Environment, _ *S
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	logger.Debugf("model created %s/%s", env.Owner().Canonical(), env.Name())
 	defer func() {
 		if err != nil {
 			envSt.Close()
@@ -56,11 +60,13 @@ func (st *State) Import(description migration.Description) (_ *Environment, _ *S
 		st:          envSt,
 		environment: env,
 		model:       model,
+		logger:      logger,
 	}
 	if err := restore.environmentUsers(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	if err := restore.machines(); err != nil {
+		logger.Debugf("machine error")
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -73,6 +79,7 @@ func (st *State) Import(description migration.Description) (_ *Environment, _ *S
 
 	// Update the sequences to match that the source.
 
+	logger.Debugf("import success")
 	return env, envSt, nil
 }
 
@@ -80,9 +87,12 @@ type importer struct {
 	st          *State
 	environment *Environment
 	model       migration.Model
+	logger      loggo.Logger
 }
 
 func (i *importer) environmentUsers() error {
+	i.logger.Debugf("importing users")
+
 	// The user that was auto-added when we created the environment will have
 	// the wrong DateCreated, so we remove it, and add in all the users we
 	// know about. It is also possible that the owner of the environment no
@@ -108,6 +118,7 @@ func (i *importer) environmentUsers() error {
 	}
 	// Now set their last connection times.
 	for _, user := range users {
+		i.logger.Debugf("user %s", user.Name())
 		lastConnection := user.LastConnection()
 		if lastConnection.IsZero() {
 			continue
@@ -125,17 +136,21 @@ func (i *importer) environmentUsers() error {
 }
 
 func (i *importer) machines() error {
+	i.logger.Debugf("importing machines")
 	for _, m := range i.model.Machines() {
 		if err := i.machine(m); err != nil {
+			i.logger.Errorf("error importing machine: %s", err)
 			return errors.Annotate(err, m.Id().String())
 		}
 	}
 
+	i.logger.Debugf("importing machines succeeded")
 	return nil
 }
 
 func (i *importer) machine(m migration.Machine) error {
 	// Import this machine, then import its containers.
+	i.logger.Debugf("importing machine %s", m.Id().Id())
 
 	// 1. construct a machineDoc
 	mdoc := i.makeMachineDoc(m)
