@@ -1022,7 +1022,7 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
 
-        def get_juju_output(command, *args, **kwargsP):
+        def get_juju_output(command, *args, **kwargs):
             raise subprocess.CalledProcessError(1, command)
 
         with patch.object(client, 'get_juju_output',
