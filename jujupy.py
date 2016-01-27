@@ -320,8 +320,7 @@ class EnvJujuClient:
         for machine in machines:
             self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools, to=None, agent_version=None,
-                           bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -335,16 +334,12 @@ class EnvJujuClient:
             args = ('--upload-tools',) + args
         if to is not None:
             args = args + ('--to', to)
-        if agent_version is not None:
-            args = args + ('--agent-version', agent_version)
         if bootstrap_series is not None:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
-    def bootstrap(self, upload_tools=False, to=None, agent_version=None,
-                  bootstrap_series=None):
-        args = self.get_bootstrap_args(upload_tools, to, agent_version,
-                                       bootstrap_series)
+    def bootstrap(self, upload_tools=False, to=None, bootstrap_series=None):
+        args = self.get_bootstrap_args(upload_tools, to, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
@@ -967,8 +962,7 @@ class EnvJujuClient2A1(EnvJujuClient):
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
-    def get_bootstrap_args(self, upload_tools, to=None, agent_version=None,
-                           bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -984,11 +978,6 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             env_val = self.env.config.get('bootstrap-host')
             if to != env_val:
                 raise BootstrapMismatch('to', to, 'bootstrap-host', env_val)
-        if agent_version is not None:
-            env_val = self.env.config.get('agent-version')
-            if agent_version != env_val:
-                raise BootstrapMismatch(
-                    'agent-version', agent_version, 'agent-version', env_val)
         if bootstrap_series is not None:
             env_val = self.env.config.get('default-series')
             if bootstrap_series != env_val:
