@@ -1027,6 +1027,45 @@ class TestBootstrapManager(FakeHomeTestCase):
         with bs_manager.bootstrap_context([]):
             self.assertEqual(orig_home, get_juju_home())
 
+    def test_bootstrap_context_calls_update_env(self):
+        client = FakeJujuClient()
+        ue_mock = use_context(
+            self, patch('deploy_stack.update_env', wraps=update_env))
+        wfp_mock = use_context(
+            self, patch('deploy_stack.wait_for_port', autospec=True))
+        bs_manager = BootstrapManager(
+            'bar', client, client, None,
+            [], 'wacky', 'url', 'devel', None, client.env.juju_home, False,
+            True, True)
+        bs_manager.known_hosts['0'] = 'bootstrap.example.org'
+        with bs_manager.bootstrap_context([]):
+            pass
+        ue_mock.assert_called_with(
+            client.env, 'bar', series='wacky',
+            bootstrap_host='bootstrap.example.org',
+            agent_url='url', agent_stream='devel', region=None)
+        wfp_mock.assert_called_once_with(
+            'bootstrap.example.org', 22, timeout=120)
+
+    def test_bootstrap_context_calls_update_env_omit(self):
+        client = FakeJujuClient()
+        ue_mock = use_context(
+            self, patch('deploy_stack.update_env', wraps=update_env))
+        wfp_mock = use_context(
+            self, patch('deploy_stack.wait_for_port', autospec=True))
+        bs_manager = BootstrapManager(
+            'bar', client, client, None,
+            [], 'wacky', 'url', 'devel', None, client.env.juju_home, True,
+            True, True)
+        bs_manager.known_hosts['0'] = 'bootstrap.example.org'
+        with bs_manager.bootstrap_context(
+                [], omit_config={'bootstrap_host', 'series'}):
+            pass
+        ue_mock.assert_called_with(client.env, 'bar', agent_url='url',
+                                   agent_stream='devel', region=None)
+        wfp_mock.assert_called_once_with(
+            'bootstrap.example.org', 22, timeout=120)
+
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
         client.env.juju_home = 'foobar'
@@ -1116,6 +1155,33 @@ class TestBootstrapManager(FakeHomeTestCase):
             with self.assertRaises(SystemExit):
                 with bs_manager.booted_context(False):
                     raise LoggedException()
+
+    def test_booted_context_omits_supported(self):
+        client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap_supports = {'agent-version', 'series',
+                                     'bootstrap-host', 'agent-stream'}
+        ue_mock = use_context(
+            self, patch('deploy_stack.update_env', wraps=update_env))
+        wfp_mock = use_context(
+            self, patch('deploy_stack.wait_for_port', autospec=True))
+        bs_manager = BootstrapManager(
+            'bar', client, client, 'bootstrap.example.org',
+            [], 'wacky', 'url', 'devel', None, client.env.juju_home, False,
+            True, True)
+        with patch.object(bs_manager, 'runtime_context'):
+            with bs_manager.booted_context([]):
+                pass
+        self.assertEqual({
+            'name': 'bar',
+            'bootstrap-host': 'bootstrap.example.org',
+            'default-series': 'wacky',
+            'tools-metadata-url': 'url',
+            'type': 'foo',
+            }, client.get_model_config())
+        ue_mock.assert_called_with(client.env, 'bar', agent_url='url',
+                                   region=None)
+        wfp_mock.assert_called_once_with(
+            'bootstrap.example.org', 22, timeout=120)
 
 
 class TestBootContext(FakeHomeTestCase):
@@ -1260,7 +1326,7 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
             '--constraints', 'mem=2G'), 0)
 
-    def test_calls_update_env(self):
+    def test_calls_update_env_2(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
         client = EnvJujuClient(SimpleEnvironment(
             'foo', {'type': 'paas'}), '1.23', 'path')
@@ -1271,12 +1337,29 @@ class TestBootContext(FakeHomeTestCase):
                               None, keep_env=False, upload_tools=False):
                 pass
         ue_mock.assert_called_with(
-            client.env, 'bar', series='wacky', bootstrap_host=None,
-            agent_url='url', agent_stream='devel', region=None)
+            client.env, 'bar', agent_url='url', agent_stream='devel',
+            region=None)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar',
             '--constraints', 'mem=2G', '--agent-version', '1.23',
             '--bootstrap-series', 'wacky'), 0)
+
+    def test_calls_update_env_1(self):
+        cc_mock = self.addContext(patch('subprocess.check_call'))
+        client = EnvJujuClient1X(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        ue_mock = self.addContext(
+            patch('deploy_stack.update_env', wraps=update_env))
+        with self.bc_context(client):
+            with boot_context('bar', client, None, [], 'wacky', 'url', 'devel',
+                              None, keep_env=False, upload_tools=False):
+                pass
+        ue_mock.assert_called_with(
+            client.env, 'bar', series='wacky', bootstrap_host=None,
+            agent_url='url', agent_stream='devel', region=None)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'bar',
+            '--constraints', 'mem=2G'), 0)
 
     def test_calls_update_env_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))

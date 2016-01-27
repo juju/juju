@@ -103,6 +103,7 @@ class FakeEnvironmentState:
         self.state = 'not-bootstrapped'
         self.current_bundle = None
         self.models = {}
+        self.model_config = None
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -128,10 +129,12 @@ class FakeEnvironmentState:
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
-    def bootstrap(self, name):
-        self.name = name
+    def bootstrap(self, env, commandline_config):
+        self.name = env.environment
         self.state_servers.append(self.add_machine())
         self.state = 'bootstrapped'
+        self.model_config = copy.deepcopy(env.config)
+        self.model_config.update(commandline_config)
 
     def destroy_environment(self):
         self._clear()
@@ -219,6 +222,7 @@ class FakeJujuClient:
         self.env = env
         self.full_path = full_path
         self.debug = debug
+        self.bootstrap_supports = {}
         self._jes_enabled = jes_enabled
 
     def clone(self, env, full_path=None, debug=None):
@@ -284,15 +288,20 @@ class FakeJujuClient:
             else:
                 self._backing_state.remove_machine(machine_id)
 
-    def bootstrap(self, upload_tools=False):
-        self._backing_state.bootstrap(self.env.environment)
+    def bootstrap(self, upload_tools=False, to=None, bootstrap_series=None):
+        commandline_config = {}
+        if to is not None:
+            commandline_config['bootstrap-host'] = to
+        if bootstrap_series is not None:
+            commandline_config['default-series'] = bootstrap_series
+        self._backing_state.bootstrap(self.env, commandline_config)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
 
     def quickstart(self, bundle):
-        self._backing_state.bootstrap(self.env.environment)
+        self._backing_state.bootstrap(self.env, {})
         self._backing_state.deploy_bundle(bundle)
 
     def create_environment(self, controller_client, config_file):
@@ -345,7 +354,7 @@ class FakeJujuClient:
         pass
 
     def get_model_config(self):
-        pass
+        return copy.deepcopy(self._backing_state.model_config)
 
     def deployer(self, bundle, name=None):
         pass

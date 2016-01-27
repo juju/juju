@@ -171,6 +171,9 @@ class WorkloadsNotReady(StatusNotMet):
 
 class EnvJujuClient:
 
+    bootstrap_supports = frozenset(['agent-version', 'series',
+                                    'bootstrap-host'])
+
     _show_status = 'show-status'
 
     @classmethod
@@ -975,6 +978,8 @@ class EnvJujuClient2A1(EnvJujuClient):
 
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
+
+    bootstrap_supports = frozenset()
 
     def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
