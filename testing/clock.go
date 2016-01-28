@@ -11,14 +11,18 @@ import (
 
 // Clock implements a mock clock.Clock for testing purposes.
 type Clock struct {
-	mu     sync.Mutex
-	now    time.Time
-	alarms []alarm
+	mu           sync.Mutex
+	now          time.Time
+	alarms       []alarm
+	notifyAlarms chan struct{}
 }
 
 // NewClock returns a new clock set to the supplied time.
 func NewClock(now time.Time) *Clock {
-	return &Clock{now: now}
+	return &Clock{
+		now:          now,
+		notifyAlarms: make(chan struct{}, 1024),
+	}
 }
 
 // Now is part of the clock.Clock interface.
@@ -30,6 +34,7 @@ func (clock *Clock) Now() time.Time {
 
 // After is part of the clock.Clock interface.
 func (clock *Clock) After(d time.Duration) <-chan time.Time {
+	defer clock.notifyAlarm()
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
 	notify := make(chan time.Time, 1)
@@ -57,6 +62,23 @@ func (clock *Clock) Advance(d time.Duration) {
 		rung++
 	}
 	clock.alarms = clock.alarms[rung:]
+}
+
+// Alarms returns a channel on which you can read one value for every call to
+// After and AfterFunc; and for every successful Timer.Reset backed by this
+// clock. It might not be elegant but it's necessary when testing time logic
+// that runs on a goroutine other than that of the test.
+func (clock *Clock) Alarms() <-chan struct{} {
+	return clock.notifyAlarms
+}
+
+// notifyAlarm sends a value on the channel exposed by Alarms().
+func (clock *Clock) notifyAlarm() {
+	select {
+	case clock.notifyAlarms <- struct{}{}:
+	default:
+		panic("alarm notification buffer full")
+	}
 }
 
 // alarm records the time at which we're expected to send on notify.

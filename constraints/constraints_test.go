@@ -358,8 +358,7 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	c.Assert(merged, jc.DeepEquals, con1)
 	merged, err = constraints.Merge(con1, con2, con3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(merged, jc.DeepEquals, constraints.
-		MustParse(
+	c.Assert(merged, jc.DeepEquals, constraints.MustParse(
 		"arch=amd64 mem=4G cpu-cores=42 root-disk=8G container=lxc spaces=space1,^space2 networks=net1,^net2"),
 	)
 	merged, err = constraints.Merge()
