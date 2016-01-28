@@ -26,7 +26,14 @@ type MetricsDebugClient interface {
 	GetMetrics(tag string) ([]params.MetricResult, error)
 }
 
+// MeterStatusClient defines methods on the metricsdebug API end point.
+type MeterStatusClient interface {
+	// SetMeterStatus will set the meter status on the given entity tag.
+	SetMeterStatus(tag, code, info string) error
+}
+
 var _ MetricsDebugClient = (*Client)(nil)
+var _ MeterStatusClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsdebug api
 func NewClient(st base.APICallCloser) *Client {
@@ -51,4 +58,24 @@ func (c *Client) GetMetrics(tag string) ([]params.MetricResult, error) {
 		metrics = append(metrics, r.Metrics...)
 	}
 	return metrics, nil
+}
+
+// SetMeterStatus will set the meter status on the given entity tag.
+func (c *Client) SetMeterStatus(tag, code, info string) error {
+	args := params.MeterStatusParams{
+		Statuses: []params.MeterStatusParam{{
+			Tag:  tag,
+			Code: code,
+			Info: info,
+		},
+		},
+	}
+	results := new(params.ErrorResults)
+	if err := c.facade.FacadeCall("SetMeterStatus", args, results); err != nil {
+		return errors.Trace(err)
+	}
+	if err := results.OneError(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

@@ -27,7 +27,7 @@ type metricsdebugSuiteMock struct {
 
 var _ = gc.Suite(&metricsdebugSuiteMock{})
 
-func (s *metricsdebugSuite) TestGetMetrics(c *gc.C) {
+func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
 	var called bool
 	now := time.Now()
 	apiCaller := basetesting.APICallerFunc(
@@ -97,6 +97,81 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFacadeCallError(c *gc.C) {
 	metrics, err := client.GetMetrics("unit-wordpress/0")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(metrics, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, response interface{},
+		) error {
+			c.Assert(request, gc.Equals, "SetMeterStatus")
+			c.Assert(a, gc.DeepEquals, params.MeterStatusParams{
+				Statuses: []params.MeterStatusParam{{
+					Tag:  "unit-metered/0",
+					Code: "RED",
+					Info: "test"},
+				},
+			})
+			result := response.(*params.ErrorResults)
+			result.Results = []params.ErrorResult{{
+				Error: nil,
+			}}
+			called = true
+			return nil
+		})
+	client := metricsdebug.NewClient(apiCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, response interface{},
+		) error {
+			c.Assert(request, gc.Equals, "SetMeterStatus")
+			c.Assert(a, gc.DeepEquals, params.MeterStatusParams{
+				Statuses: []params.MeterStatusParam{{
+					Tag:  "unit-metered/0",
+					Code: "RED",
+					Info: "test"},
+				},
+			})
+			result := response.(*params.ErrorResults)
+			result.Results = []params.ErrorResult{{
+				Error: common.ServerError(errors.New("an error")),
+			}}
+			called = true
+			return nil
+		})
+	client := metricsdebug.NewClient(apiCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, gc.ErrorMatches, "an error")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *metricsdebugSuiteMock) TestSetMeterStatusFacadeCallError(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, response interface{},
+		) error {
+			called = true
+			return errors.New("an error")
+		})
+	client := metricsdebug.NewClient(apiCaller)
+	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
+	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -176,4 +251,92 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithService(c *gc.C) {
 	c.Assert(metrics, gc.HasLen, 2)
 	assertSameMetric(c, metrics[0], metricUnit0)
 	assertSameMetric(c, metrics[1], metricUnit1)
+}
+
+func (s *metricsdebugSuite) TestSetMeterStatus(c *gc.C) {
+	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	testService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: testCharm})
+	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: testService, SetCharmURL: true})
+	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: testService, SetCharmURL: true})
+
+	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	csService := s.Factory.MakeService(c, &factory.ServiceParams{Name: "cs-service", Charm: csCharm})
+	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: csService, SetCharmURL: true})
+
+	tests := []struct {
+		about  string
+		tag    string
+		code   string
+		info   string
+		err    string
+		assert func(*gc.C)
+	}{{
+		about: "set service meter status",
+		tag:   testService.Tag().String(),
+		code:  "RED",
+		info:  "test",
+		assert: func(c *gc.C) {
+			ms1, err := testUnit1.GetMeterStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ms1, gc.DeepEquals, state.MeterStatus{
+				Code: state.MeterRed,
+				Info: "test",
+			})
+			ms2, err := testUnit2.GetMeterStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ms2, gc.DeepEquals, state.MeterStatus{
+				Code: state.MeterRed,
+				Info: "test",
+			})
+		},
+	}, {
+		about: "set unit meter status",
+		tag:   testUnit1.Tag().String(),
+		code:  "AMBER",
+		info:  "test",
+		assert: func(c *gc.C) {
+			ms1, err := testUnit1.GetMeterStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ms1, gc.DeepEquals, state.MeterStatus{
+				Code: state.MeterAmber,
+				Info: "test",
+			})
+		},
+	}, {
+		about: "not a local charm - service",
+		tag:   csService.Tag().String(),
+		code:  "AMBER",
+		info:  "test",
+		err:   "not a local charm",
+	}, {
+		about: "not a local charm - unit",
+		tag:   csUnit1.Tag().String(),
+		code:  "AMBER",
+		info:  "test",
+		err:   "not a local charm",
+	}, {
+		about: "invalid meter status",
+		tag:   testUnit1.Tag().String(),
+		code:  "WRONG",
+		info:  "test",
+		err:   "invalid meter status \"NOT AVAILABLE\"",
+	}, {
+		about: "not such service",
+		tag:   "service-missing",
+		code:  "AMBER",
+		info:  "test",
+		err:   "service \"missing\" not found",
+	},
+	}
+
+	for i, test := range tests {
+		c.Logf("running test %d: %v", i, test.about)
+		err := s.manager.SetMeterStatus(test.tag, test.code, test.info)
+		if test.err == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			test.assert(c)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		}
+	}
 }
