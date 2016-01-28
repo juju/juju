@@ -353,11 +353,11 @@ func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Uni
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
 
 	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, internalserver.FacadeVersion)
-	doer, err := caller.HTTPClient()
+	httpClient, err := caller.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitDoer := internalclient.NewUnitDoer(doer, unitName)
+	unitHTTPClient := internalclient.NewUnitHTTPClient(httpClient, unitName)
 
-	return internalclient.NewUnitFacadeClient(facadeCaller, unitDoer), nil
+	return internalclient.NewUnitFacadeClient(facadeCaller, unitHTTPClient), nil
 }

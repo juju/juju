@@ -22,20 +22,28 @@ type FacadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
 }
 
-// UnitDoer exposes the raw API HTTP caller functionality needed here.
-type UnitDoer interface {
+// HTTPClient exposes the raw API HTTP caller functionality needed here.
+type HTTPClient interface {
 	// Do sends the HTTP request/body and unpacks the response into
 	// the provided "resp". If that is a **http.Response then it is
 	// unpacked as-is. Otherwise it is unmarshaled from JSON.
 	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
 }
 
+// UnitHTTPClient exposes the raw API HTTP caller functionality needed here.
+type UnitHTTPClient interface {
+	HTTPClient
+
+	// Unit Returns the name of the unit for this client.
+	Unit() string
+}
+
 // NewUnitFacadeClient creates a new API client for the resources
 // portion of the uniter facade.
-func NewUnitFacadeClient(facadeCaller FacadeCaller, doer UnitDoer) *FacadeClient {
+func NewUnitFacadeClient(facadeCaller FacadeCaller, httpClient UnitHTTPClient) *FacadeClient {
 	return &FacadeClient{
 		FacadeCaller: facadeCaller,
-		doer:         doer,
+		HTTPClient:   httpClient,
 	}
 }
 
@@ -43,7 +51,7 @@ func NewUnitFacadeClient(facadeCaller FacadeCaller, doer UnitDoer) *FacadeClient
 // of the uniter facade.
 type FacadeClient struct {
 	FacadeCaller
-	doer UnitDoer
+	HTTPClient
 }
 
 // GetResource opens the resource (metadata/blob), if it exists, via
@@ -55,7 +63,7 @@ func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.R
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
-	if err := c.doer.Do(req, nil, &response); err != nil {
+	if err := c.Do(req, nil, &response); err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
@@ -98,23 +106,28 @@ func (c *FacadeClient) getResourceInfo(resourceName string) (resource.Resource, 
 	return res, nil
 }
 
-type unitDoer struct {
-	doer     UnitDoer
+type unitHTTPClient struct {
+	HTTPClient
 	unitName string
 }
 
-// NewUnitDoer wraps an HTTP client (a la httprequest.Client) with unit
-// information. This allows rewriting of the URL to match the relevant
-// unit.
-func NewUnitDoer(doer UnitDoer, unitName string) UnitDoer {
-	return &unitDoer{
-		doer:     doer,
-		unitName: unitName,
+// NewUnitHTTPClient wraps an HTTP client (a la httprequest.Client)
+// with unit information. This allows rewriting of the URL to match
+// the relevant unit.
+func NewUnitHTTPClient(client HTTPClient, unitName string) UnitHTTPClient {
+	return &unitHTTPClient{
+		HTTPClient: client,
+		unitName:   unitName,
 	}
 }
 
+// Unit returns the name of the unit.
+func (uhc unitHTTPClient) Unit() string {
+	return uhc.unitName
+}
+
 // Do implements httprequest.Doer.
-func (ud *unitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
-	req.URL.Path = path.Join("/units", ud.unitName, req.URL.Path)
-	return ud.doer.Do(req, body, response)
+func (uhc *unitHTTPClient) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
+	req.URL.Path = path.Join("/units", uhc.unitName, req.URL.Path)
+	return uhc.HTTPClient.Do(req, body, response)
 }

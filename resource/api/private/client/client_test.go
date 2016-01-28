@@ -43,9 +43,8 @@ func (s *FacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 	cl := client.NewUnitFacadeClient(caller, doer)
 
 	s.stub.CheckNoCalls(c)
-	aCaller, aDoer := client.ExposeClient(cl)
-	c.Check(aCaller, gc.Equals, caller)
-	c.Check(aDoer, gc.Equals, aDoer)
+	c.Check(cl.FacadeCaller, gc.Equals, caller)
+	c.Check(cl.HTTPClient, gc.Equals, doer)
 }
 
 func (s *FacadeClientSuite) TestGetResource(c *gc.C) {
@@ -66,7 +65,7 @@ func (s *FacadeClientSuite) TestUnitDoer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	body := filetesting.NewStubFile(s.stub, nil)
 	var resp *http.Response
-	doer := client.NewUnitDoer(s.api, "spam/1")
+	doer := client.NewUnitHTTPClient(s.api, "spam/1")
 
 	err = doer.Do(req, body, &resp)
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,6 +79,7 @@ type stubAPI struct {
 	*testing.Stub
 
 	ReturnFacadeCall private.ResourcesResult
+	ReturnUnit       string
 	ReturnDo         *http.Response
 }
 
@@ -103,6 +103,13 @@ func (s *stubAPI) FacadeCall(request string, params, response interface{}) error
 	resp := response.(*private.ResourcesResult)
 	*resp = s.ReturnFacadeCall
 	return nil
+}
+
+func (s *stubAPI) Unit() string {
+	s.AddCall("Unit")
+	s.NextErr() // Pop one off.
+
+	return s.ReturnUnit
 }
 
 func (s *stubAPI) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
