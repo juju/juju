@@ -83,6 +83,10 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+		if s.mockBlockClient.discovering_spaces_error > 0 {
+			s.mockBlockClient.discovering_spaces_error -= 1
+			return nil, errors.New("space discovery still in progress")
+		}
 		return s.mockBlockClient, nil
 	})
 }
@@ -100,8 +104,9 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 type mockBlockClient struct {
-	retry_count int
-	num_retries int
+	retry_count              int
+	num_retries              int
+	discovering_spaces_error int
 }
 
 func (c *mockBlockClient) List() ([]params.Block, error) {
@@ -160,6 +165,21 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		}
 		c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
 	}
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
+	defaultSeriesVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+	resetJujuHome(c, "devenv")
+
+	s.mockBlockClient.discovering_spaces_error = 2
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockBlockClient.discovering_spaces_error, gc.Equals, 0)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
