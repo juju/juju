@@ -81,7 +81,7 @@ type contextDeps struct {
 }
 
 func (deps *contextDeps) NewContextDirectorySpec() internal.ContextDirectorySpec {
-	return internal.NewDirectorySpec(deps.dataDir, deps.name, deps)
+	return internal.NewContextDirectorySpec(deps.dataDir, deps.name, deps)
 }
 
 func (deps *contextDeps) OpenResource() (internal.ContextOpenedResource, error) {
@@ -89,7 +89,7 @@ func (deps *contextDeps) OpenResource() (internal.ContextOpenedResource, error) 
 }
 
 func (deps *contextDeps) Download(target internal.DownloadTarget, remote internal.ContextOpenedResource) error {
-	return internal.DownloadIndirect(spec, remote, deps)
+	return internal.DownloadIndirect(target, remote, deps)
 }
 
 func (deps *contextDeps) DownloadDirect(target internal.DownloadTarget, remote internal.ContentSource) error {

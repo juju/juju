@@ -76,6 +76,22 @@ type ContextDirectorySpec interface {
 	IsUpToDate(Content) (bool, error)
 }
 
+// NewContextDirectorySpec returns a new directory spec for the context.
+func NewContextDirectorySpec(dataDir, name string, deps DirectorySpecDeps) ContextDirectorySpec {
+	return &contextDirectorySpec{
+		DirectorySpec: NewDirectorySpec(dataDir, name, deps),
+	}
+}
+
+type contextDirectorySpec struct {
+	*DirectorySpec
+}
+
+// Open implements ContextDirectorySpec.
+func (spec contextDirectorySpec) Open() (DownloadDirectory, error) {
+	return spec.DirectorySpec.Open()
+}
+
 // ContextDownloadDirectory is an adapter for TempDirectorySpec.
 type ContextDownloadDirectory struct {
 	*TempDirectorySpec
