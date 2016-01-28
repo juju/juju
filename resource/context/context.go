@@ -132,7 +132,9 @@ func (deps contextDeps) RemoveDir(dirname string) error {
 }
 
 func (deps contextDeps) Move(target, source string) error {
-	return os.Rename(target, source)
+	// Note that we follow the io.Copy() argument arder here
+	// (os.Rename does not).
+	return os.Rename(source, target)
 }
 
 func (deps contextDeps) Join(path ...string) string {
