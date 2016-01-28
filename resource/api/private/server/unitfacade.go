@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/resource/api/private"
 )
 
+// FacadeVersion is the version of the current API facade.
+// (We start at 1 to distinguish from the default value.)
+const FacadeVersion = 1
+
 // UnitDataStore exposes the data storage functionality needed here.
 // All functionality is tied to the unit's service.
 type UnitDataStore interface {

@@ -320,12 +320,9 @@ func (c resources) registerHookContextCommands() {
 }
 
 func (r resources) registerHookContextFacade() {
-	// Always start at 1 to distinguish between the default value.
-	const facadeVersion = 1
-
 	common.RegisterHookContextFacade(
 		context.HookContextFacade,
-		facadeVersion,
+		internalserver.FacadeVersion,
 		r.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
