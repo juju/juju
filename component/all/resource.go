@@ -305,7 +305,6 @@ func (c resources) registerHookContextCommands() {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// TODO(katco): Check type assertion; don't panic
 			typedCtx, ok := compCtx.(*context.Context)
 			if !ok {
 				return nil, errors.Trace(err)
