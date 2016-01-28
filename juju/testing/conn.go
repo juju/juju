@@ -69,7 +69,7 @@ type JujuConnSuite struct {
 	// added to the suite's environment configuration.
 	ConfigAttrs map[string]interface{}
 
-	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
+	// TODO: JujuConnSuite should not be concerned both with JUJU_DATA and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
@@ -218,11 +218,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	utils.SetHome(home)
 
-	err = os.Mkdir(filepath.Join(home, ".config"), 0777)
+	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".config", "juju"))
-	err = os.Mkdir(osenv.JujuHome(), 0777)
+	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".local", "share", "juju"))
+	err = os.MkdirAll(osenv.JujuHome(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.MkdirAll(s.DataDir(), 0777)
@@ -585,7 +585,7 @@ func (s *JujuConnSuite) ConfDir() string {
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
+		panic("SetUpTest has not been called; will not overwrite $JUJU_DATA/environments.yaml")
 	}
 	path := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)

@@ -21,7 +21,7 @@ var _ = gc.Suite(&TestingBaseSuite{})
 
 func (s *TestingBaseSuite) SetUpTest(c *gc.C) {
 	utils.SetHome(home)
-	os.Setenv("JUJU_HOME", jujuHome)
+	os.Setenv("JUJU_DATA", jujuHome)
 	osenv.SetJujuHome(jujuHome)
 
 	s.BaseSuite.SetUpTest(c)
@@ -32,10 +32,10 @@ func (s *TestingBaseSuite) TearDownTest(c *gc.C) {
 
 	// Test that the environment is restored.
 	c.Assert(utils.Home(), gc.Equals, home)
-	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, jujuHome)
+	c.Assert(os.Getenv("JUJU_DATA"), gc.Equals, jujuHome)
 }
 
 func (s *TestingBaseSuite) TestFakeHomeReplacesEnvironment(c *gc.C) {
 	c.Assert(utils.Home(), gc.Not(gc.Equals), home)
-	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, "")
+	c.Assert(os.Getenv("JUJU_DATA"), gc.Equals, "")
 }

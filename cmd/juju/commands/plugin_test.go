@@ -225,7 +225,7 @@ fi
 
 echo {{.Name}} $*
 echo "env is: " $JUJU_ENV
-echo "home is: " $JUJU_HOME
+echo "home is: " $JUJU_DATA
 exit {{.ExitStatus}}
 `
 

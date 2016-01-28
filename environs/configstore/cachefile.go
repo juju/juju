@@ -12,7 +12,7 @@ import (
 )
 
 // CacheFile represents the YAML structure of the file
-// $JUJU_HOME/environments/cache.yaml
+// $JUJU_DATA/environments/cache.yaml
 type CacheFile struct {
 	// Server maps the name of the server to the server-uuid
 	Server map[string]ServerUser `yaml:"server-user"`

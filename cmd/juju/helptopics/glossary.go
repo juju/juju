@@ -58,7 +58,10 @@ Environment
   a single Environment configured, or when a default is explicitly defined.
   Depending on the type of Environment, it may have to be bootstrapped before
   interactions with it may take place (e.g. EC2). The local environment
-  configuration is defined in the ~/.local/share/juju/environments.yaml file.
+  configuration is defined in an environments.yaml file inside $JUJU_DATA
+  if said variable is not defined $XDG_DATA_HOME/juju will be used and if
+  $XDG_DATA_HOME is not defined either it will default to 
+  ~/.local/share/juju/ .
 
 Machine Agent
   Software which runs inside each machine that is part of an Environment, and is
