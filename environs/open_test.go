@@ -44,7 +44,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+	env, err := environs.Prepare(ctx, configstore.NewMem(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()
@@ -61,7 +61,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	cfg, _, err := environs.ConfigForName("erewhemos", store)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(cfg, ctx, store)
+	_, err = environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := store.ReadInfo("erewhemos")
@@ -156,7 +156,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	store := configstore.NewMem()
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(cfg, ctx, store)
+	env, err := environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment info file was correctly created.
@@ -188,8 +188,9 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(uuid, gc.Matches, `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 
 	// Check we cannot call Prepare again.
-	env, err = environs.Prepare(cfg, ctx, store)
-	c.Assert(err, gc.Equals, environs.ErrAlreadyBootstrapped)
+	env, err = environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
 }
 
 func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
@@ -203,13 +204,13 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	env0, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+	env0, err := environs.Prepare(ctx, configstore.NewMem(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret0 := env0.Config().AdminSecret()
 	c.Assert(adminSecret0, gc.HasLen, 32)
 	c.Assert(adminSecret0, gc.Matches, "^[0-9a-f]*$")
 
-	env1, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+	env1, err := environs.Prepare(ctx, configstore.NewMem(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret1 := env1.Config().AdminSecret()
 	c.Assert(adminSecret1, gc.HasLen, 32)
@@ -228,7 +229,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	store := configstore.NewMem()
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), store)
+	env, err := environs.Prepare(envtesting.BootstrapContext(c), store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
 	// Ensure that the config storage info is cleaned up.
@@ -247,7 +248,7 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+	env, err := environs.Prepare(ctx, configstore.NewMem(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
@@ -270,7 +271,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.Prepare(cfg, ctx, store)
+	e, err := environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ReadInfo(e.Config().Name())
 	c.Assert(err, jc.ErrorIsNil)

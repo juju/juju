@@ -93,28 +93,38 @@ func New(config *config.Config) (Environ, error) {
 //
 // TODO(axw) Prepare will be changed to accept PrepareForBootstrapParams
 //           instead of just a Config.
-func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
-
-	info, err := store.ReadInfo(cfg.Name())
+func Prepare(
+	ctx BootstrapContext,
+	store configstore.Storage,
+	controllerName string,
+	args PrepareForBootstrapParams,
+) (Environ, error) {
+	info, err := store.ReadInfo(controllerName)
 	if err == nil {
-		return nil, ErrAlreadyBootstrapped
+		return nil, errors.AlreadyExistsf("controller %q", controllerName)
 	} else if !errors.IsNotFound(err) {
-		return nil, errors.Annotatef(err, "error reading controller %q info", cfg.Name())
+		return nil, errors.Annotatef(err, "error reading controller %q info", controllerName)
 	}
 
-	p, err := Provider(cfg.Type())
+	p, err := Provider(args.Config.Type())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info = store.CreateInfo(cfg.Name())
-	env, err := prepare(ctx, cfg, info, p)
+	info = store.CreateInfo(controllerName)
+	env, err := prepare(ctx, info, p, args)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
-			logger.Warningf("cannot destroy newly created environment info: %v", err)
+			logger.Warningf(
+				"cannot destroy newly created controller %q info: %v",
+				controllerName, err,
+			)
 		}
 		return nil, errors.Trace(err)
 	}
-	return env, decorateAndWriteInfo(info, env.Config())
+	if err := decorateAndWriteInfo(info, env.Config()); err != nil {
+		return nil, errors.Annotatef(err, "cannot create controller %q info", controllerName)
+	}
+	return env, nil
 }
 
 // decorateAndWriteInfo decorates the info struct with information
@@ -146,16 +156,11 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 	info.SetAPICredentials(creds)
 	info.SetAPIEndpoint(endpoint)
 	info.SetBootstrapConfig(cfg.AllAttrs())
-
-	if err := info.Write(); err != nil {
-		return errors.Annotatef(err, "cannot create environment info %q", cfg.Name())
-	}
-
-	return nil
+	return errors.Trace(info.Write())
 }
 
-func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
-	cfg, err := ensureAdminSecret(cfg)
+func prepare(ctx BootstrapContext, info configstore.EnvironInfo, p EnvironProvider, args PrepareForBootstrapParams) (Environ, error) {
+	cfg, err := ensureAdminSecret(args.Config)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot generate admin-secret")
 	}
@@ -167,9 +172,7 @@ func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironI
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot ensure uuid")
 	}
-	args := PrepareForBootstrapParams{
-		Config: cfg,
-	}
+	args.Config = cfg
 	return p.PrepareForBootstrap(ctx, args)
 }
 
@@ -225,6 +228,11 @@ func ensureUUID(cfg *config.Config) (*config.Config, error) {
 
 // Destroy destroys the environment and, if successful,
 // its associated configuration data from the given store.
+//
+// TODO(axw) the info should be stored against the name
+// of the controller, not the environment name. For now
+// we just make sure all the tests use the same name
+// for the controller and the environment.
 func Destroy(env Environ, store configstore.Storage) error {
 	name := env.Config().Name()
 	if err := env.Destroy(); err != nil {

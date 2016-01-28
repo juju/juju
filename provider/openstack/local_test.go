@@ -30,6 +30,7 @@ import (
 	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -169,8 +170,17 @@ func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred, newFullOpenstackService)
+
+	// Set credentials to use when bootstrapping. Must be done after
+	// starting server to get the auth URL.
+	args := prepareForBootstrapParams(nil, s.cred)
+	s.CloudRegion = args.CloudRegion
+	s.CloudEndpoint = args.CloudEndpoint
+	s.Credential = args.Credentials
+
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -221,6 +231,14 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.srv.start(c, s.cred, newFullOpenstackService)
+
+	// Set credentials to use when bootstrapping. Must be done after
+	// starting server to get the auth URL.
+	args := prepareForBootstrapParams(nil, s.cred)
+	s.CloudRegion = args.CloudRegion
+	s.CloudEndpoint = args.CloudEndpoint
+	s.Credential = args.Credentials
+
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -397,7 +415,10 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 		"use-floating-ip": false,
 	}))
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), s.ConfigStore,
+		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1191,7 +1212,10 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	s.env, err = environs.Prepare(
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.attrs = s.env.Config().AllAttrs()
 }
@@ -1740,6 +1764,22 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	assertMetadata(extraKey, extraValue)
 }
 
+func prepareForBootstrapParams(cfg *config.Config, cred *identity.Credentials) environs.PrepareForBootstrapParams {
+	return environs.PrepareForBootstrapParams{
+		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.UserPassAuthType,
+			map[string]string{
+				"username":    cred.User,
+				"password":    cred.Secrets,
+				"tenant-name": cred.TenantName,
+			},
+		),
+		CloudEndpoint: cred.URL,
+		CloudRegion:   cred.Region,
+	}
+}
+
 // noSwiftSuite contains tests that run against an OpenStack service double
 // that lacks Swift.
 type noSwiftSuite struct {
@@ -1770,11 +1810,6 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"type":            "openstack",
 		"auth-mode":       "userpass",
 		"control-bucket":  "juju-test-no-swift",
-		"username":        s.cred.User,
-		"password":        s.cred.Secrets,
-		"region":          s.cred.Region,
-		"auth-url":        s.cred.URL,
-		"tenant-name":     s.cred.TenantName,
 		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
@@ -1799,7 +1834,10 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	configStore := configstore.NewMem()
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configStore)
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), configStore,
+		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 }

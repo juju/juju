@@ -211,9 +211,9 @@ func (s *envManagerSuite) TestCreateEnvironmentValidatesConfig(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgs(c, admin)
-	delete(args.Config, "state-server")
+	args.Config["state-server"] = "maybe"
 	_, err := s.envmanager.CreateEnvironment(args)
-	c.Assert(err, gc.ErrorMatches, "provider validation failed: state-server: expected bool, got nothing")
+	c.Assert(err, gc.ErrorMatches, "provider validation failed: state-server: expected bool, got string\\(\"maybe\"\\)")
 }
 
 func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {

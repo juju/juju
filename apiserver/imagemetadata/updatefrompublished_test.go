@@ -178,7 +178,10 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImages(c *gc.C) {
 		s.calls = append(s.calls, environConfig)
 		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 		c.Assert(err, jc.ErrorIsNil)
-		env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+		env, err := environs.Prepare(
+			envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
+			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		return env.Config(), err
 	}

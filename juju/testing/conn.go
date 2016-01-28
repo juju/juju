@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -234,7 +235,15 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ConfigStore = store
 
 	ctx := testing.Context(c)
-	environ, err := environs.Prepare(cfg, envcmd.BootstrapContext(ctx), s.ConfigStore)
+	environ, err := environs.Prepare(
+		envcmd.BootstrapContext(ctx),
+		s.ConfigStore,
+		"dummyenv",
+		environs.PrepareForBootstrapParams{
+			Config:      cfg,
+			Credentials: cloud.NewEmptyCredential(),
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")

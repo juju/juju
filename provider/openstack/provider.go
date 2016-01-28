@@ -24,6 +24,7 @@ import (
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/swift"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -278,9 +279,38 @@ func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg.Apply(attrs)
 }
 
-func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+func (p EnvironProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	args environs.PrepareForBootstrapParams,
+) (environs.Environ, error) {
+
+	// Add credentials to the configuration.
+	attrs := map[string]interface{}{
+		"region":   args.CloudRegion,
+		"auth-url": args.CloudEndpoint,
+	}
+	credentialAttrs := args.Credentials.Attributes()
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		attrs["username"] = credentialAttrs["username"]
+		attrs["password"] = credentialAttrs["password"]
+		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["auth-mode"] = AuthUserPass
+	case cloud.AccessKeyAuthType:
+		attrs["access-key"] = credentialAttrs["access-key"]
+		attrs["secret-key"] = credentialAttrs["secret-key"]
+		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["auth-mode"] = AuthKeyPair
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}
