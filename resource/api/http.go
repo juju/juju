@@ -72,10 +72,9 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 	}
 	size := st.Size()
 
-	method := "PUT"
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(service, name)
-	req, err := http.NewRequest(method, urlStr, nil)
+	req, err := http.NewRequest("PUT", urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
