@@ -174,7 +174,7 @@ class EnvJujuClient:
     # As described in bug #1538735, default-series and --bootstrap-series must
     # match.  'series' should be here, but is omitted so that default-series
     # is always forced to match --bootstrap-series.
-    bootstrap_supports = frozenset(['agent-version', 'bootstrap-host'])
+    bootstrap_supports = frozenset(['agent-version'])
 
     _show_status = 'show-status'
 
