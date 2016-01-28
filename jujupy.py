@@ -171,10 +171,12 @@ class WorkloadsNotReady(StatusNotMet):
 
 class EnvJujuClient:
 
+    # The environments.yaml options that are replaced by bootstrap options.
+    #
     # As described in bug #1538735, default-series and --bootstrap-series must
     # match.  'series' should be here, but is omitted so that default-series
     # is always forced to match --bootstrap-series.
-    bootstrap_supports = frozenset(['agent-version'])
+    bootstrap_replaces = frozenset(['agent-version'])
 
     _show_status = 'show-status'
 
@@ -979,7 +981,9 @@ class EnvJujuClient2A1(EnvJujuClient):
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
-    bootstrap_supports = frozenset()
+    # The environments.yaml options that are replaced by bootstrap options.
+    # For Juju 1.x, no bootstrap options are used.
+    bootstrap_replaces = frozenset()
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
