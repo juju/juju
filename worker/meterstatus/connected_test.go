@@ -5,6 +5,8 @@ package meterstatus_test
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"path"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/meterstatus"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -205,4 +208,116 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus")
+}
+
+func (s *ConnectedWorkerSuite) TestSocketListenerHandler(c *gc.C) {
+	listener := &mockListener{}
+	s.PatchValue(meterstatus.NewSocketListener, meterstatus.NewSocketListenerFnc(listener))
+
+	worker, err := meterstatus.NewConnectedStatusWorker(meterstatus.ConnectedConfig{
+		Runner:     &stubRunner{stub: s.stub},
+		StateFile:  meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+		Status:     s.msClient,
+		SocketPath: "test.socket",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+
+	conn, err := listener.trigger([]byte("{\"code\":\"RED\", \"info\":\"test info\"}\n"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(conn.data), gc.Equals, "ok\n")
+	c.Assert(s.stub.Calls(), gc.HasLen, 1)
+	s.stub.CheckCall(c, 0, "RunHook", "RED", "test info")
+	s.stub.ResetCalls()
+
+	conn, err = listener.trigger([]byte("{\"code\":\"GREEN\"}\n"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(conn.data), gc.Equals, "ok\n")
+	c.Assert(s.stub.Calls(), gc.HasLen, 1)
+	s.stub.CheckCall(c, 0, "RunHook", "GREEN", "")
+
+	conn, err = listener.trigger([]byte{})
+	c.Assert(err, gc.ErrorMatches, "EOF")
+	c.Assert(string(conn.data), gc.Matches, "EOF\n")
+
+	conn, err = listener.trigger([]byte("[]\n"))
+	c.Assert(err, gc.ErrorMatches, "json: cannot unmarshal array into Go value of type meterstatus.meterStatus")
+	c.Assert(string(conn.data), gc.Matches, "json: cannot unmarshal array into Go value of type meterstatus.meterStatus\n")
+
+	worker.Kill()
+}
+
+type mockListener struct {
+	testing.Stub
+	handler spool.ConnectionHandler
+}
+
+func (l *mockListener) trigger(data []byte) (*mockConnection, error) {
+	conn := &mockConnection{data: data}
+	err := l.handler.Handle(conn)
+	if err != nil {
+		return conn, err
+	}
+	return conn, nil
+}
+
+// Stop implements the stopper interface.
+func (l *mockListener) Stop() {
+	l.AddCall("Stop")
+}
+
+func (l *mockListener) SetHandler(handler spool.ConnectionHandler) {
+	l.handler = handler
+}
+
+type mockConnection struct {
+	net.Conn
+	testing.Stub
+	data []byte
+}
+
+// SetDeadline implements the net.Conn interface.
+func (c *mockConnection) SetDeadline(t time.Time) error {
+	c.AddCall("SetDeadline", t)
+	return nil
+}
+
+// Write implements the net.Conn interface.
+func (c *mockConnection) Write(data []byte) (int, error) {
+	c.AddCall("Write", data)
+	c.data = data
+	return len(data), nil
+}
+
+// Close implements the net.Conn interface.
+func (c *mockConnection) Close() error {
+	c.AddCall("Close")
+	return nil
+}
+
+func (c mockConnection) eof() bool {
+	return len(c.data) == 0
+}
+
+func (c *mockConnection) readByte() byte {
+	b := c.data[0]
+	c.data = c.data[1:]
+	return b
+}
+
+func (c *mockConnection) Read(p []byte) (n int, err error) {
+	if c.eof() {
+		err = io.EOF
+		return
+	}
+	if cp := cap(p); cp > 0 {
+		for n < cp {
+			p[n] = c.readByte()
+			n++
+			if c.eof() {
+				break
+			}
+		}
+	}
+	return
 }
