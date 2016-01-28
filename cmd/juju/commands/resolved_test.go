@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -30,6 +31,11 @@ var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
 	_, err := testing.RunCommand(c, newResolvedCommand(), args...)
+	return err
+}
+
+func runDeploy(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, service.NewDeployCommand(), args...)
 	return err
 }
 

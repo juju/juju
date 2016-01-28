@@ -172,46 +172,6 @@ func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 	return c.api.stateAccessor.SetModelConstraints(args.Constraints)
 }
 
-// AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-	inEps, err := c.api.stateAccessor.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return params.AddRelationResults{}, err
-	}
-	rel, err := c.api.stateAccessor.AddRelation(inEps...)
-	if err != nil {
-		return params.AddRelationResults{}, err
-	}
-	outEps := make(map[string]charm.Relation)
-	for _, inEp := range inEps {
-		outEp, err := rel.Endpoint(inEp.ServiceName)
-		if err != nil {
-			return params.AddRelationResults{}, err
-		}
-		outEps[inEp.ServiceName] = outEp.Relation
-	}
-	return params.AddRelationResults{Endpoints: outEps}, nil
-}
-
-// DestroyRelation removes the relation between the specified endpoints.
-func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	if err := c.check.RemoveAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	eps, err := c.api.stateAccessor.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return err
-	}
-	rel, err := c.api.stateAccessor.EndpointsRelation(eps...)
-	if err != nil {
-		return err
-	}
-	return rel.Destroy()
-}
-
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
 	return c.AddMachinesV2(args)

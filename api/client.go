@@ -114,20 +114,6 @@ func (c *Client) PrivateAddress(target string) (string, error) {
 	return results.PrivateAddress, err
 }
 
-// AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	var addRelRes params.AddRelationResults
-	params := params.AddRelation{Endpoints: endpoints}
-	err := c.facade.FacadeCall("AddRelation", params, &addRelRes)
-	return &addRelRes, err
-}
-
-// DestroyRelation removes the relation between the specified endpoints.
-func (c *Client) DestroyRelation(endpoints ...string) error {
-	params := params.DestroyRelation{Endpoints: endpoints}
-	return c.facade.FacadeCall("DestroyRelation", params, nil)
-}
-
 // AddMachines1dot18 adds new machines with the supplied parameters.
 //
 // TODO(axw) 2014-04-11 #XXX

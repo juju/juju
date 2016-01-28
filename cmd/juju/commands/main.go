@@ -122,10 +122,10 @@ type commandRegistry interface {
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Creation commands.
 	r.Register(newBootstrapCommand())
-	r.Register(newAddRelationCommand())
+	r.Register(service.NewAddRelationCommand())
 
 	// Destruction commands.
-	r.Register(newRemoveRelationCommand())
+	r.Register(service.NewRemoveRelationCommand())
 	r.Register(service.NewRemoveServiceCommand())
 	r.Register(service.NewRemoveUnitCommand())
 

@@ -1,14 +1,13 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package service
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -29,7 +28,7 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func runAddRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, newAddRelationCommand(), args...)
+	_, err := testing.RunCommand(c, NewAddRelationCommand(), args...)
 	return err
 }
 
@@ -137,11 +136,6 @@ var addRelationTests = []struct {
 		args: []string{"wp:juju-info", "lg:info"},
 		err:  wpLgAlreadyExistsJuju,
 	},
-}
-
-func runDeploy(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, service.NewDeployCommand(), args...)
-	return err
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *gc.C) {

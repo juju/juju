@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package service
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -28,7 +28,7 @@ func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&RemoveRelationSuite{})
 
 func runRemoveRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, newRemoveRelationCommand(), args...)
+	_, err := testing.RunCommand(c, NewRemoveRelationCommand(), args...)
 	return err
 }
 

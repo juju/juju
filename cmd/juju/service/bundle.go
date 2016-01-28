@@ -373,7 +373,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams) error {
 	ep1 := resolveRelation(p.Endpoint1, h.results)
 	ep2 := resolveRelation(p.Endpoint2, h.results)
-	_, err := h.client.AddRelation(ep1, ep2)
+	_, err := h.serviceClient.AddRelation(ep1, ep2)
 	if err == nil {
 		// A new relation has been established.
 		h.log.Infof("related %s and %s", ep1, ep2)

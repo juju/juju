@@ -1,18 +1,21 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package service
 
 import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newRemoveRelationCommand() cmd.Command {
+// NewRemoveRelationCommand returns a command to remove a relation between 2 services.
+func NewRemoveRelationCommand() cmd.Command {
 	return envcmd.Wrap(&removeRelationCommand{})
 }
 
@@ -39,8 +42,21 @@ func (c *removeRelationCommand) Init(args []string) error {
 	return nil
 }
 
+type serviceDestroyRelationAPI interface {
+	Close() error
+	DestroyRelation(endpoints ...string) error
+}
+
+func (c *removeRelationCommand) getAPI() (serviceDestroyRelationAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
 func (c *removeRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.NewAPIClient()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}

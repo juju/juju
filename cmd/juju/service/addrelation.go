@@ -1,18 +1,22 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package service
 
 import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
+	apiservice "github.com/juju/juju/api/service"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newAddRelationCommand() cmd.Command {
+// NewAddRelationCommand returns a command to add a relation between 2 services.
+func NewAddRelationCommand() cmd.Command {
 	return envcmd.Wrap(&addRelationCommand{})
 }
 
@@ -38,8 +42,21 @@ func (c *addRelationCommand) Init(args []string) error {
 	return nil
 }
 
+type serviceAddRelationAPI interface {
+	Close() error
+	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
+}
+
+func (c *addRelationCommand) getAPI() (serviceAddRelationAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
 func (c *addRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.NewAPIClient()
+	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}

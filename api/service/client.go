@@ -255,3 +255,17 @@ func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 	err := c.facade.FacadeCall("ServiceCharmRelations", params, &results)
 	return results.CharmRelations, err
 }
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.facade.FacadeCall("AddRelation", params, &addRelRes)
+	return &addRelRes, err
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	return c.facade.FacadeCall("DestroyRelation", params, nil)
+}
