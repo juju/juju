@@ -26,6 +26,8 @@ type Model interface {
 
 	AddUser(UserArgs)
 	AddMachine(MachineArgs) Machine
+
+	Validate() error
 }
 
 type User interface {
@@ -83,6 +85,11 @@ type Machine interface {
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
 
+	Status() Status
+	SetStatus(StatusArgs)
+
+	// StatusHistory() []Status
+
 	// TODO:
 	// Status, status history
 	// Storage
@@ -90,6 +97,7 @@ type Machine interface {
 
 	// THINKING: Validate() error to make sure the machine has
 	// enough stuff set, like tools, and addresses etc.
+	Validate() error
 
 	// status
 	// constraints
@@ -114,4 +122,11 @@ type CloudInstance interface {
 	CpuPower() uint64
 	Tags() []string
 	AvailabilityZone() string
+}
+
+type Status interface {
+	Value() string
+	Message() string
+	Data() map[string]interface{}
+	Updated() time.Time
 }

@@ -151,6 +151,15 @@ func (m *model) setMachines(machineList []*machine) {
 	}
 }
 
+func (m *model) Validate() error {
+	for _, machine := range m.Machines_.Machines_ {
+		if err := machine.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // importModel constructs a new Model from a map that in normal usage situations
 // will be the result of interpreting a large YAML document.
 //

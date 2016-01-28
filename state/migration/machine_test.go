@@ -49,6 +49,7 @@ func minimalMachineMap(id string, containers ...interface{}) map[interface{}]int
 		"tools":         minimalAgentToolsMap(),
 		"jobs":          []interface{}{"host-units"},
 		"containers":    containers,
+		"status":        minimalStatusMap(),
 	}
 }
 
@@ -62,6 +63,7 @@ func minimalMachine(id string, containers ...*machine) *machine {
 		Tools_:        minimalAgentTools(),
 		Jobs_:         []string{"host-units"},
 		Containers_:   containers,
+		Status_:       minimalStatus(),
 	}
 }
 
@@ -89,6 +91,11 @@ func (s *MachineSerializationSuite) TestNewMachine(c *gc.C) {
 	supportedContainers, ok := m.SupportedContainers()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(supportedContainers, gc.IsNil)
+}
+
+func (s *MachineSerializationSuite) TestMinimalMachineValid(c *gc.C) {
+	m := minimalMachine("1")
+	c.Assert(m.Validate(), jc.ErrorIsNil)
 }
 
 func (s *MachineSerializationSuite) TestNewMachineWithSupportedContainers(c *gc.C) {
@@ -171,6 +178,10 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	args.SupportedContainers = &supported
 	m := newMachine(args)
 	m.SetTools(minimalAgentToolsArgs())
+	m.SetStatus(minimalStatusArgs())
+	m.SetInstance(minimalCloudInstanceArgs())
+	// Make sure the machine is valid.
+	c.Assert(m.Validate(), jc.ErrorIsNil)
 
 	initial := machines{
 		Version:   1,
@@ -220,10 +231,13 @@ func minimalCloudInstanceMap() map[interface{}]interface{} {
 }
 
 func minimalCloudInstance() *cloudInstance {
-	return &cloudInstance{
-		Version:     1,
-		InstanceId_: "instance id",
-		Status_:     "some status",
+	return newCloudInstance(minimalCloudInstanceArgs())
+}
+
+func minimalCloudInstanceArgs() CloudInstanceArgs {
+	return CloudInstanceArgs{
+		InstanceId: "instance id",
+		Status:     "some status",
 	}
 }
 

@@ -17,15 +17,18 @@ type machines struct {
 }
 
 type machine struct {
-	Id_                string         `yaml:"id"`
-	Nonce_             string         `yaml:"nonce"`
-	PasswordHash_      string         `yaml:"password-hash"`
-	Placement_         string         `yaml:"placement,omitempty"`
-	Instance_          *cloudInstance `yaml:"instance,omitempty"`
-	Series_            string         `yaml:"series"`
-	ContainerType_     string         `yaml:"container-type,omitempty"`
-	ProviderAddresses_ []*address     `yaml:"provider-addresses,omitempty"`
-	MachineAddresses_  []*address     `yaml:"machine-addresses,omitempty"`
+	Id_            string         `yaml:"id"`
+	Nonce_         string         `yaml:"nonce"`
+	PasswordHash_  string         `yaml:"password-hash"`
+	Placement_     string         `yaml:"placement,omitempty"`
+	Instance_      *cloudInstance `yaml:"instance,omitempty"`
+	Series_        string         `yaml:"series"`
+	ContainerType_ string         `yaml:"container-type,omitempty"`
+
+	Status_ *status `yaml:"status"`
+
+	ProviderAddresses_ []*address `yaml:"provider-addresses,omitempty"`
+	MachineAddresses_  []*address `yaml:"machine-addresses,omitempty"`
 
 	PreferredPublicAddress_  *address `yaml:"preferred-public-address,omitempty"`
 	PreferredPrivateAddress_ *address `yaml:"preferred-private-address,omitempty"`
@@ -108,6 +111,18 @@ func (m *machine) Series() string {
 
 func (m *machine) ContainerType() string {
 	return m.ContainerType_
+}
+
+func (m *machine) Status() Status {
+	// To avoid typed nils check nil here.
+	if m.Status_ == nil {
+		return nil
+	}
+	return m.Status_
+}
+
+func (m *machine) SetStatus(args StatusArgs) {
+	m.Status_ = newStatus(args)
 }
 
 func (m *machine) ProviderAddresses() []Address {
@@ -207,6 +222,30 @@ func (m *machine) AddContainer(args MachineArgs) Machine {
 	return container
 }
 
+func (m *machine) Validate() error {
+	if m.Id_ == "" {
+		return errors.NotValidf("missing id")
+	}
+	if m.Status_ == nil {
+		return errors.NotValidf("machine %q missing status", m.Id_)
+	}
+	// Since all exports should be done when machines are stable,
+	// there should always be tools and cloud instance.
+	if m.Tools_ == nil {
+		return errors.NotValidf("machine %q missing tools", m.Id_)
+	}
+	if m.Instance_ == nil {
+		return errors.NotValidf("machine %q missing instance", m.Id_)
+	}
+	for _, container := range m.Containers_ {
+		if err := container.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
 func importMachines(source map[string]interface{}) ([]*machine, error) {
 	checker := versionedChecker("machines")
 	coerced, err := checker.Coerce(source, nil)
@@ -258,6 +297,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"series":               schema.String(),
 		"container-type":       schema.String(),
 		"jobs":                 schema.List(schema.String()),
+		"status":               schema.StringMap(schema.Any()),
 		"supported-containers": schema.List(schema.String()),
 		"tools":                schema.StringMap(schema.Any()),
 		"containers":           schema.List(schema.StringMap(schema.Any())),
@@ -285,6 +325,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	result.Placement_ = valid["placement"].(string)
 	result.Series_ = valid["series"].(string)
 	result.ContainerType_ = valid["container-type"].(string)
+
 	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {
 		for _, job := range jobs {
 			result.Jobs_ = append(result.Jobs_, job.(string))
@@ -307,11 +348,18 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		result.Instance_ = instance
 	}
 
+	// Tools and status are required, so we expect them to be there.
 	tools, err := importAgentTools(valid["tools"].(map[string]interface{}))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	result.Tools_ = tools
+
+	status, err := importStatus(valid["status"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.Status_ = status
 
 	machineList := valid["containers"].([]interface{})
 	machines, err := importMachineList(machineList, importMachineV1)
