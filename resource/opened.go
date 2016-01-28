@@ -9,7 +9,7 @@ import (
 	"io"
 )
 
-// Opened provides the both the resource info and content.
+// Opened provides both the resource info and content.
 type Opened struct {
 	Resource
 	io.ReadCloser
