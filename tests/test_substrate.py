@@ -252,36 +252,37 @@ class TestAWSAccount(TestCase):
                 yield group
         client = MagicMock()
         client.get_all_security_groups.return_value = list(make_group())
-        with patch('boto.ec2.connect_to_region', return_value=client) as ctr:
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
             with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 groups = list(aws.iter_security_groups())
         self.assertEqual(groups, [
             ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
-        self.assert_ec2_connection_call(ctr)
+        self.assert_ec2_connection_call(ctr_mock)
 
     def assert_ec2_connection_call(self, ctr_mock):
         ctr_mock.assert_called_once_with(
-                'ca-west', aws_access_key_id='skeleton-key',
-                aws_secret_access_key='secret-skeleton-key')
+            'ca-west', aws_access_key_id='skeleton-key',
+            aws_secret_access_key='secret-skeleton-key')
 
     def test_iter_instance_security_groups(self):
         instances = [
-            MagicMock(instances=[MagicMock(groups=
-                [SecurityGroup(id='foo', name='bar'), ])]),
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='foo', name='bar'), ])]),
             MagicMock(instances=[MagicMock(groups=[
                 SecurityGroup(id='baz', name='qux'),
-                SecurityGroup(id='quxx-id', name='quxx'),
-                ])]),
+                SecurityGroup(id='quxx-id', name='quxx'), ])]),
         ]
         client = MagicMock()
         client.get_all_instances.return_value = instances
-        with patch('boto.ec2.connect_to_region', return_value=client) as ctr:
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
             with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 groups = list(aws.iter_instance_security_groups())
         self.assertEqual(
-                groups, [('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
+            groups, [('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
         client.get_all_instances.assert_called_once_with(instance_ids=None)
-        self.assert_ec2_connection_call(ctr)
+        self.assert_ec2_connection_call(ctr_mock)
 
     def test_iter_instance_security_groups_instances(self):
         instances = [
@@ -295,43 +296,47 @@ class TestAWSAccount(TestCase):
         ]
         client = MagicMock()
         client.get_all_instances.return_value = instances
-        with patch('boto.ec2.connect_to_region', return_value=client) as ctr:
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
             with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                     list(aws.iter_instance_security_groups(['abc', 'def']))
         client.get_all_instances.assert_called_once_with(
-                instance_ids=['abc', 'def'])
-        self.assert_ec2_connection_call(ctr)
+            instance_ids=['abc', 'def'])
+        self.assert_ec2_connection_call(ctr_mock)
 
     def test_destroy_security_groups(self):
         client = MagicMock()
         client.delete_security_group.return_value = True
-        with patch('boto.ec2.connect_to_region', return_value=client) as ctr:
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
             with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 failures = aws.destroy_security_groups(
                     ['foo', 'foobar', 'baz'])
         calls = [call(name='foo'), call(name='foobar'), call(name='baz')]
         self.assertEqual(client.delete_security_group.mock_calls, calls)
         self.assertEqual(failures, [])
-        self.assert_ec2_connection_call(ctr)
+        self.assert_ec2_connection_call(ctr_mock)
 
     def test_destroy_security_failures(self):
         client = MagicMock()
         client.delete_security_group.return_value = False
-        with patch('boto.ec2.connect_to_region', return_value=client) as ctr:
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
             with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 failures = aws.destroy_security_groups(
-                        ['foo', 'foobar', 'baz'])
+                    ['foo', 'foobar', 'baz'])
         self.assertEqual(failures, ['foo', 'foobar', 'baz'])
-        self.assert_ec2_connection_call(ctr)
+        self.assert_ec2_connection_call(ctr_mock)
 
     @contextmanager
     def make_aws_connection(self, return_value):
         client = MagicMock()
         client.get_all_network_interfaces.return_value = return_value
-        with patch('boto.ec2.connect_to_region', return_value=client) as ctr:
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
             with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 yield aws
-        self.assert_ec2_connection_call(ctr)
+        self.assert_ec2_connection_call(ctr_mock)
 
     def make_interface(self, group_ids):
         interface = MagicMock()
@@ -363,7 +368,7 @@ class TestAWSAccount(TestCase):
 
     def test_delete_detached_interfaces_in_use(self):
         baz_interface = self.prepare_delete_exception(
-                'InvalidNetworkInterface.InUse')
+            'InvalidNetworkInterface.InUse')
         with self.make_aws_connection([baz_interface]) as aws:
             unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
         baz_interface.delete.assert_called_once_with()
@@ -948,4 +953,3 @@ class EucaTestCase(TestCase):
                 destroy_job_instances('foo')
         gji_mock.assert_called_with('foo')
         cc_mock.assert_called_with(['euca-terminate-instances', 'i-bar'])
-
