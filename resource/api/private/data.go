@@ -19,7 +19,7 @@ type ListResourcesArgs struct {
 	ResourceNames []string
 }
 
-// ResourceResult holds the resource info for a list of requested
+// ResourcesResult holds the resource info for a list of requested
 // resources.
 type ResourcesResult struct {
 	params.ErrorResult
