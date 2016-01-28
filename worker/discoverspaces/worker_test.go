@@ -27,8 +27,9 @@ type workerSuite struct {
 	Worker  worker.Worker
 	OpsChan chan dummy.Operation
 
-	APIConnection api.Connection
-	API           *apidiscoverspaces.API
+	APIConnection    api.Connection
+	API              *apidiscoverspaces.API
+	spacesDiscovered bool
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -44,10 +45,17 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	s.OpsChan = make(chan dummy.Operation, 10)
 	dummy.Listen(s.OpsChan)
+	s.spacesDiscovered = false
+}
+
+func (s *workerSuite) getSetSpacesDiscoveredFunc() func() {
+	return func() {
+		s.spacesDiscovered = true
+	}
 }
 
 func (s *workerSuite) startWorker() {
-	s.Worker = discoverspaces.NewWorker(s.API, func() {})
+	s.Worker = discoverspaces.NewWorker(s.API, s.getSetSpacesDiscoveredFunc())
 }
 
 func (s *workerSuite) TearDownTest(c *gc.C) {
@@ -108,6 +116,7 @@ func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
 			break
 		}
 	}
+	c.Assert(s.spacesDiscovered, jc.IsTrue)
 }
 
 func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
@@ -184,6 +193,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 			c.Check(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
 		}
 	}
+	c.Assert(s.spacesDiscovered, jc.IsTrue)
 }
 
 func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
@@ -230,18 +240,20 @@ func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
 func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "SupportsSpaceDiscovery")
 
-	newWorker := discoverspaces.NewWorker(s.API, func() {})
+	newWorker := discoverspaces.NewWorker(s.API, s.getSetSpacesDiscoveredFunc())
 	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
+	c.Assert(s.spacesDiscovered, jc.IsTrue)
 }
 
 func (s *workerSuite) TestSpacesBroken(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
 	s.AssertConfigParameterUpdated(c, "broken", "Spaces")
 
-	newWorker := discoverspaces.NewWorker(s.API, func() {})
+	newWorker := discoverspaces.NewWorker(s.API, s.getSetSpacesDiscoveredFunc())
 	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
+	c.Assert(s.spacesDiscovered, jc.IsTrue)
 }
 
 func (s *workerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
