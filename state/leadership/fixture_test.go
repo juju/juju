@@ -14,9 +14,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+const (
+	defaultMaxSleep = time.Hour
+	almostOneSecond = time.Second - time.Nanosecond
+)
+
 var (
 	defaultClockStart time.Time
-	almostOneSecond   = time.Second - time.Nanosecond
 )
 
 func init() {
@@ -33,7 +37,7 @@ func init() {
 }
 
 // offset returns the result of defaultClockStart.Add(d); it exists to make
-// exppiry tests easier to write.
+// expiry tests easier to write.
 func offset(d time.Duration) time.Time {
 	return defaultClockStart.Add(d)
 }
@@ -72,8 +76,9 @@ func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testin
 	clock := testing.NewClock(defaultClockStart)
 	client := NewClient(fix.leases, fix.expectCalls)
 	manager, err := leadership.NewManager(leadership.ManagerConfig{
-		Clock:  clock,
-		Client: client,
+		Clock:    clock,
+		Client:   client,
+		MaxSleep: defaultMaxSleep,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -86,5 +91,17 @@ func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testin
 		}
 	}()
 	defer client.Wait(c)
+	waitAlarms(c, clock, 1)
 	test(manager, clock)
+}
+
+func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
+	timeout := time.After(testing.LongWait)
+	for i := 0; i < count; i++ {
+		select {
+		case <-clock.Alarms():
+		case <-timeout:
+			c.Fatalf("timed out waiting for %dth alarm set", i)
+		}
+	}
 }
