@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/migration"
 )
@@ -28,7 +29,9 @@ func (st *State) Export() (migration.Description, error) {
 		environment: environment,
 		logger:      loggo.GetLogger("juju.state.export-model"),
 	}
-
+	if err := export.readAllStatuses(); err != nil {
+		return nil, errors.Annotate(err, "reading statuses")
+	}
 	settings, err := export.readAllSettings()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -54,6 +57,10 @@ func (st *State) Export() (migration.Description, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.model.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return result, nil
 }
 
@@ -62,6 +69,7 @@ type exporter struct {
 	environment *Environment
 	model       migration.Model
 	logger      loggo.Logger
+	status      map[string]bson.M
 }
 
 func (e *exporter) environmentUsers() error {
@@ -180,15 +188,23 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 	// some instance data.
 	instData, found := instances[machine.doc.Id]
 	if !found {
-		return nil, errors.NotValidf("missing instance data for machine %s", machine.doc.Id)
+		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
+	// Find the current machine status.
+	statusArgs, err := e.statusArgs(machine.globalKey())
+	if err != nil {
+		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
+	}
+	exMachine.SetStatus(statusArgs)
 
 	tools, err := machine.AgentTools()
 	if err != nil {
 		// This means the tools aren't set, but they should be.
 		return nil, errors.Trace(err)
 	}
+
 	exMachine.SetTools(migration.AgentToolsArgs{
 		Version: tools.Version,
 		URL:     tools.URL,
@@ -276,5 +292,63 @@ func (e *exporter) readAllSettings() (map[string]settingsDoc, error) {
 		key := e.st.localID(doc.DocID)
 		result[key] = doc
 	}
+	return result, nil
+}
+
+func (e *exporter) readAllStatuses() error {
+	statuses, closer := e.st.getCollection(statusesC)
+	defer closer()
+
+	var docs []bson.M
+	err := statuses.Find(nil).All(&docs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read status collection")
+	}
+
+	e.logger.Debugf("read %d status documents", len(docs))
+	e.status = make(map[string]bson.M)
+	for _, doc := range docs {
+		docId, ok := doc["_id"].(string)
+		if !ok {
+			return errors.Errorf("expected string, got %s (%T)", doc["_id"], doc["_id"])
+		}
+		id := e.st.localID(docId)
+		e.status[id] = doc
+	}
+
+	return nil
+}
+
+func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
+	result := migration.StatusArgs{}
+	statusDoc, found := e.status[globalKey]
+	if !found {
+		return result, errors.NotFoundf("status data for %s", globalKey)
+	}
+
+	status, ok := statusDoc["status"].(string)
+	if !ok {
+		return result, errors.Errorf("expected string for status, got %T", statusDoc["status"])
+	}
+	info, ok := statusDoc["statusinfo"].(string)
+	if !ok {
+		return result, errors.Errorf("expected string for statusinfo, got %T", statusDoc["statusinfo"])
+	}
+	// data is an embedded map and comes out as a bson.M
+	// A bson.M is map[string]interface{}, so we can type cast it.
+	data, ok := statusDoc["statusdata"].(bson.M)
+	if !ok {
+		return result, errors.Errorf("expected map for data, got %T", statusDoc["statusdata"])
+	}
+	dataMap := map[string]interface{}(data)
+	updated, ok := statusDoc["updated"].(int64)
+	if !ok {
+		return result, errors.Errorf("expected int64 for updated, got %T", statusDoc["updated"])
+	}
+
+	result.Value = status
+	result.Message = info
+	result.Data = dataMap
+	result.Updated = time.Unix(0, updated)
 	return result, nil
 }

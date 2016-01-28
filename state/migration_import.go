@@ -162,11 +162,17 @@ func (i *importer) machine(m migration.Machine) error {
 
 	// TODO: consider filesystems and volumes
 
-	// TODO: status and constraints for machines.
+	// TODO: constraints for machines.
+	status := m.Status()
+	if status == nil {
+		return errors.NotValidf("missing status")
+	}
 	statusDoc := statusDoc{
-		Status:  StatusPending,
-		EnvUUID: i.st.EnvironUUID(),
-		Updated: GetClock().Now().UnixNano(),
+		EnvUUID:    i.st.EnvironUUID(),
+		Status:     Status(status.Value()),
+		StatusInfo: status.Message(),
+		StatusData: status.Data(),
+		Updated:    status.Updated().UnixNano(),
 	}
 	cons := constraints.Value{}
 	networks := []string{}
