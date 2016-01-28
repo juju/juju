@@ -63,8 +63,9 @@ ENVIRONMENT = (
         environment to use.  If the environment is specified explicitly using
         -e ENV, this takes precedence.
         """)),
-    ('JUJU_HOME', textwrap.dedent("""\
-        Overrides the default Juju configuration directory of ~/.config/juju.
+    ('JUJU_DATA', textwrap.dedent("""\
+        Overrides the default Juju configuration directory of $XDG_DATA_HOME/juju or ~/.local/share/juju
+        if $XDG_DATA_HOME is not defined.
         """)),
     ('AWS_ACCESS_KEY_ID', textwrap.dedent("""\
         The access-key for your AWS account.

@@ -703,7 +703,7 @@ func isEmpty(val interface{}) bool {
 // The defined[attr+"-path"] key is always deleted.
 func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
 	if !osenv.IsJujuHomeSet() {
-		logger.Debugf("JUJU_HOME not set, not attempting to read file %q", defaultPath)
+		logger.Debugf("JUJU_DATA not set, not attempting to read file %q", defaultPath)
 		return nil
 	}
 	pathAttr := attr + "-path"

@@ -24,15 +24,15 @@ check_deps() {
     which swift || has_deps=0
     which s3cmd || has_deps=0
 
-    test -f $JUJU_HOME/canonistacktoolsrc || has_deps=0
-    test -f $JUJU_HOME/hptoolsrc || has_deps=0
-    test -f $JUJU_HOME/awstoolsrc || has_deps=0
-    test -f $JUJU_HOME/azuretoolsrc || has_deps=0
+    test -f $JUJU_DATA/canonistacktoolsrc || has_deps=0
+    test -f $JUJU_DATA/hptoolsrc || has_deps=0
+    test -f $JUJU_DATA/awstoolsrc || has_deps=0
+    test -f $JUJU_DATA/azuretoolsrc || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install lftp, python-swiftclient, and s3cmd"
-        echo "Your your \$JUJU_HOME dir must contain rc files to publish:"
+        echo "Your your \$JUJU_DATA dir must contain rc files to publish:"
         echo "  canonistacktoolsrc, hptoolsrc, awstoolsrc, azuretoolsrc"
-	echo "(if \$JUJU_HOME is not set, we will try \$XDG_DATA_HOME/juju"
+	echo "(if \$JUJU_DATA is not set, we will try \$XDG_DATA_HOME/juju"
 	echo " or,  ~/.local/share/juju if \$XDG_DATA_HOME is not set)"
         exit 2
     fi
@@ -214,12 +214,12 @@ publish_to_azure() {
     done
 }
 
-# set $JUJU_HOME, if not set, to the proper path.
-if [ -z "$JUJU_HOME" ]; then
+# set $JUJU_DATA, if not set, to the proper path.
+if [ -z "$JUJU_DATA" ]; then
   if [ -z "$XDG_DATA_HOME" ]; then
-    JUJU_HOME=~/.local/share/juju
+    JUJU_DATA=~/.local/share/juju
   else
-    JUJU_HOME=$XDG_DATA_HOME/juju
+    JUJU_DATA=$XDG_DATA_HOME/juju
   fi
 fi
 

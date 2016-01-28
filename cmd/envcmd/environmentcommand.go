@@ -31,7 +31,7 @@ var ErrNoEnvironmentSpecified = errors.New("no environment specified")
 // GetDefaultEnvironment returns the name of the Juju default environment.
 // There is simple ordering for the default environment.  Firstly check the
 // JUJU_ENV environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_HOME/current-environment file.  If neither are
+// set, look in the $JUJU_DATA/current-environment file.  If neither are
 // available, read environments.yaml and use the default environment therein.
 // If no default is specified in the environments file, an empty string is returned.
 // Not having a default environment specified is not an error.

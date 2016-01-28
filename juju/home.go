@@ -12,7 +12,7 @@ import (
 )
 
 // InitJujuHome initializes the charm cache, environs/config and utils/ssh packages
-// to use default paths based on the $JUJU_HOME or $HOME environment variables.
+// to use default paths based on the $JUJU_DATA or $HOME environment variables.
 // This function should be called before running a Juju CLI command.
 func InitJujuHome() error {
 	jujuHome := osenv.JujuHomeDir()
