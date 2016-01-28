@@ -98,24 +98,29 @@ type legacyHTTPHandlerDeps struct {
 	connect func(*http.Request) (UnitDataStore, error)
 }
 
+// Connect implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) Connect(req *http.Request) (UnitDataStore, error) {
 	return deps.connect(req)
 }
 
+// SendHTTPError implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) SendHTTPError(resp http.ResponseWriter, err error) {
 	api.SendHTTPError(resp, err)
 }
 
+// UpdateDownloadResponse implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWriter, info resource.Resource) {
 	api.UpdateDownloadResponse(resp, info)
 }
 
+// HandleDownload implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) HandleDownload(st UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
 	return HandleDownload(req, handleDownloadDeps{
 		DownloadDataStore: st,
 	})
 }
 
+// Copy implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) Copy(w io.Writer, r io.Reader) error {
 	_, err := io.Copy(w, r)
 	return err
