@@ -491,7 +491,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	// Ensure the cached contents are properly retrieved.
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
-	s.assertGetFileResponse(c, resp, contents, "application/javascript")
+	s.assertGetFileResponse(c, resp, contents, params.ContentTypeJS)
 }
 
 type charmsWithMacaroonsSuite struct {

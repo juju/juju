@@ -33,36 +33,11 @@ func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 	s.environ = os.Environ()
 }
 
-var testCert = `
------BEGIN PRIVATE KEY-----
-MIIBCgIBADANBgkqhkiG9w0BAQEFAASB9TCB8gIBAAIxAKQGQxP1i0VfCWn4KmMP
-taUFn8sMBKjP/9vHnUYdZRvvmoJCA1C6arBUDp8s2DNX+QIDAQABAjBLRqhwN4dU
-LfqHDKJ/Vg1aD8u3Buv4gYRBxdFR5PveyqHSt5eJ4g/x/4ndsvr2OqUCGQDNfNlD
-zxHCiEAwZZAPaAkn8jDkFupTljcCGQDMWCujiVZ1NNuBD/N32Yt8P9JDiNzZa08C
-GBW7VXLxbExpgnhb1V97vjQmTfthXQjYAwIYSTEjoFXm4+Bk5xuBh2IidgSeGZaC
-FFY9AhkAsteo31cyQw2xJ80SWrmsIw+ps7Cvt5W9
------END PRIVATE KEY-----
------BEGIN CERTIFICATE-----
-MIIBDzCByqADAgECAgkAgIBb3+lSwzEwDQYJKoZIhvcNAQEFBQAwFTETMBEGA1UE
-AxQKQEhvc3ROYW1lQDAeFw0xMzA3MTkxNjA1NTRaFw0yMzA3MTcxNjA1NTRaMBUx
-EzARBgNVBAMUCkBIb3N0TmFtZUAwTDANBgkqhkiG9w0BAQEFAAM7ADA4AjEApAZD
-E/WLRV8JafgqYw+1pQWfywwEqM//28edRh1lG++agkIDULpqsFQOnyzYM1f5AgMB
-AAGjDTALMAkGA1UdEwQCMAAwDQYJKoZIhvcNAQEFBQADMQABKfn08tKfzzqMMD2w
-PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
------END CERTIFICATE-----
-`
-
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	// Create a fake certificate so azure test environment can be opened.
-	certfile, err := ioutil.TempFile(s.dir, "")
-	c.Assert(err, jc.ErrorIsNil)
-	filename := certfile.Name()
-	err = ioutil.WriteFile(filename, []byte(testCert), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig := strings.Replace(metadataTestEnvConfig, "/home/me/azure.pem", filename, -1)
-	testing.WriteEnvironments(c, envConfig)
+	testing.WriteEnvironments(c, metadataTestEnvConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
