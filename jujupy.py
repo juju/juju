@@ -1308,9 +1308,7 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         context.  If False, juju_home should be supplied to bootstrap.
     """
     new_config = {
-        'environments': {
-            client.env.environment: make_safe_config(client)
-            }}
+        'environments': {client.env.environment: make_safe_config(client)}}
     # Always bootstrap a matching environment.
     jenv_path = get_jenv_path(juju_home, client.env.environment)
     if permanent:
