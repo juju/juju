@@ -23,6 +23,20 @@ func init() {
 	common.RegisterStandardFacade("MetricsDebug", 1, NewMetricsDebugAPI)
 }
 
+type metricsDebug interface {
+	// MetricBatchesForUnit returns metric batches for the given unit.
+	MetricBatchesForUnit(unit string) ([]state.MetricBatch, error)
+
+	// MetricBatchesForService returns metric batches for the given service.
+	MetricBatchesForService(service string) ([]state.MetricBatch, error)
+
+	// Unit returns the unit based on its name.
+	Unit(string) (*state.Unit, error)
+
+	// Service returns the service based on its name.
+	Service(string) (*state.Service, error)
+}
+
 // MetricsDebug defines the methods on the metricsdebug API end point.
 type MetricsDebug interface {
 	// GetMetrics returns all metrics stored by the state server.
@@ -35,7 +49,7 @@ type MetricsDebug interface {
 // MetricsDebugAPI implements the metricsdebug interface and is the concrete
 // implementation of the api end point.
 type MetricsDebugAPI struct {
-	state *state.State
+	state metricsDebug
 }
 
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
@@ -127,6 +141,7 @@ func (api *MetricsDebugAPI) SetMeterStatus(args params.MeterStatusParams) (param
 		})
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
+			continue
 		}
 	}
 	return results, nil
