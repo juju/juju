@@ -180,6 +180,10 @@ const (
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
 
+	// AutomaticallyRetryHooks determines whether the uniter will
+	// automatically retry a hook that has failed
+	AutomaticallyRetryHooks = "automatically-retry-hooks"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -1070,6 +1074,16 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// AutomaticallyRetryHooks returns whether we should automatically retry hooks.
+// By default this should be true.
+func (c *Config) AutomaticallyRetryHooks() bool {
+	if val, ok := c.defined["automatically-retry-hooks"].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
 // ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
@@ -1310,6 +1324,9 @@ var alwaysOptional = schema.Defaults{
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
 
+	// AutomaticallyRetryHooks is assumed to be true if missing
+	AutomaticallyRetryHooks: schema.Omit,
+
 	// Storage related config.
 	// Environ providers will specify their own defaults.
 	StorageDefaultBlockSourceKey: schema.Omit,
@@ -1420,6 +1437,7 @@ var immutableAttributes = []string{
 	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
+	AutomaticallyRetryHooks,
 }
 
 var (
@@ -1890,5 +1908,11 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,
+	},
+	AutomaticallyRetryHooks: {
+		Description: "Determines whether the uniter should automatically retry failed hooks",
+		Type:        environschema.Tbool,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
 	},
 }
