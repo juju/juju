@@ -218,13 +218,18 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	err := s.manifold.Output(worker, &apicaller)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(apicaller, gc.Equals, s.conn)
+
+	var conn api.Connection
+	err = s.manifold.Output(worker, &conn)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(conn, gc.Equals, s.conn)
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	var apicaller base.APICaller
 	err := s.manifold.Output(dummyWorker{}, &apicaller)
 	c.Check(apicaller, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *apicaller.apiConnWorker->*base.APICaller; got apicaller_test.dummyWorker->*base.APICaller")
+	c.Check(err.Error(), gc.Equals, "in should be a *apicaller.apiConnWorker; got apicaller_test.dummyWorker")
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
@@ -233,5 +238,5 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	var apicaller interface{}
 	err := s.manifold.Output(worker, &apicaller)
 	c.Check(apicaller, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *apicaller.apiConnWorker->*base.APICaller; got *apicaller.apiConnWorker->*interface {}")
+	c.Check(err.Error(), gc.Equals, "out should be *base.APICaller or *api.Connection; got *interface {}")
 }

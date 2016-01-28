@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 )
+
+var logger = loggo.GetLogger("juju.worker")
 
 // RestartDelay holds the length of time that a worker
 // will wait between exiting and restarting.
