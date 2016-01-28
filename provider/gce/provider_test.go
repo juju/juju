@@ -41,7 +41,9 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 }
 
 func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
+	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: s.Config,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env, gc.NotNil)
 }

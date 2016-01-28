@@ -497,12 +497,16 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
+	env0, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := env0.(*Environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
-	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
+	env1, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := env1.(*Environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
@@ -519,7 +523,9 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*Environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
@@ -533,7 +539,9 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := env.(*Environ).ecfg().StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)

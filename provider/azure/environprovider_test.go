@@ -48,7 +48,9 @@ func (s *environProviderSuite) testPrepareForBootstrapWithInternalConfig(c *gc.C
 	ctx := envtesting.BootstrapContext(c)
 	cfg := makeTestEnvironConfig(c, testing.Attrs{key: "whatever"})
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	_, err := s.provider.PrepareForBootstrap(ctx, cfg)
+	_, err := s.provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`internal config "%s" must not be specified`, key))
 }
 
@@ -59,7 +61,9 @@ func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	env, err := s.provider.PrepareForBootstrap(ctx, cfg)
+	env, err := s.provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env, gc.NotNil)
 

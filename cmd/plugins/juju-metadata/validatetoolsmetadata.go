@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/version"
@@ -151,11 +150,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {
-		store, err := configstore.Default()
-		if err != nil {
-			return err
-		}
-		environ, err := c.prepare(context, store)
+		environ, err := c.prepare(context)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {

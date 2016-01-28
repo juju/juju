@@ -45,7 +45,9 @@ func localConfig(c *gc.C, extra map[string]interface{}) *config.Config {
 	}
 	testConfig, err := config.New(config.NoDefaults, values)
 	c.Assert(err, jc.ErrorIsNil)
-	testEnv, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	testEnv, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: testConfig,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return testEnv.Config()
 }
@@ -149,7 +151,9 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
-	env, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), minimalConfig(c))
+	env, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: minimalConfig(c),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")

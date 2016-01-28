@@ -237,7 +237,9 @@ Acquire::magic::Proxy "";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+			Config: testConfig,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 
 		envConfig := env.Config()
@@ -293,7 +295,9 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+			Config: basecfg,
+		})
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			cfg := env.Config()
@@ -314,7 +318,9 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	})
 	provider, err := environs.Provider("local")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), basecfg)
+	env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: basecfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	// local provider sets proxy-ssh to false
 	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
@@ -346,7 +352,9 @@ func (s *prepareSuite) TestProxyLocalhostFix(c *gc.C) {
 		cfg, err := basecfg.Apply(proxyAttrValues)
 		c.Assert(err, jc.ErrorIsNil)
 		//this call should replace all loopback urls with bridge ip
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+			Config: cfg,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 
 		// verify that correct replacement took place

@@ -150,7 +150,9 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
+	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: s.Config,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env, gc.NotNil)

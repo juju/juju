@@ -56,14 +56,15 @@ func destroyEnvInfoProductionFunc(
 	}
 }
 
-// environFromName loads an existing environment or prepares a new
-// one. If there are no errors, it returns the environ and a closure to
-// clean up in case we need to further up the stack. If an error has
-// occurred, the environment and cleanup function will be nil, and the
-// error will be filled in.
-var environFromName = environFromNameProductionFunc
+// prepareFromName prepares a new environment for bootstrapping. If there are
+// no errors, it returns the environ and a closure to clean up in case we need
+// to further up the stack. If an error has occurred, the environment and
+// cleanup function will be nil, and the error will be filled in.
+var prepareFromName = prepareFromNameProductionFunc
 
-func environFromNameProductionFunc(
+var environsPrepare = environs.Prepare
+
+func prepareFromNameProductionFunc(
 	ctx *cmd.Context,
 	envName string,
 	action string,
@@ -75,34 +76,24 @@ func environFromNameProductionFunc(
 		return nil, nil, err
 	}
 
-	envExisted := false
-	if environInfo, err := store.ReadInfo(envName); err == nil {
-		envExisted = true
-		logger.Warningf(
-			"ignoring environments.yaml: using bootstrap config in %s",
-			environInfo.Location(),
-		)
-	} else if !errors.IsNotFound(err) {
-		return nil, nil, err
+	cfg, _, err := environs.ConfigForName(envName, store)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	cleanup = func() {
-		// Distinguish b/t removing the jenv file or tearing down the
-		// environment. We want to remove the jenv file if preparation
-		// was not successful. We want to tear down the environment
-		// only in the case where the environment didn't already
-		// exist.
-		if env == nil {
-			logger.Debugf("Destroying environment info.")
-			destroyEnvInfo(ctx, envName, store, action)
-		} else if !envExisted && ensureNotBootstrapped(env) != environs.ErrAlreadyBootstrapped {
+		if ensureNotBootstrapped(env) != environs.ErrAlreadyBootstrapped {
 			logger.Debugf("Destroying environment.")
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
 
-	if env, err = environs.PrepareFromName(envName, envcmd.BootstrapContext(ctx), store); err != nil {
-		return nil, cleanup, err
+	if env, err = environsPrepare(cfg, envcmd.BootstrapContext(ctx), store); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			logger.Debugf("Destroying environment info.")
+			destroyEnvInfo(ctx, envName, store, action)
+		}
+		return nil, nil, err
 	}
 
 	return env, cleanup, err

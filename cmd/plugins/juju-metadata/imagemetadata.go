@@ -27,7 +27,11 @@ type imageMetadataCommandBase struct {
 	envcmd.EnvCommandBase
 }
 
-func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
+func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
+	// We need to "prepare" the environment so that it gets the right
+	// configuration defaults, but we don't want to write anything out
+	// to disk. We use an in-memory configstore for that reason.
+	store := configstore.NewMem()
 	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get config from store")
@@ -93,40 +97,38 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
-	if store, err := configstore.Default(); err == nil {
-		if environ, err = c.prepare(context, store); err == nil {
-			logger.Infof("creating image metadata for environment %q", environ.Config().Name())
-			// If the user has not specified region and endpoint, try and get it from the environment.
-			if c.Region == "" || c.Endpoint == "" {
-				var cloudSpec simplestreams.CloudSpec
-				if inst, ok := environ.(simplestreams.HasRegion); ok {
-					if cloudSpec, err = inst.Region(); err != nil {
-						return err
-					}
-				} else {
-					return errors.Errorf("environment %q cannot provide region and endpoint", environ.Config().Name())
+	if environ, err := c.prepare(context); err == nil {
+		logger.Infof("creating image metadata for environment %q", environ.Config().Name())
+		// If the user has not specified region and endpoint, try and get it from the environment.
+		if c.Region == "" || c.Endpoint == "" {
+			var cloudSpec simplestreams.CloudSpec
+			if inst, ok := environ.(simplestreams.HasRegion); ok {
+				if cloudSpec, err = inst.Region(); err != nil {
+					return err
 				}
-				// If only one of region or endpoint is provided, that is a problem.
-				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-					return errors.Errorf("cannot generate metadata without a complete cloud configuration")
-				}
-				if c.Region == "" {
-					c.Region = cloudSpec.Region
-				}
-				if c.Endpoint == "" {
-					c.Endpoint = cloudSpec.Endpoint
-				}
+			} else {
+				return errors.Errorf("environment %q cannot provide region and endpoint", environ.Config().Name())
 			}
-			cfg := environ.Config()
-			if c.Series == "" {
-				c.Series = config.PreferredSeries(cfg)
+			// If only one of region or endpoint is provided, that is a problem.
+			if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
+				return errors.Errorf("cannot generate metadata without a complete cloud configuration")
 			}
-			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
-				c.privateStorage = v.(string)
+			if c.Region == "" {
+				c.Region = cloudSpec.Region
 			}
-		} else {
-			logger.Warningf("environment could not be opened: %v", err)
+			if c.Endpoint == "" {
+				c.Endpoint = cloudSpec.Endpoint
+			}
 		}
+		cfg := environ.Config()
+		if c.Series == "" {
+			c.Series = config.PreferredSeries(cfg)
+		}
+		if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
+			c.privateStorage = v.(string)
+		}
+	} else {
+		logger.Warningf("environment could not be opened: %v", err)
 	}
 	if environ == nil {
 		logger.Infof("no environment found, creating image metadata using user supplied data")

@@ -66,8 +66,8 @@ func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 	return nil, nil
 }
 
-func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	p.Push("PrepareForBootstrap", ctx, cfg)
+func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	p.Push("PrepareForBootstrap", ctx, args)
 	return nil, nil
 }
 
