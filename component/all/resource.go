@@ -338,10 +338,12 @@ type resourcesUnitDataStore struct {
 	serviceName string
 }
 
+// ListResources implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) ListResources() ([]resource.Resource, error) {
 	return ds.resources.ListResources(ds.serviceName)
 }
 
+// OpenResource implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
 	return ds.resources.OpenResource(ds.serviceName, name)
 }
@@ -359,6 +361,7 @@ type UnitDoer struct {
 	unitName string
 }
 
+// Do implements httprequest.Doer.
 func (d *UnitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
 	req.URL.Path = fmt.Sprintf("/units/%s%s", d.unitName, req.URL.Path)
 	return d.doer.Do(req, body, response)
