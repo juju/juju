@@ -321,7 +321,7 @@ class EnvJujuClient:
         for machine in machines:
             self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -334,14 +334,12 @@ class EnvJujuClient:
                 '--agent-version', self.get_matching_agent_version())
         if upload_tools:
             args = ('--upload-tools',) + args
-        if to is not None:
-            args = args + ('--to', to)
         if bootstrap_series is not None:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
-    def bootstrap(self, upload_tools=False, to=None, bootstrap_series=None):
-        args = self.get_bootstrap_args(upload_tools, to, bootstrap_series)
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
@@ -983,7 +981,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     bootstrap_supports = frozenset()
 
-    def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -995,10 +993,6 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
-        if to is not None:
-            env_val = self.env.config.get('bootstrap-host')
-            if to != env_val:
-                raise BootstrapMismatch('to', to, 'bootstrap-host', env_val)
         if bootstrap_series is not None:
             env_val = self.env.config.get('default-series')
             if bootstrap_series != env_val:

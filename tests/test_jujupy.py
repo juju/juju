@@ -874,11 +874,11 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo', {})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
-            client.bootstrap(to='ssh:foo', bootstrap_series='angsty')
+            client.bootstrap(bootstrap_series='angsty')
         mock.assert_called_with(
             'bootstrap', (
                 '--constraints', 'mem=2G', '--agent-version', '2.0',
-                '--to', 'ssh:foo', '--bootstrap-series', 'angsty'), False)
+                '--bootstrap-series', 'angsty'), False)
 
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
@@ -898,14 +898,6 @@ class TestEnvJujuClient(ClientTest):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G', '--agent-version', '2.0'))
-
-    def test_get_bootstrap_args_to(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, '2.0-zeta1', None)
-        args = client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
-        self.assertEqual(args, ('--upload-tools', '--constraints',
-                                'mem=2G', '--agent-version', '2.0', '--to',
-                                'ssh:foo'))
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = SimpleEnvironment('foo', {})
@@ -2288,14 +2280,14 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, None, None)
         with self.assertRaisesRegexp(
                 BootstrapMismatch,
-                '--to ssh:foo does not match bootstrap-host: None'):
-            client.bootstrap(to='ssh:foo', bootstrap_series='angsty')
+                '--bootstrap-series angsty does not match default-series:'
+                ' None'):
+            client.bootstrap(bootstrap_series='angsty')
         env.config.update({
-            'bootstrap-host': 'ssh:foo',
             'default-series': 'angsty',
             })
         with patch.object(client, 'juju') as mock:
-            client.bootstrap(to='ssh:foo', bootstrap_series='angsty')
+            client.bootstrap(bootstrap_series='angsty')
         mock.assert_called_with(
             'bootstrap', ('--constraints', 'mem=2G'),
             False)
@@ -2317,18 +2309,6 @@ class TestEnvJujuClient1X(ClientTest):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
-
-    def test_get_bootstrap_args_to(self):
-        env = SimpleEnvironment('foo', {})
-        client = EnvJujuClient1X(env, None, None)
-        with self.assertRaisesRegexp(
-                BootstrapMismatch,
-                '--to ssh:foo does not match bootstrap-host: None'):
-            client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
-        env.config['bootstrap-host'] = 'ssh:foo'
-        args = client.get_bootstrap_args(upload_tools=True, to='ssh:foo')
-        self.assertEqual(args, ('--upload-tools', '--constraints',
-                                'mem=2G'))
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = SimpleEnvironment('foo', {})
