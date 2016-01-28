@@ -744,36 +744,6 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	return result, nil
 }
 
-// SetProvisioned sets the provider specific instance id, nonce and
-// metadata for each given machine. Once set, the instance id cannot
-// be changed.
-//
-// TODO(dimitern) This is not used anymore (as of 1.19.0) and is
-// retained only for backwards-compatibility. It should be removed as
-// deprecated. SetInstanceInfo is used instead.
-func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Machines)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Machines {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.

@@ -52,10 +52,6 @@ const (
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
-	// DefaultSyslogPort is the default port that the syslog UDP/TCP listener is
-	// listening on.
-	DefaultSyslogPort int = 6514
-
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a state server, in seconds.
 	DefaultBootstrapSSHTimeout int = 600
@@ -814,11 +810,6 @@ func (c *Config) APIPort() int {
 	return c.mustInt("api-port")
 }
 
-// SyslogPort returns the syslog port for the environment.
-func (c *Config) SyslogPort() int {
-	return c.mustInt("syslog-port")
-}
-
 // NumaCtlPreference returns if numactl is preferred.
 func (c *Config) NumaCtlPreference() bool {
 	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
@@ -855,26 +846,6 @@ func (c *Config) PreventAllChanges() bool {
 		return attrValue.(bool)
 	}
 	return DefaultPreventAllChanges
-}
-
-// RsyslogCACert returns the certificate of the CA that signed the
-// rsyslog certificate, in PEM format, or nil if one hasn't been
-// generated yet.
-func (c *Config) RsyslogCACert() string {
-	if s, ok := c.defined["rsyslog-ca-cert"]; ok {
-		return s.(string)
-	}
-	return ""
-}
-
-// RsyslogCAKey returns the key of the CA that signed the
-// rsyslog certificate, in PEM format, or nil if one hasn't been
-// generated yet.
-func (c *Config) RsyslogCAKey() string {
-	if s, ok := c.defined["rsyslog-ca-key"]; ok {
-		return s.(string)
-	}
-	return ""
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -1364,9 +1335,8 @@ var alwaysOptional = schema.Defaults{
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
-	"state-port":  DefaultStatePort,
-	"api-port":    DefaultAPIPort,
-	"syslog-port": DefaultSyslogPort,
+	"state-port": DefaultStatePort,
+	"api-port":   DefaultAPIPort,
 	// Previously image-stream could be set to an empty value
 	"image-stream":             "",
 	"test-mode":                false,
@@ -1396,7 +1366,6 @@ func allDefaults() schema.Defaults {
 		"ssl-hostname-verification":  true,
 		"state-port":                 DefaultStatePort,
 		"api-port":                   DefaultAPIPort,
-		"syslog-port":                DefaultSyslogPort,
 		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
@@ -1446,7 +1415,6 @@ var immutableAttributes = []string{
 	LxcClone,
 	LXCDefaultMTU,
 	"lxc-clone-aufs",
-	"syslog-port",
 	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
@@ -1875,12 +1843,6 @@ global or per instance security groups.`,
 	},
 	"state-port": {
 		Description: "Port for the API server to listen on.",
-		Type:        environschema.Tint,
-		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
-	"syslog-port": {
-		Description: "Port for the syslog UDP/TCP listener to listen on.",
 		Type:        environschema.Tint,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,

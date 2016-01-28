@@ -163,7 +163,6 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
 	s.state.environConfig = func() (*config.Config, error) {
-		s.calls = append(s.calls, environConfig)
 		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 		c.Assert(err, jc.ErrorIsNil)
 		env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
@@ -172,15 +171,13 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	}
 
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
-		s.calls = append(s.calls, saveMetadata)
 		saved = append(saved, m...)
 		return nil
 	}
 
 	err := s.api.UpdateFromPublishedImages()
-	c.Assert(err, gc.ErrorMatches, ".*environment cloud specification cannot be determined.*")
-	s.assertCalls(c, []string{environConfig})
-
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCalls(c, environConfig)
 	c.Assert(saved, jc.SameContents, []cloudimagemetadata.Metadata{})
 }
 
@@ -292,12 +289,10 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 	// testingEnvConfig prepares an environment configuration using
 	// mock provider which impelements simplestreams.HasRegion interface.
 	s.state.environConfig = func() (*config.Config, error) {
-		s.calls = append(s.calls, environConfig)
 		return s.env.Config(), nil
 	}
 
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
-		s.calls = append(s.calls, saveMetadata)
 		s.saved = append(s.saved, m...)
 		return nil
 	}
@@ -306,10 +301,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 func (s *regionMetadataSuite) checkStoredPublished(c *gc.C) {
 	err := s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-
-	tempCalls := []string{environConfig, environConfig, saveMetadata}
-	s.assertCalls(c, tempCalls)
-
+	s.assertCalls(c, environConfig, environConfig, saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
@@ -424,8 +416,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 
 	err = s.api.UpdateFromPublishedImages()
 	c.Assert(err, jc.ErrorIsNil)
-	calls := []string{environConfig, environConfig, saveMetadata, environConfig, saveMetadata}
-	s.assertCalls(c, calls)
+	s.assertCalls(c, environConfig, environConfig, saveMetadata, environConfig, saveMetadata)
 	c.Assert(s.saved, jc.SameContents, s.expected)
 }
 
