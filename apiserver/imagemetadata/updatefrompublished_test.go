@@ -289,7 +289,15 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 	// testingEnvConfig prepares an environment configuration using
 	// mock provider which impelements simplestreams.HasRegion interface.
 	s.state.environConfig = func() (*config.Config, error) {
-		return s.env.Config(), nil
+		s.calls = append(s.calls, environConfig)
+		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+		c.Assert(err, jc.ErrorIsNil)
+		env, err := environs.Prepare(
+			modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
+			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		return env.Config(), err
 	}
 
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {

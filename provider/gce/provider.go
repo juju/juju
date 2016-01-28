@@ -6,6 +6,7 @@ package gce
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -24,7 +25,33 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	// Add credentials to the configuration.
 	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.JSONFileAuthType:
+		var err error
+		filename := args.Credentials.Attributes()["file"]
+		args.Credentials, err = parseJSONAuthFile(filename)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		fallthrough
+	case cloud.OAuth2AuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		var err error
+		cfg, err = args.Config.Apply(map[string]interface{}{
+			"project-id":   credentialAttrs["project-id"],
+			"client-id":    credentialAttrs["client-id"],
+			"client-email": credentialAttrs["client-email"],
+			"private-key":  credentialAttrs["private-key"],
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)

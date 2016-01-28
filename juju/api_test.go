@@ -74,7 +74,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+	env, err := environs.Prepare(ctx, configstore.NewMem(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()
@@ -159,7 +159,7 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configst
 	c.Logf("env name: %s", envName)
 	cfg, _, err := environs.ConfigForName(envName, store)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, ctx, store)
+	env, err := environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()

@@ -275,7 +275,10 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem(),
+		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }
@@ -296,7 +299,10 @@ func nonexTestingEnvConfig(c *gc.C) *config.Config {
 func mockTestingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, mockConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem(),
+		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

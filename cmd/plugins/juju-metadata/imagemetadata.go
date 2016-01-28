@@ -39,8 +39,14 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// We are preparing an environment to access parameters needed to access
 	// image metadata. We don't need, nor want, credential verification.
 	// In most cases, credentials will not be available.
-	ctx := modelcmd.BootstrapContextNoVerify(context)
-	return environs.Prepare(cfg, ctx, store)
+	//ctx := envcmd.BootstrapContextNoVerify(context)
+	// TODO(axw) we'll need to revise the metadata commands to work
+	// without preparing an environment. They should take the same
+	// format as bootstrap, i.e. cloud/region, and we'll use that to
+	// identify region and endpoint info that we need. Not sure what
+	// we'll do about simplestreams.MetadataValidator yet. Probably
+	// move it to the EnvironProvider interface.
+	return environs.New(cfg)
 }
 
 func newImageMetadataCommand() cmd.Command {

@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -55,6 +56,16 @@ type LiveTests struct {
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
+
+	// Credential contains the credential for preparing an environment for
+	// bootstrapping. If this is unset, empty credentials will be used.
+	Credential cloud.Credential
+
+	// CloudRegion contains the cloud region name to create resources in.
+	CloudRegion string
+
+	// CloudEndpoint contains the cloud API endpoint to communicate with.
+	CloudEndpoint string
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
@@ -132,13 +143,27 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	if t.prepared {
 		return
 	}
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
+	args := t.prepareForBootstrapParams(c)
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, args.Config.Name(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
 	t.prepared = true
+}
+
+func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareForBootstrapParams {
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+	return environs.PrepareForBootstrapParams{
+		Config:        cfg,
+		Credentials:   credential,
+		CloudEndpoint: t.CloudEndpoint,
+		CloudRegion:   t.CloudRegion,
+	}
 }
 
 func (t *LiveTests) BootstrapOnce(c *gc.C) {
@@ -153,9 +178,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err := bootstrap.EnsureNotBootstrapped(t.Env)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
 		BootstrapConstraints: cons,
 		EnvironConstraints:   cons,
 	})
@@ -400,13 +423,10 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
 
-	err := bootstrap.EnsureNotBootstrapped(t.Env)
-	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
-
 	c.Logf("destroy env")
 	env := t.Env
 	t.Destroy(c)
-	err = env.Destroy() // Again, should work fine and do nothing.
+	err := env.Destroy() // Again, should work fine and do nothing.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that we can bootstrap after destroy
@@ -789,7 +809,9 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	args := t.prepareForBootstrapParams(c)
+	args.Config = dummyCfg
+	dummyenv, err := environs.Prepare(envtesting.BootstrapContext(c), configstore.NewMem(), dummyCfg.Name(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	defer dummyenv.Destroy()
 
@@ -798,7 +820,8 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
+	args.Config = cfg
+	env, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, "livetests", args)
 	c.Assert(err, jc.ErrorIsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
