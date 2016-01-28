@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/resource"
@@ -58,6 +59,21 @@ func (s *FacadeClientSuite) TestGetResource(c *gc.C) {
 	s.stub.CheckCallNames(c, "Do", "FacadeCall")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 	c.Check(content, jc.DeepEquals, opened)
+}
+
+func (s *FacadeClientSuite) TestUnitDoer(c *gc.C) {
+	req, err := http.NewRequest("GET", "/resources/eggs", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	body := filetesting.NewStubFile(s.stub, nil)
+	var resp *http.Response
+	doer := client.NewUnitDoer(s.api, "spam/1")
+
+	err = doer.Do(req, body, &resp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Do")
+	//s.stub.CheckCall(c, 0, "Do", expected, body, resp)
+	c.Check(req.URL.Path, gc.Equals, "/units/spam/1/resources/eggs")
 }
 
 type stubAPI struct {

@@ -4,6 +4,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
@@ -95,4 +96,25 @@ func (c *FacadeClient) getResourceInfo(resourceName string) (resource.Resource, 
 		return resource.Resource{}, errors.Trace(err)
 	}
 	return res, nil
+}
+
+type unitDoer struct {
+	doer     UnitDoer
+	unitName string
+}
+
+// NewUnitDoer wraps an HTTP client (a la httprequest.Client) with unit
+// information. This allows rewriting of the URL to match the relevant
+// unit.
+func NewUnitDoer(doer UnitDoer, unitName string) UnitDoer {
+	return &unitDoer{
+		doer:     doer,
+		unitName: unitName,
+	}
+}
+
+// Do implements httprequest.Doer.
+func (ud *unitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
+	req.URL.Path = fmt.Sprintf("/units/%s%s", ud.unitName, req.URL.Path)
+	return ud.doer.Do(req, body, response)
 }

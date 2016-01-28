@@ -5,9 +5,7 @@ package all
 
 import (
 	"bytes"
-	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"reflect"
 
@@ -352,17 +350,6 @@ func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Uni
 	return internalserver.NewUnitFacade(&resourcesUnitDataStore{res, unit.ServiceName()}), nil
 }
 
-type UnitDoer struct {
-	doer     internalclient.UnitDoer
-	unitName string
-}
-
-// Do implements httprequest.Doer.
-func (d *UnitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
-	req.URL.Path = fmt.Sprintf("/units/%s%s", d.unitName, req.URL.Path)
-	return d.doer.Do(req, body, response)
-}
-
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
 
 	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, internalserver.FacadeVersion)
@@ -370,11 +357,7 @@ func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	unitDoer := &UnitDoer{
-		doer:     doer,
-		unitName: unitName,
-	}
+	unitDoer := internalclient.NewUnitDoer(doer, unitName)
 
 	return internalclient.NewUnitFacadeClient(facadeCaller, unitDoer), nil
 }
