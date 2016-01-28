@@ -584,10 +584,14 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 }
 
 func (a *MachineAgent) newDiscoverSpacesWorker(api *apidiscoverspaces.API) worker.Worker {
+	a.discoveringSpacesMutex.Lock()
+	defer a.discoveringSpacesMutex.Unlock()
+	a.discoveringSpaces = true
+
 	setDiscoverSpacesCompleted := func() {
 		a.discoveringSpacesMutex.Lock()
 		defer a.discoveringSpacesMutex.Unlock()
-		a.discoveringSpaces = true
+		a.discoveringSpaces = false
 	}
 	return newDiscoverSpaces(api, setDiscoverSpacesCompleted)
 }
