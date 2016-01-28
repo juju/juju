@@ -844,7 +844,7 @@ if(!(Test-Path $path)){
 New-ItemProperty $path -Name "jujud" -Value 0 -PropertyType "DWord"
 
 $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
-$jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
+$jujuCreds = New-Object System.Management.Automation.PSCredential (".\jujud", $secpasswd)
 
 `
 
