@@ -9,9 +9,11 @@ import (
 	"sort"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
@@ -59,6 +61,18 @@ func (c *debugHooksCommand) Init(args []string) error {
 	return nil
 }
 
+type charmRelationsApi interface {
+	ServiceCharmRelations(serviceName string) ([]string, error)
+}
+
+func (c *debugHooksCommand) getServiceAPI() (charmRelationsApi, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.NewClient(root), nil
+}
+
 func (c *debugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
@@ -67,7 +81,11 @@ func (c *debugHooksCommand) validateHooks() error {
 	if err != nil {
 		return err
 	}
-	relations, err := c.apiClient.ServiceCharmRelations(service)
+	serviceApi, err := c.getServiceAPI()
+	if err != nil {
+		return err
+	}
+	relations, err := serviceApi.ServiceCharmRelations(service)
 	if err != nil {
 		return err
 	}

@@ -1255,7 +1255,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
-	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
+	err := s.State.SetModelConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
@@ -2239,32 +2239,32 @@ func (s *StateSuite) TestModelConfig(c *gc.C) {
 	c.Assert(oldCfg, gc.DeepEquals, cfg)
 }
 
-func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
+func (s *StateSuite) TestModelConstraints(c *gc.C) {
 	// Environ constraints start out empty (for now).
-	cons, err := s.State.EnvironConstraints()
+	cons, err := s.State.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Environ constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(1024)}
-	err = s.State.SetEnvironConstraints(cons2)
+	err = s.State.SetModelConstraints(cons2)
 	c.Assert(err, jc.ErrorIsNil)
-	cons3, err := s.State.EnvironConstraints()
+	cons3, err := s.State.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
 
 	// Environ constraints are completely overwritten when re-set.
 	cons4 := constraints.Value{CpuPower: uint64p(250)}
-	err = s.State.SetEnvironConstraints(cons4)
+	err = s.State.SetModelConstraints(cons4)
 	c.Assert(err, jc.ErrorIsNil)
-	cons5, err := s.State.EnvironConstraints()
+	cons5, err := s.State.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
 }
 
 func (s *StateSuite) TestSetInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G instance-type=foo")
-	err := s.State.SetEnvironConstraints(cons)
+	err := s.State.SetModelConstraints(cons)
 	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
@@ -2276,13 +2276,13 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
-	err := s.State.SetEnvironConstraints(cons)
+	err := s.State.SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`setting model constraints: unsupported constraints: cpu-power`},
 	})
-	econs, err := s.State.EnvironConstraints()
+	econs, err := s.State.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(econs, gc.DeepEquals, cons)
 }

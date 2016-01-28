@@ -153,9 +153,8 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 	for i := 0; i < t.NumMethod(); i++ {
 		name := t.Method(i).Name
 
-		// Close isn't an API method and ServiceCharmRelations is not
-		// relevant to "juju ssh".
-		if name == "Close" || name == "ServiceCharmRelations" {
+		// Close isn't an API method.
+		if name == "Close" {
 			continue
 		}
 		c.Logf("checking %q", name)

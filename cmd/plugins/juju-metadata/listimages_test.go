@@ -41,7 +41,7 @@ func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 		Addresses: []string{"127.0.0.1:12345"},
 		Hostnames: []string{"localhost:12345"},
 		CACert:    testing.CACert,
-		ModelUUID: "model-uuid",
+		ModelUUID: testing.ModelTag.Id(),
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     "user-test",

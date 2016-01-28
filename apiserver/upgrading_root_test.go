@@ -33,7 +33,7 @@ func (r *upgradingRootSuite) TestClientMethods(c *gc.C) {
 func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 
-	caller, err := root.FindMethod("Client", 1, "ServiceDeploy")
+	caller, err := root.FindMethod("Client", 1, "ModelSet")
 
 	c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
 	c.Assert(caller, gc.IsNil)

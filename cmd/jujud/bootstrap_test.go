@@ -253,7 +253,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(stateHw, gc.NotNil)
 	c.Assert(*stateHw, gc.DeepEquals, hw)
 
-	cons, err := st.EnvironConstraints()
+	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
@@ -325,7 +325,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	cons, err := st.EnvironConstraints()
+	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, environCons)
 

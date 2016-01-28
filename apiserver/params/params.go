@@ -194,17 +194,16 @@ type ServicesDeploy struct {
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
-	ServiceName   string
-	Series        string
-	CharmUrl      string
-	NumUnits      int
-	Config        map[string]string
-	ConfigYAML    string // Takes precedence over config if both are present.
-	Constraints   constraints.Value
-	ToMachineSpec string
-	Placement     []*instance.Placement
-	Networks      []string
-	Storage       map[string]storage.Constraints
+	ServiceName string
+	Series      string
+	CharmUrl    string
+	NumUnits    int
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	Constraints constraints.Value
+	Placement   []*instance.Placement
+	Networks    []string
+	Storage     map[string]storage.Constraints
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -330,17 +329,16 @@ type ResolvedResults struct {
 }
 
 // AddServiceUnitsResults holds the names of the units added by the
-// AddServiceUnits call.
+// AddServiceUnitsWithPlacement call.
 type AddServiceUnitsResults struct {
 	Units []string
 }
 
 // AddServiceUnits holds parameters for the AddUnits call.
 type AddServiceUnits struct {
-	ServiceName   string
-	NumUnits      int
-	ToMachineSpec string
-	Placement     []*instance.Placement
+	ServiceName string
+	NumUnits    int
+	Placement   []*instance.Placement
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.

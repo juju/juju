@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -23,12 +24,15 @@ var logger = loggo.GetLogger("juju.api.service")
 
 // Client allows access to the service API end point.
 type Client struct {
-	base.FacadeCaller
+	base.ClientFacade
+	st     api.Connection
+	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the service api.
-func NewClient(caller base.APICallCloser) *Client {
-	return &Client{base.NewFacadeCaller(caller, "Service")}
+func NewClient(st api.Connection) *Client {
+	frontend, backend := base.NewClientFacade(st, "Service")
+	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
 // SetMetricCredentials sets the metric credentials for the service specified.
@@ -38,7 +42,7 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 	}
 	p := params.ServiceMetricCredentials{creds}
 	results := new(params.ErrorResults)
-	err := c.FacadeCall("SetMetricCredentials", p, results)
+	err := c.facade.FacadeCall("SetMetricCredentials", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -47,7 +51,7 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 
 // ModelUUID returns the model UUID from the client connection.
 func (c *Client) ModelUUID() string {
-	tag, err := c.RawAPICaller().ModelTag()
+	tag, err := c.st.ModelTag()
 	if err != nil {
 		logger.Warningf("model tag not an model: %v", err)
 		return ""
@@ -68,38 +72,26 @@ func (c *Client) ServiceDeploy(
 	numUnits int,
 	configYAML string,
 	cons constraints.Value,
-	toMachineSpec string,
 	placement []*instance.Placement,
 	networks []string,
 	storage map[string]storage.Constraints,
 ) error {
 	args := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName:   serviceName,
-			Series:        series,
-			CharmUrl:      charmURL,
-			NumUnits:      numUnits,
-			ConfigYAML:    configYAML,
-			Constraints:   cons,
-			ToMachineSpec: toMachineSpec,
-			Placement:     placement,
-			Networks:      networks,
-			Storage:       storage,
+			ServiceName: serviceName,
+			Series:      series,
+			CharmUrl:    charmURL,
+			NumUnits:    numUnits,
+			ConfigYAML:  configYAML,
+			Constraints: cons,
+			Placement:   placement,
+			Networks:    networks,
+			Storage:     storage,
 		}},
 	}
 	var results params.ErrorResults
 	var err error
-	if len(placement) > 0 {
-		err = c.FacadeCall("ServicesDeployWithPlacement", args, &results)
-		if err != nil {
-			if params.IsCodeNotImplemented(err) {
-				return errors.Errorf("unsupported --to parameter %q", toMachineSpec)
-			}
-			return err
-		}
-	} else {
-		err = c.FacadeCall("ServicesDeploy", args, &results)
-	}
+	err = c.facade.FacadeCall("ServicesDeployWithPlacement", args, &results)
 	if err != nil {
 		return err
 	}
@@ -115,7 +107,7 @@ func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
 
 	result := new(params.StringResult)
 	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.FacadeCall("ServiceGetCharmURL", args, result)
+	err := c.facade.FacadeCall("ServiceGetCharmURL", args, result)
 	if err != nil {
 		return nil, err
 	}
@@ -137,16 +129,129 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceSerie
 		ForceSeries: forceSeries,
 		ForceUnits:  forceUnits,
 	}
-	return c.FacadeCall("ServiceSetCharm", args, nil)
+	return c.facade.FacadeCall("ServiceSetCharm", args, nil)
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,
 // minimum number of units, settings and constraints.
-// TODO(frankban) deprecate redundant API calls that this supercedes.
 func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	if c.BestAPIVersion() < 2 {
 		return base.OldAgentError("ServiceUpdate", "2.0")
 	}
 
-	return c.FacadeCall("ServiceUpdate", args, nil)
+	return c.facade.FacadeCall("ServiceUpdate", args, nil)
+}
+
+// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
+// placement directives to assign units to machines.
+func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+	args := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+		Placement:   placement,
+	}
+	results := new(params.AddServiceUnitsResults)
+	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
+	return results.Units, err
+}
+
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames ...string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	return c.facade.FacadeCall("DestroyServiceUnits", params, nil)
+}
+
+// ServiceDestroy destroys a given service.
+func (c *Client) ServiceDestroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
+	}
+	return c.facade.FacadeCall("ServiceDestroy", params, nil)
+}
+
+// GetServiceConstraints returns the constraints for the given service.
+func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.facade.FacadeCall("GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return c.facade.FacadeCall("SetServiceConstraints", params, nil)
+}
+
+// ServiceExpose changes the juju-managed firewall to expose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) ServiceExpose(service string) error {
+	params := params.ServiceExpose{ServiceName: service}
+	return c.facade.FacadeCall("ServiceExpose", params, nil)
+}
+
+// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) ServiceUnexpose(service string) error {
+	params := params.ServiceUnexpose{ServiceName: service}
+	return c.facade.FacadeCall("ServiceUnexpose", params, nil)
+}
+
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows the specification of requested networks that must be present
+// on the machines where the service is deployed. Another way to specify
+// networks to include/exclude is using constraints.
+func (c *Client) ServiceDeployWithNetworks(
+	charmURL string,
+	serviceName string,
+	numUnits int,
+	configYAML string,
+	cons constraints.Value,
+	networks []string,
+) error {
+	params := params.ServiceDeploy{
+		ServiceName: serviceName,
+		CharmUrl:    charmURL,
+		NumUnits:    numUnits,
+		ConfigYAML:  configYAML,
+		Constraints: cons,
+		Networks:    networks,
+	}
+	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
+}
+
+// ServiceGet returns the configuration for the named service.
+func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
+	var results params.ServiceGetResults
+	params := params.ServiceGet{ServiceName: service}
+	err := c.facade.FacadeCall("ServiceGet", params, &results)
+	return &results, err
+}
+
+// ServiceSet sets configuration options on a service.
+func (c *Client) ServiceSet(service string, options map[string]string) error {
+	p := params.ServiceSet{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.facade.FacadeCall("ServiceSet", p, nil)
+}
+
+// ServiceUnset resets configuration options on a service.
+func (c *Client) ServiceUnset(service string, options []string) error {
+	p := params.ServiceUnset{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.facade.FacadeCall("ServiceUnset", p, nil)
+}
+
+// ServiceCharmRelations returns the service's charms relation names.
+func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
+	var results params.ServiceCharmRelationsResults
+	params := params.ServiceCharmRelations{ServiceName: service}
+	err := c.facade.FacadeCall("ServiceCharmRelations", params, &results)
+	return results.CharmRelations, err
 }

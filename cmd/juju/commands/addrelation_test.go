@@ -7,6 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -14,12 +16,12 @@ import (
 
 type AddRelationSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockHelper
+	common.CmdBlockHelper
 }
 
 func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -135,6 +137,11 @@ var addRelationTests = []struct {
 		args: []string{"wp:juju-info", "lg:info"},
 		err:  wpLgAlreadyExistsJuju,
 	},
+}
+
+func runDeploy(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, service.NewDeployCommand(), args...)
+	return err
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *gc.C) {

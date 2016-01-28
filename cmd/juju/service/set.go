@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
+// NewSetCommand returns a command used to set service attributes.
 func NewSetCommand() cmd.Command {
 	return envcmd.Wrap(&setCommand{})
 }
@@ -31,8 +32,7 @@ type setCommand struct {
 	ServiceName     string
 	SettingsStrings map[string]string
 	SettingsYAML    cmd.FileVar
-	clientApi       ClientAPI
-	serviceApi      ServiceAPI
+	serviceApi      serviceAPI
 }
 
 const setDoc = `
@@ -79,29 +79,16 @@ func (c *setCommand) Init(args []string) error {
 	return nil
 }
 
-// ClientAPI defines the methods on the client API
+// serviceAPI defines the methods on the client API
 // that the service set command calls.
-// TODO(wallyworld) - Juju 2.0 move remaining methods to service facade
-type ClientAPI interface {
+type serviceAPI interface {
 	Close() error
+	ServiceUpdate(args params.ServiceUpdate) error
 	ServiceGet(service string) (*params.ServiceGetResults, error)
 	ServiceSet(service string, options map[string]string) error
 }
 
-func (c *setCommand) getClientAPI() (ClientAPI, error) {
-	if c.clientApi != nil {
-		return c.clientApi, nil
-	}
-	return c.NewAPIClient()
-}
-
-// ServiceAPI defines the methods on the client API
-// that the service set command calls.
-type ServiceAPI interface {
-	ServiceUpdate(args params.ServiceUpdate) error
-}
-
-func (c *setCommand) getServiceAPI() (ServiceAPI, error) {
+func (c *setCommand) getServiceAPI() (serviceAPI, error) {
 	if c.serviceApi != nil {
 		return c.serviceApi, nil
 	}
@@ -114,24 +101,18 @@ func (c *setCommand) getServiceAPI() (ServiceAPI, error) {
 
 // Run updates the configuration of a service.
 func (c *setCommand) Run(ctx *cmd.Context) error {
-	// TODO(wallyworld) - once service methods are moved off client, won't need this
-	api, err := c.getClientAPI()
+	apiclient, err := c.getServiceAPI()
 	if err != nil {
 		return err
 	}
-	defer api.Close()
-
-	serviceApi, err := c.getServiceAPI()
-	if err != nil {
-		return err
-	}
+	defer apiclient.Close()
 
 	if c.SettingsYAML.Path != "" {
 		b, err := c.SettingsYAML.Read(ctx)
 		if err != nil {
 			return err
 		}
-		return block.ProcessBlockedError(serviceApi.ServiceUpdate(params.ServiceUpdate{
+		return block.ProcessBlockedError(apiclient.ServiceUpdate(params.ServiceUpdate{
 			ServiceName:  c.ServiceName,
 			SettingsYAML: string(b),
 		}), block.BlockChange)
@@ -163,7 +144,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		settings[k] = nv
 	}
 
-	result, err := api.ServiceGet(c.ServiceName)
+	result, err := apiclient.ServiceGet(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -180,7 +161,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return block.ProcessBlockedError(api.ServiceSet(c.ServiceName, settings), block.BlockChange)
+	return block.ProcessBlockedError(apiclient.ServiceSet(c.ServiceName, settings), block.BlockChange)
 }
 
 // readValue reads the value of an option out of the named file.

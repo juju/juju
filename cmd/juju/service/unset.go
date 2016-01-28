@@ -4,10 +4,10 @@
 package service
 
 import (
-	"errors"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
@@ -63,7 +63,11 @@ func (c *unsetCommand) getAPI() (UnsetServiceAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.NewClient(root), nil
 }
 
 // Run resets the configuration of a service.

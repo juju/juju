@@ -96,7 +96,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	// Check that the environment can be found through the tag.
 	entity, err = s.State.FindEntity(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := s.State.EnvironConstraints()
+	cons, err := s.State.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 

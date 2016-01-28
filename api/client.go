@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -75,26 +74,6 @@ func (c *Client) LegacyStatus() (*params.LegacyStatus, error) {
 	return &result, nil
 }
 
-// ServiceSet sets configuration options on a service.
-func (c *Client) ServiceSet(service string, options map[string]string) error {
-	p := params.ServiceSet{
-		ServiceName: service,
-		Options:     options,
-	}
-	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
-	// ServiceSet to unset values set to an empty string.
-	return c.facade.FacadeCall("NewServiceSetForClientAPI", p, nil)
-}
-
-// ServiceUnset resets configuration options on a service.
-func (c *Client) ServiceUnset(service string, options []string) error {
-	p := params.ServiceUnset{
-		ServiceName: service,
-		Options:     options,
-	}
-	return c.facade.FacadeCall("ServiceUnset", p, nil)
-}
-
 // Resolved clears errors on a unit.
 func (c *Client) Resolved(unit string, retry bool) error {
 	p := params.Resolved{
@@ -135,14 +114,6 @@ func (c *Client) PrivateAddress(target string) (string, error) {
 	return results.PrivateAddress, err
 }
 
-// ServiceGet returns the configuration for the named service.
-func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
-	var results params.ServiceGetResults
-	params := params.ServiceGet{ServiceName: service}
-	err := c.facade.FacadeCall("ServiceGet", params, &results)
-	return &results, err
-}
-
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
@@ -155,14 +126,6 @@ func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, e
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
 	return c.facade.FacadeCall("DestroyRelation", params, nil)
-}
-
-// ServiceCharmRelations returns the service's charms relation names.
-func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
-	var results params.ServiceCharmRelationsResults
-	params := params.ServiceCharmRelations{ServiceName: service}
-	err := c.facade.FacadeCall("ServiceCharmRelations", params, &results)
-	return results.CharmRelations, err
 }
 
 // AddMachines1dot18 adds new machines with the supplied parameters.
@@ -212,105 +175,11 @@ func (c *Client) ForceDestroyMachines(machines ...string) error {
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
 }
 
-// ServiceExpose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceExpose(service string) error {
-	params := params.ServiceExpose{ServiceName: service}
-	return c.facade.FacadeCall("ServiceExpose", params, nil)
-}
-
-// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceUnexpose(service string) error {
-	params := params.ServiceUnexpose{ServiceName: service}
-	return c.facade.FacadeCall("ServiceUnexpose", params, nil)
-}
-
-// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows the specification of requested networks that must be present
-// on the machines where the service is deployed. Another way to specify
-// networks to include/exclude is using constraints.
-func (c *Client) ServiceDeployWithNetworks(
-	charmURL string,
-	serviceName string,
-	numUnits int,
-	configYAML string,
-	cons constraints.Value,
-	toMachineSpec string,
-	networks []string,
-) error {
-	params := params.ServiceDeploy{
-		ServiceName:   serviceName,
-		CharmUrl:      charmURL,
-		NumUnits:      numUnits,
-		ConfigYAML:    configYAML,
-		Constraints:   cons,
-		ToMachineSpec: toMachineSpec,
-		Networks:      networks,
-	}
-	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
-}
-
-// AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
-	args := params.AddServiceUnits{
-		ServiceName:   service,
-		NumUnits:      numUnits,
-		ToMachineSpec: machineSpec,
-	}
-	results := new(params.AddServiceUnitsResults)
-	err := c.facade.FacadeCall("AddServiceUnits", args, results)
-	return results.Units, err
-}
-
-// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
-// placement directives to assign units to machines.
-func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
-		Placement:   placement,
-	}
-	results := new(params.AddServiceUnitsResults)
-	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
-	return results.Units, err
-}
-
-// DestroyServiceUnits decreases the number of units dedicated to a service.
-func (c *Client) DestroyServiceUnits(unitNames ...string) error {
-	params := params.DestroyServiceUnits{unitNames}
-	return c.facade.FacadeCall("DestroyServiceUnits", params, nil)
-}
-
-// ServiceDestroy destroys a given service.
-func (c *Client) ServiceDestroy(service string) error {
-	params := params.ServiceDestroy{
-		ServiceName: service,
-	}
-	return c.facade.FacadeCall("ServiceDestroy", params, nil)
-}
-
-// GetServiceConstraints returns the constraints for the given service.
-func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetServiceConstraints", params.GetServiceConstraints{service}, results)
-	return results.Constraints, err
-}
-
 // GetModelConstraints returns the constraints for the model.
 func (c *Client) GetModelConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
 	err := c.facade.FacadeCall("GetModelConstraints", nil, results)
 	return results.Constraints, err
-}
-
-// SetServiceConstraints specifies the constraints for the given service.
-func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetConstraints{
-		ServiceName: service,
-		Constraints: constraints,
-	}
-	return c.facade.FacadeCall("SetServiceConstraints", params, nil)
 }
 
 // SetModelConstraints specifies the constraints for the model.

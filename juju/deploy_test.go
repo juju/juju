@@ -133,7 +133,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
-	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
+	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	service, err := juju.DeployService(s.State,
@@ -165,31 +165,17 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	c.Assert(f.args.NumUnits, gc.Equals, 2)
 }
 
-func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	_, err = juju.DeployService(s.State,
-		juju.DeployServiceParams{
-			ServiceName:   "bob",
-			Charm:         s.charm,
-			NumUnits:      2,
-			ToMachineSpec: "0",
-		})
-	c.Assert(err, gc.ErrorMatches, "cannot use --num-units with --to")
-}
-
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
-			ServiceName:   "bob",
-			Charm:         s.charm,
-			Constraints:   serviceCons,
-			NumUnits:      1,
-			ToMachineSpec: "0",
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Constraints: serviceCons,
+			NumUnits:    1,
+			Placement:   []*instance.Placement{instance.MustParsePlacement("0")},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -207,11 +193,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
-			ServiceName:   "bob",
-			Charm:         s.charm,
-			Constraints:   serviceCons,
-			NumUnits:      1,
-			ToMachineSpec: fmt.Sprintf("%s:0", instance.LXC),
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Constraints: serviceCons,
+			NumUnits:    1,
+			Placement:   []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXC))},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -234,12 +220,11 @@ func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
 	}
 	_, err := juju.DeployService(f,
 		juju.DeployServiceParams{
-			ServiceName:   "bob",
-			Charm:         s.charm,
-			Constraints:   serviceCons,
-			NumUnits:      4,
-			Placement:     placement,
-			ToMachineSpec: "will be ignored",
+			ServiceName: "bob",
+			Charm:       s.charm,
+			Constraints: serviceCons,
+			NumUnits:    4,
+			Placement:   placement,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

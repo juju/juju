@@ -38,7 +38,7 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(service.NewDeployCommand(), "juju deploy")
 }
 
 func setHelpText() string {
@@ -232,9 +232,9 @@ var commandNames = []string{
 	"expose",
 	"generate-config", // alias for init
 	"get-config",
-	"get-constraints",
-	"get-user-credentials",
 	"get-model-config",
+	"get-model-constraints",
+	"get-user-credentials",
 	"help",
 	"help-tool",
 	"init",
@@ -262,8 +262,8 @@ var commandNames = []string{
 	"scp",
 	"service",
 	"set-config",
-	"set-constraints",
 	"set-model-config",
+	"set-model-constraints",
 	"share-model",
 	"show-action-output",
 	"show-action-status",

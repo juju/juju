@@ -133,7 +133,7 @@ func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, 
 	if err != nil {
 		return constraints.Value{}, err
 	}
-	envCons, err := st.EnvironConstraints()
+	envCons, err := st.ModelConstraints()
 	if err != nil {
 		return constraints.Value{}, err
 	}

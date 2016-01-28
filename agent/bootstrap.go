@@ -34,8 +34,8 @@ type BootstrapMachineConfig struct {
 	// BootstrapConstraints holds the bootstrap machine's constraints.
 	BootstrapConstraints constraints.Value
 
-	// EnvironConstraints holds the environment-level constraints.
-	EnvironConstraints constraints.Value
+	// ModelConstraints holds the model-level constraints.
+	ModelConstraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
 	Jobs []multiwatcher.MachineJob
@@ -142,7 +142,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 }
 
 func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := st.SetEnvironConstraints(cfg.EnvironConstraints); err != nil {
+	if err := st.SetModelConstraints(cfg.ModelConstraints); err != nil {
 		return nil, errors.Errorf("cannot set initial environ constraints: %v", err)
 	}
 	m, err := initBootstrapMachine(c, st, cfg)

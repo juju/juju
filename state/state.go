@@ -559,13 +559,13 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 }
 
 // EnvironConstraints returns the current environment constraints.
-func (st *State) EnvironConstraints() (constraints.Value, error) {
+func (st *State) ModelConstraints() (constraints.Value, error) {
 	cons, err := readConstraints(st, modelGlobalKey)
 	return cons, errors.Trace(err)
 }
 
 // SetEnvironConstraints replaces the current environment constraints.
-func (st *State) SetEnvironConstraints(cons constraints.Value) error {
+func (st *State) SetModelConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
@@ -1460,7 +1460,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 	case instance.MachineScope:
 		return &placementData{machineId: placement.Directive}, nil
 	default:
-		return nil, errors.Errorf("invalid model UUID %q", placement.Scope)
+		return nil, errors.Errorf("placement scope: invalid model UUID %q", placement.Scope)
 	}
 }
 

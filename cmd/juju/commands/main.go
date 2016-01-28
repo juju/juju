@@ -16,11 +16,10 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
@@ -123,13 +122,12 @@ type commandRegistry interface {
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Creation commands.
 	r.Register(newBootstrapCommand())
-	r.Register(newDeployCommand())
 	r.Register(newAddRelationCommand())
 
 	// Destruction commands.
 	r.Register(newRemoveRelationCommand())
-	r.Register(newRemoveServiceCommand())
-	r.Register(newRemoveUnitCommand())
+	r.Register(service.NewRemoveServiceCommand())
+	r.Register(service.NewRemoveUnitCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -148,13 +146,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(newInitCommand())
-	r.Register(common.NewGetConstraintsCommand())
-	r.Register(common.NewSetConstraintsCommand())
-	r.Register(newExposeCommand())
+	r.Register(model.NewModelGetConstraintsCommand())
+	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
-	r.Register(newUnexposeCommand())
 	r.Register(newUpgradeJujuCommand(nil))
-	r.Register(newUpgradeCharmCommand())
+	r.Register(service.NewUpgradeCharmCommand())
 
 	// Charm publishing commands.
 	r.Register(newPublishCommand())
@@ -189,15 +185,15 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
 
 	// Mangage environment
-	r.Register(environment.NewGetCommand())
-	r.Register(environment.NewSetCommand())
-	r.Register(environment.NewUnsetCommand())
-	r.Register(environment.NewRetryProvisioningCommand())
-	r.Register(environment.NewDestroyCommand())
+	r.Register(model.NewGetCommand())
+	r.Register(model.NewSetCommand())
+	r.Register(model.NewUnsetCommand())
+	r.Register(model.NewRetryProvisioningCommand())
+	r.Register(model.NewDestroyCommand())
 
-	r.Register(environment.NewShareCommand())
-	r.Register(environment.NewUnshareCommand())
-	r.Register(environment.NewUsersCommand())
+	r.Register(model.NewShareCommand())
+	r.Register(model.NewUnshareCommand())
+	r.Register(model.NewUsersCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
@@ -211,6 +207,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
+	r.Register(service.NewDeployCommand())
+	r.Register(service.NewExposeCommand())
+	r.Register(service.NewUnexposeCommand())
 	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
 	r.RegisterSuperAlias("get-config", "service", "get", nil)
 	r.RegisterSuperAlias("set-config", "service", "set", nil)

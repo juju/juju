@@ -25,7 +25,7 @@ func NewSuperCommand() cmd.Command {
 	})
 
 	environmentCmd.Register(newAddUnitCommand())
-	environmentCmd.Register(newServiceGetConstraintsCommand())
+	environmentCmd.Register(NewServiceGetConstraintsCommand())
 	environmentCmd.Register(newServiceSetConstraintsCommand())
 	environmentCmd.Register(newGetCommand())
 	environmentCmd.Register(NewSetCommand())

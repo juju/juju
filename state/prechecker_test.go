@@ -100,7 +100,7 @@ func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
 }
 
 func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, placement string) (state.MachineTemplate, error) {
-	err := s.State.SetEnvironConstraints(envCons)
+	err := s.State.SetModelConstraints(envCons)
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")

@@ -442,7 +442,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Check(agentVersion, gc.Equals, version.Current)
 
 	// Check that the constraints have been set in the environment.
-	cons, err := st.EnvironConstraints()
+	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons.String(), gc.Equals, "mem=2048M")
 
@@ -479,7 +479,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddService(state.AddServiceArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(st, svc, 1, "")
+	units, err := juju.AddUnitsWithPlacement(st, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit := units[0]
 

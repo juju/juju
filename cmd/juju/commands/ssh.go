@@ -207,7 +207,6 @@ type sshAPIClient interface {
 	ModelGet() (map[string]interface{}, error)
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
-	ServiceCharmRelations(service string) ([]string, error)
 	Close() error
 }
 

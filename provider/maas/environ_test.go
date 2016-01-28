@@ -119,7 +119,7 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 	// in the OldConfig. However, when setting an environment, we would set
 	// it to "" (because maasModelConfig.Validate ensures it is a 'valid'
 	// string). We can't create that from NewEnviron or newConfig because
-	// both of them Validate the contents. 'cmd/juju/environment
+	// both of them Validate the contents. 'cmd/juju/model
 	// SetEnvironmentCommand' instead uses conn.State.ModelConfig() which
 	// just reads the content of the database into a map, so we just create
 	// the map ourselves.

@@ -13,6 +13,7 @@ import (
 
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -83,7 +84,7 @@ func (s *AuthorizedKeysSuite) TestHelpImport(c *gc.C) {
 
 type keySuiteBase struct {
 	jujutesting.JujuConnSuite
-	CmdBlockHelper
+	common.CmdBlockHelper
 }
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
@@ -93,7 +94,7 @@ func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }

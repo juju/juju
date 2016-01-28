@@ -9,10 +9,9 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// NewSetCommand returns a SetCommand with the api provided as specified.
-func NewSetCommandWithAPI(clientAPI ClientAPI, serviceAPI ServiceAPI) cmd.Command {
+// NewSetCommandForTest returns a SetCommand with the api provided as specified.
+func NewSetCommandForTest(serviceAPI serviceAPI) cmd.Command {
 	return envcmd.Wrap(&setCommand{
-		clientApi:  clientAPI,
 		serviceApi: serviceAPI,
 	})
 }
@@ -25,14 +24,14 @@ func NewUnsetCommand(api UnsetServiceAPI) cmd.Command {
 }
 
 // NewGetCommand returns a GetCommand with the api provided as specified.
-func NewGetCommand(api GetServiceAPI) cmd.Command {
+func NewGetCommand(api getServiceAPI) cmd.Command {
 	return envcmd.Wrap(&getCommand{
 		api: api,
 	})
 }
 
 // NewAddUnitCommand returns an AddUnitCommand with the api provided as specified.
-func NewAddUnitCommand(api ServiceAddUnitAPI) cmd.Command {
+func NewAddUnitCommand(api serviceAddUnitAPI) cmd.Command {
 	return envcmd.Wrap(&addUnitCommand{
 		api: api,
 	})
@@ -40,5 +39,4 @@ func NewAddUnitCommand(api ServiceAddUnitAPI) cmd.Command {
 
 var (
 	NewServiceSetConstraintsCommand = newServiceSetConstraintsCommand
-	NewServiceGetConstraintsCommand = newServiceGetConstraintsCommand
 )

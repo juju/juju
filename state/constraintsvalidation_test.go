@@ -183,9 +183,9 @@ func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 			i, t.about, t.consToSet, t.consFallback,
 		)
 		// Set fallbacks as environment constraints and verify them.
-		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
+		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, jc.ErrorIsNil)
-		econs, err := s.State.EnvironConstraints()
+		econs, err := s.State.ModelConstraints()
 		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveEnvironCons))
 		// Set the machine provisioning constraints.
 		m, err := s.addOneMachine(c, constraints.MustParse(t.consToSet))
@@ -212,9 +212,9 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 			i, t.about, t.consToSet, t.consFallback,
 		)
 		// Set fallbacks as environment constraints and verify them.
-		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
+		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, jc.ErrorIsNil)
-		econs, err := s.State.EnvironConstraints()
+		econs, err := s.State.ModelConstraints()
 		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveEnvironCons))
 		// Set the service deployment constraints.
 		err = service.SetConstraints(constraints.MustParse(t.consToSet))

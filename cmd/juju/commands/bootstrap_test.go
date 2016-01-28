@@ -819,7 +819,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	jenvDir := testing.HomePath(".juju", "models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
-	coretesting.WriteEnvironments(c, envConfig)
+	coretesting.WriteEnvironments(c, modelConfig)
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)

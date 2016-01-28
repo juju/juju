@@ -5,10 +5,8 @@ package juju
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
@@ -27,11 +25,6 @@ type DeployServiceParams struct {
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
 	NumUnits       int
-	// ToMachineSpec is either:
-	// - an existing machine/container id eg "1" or "1/lxc/2"
-	// - a new container on an existing machine eg "lxc:1"
-	// Use string to avoid ambiguity around machine 0.
-	ToMachineSpec string
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement []*instance.Placement
@@ -48,15 +41,12 @@ type ServiceDeployer interface {
 
 // DeployService takes a charm and various parameters and deploys it.
 func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service, error) {
-	if args.NumUnits > 1 && len(args.Placement) == 0 && args.ToMachineSpec != "" {
-		return nil, fmt.Errorf("cannot use --num-units with --to")
-	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
 	}
 	if args.Charm.Meta().Subordinate {
-		if args.NumUnits != 0 || args.ToMachineSpec != "" {
+		if args.NumUnits != 0 {
 			return nil, fmt.Errorf("subordinate service must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
@@ -75,13 +65,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 
 	if len(args.Networks) > 0 || args.Constraints.HaveNetworks() {
 		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
-	}
-
-	if len(args.Placement) == 0 {
-		args.Placement, err = makePlacement(args.ToMachineSpec)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	asa := state.AddServiceArgs{
@@ -103,47 +86,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	// TODO(dimitern): In a follow-up drop Networks and use spaces
 	// constraints for this when possible.
 	return st.AddService(asa)
-}
-
-// AddUnits starts n units of the given service and allocates machines
-// to them as necessary.
-func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
-	if machineIdSpec != "" && n != 1 {
-		return nil, errors.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
-	}
-	placement, err := makePlacement(machineIdSpec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return AddUnitsWithPlacement(st, svc, n, placement)
-}
-
-// makePlacement makes a placement directive for the given machineIdSpec.
-func makePlacement(machineIdSpec string) ([]*instance.Placement, error) {
-	if machineIdSpec == "" {
-		return nil, nil
-	}
-	mid := machineIdSpec
-	scope := instance.MachineScope
-	var containerType instance.ContainerType
-	specParts := strings.SplitN(machineIdSpec, ":", 2)
-	if len(specParts) > 1 {
-		firstPart := specParts[0]
-		var err error
-		if containerType, err = instance.ParseContainerType(firstPart); err == nil {
-			mid = specParts[1]
-			scope = string(containerType)
-		}
-	}
-	if !names.IsValidMachine(mid) {
-		return nil, errors.Errorf("invalid force machine id %q", mid)
-	}
-	return []*instance.Placement{
-		{
-			Scope:     scope,
-			Directive: mid,
-		},
-	}, nil
 }
 
 // AddUnitsWithPlacement starts n units of the given service using the specified placement

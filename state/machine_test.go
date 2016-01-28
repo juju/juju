@@ -1619,7 +1619,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	econs2 := constraints.MustParse("mem=2G")
 
 	// A newly-created machine gets a copy of the environment constraints.
-	err := s.State.SetEnvironConstraints(econs1)
+	err := s.State.SetModelConstraints(econs1)
 	c.Assert(err, jc.ErrorIsNil)
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1628,7 +1628,7 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	c.Assert(mcons1, gc.DeepEquals, econs1)
 
 	// Change environment constraints and add a new machine.
-	err = s.State.SetEnvironConstraints(econs2)
+	err = s.State.SetModelConstraints(econs2)
 	c.Assert(err, jc.ErrorIsNil)
 	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
