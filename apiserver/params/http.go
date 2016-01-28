@@ -21,6 +21,13 @@ const (
 
 	// ContentTypeJSON is the HTTP content-type value used for JSON content.
 	ContentTypeJSON = "application/json"
+
 	// ContentTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
 	ContentTypeRaw = "application/octet-stream"
+
+	// ContentTypeJS is the HTTP content-type value used for javascript.
+	ContentTypeJS = "application/javascript"
+
+	// ContentTypeXJS is the outdated HTTP content-type value used for javascript.
+	ContentTypeXJS = "application/x-javascript"
 )

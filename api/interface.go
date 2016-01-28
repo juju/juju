@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -175,7 +174,6 @@ type Connection interface {
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
-	Rsyslog() *rsyslog.State
 	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
 }

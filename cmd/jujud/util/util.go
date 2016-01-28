@@ -15,13 +15,11 @@ import (
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -234,19 +232,6 @@ func (c *CloseWorker) Wait() error {
 func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
 	lockDir := filepath.Join(dataDir, "locks")
 	return fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
-}
-
-// NewRsyslogConfigWorker creates and returns a new
-// RsyslogConfigWorker based on the specified configuration
-// parameters.
-var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
-	tag := agentConfig.Tag()
-	namespace := agentConfig.Value(agent.Namespace)
-	addrs, err := agentConfig.APIAddresses()
-	if err != nil {
-		return nil, err
-	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultPaths.ConfDir)
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

@@ -78,8 +78,7 @@ metadata.
 If agent-version is specifed, this is the default tools version to use when running the Juju agents.
 Only the numeric version is relevant. To enable ease of scripting, the full binary version
 is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is used.
-An alias for bootstrapping Juju with the exact same version as the client is to use the
---no-auto-upgrade parameter.
+By default, Juju will bootstrap using the exact same version as the client.
 
 See Also:
    juju help switch
@@ -104,7 +103,7 @@ type bootstrapCommand struct {
 	MetadataSource        string
 	Placement             string
 	KeepBrokenEnvironment bool
-	NoAutoUpgrade         bool
+	AutoUpgrade           bool
 	AgentVersionParam     string
 	AgentVersion          *version.Number
 }
@@ -128,16 +127,13 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
-	f.BoolVar(&c.NoAutoUpgrade, "no-auto-upgrade", false, "do not upgrade to newer tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to initially use for Juju agents")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "upgrade to the latest patch release tools on first bootstrap")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.AgentVersionParam != "" && c.UploadTools {
 		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
-	}
-	if c.AgentVersionParam != "" && c.NoAutoUpgrade {
-		return fmt.Errorf("--agent-version and --no-auto-upgrade can't be used together")
 	}
 	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
@@ -164,10 +160,12 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
 	}
-	if c.NoAutoUpgrade {
+	if !c.AutoUpgrade {
+		// With no auto upgrade chosen, we default to the version matching the bootstrap client.
 		vers := version.Current
 		c.AgentVersion = &vers
-	} else if c.AgentVersionParam != "" {
+	}
+	if c.AgentVersionParam != "" {
 		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
 			c.AgentVersion = &vers.Number
 		} else if vers, err := version.Parse(c.AgentVersionParam); err == nil {
@@ -182,7 +180,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-// bootstrap functionality that Run calls to support cleaner testing
+// BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
 	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error

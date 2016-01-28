@@ -294,29 +294,6 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// MachineSetProvisioned holds a machine tag, provider-specific
-// instance id, a nonce, or an error.
-//
-// NOTE: This is deprecated since 1.19.0 and not used by the
-// provisioner, it's just retained for backwards-compatibility and
-// should be removed.
-type MachineSetProvisioned struct {
-	Tag             string
-	InstanceId      instance.Id
-	Nonce           string
-	Characteristics *instance.HardwareCharacteristics
-}
-
-// SetProvisioned holds the parameters for making a SetProvisioned
-// call for a machine.
-//
-// NOTE: This is deprecated since 1.19.0 and not used by the
-// provisioner, it's just retained for backwards-compatibility and
-// should be removed.
-type SetProvisioned struct {
-	Machines []MachineSetProvisioned
-}
-
 // InstanceInfo holds a machine tag, provider-specific instance id, a
 // nonce, a list of networks and interfaces to set up.
 type InstanceInfo struct {
