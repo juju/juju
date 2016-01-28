@@ -151,6 +151,7 @@ func ExtractDownloadResponse(resp *http.Response) (int64, charmresource.Fingerpr
 	var fp charmresource.Fingerprint
 
 	// TODO(ericsnow) Finish!
+	// See UpdateDownloadResponse for the data to extract.
 	return 0, fp, errors.New("not finished")
 }
 
