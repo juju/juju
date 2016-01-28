@@ -101,8 +101,8 @@ func (manager *manager) choose(blocks blocks) error {
 	select {
 	case <-manager.tomb.Dying():
 		return tomb.ErrDying
-	case <-manager.nextExpiry():
-		return manager.expire()
+	case <-manager.nextTick():
+		return manager.tick()
 	case claim := <-manager.claims:
 		return manager.handleClaim(claim)
 	case check := <-manager.checks:
@@ -198,35 +198,37 @@ func (manager *manager) BlockUntilLeadershipReleased(serviceName string) error {
 	}.invoke(manager.blocks)
 }
 
-// nextExpiry returns a channel that will send a value at some point when we
-// expect at least one lease to be ready to expire. If no leases are known,
-// it will return nil.
-func (manager *manager) nextExpiry() <-chan time.Time {
-	var nextExpiry time.Time
+// nextTick returns a channel that will send a value at some point when
+// we expect to have to do some work; either because at least one lease
+// may be ready to expire, or because enough enough time has passed that
+// it's worth checking for stalled collaborators.
+func (manager *manager) nextTick() <-chan time.Time {
+	now := manager.config.Clock.Now()
+	nextTick := now.Add(manager.config.MaxSleep)
 	for _, info := range manager.config.Client.Leases() {
-		if !nextExpiry.IsZero() {
-			if info.Expiry.After(nextExpiry) {
-				continue
-			}
+		if info.Expiry.After(nextTick) {
+			continue
 		}
-		nextExpiry = info.Expiry
+		nextTick = info.Expiry
 	}
-	if nextExpiry.IsZero() {
-		logger.Tracef("no leases recorded; never waking for expiry")
-		return nil
-	}
-	logger.Tracef("waking to expire leases at %s", nextExpiry)
-	return clock.Alarm(manager.config.Clock, nextExpiry)
+	logger.Debugf("waking to check leases at %s", nextTick)
+	return clock.Alarm(manager.config.Clock, nextTick)
 }
 
-// expire will attempt to expire all leases that may have expired. There might
-// be none; they might have been extended or expired already by someone else; so
-// ErrInvalid is expected, and ignored, in the comfortable knowledge that the
-// client will have been updated and we'll see fresh info when we scan for new
-// expiries next time through the loop. It will return only unrecoverable errors.
-func (manager *manager) expire() error {
-	logger.Tracef("expiring leases...")
+// tick snapshots recent leases and expires any that it can. There
+// might be none that need attention; or those that do might already
+// have been extended or expired by someone else; so ErrInvalid is
+// expected, and ignored, comfortable that the client will have been
+// updated in the background; and that we'll see fresh info when we
+// subsequently check nextWake().
+//
+// It will return only unrecoverable errors.
+func (manager *manager) tick() error {
+	logger.Tracef("refreshing leases...")
 	client := manager.config.Client
+	if err := client.Refresh(); err != nil {
+		return errors.Trace(err)
+	}
 	leases := client.Leases()
 
 	// Sort lease names so we expire in a predictable order for the tests.
@@ -235,8 +237,10 @@ func (manager *manager) expire() error {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+
+	logger.Tracef("expiring leases...")
+	now := manager.config.Clock.Now()
 	for _, name := range names {
-		now := manager.config.Clock.Now()
 		if leases[name].Expiry.After(now) {
 			continue
 		}

@@ -33,10 +33,6 @@ const AddressAllocation = "address-allocation"
 // (space list|create, subnet list|add).
 const PostNetCLIMVP = "post-net-cli-mvp"
 
-// DisableRsyslog will stop the writing of the rsyslog accumulation and
-// forwarding configuration files by stopping the rsyslog workers.
-const DisableRsyslog = "disable-rsyslog"
-
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"
 
