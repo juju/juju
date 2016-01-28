@@ -655,7 +655,7 @@ class BootstrapManager:
         try:
             with self.top_context() as machines:
                 with self.bootstrap_context(
-                        machines, omit_config=self.client.bootstrap_supports):
+                        machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
                         upload_tools, bootstrap_series=self.series)
                 with self.runtime_context(machines):

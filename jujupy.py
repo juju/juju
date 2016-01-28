@@ -1267,7 +1267,7 @@ def make_jes_home(juju_home, dir_name, config):
 
 def make_safe_config(client):
     config = dict(client.env.config)
-    if 'agent-version' in client.bootstrap_supports:
+    if 'agent-version' in client.bootstrap_replaces:
         config.pop('agent-version', None)
     else:
         config['agent-version'] = client.get_matching_agent_version()

@@ -1161,7 +1161,7 @@ class TestBootstrapManager(FakeHomeTestCase):
     def test_booted_context_omits_supported(self):
         client = FakeJujuClient(jes_enabled=True)
         client.env.juju_home = use_context(self, temp_dir())
-        client.bootstrap_supports = {'agent-version', 'series',
+        client.bootstrap_replaces = {'agent-version', 'series',
                                      'bootstrap-host', 'agent-stream'}
         ue_mock = use_context(
             self, patch('deploy_stack.update_env', wraps=update_env))

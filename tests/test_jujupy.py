@@ -222,7 +222,7 @@ class FakeJujuClient:
         self.env = env
         self.full_path = full_path
         self.debug = debug
-        self.bootstrap_supports = {}
+        self.bootstrap_replaces = {}
         self._jes_enabled = jes_enabled
 
     def clone(self, env, full_path=None, debug=None):
