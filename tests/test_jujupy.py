@@ -52,6 +52,7 @@ from jujupy import (
     KILL_CONTROLLER,
     make_client,
     make_jes_home,
+    make_safe_config,
     parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
@@ -3635,6 +3636,36 @@ def stub_bootstrap(client):
     os.mkdir(os.path.dirname(jenv_path))
     with open(jenv_path, 'w') as f:
         f.write('Bogus jenv')
+
+
+class TestMakeSafeConfig(TestCase):
+
+    def test_default(self):
+        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        config = make_safe_config(client)
+        self.assertEqual({
+            'name': 'foo',
+            'type': 'bar',
+            'test-mode': True,
+            'agent-version': '1.2-alpha3',
+            }, config)
+
+    def test_local(self):
+        with temp_dir() as juju_home:
+            env = SimpleEnvironment('foo', {'type': 'local'},
+                                    juju_home=juju_home)
+            client = FakeJujuClient(env)
+            with patch('jujupy.check_free_disk_space') as cfds_mock:
+                config = make_safe_config(client)
+        self.assertEqual(get_local_root(client.env.juju_home, client.env),
+                         config['root-dir'])
+
+    def test_bootstrap_replaces_agent_version(self):
+        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        client.bootstrap_replaces = {'agent-version'}
+        self.assertNotIn('agent-version', make_safe_config(client))
+        client.env.config['agent-version'] = '1.23'
+        self.assertNotIn('agent-version', make_safe_config(client))
 
 
 class TestTempBootstrapEnv(FakeHomeTestCase):
