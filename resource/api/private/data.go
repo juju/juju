@@ -7,7 +7,6 @@ package private
 
 import (
 	"github.com/juju/juju/apiserver/params"
-
 	"github.com/juju/juju/resource/api"
 )
 
