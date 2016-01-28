@@ -106,10 +106,6 @@ func (manager *containerManager) CreateContainer(
 		"boot.autostart": "true",
 	}
 
-	logger.Infof("manager %s", manager)
-	logger.Infof("manager.client %s", manager.client)
-	logger.Infof("manager.client.ImageNameForSeries %s", manager.client.ImageNameForSeries)
-
 	spec := lxdclient.InstanceSpec{
 		Name: name,
 		Image: manager.client.ImageNameForSeries(series),
