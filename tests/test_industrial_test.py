@@ -1168,7 +1168,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
             self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         assert_juju_call(self, popen_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'steve',
-            '--constraints', 'mem=2G'))
+            '--constraints', 'mem=2G', '--agent-version', '1.2'))
         statuses = [
             {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
             {'machines': {'0': {'agent-state': 'started'}}, 'services': {}},
@@ -1769,7 +1769,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
                              puj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
             'juju', '--show-log', 'bootstrap', '-m', 'steve', '--constraints',
-            'mem=2G'))
+            'mem=2G', '--agent-version', 'foo'))
         po_mock.return_value.wait.return_value = 0
         self.assertEqual(puj_iterator.next(),
                          {'test_id': 'prepare-upgrade-juju'})

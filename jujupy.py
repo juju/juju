@@ -92,6 +92,14 @@ class ErroredUnit(Exception):
         self.state = state
 
 
+class BootstrapMismatch(Exception):
+
+    def __init__(self, arg_name, arg_val, env_name, env_val):
+        super(BootstrapMismatch, self).__init__(
+            '--{} {} does not match {}: {}'.format(
+                arg_name, arg_val, env_name, env_val))
+
+
 class JESNotSupported(Exception):
 
     def __init__(self):
@@ -162,6 +170,11 @@ class WorkloadsNotReady(StatusNotMet):
 
 
 class EnvJujuClient:
+
+    # As described in bug #1538735, default-series and --bootstrap-series must
+    # match.  'series' should be here, but is omitted so that default-series
+    # is always forced to match --bootstrap-series.
+    bootstrap_supports = frozenset(['agent-version', 'bootstrap-host'])
 
     _show_status = 'show-status'
 
@@ -308,7 +321,7 @@ class EnvJujuClient:
         for machine in machines:
             self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools):
+    def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -317,13 +330,18 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        args = ('--constraints', constraints)
+        args = ('--constraints', constraints,
+                '--agent-version', self.get_matching_agent_version())
         if upload_tools:
             args = ('--upload-tools',) + args
+        if to is not None:
+            args = args + ('--to', to)
+        if bootstrap_series is not None:
+            args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
-    def bootstrap(self, upload_tools=False):
-        args = self.get_bootstrap_args(upload_tools)
+    def bootstrap(self, upload_tools=False, to=None, bootstrap_series=None):
+        args = self.get_bootstrap_args(upload_tools, to, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
@@ -963,6 +981,32 @@ class EnvJujuClient2A1(EnvJujuClient):
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
+    bootstrap_supports = frozenset()
+
+    def get_bootstrap_args(self, upload_tools, to=None, bootstrap_series=None):
+        """Bootstrap, using sudo if necessary."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        if to is not None:
+            env_val = self.env.config.get('bootstrap-host')
+            if to != env_val:
+                raise BootstrapMismatch('to', to, 'bootstrap-host', env_val)
+        if bootstrap_series is not None:
+            env_val = self.env.config.get('default-series')
+            if bootstrap_series != env_val:
+                raise BootstrapMismatch(
+                    'bootstrap-series', bootstrap_series, 'default-series',
+                    env_val)
+        return args
+
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
@@ -1263,7 +1307,9 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         context.  If False, juju_home should be supplied to bootstrap.
     """
     new_config = {
-        'environments': {client.env.environment: make_safe_config(client)}}
+        'environments': {
+            client.env.environment: make_safe_config(client)
+            }}
     # Always bootstrap a matching environment.
     jenv_path = get_jenv_path(juju_home, client.env.environment)
     if permanent:
