@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/model"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -23,7 +23,7 @@ type ProxyUpdaterSuite struct {
 	resources  *common.Resources
 
 	machine0 *state.Machine
-	api      *model.ModelAPI
+	api      *agent.AgentAPIV2
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
@@ -41,7 +41,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.api, err = model.NewModelAPI(
+	s.api, err = agent.NewAgentAPIV2(
 		s.State,
 		s.resources,
 		s.authorizer,

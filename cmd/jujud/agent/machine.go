@@ -752,7 +752,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
 	})
 
-	envConfig, err := st.Model().ModelConfig()
+	envConfig, err := st.Agent().ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
@@ -1387,7 +1387,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 var getFirewallMode = _getFirewallMode
 
 func _getFirewallMode(apiSt api.Connection) (string, error) {
-	envConfig, err := apiSt.Model().ModelConfig()
+	envConfig, err := apiSt.Agent().ModelConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read model config")
 	}

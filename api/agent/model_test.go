@@ -1,11 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package model_test
+package agent_test
 
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/agent"
 	apitesting "github.com/juju/juju/api/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
@@ -22,9 +23,9 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 	stateAPI, _ := s.OpenAPIAsNewMachine(c)
 
-	modelAPI := stateAPI.Model()
-	c.Assert(modelAPI, gc.NotNil)
+	agentAPI := agent.NewState(stateAPI)
+	c.Assert(agentAPI, gc.NotNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(
-		modelAPI, s.BackingState, apitesting.NoSecrets)
+		agentAPI, s.BackingState, apitesting.NoSecrets)
 }

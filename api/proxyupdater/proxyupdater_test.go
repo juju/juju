@@ -22,9 +22,9 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 	stateAPI, _ := s.OpenAPIAsNewMachine(c)
 
-	modelAPI := stateAPI.Model()
-	c.Assert(modelAPI, gc.NotNil)
+	agentAPI := stateAPI.Agent()
+	c.Assert(agentAPI, gc.NotNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(
-		modelAPI, s.BackingState, apitesting.NoSecrets)
+		agentAPI, s.BackingState, apitesting.NoSecrets)
 }

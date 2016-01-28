@@ -24,4 +24,5 @@ func NewFacade(caller base.APICaller) *Facade {
 }
 
 // TODO(wallyworld) - add methods for getting proxy settings specifically,
-// rather than the entire model config
+// rather than the entire model config.
+// Also WatchProxySettings instead of WatchForModelConfigChanges.
