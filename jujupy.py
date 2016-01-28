@@ -1261,12 +1261,12 @@ def make_jes_home(juju_home, dir_name, config):
     yield home_path
 
 
-def make_safe_config(client, agent_version=True):
+def make_safe_config(client):
     config = dict(client.env.config)
-    if agent_version:
-        config['agent-version'] = client.get_matching_agent_version()
-    else:
+    if 'agent-version' in client.bootstrap_supports:
         config.pop('agent-version', None)
+    else:
+        config['agent-version'] = client.get_matching_agent_version()
     # AFAICT, we *always* want to set test-mode to True.  If we ever find a
     # use-case where we don't, we can make this optional.
     config['test-mode'] = True
@@ -1294,8 +1294,7 @@ def make_safe_config(client, agent_version=True):
 
 
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False,
-                       agent_version=True):
+def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -1306,7 +1305,7 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False,
     """
     new_config = {
         'environments': {
-            client.env.environment: make_safe_config(client, agent_version)
+            client.env.environment: make_safe_config(client)
             }}
     # Always bootstrap a matching environment.
     jenv_path = get_jenv_path(juju_home, client.env.environment)
