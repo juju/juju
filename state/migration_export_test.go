@@ -32,10 +32,8 @@ var _ = gc.Suite(&MigrationExportSuite{})
 func (s *MigrationExportSuite) TestEnvironmentInfo(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
-	out, err := s.State.Export()
+	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
-
-	model := out.Model()
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,10 +64,9 @@ func (s *MigrationExportSuite) TestEnvironmentUsers(c *gc.C) {
 	err = state.UpdateEnvUserLastConnection(bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export()
+	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	model := out.Model()
 	users := model.Users()
 	c.Assert(users, gc.HasLen, 2)
 
@@ -97,10 +94,9 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	machine1 := s.Factory.MakeMachine(c, nil)
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
-	out, err := s.State.Export()
+	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	model := out.Model()
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 

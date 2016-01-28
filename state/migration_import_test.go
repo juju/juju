@@ -38,7 +38,7 @@ func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
-	in := newDescription(out, uuid, "new")
+	in := newModel(out, uuid, "new")
 
 	newEnv, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,7 +118,7 @@ func (s *MigrationImportSuite) TestEnvironmentUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
-	in := newDescription(out, uuid, "new")
+	in := newModel(out, uuid, "new")
 
 	newEnv, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +179,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
-	in := newDescription(out, uuid, "new")
+	in := newModel(out, uuid, "new")
 
 	_, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -206,21 +206,11 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(isContainer, jc.IsTrue)
 }
 
-// newDescription replaces the uuid and name of the config attributes so we
+// newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // environment / model are unique together in a controller.
-func newDescription(d migration.Description, uuid, name string) migration.Description {
-	return &mockDescription{d, uuid, name}
-}
-
-type mockDescription struct {
-	d    migration.Description
-	uuid string
-	name string
-}
-
-func (m *mockDescription) Model() migration.Model {
-	return &mockModel{m.d.Model(), m.uuid, m.name}
+func newModel(m migration.Model, uuid, name string) migration.Model {
+	return &mockModel{m, uuid, name}
 }
 
 type mockModel struct {

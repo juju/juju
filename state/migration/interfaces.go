@@ -11,11 +11,6 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type Description interface {
-	Model() Model
-	// Add/Get binaries
-}
-
 type Model interface {
 	Tag() names.EnvironTag
 	Owner() names.UserTag

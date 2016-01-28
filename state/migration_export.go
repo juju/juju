@@ -18,7 +18,7 @@ import (
 // Export the current environment for the State. If a different environment
 // is required, the caller is expected to use st.ForEnviron(...) and close
 // the session as required.
-func (st *State) Export() (migration.Description, error) {
+func (st *State) Export() (migration.Model, error) {
 	environment, err := st.Environment()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -47,9 +47,7 @@ func (st *State) Export() (migration.Description, error) {
 		Config:             envConfig.Settings,
 		LatestToolsVersion: environment.LatestToolsVersion(),
 	}
-	result := migration.NewDescription(args)
-
-	export.model = result.Model()
+	export.model = migration.NewModel(args)
 	if err := export.environmentUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -61,7 +59,7 @@ func (st *State) Export() (migration.Description, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return result, nil
+	return export.model, nil
 }
 
 type exporter struct {

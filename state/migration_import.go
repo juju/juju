@@ -17,9 +17,7 @@ import (
 )
 
 // Import the database agnostic model representation into the database.
-func (st *State) Import(description migration.Description) (_ *Environment, _ *State, err error) {
-	model := description.Model()
-
+func (st *State) Import(model migration.Model) (_ *Environment, _ *State, err error) {
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", model.Tag().Id())
 	// At this stage, attempting to import a model with the same

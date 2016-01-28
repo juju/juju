@@ -10,27 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/schema"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state.migration")
-
-type description struct {
-	// Version conceptually encapsulates an understanding of which fields
-	// exist and how they are populated. As extra fields and entities are
-	// added, the version should be incremented and tests written to ensure
-	// that newer versions of the code are still able to create Model
-	// representations from versions.
-	//
-	// The version is all about the serialization of the structures from
-	// the migration package. Each type will likely have a version.
-	version int
-	model   *model
-	// TODO: extra binaries...
-	// Tools
-	// Charms
-}
 
 type ModelArgs struct {
 	Owner              names.UserTag
@@ -38,26 +23,33 @@ type ModelArgs struct {
 	LatestToolsVersion version.Number
 }
 
-func NewDescription(args ModelArgs) Description {
-	return &description{
-		version: 1,
-		model: &model{
-			Version:             1,
-			Owner_:              args.Owner.Canonical(),
-			Config_:             args.Config,
-			LatestToolsVersion_: args.LatestToolsVersion,
-			Users_: users{
-				Version: 1,
-			},
-			Machines_: machines{
-				Version: 1,
-			},
+func NewModel(args ModelArgs) Model {
+	return &model{
+		Version:             1,
+		Owner_:              args.Owner.Canonical(),
+		Config_:             args.Config,
+		LatestToolsVersion_: args.LatestToolsVersion,
+		Users_: users{
+			Version: 1,
+		},
+		Machines_: machines{
+			Version: 1,
 		},
 	}
 }
 
-func (d *description) Model() Model {
-	return d.model
+func DeserializeModel(bytes []byte) (Model, error) {
+	var source map[string]interface{}
+	err := yaml.Unmarshal(bytes, &source)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model, err := importModel(source)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return model, nil
 }
 
 type model struct {
