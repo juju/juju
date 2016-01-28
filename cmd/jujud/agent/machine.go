@@ -53,7 +53,7 @@ import (
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -95,7 +95,6 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -711,6 +710,8 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
+var newEnvirons = environs.New
+
 func (a *MachineAgent) postUpgradeAPIWorker(
 	st api.Connection,
 	agentConfig agent.Config,
@@ -793,17 +794,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 
-	if !featureflag.Enabled(feature.DisableRsyslog) {
-		rsyslogMode := rsyslog.RsyslogModeForwarding
-		if isEnvironManager {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
-		}
-
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-		})
-	}
-
 	if !isEnvironManager {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			return worker.NewNotifyWorker(conv2state.New(st.Machiner(), a)), nil
@@ -828,10 +818,18 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 
 	if isEnvironManager {
-		// Start worker that stores missing published image metadata in state.
-		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			return newMetadataUpdater(st.MetadataUpdater()), nil
-		})
+		// Published image metadata for some providers are in simple streams.
+		// Providers that do not depend on simple streams do not need this worker.
+		env, err := newEnvirons(envConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting environ")
+		}
+		if _, ok := env.(simplestreams.HasRegion); ok {
+			// Start worker that stores published image metadata in state.
+			runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+				return newMetadataUpdater(st.MetadataUpdater()), nil
+			})
+		}
 	}
 
 	// Check if the network management is disabled.

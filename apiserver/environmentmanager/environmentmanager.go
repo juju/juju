@@ -99,9 +99,6 @@ var configValuesFromStateServer = []string{
 	"ca-cert",
 	"state-port",
 	"api-port",
-	"syslog-port",
-	"rsyslog-ca-cert",
-	"rsyslog-ca-key",
 }
 
 // ConfigSkeleton returns config values to be used as a starting point for the
@@ -257,6 +254,18 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 		}
 	}
 
+	// Generate the UUID for the server.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to generate environment uuid")
+	}
+	joint["uuid"] = uuid.String()
+
+	if err := em.checkVersion(joint); err != nil {
+		return nil, errors.Annotate(err, "failed to create config")
+	}
+
+	// validConfig must only be called once.
 	cfg, err := em.validConfig(joint)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -274,18 +283,8 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 			}
 		}
 	}
-	if err := em.checkVersion(attrs); err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	// Generate the UUID for the server.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to generate environment uuid")
-	}
-	attrs["uuid"] = uuid.String()
-
-	return em.validConfig(attrs)
+	return cfg, nil
 }
 
 // CreateEnvironment creates a new environment using the account and

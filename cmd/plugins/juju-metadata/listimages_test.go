@@ -19,15 +19,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type BaseClouImageMetadataSuite struct {
+type BaseCloudImageMetadataSuite struct {
 	testing.BaseSuite
 }
 
-func (s *BaseClouImageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.setupBaseSuite(c)
 }
 
-func (s *BaseClouImageMetadataSuite) setupBaseSuite(c *gc.C) {
+func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	memstore := configstore.NewMem()
@@ -52,14 +52,14 @@ func (s *BaseClouImageMetadataSuite) setupBaseSuite(c *gc.C) {
 }
 
 type ListSuite struct {
-	BaseClouImageMetadataSuite
+	BaseCloudImageMetadataSuite
 	mockAPI *mockListAPI
 }
 
 var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
-	s.BaseClouImageMetadataSuite.SetUpTest(c)
+	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 
 	s.mockAPI = &mockListAPI{}
 	s.mockAPI.list = func(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
