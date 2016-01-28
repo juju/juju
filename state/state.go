@@ -223,6 +223,7 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		Secretary: leadershipSecretary{},
 		Client:    leadershipClient,
 		Clock:     clock,
+		MaxSleep:  time.Minute,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create leadership lease manager")

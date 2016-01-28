@@ -38,6 +38,10 @@ type ManagerConfig struct {
 
 	// Clock is reponsible for reporting the passage of time.
 	Clock clock.Clock
+
+	// MaxSleep is the longest time the Manager should sleep before
+	// refreshing its client's leases and checking for expiries.
+	MaxSleep time.Duration
 }
 
 // Validate returns an error if the configuration contains invalid information
