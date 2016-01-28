@@ -1176,7 +1176,6 @@ class TestBootstrapManager(FakeHomeTestCase):
                 pass
         self.assertEqual({
             'name': 'bar',
-            'bootstrap-host': 'bootstrap.example.org',
             'default-series': 'wacky',
             'tools-metadata-url': 'url',
             'type': 'foo',

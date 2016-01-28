@@ -661,8 +661,7 @@ class BootstrapManager:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_supports):
                     self.client.bootstrap(
-                        upload_tools, self.known_hosts.get('0'),
-                        bootstrap_series=self.series)
+                        upload_tools, bootstrap_series=self.series)
                 with self.runtime_context(machines):
                     yield machines
         except LoggedException:
