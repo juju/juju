@@ -95,6 +95,10 @@ func (s *bridgeConfigSuite) TestBridgeScriptPopEmptyStanza(c *gc.C) {
 	s.assertScript(c, networkMinimalInitial, networkMinimalExpected, "eth0", "juju-br0", false)
 }
 
+func (s *bridgeConfigSuite) TestBridgeScriptInterlacedNameservers(c *gc.C) {
+	s.assertScript(c, networkInterlacedNameserversInitial, networkInterlacedNameserversExpected, "eth0", "juju-br0", false)
+}
+
 func (s *bridgeConfigSuite) runScript(c *gc.C, configFile string, nic string, bridge string, isBond bool) (output string, exitCode int) {
 	var primaryNicIsBonded = ""
 
@@ -243,8 +247,7 @@ iface juju-br0:1 inet static
 auto juju-br0:2
 iface juju-br0:2 inet static
     address 10.14.0.100/24
-
-dns-nameserver 192.168.1.142`
+    dns-nameserver 192.168.1.142`
 
 const networkMultipleStaticWithAliasesInitial = `
 auto eth0
@@ -282,9 +285,8 @@ iface juju-br0:1 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
-
-dns-nameservers 10.17.20.200
-dns-search maas`
+    dns-nameservers 10.17.20.200
+    dns-search maas`
 
 const networkDHCPWithBondInitial = `auto eth0
 iface eth0 inet manual
@@ -344,16 +346,17 @@ iface bond0 inet manual
     bond-mode active-backup
     hwaddress 52:54:00:1c:f1:5b
     bond-slaves none
+    dns-nameservers 10.17.20.200
+    dns-search maas19
 
 auto juju-br0
 iface juju-br0 inet dhcp
     bridge_ports bond0
     mtu 1500
     hwaddress 52:54:00:1c:f1:5b
-    pre-up ip link add dev bond0 name juju-br0 type bridge || true
-
-dns-nameservers 10.17.20.200
-dns-search maas19`
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+    pre-up ip link add dev bond0 name juju-br0 type bridge || true`
 
 const networkMultipleAliasesInitial = `auto eth0
 iface eth0 inet dhcp
@@ -558,9 +561,8 @@ auto juju-br10:12
 iface juju-br10:12 inet static
     address 10.17.20.213/24
     mtu 1500
-
-dns-nameservers 10.17.20.200
-dns-search maas19`
+    dns-nameservers 10.17.20.200
+    dns-search maas19`
 
 const networkMinimalInitial = `auto eth0
 iface eth0 inet dhcp`
@@ -570,3 +572,52 @@ const networkMinimalExpected = `iface eth0 inet manual
 auto juju-br0
 iface juju-br0 inet dhcp
     bridge_ports eth0`
+
+// This is an example from:
+//   https://bugs.launchpad.net/juju-core/+bug/1534795
+
+const networkInterlacedNameserversInitial = `auto eth0
+iface eth0 inet static
+    dns-nameservers 10.245.168.2
+    gateway 10.245.168.1
+    address 10.245.168.11/21
+    mtu 1500
+
+auto eth1
+iface eth1 inet manual
+    mtu 1500
+
+auto eth2
+iface eth2 inet manual
+    mtu 1500
+
+auto eth3
+iface eth3 inet manual
+    mtu 1500
+
+dns-nameservers 10.245.168.2
+dns-search dellstack`
+
+const networkInterlacedNameserversExpected = `iface eth0 inet manual
+
+auto juju-br0
+iface juju-br0 inet static
+    bridge_ports eth0
+    dns-nameservers 10.245.168.2
+    gateway 10.245.168.1
+    address 10.245.168.11/21
+    mtu 1500
+
+auto eth1
+iface eth1 inet manual
+    mtu 1500
+
+auto eth2
+iface eth2 inet manual
+    mtu 1500
+
+auto eth3
+iface eth3 inet manual
+    mtu 1500
+    dns-nameservers 10.245.168.2
+    dns-search dellstack`

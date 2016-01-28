@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
@@ -395,11 +394,6 @@ func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Cleaner returns a version of the state that provides access to the cleaner API
 func (st *state) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
-}
-
-// Rsyslog returns access to the Rsyslog API
-func (st *state) Rsyslog() *rsyslog.State {
-	return rsyslog.NewState(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.
