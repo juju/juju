@@ -1340,7 +1340,7 @@ class TestBootContext(FakeHomeTestCase):
                 pass
         ue_mock.assert_called_with(
             client.env, 'bar', agent_url='url', agent_stream='devel',
-            series='wacky', region=None)
+            series='wacky', bootstrap_host=None, region=None)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-m', 'bar',
             '--constraints', 'mem=2G', '--agent-version', '1.23',

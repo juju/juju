@@ -288,10 +288,8 @@ class FakeJujuClient:
             else:
                 self._backing_state.remove_machine(machine_id)
 
-    def bootstrap(self, upload_tools=False, to=None, bootstrap_series=None):
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
         commandline_config = {}
-        if to is not None:
-            commandline_config['bootstrap-host'] = to
         if bootstrap_series is not None:
             commandline_config['default-series'] = bootstrap_series
         self._backing_state.bootstrap(self.env, commandline_config)
