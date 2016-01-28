@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/api"
 	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/discoverspaces"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
@@ -1008,6 +1009,27 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
+}
+
+func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) {
+	var setSpacesDiscovered func()
+	var called bool
+	newDiscoverSpaces := func(api *discoverspaces.API, setFunc func()) worker.Worker {
+		setSpacesDiscovered = setFunc
+		called = true
+		return newDummyWorker()
+	}
+	s.AgentSuite.PatchValue(&newDiscoverSpaces, newDiscoverSpaces)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+	_ = s.singularRecord.nextRunner(c)
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "discoverspaces")
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
