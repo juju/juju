@@ -174,8 +174,8 @@ class EnvJujuClient:
     # The environments.yaml options that are replaced by bootstrap options.
     #
     # As described in bug #1538735, default-series and --bootstrap-series must
-    # match.  'series' should be here, but is omitted so that default-series
-    # is always forced to match --bootstrap-series.
+    # match.  'default-series' should be here, but is omitted so that
+    # default-series is always forced to match --bootstrap-series.
     bootstrap_replaces = frozenset(['agent-version'])
 
     _show_status = 'show-status'
