@@ -1,16 +1,16 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package model
+package proxyupdater
 
 import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 )
 
-const apiName = "Model"
+const apiName = "ProxyUpdater"
 
-// Facade provides access to a model worker's view of the world.
+// Facade provides access to a machine model worker's view of the world.
 type Facade struct {
 	*common.ModelWatcher
 }
@@ -22,3 +22,6 @@ func NewFacade(caller base.APICaller) *Facade {
 		ModelWatcher: common.NewModelWatcher(facadeCaller),
 	}
 }
+
+// TODO(wallyworld) - add methods for getting proxy settings specifically,
+// rather than the entire model config

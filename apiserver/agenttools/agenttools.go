@@ -1,11 +1,10 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package model
+package agenttools
 
 import (
 	"github.com/juju/errors"
-
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,11 +16,34 @@ import (
 	"github.com/juju/juju/version"
 )
 
+func init() {
+	common.RegisterStandardFacade("AgentTools", 1, NewAgentToolsAPI)
+}
+
 var logger = loggo.GetLogger("juju.apiserver.model")
 
 var (
 	findTools = tools.FindTools
 )
+
+// AgentToolsAPI implements the API used by the machine model worker.
+type AgentToolsAPI struct {
+	st         EnvironGetter
+	authorizer common.Authorizer
+	// tools lookup
+	findTools        toolsFinder
+	envVersionUpdate envVersionUpdater
+}
+
+// NewAgentToolsAPI creates a new instance of the Model API.
+func NewAgentToolsAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*AgentToolsAPI, error) {
+	return &AgentToolsAPI{
+		st:               st,
+		authorizer:       authorizer,
+		findTools:        findTools,
+		envVersionUpdate: envVersionUpdate,
+	}, nil
+}
 
 // EnvironGetter represents a struct that can provide a state.Environment.
 type EnvironGetter interface {
@@ -95,31 +117,11 @@ func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVer
 	return update(env, ver)
 }
 
-// ModelTools holds the required tools for a model facade.
-type ModelTools struct {
-	st         EnvironGetter
-	authorizer common.Authorizer
-	// tools lookup
-	findTools        toolsFinder
-	envVersionUpdate envVersionUpdater
-}
-
-// NewEnvironTools returns a new environ tools pointer with the passed attributes
-// and some defaults that are only for changed during tests.
-func NewEnvironTools(st EnvironGetter, authorizer common.Authorizer) *ModelTools {
-	return &ModelTools{
-		st:               st,
-		authorizer:       authorizer,
-		findTools:        findTools,
-		envVersionUpdate: envVersionUpdate,
-	}
-}
-
 // UpdateToolsAvailable invokes a lookup and further update in environ
 // for new patches of the current tool versions.
-func (e *ModelTools) UpdateToolsAvailable() error {
-	if !e.authorizer.AuthEnvironManager() {
+func (api *AgentToolsAPI) UpdateToolsAvailable() error {
+	if !api.authorizer.AuthEnvironManager() {
 		return common.ErrPerm
 	}
-	return updateToolsAvailability(e.st, e.findTools, e.envVersionUpdate)
+	return updateToolsAvailability(api.st, api.findTools, api.envVersionUpdate)
 }

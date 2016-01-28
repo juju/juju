@@ -37,9 +37,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/statushistory"
 	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
@@ -734,7 +736,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// before we do anything else.
 	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Model(), writeSystemFiles), nil
+		return proxyupdater.New(apiproxyupdater.NewFacade(st), writeSystemFiles), nil
 	})
 
 	if isEnvironManager {
@@ -889,7 +891,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				checkerParams := toolsversionchecker.VersionCheckerParams{
 					CheckInterval: time.Hour * 6,
 				}
-				return toolsversionchecker.New(st.Model(), &checkerParams), nil
+				return toolsversionchecker.New(agenttools.NewFacade(st), &checkerParams), nil
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
