@@ -44,8 +44,9 @@ type resourceStorage interface {
 	// Remove removes the identified data from the storage.
 	Remove(path string) error
 
-	// Get returns a reader for the resource at path.
-	Get(path string) (_ io.ReadCloser, resSize int64, _ error)
+	// Get returns a reader for the resource at path. The size of the
+	// data is also returned.
+	Get(path string) (io.ReadCloser, int64, error)
 }
 
 type resourceState struct {
