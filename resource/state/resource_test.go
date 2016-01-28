@@ -262,7 +262,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	_, _, err := st.OpenResource("a-service", "spam")
 
 	s.stub.CheckCallNames(c, "ListResources", "Get")
-	c.Check(err, gc.ErrorMatches, `storage returned a size which doesn't match resource metadata`)
+	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
 func newUploadResources(c *gc.C, names ...string) []resource.Resource {

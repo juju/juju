@@ -146,7 +146,8 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 	if resSize != resourceInfo.Size {
-		return resource.Resource{}, nil, errors.New("storage returned a size which doesn't match resource metadata")
+		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
+		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
 	return resourceInfo, resourceReader, nil
