@@ -37,6 +37,138 @@ func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 	s.metricsdebug = debug
 }
 
+func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
+	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
+	testService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: testCharm})
+	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: testService, SetCharmURL: true})
+	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: testService, SetCharmURL: true})
+
+	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	csService := s.Factory.MakeService(c, &factory.ServiceParams{Name: "cs-service", Charm: csCharm})
+	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: csService, SetCharmURL: true})
+
+	tests := []struct {
+		about  string
+		params params.MeterStatusParams
+		err    string
+		assert func(*gc.C, params.ErrorResults)
+	}{{
+		about: "set service meter status",
+		params: params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  testService.Tag().String(),
+				Code: "RED",
+				Info: "test",
+			},
+			},
+		},
+		assert: func(c *gc.C, results params.ErrorResults) {
+			err := results.OneError()
+			c.Assert(err, jc.ErrorIsNil)
+			ms1, err := testUnit1.GetMeterStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ms1, gc.DeepEquals, state.MeterStatus{
+				Code: state.MeterRed,
+				Info: "test",
+			})
+			ms2, err := testUnit2.GetMeterStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ms2, gc.DeepEquals, state.MeterStatus{
+				Code: state.MeterRed,
+				Info: "test",
+			})
+		},
+	}, {
+		about: "set unit meter status",
+		params: params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  testUnit1.Tag().String(),
+				Code: "AMBER",
+				Info: "test",
+			},
+			},
+		},
+		assert: func(c *gc.C, results params.ErrorResults) {
+			err := results.OneError()
+			c.Assert(err, jc.ErrorIsNil)
+			ms1, err := testUnit1.GetMeterStatus()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ms1, gc.DeepEquals, state.MeterStatus{
+				Code: state.MeterAmber,
+				Info: "test",
+			})
+		},
+	}, {
+		about: "not a local charm - service",
+		params: params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  csService.Tag().String(),
+				Code: "AMBER",
+				Info: "test",
+			},
+			},
+		},
+		assert: func(c *gc.C, results params.ErrorResults) {
+			err := results.OneError()
+			c.Assert(err, gc.DeepEquals, &params.Error{Message: "not a local charm"})
+		},
+	}, {
+		about: "not a local charm - unit",
+		params: params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  csUnit1.Tag().String(),
+				Code: "AMBER",
+				Info: "test",
+			},
+			},
+		},
+		assert: func(c *gc.C, results params.ErrorResults) {
+			err := results.OneError()
+			c.Assert(err, gc.DeepEquals, &params.Error{Message: "not a local charm"})
+		},
+	}, {
+		about: "invalid meter status",
+		params: params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  testUnit1.Tag().String(),
+				Code: "WRONG",
+				Info: "test",
+			},
+			},
+		},
+		assert: func(c *gc.C, results params.ErrorResults) {
+			err := results.OneError()
+			c.Assert(err, gc.DeepEquals, &params.Error{Message: "invalid meter status \"NOT AVAILABLE\""})
+		},
+	}, {
+		about: "not such service",
+		params: params.MeterStatusParams{
+			Statuses: []params.MeterStatusParam{{
+				Tag:  "service-missing",
+				Code: "AMBER",
+				Info: "test",
+			},
+			},
+		},
+		assert: func(c *gc.C, results params.ErrorResults) {
+			err := results.OneError()
+			c.Assert(err, gc.DeepEquals, &params.Error{Message: "service \"missing\" not found", Code: "not found"})
+		},
+	},
+	}
+
+	for i, test := range tests {
+		c.Logf("running test %d: %v", i, test.about)
+		result, err := s.metricsdebug.SetMeterStatus(test.params)
+		if test.err == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			test.assert(c, result)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		}
+	}
+}
+
 func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})

@@ -23,24 +23,19 @@ func init() {
 	common.RegisterStandardFacade("MetricsDebug", 1, NewMetricsDebugAPI)
 }
 
-type GetMetricBatches interface {
-	// MetricBatchesForUnit returns metric batches for the given unit.
-	MetricBatchesForUnit(unit string) ([]state.MetricBatch, error)
-
-	// MetricBatchesForService returns metric batches for the given service.
-	MetricBatchesForService(service string) ([]state.MetricBatch, error)
-}
-
 // MetricsDebug defines the methods on the metricsdebug API end point.
 type MetricsDebug interface {
 	// GetMetrics returns all metrics stored by the state server.
 	GetMetrics(arg params.Entities) (params.MetricResults, error)
+
+	// SetMeterStatus will set the meter status on the given entity tag.
+	SetMeterStatus(params.MeterStatusParams) (params.ErrorResults, error)
 }
 
 // MetricsDebugAPI implements the metricsdebug interface and is the concrete
 // implementation of the api end point.
 type MetricsDebugAPI struct {
-	state GetMetricBatches
+	state *state.State
 }
 
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
@@ -113,4 +108,66 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 		}
 	}
 	return results, nil
+}
+
+// SetMeterStatus sets meter statuses for entities.
+func (api *MetricsDebugAPI) SetMeterStatus(args params.MeterStatusParams) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Statuses)),
+	}
+	for i, arg := range args.Statuses {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = api.setEntityMeterStatus(tag, state.MeterStatus{
+			Code: state.MeterStatusFromString(arg.Code),
+			Info: arg.Info,
+		})
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.MeterStatus) error {
+	switch entity := entity.(type) {
+	case names.UnitTag:
+		unit, err := api.state.Unit(entity.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		chURL, _ := unit.CharmURL()
+		if chURL.Schema != "local" {
+			return errors.New("not a local charm")
+		}
+		err = unit.SetMeterStatus(status.Code.String(), status.Info)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	case names.ServiceTag:
+		service, err := api.state.Service(entity.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		chURL, _ := service.CharmURL()
+		if chURL.Schema != "local" {
+			return errors.New("not a local charm")
+		}
+		units, err := service.AllUnits()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, unit := range units {
+			err := unit.SetMeterStatus(status.Code.String(), status.Info)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	default:
+		return errors.Errorf("expected service or unit tag, got %T", entity)
+	}
+	return nil
 }
