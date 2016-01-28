@@ -60,13 +60,16 @@ type ContextDownloadDeps interface {
 	CloseAndLog(io.Closer, string)
 
 	// Download writes the remote to the target directory.
-	Download(Resolver, ContextOpenedResource) error
+	Download(DownloadTarget, ContextOpenedResource) error
 }
 
 // ContextDirectorySpec exposes the functionality of a resource dir spec
 // in a hook context.
 type ContextDirectorySpec interface {
 	Resolver
+
+	// Open prepares the target directory and returns it.
+	Open() (DownloadDirectory, error)
 
 	// IsUpToDate indicates whether or not the resource dir is in sync
 	// with the content.

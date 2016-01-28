@@ -58,14 +58,14 @@ func (s *DownloadSuite) TestDownloadIndirectOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c,
 		"NewTempDirSpec",
+		"DownloadDirect",
 		"Open",
-		"Write",
 		"Resolve",
 		"Resolve",
 		"ReplaceDirectory",
 		"CloseAndLog",
 	)
-	s.stub.CheckCall(c, 2, "Write", remote)
+	s.stub.CheckCall(c, 1, "DownloadDirect", stub, remote)
 }
 
 func (s *DownloadSuite) TestDownloadIndirectTempDirFailure(c *gc.C) {

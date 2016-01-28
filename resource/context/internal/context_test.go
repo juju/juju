@@ -103,6 +103,7 @@ type stubContext struct {
 	ReturnResolve    string
 	ReturnInfo       resource.Resource
 	ReturnContent    internal.Content
+	ReturnOpen       internal.DownloadDirectory
 	ReturnIsUpToDate bool
 }
 
@@ -125,6 +126,15 @@ func (s *stubContext) Content() internal.Content {
 	s.NextErr() // Pop one off.
 
 	return s.ReturnContent
+}
+
+func (s *stubContext) Open() (internal.DownloadDirectory, error) {
+	s.AddCall("Open")
+	if err := s.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnOpen, nil
 }
 
 func (s *stubContext) IsUpToDate(content internal.Content) (bool, error) {

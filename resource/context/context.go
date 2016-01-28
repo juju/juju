@@ -88,8 +88,12 @@ func (deps *contextDeps) OpenResource() (internal.ContextOpenedResource, error) 
 	return internal.OpenResource(deps.name, deps)
 }
 
-func (deps *contextDeps) Download(spec internal.Resolver, remote internal.ContextOpenedResource) error {
+func (deps *contextDeps) Download(target internal.DownloadTarget, remote internal.ContextOpenedResource) error {
 	return internal.DownloadIndirect(spec, remote, deps)
+}
+
+func (deps *contextDeps) DownloadDirect(target internal.DownloadTarget, remote internal.ContentSource) error {
+	return internal.Download(target, remote)
 }
 
 func (deps *contextDeps) ReplaceDirectory(tgt, src string) error {

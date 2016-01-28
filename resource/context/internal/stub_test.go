@@ -61,8 +61,17 @@ func (s *internalStub) OpenResource() (internal.ContextOpenedResource, error) {
 	return s.ReturnOpenResource, nil
 }
 
-func (s *internalStub) Download(spec internal.Resolver, remote internal.ContextOpenedResource) error {
-	s.Stub.AddCall("Download", spec, remote)
+func (s *internalStub) Download(target internal.DownloadTarget, remote internal.ContextOpenedResource) error {
+	s.Stub.AddCall("Download", target, remote)
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *internalStub) DownloadDirect(target internal.DownloadTarget, remote internal.ContentSource) error {
+	s.Stub.AddCall("DownloadDirect", target, remote)
 	if err := s.Stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
