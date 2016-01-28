@@ -366,7 +366,7 @@ func (d *UnitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{
 
 func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (context.APIClient, error) {
 
-	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, 1)
+	facadeCaller := base.NewFacadeCallerForVersion(caller, context.HookContextFacade, internalserver.FacadeVersion)
 	doer, err := caller.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)
