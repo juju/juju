@@ -4,9 +4,9 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"net/http"
+	"path"
 
 	"github.com/juju/errors"
 
@@ -115,6 +115,6 @@ func NewUnitDoer(doer UnitDoer, unitName string) UnitDoer {
 
 // Do implements httprequest.Doer.
 func (ud *unitDoer) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
-	req.URL.Path = fmt.Sprintf("/units/%s%s", ud.unitName, req.URL.Path)
+	req.URL.Path = path.Join("/units", ud.unitName, req.URL.Path)
 	return ud.doer.Do(req, body, response)
 }
