@@ -56,5 +56,8 @@ func (config ManagerConfig) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if config.MaxSleep <= 0 {
+		return errors.NotValidf("non-positive MaxSleep")
+	}
 	return nil
 }

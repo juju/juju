@@ -245,6 +245,7 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		Secretary: singularSecretary{st.environTag.Id()},
 		Client:    singularClient,
 		Clock:     clock,
+		MaxSleep:  time.Minute,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create singular lease manager")
