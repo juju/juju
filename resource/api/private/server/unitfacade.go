@@ -43,6 +43,7 @@ func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.Re
 	resources, err := uf.dataStore.ListResources()
 	if err != nil {
 		r.Error = common.ServerError(err)
+		return r, nil
 	}
 
 	for i, name := range args.ResourceNames {
