@@ -186,10 +186,10 @@ type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(api.Connection, *http.Client, DeploymentInfo) error
+	RunPre(api.Connection, *http.Client, *cmd.Context, DeploymentInfo) error
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(api.Connection, *http.Client, DeploymentInfo, error) error
+	RunPost(api.Connection, *http.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -488,7 +488,7 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	for _, step := range c.Steps {
-		err = step.RunPre(state, httpClient, deployInfo)
+		err = step.RunPre(state, httpClient, ctx, deployInfo)
 		if err != nil {
 			return err
 		}
@@ -496,7 +496,7 @@ func (c *DeployCommand) deployCharm(
 
 	defer func() {
 		for _, step := range c.Steps {
-			err = step.RunPost(state, httpClient, deployInfo, rErr)
+			err = step.RunPost(state, httpClient, ctx, deployInfo, rErr)
 			if err != nil {
 				rErr = err
 			}

@@ -4,10 +4,12 @@
 package commands
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/api/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -33,7 +35,7 @@ func (a *AllocateBudget) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // RunPre is part of the DeployStep interface.
-func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
@@ -57,15 +59,16 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, deplo
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.EnvUUID, []string{deployInfo.ServiceName})
+	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.EnvUUID, []string{deployInfo.ServiceName})
 	if err != nil {
 		return errors.Annotate(err, "could not create budget allocation")
 	}
 	a.allocated = true
+	fmt.Fprintf(ctx.Stdout, "%s\n", resp)
 	return nil
 }
 
-func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, deployInfo DeploymentInfo, prevErr error) error {
+func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
 	if prevErr == nil || !a.allocated {
 		return nil
 	}
@@ -76,10 +79,11 @@ func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, deployIn
 			return errors.Trace(err)
 		}
 	}
-	_, err = a.APIClient.DeleteAllocation(deployInfo.EnvUUID, deployInfo.ServiceName)
+	resp, err := a.APIClient.DeleteAllocation(deployInfo.EnvUUID, deployInfo.ServiceName)
 	if err != nil {
 		return errors.Annotate(err, "failed to remove allocation")
 	}
+	fmt.Fprintf(ctx.Stdout, "%s\n", resp)
 	return nil
 }
 
