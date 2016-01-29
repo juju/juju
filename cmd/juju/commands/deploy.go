@@ -197,7 +197,7 @@ type DeployStep interface {
 type DeploymentInfo struct {
 	CharmURL    *charm.URL
 	ServiceName string
-	EnvUUID     string
+	ModelUUID   string
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -484,7 +484,7 @@ func (c *DeployCommand) deployCharm(
 	deployInfo := DeploymentInfo{
 		CharmURL:    curl,
 		ServiceName: serviceName,
-		EnvUUID:     client.EnvironmentUUID(),
+		ModelUUID:   client.EnvironmentUUID(),
 	}
 
 	for _, step := range c.Steps {

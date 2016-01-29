@@ -78,7 +78,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		}
 	}
 
-	r.credentials, err = r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	r.credentials, err = r.registerMetrics(deployInfo.ModelUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
 		logger.Infof("failed to obtain plan authorization: %v", err)
 		return err

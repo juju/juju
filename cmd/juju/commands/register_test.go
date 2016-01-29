@@ -48,7 +48,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
@@ -180,7 +180,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
@@ -196,7 +196,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,7 +215,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `failed to register metrics:.*`)

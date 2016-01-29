@@ -41,7 +41,7 @@ func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "model uuid",
+		ModelUUID:   "model uuid",
 	}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +60,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "model uuid",
+		ModelUUID:   "model uuid",
 	}
 	s.allocate = &AllocateBudget{AllocationSpec: ""}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
@@ -79,7 +79,7 @@ func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "model uuid",
+		ModelUUID:   "model uuid",
 	}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/unmetered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)

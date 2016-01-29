@@ -59,7 +59,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	if err != nil {
 		return errors.Trace(err)
 	}
-	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.EnvUUID, []string{deployInfo.ServiceName})
+	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
 		return errors.Annotate(err, "could not create budget allocation")
 	}
@@ -79,7 +79,7 @@ func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd
 			return errors.Trace(err)
 		}
 	}
-	resp, err := a.APIClient.DeleteAllocation(deployInfo.EnvUUID, deployInfo.ServiceName)
+	resp, err := a.APIClient.DeleteAllocation(deployInfo.ModelUUID, deployInfo.ServiceName)
 	if err != nil {
 		return errors.Annotate(err, "failed to remove allocation")
 	}
