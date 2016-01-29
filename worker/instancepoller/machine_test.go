@@ -52,7 +52,7 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	killMachineLoop(c, m, context.dyingc, died)
-	c.Assert(context.killAllErr, gc.Equals, nil)
+	c.Assert(context.killErr, gc.Equals, nil)
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
 	c.Assert(m.setAddressCount, gc.Equals, 1)
 	c.Assert(m.instStatus, gc.Equals, "running")
@@ -141,7 +141,7 @@ func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, mac
 
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
-	c.Assert(context.killAllErr, gc.Equals, nil)
+	c.Assert(context.killErr, gc.Equals, nil)
 	return int(count)
 }
 
@@ -174,7 +174,7 @@ func (s *machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
 
 	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
-	c.Assert(context.killAllErr, gc.Equals, nil)
+	c.Assert(context.killErr, gc.Equals, nil)
 	c.Assert(count, gc.Equals, int32(1))
 }
 
@@ -280,7 +280,7 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for machine to die")
 	}
-	c.Assert(context.killAllErr, gc.ErrorMatches, ".*"+expectErr.Error())
+	c.Assert(context.killErr, gc.ErrorMatches, ".*"+expectErr.Error())
 }
 
 func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machine) {
@@ -304,16 +304,16 @@ func instanceInfoGetter(
 }
 
 type testMachineContext struct {
-	killAllErr      error
+	killErr         error
 	getInstanceInfo func(instance.Id) (instanceInfo, error)
 	dyingc          chan struct{}
 }
 
-func (context *testMachineContext) killAll(err error) {
+func (context *testMachineContext) kill(err error) {
 	if err == nil {
-		panic("killAll with nil error")
+		panic("kill with nil error")
 	}
-	context.killAllErr = err
+	context.killErr = err
 }
 
 func (context *testMachineContext) instanceInfo(id instance.Id) (instanceInfo, error) {
@@ -322,6 +322,10 @@ func (context *testMachineContext) instanceInfo(id instance.Id) (instanceInfo, e
 
 func (context *testMachineContext) dying() <-chan struct{} {
 	return context.dyingc
+}
+
+func (context *testMachineContext) errDying() error {
+	return nil
 }
 
 type testMachine struct {

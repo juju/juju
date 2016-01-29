@@ -7,16 +7,15 @@ package metricsmanager
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
 
 // Client provides access to the metrics manager api
 type Client struct {
-	base.ClientFacade
-	st     api.Connection
+	envTag names.EnvironTag
 	facade base.FacadeCaller
 }
 
@@ -29,23 +28,26 @@ type MetricsManagerClient interface {
 var _ MetricsManagerClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsmanager api
-func NewClient(st api.Connection) *Client {
-	frontend, backend := base.NewClientFacade(st, "MetricsManager")
-	return &Client{ClientFacade: frontend, st: st, facade: backend}
+func NewClient(apiCaller base.APICaller) (*Client, error) {
+	envTag, err := apiCaller.EnvironTag()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	facade := base.NewFacadeCaller(apiCaller, "MetricsManager")
+	return &Client{
+		envTag: envTag,
+		facade: facade,
+	}, nil
 }
 
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
-	envTag, err := c.st.EnvironTag()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	p := params.Entities{Entities: []params.Entity{
-		{envTag.String()},
+		{c.envTag.String()},
 	}}
-	results := new(params.ErrorResults)
-	err = c.facade.FacadeCall("CleanupOldMetrics", p, results)
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("CleanupOldMetrics", p, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,15 +56,11 @@ func (c *Client) CleanupOldMetrics() error {
 
 // SendMetrics will send any unsent metrics to the collection service.
 func (c *Client) SendMetrics() error {
-	envTag, err := c.st.EnvironTag()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	p := params.Entities{Entities: []params.Entity{
-		{envTag.String()},
+		{c.envTag.String()},
 	}}
-	results := new(params.ErrorResults)
-	err = c.facade.FacadeCall("SendMetrics", p, results)
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SendMetrics", p, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

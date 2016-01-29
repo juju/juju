@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite
@@ -295,8 +295,8 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := apiRelUnit.Watch()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewRelationUnitsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange([]string{"mysql/0"}, nil)
@@ -311,12 +311,4 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	// NOTE: This test is not as exhaustive as the one in state,
-	// because the watcher is already tested there. Here we just
-	// ensure we get the events when we expect them and don't get
-	// them when they're not expected.
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

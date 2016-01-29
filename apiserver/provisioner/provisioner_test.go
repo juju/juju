@@ -1070,52 +1070,6 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
-	// Provision machine 0 first.
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", &hwChars)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.SetProvisioned{Machines: []params.MachineSetProvisioned{
-		{Tag: s.machines[0].Tag().String(), InstanceId: "i-was", Nonce: "fake_nonce", Characteristics: nil},
-		{Tag: s.machines[1].Tag().String(), InstanceId: "i-will", Nonce: "fake_nonce", Characteristics: &hwChars},
-		{Tag: s.machines[2].Tag().String(), InstanceId: "i-am-too", Nonce: "fake", Characteristics: nil},
-		{Tag: "machine-42", InstanceId: "", Nonce: "", Characteristics: nil},
-		{Tag: "unit-foo-0", InstanceId: "", Nonce: "", Characteristics: nil},
-		{Tag: "service-bar", InstanceId: "", Nonce: "", Characteristics: nil},
-	}}
-	result, err := s.provisioner.SetProvisioned(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{&params.Error{
-				Message: `cannot set instance data for machine "0": already set`,
-			}},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify machine 1 and 2 were provisioned.
-	c.Assert(s.machines[1].Refresh(), gc.IsNil)
-	c.Assert(s.machines[2].Refresh(), gc.IsNil)
-
-	instanceId, err := s.machines[1].InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.Id("i-will"))
-	instanceId, err = s.machines[2].InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.Id("i-am-too"))
-	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
-	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
-	gotHardware, err := s.machines[1].HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotHardware, gc.DeepEquals, &hwChars)
-}
-
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
