@@ -124,6 +124,10 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		}
 		call.done()
 	}
+	if err != nil {
+		logger.Errorf("error handling response: %v", err)
+	}
+
 	return err
 }
 
