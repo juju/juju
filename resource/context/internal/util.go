@@ -47,28 +47,3 @@ type ReplaceDirectoryDeps interface {
 	// Move moves the directory at the source path to the target path.
 	Move(target, source string) error
 }
-
-// TODO(ericsnow) Try landing this is the errors repo (again).
-
-//type multiErr struct {
-//	errs []error
-//}
-//
-//func (me *multiErr) add(err error) {
-//	me.errs = append(me.errs, err)
-//}
-//
-//func (me multiErr) resolve() error {
-//	switch len(me.errs) {
-//	case 0:
-//		return nil
-//	case 1:
-//		return me.errs[0]
-//	default:
-//		msg := fmt.Sprintf("got %d errors:", len(me.errs))
-//		for i, err := range me.errs {
-//			msg = fmt.Sprintf("%s\n(#%d) %v", msg, i, err)
-//		}
-//		return errors.Errorf(msg)
-//	}
-//}
