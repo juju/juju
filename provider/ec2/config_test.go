@@ -16,6 +16,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -348,6 +349,14 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	env0, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
 		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
@@ -355,6 +364,14 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 
 	env1, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
 		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := env1.(*environ).ecfg().controlBucket()
@@ -374,6 +391,14 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 
 	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
 		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
@@ -390,6 +415,14 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 
 	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
 		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()

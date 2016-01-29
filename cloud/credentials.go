@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -179,6 +181,53 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 		attrs[k] = v.(string)
 	}
 	return Credential{AuthType(authType), attrs}, nil
+}
+
+// CredentialByName returns the credential and default region to use for the
+// specified cloud, optionally specifying a credential name. If no credential
+// name is specified, then use the default credential for the cloud if one has
+// been specified. The credential name is returned also, in case the default
+// credential is used.
+//
+// If there exists no matching credentials, an error satisfying
+// errors.IsNotFound will be returned.
+//
+// NOTE: the credential returned is not validated. The caller must validate
+//       the credential with the cloud provider.
+//
+// TODO(axw) write unit tests for this.
+func CredentialByName(
+	cloudName, credentialName string,
+) (_ *Credential, credentialNameUsed string, defaultRegion string, _ error) {
+
+	// Parse the credentials, and extract the credentials for the specified
+	// cloud.
+	credentialsData, err := ioutil.ReadFile(JujuCredentials())
+	if os.IsNotExist(err) {
+		return nil, "", "", errors.NotFoundf("credentials file")
+	} else if err != nil {
+		return nil, "", "", errors.Trace(err)
+	}
+	credentials, err := ParseCredentials(credentialsData)
+	if err != nil {
+		return nil, "", "", errors.Annotate(err, "parsing credentials")
+	}
+	cloudCredentials, ok := credentials.Credentials[cloudName]
+	if !ok {
+		return nil, "", "", errors.NotFoundf("credentials for cloud %q", cloudName)
+	}
+
+	if credentialName == "" {
+		// No credential specified, so use the default for the cloud.
+		credentialName = cloudCredentials.DefaultCredential
+	}
+	credential, ok := cloudCredentials.AuthCredentials[credentialName]
+	if !ok {
+		return nil, "", "", errors.NotFoundf(
+			"%q credential for cloud %q", credentialName, cloudName,
+		)
+	}
+	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
 }
 
 // JujuCredentials is the location where credentials are
