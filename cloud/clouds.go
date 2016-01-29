@@ -73,6 +73,30 @@ type Region struct {
 	Endpoint string `yaml:"endpoint,omitempty"`
 }
 
+// CloudByName returns the cloud with the specified name.
+// If there exists no cloud with the specified name, an
+// error satisfying errors.IsNotFound will be returned.
+//
+// TODO(axw) write unit tests for this.
+func CloudByName(name string) (*Cloud, error) {
+	// Personal clouds take precedence.
+	personalClouds, err := PersonalCloudMetadata()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if cloud, ok := personalClouds[name]; ok {
+		return &cloud, nil
+	}
+	clouds, _, err := PublicCloudMetadata(JujuPublicCloudsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if cloud, ok := clouds[name]; ok {
+		return &cloud, nil
+	}
+	return nil, errors.NotFoundf("cloud %s", name)
+}
+
 // JujuPublicCloudsPath is the location where public cloud information is
 // expected to be found. Requires JUJU_HOME to be set.
 func JujuPublicCloudsPath() string {
