@@ -75,7 +75,7 @@ def deploy_dummy_stack(client, charm_prefix):
     # Centos requires specific machine configuration (i.e. network device
     # order).
     if charm_prefix.startswith("local:centos") and client.env.maas:
-        client.juju('set-constraints', ('tags=MAAS_NIC_1',))
+        client.set_model_constraints({'tags': 'MAAS_NIC_1'})
     client.deploy(charm_prefix + 'dummy-source')
     client.deploy(charm_prefix + 'dummy-sink')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))

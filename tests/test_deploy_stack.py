@@ -544,8 +544,8 @@ class TestDeployDummyStack(FakeHomeTestCase):
                            return_value='fake-token', autospec=True):
                     deploy_dummy_stack(client, 'local:centos/foo')
         assert_juju_call(self, cc_mock, client,
-                         ('juju', '--show-log', 'set-constraints', '-m', 'foo',
-                          'tags=MAAS_NIC_1'), 0)
+                         ('juju', '--show-log', 'set-model-constraints', '-m',
+                          'foo', 'tags=MAAS_NIC_1'), 0)
 
     def test_assess_juju_relations(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})

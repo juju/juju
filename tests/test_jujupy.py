@@ -1559,6 +1559,13 @@ class TestEnvJujuClient(ClientTest):
                 'Timed out waiting for machines-not-0'):
             client.wait_for('machines-not-0', 'none')
 
+    def test_set_model_constraints(self):
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_model_constraints({'bar': 'baz'})
+        juju_mock.assert_called_once_with('set-model-constraints',
+                                          ('bar=baz',))
+
     def test_get_model_config(self):
         env = SimpleEnvironment('foo', None)
         fake_popen = FakePopen(yaml.safe_dump({'bar': 'baz'}), None, 0)
@@ -2954,6 +2961,12 @@ class TestEnvJujuClient1X(ClientTest):
                 Exception,
                 'Timed out waiting for machines-not-0'):
             client.wait_for('machines-not-0', 'none')
+
+    def test_set_model_constraints(self):
+        client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_model_constraints({'bar': 'baz'})
+        juju_mock.assert_called_once_with('set-constraints', ('bar=baz',))
 
     def test_get_model_config(self):
         env = SimpleEnvironment('foo', None)
