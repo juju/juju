@@ -80,7 +80,7 @@ func NewDestroyCommandForTest(api DestroyEnvironmentAPI) cmd.Command {
 	}
 	return modelcmd.Wrap(
 		cmd,
-		modelcmd.EnvSkipDefault,
-		modelcmd.EnvSkipFlags,
+		modelcmd.ModelSkipDefault,
+		modelcmd.ModelSkipFlags,
 	)
 }

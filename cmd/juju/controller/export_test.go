@@ -92,8 +92,8 @@ func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientA
 				apierr:    apierr,
 			},
 		},
-		modelcmd.EnvSkipFlags,
-		modelcmd.EnvSkipDefault,
+		modelcmd.ModelSkipFlags,
+		modelcmd.ModelSkipDefault,
 	)
 }
 

@@ -476,7 +476,7 @@ func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotations
 		return errors.Errorf("unexpected annotation entity type %q", p.EntityType)
 	}
 	result, err := h.annotationsClient.Set(map[string]map[string]string{tag: p.Annotations})
-	if err == nil {
+	if err == nil && len(result) > 0 {
 		err = result[0].Error
 	}
 	if err != nil {

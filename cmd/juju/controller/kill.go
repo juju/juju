@@ -51,8 +51,8 @@ func wrapKillCommand(kill *killCommand, fn func(string) (api.Connection, error),
 	openStrategy := modelcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
 	return modelcmd.Wrap(
 		kill,
-		modelcmd.EnvSkipFlags,
-		modelcmd.EnvSkipDefault,
+		modelcmd.ModelSkipFlags,
+		modelcmd.ModelSkipDefault,
 		modelcmd.EnvAPIOpener(openStrategy),
 	)
 }

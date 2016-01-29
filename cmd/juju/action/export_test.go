@@ -56,12 +56,12 @@ func (c *DefinedCommand) FullSchema() bool {
 
 func NewDefinedCommand() (cmd.Command, *DefinedCommand) {
 	c := &definedCommand{}
-	return modelcmd.Wrap(c, modelcmd.EnvSkipDefault), &DefinedCommand{c}
+	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &DefinedCommand{c}
 }
 
 func NewDoCommand() (cmd.Command, *DoCommand) {
 	c := &doCommand{}
-	return modelcmd.Wrap(c, modelcmd.EnvSkipDefault), &DoCommand{c}
+	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &DoCommand{c}
 }
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
 	return resultsToMap(results)

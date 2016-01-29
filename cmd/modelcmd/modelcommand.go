@@ -312,24 +312,24 @@ func (c *ModelCommandBase) ConnectionName() string {
 
 // WrapControllerOption sets various parameters of the
 // ModelCommand wrapper.
-type WrapEnvOption func(*environCommandWrapper)
+type WrapEnvOption func(*modelCommandWrapper)
 
-// EnvSkipFlags instructs the wrapper to skip --m and
+// ModelSkipFlags instructs the wrapper to skip --m and
 // --model flag definition.
-func EnvSkipFlags(w *environCommandWrapper) {
+func ModelSkipFlags(w *modelCommandWrapper) {
 	w.skipFlags = true
 }
 
-// EnvSkipDefault instructs the wrapper not to
-// use the default environment.
-func EnvSkipDefault(w *environCommandWrapper) {
+// ModelSkipDefault instructs the wrapper not to
+// use the default model.
+func ModelSkipDefault(w *modelCommandWrapper) {
 	w.useDefaultEnvironment = false
 }
 
 // EnvAPIOpener instructs the underlying environment command to use a
 // different Opener strategy.
 func EnvAPIOpener(opener APIOpener) WrapEnvOption {
-	return func(w *environCommandWrapper) {
+	return func(w *modelCommandWrapper) {
 		w.ModelCommand.SetAPIOpener(opener)
 	}
 }
@@ -339,7 +339,7 @@ func EnvAPIOpener(opener APIOpener) WrapEnvOption {
 // Any provided options are applied to the wrapped command
 // before it is returned.
 func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
-	wrapper := &environCommandWrapper{
+	wrapper := &modelCommandWrapper{
 		ModelCommand:          c,
 		skipFlags:             false,
 		useDefaultEnvironment: true,
@@ -351,7 +351,7 @@ func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 	return WrapBase(wrapper)
 }
 
-type environCommandWrapper struct {
+type modelCommandWrapper struct {
 	ModelCommand
 
 	skipFlags             bool
@@ -360,7 +360,7 @@ type environCommandWrapper struct {
 	envName               string
 }
 
-func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
+func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
 		f.StringVar(&w.envName, "m", "", "juju model to operate in")
 		f.StringVar(&w.envName, "model", "", "")
@@ -368,7 +368,7 @@ func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	w.ModelCommand.SetFlags(f)
 }
 
-func (w *environCommandWrapper) Init(args []string) error {
+func (w *modelCommandWrapper) Init(args []string) error {
 	if !w.skipFlags {
 		if w.envName == "" && w.useDefaultEnvironment {
 			// Look for the default.
