@@ -11,11 +11,11 @@ import (
 )
 
 // This file contains utility functions related to documents and
-// collections that contain data for multiple environments.
+// collections that contain data for multiple models.
 
-// ensureEnvUUID returns an environment UUID prefixed document ID. The
+// ensureModelUUID returns an model UUID prefixed document ID. The
 // prefix is only added if it isn't already there.
-func ensureEnvUUID(modelUUID, id string) string {
+func ensureModelUUID(modelUUID, id string) string {
 	prefix := modelUUID + ":"
 	if strings.HasPrefix(id, prefix) {
 		return id
@@ -23,16 +23,16 @@ func ensureEnvUUID(modelUUID, id string) string {
 	return prefix + id
 }
 
-// ensureEnvUUIDIfString will call ensureEnvUUID, but only if the id
+// ensureModelUUIDIfString will call ensureModelUUID, but only if the id
 // is a string. The id will be left untouched otherwise.
-func ensureEnvUUIDIfString(modelUUID string, id interface{}) interface{} {
+func ensureModelUUIDIfString(modelUUID string, id interface{}) interface{} {
 	if id, ok := id.(string); ok {
-		return ensureEnvUUID(modelUUID, id)
+		return ensureModelUUID(modelUUID, id)
 	}
 	return id
 }
 
-// splitDocID returns the 2 parts of environment UUID prefixed
+// splitDocID returns the 2 parts of model UUID prefixed
 // document ID. If the id is not in the expected format the final
 // return value will be false.
 func splitDocID(id string) (string, string, bool) {
@@ -43,13 +43,13 @@ func splitDocID(id string) (string, string, bool) {
 	return parts[0], parts[1], true
 }
 
-const envUUIDRequired = 1
-const noEnvUUIDInInput = 2
+const modelUUIDRequired = 1
+const noModelUUIDInInput = 2
 
 // mungeDocForMultiEnv takes the value of an txn.Op Insert or $set
-// Update and modifies it to be multi-environment safe, returning the
+// Update and modifies it to be multi-model safe, returning the
 // modified document.
-func mungeDocForMultiEnv(doc interface{}, modelUUID string, envUUIDFlags int) (bson.D, error) {
+func mungeDocForMultiEnv(doc interface{}, modelUUID string, modelUUIDFlags int) (bson.D, error) {
 	var bDoc bson.D
 	var err error
 	if doc != nil {
@@ -59,12 +59,12 @@ func mungeDocForMultiEnv(doc interface{}, modelUUID string, envUUIDFlags int) (b
 		}
 	}
 
-	envUUIDSeen := false
+	modelUUIDSeen := false
 	for i, elem := range bDoc {
 		switch elem.Name {
 		case "_id":
 			if id, ok := elem.Value.(string); ok {
-				bDoc[i].Value = ensureEnvUUID(modelUUID, id)
+				bDoc[i].Value = ensureModelUUID(modelUUID, id)
 			} else if subquery, ok := elem.Value.(bson.D); ok {
 				munged, err := mungeIDSubQueryForMultiEnv(subquery, modelUUID)
 				if err != nil {
@@ -73,10 +73,10 @@ func mungeDocForMultiEnv(doc interface{}, modelUUID string, envUUIDFlags int) (b
 				bDoc[i].Value = munged
 			}
 		case "model-uuid":
-			if envUUIDFlags&noEnvUUIDInInput > 0 {
+			if modelUUIDFlags&noModelUUIDInInput > 0 {
 				return nil, errors.New("model-uuid is added automatically and should not be provided")
 			}
-			envUUIDSeen = true
+			modelUUIDSeen = true
 			if elem.Value == "" {
 				bDoc[i].Value = modelUUID
 			} else if elem.Value != modelUUID {
@@ -84,7 +84,7 @@ func mungeDocForMultiEnv(doc interface{}, modelUUID string, envUUIDFlags int) (b
 			}
 		}
 	}
-	if envUUIDFlags&envUUIDRequired > 0 && !envUUIDSeen {
+	if modelUUIDFlags&modelUUIDRequired > 0 && !modelUUIDSeen {
 		bDoc = append(bDoc, bson.DocElem{"model-uuid", modelUUID})
 	}
 	return bDoc, nil
@@ -125,7 +125,7 @@ func mungeIDSubQueryForMultiEnv(doc interface{}, modelUUID string) (bson.D, erro
 
 			var fullIDs []string
 			for _, id := range ids {
-				fullID := ensureEnvUUID(modelUUID, id)
+				fullID := ensureModelUUID(modelUUID, id)
 				fullIDs = append(fullIDs, fullID)
 			}
 			bDoc[i].Value = fullIDs

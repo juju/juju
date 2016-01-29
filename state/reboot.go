@@ -42,7 +42,7 @@ func (m *Machine) setFlag() error {
 		return mgo.ErrNotFound
 	}
 	ops := []txn.Op{
-		assertEnvAliveOp(m.st.ModelUUID()),
+		assertModelAliveOp(m.st.ModelUUID()),
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
@@ -55,7 +55,7 @@ func (m *Machine) setFlag() error {
 	}
 	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		if err := checkEnvLife(m.st); err != nil {
+		if err := checkModeLife(m.st); err != nil {
 			return errors.Trace(err)
 		}
 		return mgo.ErrNotFound

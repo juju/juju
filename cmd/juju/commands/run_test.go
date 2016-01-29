@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -110,7 +110,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
-		runCmd := envcmd.Wrap(cmd)
+		runCmd := modelcmd.Wrap(cmd)
 		testing.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(cmd.all, gc.Equals, test.all)
@@ -147,7 +147,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
-		runCmd := envcmd.Wrap(cmd)
+		runCmd := modelcmd.Wrap(cmd)
 		testing.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(cmd.timeout, gc.Equals, test.timeout)

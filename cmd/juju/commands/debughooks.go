@@ -14,12 +14,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 func newDebugHooksCommand() cmd.Command {
-	return envcmd.Wrap(&debugHooksCommand{})
+	return modelcmd.Wrap(&debugHooksCommand{})
 }
 
 // debugHooksCommand is responsible for launching a ssh shell on a given unit or machine.

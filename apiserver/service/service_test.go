@@ -212,7 +212,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		Constraints: cons,
 		Storage:     storageConstraints,
 	}
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,7 +255,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 		Constraints: cons,
 		Storage:     storageConstraints,
 	}
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,7 +286,7 @@ func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 		Constraints: cons,
 		Storage:     storageConstraints,
 	}
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +305,7 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 		NumUnits:    1,
 		Constraints: cons,
 	}
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,7 +324,7 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestServiceDeployWithPlacement(c *gc.C) {
+func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,7 +338,7 @@ func (s *serviceSuite) TestServiceDeployWithPlacement(c *gc.C) {
 			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
 		},
 	}
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,7 +365,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"},
 		},
 	}
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -557,7 +557,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -588,7 +588,7 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -647,7 +647,7 @@ func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -715,7 +715,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -741,7 +741,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -765,7 +765,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -795,7 +795,7 @@ func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -842,7 +842,7 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 	curl, _ := s.UploadCharm(c, "trusty/dummy-1", "dummy")
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -877,7 +877,7 @@ func (s *serviceSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, cha
 }
 
 func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -891,7 +891,7 @@ func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch
 }
 
 func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
-	_, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	_, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -923,7 +923,7 @@ func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -950,7 +950,7 @@ func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -974,7 +974,7 @@ func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -995,7 +995,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -1029,7 +1029,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 }
 
 func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    "cs:precise/service-name-1",
 			ServiceName: "service-name",
@@ -1049,7 +1049,7 @@ func (s *serviceSuite) TestServiceDeployServiceOwner(c *gc.C) {
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -1068,7 +1068,7 @@ func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeployWithPlacement(params.ServicesDeploy{
+	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -1521,7 +1521,7 @@ var clientAddServiceUnitsTests = []struct {
 	},
 }
 
-func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
+func (s *serviceSuite) TestClientAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	for i, t := range clientAddServiceUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -1536,7 +1536,7 @@ func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
 		if t.to != "" {
 			args.Placement = []*instance.Placement{instance.MustParsePlacement(t.to)}
 		}
-		result, err := s.serviceApi.AddServiceUnitsWithPlacement(args)
+		result, err := s.serviceApi.AddServiceUnits(args)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
@@ -1557,7 +1557,7 @@ func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.serviceApi.AddServiceUnitsWithPlacement(params.AddServiceUnits{
+	_, err = s.serviceApi.AddServiceUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    1,
 		Placement:   []*instance.Placement{instance.MustParsePlacement("lxc:" + machine.Id())},
@@ -1571,7 +1571,7 @@ func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
 }
 
-var addServiceUnitsWithPlacementTests = []struct {
+var addServiceUnitTests = []struct {
 	about      string
 	service    string // if not set, defaults to 'dummy'
 	expected   []string
@@ -1597,18 +1597,18 @@ var addServiceUnitsWithPlacementTests = []struct {
 	},
 }
 
-func (s *serviceSuite) TestAddServiceUnitsWithPlacement(c *gc.C) {
+func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	// Add a machine for the units to be placed on.
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	for i, t := range addServiceUnitsWithPlacementTests {
+	for i, t := range addServiceUnitTests {
 		c.Logf("test %d. %s", i, t.about)
 		serviceName := t.service
 		if serviceName == "" {
 			serviceName = "dummy"
 		}
-		result, err := s.serviceApi.AddServiceUnitsWithPlacement(params.AddServiceUnits{
+		result, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
 			ServiceName: serviceName,
 			NumUnits:    len(t.expected),
 			Placement:   t.placement,
@@ -1630,7 +1630,7 @@ func (s *serviceSuite) TestAddServiceUnitsWithPlacement(c *gc.C) {
 }
 
 func (s *serviceSuite) assertAddServiceUnits(c *gc.C) {
-	result, err := s.serviceApi.AddServiceUnitsWithPlacement(params.AddServiceUnits{
+	result, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    3,
 	})
@@ -1664,7 +1664,7 @@ func (s *serviceSuite) TestServiceCharmRelations(c *gc.C) {
 }
 
 func (s *serviceSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
-	_, err := s.serviceApi.AddServiceUnitsWithPlacement(params.AddServiceUnits{
+	_, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    3,
 	})
@@ -1691,7 +1691,7 @@ func (s *serviceSuite) TestBlockChangeAddServiceUnits(c *gc.C) {
 
 func (s *serviceSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	_, err := s.serviceApi.AddServiceUnitsWithPlacement(params.AddServiceUnits{
+	_, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    3,
 		Placement:   []*instance.Placement{instance.MustParsePlacement("42")},

@@ -19,27 +19,27 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type EnvironSuite struct {
+type ModelSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&EnvironSuite{})
+var _ = gc.Suite(&ModelSuite{})
 
-func (s *EnvironSuite) TestEnvironment(c *gc.C) {
-	env, err := s.State.Model()
+func (s *ModelSuite) TestModel(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedTag := names.NewModelTag(env.UUID())
-	c.Assert(env.Tag(), gc.Equals, expectedTag)
-	c.Assert(env.ControllerTag(), gc.Equals, expectedTag)
-	c.Assert(env.Name(), gc.Equals, "testenv")
-	c.Assert(env.Owner(), gc.Equals, s.Owner)
-	c.Assert(env.Life(), gc.Equals, state.Alive)
-	c.Assert(env.TimeOfDying().IsZero(), jc.IsTrue)
-	c.Assert(env.TimeOfDeath().IsZero(), jc.IsTrue)
+	expectedTag := names.NewModelTag(model.UUID())
+	c.Assert(model.Tag(), gc.Equals, expectedTag)
+	c.Assert(model.ControllerTag(), gc.Equals, expectedTag)
+	c.Assert(model.Name(), gc.Equals, "testenv")
+	c.Assert(model.Owner(), gc.Equals, s.Owner)
+	c.Assert(model.Life(), gc.Equals, state.Alive)
+	c.Assert(model.TimeOfDying().IsZero(), jc.IsTrue)
+	c.Assert(model.TimeOfDeath().IsZero(), jc.IsTrue)
 }
 
-func (s *EnvironSuite) TestEnvironmentDestroy(c *gc.C) {
+func (s *ModelSuite) TestModelDestroy(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -57,7 +57,7 @@ func (s *EnvironSuite) TestEnvironmentDestroy(c *gc.C) {
 	c.Assert(env.TimeOfDeath().IsZero(), jc.IsTrue)
 }
 
-func (s *EnvironSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
+func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
 	owner := names.NewUserTag("non-existent@local")
 
@@ -65,16 +65,16 @@ func (s *EnvironSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot create model: user "non-existent" not found`)
 }
 
-func (s *EnvironSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
+func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
-	// Create the first environment.
+	// Create the first model.
 	_, st1, err := s.State.NewModel(cfg, owner)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
-	// Attempt to create another environment with a different UUID but the
+	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
 	newUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,20 +87,20 @@ func (s *EnvironSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
-	// Remove the first environment.
+	// Remove the first model.
 	env1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	// Destroy only sets the environment to dying and RemoveAllModelDocs can
-	// only be called on a dead environment. Normally, the environ's lifecycle
+	// Destroy only sets the model to dying and RemoveAllModelDocs can
+	// only be called on a dead model. Normally, the environ's lifecycle
 	// would be set to dead after machines and services have been cleaned up.
-	err = state.SetEnvLifeDead(st1, env1.ModelTag().Id())
+	err = state.SetModelLifeDead(st1, env1.ModelTag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// We should now be able to create the other environment.
+	// We should now be able to create the other model.
 	env2, st2, err := s.State.NewModel(cfg2, owner)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st2.Close()
@@ -108,7 +108,7 @@ func (s *EnvironSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(st2, gc.NotNil)
 }
 
-func (s *EnvironSuite) TestNewModel(c *gc.C) {
+func (s *ModelSuite) TestNewModel(c *gc.C) {
 	cfg, uuid := s.createTestEnvConfig(c)
 	owner := names.NewUserTag("test@remote")
 
@@ -128,7 +128,7 @@ func (s *EnvironSuite) TestNewModel(c *gc.C) {
 	assertEnvMatches(env)
 
 	// Since the model tag for the State connection is different,
-	// asking for this environment through FindEntity returns a not found error.
+	// asking for this model through FindEntity returns a not found error.
 	env, err = s.State.GetModel(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	assertEnvMatches(env)
@@ -144,12 +144,12 @@ func (s *EnvironSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, modelTag)
 
-	// Ensure the environment is functional by adding a machine
+	// Ensure the model is functional by adding a machine
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestControllerModel(c *gc.C) {
+func (s *ModelSuite) TestControllerModel(c *gc.C) {
 	env, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -161,7 +161,7 @@ func (s *EnvironSuite) TestControllerModel(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
-func (s *EnvironSuite) TestControllerModelAccessibleFromOtherEnvironments(c *gc.C) {
+func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
 	_, st, err := s.State.NewModel(cfg, names.NewUserTag("test@remote"))
 	defer st.Close()
@@ -174,8 +174,8 @@ func (s *EnvironSuite) TestControllerModelAccessibleFromOtherEnvironments(c *gc.
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
-func (s *EnvironSuite) TestConfigForStateServerEnv(c *gc.C) {
-	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+func (s *ModelSuite) TestConfigForStateServerEnv(c *gc.C) {
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
 
 	env, err := otherState.GetModel(s.modelTag)
@@ -189,15 +189,15 @@ func (s *EnvironSuite) TestConfigForStateServerEnv(c *gc.C) {
 	c.Assert(uuid, gc.Equals, s.modelTag.Id())
 }
 
-func (s *EnvironSuite) TestConfigForOtherEnv(c *gc.C) {
-	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+func (s *ModelSuite) TestConfigForOtherEnv(c *gc.C) {
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
 	otherEnv, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// By getting the environment through a different state connection,
-	// the underlying state pointer in the *state.Environment struct has
-	// a different environment tag.
+	// By getting the model through a different state connection,
+	// the underlying state pointer in the *state.Model struct has
+	// a different model tag.
 	env, err := s.State.GetModel(otherEnv.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -209,8 +209,8 @@ func (s *EnvironSuite) TestConfigForOtherEnv(c *gc.C) {
 	c.Assert(uuid, gc.Equals, otherEnv.UUID())
 }
 
-// createTestEnvConfig returns a new environment config and its UUID for testing.
-func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
+// createTestEnvConfig returns a new model config and its UUID for testing.
+func (s *ModelSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return testing.CustomModelConfig(c, testing.Attrs{
@@ -219,7 +219,7 @@ func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	}), uuid.String()
 }
 
-func (s *EnvironSuite) TestModelConfigSameEnvAsState(c *gc.C) {
+func (s *ModelSuite) TestModelConfigSameEnvAsState(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := env.Config()
@@ -229,8 +229,8 @@ func (s *EnvironSuite) TestModelConfigSameEnvAsState(c *gc.C) {
 	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
-func (s *EnvironSuite) TestModelConfigDifferentEnvThanState(c *gc.C) {
-	otherState := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestModelConfigDifferentEnvThanState(c *gc.C) {
+	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	env, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,15 +242,15 @@ func (s *EnvironSuite) TestModelConfigDifferentEnvThanState(c *gc.C) {
 	c.Assert(uuid, gc.Not(gc.Equals), s.State.ModelUUID())
 }
 
-func (s *EnvironSuite) TestDestroyControllerModel(c *gc.C) {
+func (s *ModelSuite) TestDestroyControllerModel(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
-	st2 := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,16 +258,16 @@ func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestDestroyControllerModelFails(c *gc.C) {
-	st2 := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestDestroyControllerModelFails(c *gc.C) {
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 }
 
-func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironments(c *gc.C) {
-	st2 := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestDestroyStateServerAndHostedModels(c *gc.C) {
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 
 	controllerEnv, err := s.State.Model()
@@ -295,8 +295,8 @@ func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironments(c *gc.C) {
 	c.Assert(env2.Life(), gc.Equals, state.Dead)
 }
 
-func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironmentsWithResources(c *gc.C) {
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestDestroyStateServerAndHostedModelsWithResources(c *gc.C) {
+	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 
 	assertEnv := func(env *state.Model, st *state.State, life state.Life, expectedMachines, expectedServices int) {
@@ -354,11 +354,11 @@ func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironmentsWithResources(
 	c.Assert(controllerEnv.Life(), gc.Equals, state.Dead)
 }
 
-func (s *EnvironSuite) TestDestroyControllerModelRace(c *gc.C) {
-	// Simulate an environment being added just before the remove txn is
+func (s *ModelSuite) TestDestroyControllerModelRace(c *gc.C) {
+	// Simulate an model being added just before the remove txn is
 	// called.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		blocker := s.Factory.MakeEnvironment(c, nil)
+		blocker := s.Factory.MakeModel(c, nil)
 		err := blocker.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}).Check()
@@ -368,11 +368,11 @@ func (s *EnvironSuite) TestDestroyControllerModelRace(c *gc.C) {
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 }
 
-func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
+func (s *ModelSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Simulate an environment being destroyed by another client just before
+	// Simulate an model being destroyed by another client just before
 	// the remove txn is called.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(env.Destroy(), jc.ErrorIsNil)
@@ -381,7 +381,7 @@ func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
+func (s *ModelSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -389,17 +389,17 @@ func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestProcessDyingServerEnvironTransitionDyingToDead(c *gc.C) {
+func (s *ModelSuite) TestProcessDyingServerEnvironTransitionDyingToDead(c *gc.C) {
 	s.assertDyingEnvironTransitionDyingToDead(c, s.State)
 }
 
-func (s *EnvironSuite) TestProcessDyingHostedEnvironTransitionDyingToDead(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestProcessDyingHostedEnvironTransitionDyingToDead(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	s.assertDyingEnvironTransitionDyingToDead(c, st)
 }
 
-func (s *EnvironSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.State) {
+func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.State) {
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -419,8 +419,8 @@ func (s *EnvironSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *stat
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	// calling ProcessDyingModel on a live environ should fail.
@@ -468,8 +468,8 @@ func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *EnvironSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	controllerEnv, err := s.State.Model()
@@ -483,7 +483,7 @@ func (s *EnvironSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc
 	c.Assert(controllerEnv.Life(), gc.Equals, state.Dying)
 }
 
-func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
+func (s *ModelSuite) TestListModelUsers(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -494,14 +494,14 @@ func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtained, expected)
 }
 
-func (s *EnvironSuite) TestMisMatchedEnvs(c *gc.C) {
-	// create another environment
-	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+func (s *ModelSuite) TestMisMatchedEnvs(c *gc.C) {
+	// create another model
+	otherEnvState := s.Factory.MakeModel(c, nil)
 	defer otherEnvState.Close()
 	otherEnv, err := otherEnvState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// get that environment from State
+	// get that model from State
 	env, err := s.State.GetModel(otherEnv.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -511,20 +511,20 @@ func (s *EnvironSuite) TestMisMatchedEnvs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot lookup model users outside the current model")
 }
 
-func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
+func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherEnvState := s.Factory.MakeEnvironment(c, nil)
+	otherEnvState := s.Factory.MakeModel(c, nil)
 	defer otherEnvState.Close()
 	otherEnv, err := otherEnvState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add users to both environments
+	// Add users to both models
 	expectedUsers := addEnvUsers(c, s.State)
 	expectedUsersOtherEnv := addEnvUsers(c, otherEnvState)
 
-	// test that only the expected users are listed for each environment
+	// test that only the expected users are listed for each model
 	obtainedUsers, err := env.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsers, expectedUsers)
@@ -535,16 +535,16 @@ func (s *EnvironSuite) TestListUsersTwoEnvironments(c *gc.C) {
 }
 
 func addEnvUsers(c *gc.C, st *state.State) (expected []*state.ModelUser) {
-	// get the environment owner
+	// get the model owner
 	testAdmin := names.NewUserTag("test-admin")
 	owner, err := st.ModelUser(testAdmin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)
 	return []*state.ModelUser{
-		// we expect the owner to be an existing environment user
+		// we expect the owner to be an existing model user
 		owner,
-		// add new users to the environment
+		// add new users to the model
 		f.MakeEnvUser(c, nil),
 		f.MakeEnvUser(c, nil),
 		f.MakeEnvUser(c, nil),
@@ -561,10 +561,10 @@ func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers
 	}
 }
 
-func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+func (s *ModelSuite) TestAllModels(c *gc.C) {
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test", Owner: names.NewUserTag("bob@remote")}).Close()
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test", Owner: names.NewUserTag("mary@remote")}).Close()
 	envs, err := s.State.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
@@ -581,26 +581,26 @@ func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *EnvironSuite) TestHostedEnvironCount(c *gc.C) {
-	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
+func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 
-	st1 := s.Factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
-	st2 := s.Factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 2)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 2)
 
 	env1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env1.Destroy(), jc.ErrorIsNil)
-	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
 	env2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
-	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {

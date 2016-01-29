@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -29,11 +29,11 @@ import (
 
 // NewDeployCommand returns a command to deploy services.
 func NewDeployCommand() cmd.Command {
-	return envcmd.Wrap(&DeployCommand{})
+	return modelcmd.Wrap(&DeployCommand{})
 }
 
 type DeployCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	UnitCommandBase
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.

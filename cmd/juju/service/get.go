@@ -10,16 +10,16 @@ import (
 
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newGetCommand() cmd.Command {
-	return envcmd.Wrap(&getCommand{})
+	return modelcmd.Wrap(&getCommand{})
 }
 
 // getCommand retrieves the configuration of a service.
 type getCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName string
 	out         cmd.Output
 	api         getServiceAPI

@@ -9,16 +9,16 @@ import (
 
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func NewUnsetCommand() cmd.Command {
-	return envcmd.Wrap(&unsetCommand{})
+	return modelcmd.Wrap(&unsetCommand{})
 }
 
 type unsetCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api  UnsetEnvironmentAPI
 	keys []string
 }
@@ -34,7 +34,7 @@ Multiple attributes may be removed at once; keys should be space-separated.
 
 func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "unset-model",
+		Name:    "unset-model-config",
 		Args:    "<model key> ...",
 		Purpose: "unset model values",
 		Doc:     strings.TrimSpace(unsetEnvHelpDoc),

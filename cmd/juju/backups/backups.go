@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	statebackups "github.com/juju/juju/state/backups"
 )
@@ -79,7 +79,7 @@ type APIClient interface {
 type CommandBase struct {
 	// TODO(wallyworld) - remove Log when backup command is flattened.
 	Log *cmd.Log
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewAPIClient returns a client for the backups api endpoint.

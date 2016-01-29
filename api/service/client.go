@@ -91,7 +91,7 @@ func (c *Client) ServiceDeploy(
 	}
 	var results params.ErrorResults
 	var err error
-	err = c.facade.FacadeCall("ServicesDeployWithPlacement", args, &results)
+	err = c.facade.FacadeCall("ServicesDeploy", args, &results)
 	if err != nil {
 		return err
 	}
@@ -142,16 +142,16 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	return c.facade.FacadeCall("ServiceUpdate", args, nil)
 }
 
-// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
+// AddServiceUnits adds a given number of units to a service using the specified
 // placement directives to assign units to machines.
-func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+func (c *Client) AddServiceUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
 	args := params.AddServiceUnits{
 		ServiceName: service,
 		NumUnits:    numUnits,
 		Placement:   placement,
 	}
 	results := new(params.AddServiceUnitsResults)
-	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
+	err := c.facade.FacadeCall("AddServiceUnits", args, results)
 	return results.Units, err
 }
 

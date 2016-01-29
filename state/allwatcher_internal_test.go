@@ -280,12 +280,12 @@ func (s *allWatcherStateSuite) TestGetAll(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestGetAllMultiEnv(c *gc.C) {
-	// Set up 2 environments and ensure that GetAll returns the
-	// entities for the first environment with no errors.
+	// Set up 2 models and ensure that GetAll returns the
+	// entities for the first model with no errors.
 	expectEntities := s.setUpScenario(c, s.state, 2)
 
 	// Use more units in the second env to ensure the number of
-	// entities will mismatch if environment filtering isn't in place.
+	// entities will mismatch if model filtering isn't in place.
 	s.setUpScenario(c, s.newState(c), 4)
 
 	s.checkGetAll(c, expectEntities)
@@ -513,7 +513,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	defer s.Reset(c)
-	// Init the test environment.
+	// Init the test model.
 	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
 	u, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -611,7 +611,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	defer s.Reset(c)
-	// Init the test environment.
+	// Init the test model.
 	svc := AddTestingService(c, s.state, "dummy-service", AddTestingCharm(c, s.state, "dummy"), s.owner)
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
@@ -841,7 +841,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}})
 }
 
-func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
+func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	for i, test := range []struct {
 		about        string
@@ -1085,7 +1085,7 @@ func (s *allModelWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
 }
 
-func (s *allModelWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -1180,13 +1180,13 @@ func (s *allModelWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 
 func (s *allModelWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
-	// the environment the entity belonged to has already died.
+	// the model the entity belonged to has already died.
 
 	b := NewAllModelWatcherStateBacking(s.state)
 	defer b.Release()
 	all := newStore()
 
-	// Insert a machine for an environment that doesn't actually
+	// Insert a machine for an model that doesn't actually
 	// exist (mimics env removal).
 	all.Update(&multiwatcher.MachineInfo{
 		ModelUUID: "uuid",
@@ -1196,7 +1196,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
 
 	err := b.Changed(all, watcher.Change{
 		C:  "machines",
-		Id: ensureEnvUUID("uuid", "0"),
+		Id: ensureModelUUID("uuid", "0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1205,13 +1205,13 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
 }
 
 func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
-	// Set up 2 environments and ensure that GetAll returns the
+	// Set up 2 models and ensure that GetAll returns the
 	// entities for both of them.
 	entities0 := s.setUpScenario(c, s.state, 2)
 	entities1 := s.setUpScenario(c, s.state1, 4)
 	expectedEntities := append(entities0, entities1...)
 
-	// allModelWatcherStateBacking also watches environments so add those in.
+	// allModelWatcherStateBacking also watches models so add those in.
 	env, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	env1, err := s.state1.Model()
@@ -1256,7 +1256,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	env1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create some initial machines across 2 environments
+	// Create some initial machines across 2 models
 	m00, err := st0.AddMachine("trusty", JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m00.Id(), gc.Equals, "0")
@@ -1268,7 +1268,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	tw := newTestAllModelWatcher(st0, c)
 	defer tw.Stop()
 
-	// Expect to see events for the already created environments and
+	// Expect to see events for the already created models and
 	// machines first.
 	deltas := tw.All(4)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
@@ -1357,7 +1357,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}})
 
 	// Make further changes to the state, including the addition of a
-	// new environment.
+	// new model.
 	err = m00.SetProvisioned("i-0", "bootstrap_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 

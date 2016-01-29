@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const shareEnvHelpDoc = `
@@ -29,12 +29,12 @@ Examples:
  `
 
 func NewShareCommand() cmd.Command {
-	return envcmd.Wrap(&shareCommand{})
+	return modelcmd.Wrap(&shareCommand{})
 }
 
 // shareCommand represents the command to share an environment with a user(s).
 type shareCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	envName string
 	api     ShareEnvironmentAPI
 

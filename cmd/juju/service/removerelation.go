@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewRemoveRelationCommand returns a command to remove a relation between 2 services.
 func NewRemoveRelationCommand() cmd.Command {
-	return envcmd.Wrap(&removeRelationCommand{})
+	return modelcmd.Wrap(&removeRelationCommand{})
 }
 
 // removeRelationCommand causes an existing service relation to be shut down.
 type removeRelationCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Endpoints []string
 }
 

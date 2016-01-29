@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const removeDoc = `
@@ -17,7 +17,7 @@ const removeDoc = `
 `
 
 func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 type removeCommand struct {

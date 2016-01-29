@@ -18,14 +18,14 @@ import (
 )
 
 // allWatcherStateBacking implements Backing by fetching entities for
-// a single environment from the State.
+// a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
 	collectionByName map[string]allWatcherStateCollection
 }
 
 // allModelWatcherStateBacking implements Backing by fetching entities
-// for all environments from the State.
+// for all models from the State.
 type allModelWatcherStateBacking struct {
 	st               *State
 	stPool           *StatePool
@@ -59,7 +59,7 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 		collection := allWatcherStateCollection{name: collName}
 		switch collName {
 		case modelsC:
-			collection.docType = reflect.TypeOf(backingEnvironment{})
+			collection.docType = reflect.TypeOf(backingModel{})
 		case machinesC:
 			collection.docType = reflect.TypeOf(backingMachine{})
 		case unitsC:
@@ -105,9 +105,9 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 	return collectionByName
 }
 
-type backingEnvironment modelDoc
+type backingModel modelDoc
 
-func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id string) error {
+func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
 	store.Update(&multiwatcher.ModelInfo{
 		ModelUUID:  e.UUID,
 		Name:       e.Name,
@@ -118,16 +118,16 @@ func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id str
 	return nil
 }
 
-func (e *backingEnvironment) removed(store *multiwatcherStore, modelUUID, _ string, _ *State) error {
+func (e *backingModel) removed(store *multiwatcherStore, modelUUID, _ string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:      "environment",
+		Kind:      "model",
 		ModelUUID: modelUUID,
 		Id:        modelUUID,
 	})
 	return nil
 }
 
-func (e *backingEnvironment) mongoId() string {
+func (e *backingModel) mongoId() string {
 	return e.UUID
 }
 
@@ -1111,7 +1111,7 @@ func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 		return errors.Annotate(err, "error loading models")
 	}
 	for _, env := range envs {
-		st, err := b.st.ForEnviron(env.ModelTag())
+		st, err := b.st.ForModel(env.ModelTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1144,7 +1144,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 	if err != nil {
 		_, envErr := b.st.GetModel(names.NewModelTag(modelUUID))
 		if errors.IsNotFound(envErr) {
-			// The entity's environment is gone so remove the entity
+			// The entity's model is gone so remove the entity
 			// from the store.
 			doc.removed(all, modelUUID, id, nil)
 			return nil

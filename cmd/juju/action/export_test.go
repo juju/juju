@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
@@ -56,12 +56,12 @@ func (c *DefinedCommand) FullSchema() bool {
 
 func NewDefinedCommand() (cmd.Command, *DefinedCommand) {
 	c := &definedCommand{}
-	return envcmd.Wrap(c, envcmd.EnvSkipDefault), &DefinedCommand{c}
+	return modelcmd.Wrap(c, modelcmd.EnvSkipDefault), &DefinedCommand{c}
 }
 
 func NewDoCommand() (cmd.Command, *DoCommand) {
 	c := &doCommand{}
-	return envcmd.Wrap(c, envcmd.EnvSkipDefault), &DoCommand{c}
+	return modelcmd.Wrap(c, modelcmd.EnvSkipDefault), &DoCommand{c}
 }
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
 	return resultsToMap(results)

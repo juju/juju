@@ -10,23 +10,23 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/utils/keyvalues"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func NewSetCommand() cmd.Command {
-	return envcmd.Wrap(&setCommand{})
+	return modelcmd.Wrap(&setCommand{})
 }
 
 type attributes map[string]interface{}
 
 type setCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api    SetModelAPI
 	values attributes
 }
 
-const setEnvHelpDoc = `
+const setModelHelpDoc = `
 Updates the model of a running Juju instance.  Multiple key/value pairs
 can be passed on as command line arguments.
 `
@@ -36,7 +36,7 @@ func (c *setCommand) Info() *cmd.Info {
 		Name:    "set-model-config",
 		Args:    "key=[value] ...",
 		Purpose: "replace model values",
-		Doc:     strings.TrimSpace(setEnvHelpDoc),
+		Doc:     strings.TrimSpace(setModelHelpDoc),
 	}
 }
 

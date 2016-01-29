@@ -1527,7 +1527,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	}
 	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.ModelUUID(), args)
 	ops := []txn.Op{
-		assertEnvAliveOp(m.st.ModelUUID()),
+		assertModelAliveOp(m.st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     m.st.docID(args.NetworkName),

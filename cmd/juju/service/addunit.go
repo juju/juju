@@ -13,8 +13,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/instance"
 )
 
@@ -70,12 +70,12 @@ func parsePlacement(spec string) (*instance.Placement, error) {
 }
 
 func newAddUnitCommand() cmd.Command {
-	return envcmd.Wrap(&addUnitCommand{})
+	return modelcmd.Wrap(&addUnitCommand{})
 }
 
 // addUnitCommand is responsible adding additional units to a service.
 type addUnitCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	UnitCommandBase
 	ServiceName string
 	api         serviceAddUnitAPI
@@ -129,7 +129,7 @@ func (c *addUnitCommand) Init(args []string) error {
 type serviceAddUnitAPI interface {
 	Close() error
 	ModelUUID() string
-	AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error)
+	AddServiceUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error)
 }
 
 func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
@@ -144,7 +144,7 @@ func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
 }
 
 // Run connects to the environment specified on the command line
-// and calls AddServiceUnitsWithPlacement for the given service.
+// and calls AddServiceUnits for the given service.
 func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
@@ -158,7 +158,7 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 		}
 		c.Placement[i] = p
 	}
-	_, err = apiclient.AddServiceUnitsWithPlacement(c.ServiceName, c.NumUnits, c.Placement)
+	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.Placement)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

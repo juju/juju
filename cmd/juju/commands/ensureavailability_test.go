@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -102,7 +102,7 @@ var _ = gc.Suite(&EnsureAvailabilitySuite{})
 
 func (s *EnsureAvailabilitySuite) runEnsureAvailability(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := &ensureAvailabilityCommand{haClient: s.fake}
-	return coretesting.RunCommand(c, envcmd.Wrap(command), args...)
+	return coretesting.RunCommand(c, modelcmd.Wrap(command), args...)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {

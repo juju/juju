@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -206,7 +206,7 @@ func (p *environProvisioner) loop() error {
 	environConfigChanges = modelWatcher.Changes()
 	defer watcher.Stop(modelWatcher, &p.tomb)
 
-	p.environ, err = worker.WaitForEnviron(modelWatcher, p.st, p.tomb.Dying())
+	p.environ, err = worker.WaitForModel(modelWatcher, p.st, p.tomb.Dying())
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}

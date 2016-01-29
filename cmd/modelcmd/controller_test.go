@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd_test
+package modelcmd_test
 
 import (
 	"os"
@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -40,13 +40,13 @@ func (s *ControllerCommandSuite) TestControllerCommandInitNoEnvFile(c *gc.C) {
 
 func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 	// If there is a current-controller file, use that.
-	err := envcmd.WriteCurrentController("fubar")
+	err := modelcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "fubar")
 }
 func (s *ControllerCommandSuite) TestControllerCommandInitEnvFile(c *gc.C) {
 	// If there is a current-model file, use that.
-	err := envcmd.WriteCurrentModel("fubar")
+	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "fubar")
 }
@@ -54,7 +54,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitEnvFile(c *gc.C) {
 func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	// Take controller name from command line arg, and it trumps the current-
 	// controller file.
-	err := envcmd.WriteCurrentController("fubar")
+	err := modelcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "explicit", "-c", "explicit")
 	testEnsureControllerName(c, "explicit", "--controller", "explicit")
@@ -62,13 +62,13 @@ func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 
 func (s *ControllerCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testControllerCommand)
-	wrapped := envcmd.WrapController(cmd, envcmd.ControllerSkipFlags)
+	wrapped := modelcmd.WrapController(cmd, modelcmd.ControllerSkipFlags)
 	err := cmdtesting.InitCommand(wrapped, []string{"-s", "testsys"})
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -s")
 }
 
 type testControllerCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 }
 
 func (c *testControllerCommand) Info() *cmd.Info {
@@ -81,7 +81,7 @@ func (c *testControllerCommand) Run(ctx *cmd.Context) error {
 
 func initTestControllerCommand(c *gc.C, args ...string) (*testControllerCommand, error) {
 	cmd := new(testControllerCommand)
-	wrapped := envcmd.WrapController(cmd)
+	wrapped := modelcmd.WrapController(cmd)
 	return cmd, cmdtesting.InitCommand(wrapped, args)
 }
 

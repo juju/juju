@@ -114,7 +114,7 @@ func (s *modelManagerSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, err := s.State.ForEnviron(names.NewModelTag(model.UUID))
+	newState, err := s.State.ForModel(names.NewModelTag(model.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer newState.Close()
 

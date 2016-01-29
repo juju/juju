@@ -94,8 +94,8 @@ type AgentEntity interface {
 	NotifyWatcherFactory
 }
 
-// ModelAccessor defines the methods needed to watch for environment
-// config changes, and read the environment config.
+// ModelAccessor defines the methods needed to watch for model
+// config changes, and read the model config.
 type ModelAccessor interface {
 	WatchForModelConfigChanges() NotifyWatcher
 	ModelConfig() (*config.Config, error)

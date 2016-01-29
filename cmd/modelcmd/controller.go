@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd
+package modelcmd
 
 import (
 	"github.com/juju/cmd"
@@ -21,17 +21,17 @@ import (
 var ErrNoControllerSpecified = errors.New("no controller specified")
 
 // ControllerCommand is intended to be a base for all commands
-// that need to operate on controllers as opposed to environments.
+// that need to operate on controllers as opposed to models.
 type ControllerCommand interface {
 	CommandBase
 
 	// SetControllerName is called prior to the wrapped command's Init method with
 	// the active controller name. The controller name is guaranteed to be non-empty
-	// at entry of Init. It records the current environment name in the
+	// at entry of Init. It records the current model name in the
 	// ControllerCommandBase.
 	SetControllerName(controllerName string)
 
-	// ControllerName returns the name of the controller or environment used to
+	// ControllerName returns the name of the controller or model used to
 	// determine that API end point.
 	ControllerName() string
 

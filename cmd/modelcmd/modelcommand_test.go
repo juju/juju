@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd_test
+package modelcmd_test
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
@@ -28,140 +28,140 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type EnvironmentCommandSuite struct {
+type ModelCommandSuite struct {
 	testing.FakeJujuHomeSuite
 }
 
-func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
+func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 }
 
-var _ = gc.Suite(&EnvironmentCommandSuite{})
+var _ = gc.Suite(&ModelCommandSuite{})
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironment(c *gc.C) {
-	env, err := envcmd.GetDefaultEnvironment()
+func (s *ModelCommandSuite) TestGetDefaultModel(c *gc.C) {
+	env, err := modelcmd.GetDefaultModel()
 	c.Assert(env, gc.Equals, "erewhemos")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetDefaultModelNothingSet(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := envcmd.GetDefaultEnvironment()
+	env, err := modelcmd.GetDefaultModel()
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentModelSet(c *gc.C) {
-	err := envcmd.WriteCurrentModel("fubar")
+func (s *ModelCommandSuite) TestGetDefaultModelCurrentModelSet(c *gc.C) {
+	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := envcmd.GetDefaultEnvironment()
+	env, err := modelcmd.GetDefaultModel()
 	c.Assert(env, gc.Equals, "fubar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *gc.C) {
-	os.Setenv(osenv.JujuEnvEnvKey, "magic")
-	env, err := envcmd.GetDefaultEnvironment()
+func (s *ModelCommandSuite) TestGetDefaultModelJujuEnvSet(c *gc.C) {
+	os.Setenv(osenv.JujuModelEnvKey, "magic")
+	env, err := modelcmd.GetDefaultModel()
 	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
-	os.Setenv(osenv.JujuEnvEnvKey, "magic")
-	err := envcmd.WriteCurrentModel("fubar")
+func (s *ModelCommandSuite) TestGetDefaultModelBothSet(c *gc.C) {
+	os.Setenv(osenv.JujuModelEnvKey, "magic")
+	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := envcmd.GetDefaultEnvironment()
+	env, err := modelcmd.GetDefaultModel()
 	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandMInitExplicit(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandMInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
-	testEnsureEnvName(c, "explicit", "-m", "explicit")
+	testEnsureModelName(c, "explicit", "-m", "explicit")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandModelInitExplicit(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandModelInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
-	testEnsureEnvName(c, "explicit", "--model", "explicit")
+	testEnsureModelName(c, "explicit", "--model", "explicit")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitMultipleConfigs(c *gc.C) {
 	// Take environment name from the default.
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	testEnsureEnvName(c, testing.SampleEnvName)
+	testEnsureModelName(c, testing.SampleModelName)
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitSingleConfig(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitSingleConfig(c *gc.C) {
 	// Take environment name from the one and only environment,
 	// even if it is not explicitly marked as default.
 	testing.WriteEnvironments(c, testing.SingleEnvConfigNoDefault)
-	testEnsureEnvName(c, testing.SampleEnvName)
+	testEnsureModelName(c, testing.SampleModelName)
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
 	// If there is a current-model file, use that.
-	err := envcmd.WriteCurrentModel("fubar")
+	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	testEnsureEnvName(c, "fubar")
+	testEnsureModelName(c, "fubar")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitControllerFile(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitControllerFile(c *gc.C) {
 	// If there is a current-controller file, error raised.
-	err := envcmd.WriteCurrentController("fubar")
+	err := modelcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = initTestCommand(c)
 	c.Assert(err, gc.ErrorMatches, `not operating on an model, using controller "fubar"`)
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitNoEnvFile(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
-	testEnsureEnvName(c, "")
+	testEnsureModelName(c, "")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigNoDefault(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitMultipleConfigNoDefault(c *gc.C) {
 	// If there are multiple environments but no default, the connection name is empty.
 	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
-	testEnsureEnvName(c, "")
+	testEnsureModelName(c, "")
 }
 
-func (s *EnvironmentCommandSuite) TestBootstrapContext(c *gc.C) {
-	ctx := envcmd.BootstrapContext(&cmd.Context{})
+func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
+	ctx := modelcmd.BootstrapContext(&cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)
 }
 
-func (s *EnvironmentCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
-	ctx := envcmd.BootstrapContextNoVerify(&cmd.Context{})
+func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
+	ctx := modelcmd.BootstrapContextNoVerify(&cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
 }
 
-func (s *EnvironmentCommandSuite) TestCompatVersion(c *gc.C) {
+func (s *ModelCommandSuite) TestCompatVersion(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
 	cmd, err := initTestCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.CompatVersion(), gc.Equals, 2)
 }
 
-func (s *EnvironmentCommandSuite) TestCompatVersionDefault(c *gc.C) {
+func (s *ModelCommandSuite) TestCompatVersionDefault(c *gc.C) {
 	cmd, err := initTestCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
 }
 
-func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
+func (s *ModelCommandSuite) TestCompatVersionInvalid(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuCLIVersion, "invalid")
 	cmd, err := initTestCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
 }
 
-func (s *EnvironmentCommandSuite) TestWrapWithoutFlags(c *gc.C) {
+func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
-	wrapped := envcmd.Wrap(cmd, envcmd.EnvSkipFlags)
+	wrapped := modelcmd.Wrap(cmd, modelcmd.EnvSkipFlags)
 	args := []string{"-m", "testenv"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
@@ -170,7 +170,7 @@ func (s *EnvironmentCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 }
 
 type testCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 func (c *testCommand) Info() *cmd.Info {
@@ -183,11 +183,11 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 
 func initTestCommand(c *gc.C, args ...string) (*testCommand, error) {
 	cmd := new(testCommand)
-	wrapped := envcmd.Wrap(cmd)
+	wrapped := modelcmd.Wrap(cmd)
 	return cmd, cmdtesting.InitCommand(wrapped, args)
 }
 
-func testEnsureEnvName(c *gc.C, expect string, args ...string) {
+func testEnsureModelName(c *gc.C, expect string, args ...string) {
 	cmd, err := initTestCommand(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
@@ -204,7 +204,7 @@ var _ = gc.Suite(&ConnectionEndpointSuite{})
 func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	s.store = configstore.NewMem()
-	s.PatchValue(envcmd.GetConfigStore, func() (configstore.Storage, error) {
+	s.PatchValue(modelcmd.GetConfigStore, func() (configstore.Storage, error) {
 		return s.store, nil
 	})
 	newInfo := s.store.CreateInfo("env-name")
@@ -246,7 +246,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 		CACert:    "certificated",
 		ModelUUID: "fake-uuid",
 	}
-	s.PatchValue(envcmd.EndpointRefresher, func(_ *envcmd.EnvCommandBase) (io.Closer, error) {
+	s.PatchValue(modelcmd.EndpointRefresher, func(_ *modelcmd.ModelCommandBase) (io.Closer, error) {
 		info, err := s.store.ReadInfo("env-name")
 		info.SetAPIEndpoint(newEndpoint)
 		err = info.Write()
@@ -307,31 +307,31 @@ func (s *EnvironmentVersionSuite) SetUpTest(*gc.C) {
 
 func (s *EnvironmentVersionSuite) TestApiCallFails(c *gc.C) {
 	s.fake.err = errors.New("boom")
-	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetEnvironmentVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "unable to retrieve model config: boom")
 }
 
 func (s *EnvironmentVersionSuite) TestNoVersion(c *gc.C) {
-	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetEnvironmentVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "version not found in model config")
 }
 
 func (s *EnvironmentVersionSuite) TestInvalidVersionType(c *gc.C) {
 	s.fake.agentVersion = 99
-	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetEnvironmentVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "invalid model version type in config")
 }
 
 func (s *EnvironmentVersionSuite) TestInvalidVersion(c *gc.C) {
 	s.fake.agentVersion = "a.b.c"
-	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetEnvironmentVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "unable to parse model version: .+")
 }
 
 func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
 	vs := "1.22.1"
 	s.fake.agentVersion = vs
-	v, err := envcmd.GetEnvironmentVersion(s.fake)
+	v, err := modelcmd.GetEnvironmentVersion(s.fake)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.Compare(version.MustParse(vs)), gc.Equals, 0)
 }
@@ -383,7 +383,7 @@ func (s *EnvConfigSuite) writeStore(c *gc.C, bootstrapInfo bool) {
 }
 
 func (s *EnvConfigSuite) TestConfigWithBootstrapInfo(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, s.client, nil)
 	s.writeStore(c, true)
 
 	cfg, err := cmd.Config(s.store, s.client)
@@ -394,7 +394,7 @@ func (s *EnvConfigSuite) TestConfigWithBootstrapInfo(c *gc.C) {
 }
 
 func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClient(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, s.client, nil)
 	s.writeStore(c, false)
 
 	cfg, err := cmd.Config(s.store, s.client)
@@ -405,7 +405,7 @@ func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClient(c *gc.C) {
 }
 
 func (s *EnvConfigSuite) TestConfigWithNoBootstrapNoClient(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, s.client, nil)
 	s.writeStore(c, false)
 
 	cfg, err := cmd.Config(s.store, nil)
@@ -416,7 +416,7 @@ func (s *EnvConfigSuite) TestConfigWithNoBootstrapNoClient(c *gc.C) {
 }
 
 func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClientErr(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, errors.New("problem opening connection"))
+	cmd := modelcmd.NewModelCommandBase(s.envName, s.client, errors.New("problem opening connection"))
 	s.writeStore(c, false)
 
 	_, err := cmd.Config(s.store, nil)
@@ -426,7 +426,7 @@ func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClientErr(c *gc.C) {
 }
 
 func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithEnvGetError(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, s.client, nil)
 	s.writeStore(c, false)
 	s.client.err = errors.New("problem getting model attributes")
 
@@ -437,7 +437,7 @@ func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithEnvGetError(c *gc.C) {
 }
 
 func (s *EnvConfigSuite) TestConfigEnvDoesntExist(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase("dummy", s.client, nil)
+	cmd := modelcmd.NewModelCommandBase("dummy", s.client, nil)
 	s.writeStore(c, false)
 
 	_, err := cmd.Config(s.store, nil)
@@ -465,7 +465,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
 	apiInfo := s.APIInfo(c)
-	var serverDetails envcmd.ServerFile
+	var serverDetails modelcmd.ServerFile
 	serverDetails.Addresses = apiInfo.Addrs
 	serverDetails.CACert = apiInfo.CACert
 	content, err := goyaml.Marshal(serverDetails)
@@ -498,7 +498,7 @@ func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 		return testUser
 	}
 
-	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -508,7 +508,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	// TODO(rog) is this really the right error here?
 	c.Assert(err, gc.ErrorMatches, `model "`+s.envName+`" not found`)
@@ -519,7 +519,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	// TODO(rog) is this really the right error here?
 	c.Assert(err, gc.ErrorMatches, `model "`+s.envName+`" not found`)

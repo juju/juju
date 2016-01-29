@@ -163,8 +163,7 @@ type AddMachineParams struct {
 	Addrs                   []Address                        `json:"Addrs"`
 }
 
-// AddMachines holds the parameters for making the
-// AddMachinesWithPlacement call.
+// AddMachines holds the parameters for making the AddMachines call.
 type AddMachines struct {
 	MachineParams []AddMachineParams `json:"MachineParams"`
 }
@@ -329,7 +328,7 @@ type ResolvedResults struct {
 }
 
 // AddServiceUnitsResults holds the names of the units added by the
-// AddServiceUnitsWithPlacement call.
+// AddServiceUnits call.
 type AddServiceUnitsResults struct {
 	Units []string
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -24,7 +24,7 @@ import (
 )
 
 type imageMetadataCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
@@ -35,12 +35,12 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configsto
 	// We are preparing an environment to access parameters needed to access
 	// image metadata. We don't need, nor want, credential verification.
 	// In most cases, credentials will not be available.
-	ctx := envcmd.BootstrapContextNoVerify(context)
+	ctx := modelcmd.BootstrapContextNoVerify(context)
 	return environs.Prepare(cfg, ctx, store)
 }
 
 func newImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&imageMetadataCommand{})
+	return modelcmd.Wrap(&imageMetadataCommand{})
 }
 
 // imageMetadataCommand is used to write out simplestreams image metadata information.

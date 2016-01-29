@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd
+package modelcmd
 
 import (
 	"net/http"
@@ -46,12 +46,12 @@ func (c *JujuCommandBase) closeContext() {
 }
 
 // NewAPIRoot returns a new connection to the API server for the given
-// environment or system.
-func (c *JujuCommandBase) NewAPIRoot(envOrControllerName string) (api.Connection, error) {
+// model or system.
+func (c *JujuCommandBase) NewAPIRoot(modelOrControllerName string) (api.Connection, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(envOrControllerName)
+	return c.apiContext.newAPIRoot(modelOrControllerName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -173,7 +173,7 @@ func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connectio
 }
 
 // newAPIRoot establishes a connection to the API server for
-// the named system or environment.
+// the named system or model.
 func (ctx *apiContext) newAPIRoot(name string) (api.Connection, error) {
 	if name == "" {
 		return nil, errors.Trace(errNoNameSpecified)
@@ -182,7 +182,7 @@ func (ctx *apiContext) newAPIRoot(name string) (api.Connection, error) {
 }
 
 // newAPIClient returns an api.Client connecte to the API server
-// for the named system or environment.
+// for the named system or model.
 func (ctx *apiContext) newAPIClient(name string) (*api.Client, error) {
 	root, err := ctx.newAPIRoot(name)
 	if err != nil {

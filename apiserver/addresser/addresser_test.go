@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -275,7 +275,7 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }
@@ -296,7 +296,7 @@ func nonexTestingEnvConfig(c *gc.C) *config.Config {
 func mockTestingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, mockConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

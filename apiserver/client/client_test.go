@@ -1466,33 +1466,6 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
-func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
-	apiParams := make([]params.AddMachineParams, 2)
-	for i := range apiParams {
-		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		}
-	}
-	apiParams[1].ContainerType = instance.LXC
-	apiParams[1].ParentId = "0"
-	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 2)
-	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Machine, gc.Equals, "0/lxc/0")
-}
-
-func (s *clientSuite) TestClientAddMachines1dot18SomeErrors(c *gc.C) {
-	apiParams := []params.AddMachineParams{{
-		Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		ParentId: "123",
-	}}
-	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 1)
-	c.Check(machines[0].Error, gc.ErrorMatches, "parent machine specified without container type")
-}
-
 func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Here we check that adding a number of containers correctly handles the
 	// case that some adds succeed and others fail and report the errors

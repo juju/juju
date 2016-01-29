@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"

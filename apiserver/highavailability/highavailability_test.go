@@ -342,7 +342,7 @@ func (s *clientSuite) TestEnsureAvailabilityErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnsureAvailabilityHostedEnvErrors(c *gc.C) {
-	st2 := s.Factory.MakeEnvironment(c, &factory.EnvParams{ConfigAttrs: coretesting.Attrs{"state-server": false}})
+	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"state-server": false}})
 	defer st2.Close()
 
 	haServer, err := highavailability.NewHighAvailabilityAPI(st2, s.resources, s.authoriser)

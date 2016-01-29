@@ -86,8 +86,8 @@ func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 }
 
 const (
-	SampleEnvName = "erewhemos"
-	EnvDefault    = "default:\n  " + SampleEnvName + "\n"
+	SampleModelName = "erewhemos"
+	EnvDefault      = "default:\n  " + SampleModelName + "\n"
 )
 
 const DefaultMongoPassword = "conn-from-name-secret"

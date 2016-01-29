@@ -109,8 +109,8 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientSetAnnotations,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.AddServiceUnitsWithPlacement",
-		op:    opClientAddServiceUnitsWithPlacement,
+		about: "Client.AddServiceUnits",
+		op:    opClientAddServiceUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Client.DestroyServiceUnits",
@@ -339,8 +339,8 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 	return func() {}, err
 }
 
-func opClientAddServiceUnitsWithPlacement(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := service.NewClient(st).AddServiceUnitsWithPlacement("nosuch", 1, nil)
+func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
+	_, err := service.NewClient(st).AddServiceUnits("nosuch", 1, nil)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

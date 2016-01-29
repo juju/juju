@@ -404,7 +404,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 	assertReady(true)
 }
 
-func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c *gc.C) {
+func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreModelUUIDSchema(c *gc.C) {
 	serverIdB, serverIdC := s.addStateServers(c)
 
 	machines, closer := state.GetRawCollection(s.State, state.MachinesC)

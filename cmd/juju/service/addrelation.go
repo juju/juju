@@ -11,18 +11,18 @@ import (
 
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewAddRelationCommand returns a command to add a relation between 2 services.
 func NewAddRelationCommand() cmd.Command {
-	return envcmd.Wrap(&addRelationCommand{})
+	return modelcmd.Wrap(&addRelationCommand{})
 }
 
 // addRelationCommand adds a relation between two service endpoints.
 type addRelationCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Endpoints []string
 }
 

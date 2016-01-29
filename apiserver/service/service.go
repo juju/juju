@@ -82,9 +82,9 @@ func (api *API) SetMetricCredentials(args params.ServiceMetricCredentials) (para
 	return result, nil
 }
 
-// ServicesDeployWithPlacement fetches the charms from the charm store and deploys them
+// ServicesDeploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
-func (api *API) ServicesDeployWithPlacement(args params.ServicesDeploy) (params.ErrorResults, error) {
+func (api *API) ServicesDeploy(args params.ServicesDeploy) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Services)),
 	}
@@ -443,11 +443,11 @@ func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Uni
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
-	return jjj.AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
+	return jjj.AddUnits(st, service, args.NumUnits, args.Placement)
 }
 
-// AddServiceUnitsWithPlacement adds a given number of units to a service.
-func (api *API) AddServiceUnitsWithPlacement(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+// AddServiceUnits adds a given number of units to a service.
+func (api *API) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddServiceUnitsResults{}, errors.Trace(err)
 	}

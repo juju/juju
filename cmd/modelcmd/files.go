@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd
+package modelcmd
 
 import (
 	"io/ioutil"
@@ -159,7 +159,7 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 
 // CurrentConnectionName looks at both the current environment file
 // and the current controller file to determine which is active.
-// The name of the current environment or controller is returned along with
+// The name of the current model or controller is returned along with
 // a boolean to express whether the name refers to a controller or environment.
 func CurrentConnectionName() (name string, is_controller bool, err error) {
 	currentEnv, err := ReadCurrentModel()
@@ -195,16 +195,16 @@ func currentName() (string, error) {
 
 // SetCurrentModel writes out the current environment file and writes a
 // standard message to the command context.
-func SetCurrentModel(context *cmd.Context, environmentName string) error {
+func SetCurrentModel(context *cmd.Context, modelName string) error {
 	current, err := currentName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = WriteCurrentModel(environmentName)
+	err = WriteCurrentModel(modelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	context.Infof("%s-> %s", current, environmentName)
+	context.Infof("%s-> %s", current, modelName)
 	return nil
 }
 

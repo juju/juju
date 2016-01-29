@@ -263,7 +263,7 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	st, err := c.state.ForEnviron(modelTag)
+	st, err := c.state.ForModel(modelTag)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

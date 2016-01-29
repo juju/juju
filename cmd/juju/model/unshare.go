@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const unshareEnvHelpDoc = `
@@ -25,16 +25,16 @@ Examples:
      Deny two local users and one remote user access to the current model
 
  juju unshare-model sam -m/--model myenv
-     Deny local user "sam" access to the model named "myenv"
+     Deny local user "sam" access to the model named "mymodel"
  `
 
 func NewUnshareCommand() cmd.Command {
-	return envcmd.Wrap(&unshareCommand{})
+	return modelcmd.Wrap(&unshareCommand{})
 }
 
 // unshareCommand unshares an environment with the given user(s).
 type unshareCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	cmd.CommandBase
 	envName string
 	api     UnshareEnvironmentAPI

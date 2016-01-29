@@ -114,7 +114,7 @@ func lastConnPointer(c *gc.C, envUser *state.ModelUser) *time.Time {
 
 func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	// setup other environment
-	otherState := s.Factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	info := s.APIInfo(c)
 	info.ModelTag = otherState.ModelTag()

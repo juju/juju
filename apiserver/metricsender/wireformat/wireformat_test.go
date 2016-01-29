@@ -52,17 +52,17 @@ func (s *WireFormatSuite) TestAck(c *gc.C) {
 	c.Assert(resp, gc.HasLen, 0)
 
 	modelUUID := "model-uuid"
-	envUUID2 := "env-uuid2"
+	modelUUID2 := "model-uuid2"
 	batchUUID := "batch-uuid"
 	batchUUID2 := "batch-uuid2"
 
 	resp.Ack(modelUUID, batchUUID)
 	resp.Ack(modelUUID, batchUUID2)
-	resp.Ack(envUUID2, batchUUID)
+	resp.Ack(modelUUID2, batchUUID)
 	c.Assert(resp, gc.HasLen, 2)
 
 	c.Assert(resp[modelUUID].AcknowledgedBatches, jc.SameContents, []string{batchUUID, batchUUID2})
-	c.Assert(resp[envUUID2].AcknowledgedBatches, jc.SameContents, []string{batchUUID})
+	c.Assert(resp[modelUUID2].AcknowledgedBatches, jc.SameContents, []string{batchUUID})
 }
 
 func (s *WireFormatSuite) TestSetStatus(c *gc.C) {
@@ -70,7 +70,7 @@ func (s *WireFormatSuite) TestSetStatus(c *gc.C) {
 	c.Assert(resp, gc.HasLen, 0)
 
 	modelUUID := "model-uuid"
-	envUUID2 := "env-uuid2"
+	modelUUID2 := "model-uuid2"
 	unitName := "some-unit/0"
 	unitName2 := "some-unit/1"
 
@@ -86,10 +86,10 @@ func (s *WireFormatSuite) TestSetStatus(c *gc.C) {
 	c.Assert(resp[modelUUID].UnitStatuses[unitName2].Status, gc.Equals, "RED")
 	c.Assert(resp[modelUUID].UnitStatuses[unitName2].Info, gc.Equals, "Unit unresponsive.")
 
-	resp.SetStatus(envUUID2, unitName, "UNKNOWN", "")
+	resp.SetStatus(modelUUID2, unitName, "UNKNOWN", "")
 	c.Assert(resp, gc.HasLen, 2)
-	c.Assert(resp[envUUID2].UnitStatuses[unitName].Status, gc.Equals, "UNKNOWN")
-	c.Assert(resp[envUUID2].UnitStatuses[unitName].Info, gc.Equals, "")
+	c.Assert(resp[modelUUID2].UnitStatuses[unitName].Status, gc.Equals, "UNKNOWN")
+	c.Assert(resp[modelUUID2].UnitStatuses[unitName].Info, gc.Equals, "")
 
 	resp.SetStatus(modelUUID, unitName, "RED", "Invalid data received.")
 	c.Assert(resp, gc.HasLen, 2)

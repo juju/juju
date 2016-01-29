@@ -507,8 +507,8 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
 }
 
-func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *factorySuite) TestMakeModelNil(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	env, err := st.Model()
@@ -525,17 +525,17 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "trusty")
 }
 
-func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
+func (s *factorySuite) TestMakeModel(c *gc.C) {
 	owner := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "owner",
 	})
-	params := &factory.EnvParams{
+	params := &factory.ModelParams{
 		Name:        "foo",
 		Owner:       owner.UserTag(),
 		ConfigAttrs: testing.Attrs{"default-series": "precise"},
 	}
 
-	st := s.Factory.MakeEnvironment(c, params)
+	st := s.Factory.MakeModel(c, params)
 	defer st.Close()
 
 	env, err := st.Model()

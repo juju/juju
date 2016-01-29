@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -24,7 +24,7 @@ location and the filename is printed to stdout.
 `
 
 func newDownloadCommand() cmd.Command {
-	return envcmd.Wrap(&downloadCommand{})
+	return modelcmd.Wrap(&downloadCommand{})
 }
 
 // downloadCommand is the sub-command for downloading a backup archive.

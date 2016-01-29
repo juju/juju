@@ -21,8 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -84,7 +84,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 
 	s.mockBlockClient = &mockBlockClient{}
-	s.PatchValue(&blockAPI, func(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 		return s.mockBlockClient, nil
 	})
 
@@ -375,8 +375,8 @@ var bootstrapTests = []bootstrapTest{{
 	err:     `requested agent version major.minor mismatch`,
 }}
 
-func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
-	s.PatchValue(&getEnvName, func(*bootstrapCommand) string { return "" })
+func (s *BootstrapSuite) TestRunModelNameMissing(c *gc.C) {
+	s.PatchValue(&getModelName, func(*bootstrapCommand) string { return "" })
 
 	_, err := coretesting.RunCommand(c, newBootstrapCommand())
 
@@ -433,7 +433,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv", "--auto-upgrade")
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
-	currentEnv, err := envcmd.ReadCurrentModel()
+	currentEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentEnv, gc.Equals, "devenv")
 }
@@ -561,7 +561,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
-	environs.PrepareFromName(envName, envcmd.BootstrapContext(ctx), store)
+	environs.PrepareFromName(envName, modelcmd.BootstrapContext(ctx), store)
 
 	logger := "jenv.warning.test"
 	var testWriter loggo.TestWriter
@@ -823,7 +823,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.PrepareFromName(envName, envcmd.BootstrapContext(cmdtesting.NullContext(c)), store)
+	env, err := environs.PrepareFromName(envName, modelcmd.BootstrapContext(cmdtesting.NullContext(c)), store)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }

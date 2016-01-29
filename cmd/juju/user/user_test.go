@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -28,7 +28,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
 	})
-	os.Setenv(osenv.JujuEnvEnvKey, "testing")
+	os.Setenv(osenv.JujuModelEnvKey, "testing")
 	info := memstore.CreateInfo("testing")
 	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{
@@ -46,14 +46,14 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(user.ReadPassword, func() (string, error) {
 		return "sekrit", nil
 	})
-	err = envcmd.WriteCurrentController("testing")
+	err = modelcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BaseSuite) assertServerFileMatches(c *gc.C, serverfile, username, password string) {
 	yaml, err := ioutil.ReadFile(serverfile)
 	c.Assert(err, jc.ErrorIsNil)
-	var content envcmd.ServerFile
+	var content modelcmd.ServerFile
 	err = goyaml.Unmarshal(yaml, &content)
 	c.Assert(err, jc.ErrorIsNil)
 

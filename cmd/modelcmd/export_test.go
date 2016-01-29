@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd
+package modelcmd
 
 var (
 	GetCurrentModelFilePath      = getCurrentModelFilePath
@@ -10,12 +10,12 @@ var (
 	EndpointRefresher            = &endpointRefresher
 )
 
-// NewEnvCommandBase returns a new EnvCommandBase with the environment name, client,
+// NewModelCommandBase returns a new ModelCommandBase with the model name, client,
 // and error as specified for testing purposes.
 // If getterErr != nil then the NewModelGetter returns the specified error.
-func NewEnvCommandBase(name string, client EnvironmentGetter, getterErr error) *EnvCommandBase {
-	return &EnvCommandBase{
-		envName:         name,
+func NewModelCommandBase(name string, client ModelGetter, getterErr error) *ModelCommandBase {
+	return &ModelCommandBase{
+		modelName:       name,
 		envGetterClient: client,
 		envGetterErr:    getterErr,
 	}

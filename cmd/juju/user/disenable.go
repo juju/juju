@@ -7,8 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const disableUserDoc = `
@@ -37,13 +37,13 @@ See Also:
 
 // disenableUserBase common code for enable/disable user commands
 type disenableUserBase struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	api  disenableUserAPI
 	User string
 }
 
 func NewDisableCommand() cmd.Command {
-	return envcmd.WrapController(&disableCommand{})
+	return modelcmd.WrapController(&disableCommand{})
 }
 
 // disableCommand disables users.
@@ -52,7 +52,7 @@ type disableCommand struct {
 }
 
 func NewEnableCommand() cmd.Command {
-	return envcmd.WrapController(&enableCommand{})
+	return modelcmd.WrapController(&enableCommand{})
 }
 
 // enableCommand enables users.

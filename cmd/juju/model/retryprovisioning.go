@@ -11,18 +11,18 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func NewRetryProvisioningCommand() cmd.Command {
-	return envcmd.Wrap(&retryProvisioningCommand{})
+	return modelcmd.Wrap(&retryProvisioningCommand{})
 }
 
 // retryProvisioningCommand updates machines' error status to tell
 // the provisoner that it should try to re-provision the machine.
 type retryProvisioningCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Machines []names.MachineTag
 	api      RetryProvisioningAPI
 }

@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -89,9 +89,9 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		debugHooksCmd := &debugHooksCommand{}
 		debugHooksCmd.proxy = true
-		err := envcmd.Wrap(debugHooksCmd).Init(t.args)
+		err := modelcmd.Wrap(debugHooksCmd).Init(t.args)
 		if err == nil {
-			err = envcmd.Wrap(debugHooksCmd).Run(ctx)
+			err = modelcmd.Wrap(debugHooksCmd).Run(ctx)
 		}
 		if t.error != "" {
 			c.Assert(err, gc.ErrorMatches, t.error)

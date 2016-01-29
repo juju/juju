@@ -121,7 +121,7 @@ func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "unset-model", "special")
+	s.run(c, "unset-model-config", "special")
 	s.assertEnvValueMissing(c, "special")
 }
 

@@ -10,23 +10,23 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func NewGetCommand() cmd.Command {
-	return envcmd.Wrap(&getCommand{})
+	return modelcmd.Wrap(&getCommand{})
 }
 
 // getCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
 type getCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api GetEnvironmentAPI
 	key string
 	out cmd.Output
 }
 
-const getEnvHelpDoc = `
+const getModelHelpDoc = `
 If no extra args passed on the command line, all configuration keys and values
 for the environment are output using the selected formatter.
 
@@ -43,7 +43,7 @@ func (c *getCommand) Info() *cmd.Info {
 		Name:    "get-model-config",
 		Args:    "[<model key>]",
 		Purpose: "view model values",
-		Doc:     strings.TrimSpace(getEnvHelpDoc),
+		Doc:     strings.TrimSpace(getModelHelpDoc),
 	}
 }
 

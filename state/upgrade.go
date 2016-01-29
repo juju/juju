@@ -167,7 +167,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 		return provisioned, errors.Annotate(err, "cannot read state servers")
 	}
 
-	upgradeDone, err := info.isEnvUUIDUpgradeDone()
+	upgradeDone, err := info.isModelUUIDUpgradeDone()
 	if err != nil {
 		return provisioned, errors.Trace(err)
 	}
@@ -199,7 +199,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	return provisioned, nil
 }
 
-func (info *UpgradeInfo) isEnvUUIDUpgradeDone() (bool, error) {
+func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
 	instanceData, closer := info.st.getRawCollection(instanceDataC)
 	defer closer()
 

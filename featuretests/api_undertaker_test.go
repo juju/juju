@@ -171,7 +171,7 @@ func (s *undertakerSuite) TestHostedModelConfig(c *gc.C) {
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
-	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "hosted_env"})
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted_env"})
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

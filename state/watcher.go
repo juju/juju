@@ -287,7 +287,7 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
-// the lifecycles of the services in the environment.
+// the lifecycles of the services in the model.
 func (st *State) WatchServices() StringsWatcher {
 	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv, nil)
 }

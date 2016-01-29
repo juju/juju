@@ -18,8 +18,8 @@ import (
 
 	apiblock "github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -91,13 +91,13 @@ See Also:
 `
 
 func newBootstrapCommand() cmd.Command {
-	return envcmd.Wrap(&bootstrapCommand{})
+	return modelcmd.Wrap(&bootstrapCommand{})
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
 	BootstrapSeries       string
@@ -203,7 +203,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var getEnvName = func(c *bootstrapCommand) string {
+var getModelName = func(c *bootstrapCommand) string {
 	return c.ConnectionName()
 }
 
@@ -213,7 +213,7 @@ var getEnvName = func(c *bootstrapCommand) string {
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
-	envName := getEnvName(c)
+	envName := getModelName(c)
 	if envName == "" {
 		return errors.Errorf("the name of the model must be specified")
 	}
@@ -299,7 +299,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
-	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
+	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		EnvironConstraints:   c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
@@ -317,7 +317,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
-	err = envcmd.SetCurrentModel(ctx, envName)
+	err = modelcmd.SetCurrentModel(ctx, envName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -335,7 +335,7 @@ var (
 )
 
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
@@ -353,7 +353,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 	}
 	var client block.BlockListAPI
 	for attempt := attempts.Start(); attempt.Next(); {
-		client, err = blockAPI(&c.EnvCommandBase)
+		client, err = blockAPI(&c.ModelCommandBase)
 		if err != nil {
 			return err
 		}
@@ -450,7 +450,7 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	}
 	bootstrapInstance := instances[0]
 	cfg := environ.Config()
-	info, err := envcmd.ConnectionInfoForName(c.ConnectionName())
+	info, err := modelcmd.ConnectionInfoForName(c.ConnectionName())
 	if err != nil {
 		return errors.Annotate(err, "failed to get connection info")
 	}

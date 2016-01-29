@@ -14,20 +14,20 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
 // NewModelsCommand returns a command to list environments.
 func NewModelsCommand() cmd.Command {
-	return envcmd.WrapController(&environmentsCommand{})
+	return modelcmd.WrapController(&environmentsCommand{})
 }
 
 // environmentsCommand returns the list of all the environments the
 // current user can access on the current controller.
 type environmentsCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	out       cmd.Output
 	all       bool
 	user      string

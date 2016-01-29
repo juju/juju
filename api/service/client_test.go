@@ -79,7 +79,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServicesDeployWithPlacement")
+		c.Assert(request, gc.Equals, "ServicesDeploy")
 		args, ok := a.(params.ServicesDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Services, gc.HasLen, 1)

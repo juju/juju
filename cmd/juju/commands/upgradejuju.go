@@ -18,8 +18,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	coretools "github.com/juju/juju/tools"
@@ -30,12 +30,12 @@ func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
-	return envcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers})
+	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers})
 }
 
 // upgradeJujuCommand upgrades the agents in a juju installation.
 type upgradeJujuCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	vers          string
 	Version       version.Number
 	UploadTools   bool

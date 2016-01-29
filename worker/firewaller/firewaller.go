@@ -80,7 +80,7 @@ func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
 	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = worker.WaitForEnviron(fw.modelWatcher, fw.st, fw.tomb.Dying())
+	fw.environ, err = worker.WaitForModel(fw.modelWatcher, fw.st, fw.tomb.Dying())
 	if err != nil {
 		return nil, err
 	}

@@ -308,7 +308,7 @@ func filterPools(
 }
 
 func (a *API) allProviders() ([]storage.ProviderType, error) {
-	envName, err := a.storage.EnvName()
+	envName, err := a.storage.ModelName()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting env name")
 	}
@@ -338,7 +338,7 @@ func (a *API) validateNameCriteria(names []string) error {
 }
 
 func (a *API) validateProviderCriteria(providers []string) error {
-	envName, err := a.storage.EnvName()
+	envName, err := a.storage.ModelName()
 	if err != nil {
 		return errors.Annotate(err, "getting model name")
 	}

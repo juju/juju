@@ -10,11 +10,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newAddImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&addImageMetadataCommand{})
+	return modelcmd.Wrap(&addImageMetadataCommand{})
 }
 
 const addImageCommandDoc = `

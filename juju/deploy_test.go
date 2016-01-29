@@ -208,7 +208,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXC), Directive: "0"})
 }
 
-func (s *DeployLocalSuite) TestDeployWithPlacement(c *gc.C) {
+func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
 	serviceCons := constraints.MustParse("cpu-cores=2")

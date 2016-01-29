@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -164,7 +164,7 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 	defer f.Close()
 
 	// Override the default Juju environment with the environment variable.
-	err := os.Setenv(osenv.JujuEnvEnvKey, "ec2")
+	err := os.Setenv(osenv.JujuModelEnvKey, "ec2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	jenvCmd := &model.JenvCommand{}
@@ -201,7 +201,7 @@ func (*jenvSuite) TestSwitchErrorCannotWriteCurrentModel(c *gc.C) {
 	defer f.Close()
 
 	// Create the current environment file without write permissions.
-	currentEnvPath := gitjujutesting.HomePath(".juju", envcmd.CurrentModelFilename)
+	currentEnvPath := gitjujutesting.HomePath(".juju", modelcmd.CurrentModelFilename)
 	currentEnvFile, err := os.Create(currentEnvPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer currentEnvFile.Close()
@@ -216,7 +216,7 @@ func (*jenvSuite) TestSwitchErrorCannotWriteCurrentModel(c *gc.C) {
 
 func (*jenvSuite) TestSuccess(c *gc.C) {
 	// Create a jenv file.
-	contents := makeJenvContents("who", "Secret!", "env-UUID", testing.CACert, "1.2.3.4:17070")
+	contents := makeJenvContents("who", "Secret!", "model-UUID", testing.CACert, "1.2.3.4:17070")
 	f := openJenvFile(c, contents)
 	defer f.Close()
 
@@ -230,7 +230,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 
 	// The default environment is now the newly imported one, and the output
 	// reflects the change.
-	currEnv, err := envcmd.ReadCurrentModel()
+	currEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "testing")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> testing\n")
@@ -247,7 +247,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertJenvContents(c, contents, "another")
 
-	currEnv, err = envcmd.ReadCurrentModel()
+	currEnv, err = modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "another")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "testing -> another\n")
@@ -269,7 +269,7 @@ func (*jenvSuite) TestSuccessCustomEnvironmentName(c *gc.C) {
 
 	// The default environment is now the newly imported one, and the output
 	// reflects the change.
-	currEnv, err := envcmd.ReadCurrentModel()
+	currEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "my-env")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> my-env\n")

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"

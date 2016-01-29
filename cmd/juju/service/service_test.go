@@ -22,10 +22,10 @@ var _ = gc.Suite(&ServiceCommandSuite{})
 var expectedCommmandNames = []string{
 	"add-unit",
 	"get",
-	"get-service-constraints",
+	"get-constraints",
 	"help",
 	"set",
-	"set-service-constraints",
+	"set-constraints",
 	"unset",
 }
 

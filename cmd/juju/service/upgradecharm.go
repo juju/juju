@@ -17,18 +17,18 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewUpgradeCharmCommand returns a command which upgrades service's charm.
 func NewUpgradeCharmCommand() cmd.Command {
-	return envcmd.Wrap(&upgradeCharmCommand{})
+	return modelcmd.Wrap(&upgradeCharmCommand{})
 }
 
 // UpgradeCharm is responsible for upgrading a service's charm.
 type upgradeCharmCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName string
 	ForceUnits  bool
 	ForceSeries bool

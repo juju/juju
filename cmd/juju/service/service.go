@@ -17,19 +17,19 @@ const commandDoc = `
 // NewSuperCommand creates the service supercommand and registers the
 // subcommands that it supports.
 func NewSuperCommand() cmd.Command {
-	environmentCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	serviceCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "service",
 		Doc:         commandDoc,
 		UsagePrefix: "juju",
 		Purpose:     "manage services",
 	})
 
-	environmentCmd.Register(newAddUnitCommand())
-	environmentCmd.Register(NewServiceGetConstraintsCommand())
-	environmentCmd.Register(newServiceSetConstraintsCommand())
-	environmentCmd.Register(newGetCommand())
-	environmentCmd.Register(NewSetCommand())
-	environmentCmd.Register(newUnsetCommand())
+	serviceCmd.Register(newAddUnitCommand())
+	serviceCmd.Register(NewServiceGetConstraintsCommand())
+	serviceCmd.Register(NewServiceSetConstraintsCommand())
+	serviceCmd.Register(newGetCommand())
+	serviceCmd.Register(NewSetCommand())
+	serviceCmd.Register(newUnsetCommand())
 
-	return environmentCmd
+	return serviceCmd
 }

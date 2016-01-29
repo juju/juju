@@ -84,7 +84,7 @@ type leaseDoc struct {
 	Namespace string `bson:"namespace"`
 	Name      string `bson:"name"`
 
-	// ModelUUID exists because state.multiEnvRunner can't handle structs
+	// ModelUUID exists because state.multiModelRunner can't handle structs
 	// without `bson:"model-uuid"` fields. It's not necessary for the logic
 	// in this package, though.
 	ModelUUID string `bson:"model-uuid"`
@@ -100,8 +100,8 @@ func (doc leaseDoc) validate() error {
 	if doc.Type != typeLease {
 		return errors.Errorf("invalid type %q", doc.Type)
 	}
-	// state.multiEnvRunner prepends environ ids in our documents, and
-	// state.envStateCollection does not strip them out.
+	// state.multiModelRunner prepends environ ids in our documents, and
+	// state.modelStateCollection does not strip them out.
 	if !strings.HasSuffix(doc.Id, leaseDocId(doc.Namespace, doc.Name)) {
 		return errors.Errorf("inconsistent _id")
 	}
@@ -163,7 +163,7 @@ type clockDoc struct {
 	Type      string `bson:"type"`
 	Namespace string `bson:"namespace"`
 
-	// ModelUUID exists because state.multiEnvRunner can't handle structs
+	// ModelUUID exists because state.multiModelRunner can't handle structs
 	// without `bson:"model-uuid"` fields. It's not necessary for the logic
 	// in this package, though.
 	ModelUUID string `bson:"model-uuid"`
@@ -177,8 +177,8 @@ func (doc clockDoc) validate() error {
 	if doc.Type != typeClock {
 		return errors.Errorf("invalid type %q", doc.Type)
 	}
-	// state.multiEnvRunner prepends environ ids in our documents, and
-	// state.envStateCollection does not strip them out.
+	// state.multiModelRunner prepends environ ids in our documents, and
+	// state.modelStateCollection does not strip them out.
 	if !strings.HasSuffix(doc.Id, clockDocId(doc.Namespace)) {
 		return errors.Errorf("inconsistent _id")
 	}

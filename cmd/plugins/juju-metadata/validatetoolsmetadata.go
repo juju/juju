@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
@@ -22,7 +22,7 @@ import (
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&validateToolsMetadataCommand{})
+	return modelcmd.Wrap(&validateToolsMetadataCommand{})
 }
 
 // validateToolsMetadataCommand

@@ -30,8 +30,8 @@ func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.env = env
 }
 
-func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
-	// 1.17+ has a "Life" field in environment documents.
+func (s *compatSuite) TestModelAssertAlive(c *gc.C) {
+	// 1.17+ has a "Life" field in model documents.
 	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
 		C:      modelsC,
@@ -42,7 +42,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the assertAliveOp and Destroy work as if
-	// the environment is Alive.
+	// the model is Alive.
 	err = s.state.runTransaction([]txn.Op{s.env.assertAliveOp()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.Destroy()

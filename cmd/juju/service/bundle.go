@@ -422,7 +422,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		}
 		placementArg = append(placementArg, placement)
 	}
-	r, err := h.serviceClient.AddServiceUnitsWithPlacement(service, 1, placementArg)
+	r, err := h.serviceClient.AddServiceUnits(service, 1, placementArg)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add unit for service %q", service)
 	}

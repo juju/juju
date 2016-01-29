@@ -48,7 +48,7 @@ func docIDStr(modelUUID string, localID string) string {
 // periodically updating the current time slot document with its
 // sequence number so that watchers can tell it is alive.
 //
-// There is only one time slot document per time slot, per environment. The
+// There is only one time slot document per time slot, per model. The
 // internal implementation of the time slot document is as follows:
 //
 // {
@@ -67,7 +67,7 @@ func docIDStr(modelUUID string, localID string) string {
 //
 // A new pinger sequence is obtained every time a pinger starts by atomically
 // incrementing a counter in a document in a helper collection. There is only
-// one such document per environment. That sequence number is then inserted
+// one such document per model. That sequence number is then inserted
 // into the beings collection to establish the mapping between pinger sequence
 // and key.
 

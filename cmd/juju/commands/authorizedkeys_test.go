@@ -89,7 +89,7 @@ type keySuiteBase struct {
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummymodel")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "dummymodel")
 }
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {

@@ -230,7 +230,7 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Machine will take environment constraints on creation.
+	// Machine will take model constraints on creation.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 

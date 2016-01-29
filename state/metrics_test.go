@@ -481,7 +481,7 @@ func (s *MetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.Factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})

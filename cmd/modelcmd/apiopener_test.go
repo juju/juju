@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package envcmd_test
+package modelcmd_test
 
 import (
 	"time"
@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type APIOpenerSuite struct {
@@ -29,7 +29,7 @@ func (*APIOpenerSuite) TestPassthrough(c *gc.C) {
 		// and an error to check they both come through.
 		return &mockConnection{}, errors.New("boom")
 	}
-	opener := envcmd.NewPassthroughOpener(open)
+	opener := modelcmd.NewPassthroughOpener(open)
 	conn, err := opener.Open("a-name")
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(conn, gc.NotNil)
@@ -42,7 +42,7 @@ func (*APIOpenerSuite) TestTimoutSuccess(c *gc.C) {
 		name = connectionName
 		return &mockConnection{}, nil
 	}
-	opener := envcmd.NewTimeoutOpener(open, clock.WallClock, 10*time.Second)
+	opener := modelcmd.NewTimeoutOpener(open, clock.WallClock, 10*time.Second)
 	conn, err := opener.Open("a-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
@@ -55,7 +55,7 @@ func (*APIOpenerSuite) TestTimoutErrors(c *gc.C) {
 		name = connectionName
 		return nil, errors.New("boom")
 	}
-	opener := envcmd.NewTimeoutOpener(open, clock.WallClock, 10*time.Second)
+	opener := modelcmd.NewTimeoutOpener(open, clock.WallClock, 10*time.Second)
 	conn, err := opener.Open("a-name")
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(conn, gc.IsNil)
@@ -74,9 +74,9 @@ func (*APIOpenerSuite) TestTimoutClosesAPIOnTimeout(c *gc.C) {
 	// have the mock clock only wait a microsecond
 	clock := &mockClock{wait: time.Microsecond}
 	// but tell it to wait five seconds
-	opener := envcmd.NewTimeoutOpener(open, clock, 5*time.Second)
+	opener := modelcmd.NewTimeoutOpener(open, clock, 5*time.Second)
 	conn, err := opener.Open("a-name")
-	c.Assert(errors.Cause(err), gc.Equals, envcmd.ErrConnTimedOut)
+	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrConnTimedOut)
 	c.Assert(conn, gc.IsNil)
 	// check it was told to wait for 5 seconds
 	c.Assert(clock.duration, gc.Equals, 5*time.Second)

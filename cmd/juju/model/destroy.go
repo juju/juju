@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -23,16 +23,16 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 
 // NewDestroyCommand returns a command used to destroy a model.
 func NewDestroyCommand() cmd.Command {
-	return envcmd.Wrap(
+	return modelcmd.Wrap(
 		&destroyCommand{},
-		envcmd.EnvSkipDefault,
-		envcmd.EnvSkipFlags,
+		modelcmd.EnvSkipDefault,
+		modelcmd.EnvSkipFlags,
 	)
 }
 
 // destroyCommand destroys the specified model.
 type destroyCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	envName   string
 	assumeYes bool
 	api       DestroyEnvironmentAPI
@@ -75,7 +75,7 @@ func (c *destroyCommand) Init(args []string) error {
 		return errors.New("no model specified")
 	case 1:
 		c.envName = args[0]
-		c.SetEnvName(c.envName)
+		c.SetModelName(c.envName)
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])

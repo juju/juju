@@ -11,7 +11,7 @@ import (
 )
 
 // NewStatePool returns a new StatePool instance. It takes a State
-// connected to the system (state server environment).
+// connected to the system (state server model).
 func NewStatePool(systemState *State) *StatePool {
 	return &StatePool{
 		systemState: systemState,
@@ -19,7 +19,7 @@ func NewStatePool(systemState *State) *StatePool {
 	}
 }
 
-// StatePool is a simple cache of State instances for multiple environments.
+// StatePool is a simple cache of State instances for multiple models.
 type StatePool struct {
 	systemState *State
 	// mu protects pool
@@ -27,7 +27,7 @@ type StatePool struct {
 	pool map[string]*State
 }
 
-// Get returns a State for a given environment from the pool, creating
+// Get returns a State for a given model from the pool, creating
 // one if required.
 func (p *StatePool) Get(modelUUID string) (*State, error) {
 	if modelUUID == p.systemState.ModelUUID() {
@@ -42,7 +42,7 @@ func (p *StatePool) Get(modelUUID string) (*State, error) {
 		return st, nil
 	}
 
-	st, err := p.systemState.ForEnviron(names.NewModelTag(modelUUID))
+	st, err := p.systemState.ForModel(names.NewModelTag(modelUUID))
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
 	}

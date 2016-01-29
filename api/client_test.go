@@ -139,7 +139,7 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 }
 
 func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, api.Connection) {
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
 	info.ModelTag = otherSt.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())

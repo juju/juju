@@ -14,19 +14,19 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const userCommandDoc = `List all users with access to the current model`
 
 func NewUsersCommand() cmd.Command {
-	return envcmd.Wrap(&usersCommand{})
+	return modelcmd.Wrap(&usersCommand{})
 }
 
 // usersCommand shows all the users with access to the current model.
 type usersCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out cmd.Output
 	api UsersAPI
 }

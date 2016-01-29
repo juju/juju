@@ -146,7 +146,7 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 }
 
 func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
-	st, err := st0.ForEnviron(tag)
+	st, err := st0.ForModel(tag)
 	if err != nil {
 		return errors.Annotate(err, "failed open model")
 	}

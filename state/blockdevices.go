@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// BlockDevice represents the state of a block device in the environment.
+// BlockDevice represents the state of a block device in the model.
 type BlockDevice interface {
 	// Machine returns the ID of the machine the block device is attached to.
 	Machine() string

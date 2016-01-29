@@ -76,13 +76,13 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 
 func (s *StateSuite) TestIsStateServer(c *gc.C) {
 	c.Assert(s.State.IsStateServer(), jc.IsTrue)
-	st2 := s.Factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	c.Assert(st2.IsStateServer(), jc.IsFalse)
 }
 
-func (s *StateSuite) TestUserEnvNameIndex(c *gc.C) {
-	index := state.UserEnvNameIndex("BoB", "testing")
+func (s *StateSuite) TestUserModelNameIndex(c *gc.C) {
+	index := state.UserModelNameIndex("BoB", "testing")
 	c.Assert(index, gc.Equals, "bob:testing")
 }
 
@@ -264,7 +264,7 @@ func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
-	s.OtherState = s.Factory.MakeEnvironment(c, nil)
+	s.OtherState = s.Factory.MakeModel(c, nil)
 }
 
 func (s *MultiEnvStateSuite) TearDownTest(c *gc.C) {
@@ -1188,7 +1188,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	check(m[0], "0", "quantal", allJobs)
 	check(m[1], "1", "blahblah", oneJob)
 
-	st2 := s.Factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	_, err = st2.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: state server jobs specified but not allowed")
@@ -1234,7 +1234,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	// Check that machines cannot be added if the environment is initially Dying.
+	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
 }
@@ -1244,7 +1244,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	// Check that machines cannot be added if the environment is initially
+	// Check that machines cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
@@ -1657,7 +1657,7 @@ func (s *StateSuite) TestReadMachine(c *gc.C) {
 	c.Assert(machine.Id(), gc.Equals, expectedId)
 }
 
-func (s *StateSuite) TestReadPreEnvUUIDMachine(c *gc.C) {
+func (s *StateSuite) TestReadPreModelUUIDMachine(c *gc.C) {
 	type oldMachineDoc struct {
 		Id     string `bson:"_id"`
 		Series string
@@ -1891,7 +1891,7 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "s0", charm)
-	// Check that services cannot be added if the environment is initially Dying.
+	// Check that services cannot be added if the model is initially Dying.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
@@ -1905,7 +1905,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	s.AddTestingService(c, "s0", charm)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	// Check that services cannot be added if the environment is initially
+	// Check that services cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
@@ -2305,23 +2305,23 @@ func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
-	// Alive environment...
+	// Alive model...
 	alive, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Dying environment...
-	st1 := s.Factory.MakeEnvironment(c, nil)
+	// Dying model...
+	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	dying.Destroy()
 
-	st2 := s.Factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
-	err = state.RemoveEnvironment(s.State, st2.ModelUUID())
+	err = state.RemoveModel(s.State, st2.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the dead env are reported in initial event.
@@ -2331,7 +2331,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
 	// Remove alive and dying and see changes reported.
-	err = state.RemoveEnvironment(s.State, dying.UUID())
+	err = state.RemoveModel(s.State, dying.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2339,15 +2339,15 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
-	// Initial event reports the state server environment.
+	// Initial event reports the state server model.
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(s.State.ModelUUID())
 	wc.AssertNoChange()
 
-	// Add an environment: reported.
-	st1 := s.Factory.MakeEnvironment(c, nil)
+	// Add an model: reported.
+	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2360,8 +2360,8 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertChange(env.UUID())
 	wc.AssertNoChange()
 
-	// Remove the environment: reported.
-	err = state.RemoveEnvironment(s.State, env.UUID())
+	// Remove the model: reported.
+	err = state.RemoveModel(s.State, env.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
 	wc.AssertNoChange()
@@ -2801,14 +2801,14 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for _, collName := range state.MultiEnvCollections() {
 		// skip adding constraints, envuser and settings as they were added when the
-		// environment was created
+		// model was created
 		if collName == "constraints" || collName == "modelusers" || collName == "settings" {
 			continue
 		}
@@ -2845,12 +2845,12 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	indexColl, closer := state.GetCollection(st, "usermodelname")
 	defer closer()
-	id := state.UserEnvNameIndex(env.Owner().Canonical(), env.Name())
+	id := state.UserModelNameIndex(env.Owner().Canonical(), env.Name())
 	n, err := indexColl.FindId(id).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
 
-	err = state.SetEnvLifeDead(st, st.ModelUUID())
+	err = state.SetModelLifeDead(st, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveAllModelDocs()
@@ -2872,7 +2872,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
@@ -2959,7 +2959,7 @@ func (s *StateSuite) TestWatchModelConfigCorruptConfig(c *gc.C) {
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Corrupt the environment configuration.
+	// Corrupt the model configuration.
 	settings := s.Session.DB("juju").C("settings")
 	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"settings.name", 1}}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3264,7 +3264,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(net1.Tag().String(), gc.Equals, "network-net1")
 	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
-	// environment tag is dynamically generated
+	// model tag is dynamically generated
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	findEntityTests = append([]findEntityTest{}, findEntityTests...)
@@ -3582,7 +3582,7 @@ func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
-	// Get the agent-version set in the environment.
+	// Get the agent-version set in the model.
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
@@ -3656,7 +3656,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 }
 
 func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config.Config, string) {
-	// Get the agent-version set in the environment.
+	// Get the agent-version set in the model.
 	envConfig, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
@@ -3731,7 +3731,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 
 	higher := version.MustParseBinary("1.25.0-trusty-amd64")
@@ -3774,7 +3774,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
-	// Get the agent-version set in the environment.
+	// Get the agent-version set in the model.
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
@@ -3805,7 +3805,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	// progress but that isn't the reason for the
 	// SetModelAgentVersion call failing.
 
-	// Get the agent-version set in the environment.
+	// Get the agent-version set in the model.
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()

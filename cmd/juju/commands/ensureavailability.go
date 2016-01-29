@@ -15,19 +15,19 @@ import (
 
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 )
 
 func newEnsureAvailabilityCommand() cmd.Command {
-	return envcmd.Wrap(&ensureAvailabilityCommand{})
+	return modelcmd.Wrap(&ensureAvailabilityCommand{})
 }
 
 // ensureAvailabilityCommand makes the controller highly available.
 type ensureAvailabilityCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	haClient EnsureAvailabilityClient
 

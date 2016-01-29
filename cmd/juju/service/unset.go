@@ -8,18 +8,18 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newUnsetCommand() cmd.Command {
-	return envcmd.Wrap(&unsetCommand{})
+	return modelcmd.Wrap(&unsetCommand{})
 }
 
 // unsetCommand sets configuration values of a service back
 // to their default.
 type unsetCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName string
 	Options     []string
 	api         UnsetServiceAPI

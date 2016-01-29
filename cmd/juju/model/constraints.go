@@ -7,15 +7,15 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 )
 
 const getConstraintsDoc = `
 Shows a list of constraints that have been set on the model
 using juju set-model-constraints.  You can also view constraints
-set for a specific service by using juju get-service-constraints <service>.
+set for a specific service by using juju get-constraints <service>.
 
 Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
@@ -34,7 +34,7 @@ const setConstraintsDoc = `
 Sets machine constraints on the model, which are used as the default
 constraints for all new machines provisioned in the model (unless
 overridden).  You can also set constraints on a specific service by using
-juju set-service-constraints.
+juju set-constraints.
 
 Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
@@ -63,12 +63,12 @@ type ConstraintsAPI interface {
 
 // NewModelGetConstraintsCommand returns a command to get model constraints.
 func NewModelGetConstraintsCommand() cmd.Command {
-	return envcmd.Wrap(&modelGetConstraintsCommand{})
+	return modelcmd.Wrap(&modelGetConstraintsCommand{})
 }
 
 // modelGetConstraintsCommand shows the constraints for a model.
 type modelGetConstraintsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out cmd.Output
 	api ConstraintsAPI
 }
@@ -120,12 +120,12 @@ func (c *modelGetConstraintsCommand) Run(ctx *cmd.Context) error {
 
 // NewModelSetConstraintsCommand returns a command to set model constraints.
 func NewModelSetConstraintsCommand() cmd.Command {
-	return envcmd.Wrap(&modelSetConstraintsCommand{})
+	return modelcmd.Wrap(&modelSetConstraintsCommand{})
 }
 
 // modelSetConstraintsCommand sets the constraints for a model.
 type modelSetConstraintsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api         ConstraintsAPI
 	Constraints constraints.Value
 }

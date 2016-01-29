@@ -11,18 +11,18 @@ import (
 	"github.com/juju/names"
 
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewRemoveUnitCommand returns a command which removes a service's units.
 func NewRemoveUnitCommand() cmd.Command {
-	return envcmd.Wrap(&removeUnitCommand{})
+	return modelcmd.Wrap(&removeUnitCommand{})
 }
 
 // removeUnitCommand is responsible for destroying service units.
 type removeUnitCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	UnitNames []string
 }
 

@@ -6,7 +6,7 @@ package model
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewGetCommandForTest returns a GetCommand with the api provided as specified.
@@ -14,7 +14,7 @@ func NewGetCommandForTest(api GetEnvironmentAPI) cmd.Command {
 	cmd := &getCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewSetCommandForTest returns a SetCommand with the api provided as specified.
@@ -22,7 +22,7 @@ func NewSetCommandForTest(api SetModelAPI) cmd.Command {
 	cmd := &setCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewUnsetCommandForTest returns an UnsetCommand with the api provided as specified.
@@ -30,7 +30,7 @@ func NewUnsetCommandForTest(api UnsetEnvironmentAPI) cmd.Command {
 	cmd := &unsetCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewRetryProvisioningCommandForTest returns a RetryProvisioningCommand with the api provided as specified.
@@ -38,7 +38,7 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 	cmd := &retryProvisioningCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 type ShareCommand struct {
@@ -50,7 +50,7 @@ func NewShareCommandForTest(api ShareEnvironmentAPI) (cmd.Command, *ShareCommand
 	cmd := &shareCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd), &ShareCommand{cmd}
+	return modelcmd.Wrap(cmd), &ShareCommand{cmd}
 }
 
 type UnshareCommand struct {
@@ -62,7 +62,7 @@ func NewUnshareCommandForTest(api UnshareEnvironmentAPI) (cmd.Command, *UnshareC
 	cmd := &unshareCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd), &UnshareCommand{cmd}
+	return modelcmd.Wrap(cmd), &UnshareCommand{cmd}
 }
 
 // NewUsersCommandForTest returns a UsersCommand with the api provided as specified.
@@ -70,7 +70,7 @@ func NewUsersCommandForTest(api UsersAPI) cmd.Command {
 	cmd := &usersCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
@@ -78,9 +78,9 @@ func NewDestroyCommandForTest(api DestroyEnvironmentAPI) cmd.Command {
 	cmd := &destroyCommand{
 		api: api,
 	}
-	return envcmd.Wrap(
+	return modelcmd.Wrap(
 		cmd,
-		envcmd.EnvSkipDefault,
-		envcmd.EnvSkipFlags,
+		modelcmd.EnvSkipDefault,
+		modelcmd.EnvSkipFlags,
 	)
 }

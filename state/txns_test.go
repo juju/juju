@@ -15,13 +15,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type MultiEnvRunnerSuite struct {
+type MultiModelRunnerSuite struct {
 	testing.BaseSuite
-	multiEnvRunner jujutxn.Runner
-	testRunner     *recordingRunner
+	multiModelRunner jujutxn.Runner
+	testRunner       *recordingRunner
 }
 
-var _ = gc.Suite(&MultiEnvRunnerSuite{})
+var _ = gc.Suite(&MultiModelRunnerSuite{})
 
 // A fixed attempt counter value used to verify this is passed through
 // in Run()
@@ -30,10 +30,10 @@ const (
 	modelUUID      = "uuid"
 )
 
-func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
+func (s *MultiModelRunnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.testRunner = &recordingRunner{}
-	s.multiEnvRunner = &multiEnvRunner{
+	s.multiModelRunner = &multiModelRunner{
 		rawRunner: s.testRunner,
 		modelUUID: modelUUID,
 		schema: collectionSchema{
@@ -55,11 +55,11 @@ type testDoc struct {
 // An alternative machine document to test that fields are matched by
 // struct tag.
 type altTestDoc struct {
-	Identifier  string `bson:"_id"`
-	Environment string `bson:"model-uuid"`
+	Identifier string `bson:"_id"`
+	Model      string `bson:"model-uuid"`
 }
 
-type multiEnvRunnerTestCase struct {
+type multiModelRunnerTestCase struct {
 	label    string
 	input    txn.Op
 	expected txn.Op
@@ -68,8 +68,8 @@ type multiEnvRunnerTestCase struct {
 // Test cases are returned by a function because transaction
 // operations are modified in place and can't be safely reused by
 // multiple tests.
-func getTestCases() []multiEnvRunnerTestCase {
-	return []multiEnvRunnerTestCase{
+func getTestCases() []multiModelRunnerTestCase {
+	return []multiModelRunnerTestCase{
 		{
 			"ops for non-multi env collections are left alone",
 			txn.Op{
@@ -107,8 +107,8 @@ func getTestCases() []multiEnvRunnerTestCase {
 				C:  machinesC,
 				Id: "2",
 				Insert: &altTestDoc{
-					Identifier:  "2",
-					Environment: "",
+					Identifier: "2",
+					Model:      "",
 				},
 			},
 			txn.Op{
@@ -250,12 +250,12 @@ func getTestCases() []multiEnvRunnerTestCase {
 	}
 }
 
-func (s *MultiEnvRunnerSuite) TestRunTransaction(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestRunTransaction(c *gc.C) {
 	for i, t := range getTestCases() {
 		c.Logf("TestRunTransaction %d: %s", i, t.label)
 
 		inOps := []txn.Op{t.input}
-		err := s.multiEnvRunner.RunTransaction(inOps)
+		err := s.multiModelRunner.RunTransaction(inOps)
 		c.Assert(err, jc.ErrorIsNil)
 
 		expected := []txn.Op{t.expected}
@@ -265,7 +265,7 @@ func (s *MultiEnvRunnerSuite) TestRunTransaction(c *gc.C) {
 	}
 }
 
-func (s *MultiEnvRunnerSuite) TestMultipleOps(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestMultipleOps(c *gc.C) {
 	var inOps []txn.Op
 	var expectedOps []txn.Op
 	for _, t := range getTestCases() {
@@ -273,7 +273,7 @@ func (s *MultiEnvRunnerSuite) TestMultipleOps(c *gc.C) {
 		expectedOps = append(expectedOps, t.expected)
 	}
 
-	err := s.multiEnvRunner.RunTransaction(inOps)
+	err := s.multiModelRunner.RunTransaction(inOps)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
@@ -284,7 +284,7 @@ type objIdDoc struct {
 	ModelUUID string        `bson:"model-uuid"`
 }
 
-func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 	id := bson.NewObjectId()
 	inOps := []txn.Op{{
 		C:      networkInterfacesC,
@@ -292,7 +292,7 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 		Insert: &objIdDoc{Id: id},
 	}}
 
-	err := s.multiEnvRunner.RunTransaction(inOps)
+	err := s.multiModelRunner.RunTransaction(inOps)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOps := []txn.Op{{
@@ -306,13 +306,13 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectsAttemptToInsertWrongEnvUUID(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestRejectsAttemptToInsertWrongModelUUID(c *gc.C) {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
 		Insert: &machineDoc{},
 	}}
-	err := s.multiEnvRunner.RunTransaction(ops)
+	err := s.multiModelRunner.RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ops = []txn.Op{{
@@ -322,18 +322,18 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToInsertWrongEnvUUID(c *gc.C) {
 			ModelUUID: "wrong",
 		},
 	}}
-	err = s.multiEnvRunner.RunTransaction(ops)
+	err = s.multiModelRunner.RunTransaction(ops)
 	c.Assert(err, gc.ErrorMatches, `cannot insert into "machines": bad "model-uuid" value.+`)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestRejectsAttemptToChangeModelUUID(c *gc.C) {
 	// Setting to same env UUID is ok.
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
 		Update: bson.M{"$set": &machineDoc{ModelUUID: modelUUID}},
 	}}
-	err := s.multiEnvRunner.RunTransaction(ops)
+	err := s.multiModelRunner.RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Using the wrong env UUID isn't allowed.
@@ -342,12 +342,12 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
 		Id:     "1",
 		Update: bson.M{"$set": &machineDoc{ModelUUID: "wrong"}},
 	}}
-	err = s.multiEnvRunner.RunTransaction(ops)
+	err = s.multiModelRunner.RunTransaction(ops)
 	c.Assert(err, gc.ErrorMatches, `cannot update "machines": bad "model-uuid" value.+`)
 }
 
-func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+func (s *MultiModelRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
+	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:      modelsC,
 		Id:     modelUUID,
 		Insert: bson.M{},
@@ -360,8 +360,8 @@ func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
 	}})
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectRawAccessCollection(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+func (s *MultiModelRunnerSuite) TestRejectRawAccessCollection(c *gc.C) {
+	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:      "raw",
 		Id:     "whatever",
 		Assert: bson.D{{"any", "thing"}},
@@ -370,8 +370,8 @@ func (s *MultiEnvRunnerSuite) TestRejectRawAccessCollection(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectUnknownCollection(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+func (s *MultiModelRunnerSuite) TestRejectUnknownCollection(c *gc.C) {
+	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:      "unknown",
 		Id:     "whatever",
 		Assert: bson.D{{"any", "thing"}},
@@ -380,8 +380,8 @@ func (s *MultiEnvRunnerSuite) TestRejectUnknownCollection(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectStructEnvUUIDMismatch(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+func (s *MultiModelRunnerSuite) TestRejectStructModelUUIDMismatch(c *gc.C) {
+	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:  machinesC,
 		Id: "uuid:0",
 		Insert: &machineDoc{
@@ -394,8 +394,8 @@ func (s *MultiEnvRunnerSuite) TestRejectStructEnvUUIDMismatch(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectBsonDEnvUUIDMismatch(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+func (s *MultiModelRunnerSuite) TestRejectBsonDModelUUIDMismatch(c *gc.C) {
+	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:      machinesC,
 		Id:     "uuid:0",
 		Insert: bson.D{{"model-uuid", "wtf"}},
@@ -405,8 +405,8 @@ func (s *MultiEnvRunnerSuite) TestRejectBsonDEnvUUIDMismatch(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectBsonMEnvUUIDMismatch(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
+func (s *MultiModelRunnerSuite) TestRejectBsonMModelUUIDMismatch(c *gc.C) {
+	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:      machinesC,
 		Id:     "uuid:0",
 		Insert: bson.M{"model-uuid": "wtf"},
@@ -416,12 +416,12 @@ func (s *MultiEnvRunnerSuite) TestRejectBsonMEnvUUIDMismatch(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestRun(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestRun(c *gc.C) {
 	for i, t := range getTestCases() {
 		c.Logf("TestRun %d: %s", i, t.label)
 
 		var seenAttempt int
-		err := s.multiEnvRunner.Run(func(attempt int) ([]txn.Op, error) {
+		err := s.multiModelRunner.Run(func(attempt int) ([]txn.Op, error) {
 			seenAttempt = attempt
 			return []txn.Op{t.input}, nil
 		})
@@ -432,35 +432,35 @@ func (s *MultiEnvRunnerSuite) TestRun(c *gc.C) {
 	}
 }
 
-func (s *MultiEnvRunnerSuite) TestRunWithError(c *gc.C) {
-	err := s.multiEnvRunner.Run(func(attempt int) ([]txn.Op, error) {
+func (s *MultiModelRunnerSuite) TestRunWithError(c *gc.C) {
+	err := s.multiModelRunner.Run(func(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("boom")
 	})
 	c.Check(err, gc.ErrorMatches, "boom")
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestResumeTransactions(c *gc.C) {
-	err := s.multiEnvRunner.ResumeTransactions()
+func (s *MultiModelRunnerSuite) TestResumeTransactions(c *gc.C) {
+	err := s.multiModelRunner.ResumeTransactions()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.testRunner.resumeTransactionsCalled, jc.IsTrue)
 }
 
-func (s *MultiEnvRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
 	s.testRunner.resumeTransactionsErr = errors.New("boom")
-	err := s.multiEnvRunner.ResumeTransactions()
+	err := s.multiModelRunner.ResumeTransactions()
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
-func (s *MultiEnvRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
-	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
+func (s *MultiModelRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
+	err := s.multiModelRunner.MaybePruneTransactions(2.0)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
 }
 
-func (s *MultiEnvRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
 	s.testRunner.pruneTransactionsErr = errors.New("boom")
-	err := s.multiEnvRunner.MaybePruneTransactions(2.0)
+	err := s.multiModelRunner.MaybePruneTransactions(2.0)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 

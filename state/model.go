@@ -139,7 +139,7 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 	if !ok {
 		return nil, nil, errors.Errorf("model uuid was not supplied")
 	}
-	newState, err := st.ForEnviron(names.NewModelTag(uuid))
+	newState, err := st.ForModel(names.NewModelTag(uuid))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -251,7 +251,7 @@ func (e *Model) Config() (*config.Config, error) {
 		// The active model isn't the same as the model
 		// we are querying.
 		var err error
-		envState, err = e.st.ForEnviron(e.ModelTag())
+		envState, err = e.st.ForModel(e.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -382,7 +382,7 @@ func (e *Model) destroy(destroyHostedModels bool) (err error) {
 
 	st := e.st
 	if e.UUID() != e.st.ModelUUID() {
-		st, err = e.st.ForEnviron(e.ModelTag())
+		st, err = e.st.ForModel(e.ModelTag())
 		defer st.Close()
 		if err != nil {
 			return errors.Trace(err)
@@ -413,7 +413,7 @@ func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 	st := e.st
 	var err error
 	if e.UUID() != e.st.ModelUUID() {
-		st, err = e.st.ForEnviron(e.ModelTag())
+		st, err = e.st.ForModel(e.ModelTag())
 		defer st.Close()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -433,7 +433,7 @@ func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
-		Assert: isEnvAliveDoc,
+		Assert: isModelAliveDoc,
 		Update: bson.D{{"$set", bson.D{
 			{"life", Dying},
 			{"time-of-dying", nowToTheSecond()},
@@ -445,12 +445,12 @@ func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 		} else if count != 0 {
 			return nil, errors.Trace(hasHostedModelsError(count))
 		}
-		ops = append(ops, assertNoHostedEnvironsOp())
+		ops = append(ops, assertNoHostedModelsOp())
 	} else {
 		// If this model isn't hosting any models, no further
 		// checks are necessary -- we just need to make sure we update the
 		// refcount.
-		ops = append(ops, decHostedEnvironCountOp())
+		ops = append(ops, decHostedModelCountOp())
 	}
 
 	// Because txn operations execute in order, and may encounter
@@ -458,12 +458,12 @@ func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
 	if uuid == e.doc.ServerUUID {
-		cleanupOp := st.newCleanupOp(cleanupEnvironmentsForDyingController, uuid)
+		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, uuid)
 		ops = append(ops, cleanupOp)
 	}
-	cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingEnvironment, uuid)
+	cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, uuid)
 	ops = append(ops, cleanupMachinesOp)
-	cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingEnvironment, uuid)
+	cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, uuid)
 	ops = append(ops, cleanupServicesOp)
 	return ops, nil
 }
@@ -496,7 +496,7 @@ func checkManualMachines(machines []*Machine) error {
 // found.
 func (e *Model) ensureDestroyable() error {
 
-	// TODO(waigani) bug #1475212: Environment destroy can miss manual
+	// TODO(waigani) bug #1475212: Model destroy can miss manual
 	// machines. We need to be able to assert the absence of these as
 	// part of the destroy txn, but in order to do this  manual machines
 	// need to add refcounts to their models.
@@ -515,9 +515,9 @@ func (e *Model) ensureDestroyable() error {
 	return nil
 }
 
-// createEnvironmentOp returns the operation needed to create
+// createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server string) txn.Op {
+func createModelOp(st *State, owner names.UserTag, name, uuid, server string) txn.Op {
 	doc := &modelDoc{
 		UUID:       uuid,
 		Name:       name,
@@ -535,14 +535,14 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 
 const hostedModelCountKey = "hostedModelCount"
 
-type hostedEnvCountDoc struct {
+type hostedModelCountDoc struct {
 
 	// RefCount is the number of models in the Juju system. We do not count
 	// the system model.
 	RefCount int `bson:"refcount"`
 }
 
-func assertNoHostedEnvironsOp() txn.Op {
+func assertNoHostedModelsOp() txn.Op {
 	return txn.Op{
 		C:      stateServersC,
 		Id:     hostedModelCountKey,
@@ -550,15 +550,15 @@ func assertNoHostedEnvironsOp() txn.Op {
 	}
 }
 
-func incHostedEnvironCountOp() txn.Op {
-	return hostedEnvironCountOp(1)
+func incHostedModelCountOp() txn.Op {
+	return HostedModelCountOp(1)
 }
 
-func decHostedEnvironCountOp() txn.Op {
-	return hostedEnvironCountOp(-1)
+func decHostedModelCountOp() txn.Op {
+	return HostedModelCountOp(-1)
 }
 
-func hostedEnvironCountOp(amount int) txn.Op {
+func HostedModelCountOp(amount int) txn.Op {
 	return txn.Op{
 		C:  stateServersC,
 		Id: hostedModelCountKey,
@@ -569,7 +569,7 @@ func hostedEnvironCountOp(amount int) txn.Op {
 }
 
 func hostedModelCount(st *State) (int, error) {
-	var doc hostedEnvCountDoc
+	var doc hostedModelCountDoc
 	stateServers, closer := st.getCollection(stateServersC)
 	defer closer()
 
@@ -579,9 +579,9 @@ func hostedModelCount(st *State) (int, error) {
 	return doc.RefCount, nil
 }
 
-// createUniqueOwnerEnvNameOp returns the operation needed to create
+// createUniqueOwnerModelNameOp returns the operation needed to create
 // an usermodelnameC document with the given owner and model name.
-func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
+func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
 		Id:     userModelNameIndex(owner.Canonical(), envName),
@@ -592,32 +592,32 @@ func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 
 // assertAliveOp returns a txn.Op that asserts the model is alive.
 func (e *Model) assertAliveOp() txn.Op {
-	return assertEnvAliveOp(e.UUID())
+	return assertModelAliveOp(e.UUID())
 }
 
-// assertEnvAliveOp returns a txn.Op that asserts the given
+// assertModelAliveOp returns a txn.Op that asserts the given
 // model UUID refers to an Alive model.
-func assertEnvAliveOp(modelUUID string) txn.Op {
+func assertModelAliveOp(modelUUID string) txn.Op {
 	return txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
-		Assert: isEnvAliveDoc,
+		Assert: isModelAliveDoc,
 	}
 }
 
-// isEnvAlive is an Environment-specific version of isAliveDoc.
+// isModelAlive is a model-specific version of isAliveDoc.
 //
-// Environment documents from versions of Juju prior to 1.17
+// Model documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
 // be considered to have the value Alive.
 //
 // TODO(mjs) - this should be removed with existing uses replaced with
 // isAliveDoc. A DB migration should convert nil to Alive.
-var isEnvAliveDoc = bson.D{
+var isModelAliveDoc = bson.D{
 	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
 }
 
-func checkEnvLife(st *State) error {
+func checkModeLife(st *State) error {
 	env, err := st.Model()
 	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
 		return errors.New("model is no longer alive")

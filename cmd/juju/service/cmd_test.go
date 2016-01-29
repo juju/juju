@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -98,12 +98,12 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
-	com.SetEnvName("peckham")
+	com.SetModelName("peckham")
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
-	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
@@ -148,7 +148,7 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 
 func initExposeCommand(args ...string) (*exposeCommand, error) {
 	com := &exposeCommand{}
-	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
@@ -161,7 +161,7 @@ func (*CmdSuite) TestExposeCommandInit(c *gc.C) {
 
 func initUnexposeCommand(args ...string) (*unexposeCommand, error) {
 	com := &unexposeCommand{}
-	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestUnexposeCommandInit(c *gc.C) {

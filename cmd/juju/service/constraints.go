@@ -12,8 +12,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 )
 
@@ -29,11 +29,11 @@ precedence.
 
 Example:
 
-    get-service-constraints wordpress
+    get-constraints wordpress
 
 See Also:
    juju help constraints
-   juju help set-service-constraints
+   juju help set-constraints
    juju help deploy
    juju help machine add
    juju help add-unit
@@ -52,11 +52,11 @@ precedence.
 
 Example:
 
-    set-service-constraints wordpress mem=4G     (all new wordpress machines must have at least 4GB of RAM)
+    set-constraints wordpress mem=4G     (all new wordpress machines must have at least 4GB of RAM)
 
 See Also:
    juju help constraints
-   juju help get-service-constraints
+   juju help get-constraints
    juju help deploy
    juju help machine add
    juju help add-unit
@@ -64,7 +64,7 @@ See Also:
 
 // NewServiceGetConstraintsCommand returns a command which gets service constraints.
 func NewServiceGetConstraintsCommand() cmd.Command {
-	return envcmd.Wrap(&serviceGetConstraintsCommand{})
+	return modelcmd.Wrap(&serviceGetConstraintsCommand{})
 }
 
 type serviceConstraintsAPI interface {
@@ -74,7 +74,7 @@ type serviceConstraintsAPI interface {
 }
 
 type serviceConstraintsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName string
 	out         cmd.Output
 	api         serviceConstraintsAPI
@@ -97,7 +97,7 @@ type serviceGetConstraintsCommand struct {
 
 func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get-service-constraints",
+		Name:    "get-constraints",
 		Args:    "<service>",
 		Purpose: "view constraints on a service",
 		Doc:     getConstraintsDoc,
@@ -147,13 +147,14 @@ type serviceSetConstraintsCommand struct {
 	Constraints constraints.Value
 }
 
-func newServiceSetConstraintsCommand() cmd.Command {
-	return envcmd.Wrap(&serviceSetConstraintsCommand{})
+// NewServiceSetConstraintsCommand returns a command which sets service constraints.
+func NewServiceSetConstraintsCommand() cmd.Command {
+	return modelcmd.Wrap(&serviceSetConstraintsCommand{})
 }
 
 func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set-service-constraints",
+		Name:    "set-constraints",
 		Args:    "<service> [key=[value] ...]",
 		Purpose: "set constraints on a service",
 		Doc:     setConstraintsDoc,

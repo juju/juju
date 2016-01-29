@@ -200,7 +200,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkEnvLife(p.st); err != nil {
+			if err := checkModeLife(p.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {
@@ -230,7 +230,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		}
 
 		ops := []txn.Op{
-			assertEnvAliveOp(p.st.ModelUUID()),
+			assertModelAliveOp(p.st.ModelUUID()),
 		}
 		if ports.areNew {
 			// Create a new document.

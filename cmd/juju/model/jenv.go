@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -109,14 +109,14 @@ func (c *JenvCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Switch to the new model.
-	oldEnvName, err := switchEnvironment(c.envName)
+	oldModelName, err := switchEnvironment(c.envName)
 	if err != nil {
 		return errors.Annotatef(err, "cannot switch to the new model %q", c.envName)
 	}
-	if oldEnvName == "" {
+	if oldModelName == "" {
 		fmt.Fprintf(ctx.Stdout, "-> %s\n", c.envName)
 	} else {
-		fmt.Fprintf(ctx.Stdout, "%s -> %s\n", oldEnvName, c.envName)
+		fmt.Fprintf(ctx.Stdout, "%s -> %s\n", oldModelName, c.envName)
 	}
 	return nil
 }
@@ -174,14 +174,14 @@ func getMissingEnvironmentInfoFields(values configstore.EnvironInfoData) (missin
 // switchEnvironment changes the default environment to the given name and
 // return, if set, the current default environment name.
 func switchEnvironment(envName string) (string, error) {
-	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
-		return "", errors.Errorf("cannot switch when %s is overriding the model (set to %q)", osenv.JujuEnvEnvKey, defaultEnv)
+	if defaultEnv := os.Getenv(osenv.JujuModelEnvKey); defaultEnv != "" {
+		return "", errors.Errorf("cannot switch when %s is overriding the model (set to %q)", osenv.JujuModelEnvKey, defaultEnv)
 	}
-	currentEnv, err := envcmd.GetDefaultEnvironment()
+	currentEnv, err := modelcmd.GetDefaultModel()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get the default model")
 	}
-	if err := envcmd.WriteCurrentModel(envName); err != nil {
+	if err := modelcmd.WriteCurrentModel(envName); err != nil {
 		return "", errors.Trace(err)
 	}
 	return currentEnv, nil

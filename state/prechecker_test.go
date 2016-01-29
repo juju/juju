@@ -49,7 +49,7 @@ func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	// PrecheckInstance should be called with the specified
 	// series and placement, and the specified constraints
-	// merged with the environment constraints, when attempting
+	// merged with the model constraints, when attempting
 	// to create an instance.
 	envCons := constraints.MustParse("mem=4G")
 	placement := "abc123"

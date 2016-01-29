@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
@@ -21,7 +21,7 @@ type listCommandSuite struct {
 func (s *listCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
-	s.PatchValue(block.ListClient, func(_ *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+	s.PatchValue(block.ListClient, func(_ *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 		return s.mockClient, nil
 	})
 }

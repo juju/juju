@@ -11,7 +11,7 @@ import (
 )
 
 // GetEnviron returns the environs.Environ ("provider") associated
-// with the environment.
+// with the model.
 func GetEnviron(st *state.State) (environs.Environ, error) {
 	envcfg, err := st.ModelConfig()
 	if err != nil {

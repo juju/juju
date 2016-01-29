@@ -6,7 +6,7 @@ package machine
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -24,7 +24,7 @@ func NewAddCommand(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *Ad
 		api:               api,
 		machineManagerAPI: mmApi,
 	}
-	return envcmd.Wrap(cmd), &AddCommand{cmd}
+	return modelcmd.Wrap(cmd), &AddCommand{cmd}
 }
 
 type RemoveCommand struct {
@@ -36,7 +36,7 @@ func NewRemoveCommand(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
 	cmd := &removeCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd), &RemoveCommand{cmd}
+	return modelcmd.Wrap(cmd), &RemoveCommand{cmd}
 }
 
 func NewDisksFlag(disks *[]storage.Constraints) *disksFlag {

@@ -489,7 +489,7 @@ func newFileStorage(dbWrap *storageDBWrapper, root string) filestorage.RawFileSt
 
 func (s *backupBlobStorage) path(id string) string {
 	// Use of path.Join instead of filepath.Join is intentional - this
-	// is an environment storage path not a filesystem path.
+	// is an model storage path not a filesystem path.
 	return path.Join(s.root, id)
 }
 

@@ -88,9 +88,9 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	return st.AddService(asa)
 }
 
-// AddUnitsWithPlacement starts n units of the given service using the specified placement
+// AddUnits starts n units of the given service using the specified placement
 // directives to allocate the machines.
-func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
+func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty

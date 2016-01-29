@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -44,7 +44,7 @@ model was already destroyed or is otherwise unavailable.
 `
 
 func newCreateCommand() cmd.Command {
-	return envcmd.Wrap(&createCommand{})
+	return modelcmd.Wrap(&createCommand{})
 }
 
 // createCommand is the sub-command for creating a new backup.

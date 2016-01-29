@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api/imagemanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const cachedimagesCommandDoc = `
@@ -34,7 +34,7 @@ func NewSuperCommand() cmd.Command {
 // CachedImagesCommandBase is a helper base structure that has a method to get the
 // image manager client.
 type CachedImagesCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewImagesManagerClient returns a imagemanager client for the root api endpoint

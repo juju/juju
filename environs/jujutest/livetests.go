@@ -479,7 +479,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddService(state.AddServiceArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnitsWithPlacement(st, svc, 1, nil)
+	units, err := juju.AddUnits(st, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit := units[0]
 

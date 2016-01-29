@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -90,7 +90,7 @@ func environFromNameProductionFunc(
 		}
 	}
 
-	if env, err = environs.PrepareFromName(envName, envcmd.BootstrapContext(ctx), store); err != nil {
+	if env, err = environs.PrepareFromName(envName, modelcmd.BootstrapContext(ctx), store); err != nil {
 		return nil, cleanup, err
 	}
 

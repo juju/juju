@@ -8,18 +8,18 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/service"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewUnexposeCommand returns a command to unexpose services.
 func NewUnexposeCommand() cmd.Command {
-	return envcmd.Wrap(&unexposeCommand{})
+	return modelcmd.Wrap(&unexposeCommand{})
 }
 
 // unexposeCommand is responsible exposing services.
 type unexposeCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName string
 }
 

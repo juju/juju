@@ -17,18 +17,18 @@ import (
 
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewSetCommand returns a command used to set service attributes.
 func NewSetCommand() cmd.Command {
-	return envcmd.Wrap(&setCommand{})
+	return modelcmd.Wrap(&setCommand{})
 }
 
 // setCommand updates the configuration of a service.
 type setCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
 	SettingsYAML    cmd.FileVar

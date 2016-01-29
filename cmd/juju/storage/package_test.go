@@ -48,7 +48,7 @@ func (s *SubStorageSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
 	})
-	os.Setenv(osenv.JujuEnvEnvKey, "testing")
+	os.Setenv(osenv.JujuModelEnvKey, "testing")
 	info := memstore.CreateInfo("testing")
 	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{

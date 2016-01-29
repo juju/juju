@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 )
 
@@ -116,7 +116,7 @@ func NewSuperCommand() cmd.Command {
 // SpaceCommandBase is the base type embedded into all space
 // subcommands.
 type SpaceCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api SpaceAPI
 }
 

@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/envcmd"
 	cmdcommon "github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
@@ -724,10 +724,10 @@ func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	fakeAPI.patch(s)
 
 	cmd := &upgradeJujuCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
 	c.Assert(err, gc.IsNil)
 
 	// ensure find tools was called
@@ -743,10 +743,10 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	}
 	fakeAPI.patch(s)
 	cmd := &upgradeJujuCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
 		"\n"+
 		"Please wait for the upgrade to complete or if there was a problem with\n"+
@@ -760,12 +760,12 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI.setVersionErr = common.OperationBlockedError("the operation has been blocked")
 	fakeAPI.patch(s)
 	cmd := &upgradeJujuCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
-	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
 	s.AssertBlocked(c, err, ".*To unblock changes.*")
 }
 
@@ -786,10 +786,10 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 		fakeAPI.reset()
 
 		cmd := &upgradeJujuCommand{}
-		err := coretesting.InitCommand(envcmd.Wrap(cmd),
+		err := coretesting.InitCommand(modelcmd.Wrap(cmd),
 			append([]string{"--reset-previous-upgrade"}, args...))
 		c.Assert(err, jc.ErrorIsNil)
-		err = envcmd.Wrap(cmd).Run(ctx)
+		err = modelcmd.Wrap(cmd).Run(ctx)
 		if expect {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {

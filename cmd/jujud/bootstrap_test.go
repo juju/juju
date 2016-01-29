@@ -29,9 +29,9 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -857,7 +857,7 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
-	return envcmd.BootstrapContext(ctx)
+	return modelcmd.BootstrapContext(ctx)
 }
 
 type b64yaml map[string]interface{}

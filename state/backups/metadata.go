@@ -77,10 +77,10 @@ func NewMetadata() *Metadata {
 }
 
 // NewMetadataState composes a new backup metadata with its origin
-// values set.  The environment UUID comes from state.  The hostname is
+// values set.  The model UUID comes from state.  The hostname is
 // retrieved from the OS.
 func NewMetadataState(db DB, machine string) (*Metadata, error) {
-	// hostname could be derived from the environment...
+	// hostname could be derived from the model...
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.

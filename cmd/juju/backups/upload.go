@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const uploadDoc = `
@@ -18,7 +18,7 @@ const uploadDoc = `
 `
 
 func newUploadCommand() cmd.Command {
-	return envcmd.Wrap(&uploadCommand{})
+	return modelcmd.Wrap(&uploadCommand{})
 }
 
 // uploadCommand is the sub-command for uploading a backup archive.
