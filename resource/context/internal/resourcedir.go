@@ -42,10 +42,6 @@ func (spec DirectorySpec) Resolve(path ...string) string {
 	return spec.Deps.Join(append([]string{spec.Dirname}, path...)...)
 }
 
-func (spec DirectorySpec) infoPath() string {
-	return spec.Resolve(".info.yaml")
-}
-
 // TODO(ericsnow) Make IsUpToDate a stand-alone function?
 
 // IsUpToDate determines whether or not the content matches the resource directory.
@@ -53,20 +49,6 @@ func (spec DirectorySpec) IsUpToDate(content Content) (bool, error) {
 	// TODO(katco): Check to see if we have latest version
 	return false, nil
 }
-
-//func (spec DirectorySpec) exists(stat func(string) (os.FileInfo, error)) (bool, error) {
-//	fileinfo, err := stat(spec.Dirname)
-//	if err != nil {
-//		if os.IsNotExist(err) {
-//			return false, nil
-//		}
-//		return false, errors.Trace(err)
-//	}
-//	if !fileinfo.IsDir() {
-//		return false, errors.NotFoundf("%q not a directory", spec.Dirname)
-//	}
-//	return true, nil
-//}
 
 // Open preps the spec'ed directory and returns it.
 func (spec DirectorySpec) Open() (*Directory, error) {
