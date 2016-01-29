@@ -24,14 +24,14 @@ import (
 )
 
 type suite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&suite{})
 
 func (s *suite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuDataSuite.TearDownTest(c)
 }
 
 // dummySampleConfig returns the dummy sample config without
@@ -156,7 +156,7 @@ environments:
 }
 
 func (*suite) TestNoEnv(c *gc.C) {
-	envPath := gitjujutesting.JujuHomePath("environments.yaml")
+	envPath := gitjujutesting.JujuDataPath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	es, err := environs.ReadEnvirons("")
@@ -227,7 +227,7 @@ environments:
 `
 	outfile, err := environs.WriteEnvirons("", env)
 	c.Assert(err, jc.ErrorIsNil)
-	path := gitjujutesting.JujuHomePath("environments.yaml")
+	path := gitjujutesting.JujuDataPath("environments.yaml")
 	c.Assert(path, gc.Equals, outfile)
 
 	envs, err := environs.ReadEnvirons("")
@@ -238,9 +238,9 @@ environments:
 }
 
 func (s *suite) TestConfigPerm(c *gc.C) {
-	testing.MakeSampleJujuHome(c)
+	testing.MakeSampleJujuData(c)
 
-	path := gitjujutesting.JujuHomePath()
+	path := gitjujutesting.JujuDataPath()
 	info, err := os.Lstat(path)
 	c.Assert(err, jc.ErrorIsNil)
 	oldPerm := info.Mode().Perm()

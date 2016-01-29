@@ -21,7 +21,7 @@ import (
 )
 
 type RunSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&RunSuite{})

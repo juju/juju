@@ -74,7 +74,7 @@ type JujuConnSuite struct {
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
 	gitjujutesting.MgoSuite
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	envtesting.ToolsFixture
 
 	DefaultToolsStorageDir string
@@ -89,7 +89,7 @@ type JujuConnSuite struct {
 	RootDir      string       // The faked-up root directory.
 	LogDir       string
 	oldHome      string
-	oldJujuHome  string
+	oldJujuData  string
 	DummyConfig  testing.Attrs
 	Factory      *factory.Factory
 }
@@ -98,17 +98,17 @@ const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuDataSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuDataSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
@@ -118,7 +118,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuDataSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 
@@ -221,8 +221,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".local", "share", "juju"))
-	err = os.MkdirAll(osenv.JujuHome(), 0777)
+	s.oldJujuData = osenv.SetJujuData(filepath.Join(home, ".local", "share", "juju"))
+	err = os.MkdirAll(osenv.JujuData(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.MkdirAll(s.DataDir(), 0777)
@@ -231,12 +231,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
+	s.writeSampleConfig(c, osenv.JujuDataPath("environments.yaml"))
 
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
+	err = ioutil.WriteFile(osenv.JujuDataPath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
+	err = ioutil.WriteFile(osenv.JujuDataPath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
@@ -563,7 +563,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 
 	dummy.Reset()
 	utils.SetHome(s.oldHome)
-	osenv.SetJujuHome(s.oldJujuHome)
+	osenv.SetJujuData(s.oldJujuData)
 	s.oldHome = ""
 	s.RootDir = ""
 }
@@ -587,7 +587,7 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
 		panic("SetUpTest has not been called; will not overwrite $JUJU_DATA/environments.yaml")
 	}
-	path := osenv.JujuHomePath("environments.yaml")
+	path := osenv.JujuDataPath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
 	if err != nil {
 		panic(err)

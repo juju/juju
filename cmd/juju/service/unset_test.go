@@ -16,7 +16,7 @@ import (
 )
 
 type UnsetSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	dir  string
 	fake *fakeClientAPI
 }
@@ -24,7 +24,7 @@ type UnsetSuite struct {
 var _ = gc.Suite(&UnsetSuite{})
 
 func (s *UnsetSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fake = &fakeClientAPI{servName: "dummy-service", values: map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",

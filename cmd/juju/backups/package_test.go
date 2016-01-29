@@ -44,7 +44,7 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseBackupsSuite struct {
-	jujutesting.FakeJujuHomeSuite
+	jujutesting.FakeJujuDataSuite
 
 	command    *backups.Command
 	metaresult *params.BackupsMetadataResult
@@ -54,7 +54,7 @@ type BaseBackupsSuite struct {
 }
 
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	s.command = backups.NewSuperCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
@@ -71,7 +71,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 		}
 	}
 
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuDataSuite.TearDownTest(c)
 }
 
 func (s *BaseBackupsSuite) checkHelp(c *gc.C, subcmd cmd.Command) {

@@ -22,14 +22,14 @@ type BoilerplateConfigSuite struct {
 var _ = gc.Suite(&BoilerplateConfigSuite{})
 
 func (*BoilerplateConfigSuite) TestBoilerPlateGeneration(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuData(osenv.SetJujuData(c.MkDir()))
 	boilerplate_text := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvironsBytes([]byte(boilerplate_text))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*BoilerplateConfigSuite) TestBoilerPlateAliases(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuData(osenv.SetJujuData(c.MkDir()))
 	boilerplate_text := environs.BoilerplateConfig()
 	// There should be only one occurrence of "manual", despite
 	// there being an alias ("null"). There should be nothing for

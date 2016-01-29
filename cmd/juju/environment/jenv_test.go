@@ -22,7 +22,7 @@ import (
 )
 
 type jenvSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&jenvSuite{})
@@ -128,7 +128,7 @@ func (*jenvSuite) TestConfigStoreError(c *gc.C) {
 	defer f.Close()
 
 	// Remove Juju home read permissions.
-	home := gitjujutesting.JujuHomePath()
+	home := gitjujutesting.JujuDataPath()
 	err := os.Chmod(home, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.Chmod(home, 0700)
@@ -148,7 +148,7 @@ func (*jenvSuite) TestWriteError(c *gc.C) {
 	defer f.Close()
 
 	// Create the environments dir without write permissions.
-	envsDir := gitjujutesting.JujuHomePath("environments")
+	envsDir := gitjujutesting.JujuDataPath("environments")
 	err := os.Mkdir(envsDir, 0500)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -182,7 +182,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 	defer f.Close()
 
 	// Remove write permissions to the environments.yaml file.
-	envPath := gitjujutesting.JujuHomePath("environments.yaml")
+	envPath := gitjujutesting.JujuDataPath("environments.yaml")
 	err := os.Chmod(envPath, 0200)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -201,7 +201,7 @@ func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
 	defer f.Close()
 
 	// Create the current environment file without write permissions.
-	currentEnvPath := gitjujutesting.JujuHomePath(envcmd.CurrentEnvironmentFilename)
+	currentEnvPath := gitjujutesting.JujuDataPath(envcmd.CurrentEnvironmentFilename)
 	currentEnvFile, err := os.Create(currentEnvPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer currentEnvFile.Close()
@@ -282,7 +282,7 @@ func (*jenvSuite) TestSuccessNoJujuEnvironments(c *gc.C) {
 	defer f.Close()
 
 	// Remove the Juju environments.yaml file.
-	envPath := gitjujutesting.JujuHomePath("environments.yaml")
+	envPath := gitjujutesting.JujuDataPath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -330,7 +330,7 @@ func makeValidJenvContents() []byte {
 // assertJenvContents checks that the jenv file corresponding to the given
 // envName is correctly present in the Juju Home and has the given contents.
 func assertJenvContents(c *gc.C, contents []byte, envName string) {
-	path := gitjujutesting.JujuHomePath("environments", envName+".jenv")
+	path := gitjujutesting.JujuDataPath("environments", envName+".jenv")
 	// Ensure the jenv file has been created.
 	c.Assert(path, jc.IsNonEmptyFile)
 

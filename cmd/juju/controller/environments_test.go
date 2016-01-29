@@ -19,7 +19,7 @@ import (
 )
 
 type EnvironmentsSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	api   *fakeEnvMgrAPIClient
 	creds *configstore.APICredentials
 }
@@ -55,7 +55,7 @@ func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]base.UserEnvironment, error) 
 }
 
 func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)

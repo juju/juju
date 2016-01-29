@@ -16,14 +16,14 @@ import (
 )
 
 type AvailabilityZoneSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	env mockZonedEnviron
 }
 
 var _ = gc.Suite(&AvailabilityZoneSuite{})
 
 func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuDataSuite.SetUpSuite(c)
 
 	allInstances := make([]instance.Instance, 3)
 	for i := range allInstances {

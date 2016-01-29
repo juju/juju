@@ -22,7 +22,7 @@ import (
 )
 
 type AddMachineSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	fakeAddMachine     *fakeAddMachineAPI
 	fakeMachineManager *fakeMachineManagerAPI
 }
@@ -30,7 +30,7 @@ type AddMachineSuite struct {
 var _ = gc.Suite(&AddMachineSuite{})
 
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}
 	s.fakeAddMachine.agentVersion = "1.21.0"
 	s.fakeMachineManager = &fakeMachineManagerAPI{}

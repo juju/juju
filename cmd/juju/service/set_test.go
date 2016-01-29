@@ -21,7 +21,7 @@ import (
 )
 
 type SetSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	dir            string
 	fakeClientAPI  *fakeClientAPI
 	fakeServiceAPI *fakeServiceAPI
@@ -36,7 +36,7 @@ var (
 )
 
 func (s *SetSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fakeClientAPI = &fakeClientAPI{servName: "dummy-service", values: make(map[string]interface{})}
 	s.fakeServiceAPI = &fakeServiceAPI{serviceName: "dummy-service"}
 

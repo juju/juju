@@ -11,17 +11,17 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-// InitJujuHome initializes the charm cache, environs/config and utils/ssh packages
+// InitJujuData initializes the charm cache, environs/config and utils/ssh packages
 // to use default paths based on the $JUJU_DATA or $HOME environment variables.
 // This function should be called before running a Juju CLI command.
-func InitJujuHome() error {
-	jujuHome := osenv.JujuHomeDir()
+func InitJujuData() error {
+	jujuHome := osenv.JujuDataDir()
 	if jujuHome == "" {
 		return errors.New("cannot determine juju home, required environment variables are not set")
 	}
-	osenv.SetJujuHome(jujuHome)
-	charmrepo.CacheDir = osenv.JujuHomePath("charmcache")
-	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
+	osenv.SetJujuData(jujuHome)
+	charmrepo.CacheDir = osenv.JujuDataPath("charmcache")
+	if err := ssh.LoadClientKeys(osenv.JujuDataPath("ssh")); err != nil {
 		return errors.Annotate(err, "cannot load ssh client keys")
 	}
 	return nil

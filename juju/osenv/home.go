@@ -22,19 +22,19 @@ var (
 	jujuHome   string
 )
 
-// SetJujuHome sets the value of juju home and
+// SetJujuData sets the value of juju home and
 // returns the current one.
-func SetJujuHome(newJujuHome string) string {
+func SetJujuData(newJujuData string) string {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 
-	oldJujuHome := jujuHome
-	jujuHome = newJujuHome
-	return oldJujuHome
+	oldJujuData := jujuHome
+	jujuHome = newJujuData
+	return oldJujuData
 }
 
-// JujuHome returns the current juju home.
-func JujuHome() string {
+// JujuData returns the current juju home.
+func JujuData() string {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 	if jujuHome == "" {
@@ -43,31 +43,31 @@ func JujuHome() string {
 	return jujuHome
 }
 
-// IsJujuHomeSet is a way to check if SetJuuHome has been called.
-func IsJujuHomeSet() bool {
+// IsJujuDataSet is a way to check if SetJuuHome has been called.
+func IsJujuDataSet() bool {
 	jujuHomeMu.Lock()
 	defer jujuHomeMu.Unlock()
 	return jujuHome != ""
 }
 
-// JujuHomePath returns the path to a file in the
+// JujuDataPath returns the path to a file in the
 // current juju home.
-func JujuHomePath(names ...string) string {
-	all := append([]string{JujuHome()}, names...)
+func JujuDataPath(names ...string) string {
+	all := append([]string{JujuData()}, names...)
 	return filepath.Join(all...)
 }
 
-// JujuHomeDir returns the directory where juju should store application-specific files
-func JujuHomeDir() string {
-	JujuHomeDir := os.Getenv(JujuHomeEnvKey)
-	if JujuHomeDir == "" {
+// JujuDataDir returns the directory where juju should store application-specific files
+func JujuDataDir() string {
+	JujuDataDir := os.Getenv(JujuDataEnvKey)
+	if JujuDataDir == "" {
 		if runtime.GOOS == "windows" {
-			JujuHomeDir = jujuHomeWin()
+			JujuDataDir = jujuHomeWin()
 		} else {
-			JujuHomeDir = jujuHomeLinux()
+			JujuDataDir = jujuHomeLinux()
 		}
 	}
-	return JujuHomeDir
+	return JujuDataDir
 }
 
 // jujuHomeLinux returns the directory where juju should store application-specific files on Linux.

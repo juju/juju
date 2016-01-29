@@ -12,7 +12,7 @@ import (
 )
 
 type ServiceConstraintsCommandsSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&ServiceConstraintsCommandsSuite{})

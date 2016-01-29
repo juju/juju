@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-func (s *varsSuite) TestJujuHome(c *gc.C) {
+func (s *varsSuite) TestJujuData(c *gc.C) {
 	path := `P:\FooBar\AppData`
 	s.PatchEnvironment("APPDATA", path)
-	c.Assert(osenv.JujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
+	c.Assert(osenv.JujuDataWin(), gc.Equals, filepath.Join(path, "Juju"))
 }

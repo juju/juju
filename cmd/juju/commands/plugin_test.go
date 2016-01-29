@@ -21,7 +21,7 @@ import (
 )
 
 type PluginSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	oldPath string
 }
 
@@ -32,14 +32,14 @@ func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: tests use bash scrips, will be rewritten for windows")
 	}
-	suite.FakeJujuHomeSuite.SetUpTest(c)
+	suite.FakeJujuDataSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
 	os.Setenv("PATH", "/bin:"+gitjujutesting.HomePath())
 }
 
 func (suite *PluginSuite) TearDownTest(c *gc.C) {
 	os.Setenv("PATH", suite.oldPath)
-	suite.FakeJujuHomeSuite.TearDownTest(c)
+	suite.FakeJujuDataSuite.TearDownTest(c)
 }
 
 func (*PluginSuite) TestFindPlugins(c *gc.C) {

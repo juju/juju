@@ -14,17 +14,17 @@ import (
 )
 
 type HelpStorageSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 
 	command cmd.Command
 }
 
 func (s *HelpStorageSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 }
 
 func (s *HelpStorageSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuDataSuite.TearDownTest(c)
 }
 
 func (s *HelpStorageSuite) assertHelp(c *gc.C, expectedNames []string) {

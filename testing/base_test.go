@@ -22,7 +22,7 @@ var _ = gc.Suite(&TestingBaseSuite{})
 func (s *TestingBaseSuite) SetUpTest(c *gc.C) {
 	utils.SetHome(home)
 	os.Setenv("JUJU_DATA", jujuHome)
-	osenv.SetJujuHome(jujuHome)
+	osenv.SetJujuData(jujuHome)
 
 	s.BaseSuite.SetUpTest(c)
 }

@@ -24,7 +24,7 @@ import (
 )
 
 type DestroySuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	api       *fakeDestroyAPI
 	clientapi *fakeDestroyAPIClient
 	store     configstore.Storage
@@ -109,7 +109,7 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 }
 
 func (s *DestroySuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{

@@ -14,7 +14,7 @@ import (
 )
 
 type ListSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	store configstore.Storage
 }
 
@@ -41,7 +41,7 @@ func (errorStore) ReadInfo(envName string) (configstore.EnvironInfo, error) {
 }
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.store = configstore.NewMem()
 
 	var envList = []struct {

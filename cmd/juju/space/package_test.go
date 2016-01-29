@@ -26,7 +26,7 @@ func TestPackage(t *stdtesting.T) {
 
 // BaseSpaceSuite is used for embedding in other suites.
 type BaseSpaceSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	coretesting.BaseSuite
 
 	superCmd cmd.Command
@@ -41,7 +41,7 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
 
 	s.BaseSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	if hasFeatureFlag {
 		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)

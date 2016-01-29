@@ -33,14 +33,14 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
 	loggo.ResetLoggers()
@@ -1143,7 +1143,7 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 
 func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
 	// Server-side there is no juju home.
-	osenv.SetJujuHome("")
+	osenv.SetJujuData("")
 	attrs := testing.Attrs{
 		"type":            "my-type",
 		"name":            "my-name",

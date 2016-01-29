@@ -11,12 +11,12 @@ import (
 )
 
 type fakeEnvSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	fake *fakeEnvAPI
 }
 
 func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fake = &fakeEnvAPI{
 		values: map[string]interface{}{
 			"name":    "test-env",

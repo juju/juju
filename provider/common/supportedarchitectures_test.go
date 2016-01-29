@@ -17,7 +17,7 @@ import (
 )
 
 type archSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&archSuite{})

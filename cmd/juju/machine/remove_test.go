@@ -16,14 +16,14 @@ import (
 )
 
 type RemoveMachineSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	fake *fakeRemoveMachineAPI
 }
 
 var _ = gc.Suite(&RemoveMachineSuite{})
 
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fake = &fakeRemoveMachineAPI{}
 }
 

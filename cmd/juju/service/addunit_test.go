@@ -19,7 +19,7 @@ import (
 )
 
 type AddUnitSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	fake *fakeServiceAddUnitAPI
 }
 
@@ -83,7 +83,7 @@ func (f *fakeServiceAddUnitAPI) EnvironmentGet() (map[string]interface{}, error)
 }
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fake = &fakeServiceAddUnitAPI{service: "some-service-name", numUnits: 1, envType: "dummy"}
 }
 

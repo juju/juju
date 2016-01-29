@@ -12,7 +12,7 @@ import (
 )
 
 type EnvConstraintsCommandsSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&EnvConstraintsCommandsSuite{})

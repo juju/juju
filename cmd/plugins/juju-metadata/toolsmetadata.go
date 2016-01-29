@@ -97,7 +97,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = osenv.JujuHome()
+		c.metadataDir = osenv.JujuData()
 	} else {
 		c.metadataDir = context.AbsPath(c.metadataDir)
 	}

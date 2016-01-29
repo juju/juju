@@ -28,7 +28,7 @@ const (
 )
 
 type UseEnvironmentSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	api      *fakeEnvMgrAPIClient
 	creds    configstore.APICredentials
 	endpoint configstore.APIEndpoint
@@ -37,7 +37,7 @@ type UseEnvironmentSuite struct {
 var _ = gc.Suite(&UseEnvironmentSuite{})
 
 func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)

@@ -23,7 +23,7 @@ import (
 )
 
 type LoginSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	apiConnection *mockAPIConnection
 	openError     error
 	store         configstore.Storage
@@ -34,7 +34,7 @@ type LoginSuite struct {
 var _ = gc.Suite(&LoginSuite{})
 
 func (s *LoginSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.store = configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return s.store, nil

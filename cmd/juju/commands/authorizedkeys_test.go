@@ -20,7 +20,7 @@ import (
 )
 
 type AuthorizedKeysSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&AuthorizedKeysSuite{})

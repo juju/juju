@@ -20,7 +20,7 @@ import (
 )
 
 type ConstraintsCommandsSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	fake *fakeConstraintsClient
 }
 
@@ -118,7 +118,7 @@ func (s *ConstraintsCommandsSuite) assertSetBlocked(c *gc.C, args ...string) {
 }
 
 func (s *ConstraintsCommandsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.fake = &fakeConstraintsClient{servCons: make(map[string]constraints.Value)}
 }
 

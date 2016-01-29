@@ -22,19 +22,19 @@ func TestAll(t *testing.T) {
 }
 
 type BaseStorageSuite struct {
-	jujutesting.FakeJujuHomeSuite
+	jujutesting.FakeJujuDataSuite
 
 	command cmd.Command
 }
 
 func (s *BaseStorageSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	s.command = storage.NewSuperCommand()
 }
 
 func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuDataSuite.TearDownTest(c)
 }
 
 type SubStorageSuite struct {

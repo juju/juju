@@ -19,11 +19,11 @@ import (
 )
 
 type BaseSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil

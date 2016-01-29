@@ -21,7 +21,7 @@ import (
 )
 
 type DestroySuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	api   *fakeDestroyAPI
 	store configstore.Storage
 }
@@ -41,7 +41,7 @@ func (f *fakeDestroyAPI) DestroyEnvironment() error {
 }
 
 func (s *DestroySuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.api = &fakeDestroyAPI{}
 	s.api.err = nil
 

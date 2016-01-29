@@ -26,7 +26,7 @@ import (
 )
 
 type EnsureAvailabilitySuite struct {
-	// TODO (cherylj) change this back to a FakeJujuHomeSuite to
+	// TODO (cherylj) change this back to a FakeJujuDataSuite to
 	// remove the mongo dependency once ensure-availability is
 	// moved under a supercommand again.
 	testing.JujuConnSuite

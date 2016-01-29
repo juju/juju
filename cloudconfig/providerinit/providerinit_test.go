@@ -193,8 +193,8 @@ func (s *CloudInitSuite) TestStateServerUserDataPrecise(c *gc.C) {
 }
 
 func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
-	testJujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
+	testJujuData := c.MkDir()
+	defer osenv.SetJujuData(osenv.SetJujuData(testJujuData))
 	// Use actual series paths instead of local defaults
 	logDir := must(paths.LogDir(series))
 	metricsSpoolDir := must(paths.MetricsSpoolDir(series))

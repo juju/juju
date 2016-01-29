@@ -18,14 +18,14 @@ import (
 )
 
 type environSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	env *manualEnviron
 }
 
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	env, err := manualProvider{}.Open(MinimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
@@ -139,14 +139,14 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 type bootstrapSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	env *manualEnviron
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	// ensure use-sshstorage=true to mimic what happens
 	// in the real client: the environment is Prepared,
@@ -184,14 +184,14 @@ func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
 }
 
 type stateServerInstancesSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	env *manualEnviron
 }
 
 var _ = gc.Suite(&stateServerInstancesSuite{})
 
 func (s *stateServerInstancesSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	// ensure use-sshstorage=true, or bootstrap-host
 	// verification won't happen in StateServerInstances.

@@ -345,7 +345,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		return nil, err
 	}
 	if dir == "." {
-		dir = osenv.JujuHomePath(cfg.Name())
+		dir = osenv.JujuDataPath(cfg.Name())
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir

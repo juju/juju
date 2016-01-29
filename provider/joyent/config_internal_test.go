@@ -12,7 +12,7 @@ import (
 )
 
 type InternalSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&InternalSuite{})

@@ -15,7 +15,7 @@ import (
 )
 
 type filesSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&filesSuite{})

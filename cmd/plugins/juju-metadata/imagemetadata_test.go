@@ -21,7 +21,7 @@ import (
 )
 
 type ImageMetadataSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	environ []string
 	dir     string
 }
@@ -29,12 +29,12 @@ type ImageMetadataSuite struct {
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuDataSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	// Create a fake certificate so azure test environment can be opened.
 	testing.WriteEnvironments(c, metadataTestEnvConfig)
@@ -223,7 +223,7 @@ var errTests = []errTestParams{
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
-	testing.MakeSampleJujuHome(c)
+	testing.MakeSampleJujuData(c)
 	s.AddCleanup(func(*gc.C) {
 		dummy.Reset()
 	})

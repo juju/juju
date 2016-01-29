@@ -13,7 +13,7 @@ import (
 )
 
 type deleteImageCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	mockAPI *fakeImageDeleteAPI
 }
 
@@ -37,7 +37,7 @@ func (f *fakeImageDeleteAPI) DeleteImage(kind, series, arch string) error {
 }
 
 func (s *deleteImageCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.mockAPI = &fakeImageDeleteAPI{}
 	s.PatchValue(cachedimages.GetDeleteImageAPI, func(_ *cachedimages.CachedImagesCommandBase) (cachedimages.DeleteImageAPI, error) {
 		return s.mockAPI, nil

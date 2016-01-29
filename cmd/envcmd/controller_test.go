@@ -17,7 +17,7 @@ import (
 )
 
 type ControllerCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&ControllerCommandSuite{})
@@ -32,7 +32,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitMultipleConfigs(c *gc.
 func (s *ControllerCommandSuite) TestControllerCommandInitNoEnvFile(c *gc.C) {
 	// Since we ignore the environments.yaml file, we don't care if it isn't
 	// there.
-	envPath := gitjujutesting.JujuHomePath("environments.yaml")
+	envPath := gitjujutesting.JujuDataPath("environments.yaml")
 	err := os.Remove(envPath)
 	_, err = initTestControllerCommand(c)
 	c.Assert(err, gc.ErrorMatches, "no controller specified")

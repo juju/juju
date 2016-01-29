@@ -15,14 +15,14 @@ import (
 )
 
 type removeBlocksSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	api *fakeRemoveBlocksAPI
 }
 
 var _ = gc.Suite(&removeBlocksSuite{})
 
 func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 
 	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)

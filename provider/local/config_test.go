@@ -107,7 +107,7 @@ func (s *configSuite) TestSetNetworkBridge(c *gc.C) {
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid := minimalConfig(c)
-	expectedRootDir := filepath.Join(gitjujutesting.JujuHomePath(), "test")
+	expectedRootDir := filepath.Join(gitjujutesting.JujuDataPath(), "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
@@ -125,7 +125,7 @@ func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	valid := localConfig(c, map[string]interface{}{
 		"root-dir": "~/.local/share/juju/foo",
 	})
-	expectedRootDir := filepath.Join(gitjujutesting.JujuHomePath(), "foo")
+	expectedRootDir := filepath.Join(gitjujutesting.JujuDataPath(), "foo")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }

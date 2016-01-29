@@ -19,7 +19,7 @@ import (
 )
 
 type ValidateToolsMetadataSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	metadataDir string
 }
 
@@ -89,7 +89,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 }
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.metadataDir = c.MkDir()
 

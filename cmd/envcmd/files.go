@@ -47,11 +47,11 @@ type ServerFile struct {
 // across both the current executable and across different executables.
 
 func getCurrentEnvironmentFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
+	return filepath.Join(osenv.JujuData(), CurrentEnvironmentFilename)
 }
 
 func getCurrentControllerFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentControllerFilename)
+	return filepath.Join(osenv.JujuData(), CurrentControllerFilename)
 }
 
 // ReadCurrentEnvironment reads the file $JUJU_DATA/current-environment and
@@ -146,7 +146,7 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 	// NOTE: any reading or writing from the directory should be done with a
 	// fslock to make sure we have a consistent read or write.  Also worth
 	// noting, we should use a very short timeout.
-	lock, err := fslock.NewLock(osenv.JujuHome(), lockName, fslock.Defaults())
+	lock, err := fslock.NewLock(osenv.JujuData(), lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

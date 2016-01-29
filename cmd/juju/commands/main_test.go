@@ -32,7 +32,7 @@ import (
 )
 
 type MainSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -58,7 +58,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
 	// setting the flags (which is needed for the help text) it is accessing
-	// osenv.JujuHome(), which panics if SetJujuHome has not been called.
+	// osenv.JujuData(), which panics if SetJujuData has not been called.
 	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
@@ -292,7 +292,7 @@ var commandNames = []string{
 }
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuData(osenv.SetJujuData(c.MkDir()))
 
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
@@ -373,7 +373,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuData(osenv.SetJujuData(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -402,7 +402,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuData(osenv.SetJujuData(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 

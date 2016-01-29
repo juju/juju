@@ -48,13 +48,13 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 }
 
 type prepareSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&prepareSuite{})
 
 func (s *prepareSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.PatchEnvironment("http_proxy", "")
 	s.PatchEnvironment("HTTP_PROXY", "")

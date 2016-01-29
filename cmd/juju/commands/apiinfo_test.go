@@ -15,7 +15,7 @@ import (
 )
 
 type APIInfoSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 }
 
 var _ = gc.Suite(&APIInfoSuite{})

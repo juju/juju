@@ -16,7 +16,7 @@ import (
 )
 
 type ListBlocksSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuDataSuite
 	api      *fakeListBlocksAPI
 	apierror error
 }
@@ -36,7 +36,7 @@ func (f *fakeListBlocksAPI) ListBlockedEnvironments() ([]params.EnvironmentBlock
 }
 
 func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuDataSuite.SetUpTest(c)
 	s.apierror = nil
 	s.api = &fakeListBlocksAPI{
 		blocks: []params.EnvironmentBlockInfo{

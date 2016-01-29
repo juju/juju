@@ -18,7 +18,7 @@ const (
 	// it.
 
 	JujuEnvEnvKey           = "JUJU_ENV"
-	JujuHomeEnvKey          = "JUJU_DATA"
+	JujuDataEnvKey          = "JUJU_DATA"
 	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"

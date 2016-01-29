@@ -37,7 +37,7 @@ import (
 )
 
 type NewAPIStateSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 }
@@ -45,18 +45,18 @@ type NewAPIStateSuite struct {
 var _ = gc.Suite(&NewAPIStateSuite{})
 
 func (cs *NewAPIStateSuite) SetUpSuite(c *gc.C) {
-	cs.FakeJujuHomeSuite.SetUpSuite(c)
+	cs.FakeJujuDataSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (cs *NewAPIStateSuite) TearDownSuite(c *gc.C) {
 	cs.MgoSuite.TearDownSuite(c)
-	cs.FakeJujuHomeSuite.TearDownSuite(c)
+	cs.FakeJujuDataSuite.TearDownSuite(c)
 }
 
 func (cs *NewAPIStateSuite) SetUpTest(c *gc.C) {
-	cs.FakeJujuHomeSuite.SetUpTest(c)
+	cs.FakeJujuDataSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 	cs.PatchValue(&dummy.LogDir, c.MkDir())
@@ -66,7 +66,7 @@ func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
 	cs.MgoSuite.TearDownTest(c)
-	cs.FakeJujuHomeSuite.TearDownTest(c)
+	cs.FakeJujuDataSuite.TearDownTest(c)
 }
 
 func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
@@ -105,7 +105,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 }
 
 type NewAPIClientSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuDataSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 }
@@ -113,7 +113,7 @@ type NewAPIClientSuite struct {
 var _ = gc.Suite(&NewAPIClientSuite{})
 
 func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
-	cs.FakeJujuHomeSuite.SetUpSuite(c)
+	cs.FakeJujuDataSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Since most tests use invalid testing API server addresses, we
@@ -134,12 +134,12 @@ func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 
 func (cs *NewAPIClientSuite) TearDownSuite(c *gc.C) {
 	cs.MgoSuite.TearDownSuite(c)
-	cs.FakeJujuHomeSuite.TearDownSuite(c)
+	cs.FakeJujuDataSuite.TearDownSuite(c)
 }
 
 func (cs *NewAPIClientSuite) SetUpTest(c *gc.C) {
 	cs.ToolsFixture.SetUpTest(c)
-	cs.FakeJujuHomeSuite.SetUpTest(c)
+	cs.FakeJujuDataSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.PatchValue(&dummy.LogDir, c.MkDir())
 }
@@ -148,7 +148,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
 	cs.MgoSuite.TearDownTest(c)
-	cs.FakeJujuHomeSuite.TearDownTest(c)
+	cs.FakeJujuDataSuite.TearDownTest(c)
 }
 
 func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
@@ -255,7 +255,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Skip("not really possible now that there is no defined admin user")
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
+	coretesting.MakeSampleJujuData(c)
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
 		bootstrapConfig: map[string]interface{}{
@@ -527,7 +527,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
+	coretesting.MakeSampleJujuData(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddressAndHostname(c, store, coretesting.SampleEnvName, "0.1.2.3", "infoapi.invalid")
@@ -613,7 +613,7 @@ func setEndpointAddressAndHostname(c *gc.C, store configstore.Storage, envName s
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
+	coretesting.MakeSampleJujuData(c)
 
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -684,7 +684,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
+	coretesting.MakeSampleJujuData(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddressAndHostname(c, store, coretesting.SampleEnvName, "0.1.2.3", "infoapi.invalid")
@@ -709,7 +709,7 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
+	coretesting.MakeSampleJujuData(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
 	info, err := store.ReadInfo(coretesting.SampleEnvName)
@@ -717,7 +717,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	c.Assert(info.BootstrapConfig(), gc.NotNil)
 	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
 
-	err = os.Remove(osenv.JujuHomePath("environments.yaml"))
+	err = os.Remove(osenv.JujuDataPath("environments.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
