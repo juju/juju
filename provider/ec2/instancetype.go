@@ -500,9 +500,7 @@ var allRegionCosts = regionCosts{
 		"i2.2xlarge": 2001,
 		"i2.4xlarge": 4002,
 		"i2.8xlarge": 8004,
-		// XXX: d2 types not included as instance constraints can't
-		// distinguish between fast disk and dense disk, so look
-		// identical to i2 types but cheaper and probably not wanted?
+		// TODO(gz): Add d2 types below per lp:1535838
 		//"d2.xlarge":  844,
 		//"d2.2xlarge": 1688,
 		//"d2.4xlarge": 3376,
