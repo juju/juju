@@ -28,13 +28,14 @@ type UnitDataStore interface {
 // NewUnitFacade returns the resources portion of the uniter's API facade.
 func NewUnitFacade(dataStore UnitDataStore) *UnitFacade {
 	return &UnitFacade{
-		dataStore: dataStore,
+		DataStore: dataStore,
 	}
 }
 
 // UnitFacade is the resources portion of the uniter's API facade.
 type UnitFacade struct {
-	dataStore UnitDataStore
+	//DataStore is the data store used by the facade.
+	DataStore UnitDataStore
 }
 
 // GetResourceInfo returns the resource info for each of the given
@@ -44,7 +45,7 @@ func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.Re
 	var r private.ResourcesResult
 	r.Resources = make([]private.ResourceResult, len(args.ResourceNames))
 
-	resources, err := uf.dataStore.ListResources()
+	resources, err := uf.DataStore.ListResources()
 	if err != nil {
 		r.Error = common.ServerError(err)
 		return r, nil

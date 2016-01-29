@@ -38,8 +38,7 @@ func (s *UnitFacadeSuite) TestNewUnitFacade(c *gc.C) {
 	uf := server.NewUnitFacade(expected)
 
 	s.stub.CheckNoCalls(c)
-	store := server.ExposeUnitFacade(uf)
-	c.Check(store, gc.Equals, expected)
+	c.Check(uf.DataStore, gc.Equals, expected)
 }
 
 func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
@@ -49,7 +48,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	res2 := opened2.Resource
 	store := &stubUnitDataStore{Stub: s.stub}
 	store.ReturnListResources = []resource.Resource{res1, res2}
-	uf := server.NewUnitFacade(store)
+	uf := server.UnitFacade{DataStore: store}
 
 	results, err := uf.GetResourceInfo(private.ListResourcesArgs{
 		ResourceNames: []string{"spam", "eggs"},
@@ -72,7 +71,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 	store.ReturnListResources = []resource.Resource{
 		opened.Resource,
 	}
-	uf := server.NewUnitFacade(store)
+	uf := server.UnitFacade{DataStore: store}
 
 	results, err := uf.GetResourceInfo(private.ListResourcesArgs{
 		ResourceNames: []string{},
@@ -91,7 +90,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	store.ReturnListResources = []resource.Resource{
 		opened.Resource,
 	}
-	uf := server.NewUnitFacade(store)
+	uf := server.UnitFacade{DataStore: store}
 
 	results, err := uf.GetResourceInfo(private.ListResourcesArgs{
 		ResourceNames: []string{"eggs"},
