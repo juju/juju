@@ -686,8 +686,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			isEnvironManager = true
 		case multiwatcher.JobHostUnits:
 			isUnitHoster = true
-		case multiwatcher.JobManageNetworking:
-			isNetworkManager = true
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
