@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
 
@@ -64,6 +66,9 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
+
+	// DefaultControllerSpace is the default juju controller space name.
+	DefaultControllerSpace = network.DefaultSpace
 
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
@@ -179,6 +184,10 @@ const (
 
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
+
+	// ControllerSpaceName stores the name of the space where juju controllers
+	// reside. It is used for unspecified service endpoint bindings.
+	ControllerSpaceName = "controller-space"
 
 	//
 	// Deprecated Settings Attributes
@@ -620,6 +629,12 @@ func Validate(cfg, old *Config) error {
 	if caCertOK || caKeyOK {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return errors.Annotate(err, "bad CA certificate/key in configuration")
+		}
+	}
+
+	if space, found := cfg.ControllerSpaceName(); found {
+		if !names.IsValidSpace(space) {
+			return errors.Errorf("controller-space: %q is not a valid space name", space)
 		}
 	}
 
@@ -1257,6 +1272,12 @@ func (c *Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
+// ControllerSpaceName returns the name of the space juju controllers are in.
+func (c *Config) ControllerSpaceName() (string, bool) {
+	value, exists := c.defined[ControllerSpaceName].(string)
+	return value, exists
+}
+
 // fields holds the validation schema fields derived from configSchema.
 var fields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -1307,6 +1328,7 @@ var alwaysOptional = schema.Defaults{
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
+	ControllerSpaceName:          schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1374,6 +1396,7 @@ func allDefaults() schema.Defaults {
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+		ControllerSpaceName:          DefaultControllerSpace,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1418,6 +1441,7 @@ var immutableAttributes = []string{
 	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
+	ControllerSpaceName,
 }
 
 var (
@@ -1885,6 +1909,12 @@ data of the store. (default false)`,
 	},
 	IdentityPublicKey: {
 		Description: "Public key of the identity manager. If this is omitted, the public key will be fetched from the IdentityURL.",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	ControllerSpaceName: {
+		Description: "Space in which Juju controllers are deployed and where service endpoints are bound to implicitly. If empty, a sane default will be chosen by the provider.",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

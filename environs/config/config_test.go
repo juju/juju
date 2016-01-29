@@ -1009,6 +1009,44 @@ var configTests = []configTest{
 			"identity-public-key": "o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=",
 		},
 	},
+	{
+		about:       "Default controller space",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": "default",
+		},
+	},
+	{
+		about:       "Explicit controller space",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": "juju-controllers",
+		},
+	},
+	{
+		about:       "Invalid controller space - not a string",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": 42,
+		},
+		err: `controller-space: expected string, got int\(42\)`,
+	},
+	{
+		about:       "Invalid controller space - not a valid space name",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": "$bad",
+		},
+		err: `controller-space: "\$bad" is not a valid space name`,
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
