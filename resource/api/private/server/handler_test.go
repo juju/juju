@@ -43,8 +43,8 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
-	res := resourcetesting.NewResource(c, s.stub, "spam", "some data")
-	s.store.ReturnOpenResource = res
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	s.store.ReturnOpenResource = opened
 	s.deps.ReturnConnect = s.store
 	h := server.NewLegacyHTTPHandler(s.deps.Connect)
 	req, err := api.NewHTTPDownloadRequest("spam")
@@ -60,7 +60,7 @@ func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
 	resp.checkWritten(c, "some data", http.Header{
 		"Content-Type":   []string{api.ContentTypeRaw},
 		"Content-Length": []string{"9"}, // len("some data")
-		"Content-Sha384": []string{res.Fingerprint.String()},
+		"Content-Sha384": []string{opened.Fingerprint.String()},
 	})
 }
 
@@ -72,7 +72,9 @@ func (s *LegacyHTTPHandlerSuite) TestNewLegacyHTTPHandler(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadOkay(c *gc.C) {
-	s.deps.ReturnHandleDownload = resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	s.deps.ReturnConnect = s.store
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	s.deps.ReturnHandleDownload = opened
 	h := &server.LegacyHTTPHandler{
 		LegacyHTTPHandlerDeps: s.deps,
 	}
@@ -89,6 +91,11 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadOkay(c *gc.C) {
 		"Copy",
 		"Close",
 	)
+	s.stub.CheckCall(c, 0, "Connect", req)
+	s.stub.CheckCall(c, 1, "HandleDownload", s.store, req)
+	s.stub.CheckCall(c, 2, "UpdateDownloadResponse", s.resp, opened.Resource)
+	s.stub.CheckCall(c, 3, "WriteHeader", http.StatusOK)
+	s.stub.CheckCall(c, 4, "Copy", s.resp, opened)
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadHandlerFailed(c *gc.C) {
