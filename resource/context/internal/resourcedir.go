@@ -128,8 +128,7 @@ type Directory struct {
 func NewDirectory(spec *DirectorySpec, deps DirectoryDeps) *Directory {
 	dir := &Directory{
 		DirectorySpec: spec,
-
-		Deps: deps,
+		Deps:          deps,
 	}
 	return dir
 }
