@@ -1014,12 +1014,12 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) {
 	var setSpacesDiscovered func()
 	var called bool
-	newDiscoverSpaces := func(api *discoverspaces.API, setFunc func()) worker.Worker {
+	fakeNewDiscoverSpaces := func(api *discoverspaces.API, setFunc func()) worker.Worker {
 		setSpacesDiscovered = setFunc
 		called = true
 		return newDummyWorker()
 	}
-	s.PatchValue(&newDiscoverSpaces, newDiscoverSpaces)
+	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
@@ -1027,7 +1027,14 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 	_ = s.singularRecord.nextRunner(c)
 	runner := s.singularRecord.nextRunner(c)
 	runner.waitForWorker(c, "discoverspaces")
-	c.Assert(called, jc.IsTrue)
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if called {
+			break
+		}
+		if !attempt.HasNext() {
+			c.Fatalf("discoverspaces worker not created")
+		}
+	}
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
