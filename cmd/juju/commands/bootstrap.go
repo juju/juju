@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -109,7 +108,10 @@ type bootstrapCommand struct {
 	NoAutoUpgrade         bool
 	AgentVersionParam     string
 	AgentVersion          *version.Number
-	Options               map[string]interface{}
+	// NOTE(axw) This may go away in the near future. It is currently here
+	// to enable the unit tests as we have no way of providing additional
+	// configuration at bootstrap time otherwise.
+	Options map[string]interface{}
 
 	ControllerName string
 	CredentialName string
@@ -255,7 +257,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
 	// identify a cloud in clouds.yaml, but is the name of a provider, we
 	// synthesise a Cloud structure with a single region and no auth-types.
-	cloud, err := c.getCloud()
+	cloud, err := jujucloud.CloudByName(c.Cloud)
 	if errors.IsNotFound(err) {
 		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 		_, err := environs.Provider(c.Cloud)
@@ -304,6 +306,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		ctx.Verbosef("authenticating with %v", credential)
 		regionName = c.Region
 		if regionName == "" {
+			// TODO(axw) see TODO(axw) above, where we synthesise
+			// the cloud. We need to set the region to the same.
+			// We should defer to the provider to detect the region
+			// and endpoint.
 			regionName = c.Cloud
 		}
 	} else if err != nil {
@@ -326,6 +332,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		"type": cloud.Type,
 		"name": c.ControllerName,
 	}
+	// TODO(axw) when we have an agreed-upon spec/solution, we will want to
+	// read in configuration from disk here.
 	for k, v := range c.Options {
 		configAttrs[k] = v
 	}
@@ -420,66 +428,28 @@ to clean up the environment.`[1:])
 	return c.waitForAgentInitialisation(ctx)
 }
 
-func (c *bootstrapCommand) getCloud() (*jujucloud.Cloud, error) {
-	// First, read in cloud metadata and extract the cloud the user wants
-	// to bootstrap. Ensure the cloud type is usable with the current client
-	// configuration.
-	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	personalClouds, err := jujucloud.PersonalCloudMetadata()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for name, cloud := range personalClouds {
-		clouds[name] = cloud
-	}
-	cloud, ok := clouds[c.Cloud]
-	if !ok {
-		return nil, errors.NotFoundf("cloud %s", c.Cloud)
-	}
-	return &cloud, nil
-}
-
 func (c *bootstrapCommand) getCredentials(
 	cloudName string,
 	cloud *jujucloud.Cloud,
 ) (_ *jujucloud.Credential, region string, _ error) {
-	credentialsData, err := ioutil.ReadFile(jujucloud.JujuCredentials())
-	if os.IsNotExist(err) {
-		return nil, "", errors.NotFoundf("credentials file")
-	} else if err != nil {
+
+	credential, credentialName, defaultRegion, err := jujucloud.CredentialByName(
+		cloudName, c.CredentialName,
+	)
+	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	credentials, err := jujucloud.ParseCredentials(credentialsData)
-	if err != nil {
-		return nil, "", errors.Annotate(err, "parsing credentials")
-	}
-	cloudCredentials, ok := credentials.Credentials[cloudName]
-	if !ok {
-		return nil, "", errors.NotFoundf("credentials for cloud %q", cloudName)
-	}
-	credentialName := c.CredentialName
-	if credentialName == "" {
-		credentialName = cloudCredentials.DefaultCredential
-	}
-	credential, ok := cloudCredentials.AuthCredentials[credentialName]
-	if !ok {
-		return nil, "", errors.NotFoundf(
-			"%q credential for cloud %q", credentialName, cloudName,
-		)
-	}
+
 	regionName := c.Region
 	if regionName == "" {
-		regionName = cloudCredentials.DefaultRegion
+		regionName = defaultRegion
 	}
 	if regionName == "" {
 		// If no region is specified, attempt to bootstrap using the
 		// cloud name as the region name.
 		//
-		// TODO(axw) only do this if there is no cloud definition,
-		// e.g. for lxd.
+		// TODO(axw) this is a hack to support lxd. We should instead
+		// be asking the provider to auto-detect the region/endpoint.
 		regionName = cloudName
 	}
 
@@ -489,14 +459,14 @@ func (c *bootstrapCommand) getCredentials(
 		return nil, "", errors.Trace(err)
 	}
 	if err := jujucloud.ValidateCredential(
-		credential, provider.CredentialSchemas(),
+		*credential, provider.CredentialSchemas(),
 	); err != nil {
 		return nil, "", errors.Annotatef(
 			err, "validating %q credential for cloud %q",
 			credentialName, cloudName,
 		)
 	}
-	return &credential, regionName, nil
+	return credential, regionName, nil
 }
 
 var (

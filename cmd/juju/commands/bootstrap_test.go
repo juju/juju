@@ -512,7 +512,6 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	jenvFile := filepath.Join(environmentsDir, envName+".jenv")
 	err = ioutil.WriteFile(jenvFile, []byte("nonsense"), 0644)
-	//err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = coretesting.RunCommand(c, newBootstrapCommand(), envName, "dummy")
