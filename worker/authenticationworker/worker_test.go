@@ -61,7 +61,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	var apiRoot api.Connection
 	apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(apiRoot, gc.NotNil)
-	s.keyupdaterApi = apiRoot.KeyUpdater()
+	s.keyupdaterApi = keyupdater.NewState(apiRoot)
 	c.Assert(s.keyupdaterApi, gc.NotNil)
 }
 

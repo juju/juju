@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
@@ -170,7 +169,6 @@ type Connection interface {
 	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
 	Environment() *environment.Facade
-	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State

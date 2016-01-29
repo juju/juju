@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
@@ -73,6 +74,14 @@ type ManifoldsConfig struct {
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.
 	LogSource logsender.LogRecordCh
+
+	// MachineID is the id of the machine agent, used by the
+	// authenticationworker.
+	MachineID string
+
+	// BootstrapMachineID is the id of the bootstrap machine. It is used by the
+	// authenticationworker.
+	BootstrapMachineID string
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -246,6 +255,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 		}),
+
+		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+			MachineID: config.MachineID,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+		}),
 	}
 }
 
@@ -269,4 +287,5 @@ const (
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
+	authenticationworkerName = "authenticationworker"
 )
