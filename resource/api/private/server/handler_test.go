@@ -5,8 +5,10 @@ package server_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -15,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/resourcetesting"
 )
@@ -39,12 +42,33 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.resp = newStubResponseWriter(s.stub)
 }
 
+func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
+	res := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	s.store.ReturnOpenResource = res
+	s.deps.ReturnConnect = s.store
+	h := server.NewLegacyHTTPHandler(s.deps.Connect)
+	req, err := api.NewHTTPDownloadRequest("spam")
+	c.Assert(err, jc.ErrorIsNil)
+	req.URL, err = url.ParseRequestURI("https://api:17017/units/eggs/1/resources/spam?:resource=spam")
+	c.Assert(err, jc.ErrorIsNil)
+	resp := &fakeResponseWriter{
+		stubResponseWriter: s.resp,
+	}
+
+	h.ServeHTTP(resp, req)
+
+	resp.checkWritten(c, "some data", http.Header{
+		"Content-Type":   []string{api.ContentTypeRaw},
+		"Content-Length": []string{"9"}, // len("some data")
+		"Content-Sha384": []string{res.Fingerprint.String()},
+	})
+}
+
 func (s *LegacyHTTPHandlerSuite) TestNewLegacyHTTPHandler(c *gc.C) {
 	h := server.NewLegacyHTTPHandler(s.deps.Connect)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(h.Connect, gc.NotNil) // We can't compare functions.
-	c.Check(h.HandleDownload, gc.NotNil)
+	c.Check(h, gc.NotNil)
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadOkay(c *gc.C) {
@@ -212,4 +236,41 @@ func (s *stubResponseWriter) Header() http.Header {
 func (s *stubResponseWriter) WriteHeader(code int) {
 	s.AddCall("WriteHeader", code)
 	s.NextErr() // Pop one off.
+}
+
+type fakeResponseWriter struct {
+	*stubResponseWriter
+
+	writeCalled   bool
+	writtenHeader http.Header
+}
+
+func (f *fakeResponseWriter) checkWritten(c *gc.C, body string, header http.Header) {
+	if !c.Check(f.writeCalled, jc.IsTrue) {
+		return
+	}
+	c.Check(f.buf.String(), gc.Equals, body)
+	c.Check(f.writtenHeader, jc.DeepEquals, header)
+	c.Check(f.writtenHeader.Get("Content-Length"), gc.Equals, fmt.Sprint(len(body)))
+}
+
+func (f *fakeResponseWriter) WriteHeader(code int) {
+	f.stubResponseWriter.WriteHeader(code)
+
+	// See http.Header.clone() in the stdlib (net/http/header.go).
+	header := make(http.Header)
+	for k, vv := range f.ReturnHeader {
+		vv2 := make([]string, len(vv))
+		copy(vv2, vv)
+		header[k] = vv2
+	}
+	f.writtenHeader = header
+}
+
+func (f *fakeResponseWriter) Write(data []byte) (int, error) {
+	f.writeCalled = true
+	if f.writtenHeader == nil {
+		f.WriteHeader(http.StatusOK)
+	}
+	return f.stubResponseWriter.Write(data)
 }
