@@ -74,63 +74,15 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	return pinger
 }
 
-func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	// We have to ensure the agents are alive, or EnsureAvailability will
-	// create more to replace them.
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-
-	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
-	results, err := s.client.EnsureAvailability(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	ensureAvailabilityResult := result.Result
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err = s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	c.Assert(machines[1].Series(), gc.Equals, "quantal")
-	c.Assert(machines[2].Series(), gc.Equals, "quantal")
-}
-
-func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BlockAllChanges(c, "TestBlockEnsureAvailabilityDeprecated")
-
-	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
-	results, err := s.client.EnsureAvailability(arg)
-	s.AssertBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
-	c.Assert(results.Results, gc.HasLen, 0)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-}
-
-func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
+func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
 	owner, err := s.State.ModelUser(testAdmin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	localUser1 := s.makeLocalEnvUser(c, "ralphdoe", "Ralph Doe")
-	localUser2 := s.makeLocalEnvUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
-	remoteUser2 := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
+	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
+	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
+	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
+	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
 
 	results, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,8 +134,8 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func lastConnPointer(c *gc.C, envUser *state.ModelUser) *time.Time {
-	lastConn, err := envUser.LastConnection()
+func lastConnPointer(c *gc.C, modelUser *state.ModelUser) *time.Time {
+	lastConn, err := modelUser.LastConnection()
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil
@@ -201,12 +153,12 @@ func (a ByUserName) Len() int           { return len(a) }
 func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
-func (s *serverSuite) makeLocalEnvUser(c *gc.C, username, displayname string) *state.ModelUser {
-	// factory.MakeUser will create an EnvUser for a local user by defalut
+func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) *state.ModelUser {
+	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	return envUser
+	return modelUser
 }
 
 func (s *serverSuite) TestShareModelAddMissingLocalFails(c *gc.C) {
@@ -225,7 +177,7 @@ func (s *serverSuite) TestShareModelAddMissingLocalFails(c *gc.C) {
 }
 
 func (s *serverSuite) TestUnshareModel(c *gc.C) {
-	user := s.Factory.MakeEnvUser(c, nil)
+	user := s.Factory.MakeModelUser(c, nil)
 	_, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -265,7 +217,7 @@ func (s *serverSuite) TestUnshareModelMissingUser(c *gc.C) {
 }
 
 func (s *serverSuite) TestShareModelAddLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	args := params.ModifyModelUsers{
 		Changes: []params.ModifyModelUser{{
 			UserTag: user.Tag().String(),
@@ -278,11 +230,11 @@ func (s *serverSuite) TestShareModelAddLocalUser(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Canonical())
-	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
-	lastConn, err := envUser.LastConnection()
+	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
+	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn, gc.Equals, time.Time{})
 }
@@ -301,11 +253,11 @@ func (s *serverSuite) TestShareModelAddRemoteUser(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	envUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
-	lastConn, err := envUser.LastConnection()
+	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
+	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -328,9 +280,9 @@ func (s *serverSuite) TestShareModelAddUserTwice(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
 	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
 
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Canonical())
+	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
 }
 
 func (s *serverSuite) TestShareModelInvalidTags(c *gc.C) {
@@ -735,108 +687,6 @@ func (s *clientSuite) TestClientModelInfo(c *gc.C) {
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
 	c.Assert(info.ControllerUUID, gc.Equals, env.ControllerUUID())
-}
-
-var clientAnnotationsTests = []struct {
-	about    string
-	initial  map[string]string
-	input    map[string]string
-	expected map[string]string
-	err      string
-}{
-	{
-		about:    "test setting an annotation",
-		input:    map[string]string{"mykey": "myvalue"},
-		expected: map[string]string{"mykey": "myvalue"},
-	},
-	{
-		about:    "test setting multiple annotations",
-		input:    map[string]string{"key1": "value1", "key2": "value2"},
-		expected: map[string]string{"key1": "value1", "key2": "value2"},
-	},
-	{
-		about:    "test overriding annotations",
-		initial:  map[string]string{"mykey": "myvalue"},
-		input:    map[string]string{"mykey": "another-value"},
-		expected: map[string]string{"mykey": "another-value"},
-	},
-	{
-		about: "test setting an invalid annotation",
-		input: map[string]string{"invalid.key": "myvalue"},
-		err:   `cannot update annotations on .*: invalid key "invalid.key"`,
-	},
-}
-
-func (s *clientSuite) TestClientAnnotations(c *gc.C) {
-	// Set up entities.
-	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	type taggedAnnotator interface {
-		state.Entity
-	}
-	entities := []taggedAnnotator{service, unit, machine, model}
-	for i, t := range clientAnnotationsTests {
-		for _, entity := range entities {
-			id := entity.Tag().String() // this is WRONG, it should be Tag().Id() but the code is wrong.
-			c.Logf("test %d. %s. entity %s", i, t.about, id)
-			// Set initial entity annotations.
-			err := s.APIState.Client().SetAnnotations(id, t.initial)
-			c.Assert(err, jc.ErrorIsNil)
-			// Add annotations using the API call.
-			err = s.APIState.Client().SetAnnotations(id, t.input)
-			if t.err != "" {
-				c.Assert(err, gc.ErrorMatches, t.err)
-				continue
-			}
-			// Retrieve annotations using the API call.
-			ann, err := s.APIState.Client().GetAnnotations(id)
-			c.Assert(err, jc.ErrorIsNil)
-			// Check annotations are correctly returned.
-			c.Assert(ann, gc.DeepEquals, t.input)
-			// Clean up annotations on the current entity.
-			cleanup := make(map[string]string)
-			for key := range ann {
-				cleanup[key] = ""
-			}
-			err = s.APIState.Client().SetAnnotations(id, cleanup)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-}
-
-func (s *clientSuite) TestCharmAnnotationsUnsupported(c *gc.C) {
-	// Set up charm.
-	charm := s.AddTestingCharm(c, "dummy")
-	id := charm.Tag().Id()
-	for i, t := range clientAnnotationsTests {
-		c.Logf("test %d. %s. entity %s", i, t.about, id)
-		// Add annotations using the API call.
-		err := s.APIState.Client().SetAnnotations(id, t.input)
-		// Should not be able to annotate charm with this client
-		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
-
-		// Retrieve annotations using the API call.
-		ann, err := s.APIState.Client().GetAnnotations(id)
-		// Should not be able to get annotations from charm using this client
-		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
-		c.Assert(ann, gc.IsNil)
-	}
-}
-
-func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
-	expected := `".*" is not a valid( [a-z]+)? tag`
-	for _, id := range bad {
-		err := s.APIState.Client().SetAnnotations(id, map[string]string{"mykey": "myvalue"})
-		c.Assert(err, gc.ErrorMatches, expected)
-		_, err = s.APIState.Client().GetAnnotations(id)
-		c.Assert(err, gc.ErrorMatches, expected)
-	}
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {

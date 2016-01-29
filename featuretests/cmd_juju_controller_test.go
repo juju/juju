@@ -75,8 +75,8 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 
 func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoEnvUser: true,
-		Password:  "super-secret",
+		NoModelUser: true,
+		Password:    "super-secret",
 	})
 	apiInfo := s.APIInfo(c)
 	serverFile := modelcmd.ServerFile{

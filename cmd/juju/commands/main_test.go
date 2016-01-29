@@ -228,7 +228,6 @@ var commandNames = []string{
 	"disable-user",
 	"enable-ha",
 	"enable-user",
-	"ensure-availability",
 	"expose",
 	"generate-config", // alias for init
 	"get-config",

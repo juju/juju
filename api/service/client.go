@@ -101,10 +101,6 @@ func (c *Client) ServiceDeploy(
 // ServiceGetCharmURL returns the charm URL the given service is
 // running at present.
 func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
-	if c.BestAPIVersion() < 2 {
-		return nil, base.OldAgentError("ServiceGetCharmURL", "2.0")
-	}
-
 	result := new(params.StringResult)
 	args := params.ServiceGet{ServiceName: serviceName}
 	err := c.facade.FacadeCall("ServiceGetCharmURL", args, result)
@@ -119,10 +115,6 @@ func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
 
 // ServiceSetCharm sets the charm for a given service.
 func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceSeries, forceUnits bool) error {
-	if c.BestAPIVersion() < 2 {
-		return base.OldAgentError("ServiceSetCharm", "2.0")
-	}
-
 	args := params.ServiceSetCharm{
 		ServiceName: serviceName,
 		CharmUrl:    charmUrl,
@@ -135,10 +127,6 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceSerie
 // ServiceUpdate updates the service attributes, including charm URL,
 // minimum number of units, settings and constraints.
 func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	if c.BestAPIVersion() < 2 {
-		return base.OldAgentError("ServiceUpdate", "2.0")
-	}
-
 	return c.facade.FacadeCall("ServiceUpdate", args, nil)
 }
 

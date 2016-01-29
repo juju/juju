@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/environs"
@@ -431,64 +430,6 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	return results, nil
 }
 
-// GetAnnotations returns annotations about a given entity.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	nothing := params.GetAnnotationsResults{}
-	tag, err := c.parseEntityTag(args.Tag)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	entity, err := c.findEntity(tag)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	ann, err := c.api.stateAccessor.Annotations(entity)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	return params.GetAnnotationsResults{Annotations: ann}, nil
-}
-
-func (c *Client) parseEntityTag(tag0 string) (names.Tag, error) {
-	tag, err := names.ParseTag(tag0)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if tag.Kind() == names.CharmTagKind {
-		return nil, common.NotSupportedError(tag, "client.annotations")
-	}
-	return tag, nil
-}
-
-func (c *Client) findEntity(tag names.Tag) (state.GlobalEntity, error) {
-	entity0, err := c.api.stateAccessor.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	entity, ok := entity0.(state.GlobalEntity)
-	if !ok {
-		return nil, common.NotSupportedError(tag, "annotations")
-	}
-	return entity, nil
-}
-
-// SetAnnotations stores annotations about a given entity.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	tag, err := c.parseEntityTag(args.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	entity, err := c.findEntity(tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return c.api.stateAccessor.SetAnnotations(entity, args.Pairs)
-}
-
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 	return params.AgentVersionResult{Version: version.Current}, nil
@@ -630,22 +571,6 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
-}
-
-// EnsureAvailability ensures the availability of Juju state servers.
-// DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
-// This API is now on the HighAvailability facade.
-func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return params.StateServersChangeResults{}, errors.Trace(err)
-	}
-	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
-	for i, stateServersSpec := range args.Specs {
-		result, err := highavailability.EnsureAvailabilitySingle(c.api.state(), stateServersSpec)
-		results.Results[i].Result = result
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
 }
 
 // DestroyModel will try to destroy the current model.

@@ -330,15 +330,15 @@ func (e *Model) Users() ([]*ModelUser, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var envUsers []*ModelUser
+	var modelUsers []*ModelUser
 	for _, doc := range userDocs {
-		envUsers = append(envUsers, &ModelUser{
+		modelUsers = append(modelUsers, &ModelUser{
 			st:  e.st,
 			doc: doc,
 		})
 	}
 
-	return envUsers, nil
+	return modelUsers, nil
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing

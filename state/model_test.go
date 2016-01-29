@@ -487,7 +487,7 @@ func (s *ModelSuite) TestListModelUsers(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := addEnvUsers(c, s.State)
+	expected := addModelUsers(c, s.State)
 	obtained, err := env.Users()
 	c.Assert(err, gc.IsNil)
 
@@ -521,8 +521,8 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add users to both models
-	expectedUsers := addEnvUsers(c, s.State)
-	expectedUsersOtherEnv := addEnvUsers(c, otherEnvState)
+	expectedUsers := addModelUsers(c, s.State)
+	expectedUsersOtherEnv := addModelUsers(c, otherEnvState)
 
 	// test that only the expected users are listed for each model
 	obtainedUsers, err := env.Users()
@@ -534,7 +534,7 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherEnv, expectedUsersOtherEnv)
 }
 
-func addEnvUsers(c *gc.C, st *state.State) (expected []*state.ModelUser) {
+func addModelUsers(c *gc.C, st *state.State) (expected []*state.ModelUser) {
 	// get the model owner
 	testAdmin := names.NewUserTag("test-admin")
 	owner, err := st.ModelUser(testAdmin)
@@ -545,9 +545,9 @@ func addEnvUsers(c *gc.C, st *state.State) (expected []*state.ModelUser) {
 		// we expect the owner to be an existing model user
 		owner,
 		// add new users to the model
-		f.MakeEnvUser(c, nil),
-		f.MakeEnvUser(c, nil),
-		f.MakeEnvUser(c, nil),
+		f.MakeModelUser(c, nil),
+		f.MakeModelUser(c, nil),
+		f.MakeModelUser(c, nil),
 	}
 }
 

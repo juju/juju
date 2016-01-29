@@ -45,12 +45,12 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     names.Tag
-	NoEnvUser   bool
+	NoModelUser bool
 	Disabled    bool
 }
 
-// EnvUserParams defines the parameters for creating an environment user.
-type EnvUserParams struct {
+// ModelUserParams defines the parameters for creating an environment user.
+type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
@@ -139,7 +139,7 @@ func uniqueString(prefix string) string {
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used.
-// If params.NoEnvUser is false, the user will also be created
+// If params.NoModelUser is false, the user will also be created
 // in the current model.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
@@ -163,7 +163,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	if !params.NoEnvUser {
+	if !params.NoModelUser {
 		_, err := factory.st.AddModelUser(state.ModelUserSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
@@ -178,16 +178,16 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	return user
 }
 
-// MakeEnvUser will create a envUser with values defined by the params. For
-// attributes of EnvUserParams that are the default empty values, some
+// MakeModelUser will create a modelUser with values defined by the params. For
+// attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.ModelUser {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.ModelUser {
 	if params == nil {
-		params = &EnvUserParams{}
+		params = &ModelUserParams{}
 	}
 	if params.User == "" {
-		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
+		user := factory.MakeUser(c, &UserParams{NoModelUser: true})
 		params.User = user.UserTag().Canonical()
 	}
 	if params.DisplayName == "" {
@@ -199,14 +199,14 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Model
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddModelUser(state.ModelUserSpec{
+	modelUser, err := factory.st.AddModelUser(state.ModelUserSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
 		ReadOnly:    params.ReadOnly,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return envUser
+	return modelUser
 }
 
 func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {

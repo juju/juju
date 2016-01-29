@@ -15,20 +15,20 @@ import (
 )
 
 type UsersCommandSuite struct {
-	fake *fakeEnvUsersClient
+	fake *fakeModelUsersClient
 }
 
 var _ = gc.Suite(&UsersCommandSuite{})
 
-type fakeEnvUsersClient struct {
+type fakeModelUsersClient struct {
 	users []params.ModelUserInfo
 }
 
-func (f *fakeEnvUsersClient) Close() error {
+func (f *fakeModelUsersClient) Close() error {
 	return nil
 }
 
-func (f *fakeEnvUsersClient) ModelUserInfo() ([]params.ModelUserInfo, error) {
+func (f *fakeModelUsersClient) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	return f.users, nil
 }
 
@@ -57,10 +57,10 @@ func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.fake = &fakeEnvUsersClient{users: userlist}
+	s.fake = &fakeModelUsersClient{users: userlist}
 }
 
-func (s *UsersCommandSuite) TestEnvUsers(c *gc.C) {
+func (s *UsersCommandSuite) TestModelUsers(c *gc.C) {
 	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake), "-m", "dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
@@ -71,7 +71,7 @@ func (s *UsersCommandSuite) TestEnvUsers(c *gc.C) {
 		"\n")
 }
 
-func (s *UsersCommandSuite) TestEnvUsersFormatJson(c *gc.C) {
+func (s *UsersCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake), "-m", "dummymodel", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "["+

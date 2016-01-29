@@ -46,11 +46,11 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	user := names.NewUserTag(username)
-	envUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
-	lastConn, err := envUser.LastConnection()
+	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
+	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -60,9 +60,9 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "share-model", username)
 	user := names.NewUserTag(username)
-	envuser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envuser, gc.NotNil)
+	c.Assert(modelUser, gc.NotNil)
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -75,9 +75,9 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
-	envuser, err = s.State.ModelUser(user)
+	modelUser, err = s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(envuser, gc.IsNil)
+	c.Assert(modelUser, gc.IsNil)
 }
 
 func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
@@ -85,9 +85,9 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "share-model", username)
 	user := names.NewUserTag(username)
-	envuser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envuser, gc.NotNil)
+	c.Assert(modelUser, gc.NotNil)
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need

@@ -59,7 +59,7 @@ all-changes includes all alteration commands
     authorised-keys import
     deploy
     destroy-model
-    ensure-availability
+    enable-ha
     expose
     remove-machine
     remove-relation

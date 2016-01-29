@@ -505,7 +505,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
 	_, err := api.Open(info, fastDialOpts)
@@ -965,9 +965,9 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The env user is also updated.
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := envUser.LastConnection()
+	when, err := modelUser.LastConnection()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, gc.NotNil)
 	c.Assert(when.After(startTime), jc.IsTrue)

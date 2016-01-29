@@ -42,11 +42,11 @@ _"at least that many"_
  At present there is no way to reduce the number of machines, you can kill by 
 hand enough machines to reduce to a number you need, but this is risky and 
 **not recommended**. If you kill less than half of the machines (half+1
-remaining) running `ensure-availability` again will add more machines to 
+remaining) running `enable-ha` again will add more machines to 
 replace the dead ones. If you kill more there is no way to recover as there 
 are not enough voting machines.
  
- The EnsureAvailability API call will report will report the changes that it 
+ The EnableHA API call will report will report the changes that it 
 made to the model, which will shortly be reflected in reality
 ### The API 
 
@@ -65,7 +65,7 @@ look like and continually tries to maintain those members.
 
  The reason for its existence is that it can often take a while for mongo to 
 allow a peer group change, so we can't change it directly in the 
-EnsureAvailability API call
+EnableHA API call
 
  Its worker loop continally watches 
 

@@ -237,15 +237,6 @@ type ServiceSet struct {
 	Options     map[string]string
 }
 
-// TODO(wallyworld) - deprecated, remove when GUI updated.
-// ServiceSetYAML holds the parameters for
-// a ServiceSetYAML command. Config contains the
-// configuration data in YAML format.
-type ServiceSetYAML struct {
-	ServiceName string
-	Config      string
-}
-
 // ServiceUnset holds the parameters for a ServiceUnset
 // command. Options contains the option attribute names
 // to unset.
@@ -630,7 +621,7 @@ type LoginResultV1 struct {
 }
 
 // StateServersSpec contains arguments for
-// the EnsureAvailability client API call.
+// the EnableHA client API call.
 type StateServersSpec struct {
 	ModelTag        string
 	NumStateServers int               `json:"num-state-servers"`
@@ -643,13 +634,13 @@ type StateServersSpec struct {
 }
 
 // StateServersSpecs contains all the arguments
-// for the EnsureAvailability API call.
+// for the EnableHA API call.
 type StateServersSpecs struct {
 	Specs []StateServersSpec
 }
 
 // StateServersChangeResult contains the results
-// of a single EnsureAvailability API call or
+// of a single EnableHA API call or
 // an error.
 type StateServersChangeResult struct {
 	Result StateServersChanges
@@ -657,14 +648,14 @@ type StateServersChangeResult struct {
 }
 
 // StateServersChangeResults contains the results
-// of the EnsureAvailability API call.
+// of the EnableHA API call.
 type StateServersChangeResults struct {
 	Results []StateServersChangeResult
 }
 
 // StateServersChanges lists the servers
 // that have been added, removed or maintained in the
-// pool as a result of an ensure-availability operation.
+// pool as a result of an enable-ha operation.
 type StateServersChanges struct {
 	Added      []string `json:"added,omitempty"`
 	Maintained []string `json:"maintained,omitempty"`

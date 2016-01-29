@@ -16,6 +16,7 @@ import (
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
+	apiannotations "github.com/juju/juju/api/annotations"
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -90,23 +91,29 @@ func deployBundle(
 		return errors.Annotate(err, "cannot get service client")
 	}
 
+	annotationsClient, err := serviceDeployer.newAnnotationsAPIClient()
+	if err != nil {
+		return errors.Annotate(err, "cannot get annotations client")
+	}
+
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
-		changes:         changes,
-		results:         make(map[string]string, numChanges),
-		client:          client,
-		serviceClient:   serviceClient,
-		serviceDeployer: serviceDeployer,
-		bundleStorage:   bundleStorage,
-		csclient:        csclient,
-		repoPath:        repoPath,
-		conf:            conf,
-		log:             log,
-		data:            data,
-		unitStatus:      unitStatus,
-		ignoredMachines: make(map[string]bool, len(data.Services)),
-		ignoredUnits:    make(map[string]bool, len(data.Services)),
-		watcher:         watcher,
+		changes:           changes,
+		results:           make(map[string]string, numChanges),
+		client:            client,
+		serviceClient:     serviceClient,
+		annotationsClient: annotationsClient,
+		serviceDeployer:   serviceDeployer,
+		bundleStorage:     bundleStorage,
+		csclient:          csclient,
+		repoPath:          repoPath,
+		conf:              conf,
+		log:               log,
+		data:              data,
+		unitStatus:        unitStatus,
+		ignoredMachines:   make(map[string]bool, len(data.Services)),
+		ignoredUnits:      make(map[string]bool, len(data.Services)),
+		watcher:           watcher,
 	}
 
 	// Deploy the bundle.
@@ -156,6 +163,8 @@ type bundleHandler struct {
 	client *api.Client
 	// serviceClient is used to interact with services.
 	serviceClient *apiservice.Client
+	// annotationsClient is used to interact with annotations.
+	annotationsClient *apiannotations.Client
 	// serviceDeployer is used to deploy services.
 	serviceDeployer *serviceDeployer
 	// bundleStorage contains a mapping of service-specific storage
@@ -466,7 +475,11 @@ func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotations
 	default:
 		return errors.Errorf("unexpected annotation entity type %q", p.EntityType)
 	}
-	if err := h.client.SetAnnotations(tag, p.Annotations); err != nil {
+	result, err := h.annotationsClient.Set(map[string]map[string]string{tag: p.Annotations})
+	if err == nil {
+		err = result[0].Error
+	}
+	if err != nil {
 		return errors.Annotatef(err, "cannot set annotations for %s %q", p.EntityType, eid)
 	}
 	h.log.Infof("annotations set for %s %s", p.EntityType, eid)

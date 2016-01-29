@@ -59,7 +59,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
@@ -221,7 +221,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
-	otherEnvOwner := s.Factory.MakeEnvUser(c, nil)
+	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:    "dummytoo",
 		Owner:   otherEnvOwner.UserTag(),

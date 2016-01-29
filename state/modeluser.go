@@ -34,12 +34,12 @@ type modelUserDoc struct {
 	ReadOnly    bool      `bson:"readonly"`
 }
 
-// envUserLastConnectionDoc is updated by the apiserver whenever the user
+// modelUserLastConnectionDoc is updated by the apiserver whenever the user
 // connects over the API. This update is not done using mgo.txn so the values
 // could well change underneath a normal transaction and as such, it should
 // NEVER appear in any transaction asserts. It is really informational only as
 // far as everyone except the api server is concerned.
-type envUserLastConnectionDoc struct {
+type modelUserLastConnectionDoc struct {
 	ID             string    `bson:"_id"`
 	ModelUUID      string    `bson:"model-uuid"`
 	UserName       string    `bson:"user"`
@@ -94,7 +94,7 @@ func (e *ModelUser) LastConnection() (time.Time, error) {
 	defer closer()
 
 	username := strings.ToLower(e.UserName())
-	var lastConn envUserLastConnectionDoc
+	var lastConn modelUserLastConnectionDoc
 	err := lastConnections.FindId(e.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
@@ -134,7 +134,7 @@ func (e *ModelUser) UpdateLastConnection() error {
 	session := lastConnectionsW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
-	lastConn := envUserLastConnectionDoc{
+	lastConn := modelUserLastConnectionDoc{
 		ID:             e.st.docID(strings.ToLower(e.UserName())),
 		ModelUUID:      e.ModelTag().Id(),
 		UserName:       e.UserName(),
@@ -146,19 +146,19 @@ func (e *ModelUser) UpdateLastConnection() error {
 
 // ModelUser returns the model user.
 func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
-	envUser := &ModelUser{st: st}
-	envUsers, closer := st.getCollection(modelUsersC)
+	modelUser := &ModelUser{st: st}
+	modelUsers, closer := st.getCollection(modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	err := envUsers.FindId(username).One(&envUser.doc)
+	err := modelUsers.FindId(username).One(&modelUser.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("model user %q", user.Canonical())
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
-	envUser.doc.DateCreated = envUser.doc.DateCreated.UTC()
-	return envUser, nil
+	modelUser.doc.DateCreated = modelUser.doc.DateCreated.UTC()
+	return modelUser, nil
 }
 
 // ModelUserSpec defines the attributes that can be set when adding a new
@@ -191,7 +191,7 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 	}
 
 	modelUUID := st.ModelUUID()
-	op := createEnvUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
+	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
@@ -203,16 +203,16 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 	return st.ModelUser(spec.User)
 }
 
-// envUserID returns the document id of the model user
-func envUserID(user names.UserTag) string {
+// modelUserID returns the document id of the model user
+func modelUserID(user names.UserTag) string {
 	username := user.Canonical()
 	return strings.ToLower(username)
 }
 
-func createEnvUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
+func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &modelUserDoc{
-		ID:          envUserID(user),
+		ID:          modelUserID(user),
 		ModelUUID:   modelUUID,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
@@ -222,7 +222,7 @@ func createEnvUserOp(modelUUID string, user, createdBy names.UserTag, displayNam
 	}
 	return txn.Op{
 		C:      modelUsersC,
-		Id:     envUserID(user),
+		Id:     modelUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -232,7 +232,7 @@ func createEnvUserOp(modelUUID string, user, createdBy names.UserTag, displayNam
 func (st *State) RemoveModelUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      modelUsersC,
-		Id:     envUserID(user),
+		Id:     modelUserID(user),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
@@ -259,7 +259,7 @@ func (e *UserModel) LastConnection() (time.Time, error) {
 	lastConnections, lastConnCloser := e.st.getRawCollection(modelUserLastConnectionC)
 	defer lastConnCloser()
 
-	lastConnDoc := envUserLastConnectionDoc{}
+	lastConnDoc := modelUserLastConnectionDoc{}
 	id := ensureModelUUID(e.ModelTag().Id(), strings.ToLower(e.User.Canonical()))
 	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
 	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
@@ -310,10 +310,10 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 
 	serverUUID := ssinfo.ModelTag.Id()
 
-	envUsers, userCloser := st.getRawCollection(modelUsersC)
+	modelUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
-	count, err := envUsers.Find(bson.D{
+	count, err := modelUsers.Find(bson.D{
 		{"model-uuid", serverUUID},
 		{"user", user.Canonical()},
 	}).Count()

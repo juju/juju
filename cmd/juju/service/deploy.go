@@ -17,6 +17,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	apiannotations "github.com/juju/juju/api/annotations"
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -246,6 +247,14 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
+func (c *DeployCommand) newAnnotationsAPIClient() (*apiannotations.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiannotations.NewClient(root), nil
+}
+
 type ModelConfigGetter interface {
 	ModelGet() (map[string]interface{}, error)
 }
@@ -261,7 +270,7 @@ var getClientConfig = func(client ModelConfigGetter) (*config.Config, error) {
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
-	deployer := serviceDeployer{ctx, c.newServiceAPIClient}
+	deployer := serviceDeployer{ctx, c.newServiceAPIClient, c.newAnnotationsAPIClient}
 
 	// We may have been given a local bundle file.
 	bundlePath := c.CharmOrBundle
@@ -542,22 +551,23 @@ type serviceDeployParams struct {
 }
 
 type serviceDeployer struct {
-	ctx                 *cmd.Context
-	newServiceAPIClient func() (*apiservice.Client, error)
+	ctx                     *cmd.Context
+	newServiceAPIClient     func() (*apiservice.Client, error)
+	newAnnotationsAPIClient func() (*apiannotations.Client, error)
 }
 
 func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
-	serviceClient, err := c.newServiceAPIClient()
-	if err != nil {
-		return err
-	}
-	defer serviceClient.Close()
 	if len(args.networks) > 0 {
 		c.ctx.Infof(
 			"use of --networks is deprecated and is ignored. " +
 				"Please use spaces to manage placement within networks",
 		)
 	}
+	serviceClient, err := c.newServiceAPIClient()
+	if err != nil {
+		return err
+	}
+	defer serviceClient.Close()
 	for i, p := range args.placement {
 		if p.Scope == "model-uuid" {
 			p.Scope = serviceClient.ModelUUID()

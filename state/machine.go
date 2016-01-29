@@ -939,7 +939,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	// We preform a manual sync here so that the
 	// presence pinger has the most up-to-date information when it
 	// starts. This ensures that commands run immediately after bootstrap
-	// like status or ensure-availability will have an accurate values
+	// like status or enable-ha will have an accurate values
 	// for agent-state.
 	//
 	// TODO: Does not work for multiple state servers. Trigger a sync across all state servers.

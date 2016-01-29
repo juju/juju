@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -101,11 +102,11 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientServiceSetCharm,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.GetAnnotations",
+		about: "Annotations.GetAnnotations",
 		op:    opClientGetAnnotations,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetAnnotations",
+		about: "Annotations.SetAnnotations",
 		op:    opClientSetAnnotations,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -296,23 +297,32 @@ func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error
 }
 
 func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	ann, err := st.Client().GetAnnotations("service-wordpress")
+	ann, err := annotations.NewClient(st).Get([]string{"service-wordpress"})
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
+	c.Assert(ann, gc.DeepEquals, []params.AnnotationsGetResult{{
+		EntityTag:   "service-wordpress",
+		Annotations: map[string]string{},
+	}})
 	return func() {}, nil
 }
 
 func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
-	err := st.Client().SetAnnotations("service-wordpress", pairs)
+	setParams := map[string]map[string]string{
+		"service-wordpress": pairs,
+	}
+	_, err := annotations.NewClient(st).Set(setParams)
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
 		pairs := map[string]string{"key1": "", "key2": ""}
-		st.Client().SetAnnotations("service-wordpress", pairs)
+		setParams := map[string]map[string]string{
+			"service-wordpress": pairs,
+		}
+		annotations.NewClient(st).Set(setParams)
 	}, nil
 }
 

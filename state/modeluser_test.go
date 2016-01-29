@@ -26,53 +26,53 @@ var _ = gc.Suite(&ModelUserSuite{})
 
 func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	now := state.NowToTheSecond()
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	envUser, err := s.State.AddModelUser(state.ModelUserSpec{
+	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
 		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
-	c.Assert(envUser.ModelTag(), gc.Equals, s.modelTag)
-	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
-	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
-	c.Assert(envUser.ReadOnly(), jc.IsFalse)
-	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
-	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
-	when, err := envUser.LastConnection()
+	c.Assert(modelUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
+	c.Assert(modelUser.ModelTag(), gc.Equals, s.modelTag)
+	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
+	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
+	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "createdby@local")
+	c.Assert(modelUser.DateCreated().Equal(now) || modelUser.DateCreated().After(now), jc.IsTrue)
+	when, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 
-	envUser, err = s.State.ModelUser(user.UserTag())
+	modelUser, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
-	c.Assert(envUser.ModelTag(), gc.Equals, s.modelTag)
-	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
-	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
-	c.Assert(envUser.ReadOnly(), jc.IsFalse)
-	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
-	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
-	when, err = envUser.LastConnection()
+	c.Assert(modelUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
+	c.Assert(modelUser.ModelTag(), gc.Equals, s.modelTag)
+	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
+	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
+	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "createdby@local")
+	c.Assert(modelUser.DateCreated().Equal(now) || modelUser.DateCreated().After(now), jc.IsTrue)
+	when, err = modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
 func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	envUser, err := s.State.AddModelUser(state.ModelUserSpec{
+	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
 		User: user.UserTag(), CreatedBy: createdBy.UserTag(), ReadOnly: true})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
-	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
-	c.Assert(envUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
+	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 
 	// Make sure that it is set when we read the user out.
-	envUser, err = s.State.ModelUser(user.UserTag())
+	modelUser, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
-	c.Assert(envUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 }
 
 func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
@@ -87,10 +87,10 @@ func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	c.Assert(user.ID(), gc.Equals, state.DocID(s.State, "bob@randomprovider"))
 }
 
-func (s *ModelUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
+func (s *ModelUserSuite) TestCaseSensitiveModelUserErrors(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "Bob@ubuntuone"})
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "Bob@ubuntuone"})
 
 	_, err = s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag("boB@ubuntuone"),
@@ -102,7 +102,7 @@ func (s *ModelUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 	assertIsolated := func(st1, st2 *state.State, usernames ...string) {
 		f := factory.NewFactory(st1)
-		expectedUser := f.MakeEnvUser(c, &factory.EnvUserParams{User: usernames[0]})
+		expectedUser := f.MakeModelUser(c, &factory.ModelUserParams{User: usernames[0]})
 
 		// assert case insensitive lookup for each username
 		for _, username := range usernames {
@@ -131,11 +131,11 @@ func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 }
 
 func (s *ModelUserSuite) TestAddModelDisplayName(c *gc.C) {
-	envUserDefault := s.Factory.MakeEnvUser(c, nil)
-	c.Assert(envUserDefault.DisplayName(), gc.Matches, "display name-[0-9]*")
+	modelUserDefault := s.Factory.MakeModelUser(c, nil)
+	c.Assert(modelUserDefault.DisplayName(), gc.Matches, "display name-[0-9]*")
 
-	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{DisplayName: "Override user display name"})
-	c.Assert(envUser.DisplayName(), gc.Equals, "Override user display name")
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{DisplayName: "Override user display name"})
+	c.Assert(modelUser.DisplayName(), gc.Equals, "Override user display name")
 }
 
 func (s *ModelUserSuite) TestAddModelNoUserFails(c *gc.C) {
@@ -167,7 +167,7 @@ func (s *ModelUserSuite) TestRemoveModelUser(c *gc.C) {
 }
 
 func (s *ModelUserSuite) TestRemoveModelUserFails(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	err := s.State.RemoveModelUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -176,30 +176,30 @@ func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = envUser.UpdateLastConnection()
+	err = modelUser.UpdateLastConnection()
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := envUser.LastConnection()
+	when, err := modelUser.LastConnection()
 	c.Assert(err, jc.ErrorIsNil)
 	// It is possible that the update is done over a second boundary, so we need
 	// to check for after now as well as equal.
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
-func (s *ModelUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
+func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	now := state.NowToTheSecond()
 
 	// Create a user and add them to the inital model.
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a second model and add the same user to this.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	envUser2, err := st2.AddModelUser(state.ModelUserSpec{
+	modelUser2, err := st2.AddModelUser(state.ModelUserSpec{
 		User:      user.UserTag(),
 		CreatedBy: createdBy.UserTag()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,22 +207,22 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
 	// Now we have two model users with the same username. Ensure we get
 	// separate last connections.
 
-	// Connect envUser and get last connection.
-	err = envUser.UpdateLastConnection()
+	// Connect modelUser and get last connection.
+	err = modelUser.UpdateLastConnection()
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := envUser.LastConnection()
+	when, err := modelUser.LastConnection()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 
-	// Try to get last connection for envUser2. As they have never connected,
+	// Try to get last connection for modelUser2. As they have never connected,
 	// we expect to get an error.
-	_, err = envUser2.LastConnection()
+	_, err = modelUser2.LastConnection()
 	c.Assert(err, gc.ErrorMatches, `never connected: "validusername@local"`)
 
-	// Connect envUser2 and get last connection.
-	err = envUser2.UpdateLastConnection()
+	// Connect modelUser2 and get last connection.
+	err = modelUser2.UpdateLastConnection()
 	c.Assert(err, jc.ErrorIsNil)
-	when, err = envUser2.LastConnection()
+	when, err = modelUser2.LastConnection()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
@@ -235,7 +235,7 @@ func (s *ModelUserSuite) TestModelsForUserNone(c *gc.C) {
 }
 
 func (s *ModelUserSuite) TestModelsForUserNewLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	models, err := s.State.ModelsForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
@@ -331,19 +331,19 @@ func (s *ModelUserSuite) TestIsControllerAdministrator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: user.UserTag().Canonical()})
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: user.UserTag().Canonical()})
 	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 }
 
 func (s *ModelUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
 	defer otherState.Close()

@@ -658,7 +658,7 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few state servers, provision two of them.
-	_, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")

@@ -47,11 +47,11 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 	err := s.client.ShareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
-	lastConn, err := envUser.LastConnection()
+	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
+	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -62,21 +62,21 @@ func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	err := s.client.ShareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envUser, err := s.State.ModelUser(user)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser, gc.NotNil)
+	c.Assert(modelUser, gc.NotNil)
 
 	// Then test unsharing the environment.
 	err = s.client.UnshareModel(user)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envUser, err = s.State.ModelUser(user)
+	modelUser, err = s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(envUser, gc.IsNil)
+	c.Assert(modelUser, gc.IsNil)
 }
 
 func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
-	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	owner, err := s.State.ModelUser(env.Owner())
@@ -95,14 +95,14 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
 			CreatedBy:      owner.UserName(),
-			DateCreated:    envUser.DateCreated(),
-			LastConnection: lastConnPointer(c, envUser),
+			DateCreated:    modelUser.DateCreated(),
+			LastConnection: lastConnPointer(c, modelUser),
 		},
 	})
 }
 
-func lastConnPointer(c *gc.C, envUser *state.ModelUser) *time.Time {
-	lastConn, err := envUser.LastConnection()
+func lastConnPointer(c *gc.C, modelUser *state.ModelUser) *time.Time {
+	lastConn, err := modelUser.LastConnection()
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil

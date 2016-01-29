@@ -21,15 +21,15 @@ import (
 	"github.com/juju/juju/instance"
 )
 
-func newEnsureAvailabilityCommand() cmd.Command {
-	return modelcmd.Wrap(&ensureAvailabilityCommand{})
+func newEnableHACommand() cmd.Command {
+	return modelcmd.Wrap(&enableHACommand{})
 }
 
-// ensureAvailabilityCommand makes the controller highly available.
-type ensureAvailabilityCommand struct {
+// enableHACommand makes the controller highly available.
+type enableHACommand struct {
 	modelcmd.ModelCommandBase
 	out      cmd.Output
-	haClient EnsureAvailabilityClient
+	haClient MakeHAClient
 
 	// NumStateServers specifies the number of state servers to make available.
 	NumStateServers int
@@ -48,27 +48,27 @@ type ensureAvailabilityCommand struct {
 	PlacementSpec string
 }
 
-const ensureAvailabilityDoc = `
+const enableHADoc = `
 To ensure availability of deployed services, the Juju infrastructure
-must itself be highly available.  Ensure-availability must be called
+must itself be highly available.  enable-ha must be called
 to ensure that the specified number of state servers are made available.
 
 An odd number of state servers is required.
 
 Examples:
- juju ensure-availability
+ juju enable-ha
      Ensure that the controller is still in highly available mode. If
      there is only 1 state server running, this will ensure there
      are 3 running. If you have previously requested more than 3,
      then that number will be ensured.
- juju ensure-availability -n 5 --series=trusty
+ juju enable-ha -n 5 --series=trusty
      Ensure that 5 state servers are available, with newly created
      state server machines having the "trusty" series.
- juju ensure-availability -n 7 --constraints mem=8G
+ juju enable-ha -n 7 --constraints mem=8G
      Ensure that 7 state servers are available, with newly created
      state server machines having the default series, and at least
      8GB RAM.
- juju ensure-availability -n 7 --to server1,server2 --constraints mem=8G
+ juju enable-ha -n 7 --to server1,server2 --constraints mem=8G
      Ensure that 7 state servers are available, with machines server1 and
      server2 used first, and if necessary, newly created state server
      machines having the default series, and at least 8GB RAM.
@@ -76,9 +76,9 @@ Examples:
 
 // formatSimple marshals value to a yaml-formatted []byte, unless value is nil.
 func formatSimple(value interface{}) ([]byte, error) {
-	ensureAvailabilityResult, ok := value.(availabilityInfo)
+	enableHAResult, ok := value.(availabilityInfo)
 	if !ok {
-		return nil, fmt.Errorf("unexpected result type for ensure-availability call: %T", value)
+		return nil, fmt.Errorf("unexpected result type for enable-ha call: %T", value)
 	}
 
 	var buf bytes.Buffer
@@ -89,27 +89,27 @@ func formatSimple(value interface{}) ([]byte, error) {
 	}{
 		{
 			"maintaining machines: %s\n",
-			ensureAvailabilityResult.Maintained,
+			enableHAResult.Maintained,
 		},
 		{
 			"adding machines: %s\n",
-			ensureAvailabilityResult.Added,
+			enableHAResult.Added,
 		},
 		{
 			"removing machines: %s\n",
-			ensureAvailabilityResult.Removed,
+			enableHAResult.Removed,
 		},
 		{
 			"promoting machines: %s\n",
-			ensureAvailabilityResult.Promoted,
+			enableHAResult.Promoted,
 		},
 		{
 			"demoting machines: %s\n",
-			ensureAvailabilityResult.Demoted,
+			enableHAResult.Demoted,
 		},
 		{
 			"converting machines: %s\n",
-			ensureAvailabilityResult.Converted,
+			enableHAResult.Converted,
 		},
 	} {
 		if len(machineList.list) == 0 {
@@ -124,16 +124,15 @@ func formatSimple(value interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *ensureAvailabilityCommand) Info() *cmd.Info {
+func (c *enableHACommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "ensure-availability",
+		Name:    "enable-ha",
 		Purpose: "ensure that sufficient state servers exist to provide redundancy",
-		Doc:     ensureAvailabilityDoc,
-		Aliases: []string{"enable-ha"},
+		Doc:     enableHADoc,
 	}
 }
 
-func (c *ensureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumStateServers, "n", 0, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.StringVar(&c.PlacementSpec, "to", "", "the machine(s) to become state servers, bypasses constraints")
@@ -146,7 +145,7 @@ func (c *ensureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 
 }
 
-func (c *ensureAvailabilityCommand) Init(args []string) error {
+func (c *enableHACommand) Init(args []string) error {
 	if c.NumStateServers < 0 || (c.NumStateServers%2 != 1 && c.NumStateServers != 0) {
 		return fmt.Errorf("must specify a number of state servers odd and non-negative")
 	}
@@ -156,7 +155,7 @@ func (c *ensureAvailabilityCommand) Init(args []string) error {
 		for i, spec := range placementSpecs {
 			p, err := instance.ParsePlacement(strings.TrimSpace(spec))
 			if err == nil && names.IsContainerMachine(p.Directive) {
-				return errors.New("ensure-availability cannot be used with container placement directives")
+				return errors.New("enable-ha cannot be used with container placement directives")
 			}
 			if err == nil && p.Scope == instance.MachineScope {
 				// Targeting machines is ok.
@@ -164,7 +163,7 @@ func (c *ensureAvailabilityCommand) Init(args []string) error {
 				continue
 			}
 			if err != instance.ErrPlacementScopeMissing {
-				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
+				return fmt.Errorf("unsupported enable-ha placement directive %q", spec)
 			}
 			c.Placement[i] = spec
 		}
@@ -181,17 +180,17 @@ type availabilityInfo struct {
 	Converted  []string `json:"converted,omitempty" yaml:"converted,flow,omitempty"`
 }
 
-// EnsureAvailabilityClient defines the methods
+// MakeHAClient defines the methods
 // on the client api that the ensure availability
 // command calls.
-type EnsureAvailabilityClient interface {
+type MakeHAClient interface {
 	Close() error
-	EnsureAvailability(
+	EnableHA(
 		numStateServers int, cons constraints.Value, series string,
 		placement []string) (params.StateServersChanges, error)
 }
 
-func (c *ensureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, error) {
+func (c *enableHACommand) getHAClient() (MakeHAClient, error) {
 	if c.haClient != nil {
 		return c.haClient, nil
 	}
@@ -206,15 +205,15 @@ func (c *ensureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, err
 }
 
 // Run connects to the environment specified on the command line
-// and calls EnsureAvailability.
-func (c *ensureAvailabilityCommand) Run(ctx *cmd.Context) error {
+// and calls EnableHA.
+func (c *enableHACommand) Run(ctx *cmd.Context) error {
 	haClient, err := c.getHAClient()
 	if err != nil {
 		return err
 	}
 
 	defer haClient.Close()
-	ensureAvailabilityResult, err := haClient.EnsureAvailability(
+	enableHAResult, err := haClient.EnableHA(
 		c.NumStateServers,
 		c.Constraints,
 		c.Series,
@@ -225,12 +224,12 @@ func (c *ensureAvailabilityCommand) Run(ctx *cmd.Context) error {
 	}
 
 	result := availabilityInfo{
-		Added:      machineTagsToIds(ensureAvailabilityResult.Added...),
-		Removed:    machineTagsToIds(ensureAvailabilityResult.Removed...),
-		Maintained: machineTagsToIds(ensureAvailabilityResult.Maintained...),
-		Promoted:   machineTagsToIds(ensureAvailabilityResult.Promoted...),
-		Demoted:    machineTagsToIds(ensureAvailabilityResult.Demoted...),
-		Converted:  machineTagsToIds(ensureAvailabilityResult.Converted...),
+		Added:      machineTagsToIds(enableHAResult.Added...),
+		Removed:    machineTagsToIds(enableHAResult.Removed...),
+		Maintained: machineTagsToIds(enableHAResult.Maintained...),
+		Promoted:   machineTagsToIds(enableHAResult.Promoted...),
+		Demoted:    machineTagsToIds(enableHAResult.Demoted...),
+		Converted:  machineTagsToIds(enableHAResult.Converted...),
 	}
 	return c.out.Write(ctx, result)
 }

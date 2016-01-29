@@ -284,26 +284,6 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 	return NewAllWatcher(c.st, &info.AllWatcherId), nil
 }
 
-// GetAnnotations returns annotations that have been set on the given entity.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
-	args := params.GetAnnotations{tag}
-	ann := new(params.GetAnnotationsResults)
-	err := c.facade.FacadeCall("GetAnnotations", args, ann)
-	return ann.Annotations, err
-}
-
-// SetAnnotations sets the annotation pairs on the given entity.
-// Currently annotations are supported on machines, services,
-// units and the model itself.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
-	args := params.SetAnnotations{tag, pairs}
-	return c.facade.FacadeCall("SetAnnotations", args, nil)
-}
-
 // Close closes the Client's underlying State connection
 // Client is unique among the api.State facades in closing its own State
 // connection, but it is conventional to use a Client object without any access
@@ -525,36 +505,6 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 		return nil, err
 	}
 	return result.NetworkHostsPorts(), nil
-}
-
-// EnsureAvailability ensures the availability of Juju state servers.
-// DEPRECATED: remove when we stop supporting 1.20 and earlier servers.
-// This API is now on the HighAvailability facade.
-func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
-	var results params.StateServersChangeResults
-	modelTag, err := c.st.ModelTag()
-	if err != nil {
-		return params.StateServersChanges{}, errors.Trace(err)
-	}
-	arg := params.StateServersSpecs{
-		Specs: []params.StateServersSpec{{
-			ModelTag:        modelTag.String(),
-			NumStateServers: numStateServers,
-			Constraints:     cons,
-			Series:          series,
-		}}}
-	err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
-	if err != nil {
-		return params.StateServersChanges{}, err
-	}
-	if len(results.Results) != 1 {
-		return params.StateServersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return params.StateServersChanges{}, result.Error
-	}
-	return result.Result, nil
 }
 
 // AgentVersion reports the version number of the api server.

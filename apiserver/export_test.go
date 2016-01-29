@@ -65,9 +65,9 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForModelUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c, lookForEnvUser, authenticator)
+		return checkCreds(st, c, lookForModelUser, authenticator)
 	}
 	doCheckCreds = delayedCheckCreds
 	return

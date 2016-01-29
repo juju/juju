@@ -186,14 +186,14 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}
-	envUserOp := createEnvUserOp(modelUUID, owner, owner, owner.Name(), false)
+	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), false)
 	ops := []txn.Op{
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 		incHostedModelCountOp(),
 		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
-		envUserOp,
+		modelUserOp,
 	}
 	return ops, nil
 }

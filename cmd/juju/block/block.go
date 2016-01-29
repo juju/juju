@@ -167,7 +167,7 @@ To by-pass the block, where available, run desired remove command with --force o
     authorised-keys import
     deploy
     destroy-model
-    ensure-availability
+    enable-ha
     expose
     remove-machine
     remove-relation

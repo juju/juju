@@ -70,7 +70,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	if names.NewUserTag(username).IsLocal() {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User: username,
 	})
 }
