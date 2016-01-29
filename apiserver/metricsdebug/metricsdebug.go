@@ -154,7 +154,10 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 		if err != nil {
 			return errors.Trace(err)
 		}
-		chURL, _ := unit.CharmURL()
+		chURL, found := unit.CharmURL()
+		if !found {
+			return errors.New("no charm url")
+		}
 		if chURL.Schema != "local" {
 			return errors.New("not a local charm")
 		}

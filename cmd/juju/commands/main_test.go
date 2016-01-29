@@ -264,6 +264,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"set-meter-status",
 	"set-model", // alias for set-environment
 	"share-environment",
 	"share-model", // alias for share-environment

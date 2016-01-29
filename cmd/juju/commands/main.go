@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -239,6 +240,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Debug Metrics
 	r.Register(metricsdebug.New())
 	r.Register(metricsdebug.NewCollectMetricsCommand())
+	r.Register(setmeterstatus.New())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
