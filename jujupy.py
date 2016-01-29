@@ -404,9 +404,13 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed')
 
+    @staticmethod
+    def _dict_as_option_strings(options):
+        return tuple('{}={}'.format(*item) for item in options.items())
+
     def set_config(self, service, options):
-        option_strings = ['{}={}'.format(*item) for item in options.items()]
-        self.juju('set-config', (service,) + tuple(option_strings))
+        option_strings = self._dict_as_option_strings(options)
+        self.juju('set-config', (service,) + option_strings)
 
     def get_config(self, service):
         return yaml_loads(self.get_juju_output('get-config', service))
@@ -419,6 +423,10 @@ class EnvJujuClient:
                 pass
         raise Exception(
             'Timed out waiting for juju get %s' % (service))
+
+    def set_model_constraints(self, constraints):
+        constraint_strings = self._dict_as_option_strings(constraints)
+        return self.juju('set-model-constraints', constraint_strings)
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
@@ -938,6 +946,10 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def add_subnet(self, subnet, space):
         self.juju('subnet add', (subnet, space))
+
+    def set_model_constraints(self, constraints):
+        constraint_strings = self._dict_as_option_strings(constraints)
+        return self.juju('set-constraints', constraint_strings)
 
     def set_config(self, service, options):
         option_strings = ['{}={}'.format(*item) for item in options.items()]
