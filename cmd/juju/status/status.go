@@ -14,7 +14,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -28,11 +28,11 @@ type statusAPI interface {
 // NewStatusCommand returns a new command, which reports on the
 // runtime state of various system entities.
 func NewStatusCommand() cmd.Command {
-	return envcmd.Wrap(&statusCommand{})
+	return modelcmd.Wrap(&statusCommand{})
 }
 
 type statusCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	patterns []string
 	isoTime  bool

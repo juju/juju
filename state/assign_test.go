@@ -227,10 +227,10 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	econs := constraints.MustParse("mem=4G cpu-cores=2")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Machine will take environment constraints on creation.
+	// Machine will take model constraints on creation.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -400,7 +400,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 func (s *AssignSuite) TestAssignUnitToNewMachineDefaultContainerConstraint(c *gc.C) {
 	// Set up env constraints.
 	econs := constraints.MustParse("container=lxc")
-	err := s.State.SetEnvironConstraints(econs)
+	err := s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitToNewMachineContainerConstraint(c)
 }
@@ -424,7 +424,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	econs := constraints.MustParse("mem=4G cpu-cores=2")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit will take combined service/environ constraints on creation.
@@ -436,7 +436,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	econs = constraints.MustParse("cpu-cores=4")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The new machine takes the original combined unit constraints.
@@ -521,7 +521,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create some units and a clean machine.
@@ -554,7 +554,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a unit and a clean machine.
@@ -660,7 +660,7 @@ func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	// Set up env constraints.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitNewPolicyWithContainerConstraint(c)
 }
@@ -840,7 +840,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add two environ manager machines and check they are not chosen.
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 
@@ -948,7 +948,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 	for i, t := range assignUsingConstraintsTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.unitConstraints)
-		err := s.State.SetEnvironConstraints(cons)
+		err := s.State.SetModelConstraints(cons)
 		c.Assert(err, jc.ErrorIsNil)
 
 		unit, err := s.wordpress.AddUnit()
@@ -1230,7 +1230,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the first placement goes into the newly created, clean container above.

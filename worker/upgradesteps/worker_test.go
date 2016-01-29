@@ -442,7 +442,7 @@ func (s *UpgradeSuite) create3StateServers(c *gc.C) (machineIdA, machineIdB, mac
 	machineIdA = machine0.Id()
 	s.setMachineAlive(c, machineIdA)
 
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 

@@ -224,7 +224,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	// Check the common name of the generated cert
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for model "`+testing.SampleEnvName+`"`)
+	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for model "`+testing.SampleModelName+`"`)
 
 	// Check that a uuid was chosen.
 	uuid, exists := env.Config().UUID()

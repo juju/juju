@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newFilesystemListCommand() cmd.Command {
@@ -18,7 +18,7 @@ func newFilesystemListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (FilesystemListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const filesystemListCommandDoc = `

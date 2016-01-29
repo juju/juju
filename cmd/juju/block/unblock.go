@@ -11,18 +11,18 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewUnblockCommand returns a new command that removes the block from
 // the specified operation.
 func NewUnblockCommand() cmd.Command {
-	return envcmd.Wrap(&unblockCommand{})
+	return modelcmd.Wrap(&unblockCommand{})
 }
 
 // unblockCommand removes the block from desired operation.
 type unblockCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	operation string
 	client    UnblockClientAPI
 }
@@ -59,7 +59,7 @@ all-changes includes all alteration commands
     authorised-keys import
     deploy
     destroy-model
-    ensure-availability
+    enable-ha
     expose
     remove-machine
     remove-relation
@@ -74,7 +74,7 @@ all-changes includes all alteration commands
     sync-tools
     unexpose
     unset
-    unset-model
+    unset-model-config
     upgrade-charm
     upgrade-juju
     add-user
@@ -145,7 +145,7 @@ func (c *unblockCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 }
 
 // Run unblocks previously blocked commands.
@@ -153,7 +153,7 @@ func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *unblockCommand) Run(_ *cmd.Context) error {
 	client := c.client
 	if client == nil {
-		client, err := getBlockAPI(&c.EnvCommandBase)
+		client, err := getBlockAPI(&c.ModelCommandBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -170,5 +170,5 @@ type UnblockClientAPI interface {
 }
 
 var getUnblockClientAPI = func(p *unblockCommand) (UnblockClientAPI, error) {
-	return getBlockAPI(&p.EnvCommandBase)
+	return getBlockAPI(&p.ModelCommandBase)
 }

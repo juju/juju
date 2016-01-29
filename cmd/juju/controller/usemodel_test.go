@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -39,7 +39,7 @@ var _ = gc.Suite(&UseModelSuite{})
 func (s *UseModelSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	err := envcmd.WriteCurrentController("fake")
+	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	models := []base.UserModel{{
@@ -74,7 +74,7 @@ func (s *UseModelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UseModelSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	wrappedCommand, _ := controller.NewUseEnvironmentCommandForTest(s.api, &s.creds, &s.endpoint)
+	wrappedCommand, _ := controller.NewUseModelCommandForTest(s.api, &s.creds, &s.endpoint)
 	return testing.RunCommand(c, wrappedCommand, args...)
 }
 
@@ -122,11 +122,11 @@ func (s *UseModelSuite) TestInit(c *gc.C) {
 		modelUUID: model1UUID,
 	}} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewUseEnvironmentCommandForTest(nil, nil, nil)
+		wrappedCommand, command := controller.NewUseModelCommandForTest(nil, nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.LocalName, gc.Equals, test.localName)
-			c.Check(command.EnvName, gc.Equals, test.modelName)
+			c.Check(command.ModelName, gc.Equals, test.modelName)
 			c.Check(command.ModelUUID, gc.Equals, test.modelUUID)
 			c.Check(command.Owner, gc.Equals, test.owner)
 		} else {
@@ -236,13 +236,13 @@ func (s *UseModelSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 	c.Assert(lines[0], gc.Equals, expected)
 	c.Assert(lines[1], gc.Equals, `fake (controller) -> unique`)
 
-	current, err := envcmd.ReadCurrentModel()
+	current, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.Equals, "unique")
 }
 
 func (s *UseModelSuite) assertCurrentModel(c *gc.C, name, uuid string) {
-	current, err := envcmd.ReadCurrentModel()
+	current, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(current, gc.Equals, name)
 

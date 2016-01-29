@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newShowCommand() cmd.Command {
@@ -18,7 +18,7 @@ func newShowCommand() cmd.Command {
 	cmd.newAPIFunc = func() (StorageShowAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const showCommandDoc = `

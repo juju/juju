@@ -7,17 +7,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewRemoveBlocksCommand returns a command that allows a controller admin
 // to remove blocks from the controller.
 func NewRemoveBlocksCommand() cmd.Command {
-	return envcmd.WrapController(&removeBlocksCommand{})
+	return modelcmd.WrapController(&removeBlocksCommand{})
 }
 
 type removeBlocksCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	api removeBlocksAPI
 }
 

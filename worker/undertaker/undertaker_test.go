@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -267,7 +267,7 @@ func dummyCfgAndUUID(c *gc.C) (*config.Config, string) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

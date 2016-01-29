@@ -49,7 +49,7 @@ func NewModelWorkerManager(
 // funcs. It mainly exists to support testing.
 type InitialState interface {
 	WatchModels() state.StringsWatcher
-	ForEnviron(names.ModelTag) (*state.State, error)
+	ForModel(names.ModelTag) (*state.State, error)
 	GetModel(names.ModelTag) (*state.Model, error)
 	ModelUUID() string
 	Machine(string) (*state.Machine, error)
@@ -125,7 +125,7 @@ func (m *modelWorkerManager) modelHasChanged(uuid string) error {
 
 func (m *modelWorkerManager) envIsAlive(modelTag names.ModelTag) error {
 	return m.runner.StartWorker(modelTag.Id(), func() (worker.Worker, error) {
-		st, err := m.st.ForEnviron(modelTag)
+		st, err := m.st.ForModel(modelTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to open state for model %s", modelTag.Id())
 		}
@@ -171,7 +171,7 @@ func (m *modelWorkerManager) modelNotFound(modelTag names.ModelTag) error {
 func (m *modelWorkerManager) modelIsDying(modelTag names.ModelTag) error {
 	id := dyingModelWorkerId(modelTag.Id())
 	return m.runner.StartWorker(id, func() (worker.Worker, error) {
-		st, err := m.st.ForEnviron(modelTag)
+		st, err := m.st.ForModel(modelTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to open state for model %s", modelTag.Id())
 		}

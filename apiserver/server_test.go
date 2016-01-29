@@ -279,7 +279,7 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 }
 
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
-	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
+	// we expose the API at '/' for compatibility, and at '/ModelUUID/api'
 	// for the correct location, but other Paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	srv := newServer(c, s.State)
@@ -424,7 +424,7 @@ func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
 }
 
 func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
-	otherState := s.Factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	s.checkApiHandlerTeardown(c, s.State, otherState)
 }

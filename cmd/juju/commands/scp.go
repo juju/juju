@@ -11,11 +11,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newSCPCommand() cmd.Command {
-	return envcmd.Wrap(&scpCommand{})
+	return modelcmd.Wrap(&scpCommand{})
 }
 
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)

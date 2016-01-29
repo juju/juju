@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -22,7 +22,7 @@ import (
 )
 
 func newRestoreCommand() cmd.Command {
-	return envcmd.Wrap(&restoreCommand{})
+	return modelcmd.Wrap(&restoreCommand{})
 }
 
 // restoreCommand is a subcommand of backups that implement the restore behaior
@@ -174,7 +174,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 
 	cons := c.constraints
 	args := bootstrap.BootstrapParams{EnvironConstraints: cons, UploadTools: c.uploadTools}
-	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
+	if err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return nil

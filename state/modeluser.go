@@ -34,55 +34,55 @@ type modelUserDoc struct {
 	ReadOnly    bool      `bson:"readonly"`
 }
 
-// envUserLastConnectionDoc is updated by the apiserver whenever the user
+// modelUserLastConnectionDoc is updated by the apiserver whenever the user
 // connects over the API. This update is not done using mgo.txn so the values
 // could well change underneath a normal transaction and as such, it should
 // NEVER appear in any transaction asserts. It is really informational only as
 // far as everyone except the api server is concerned.
-type envUserLastConnectionDoc struct {
+type modelUserLastConnectionDoc struct {
 	ID             string    `bson:"_id"`
 	ModelUUID      string    `bson:"model-uuid"`
 	UserName       string    `bson:"user"`
 	LastConnection time.Time `bson:"last-connection"`
 }
 
-// ID returns the ID of the environment user.
+// ID returns the ID of the model user.
 func (e *ModelUser) ID() string {
 	return e.doc.ID
 }
 
-// ModelTag returns the environment tag of the environment user.
+// ModelTag returns the model tag of the model user.
 func (e *ModelUser) ModelTag() names.ModelTag {
 	return names.NewModelTag(e.doc.ModelUUID)
 }
 
-// UserTag returns the tag for the environment user.
+// UserTag returns the tag for the model user.
 func (e *ModelUser) UserTag() names.UserTag {
 	return names.NewUserTag(e.doc.UserName)
 }
 
-// UserName returns the user name of the environment user.
+// UserName returns the user name of the model user.
 func (e *ModelUser) UserName() string {
 	return e.doc.UserName
 }
 
-// DisplayName returns the display name of the environment user.
+// DisplayName returns the display name of the model user.
 func (e *ModelUser) DisplayName() string {
 	return e.doc.DisplayName
 }
 
-// CreatedBy returns the user who created the environment user.
+// CreatedBy returns the user who created the model user.
 func (e *ModelUser) CreatedBy() string {
 	return e.doc.CreatedBy
 }
 
-// DateCreated returns the date the environment user was created in UTC.
+// DateCreated returns the date the model user was created in UTC.
 func (e *ModelUser) DateCreated() time.Time {
 	return e.doc.DateCreated.UTC()
 }
 
 // ReadOnly returns whether or not the user has write access or only
-// read access to the environment.
+// read access to the model.
 func (e *ModelUser) ReadOnly() bool {
 	return e.doc.ReadOnly
 }
@@ -94,7 +94,7 @@ func (e *ModelUser) LastConnection() (time.Time, error) {
 	defer closer()
 
 	username := strings.ToLower(e.UserName())
-	var lastConn envUserLastConnectionDoc
+	var lastConn modelUserLastConnectionDoc
 	err := lastConnections.FindId(e.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
@@ -107,11 +107,11 @@ func (e *ModelUser) LastConnection() (time.Time, error) {
 }
 
 // NeverConnectedError is used to indicate that a user has never connected to
-// an environment.
+// an model.
 type NeverConnectedError string
 
 // Error returns the error string for a user who has never connected to an
-// environment.
+// model.
 func (e NeverConnectedError) Error() string {
 	return `never connected: "` + string(e) + `"`
 }
@@ -122,7 +122,7 @@ func IsNeverConnectedError(err error) bool {
 	return ok
 }
 
-// UpdateLastConnection updates the last connection time of the environment user.
+// UpdateLastConnection updates the last connection time of the model user.
 func (e *ModelUser) UpdateLastConnection() error {
 	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
 	defer closer()
@@ -134,7 +134,7 @@ func (e *ModelUser) UpdateLastConnection() error {
 	session := lastConnectionsW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
-	lastConn := envUserLastConnectionDoc{
+	lastConn := modelUserLastConnectionDoc{
 		ID:             e.st.docID(strings.ToLower(e.UserName())),
 		ModelUUID:      e.ModelTag().Id(),
 		UserName:       e.UserName(),
@@ -144,21 +144,21 @@ func (e *ModelUser) UpdateLastConnection() error {
 	return errors.Trace(err)
 }
 
-// ModelUser returns the environment user.
+// ModelUser returns the model user.
 func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
-	envUser := &ModelUser{st: st}
-	envUsers, closer := st.getCollection(modelUsersC)
+	modelUser := &ModelUser{st: st}
+	modelUsers, closer := st.getCollection(modelUsersC)
 	defer closer()
 
 	username := strings.ToLower(user.Canonical())
-	err := envUsers.FindId(username).One(&envUser.doc)
+	err := modelUsers.FindId(username).One(&modelUser.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("model user %q", user.Canonical())
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
-	envUser.doc.DateCreated = envUser.doc.DateCreated.UTC()
-	return envUser, nil
+	modelUser.doc.DateCreated = modelUser.doc.DateCreated.UTC()
+	return modelUser, nil
 }
 
 // ModelUserSpec defines the attributes that can be set when adding a new
@@ -172,7 +172,7 @@ type ModelUserSpec struct {
 
 // AddModelUser adds a new user to the database.
 func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
-	// Ensure local user exists in state before adding them as an environment user.
+	// Ensure local user exists in state before adding them as an model user.
 	if spec.User.IsLocal() {
 		localUser, err := st.User(spec.User)
 		if err != nil {
@@ -190,8 +190,8 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 		}
 	}
 
-	envuuid := st.ModelUUID()
-	op := createEnvUserOp(envuuid, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
+	modelUUID := st.ModelUUID()
+	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
@@ -203,17 +203,17 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 	return st.ModelUser(spec.User)
 }
 
-// envUserID returns the document id of the environment user
-func envUserID(user names.UserTag) string {
+// modelUserID returns the document id of the model user
+func modelUserID(user names.UserTag) string {
 	username := user.Canonical()
 	return strings.ToLower(username)
 }
 
-func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
+func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &modelUserDoc{
-		ID:          envUserID(user),
-		ModelUUID:   envuuid,
+		ID:          modelUserID(user),
+		ModelUUID:   modelUUID,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
 		ReadOnly:    readOnly,
@@ -222,7 +222,7 @@ func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName 
 	}
 	return txn.Op{
 		C:      modelUsersC,
-		Id:     envUserID(user),
+		Id:     modelUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -232,7 +232,7 @@ func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName 
 func (st *State) RemoveModelUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      modelUsersC,
-		Id:     envUserID(user),
+		Id:     modelUserID(user),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
@@ -246,7 +246,7 @@ func (st *State) RemoveModelUser(user names.UserTag) error {
 	return nil
 }
 
-// UserModel contains information about an environment that a
+// UserModel contains information about an model that a
 // user has access to.
 type UserModel struct {
 	*Model
@@ -254,13 +254,13 @@ type UserModel struct {
 }
 
 // LastConnection returns the last time the user has connected to the
-// environment.
+// model.
 func (e *UserModel) LastConnection() (time.Time, error) {
 	lastConnections, lastConnCloser := e.st.getRawCollection(modelUserLastConnectionC)
 	defer lastConnCloser()
 
-	lastConnDoc := envUserLastConnectionDoc{}
-	id := ensureEnvUUID(e.ModelTag().Id(), strings.ToLower(e.User.Canonical()))
+	lastConnDoc := modelUserLastConnectionDoc{}
+	id := ensureModelUUID(e.ModelTag().Id(), strings.ToLower(e.User.Canonical()))
 	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
 	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
 		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Canonical()))
@@ -301,7 +301,7 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 }
 
 // IsControllerAdministrator returns true if the user specified has access to the
-// state server environment (the system environment).
+// state server model (the system model).
 func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	ssinfo, err := st.StateServerInfo()
 	if err != nil {
@@ -310,10 +310,10 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 
 	serverUUID := ssinfo.ModelTag.Id()
 
-	envUsers, userCloser := st.getRawCollection(modelUsersC)
+	modelUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
-	count, err := envUsers.Find(bson.D{
+	count, err := modelUsers.Find(bson.D{
 		{"model-uuid", serverUUID},
 		{"user", user.Canonical()},
 	}).Count()

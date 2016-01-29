@@ -8,16 +8,16 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newEndpointCommand() cmd.Command {
-	return envcmd.Wrap(&endpointCommand{})
+	return modelcmd.Wrap(&endpointCommand{})
 }
 
 // endpointCommand returns the API endpoints
 type endpointCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out     cmd.Output
 	refresh bool
 	all     bool
@@ -64,7 +64,7 @@ func (c *endpointCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Print out the addresses of the API server endpoints.
 func (c *endpointCommand) Run(ctx *cmd.Context) error {
-	apiendpoint, err := endpoint(c.EnvCommandBase, c.refresh)
+	apiendpoint, err := endpoint(c.ModelCommandBase, c.refresh)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

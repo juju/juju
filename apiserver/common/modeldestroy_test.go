@@ -180,7 +180,7 @@ func (s *destroyModelSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestBlockDestroyDestroyHostedModel(c *gc.C) {
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 	info := s.APIInfo(c)
 	info.ModelTag = otherSt.ModelTag()
@@ -225,7 +225,7 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 	_, err := s.State.AddUser("jess", "jess", "", "test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.otherEnvOwner = names.NewUserTag("jess")
-	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
 		Owner:   s.otherEnvOwner,
 		Prepare: true,
 		ConfigAttrs: jujutesting.Attrs{

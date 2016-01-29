@@ -17,7 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -47,7 +47,7 @@ func extractJujuArgs(args []string) []string {
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	cmdName := JujuPluginPrefix + subcommand
-	plugin := envcmd.Wrap(&PluginCommand{name: cmdName})
+	plugin := modelcmd.Wrap(&PluginCommand{name: cmdName})
 
 	// We process common flags supported by Juju commands.
 	// To do this, we extract only those supported flags from the
@@ -73,7 +73,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	name string
 	args []string
 }
@@ -93,7 +93,7 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
 		osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-		osenv.JujuEnvEnvKey + "=" + c.ConnectionName()}...,
+		osenv.JujuModelEnvKey + "=" + c.ConnectionName()}...,
 	)
 
 	// Now hook up stdin, stdout, stderr

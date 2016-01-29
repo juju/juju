@@ -253,7 +253,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 
 type imageMetadataDoc struct {
 	Id        string    `bson:"_id"`
-	ModelUUID string    `bson:"envuuid"`
+	ModelUUID string    `bson:"modelUUID"`
 	Kind      string    `bson:"kind"`
 	Series    string    `bson:"series"`
 	Arch      string    `bson:"arch"`
@@ -282,7 +282,7 @@ func (s *imageStorage) listImageMetadataDocs(modelUUID, kind, series, arch strin
 	coll, closer := mongo.CollectionFromName(s.metadataCollection.Database, imagemetadataC)
 	defer closer()
 	imageDocs := []imageMetadataDoc{}
-	filter := bson.D{{"envuuid", modelUUID}}
+	filter := bson.D{{"modelUUID", modelUUID}}
 	if kind != "" {
 		filter = append(filter, bson.DocElem{"kind", kind})
 	}

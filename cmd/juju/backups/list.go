@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const listDoc = `
@@ -17,7 +17,7 @@ const listDoc = `
 `
 
 func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand is the sub-command for listing all available backups.

@@ -25,7 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -223,7 +223,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "")
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
@@ -240,7 +240,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ConfigStore = store
 
 	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("dummymodel", envcmd.BootstrapContext(ctx), s.ConfigStore)
+	environ, err := environs.PrepareFromName("dummymodel", modelcmd.BootstrapContext(ctx), s.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
@@ -272,7 +272,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
-	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()

@@ -207,14 +207,14 @@ func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, error) {
 
 	results := make(map[string]payloadDoc)
 	for _, doc := range docs {
-		fullID := dropEnvUUID(doc.DocID)
+		fullID := dropModelUUID(doc.DocID)
 		id := idMap[fullID]
 		results[id] = doc
 	}
 	return results, nil
 }
 
-func dropEnvUUID(id string) string {
+func dropModelUUID(id string) string {
 	fullID := id
 	parts := strings.SplitN(fullID, ":", 2)
 	if len(parts) == 2 {

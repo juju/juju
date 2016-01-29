@@ -8,7 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const poolListCommandDoc = `
@@ -43,7 +43,7 @@ func newPoolListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (PoolListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // poolListCommand lists storage pools.

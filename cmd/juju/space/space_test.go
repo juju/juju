@@ -122,7 +122,7 @@ func (s *SpaceCommandSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
-		// envcmd.Wrap().
+		// modelcmd.Wrap().
 		name, CIDRs, err := space.ParseNameAndCIDRs(test.args, test.cidrsOptional)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr

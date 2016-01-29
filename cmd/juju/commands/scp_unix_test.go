@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -134,9 +134,9 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd := &scpCommand{}
 		scpcmd.proxy = t.proxy
 
-		err := envcmd.Wrap(scpcmd).Init(t.args)
+		err := modelcmd.Wrap(scpcmd).Init(t.args)
 		c.Check(err, jc.ErrorIsNil)
-		err = envcmd.Wrap(scpcmd).Run(ctx)
+		err = modelcmd.Wrap(scpcmd).Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")

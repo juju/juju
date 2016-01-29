@@ -258,10 +258,6 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	return f.AddMachines(args)
-}
-
 func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 	return errors.NotImplementedf("ForceDestroyMachines")
 }

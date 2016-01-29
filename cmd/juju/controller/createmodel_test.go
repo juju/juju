@@ -16,8 +16,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -60,12 +60,12 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = info
-	err = envcmd.WriteCurrentModel(envName)
+	err = modelcmd.WriteCurrentModel(envName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := controller.NewCreateEnvironmentCommandForTest(s.fake, s.parser)
+	command, _ := controller.NewCreateModelCommandForTest(s.fake, s.parser)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -108,7 +108,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewCreateEnvironmentCommandForTest(nil, nil)
+		wrappedCommand, command := controller.NewCreateModelCommandForTest(nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)

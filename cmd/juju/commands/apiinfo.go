@@ -11,26 +11,26 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
 func newAPIInfoCommand() cmd.Command {
-	return envcmd.Wrap(&apiInfoCommand{})
+	return modelcmd.Wrap(&apiInfoCommand{})
 }
 
 // apiInfoCommand returns the fields used to connect to an API server.
 type apiInfoCommand struct {
-	envcmd.EnvCommandBase
-	out      cmd.Output
-	refresh  bool
-	user     bool
-	password bool
-	cacert   bool
-	servers  bool
-	envuuid  bool
-	srvuuid  bool
-	fields   []string
+	modelcmd.ModelCommandBase
+	out       cmd.Output
+	refresh   bool
+	user      bool
+	password  bool
+	cacert    bool
+	servers   bool
+	modelUUID bool
+	srvuuid   bool
+	fields    []string
 }
 
 const apiInfoDoc = `
@@ -84,7 +84,7 @@ func (c *apiInfoCommand) Init(args []string) error {
 	c.fields = args
 	if len(args) == 0 {
 		c.user = true
-		c.envuuid = true
+		c.modelUUID = true
 		c.srvuuid = true
 		c.servers = true
 		c.cacert = true
@@ -99,7 +99,7 @@ func (c *apiInfoCommand) Init(args []string) error {
 		case "password":
 			c.password = true
 		case "environ-uuid":
-			c.envuuid = true
+			c.modelUUID = true
 		case "state-servers":
 			c.servers = true
 		case "ca-cert":
@@ -127,11 +127,11 @@ func (c *apiInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.password, "password", false, "include the password in the output fields")
 }
 
-func connectionEndpoint(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+func connectionEndpoint(c modelcmd.ModelCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 	return c.ConnectionEndpoint(refresh)
 }
 
-func connectionCredentials(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+func connectionCredentials(c modelcmd.ModelCommandBase) (configstore.APICredentials, error) {
 	return c.ConnectionCredentials()
 }
 
@@ -142,11 +142,11 @@ var (
 
 // Print out the addresses of the API server endpoints.
 func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
-	apiendpoint, err := endpoint(c.EnvCommandBase, c.refresh)
+	apiendpoint, err := endpoint(c.ModelCommandBase, c.refresh)
 	if err != nil {
 		return err
 	}
-	credentials, err := creds(c.EnvCommandBase)
+	credentials, err := creds(c.ModelCommandBase)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
 	if c.password {
 		result.Password = credentials.Password
 	}
-	if c.envuuid {
+	if c.modelUUID {
 		result.ModelUUID = apiendpoint.ModelUUID
 	}
 	if c.servers {

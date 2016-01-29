@@ -12,20 +12,20 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
-// NewUseEnvironmentCommand returns a command that caches information
-// about an environment the user can use in the controller locally.
-func NewUseEnvironmentCommand() cmd.Command {
-	return envcmd.WrapController(&useEnvironmentCommand{})
+// NewUseModelCommand returns a command that caches information
+// about a model the user can use in the controller locally.
+func NewUseModelCommand() cmd.Command {
+	return modelcmd.WrapController(&useModelCommand{})
 }
 
-// useEnvironmentCommand returns the list of all the environments the
+// useModelCommand returns the list of all the models the
 // current user can access on the current controller.
-type useEnvironmentCommand struct {
-	envcmd.ControllerCommandBase
+type useModelCommand struct {
+	modelcmd.ControllerCommandBase
 
 	api       UseModelAPI
 	userCreds *configstore.APICredentials
@@ -33,12 +33,12 @@ type useEnvironmentCommand struct {
 
 	LocalName string
 	Owner     string
-	EnvName   string
+	ModelName string
 	ModelUUID string
 }
 
-// UseModelAPI defines the methods on the environment manager API that
-// the use environment command calls.
+// UseModelAPI defines the methods on the model manager API that
+// the use model command calls.
 type UseModelAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
@@ -92,7 +92,7 @@ See Also:
 `
 
 // Info implements Command.Info
-func (c *useEnvironmentCommand) Info() *cmd.Info {
+func (c *useModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "use-model",
 		Purpose: "use an model that you have access to on the controller",
@@ -100,21 +100,21 @@ func (c *useEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *useEnvironmentCommand) getAPI() (UseModelAPI, error) {
+func (c *useModelCommand) getAPI() (UseModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewModelManagerAPIClient()
 }
 
-func (c *useEnvironmentCommand) getConnectionCredentials() (configstore.APICredentials, error) {
+func (c *useModelCommand) getConnectionCredentials() (configstore.APICredentials, error) {
 	if c.userCreds != nil {
 		return *c.userCreds, nil
 	}
 	return c.ConnectionCredentials()
 }
 
-func (c *useEnvironmentCommand) getConnectionEndpoint() (configstore.APIEndpoint, error) {
+func (c *useModelCommand) getConnectionEndpoint() (configstore.APIEndpoint, error) {
 	if c.endpoint != nil {
 		return *c.endpoint, nil
 	}
@@ -122,12 +122,12 @@ func (c *useEnvironmentCommand) getConnectionEndpoint() (configstore.APIEndpoint
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *useEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *useModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.LocalName, "name", "", "the local name for this model")
 }
 
 // SetFlags implements Command.Init.
-func (c *useEnvironmentCommand) Init(args []string) error {
+func (c *useModelCommand) Init(args []string) error {
 	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
 		return errors.New("no model supplied")
 	}
@@ -139,7 +139,7 @@ func (c *useEnvironmentCommand) Init(args []string) error {
 	switch len(bits) {
 	case 1:
 		// No user specified
-		c.EnvName = bits[0]
+		c.ModelName = bits[0]
 	case 2:
 		owner := bits[0]
 		if names.IsValidUser(owner) {
@@ -147,22 +147,22 @@ func (c *useEnvironmentCommand) Init(args []string) error {
 		} else {
 			return errors.Errorf("%q is not a valid user", owner)
 		}
-		c.EnvName = bits[1]
+		c.ModelName = bits[1]
 	}
 
-	// Environment names can generally be anything, but we take a good
+	// Model names can generally be anything, but we take a good
 	// stab at trying to determine if the user has specified a UUID
 	// instead of a name. For now, we only accept a properly formatted UUID,
 	// which means one with dashes in the right place.
-	if names.IsValidModel(c.EnvName) {
-		c.ModelUUID, c.EnvName = c.EnvName, ""
+	if names.IsValidModel(c.ModelName) {
+		c.ModelUUID, c.ModelName = c.ModelName, ""
 	}
 
 	return cmd.CheckEmpty(args)
 }
 
 // Run implements Command.Run
-func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
+func (c *useModelCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -194,7 +194,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// Check with the store to see if we have an environment with that name.
+	// Check with the store to see if we have an model with that name.
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
@@ -202,9 +202,9 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 	existing, err := store.ReadInfo(c.LocalName)
 	if err == nil {
-		// We have an existing environment with the same name. If it is the
-		// same environment with the same user, then this is fine, and we just
-		// change the current environment.
+		// We have an existing model with the same name. If it is the
+		// same model with the same user, then this is fine, and we just
+		// change the current model.
 		endpoint := existing.APIEndpoint()
 		existingCreds := existing.APICredentials()
 		// Need to make sure we check the username of the credentials,
@@ -212,7 +212,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
 		if endpoint.ModelUUID == model.UUID && existingUsername == username {
 			ctx.Infof("You already have model details for %q cached locally.", c.LocalName)
-			return envcmd.SetCurrentModel(ctx, c.LocalName)
+			return modelcmd.SetCurrentModel(ctx, c.LocalName)
 		}
 		ctx.Infof("You have an existing model called %q, use --name to specify a different local name.", c.LocalName)
 		return errors.New("existing model")
@@ -223,10 +223,10 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "failed to cache model details")
 	}
 
-	return envcmd.SetCurrentModel(ctx, c.LocalName)
+	return modelcmd.SetCurrentModel(ctx, c.LocalName)
 }
 
-func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, modelUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
+func (c *useModelCommand) updateCachedInfo(info configstore.EnvironInfo, modelUUID string, creds configstore.APICredentials, endpoint configstore.APIEndpoint) error {
 	info.SetAPICredentials(creds)
 	// Specify the model UUID. The server UUID will be the same as the
 	// endpoint that we have just connected to, as will be the CACert, addresses
@@ -236,7 +236,7 @@ func (c *useEnvironmentCommand) updateCachedInfo(info configstore.EnvironInfo, m
 	return errors.Trace(info.Write())
 }
 
-func (c *useEnvironmentCommand) findMatchingModel(ctx *cmd.Context, client UseModelAPI, creds configstore.APICredentials) (base.UserModel, error) {
+func (c *useModelCommand) findMatchingModel(ctx *cmd.Context, client UseModelAPI, creds configstore.APICredentials) (base.UserModel, error) {
 
 	var empty base.UserModel
 
@@ -267,7 +267,7 @@ func (c *useEnvironmentCommand) findMatchingModel(ctx *cmd.Context, client UseMo
 
 	var matches []base.UserModel
 	for _, env := range envs {
-		match := env.Name == c.EnvName
+		match := env.Name == c.ModelName
 		if match && owner != "" {
 			match = env.Owner == owner
 		}
@@ -286,9 +286,9 @@ func (c *useEnvironmentCommand) findMatchingModel(ctx *cmd.Context, client UseMo
 
 	// We are going to return an error, but tell the user what the matches
 	// were so they can make an informed decision. We are also going to assume
-	// here that the resulting environment list has only one matching name for
-	// each user. There are tests creating environments that enforce this.
-	ctx.Infof("Multiple models matched name %q:", c.EnvName)
+	// here that the resulting model list has only one matching name for
+	// each user. There are tests creating models that enforce this.
+	ctx.Infof("Multiple models matched name %q:", c.ModelName)
 	for _, env := range matches {
 		ctx.Infof("  %s, owned by %s", env.UUID, env.Owner)
 	}

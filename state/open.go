@@ -20,7 +20,7 @@ import (
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
-// representing the environment connected to.
+// representing the model connected to.
 //
 // A policy may be provided, which will be used to validate and
 // modify behaviour of certain operations in state. A nil policy
@@ -64,7 +64,7 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 	logger.Debugf("mongodb login successful")
 
 	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
-	// environment UUID available. In that case we need to infer what it might be;
+	// model UUID available. In that case we need to infer what it might be;
 	// we depend on the assumption that this is the only circumstance in which
 	// the the UUID might not be known.
 	if tag.Id() == "" {
@@ -101,7 +101,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 }
 
 // Initialize sets up an initial empty state and returns it.
-// This needs to be performed only once for the initial state server environment.
+// This needs to be performed only once for the initial state server model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid, ok := cfg.UUID()
@@ -121,7 +121,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		}
 	}()
 
-	// A valid environment is used as a signal that the
+	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
 	if _, err := st.Model(); err == nil {
@@ -130,7 +130,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the state server environment, the new environment
+	// When creating the state server model, the new model
 	// UUID is also used as the state server UUID.
 	logger.Infof("initializing controller model %s", uuid)
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
@@ -163,7 +163,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			C:      stateServersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
-			Insert: &hostedEnvCountDoc{},
+			Insert: &hostedModelCountDoc{},
 		},
 	)
 
@@ -181,19 +181,19 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the state server environment, the new environment
+	// When creating the state server model, the new model
 	// UUID is also used as the state server UUID.
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}
-	envUserOp := createEnvUserOp(modelUUID, owner, owner, owner.Name(), false)
+	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), false)
 	ops := []txn.Op{
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
-		incHostedEnvironCountOp(),
-		createEnvironmentOp(st, owner, cfg.Name(), modelUUID, serverUUID),
-		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
-		envUserOp,
+		incHostedModelCountOp(),
+		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID),
+		createUniqueOwnerModelNameOp(owner, cfg.Name()),
+		modelUserOp,
 	}
 	return ops, nil
 }

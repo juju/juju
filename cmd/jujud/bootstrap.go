@@ -251,7 +251,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agent.BootstrapMachineConfig{
 				Addresses:            addrs,
 				BootstrapConstraints: c.BootstrapConstraints,
-				EnvironConstraints:   c.EnvironConstraints,
+				ModelConstraints:     c.EnvironConstraints,
 				Jobs:                 jobs,
 				InstanceId:           instanceId,
 				Characteristics:      c.Hardware,

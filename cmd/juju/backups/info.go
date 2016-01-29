@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const infoDoc = `
@@ -15,7 +15,7 @@ const infoDoc = `
 `
 
 func newInfoCommand() cmd.Command {
-	return envcmd.Wrap(&infoCommand{})
+	return modelcmd.Wrap(&infoCommand{})
 }
 
 // infoCommand is the sub-command for creating a new backup.

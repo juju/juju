@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -445,8 +445,8 @@ func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Valu
 	})
 }
 
-func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
+func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -1387,7 +1387,7 @@ func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
-	added := s.ensureAvailability(c, 3)
+	added := s.enableHA(c, 3)
 	c.Assert(added, gc.HasLen, 2)
 	byId := make(map[string]*state.Machine)
 	for _, m := range added {

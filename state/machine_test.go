@@ -679,7 +679,7 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestSetPasswordPreEnvUUID(c *gc.C) {
+func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
 	// Ensure that SetPassword works for machines even when the env
 	// UUID upgrade migrations haven't run yet.
 	type oldMachineDoc struct {
@@ -1403,7 +1403,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
-	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// TODO(mjs) - MODELUUID - test with multiple models with
 	// identically named units and ensure there's no leakage.
 
 	// Start a watch on an empty machine; check no units reported.
@@ -1614,12 +1614,12 @@ func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
+func (s *MachineSuite) TestConstraintsFromModel(c *gc.C) {
 	econs1 := constraints.MustParse("mem=1G")
 	econs2 := constraints.MustParse("mem=2G")
 
-	// A newly-created machine gets a copy of the environment constraints.
-	err := s.State.SetEnvironConstraints(econs1)
+	// A newly-created machine gets a copy of the model constraints.
+	err := s.State.SetModelConstraints(econs1)
 	c.Assert(err, jc.ErrorIsNil)
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1627,8 +1627,8 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons1, gc.DeepEquals, econs1)
 
-	// Change environment constraints and add a new machine.
-	err = s.State.SetEnvironConstraints(econs2)
+	// Change model constraints and add a new machine.
+	err = s.State.SetModelConstraints(econs2)
 	c.Assert(err, jc.ErrorIsNil)
 	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

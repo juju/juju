@@ -78,7 +78,7 @@ func runForAllEnvStates(st *State, runner func(st *State) error) error {
 
 	for _, envDoc := range envDocs {
 		modelUUID := envDoc["_id"].(string)
-		envSt, err := st.ForEnviron(names.NewModelTag(modelUUID))
+		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}

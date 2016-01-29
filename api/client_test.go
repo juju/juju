@@ -139,7 +139,7 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 }
 
 func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, api.Connection) {
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
 	info.ModelTag = otherSt.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())
@@ -233,7 +233,7 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 
 func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	client := s.APIState.Client()
-	user := s.Factory.MakeEnvUser(c, nil)
+	user := s.Factory.MakeModelUser(c, nil)
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
 			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
@@ -281,7 +281,7 @@ func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
 
 func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	client := s.APIState.Client()
-	existingUser := s.Factory.MakeEnvUser(c, nil)
+	existingUser := s.Factory.MakeModelUser(c, nil)
 	localUser := s.Factory.MakeUser(c, nil)
 	newUserTag := names.NewUserTag("foo@bar")
 	cleanup := api.PatchClientFacadeCall(client,
@@ -316,7 +316,7 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 
 func (s *clientSuite) TestUnshareEnvironmentThreeUsers(c *gc.C) {
 	client := s.APIState.Client()
-	missingUser := s.Factory.MakeEnvUser(c, nil)
+	missingUser := s.Factory.MakeModelUser(c, nil)
 	localUser := s.Factory.MakeUser(c, nil)
 	newUserTag := names.NewUserTag("foo@bar")
 	cleanup := api.PatchClientFacadeCall(client,

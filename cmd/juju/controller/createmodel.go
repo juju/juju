@@ -16,21 +16,21 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	localProvider "github.com/juju/juju/provider/local"
 )
 
-// NewCreateEnvironmentCommand returns a command to create an model.
-func NewCreateEnvironmentCommand() cmd.Command {
-	return envcmd.WrapController(&createEnvironmentCommand{})
+// NewCreateModelCommand returns a command to create an model.
+func NewCreateModelCommand() cmd.Command {
+	return modelcmd.WrapController(&createModelCommand{})
 }
 
-// createEnvironmentCommand calls the API to create a new model.
-type createEnvironmentCommand struct {
-	envcmd.ControllerCommandBase
+// createModelCommand calls the API to create a new model.
+type createModelCommand struct {
+	modelcmd.ControllerCommandBase
 	api CreateEnvironmentAPI
 
 	Name         string
@@ -60,7 +60,7 @@ See Also:
     juju help model share
 `
 
-func (c *createEnvironmentCommand) Info() *cmd.Info {
+func (c *createModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create-model",
 		Args:    "<name> [key=[value] ...]",
@@ -69,12 +69,12 @@ func (c *createEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *createEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *createModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "the owner of the new model if not the current user")
 	f.Var(&c.ConfigFile, "config", "path to yaml-formatted file containing model config values")
 }
 
-func (c *createEnvironmentCommand) Init(args []string) error {
+func (c *createModelCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("model name is required")
 	}
@@ -103,14 +103,14 @@ type CreateEnvironmentAPI interface {
 	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
-func (c *createEnvironmentCommand) getAPI() (CreateEnvironmentAPI, error) {
+func (c *createModelCommand) getAPI() (CreateEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewModelManagerAPIClient()
 }
 
-func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
+func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -193,7 +193,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 			return errors.Trace(err)
 		}
 		ctx.Infof("created model %q", c.Name)
-		return envcmd.SetCurrentModel(ctx, c.Name)
+		return modelcmd.SetCurrentModel(ctx, c.Name)
 	} else {
 		ctx.Infof("created model %q for %q", c.Name, c.Owner)
 	}
@@ -201,7 +201,7 @@ func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	return nil
 }
 
-func (c *createEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
+func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
 	// The reading of the config YAML is done in the Run
 	// method because the Read method requires the cmd Context
 	// for the current directory.

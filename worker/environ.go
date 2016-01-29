@@ -36,7 +36,7 @@ type ModelConfigGetter interface {
 // WaitForEnviron waits for an valid environment to arrive from
 // the given watcher. It terminates with tomb.ErrDying if
 // it receives a value on dying.
-func WaitForEnviron(w apiwatcher.NotifyWatcher, st ModelConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
+func WaitForModel(w apiwatcher.NotifyWatcher, st ModelConfigGetter, dying <-chan struct{}) (environs.Environ, error) {
 	for {
 		select {
 		case <-dying:

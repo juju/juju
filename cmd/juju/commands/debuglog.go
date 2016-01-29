@@ -12,15 +12,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newDebugLogCommand() cmd.Command {
-	return envcmd.Wrap(&debugLogCommand{})
+	return modelcmd.Wrap(&debugLogCommand{})
 }
 
 type debugLogCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 
 	level  string
 	params api.DebugLogParams

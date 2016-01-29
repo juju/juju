@@ -45,7 +45,7 @@ func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
-func (s *MeterStateSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
+func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	meterStatus := jujuDB.C("meterStatus")
 	var docs []bson.M

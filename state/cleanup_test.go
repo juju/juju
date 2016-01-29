@@ -74,23 +74,23 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
-	// Create an environment.
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	// Create an model.
+	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 	otherEnv, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the controller and check the environment is unaffected, but a
-	// cleanup for the environment and services has been scheduled.
+	// Destroy the controller and check the model is unaffected, but a
+	// cleanup for the model and services has been scheduled.
 	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = controllerEnv.DestroyIncludingHosted()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Two cleanups should be scheduled. One to destroy the hosted
-	// environments, the other to destroy the controller environment's
+	// models, the other to destroy the controller model's
 	// services.
 	s.assertCleanupCount(c, 1)
 	err = otherEnv.Refresh()
@@ -100,7 +100,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
-func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
+func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	// Create a state and hosted machine.
 	stateMachine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,7 +115,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy environment, check cleanup queued.
+	// Destroy model, check cleanup queued.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
@@ -135,7 +135,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
 	assertLife(c, stateMachine, state.Alive)
 }
 
-func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
+func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a service with some units.
@@ -148,7 +148,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 	}
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the environment and check the service and units are
+	// Destroy the model and check the service and units are
 	// unaffected, but a cleanup for the service has been scheduled.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

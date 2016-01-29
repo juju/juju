@@ -59,7 +59,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
@@ -77,10 +77,10 @@ func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, exp
 func (s *controllerSuite) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "owned", Owner: admin.UserTag()}).Close()
 	remoteUserTag := names.NewUserTag("user@remote")
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
 	st.AddModelUser(state.ModelUserSpec{
@@ -88,7 +88,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		CreatedBy:   remoteUserTag,
 		DisplayName: "Foo Bar"})
 
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
 
 	response, err := s.controller.AllModels()
@@ -106,7 +106,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
 
@@ -154,7 +154,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelConfigFromNonStateServer(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
 
@@ -167,7 +167,7 @@ func (s *controllerSuite) TestModelConfigFromNonStateServer(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
 
@@ -221,8 +221,8 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
-	otherEnvOwner := s.Factory.MakeEnvUser(c, nil)
-	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
+	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:    "dummytoo",
 		Owner:   otherEnvOwner.UserTag(),
 		Prepare: true,

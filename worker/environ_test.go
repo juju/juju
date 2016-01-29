@@ -60,7 +60,7 @@ func (s *environSuite) TestStop(c *gc.C) {
 	close(stop) // close immediately so the loop exits.
 	done := make(chan error)
 	go func() {
-		env, err := worker.WaitForEnviron(w, s.st, stop)
+		env, err := worker.WaitForModel(w, s.st, stop)
 		c.Check(env, gc.IsNil)
 		done <- err
 	}()
@@ -90,7 +90,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
-		env, err := worker.WaitForEnviron(w, s.st, nil)
+		env, err := worker.WaitForModel(w, s.st, nil)
 		c.Check(err, jc.ErrorIsNil)
 		done <- env
 	}()

@@ -1495,7 +1495,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 
 // AssignToNewMachineOrContainer assigns the unit to a new machine,
 // with constraints determined according to the service and
-// environment constraints at the time of unit creation. If a
+// model constraints at the time of unit creation. If a
 // container is required, a clean, empty machine instance is required
 // on which to create the container. An existing clean, empty instance
 // is first searched for, and if not found, a new one is created.
@@ -1555,7 +1555,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 }
 
 // AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the service and environment constraints at the
+// determined according to the service and model constraints at the
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")

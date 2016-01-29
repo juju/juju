@@ -49,7 +49,7 @@ type Policy interface {
 type Prechecker interface {
 	// PrecheckInstance performs a preflight check on the specified
 	// series and constraints, ensuring that they are possibly valid for
-	// creating an instance in this environment.
+	// creating an instance in this model.
 	//
 	// PrecheckInstance is best effort, and not guaranteed to eliminate
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
@@ -65,14 +65,14 @@ type ConfigValidator interface {
 }
 
 // EnvironCapability implements access to metadata about the capabilities
-// of an environment.
+// of an model.
 type EnvironCapability interface {
 	// SupportedArchitectures returns the image architectures which can
-	// be hosted by this environment.
+	// be hosted by this model.
 	SupportedArchitectures() ([]string, error)
 
 	// SupportsUnitAssignment returns an error which, if non-nil, indicates
-	// that the environment does not support unit placement. If the environment
+	// that the model does not support unit placement. If the model
 	// does not support unit placement, then machines may not be created
 	// without units, and units cannot be placed explcitly.
 	SupportsUnitPlacement() error
@@ -102,7 +102,7 @@ func (st *State) precheckInstance(series string, cons constraints.Value, placeme
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {
 	// Default behaviour is to simply use a standard validator with
-	// no environment specific behaviour built in.
+	// no model specific behaviour built in.
 	defaultValidator := constraints.NewValidator()
 	if st.policy == nil {
 		return defaultValidator, nil
@@ -133,7 +133,7 @@ func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, 
 	if err != nil {
 		return constraints.Value{}, err
 	}
-	envCons, err := st.EnvironConstraints()
+	envCons, err := st.ModelConstraints()
 	if err != nil {
 		return constraints.Value{}, err
 	}
@@ -141,7 +141,7 @@ func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, 
 }
 
 // validateConstraints returns an error if the given constraints are not valid for the
-// current environment, and also any unsupported attributes.
+// current model, and also any unsupported attributes.
 func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
 	validator, err := st.constraintsValidator()
 	if err != nil {

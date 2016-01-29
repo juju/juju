@@ -11,7 +11,7 @@ import (
 
 	apiblock "github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -49,7 +49,7 @@ var OperationFromType = func(blockType string) string {
 }
 
 // getBlockAPI returns a block api for block manipulation.
-func getBlockAPI(c *envcmd.EnvCommandBase) (*apiblock.Client, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (*apiblock.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err

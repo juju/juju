@@ -28,7 +28,7 @@ type collectionTestCase struct {
 }
 
 func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
-	// The users collection does not require filtering by env UUID.
+	// The users collection does not require filtering by model UUID.
 	coll, closer := state.GetCollection(s.State, state.UsersC)
 	defer closer()
 
@@ -136,17 +136,17 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 	}
 }
 
-func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
-	// The machines collection requires filtering by env UUID. Set up
-	// 2 environments with machines in each.
+func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
+	// The machines collection requires filtering by model UUID. Set up
+	// 2 models with machines in each.
 	m0 := s.Factory.MakeMachine(c, nil)
 	s.Factory.MakeMachine(c, nil)
-	st1 := s.Factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
 	f1 := factory.NewFactory(st1)
 	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
 
-	// Ensure that the first machine in each env have overlapping ids
+	// Ensure that the first machine in each model have overlapping ids
 	// (otherwise tests may not fail when they should)
 	c.Assert(m0.Id(), gc.Equals, otherM0.Id())
 
@@ -172,7 +172,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 	// Grab the document id of the just added network interface for use in tests.
 	ifaceId := getIfaceId(s.State)
 
-	// Add a network interface to the other environment to test collections that rely on the model-uuid field.
+	// Add a network interface to the other model to test collections that rely on the model-uuid field.
 	_, err = st1.AddNetwork(state.NetworkInfo{"net2", "net2", "0.1.2.4/24", 0})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherM0.AddNetworkInterface(state.NetworkInterfaceInfo{
@@ -182,7 +182,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Grab the document id of the network interface just added to the other environment for use in tests.
+	// Grab the document id of the network interface just added to the other model for use in tests.
 	otherIfaceId := getIfaceId(st1)
 
 	machines0, closer := state.GetCollection(s.State, state.MachinesC)
@@ -200,28 +200,28 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 
 	for i, t := range []collectionTestCase{
 		{
-			label: "Count filters by env",
+			label: "Count filters by model",
 			test: func() (int, error) {
 				return machines0.Count()
 			},
 			expectedCount: 2,
 		},
 		{
-			label: "Find filters by env",
+			label: "Find filters by model",
 			test: func() (int, error) {
 				return machines0.Find(bson.D{{"series", m0.Series()}}).Count()
 			},
 			expectedCount: 2,
 		},
 		{
-			label: "Find adds env UUID when _id is provided",
+			label: "Find adds model UUID when _id is provided",
 			test: func() (int, error) {
 				return machines0.Find(bson.D{{"_id", m0.Id()}}).Count()
 			},
 			expectedCount: 1,
 		},
 		{
-			label: "Find tolerates env UUID prefix already being present",
+			label: "Find tolerates model UUID prefix already being present",
 			test: func() (int, error) {
 				return machines0.Find(bson.D{
 					{"_id", state.DocID(s.State, m0.Id())},
@@ -230,7 +230,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1,
 		},
 		{
-			label: "Find with no selector still filters by env",
+			label: "Find with no selector still filters by model",
 			test: func() (int, error) {
 				return machines0.Find(nil).Count()
 			},
@@ -275,14 +275,14 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedPanic: "model-uuid is added automatically and should not be provided",
 		},
 		{
-			label: "FindId adds env UUID prefix",
+			label: "FindId adds model UUID prefix",
 			test: func() (int, error) {
 				return machines0.FindId(m0.Id()).Count()
 			},
 			expectedCount: 1,
 		},
 		{
-			label: "FindId tolerates env UUID prefix already being there",
+			label: "FindId tolerates model UUID prefix already being there",
 			test: func() (int, error) {
 				return machines0.FindId(state.DocID(s.State, m0.Id())).Count()
 			},
@@ -301,7 +301,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 				return networkInterfaces.FindId(otherIfaceId).Count()
 			},
 			// expect to find no networks, as we are searching with the id of
-			// the network in the other environment.
+			// the network in the other model.
 			expectedCount: 0,
 		},
 		{
@@ -367,20 +367,20 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedError: "bad \"model-uuid\" value: .+",
 		},
 		{
-			label: "Remove adds env UUID prefix to _id",
+			label: "Remove adds model UUID prefix to _id",
 			test: func() (int, error) {
 				err := machines0.Writeable().Remove(bson.D{{"_id", "0"}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
+			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
 		},
 		{
-			label: "Remove filters by env",
+			label: "Remove filters by model",
 			test: func() (int, error) {
 				// Attempt to remove the trusty machine in the second
-				// env with the collection that's filtering for the
-				// first env - nothing should get removed.
+				// model with the collection that's filtering for the
+				// first model - nothing should get removed.
 				err := machines0.Writeable().Remove(bson.D{{"series", "trusty"}})
 				c.Assert(err, gc.ErrorMatches, "not found")
 				return s.machines.Count()
@@ -388,31 +388,31 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 3, // Expect all machines to still be there.
 		},
 		{
-			label: "Remove filters by env 2",
+			label: "Remove filters by model 2",
 			test: func() (int, error) {
 				err := machines0.Writeable().Remove(bson.D{{"machineid", "0"}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 2, // Expect machine 1 in first env and machine-0 in second env
+			expectedCount: 2, // Expect machine 1 in first model and machine-0 in second model
 		},
 		{
-			label: "RemoveId adds env UUID prefix",
+			label: "RemoveId adds model UUID prefix",
 			test: func() (int, error) {
 				err := machines0.Writeable().RemoveId(m0.Id())
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
+			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
 		},
 		{
-			label: "RemoveId tolerates env UUID prefix already being there",
+			label: "RemoveId tolerates model UUID prefix already being there",
 			test: func() (int, error) {
 				err := machines0.Writeable().RemoveId(state.DocID(s.State, m0.Id()))
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
+			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
 		},
 		{
 			label: "RemoveId filters by model-uuid field",
@@ -424,25 +424,25 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1, // ensure doc was not removed
 		},
 		{
-			label: "RemoveAll filters by env",
+			label: "RemoveAll filters by model",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(bson.D{{"series", m0.Series()}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 1, // Expect machine-1 in second env
+			expectedCount: 1, // Expect machine-1 in second model
 		},
 		{
-			label: "RemoveAll adds env UUID when _id is provided",
+			label: "RemoveAll adds model UUID when _id is provided",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(bson.D{{"_id", m0.Id()}})
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
+			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
 		},
 		{
-			label: "RemoveAll tolerates env UUID prefix already being present",
+			label: "RemoveAll tolerates model UUID prefix already being present",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(bson.D{
 					{"_id", state.DocID(s.State, m0.Id())},
@@ -450,16 +450,16 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
+			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
 		},
 		{
-			label: "RemoveAll with no selector still filters by env",
+			label: "RemoveAll with no selector still filters by model",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(nil)
 				c.Assert(err, jc.ErrorIsNil)
 				return s.machines.Count()
 			},
-			expectedCount: 1, // Expect machine-0 in second env
+			expectedCount: 1, // Expect machine-0 in second model
 		},
 		{
 			label: "RemoveAll panics if model-uuid is included",
@@ -506,7 +506,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			c.Check(func() { t.test() }, gc.PanicMatches, t.expectedPanic)
 		}
 
-		// Check that other environment is untouched after each test
+		// Check that other model is untouched after each test
 		count, err := machines1.Count()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(count, gc.Equals, 1)

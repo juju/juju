@@ -62,8 +62,8 @@ func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) 
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoEnvUser: true,
-		Password:  password,
+		NoModelUser: true,
+		Password:    password,
 	})
 
 	info := s.APIInfo(c)

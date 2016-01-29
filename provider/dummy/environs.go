@@ -727,7 +727,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetEnvironConstraints(args.EnvironConstraints); err != nil {
+		if err := st.SetModelConstraints(args.EnvironConstraints); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(password); err != nil {

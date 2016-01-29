@@ -48,8 +48,8 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.StateSuite.TearDownTest(c)
 }
 
-func (s *suite) makeEnvironment(c *gc.C) *state.State {
-	st := s.factory.MakeEnvironment(c, nil)
+func (s *suite) MakeModel(c *gc.C) *state.State {
+	st := s.factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
 }
@@ -62,7 +62,7 @@ func destroyEnvironment(c *gc.C, st *state.State) {
 }
 
 func (s *suite) TestStartsWorkersForPreExistingEnvs(c *gc.C) {
-	moreState := s.makeEnvironment(c)
+	moreState := s.MakeModel(c)
 
 	var seenEnvs []string
 	m := modelworkermanager.NewModelWorkerManager(s.State, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
@@ -86,7 +86,7 @@ func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
 	s.seeRunnersStart(c, 1) // Runner for state server env
 
 	// Create another environment and watch a runner be created for it.
-	st2 := s.makeEnvironment(c)
+	st2 := s.MakeModel(c)
 	runner := s.seeRunnersStart(c, 1)[0]
 	c.Assert(runner.modelUUID, gc.Equals, st2.ModelUUID())
 }
@@ -97,7 +97,7 @@ func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
 	runner0 := s.seeRunnersStart(c, 1)[0]
 
 	// Create an environment and grab the runner for it.
-	otherState := s.makeEnvironment(c)
+	otherState := s.MakeModel(c)
 	runner1 := s.seeRunnersStart(c, 1)[0]
 
 	// Set environment to dying.
@@ -131,7 +131,7 @@ func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
 }
 
 func (s *suite) TestKillPropagates(c *gc.C) {
-	otherSt := s.makeEnvironment(c)
+	otherSt := s.MakeModel(c)
 
 	m := modelworkermanager.NewModelWorkerManager(s.State, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	runners := s.seeRunnersStart(c, 2)
@@ -176,7 +176,7 @@ func (s *suite) TestLoopExitKillsRunner(c *gc.C) {
 	// If something causes EnvWorkerManager.loop to exit that isn't Kill() then it should stop the runner.
 	// Currently the best way to cause this is to make
 	// m.st.GetModel(tag) fail with any error other than NotFound
-	otherSt := s.makeEnvironment(c)
+	otherSt := s.MakeModel(c)
 	st := newStateWithFailingGetEnvironment(s.State)
 	uuid := st.ModelUUID()
 	m := modelworkermanager.NewModelWorkerManager(st, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
@@ -247,7 +247,7 @@ func (s *suite) TestNothingHappensWhenEnvIsSeenAgain(c *gc.C) {
 	// it's otherwise still alive (unlikely but possible).
 	st := newStateWithFakeWatcher(s.State)
 	uuid := st.ModelUUID()
-	otherSt := s.makeEnvironment(c)
+	otherSt := s.MakeModel(c)
 	otherUUID := otherSt.ModelUUID()
 
 	m := modelworkermanager.NewModelWorkerManager(st, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
@@ -330,7 +330,7 @@ func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
 	for {
 		select {
 		case r := <-s.runnerC:
-			c.Assert(r.ssEnvUUID, gc.Equals, s.State.ModelUUID())
+			c.Assert(r.ssModelUUID, gc.Equals, s.State.ModelUUID())
 
 			runners = append(runners, r)
 			if len(runners) == expectedCount {
@@ -363,8 +363,8 @@ func (s *suite) startEnvWorker(ssSt modelworkermanager.InitialState, st *state.S
 		return nil, s.startErr
 	}
 	runner := &fakeRunner{
-		ssEnvUUID: ssSt.ModelUUID(),
-		modelUUID: st.ModelUUID(),
+		ssModelUUID: ssSt.ModelUUID(),
+		modelUUID:   st.ModelUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -378,8 +378,8 @@ func (s *suite) dyingEnvWorker(ssSt modelworkermanager.InitialState, st *state.S
 		return nil, s.startErr
 	}
 	runner := &fakeRunner{
-		ssEnvUUID: ssSt.ModelUUID(),
-		modelUUID: st.ModelUUID(),
+		ssModelUUID: ssSt.ModelUUID(),
+		modelUUID:   st.ModelUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -404,10 +404,10 @@ func waitOrFatal(c *gc.C, wait func() error) error {
 // doesn't actually run anything, recording some execution details for
 // testing.
 type fakeRunner struct {
-	tomb      tomb.Tomb
-	ssEnvUUID string
-	modelUUID string
-	killed    bool
+	tomb        tomb.Tomb
+	ssModelUUID string
+	modelUUID   string
+	killed      bool
 }
 
 func (r *fakeRunner) Kill() {

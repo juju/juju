@@ -290,7 +290,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps = append(prereqOps, assertEnvAliveOp(st.ModelUUID()))
+	prereqOps = append(prereqOps, assertModelAliveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
@@ -714,13 +714,13 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	return ops, nil
 }
 
-// EnsureAvailability adds state server machines as necessary to make
+// EnableHA adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
 // If placement is not empty, any new machines which may be required are started
 // according to the specified placement directives until the placement list is
 // exhausted; thereafter any new machines are started according to the constraints and series.
-func (st *State) EnsureAvailability(
+func (st *State) EnableHA(
 	numStateServers int, cons constraints.Value, series string, placement []string,
 ) (StateServersChanges, error) {
 
@@ -747,7 +747,7 @@ func (st *State) EnsureAvailability(
 			return nil, errors.New("cannot reduce state server count")
 		}
 
-		intent, err := st.ensureAvailabilityIntentions(currentInfo, placement)
+		intent, err := st.enableHAIntentions(currentInfo, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -776,7 +776,7 @@ func (st *State) EnsureAvailability(
 		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
+		ops, change, err = st.enableHAIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
@@ -796,9 +796,9 @@ type StateServersChanges struct {
 	Converted  []string
 }
 
-// ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.
-func (st *State) ensureAvailabilityIntentionOps(
-	intent *ensureAvailabilityIntent,
+// enableHAIntentionOps returns operations to fulfil the desired intent.
+func (st *State) enableHAIntentionOps(
+	intent *enableHAIntent,
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
@@ -883,21 +883,21 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 	return m.AgentPresence()
 }
 
-type ensureAvailabilityIntent struct {
+type enableHAIntent struct {
 	newCount  int
 	placement []string
 
 	promote, maintain, demote, remove, convert []*Machine
 }
 
-// ensureAvailabilityIntentions returns what we would like
+// enableHAIntentions returns what we would like
 // to do to maintain the availability of the existing servers
 // mentioned in the given info, including:
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement []string) (*ensureAvailabilityIntent, error) {
-	var intent ensureAvailabilityIntent
+func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (*enableHAIntent, error) {
+	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): unscoped placements shouldn't ever get here (though
 		// they do currently).  We should fix up the CLI to always add a scope

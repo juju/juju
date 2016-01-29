@@ -262,10 +262,10 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	envuuid := st.ModelUUID()
+	modelUUID := st.ModelUUID()
 	return actionDoc{
 			DocId:      st.docID(actionId.String()),
-			ModelUUID:  envuuid,
+			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
@@ -273,7 +273,7 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 			Status:     ActionPending,
 		}, actionNotificationDoc{
 			DocId:     st.docID(prefix + actionId.String()),
-			ModelUUID: envuuid,
+			ModelUUID: modelUUID,
 			Receiver:  receiverTag.Id(),
 			ActionID:  actionId.String(),
 		}, nil

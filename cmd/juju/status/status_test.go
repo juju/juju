@@ -19,7 +19,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -3629,7 +3629,7 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
 	com := &statusCommand{}
-	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 var statusInitTests = []struct {

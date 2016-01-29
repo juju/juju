@@ -22,21 +22,21 @@ const (
 // data by path.
 type Storage interface {
 	// Get returns an io.ReadCloser for data at path, namespaced to the
-	// environment.
+	// model.
 	//
 	// If the data is still being uploaded and is not fully written yet, a
 	// blobstore.ErrUploadPending error is returned. This means the path is
 	// valid but the caller should try again later to retrieve the data.
 	Get(path string) (r io.ReadCloser, length int64, err error)
 
-	// Put stores data from reader at path, namespaced to the environment.
+	// Put stores data from reader at path, namespaced to the model.
 	Put(path string, r io.Reader, length int64) error
 
-	// Remove removes data at path, namespaced to the environment.
+	// Remove removes data at path, namespaced to the model.
 	Remove(path string) error
 }
 
-// Storage returns a Storage for the environment with the specified UUID.
+// Storage returns a Storage for the model with the specified UUID.
 func NewStorage(modelUUID string, session *mgo.Session) Storage {
 	return stateStorage{modelUUID, session}
 }

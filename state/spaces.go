@@ -138,7 +138,7 @@ func (st *State) Space(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// AllSpaces returns all spaces for the environment.
+// AllSpaces returns all spaces for the model.
 func (st *State) AllSpaces() ([]*Space, error) {
 	spacesCollection, closer := st.getCollection(spacesC)
 	defer closer()

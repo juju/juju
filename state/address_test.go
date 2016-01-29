@@ -64,7 +64,7 @@ func (s *StateServerAddressesSuite) TestStateServerEnv(c *gc.C) {
 }
 
 func (s *StateServerAddressesSuite) TestOtherEnv(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	addresses, err := st.Addresses()
 	c.Assert(err, jc.ErrorIsNil)

@@ -23,13 +23,13 @@ func leadershipSettingsKey(serviceId string) string {
 }
 
 // LeadershipClaimer returns a leadership.Claimer for units and services in the
-// state's environment.
+// state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
 	return st.leadershipManager
 }
 
 // LeadershipChecker returns a leadership.Checker for units and services in the
-// state's environment.
+// state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
 	return st.leadershipManager
 }

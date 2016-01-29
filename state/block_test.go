@@ -174,8 +174,8 @@ func (s *blockSuite) TestRemoveAllBlocksForControllerNoBlocks(c *gc.C) {
 	c.Assert(len(blocks), gc.Equals, 0)
 }
 
-func (s *blockSuite) TestEnvUUID(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *blockSuite) TestModelUUID(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	err := st.SwitchBlockOn(state.ChangeBlock, "blocktest")
 	c.Assert(err, jc.ErrorIsNil)

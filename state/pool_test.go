@@ -13,8 +13,8 @@ import (
 
 type statePoolSuite struct {
 	statetesting.StateSuite
-	State1, State2                *state.State
-	ModelUUID, EnvUUID1, EnvUUID2 string
+	State1, State2                    *state.State
+	ModelUUID, ModelUUID1, ModelUUID2 string
 }
 
 var _ = gc.Suite(&statePoolSuite{})
@@ -23,34 +23,34 @@ func (s *statePoolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.ModelUUID = s.State.ModelUUID()
 
-	s.State1 = s.Factory.MakeEnvironment(c, nil)
+	s.State1 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State1.Close() })
-	s.EnvUUID1 = s.State1.ModelUUID()
+	s.ModelUUID1 = s.State1.ModelUUID()
 
-	s.State2 = s.Factory.MakeEnvironment(c, nil)
+	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
-	s.EnvUUID2 = s.State2.ModelUUID()
+	s.ModelUUID2 = s.State2.ModelUUID()
 }
 
 func (s *statePoolSuite) TestGet(c *gc.C) {
 	p := state.NewStatePool(s.State)
 	defer p.Close()
 
-	st1, err := p.Get(s.EnvUUID1)
+	st1, err := p.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1.ModelUUID(), gc.Equals, s.EnvUUID1)
+	c.Assert(st1.ModelUUID(), gc.Equals, s.ModelUUID1)
 
-	st2, err := p.Get(s.EnvUUID2)
+	st2, err := p.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st2.ModelUUID(), gc.Equals, s.EnvUUID2)
+	c.Assert(st2.ModelUUID(), gc.Equals, s.ModelUUID2)
 
 	// Check that the same instances are returned
 	// when a State for the same env is re-requested.
-	st1_, err := p.Get(s.EnvUUID1)
+	st1_, err := p.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1_, gc.Equals, st1)
 
-	st2_, err := p.Get(s.EnvUUID2)
+	st2_, err := p.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st2_, gc.Equals, st2)
 }
@@ -79,10 +79,10 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	defer p.Close()
 
 	// Get some State instances.
-	st1, err := p.Get(s.EnvUUID1)
+	st1, err := p.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st2, err := p.Get(s.EnvUUID1)
+	st2, err := p.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now close them.
@@ -95,11 +95,11 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 
 	// Ensure that new ones are returned if further States are
 	// requested.
-	st1_, err := p.Get(s.EnvUUID1)
+	st1_, err := p.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1_, gc.Not(gc.Equals), st1)
 
-	st2_, err := p.Get(s.EnvUUID2)
+	st2_, err := p.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st2_, gc.Not(gc.Equals), st2)
 }

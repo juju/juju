@@ -44,9 +44,9 @@ func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
 
 func (s *controllerSuite) TestAllModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner}).Close()
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: owner}).Close()
 
 	sysManager := s.OpenAPI(c)
@@ -74,7 +74,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"}).Close()
+	s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"}).Close()
 
 	sysManager := s.OpenAPI(c)
 	err := sysManager.DestroyController(false)

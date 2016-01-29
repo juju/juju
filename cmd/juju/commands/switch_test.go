@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
@@ -69,7 +69,7 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestCurrentModelHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	envcmd.WriteCurrentModel("fubar")
+	modelcmd.WriteCurrentModel("fubar")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
@@ -77,7 +77,7 @@ func (s *SwitchSimpleSuite) TestCurrentModelHasPrecedence(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestCurrentControllerHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	envcmd.WriteCurrentController("fubar")
+	modelcmd.WriteCurrentController("fubar")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar (controller)\n")
@@ -105,7 +105,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	context, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "-> erewhemos-2\n")
-	currentEnv, err := envcmd.ReadCurrentModel()
+	currentEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentEnv, gc.Equals, "erewhemos-2")
 }
@@ -129,7 +129,7 @@ func (s *SwitchSimpleSuite) TestSettingWritesControllerFile(c *gc.C) {
 	context, err := testing.RunCommand(c, newSwitchCommand(), "a-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "-> a-controller (controller)\n")
-	currController, err := envcmd.ReadCurrentController()
+	currController, err := modelcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currController, gc.Equals, "a-controller")
 }

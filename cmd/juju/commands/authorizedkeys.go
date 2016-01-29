@@ -8,7 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/keymanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var authKeysDoc = `
@@ -22,7 +22,7 @@ type AuthorizedKeysCommand struct {
 }
 
 type AuthorizedKeysBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewKeyManagerClient returns a keymanager client for the root api endpoint
