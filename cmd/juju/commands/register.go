@@ -86,7 +86,10 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 }
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
-func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, deployInfo DeploymentInfo, prevErr error) error {
+	if prevErr != nil {
+		return nil
+	}
 	if r.credentials == nil {
 		return nil
 	}

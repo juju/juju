@@ -36,7 +36,8 @@ func newDeployCommand() cmd.Command {
 			&RegisterMeteredCharm{
 				RegisterURL: planURL + "/plan/authorize",
 				QueryURL:    planURL + "/charm",
-			}}})
+			},
+			&AllocateBudget{}}})
 }
 
 type DeployCommand struct {
@@ -187,7 +188,8 @@ type DeployStep interface {
 	// RunPre runs before the call is made to add the charm to the environment.
 	RunPre(api.Connection, *http.Client, DeploymentInfo) error
 	// RunPost runs after the call is made to add the charm to the environment.
-	RunPost(api.Connection, *http.Client, DeploymentInfo) error
+	// The error parameter is used to notify the step of a previously occurred error.
+	RunPost(api.Connection, *http.Client, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -436,7 +438,7 @@ func charmSeries(
 func (c *DeployCommand) deployCharm(
 	curl *charm.URL, series string, ctx *cmd.Context,
 	client *api.Client, deployer *serviceDeployer,
-) error {
+) (rErr error) {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
@@ -492,6 +494,15 @@ func (c *DeployCommand) deployCharm(
 		}
 	}
 
+	defer func() {
+		for _, step := range c.Steps {
+			err = step.RunPost(state, httpClient, deployInfo, rErr)
+			if err != nil {
+				rErr = err
+			}
+		}
+	}()
+
 	if err := deployer.serviceDeploy(serviceDeployParams{
 		curl.String(),
 		serviceName,
@@ -514,13 +525,6 @@ func (c *DeployCommand) deployCharm(
 	httpClient, err = c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	for _, step := range c.Steps {
-		err = step.RunPost(state, httpClient, deployInfo)
-		if err != nil {
-			return err
-		}
 	}
 
 	return err

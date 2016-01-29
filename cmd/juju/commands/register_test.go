@@ -48,7 +48,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -72,6 +72,33 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	}})
 }
 
+func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	deployError := errors.New("deployment failed")
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d, deployError)
+	c.Assert(err, jc.ErrorIsNil)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			EnvironmentUUID: "environment uuid",
+			CharmURL:        "local:quantal/metered-1",
+			ServiceName:     "service name",
+			PlanURL:         "someplan",
+		}},
+	}})
+}
+
 func (s *registrationSuite) TestMeteredLocalCharm(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
@@ -81,7 +108,7 @@ func (s *registrationSuite) TestMeteredLocalCharm(c *gc.C) {
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.stub.Calls(), gc.HasLen, 0)
 }
@@ -96,7 +123,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -173,7 +200,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/unmetered-1"}},
 	}})
 	s.stub.ResetCalls()
-	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{})
 }
