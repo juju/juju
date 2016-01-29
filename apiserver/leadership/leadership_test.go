@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 )
 
 type leadershipSuite struct {

@@ -36,6 +36,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -80,7 +81,9 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
-	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
+	var err error
+	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
@@ -94,11 +97,13 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
-	stop(c, s.p)
+	if s.p != nil {
+		stop(c, s.p)
+	}
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (worker.StringsWatchHandler, worker.Runner) {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
 	pr := s.st.Provisioner()
@@ -121,7 +126,9 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
-		return worker.NewStringsWorker(handler), nil
+		return watcher.NewStringsWorker(watcher.StringsConfig{
+			Handler: handler,
+		})
 	})
 	return handler, runner
 }
@@ -407,7 +414,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	_, err = handler.SetUp()
 	c.Assert(err, jc.ErrorIsNil)
-	err = handler.Handle([]string{"0/lxc/0"})
+	err = handler.Handle(nil, []string{"0/lxc/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
 }
