@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"path"
+	"runtime"
 	"time"
 
 	"github.com/juju/testing"
@@ -55,6 +57,9 @@ func (s *senderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 
+	testing.PatchValue(sender.SocketName, func(_, _ string) string {
+		return sockPath(c)
+	})
 }
 
 func (s *senderSuite) TestHandler(c *gc.C) {
@@ -95,7 +100,7 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 func (s *senderSuite) TestMetricSendingSuccess(c *gc.C) {
 	apiSender := newTestAPIMetricSender()
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -120,7 +125,7 @@ func (s *senderSuite) TestSendingGetDuplicate(c *gc.C) {
 		c.Fatalf("blocked error channel")
 	}
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -144,7 +149,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 		c.Fatalf("blocked error channel")
 	}
 
-	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -185,7 +190,7 @@ func (s *senderSuite) TestNoMetricsToSend(c *gc.C) {
 		newTmpSpoolDir,
 	}
 
-	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir, "")
+	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir, "test-unit-0")
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
@@ -303,4 +308,12 @@ func (c *mockConnection) Read(p []byte) (n int, err error) {
 		}
 	}
 	return
+}
+
+func sockPath(c *gc.C) string {
+	sockPath := path.Join(c.MkDir(), "test.listener")
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe` + sockPath[2:]
+	}
+	return sockPath
 }

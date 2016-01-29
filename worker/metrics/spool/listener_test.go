@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,9 +29,17 @@ type listenerSuite struct {
 	listener   stopper
 }
 
+func sockPath(c *gc.C) string {
+	sockPath := filepath.Join(c.MkDir(), "test.listener")
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe` + sockPath[2:]
+	}
+	return sockPath
+}
+
 func (s *listenerSuite) SetUpTest(c *gc.C) {
 	s.handler = &mockHandler{}
-	s.socketPath = filepath.Join(c.MkDir(), "test.socket")
+	s.socketPath = sockPath(c)
 	listener, err := spool.NewSocketListener(s.socketPath, s.handler)
 	c.Assert(err, jc.ErrorIsNil)
 	s.listener = listener

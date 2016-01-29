@@ -104,7 +104,7 @@ func (s *sender) stop() {
 	}
 }
 
-func socketName(baseDir, unitTag string) string {
+var socketName = func(baseDir, unitTag string) string {
 	if os.HostOS() == os.Windows {
 		return fmt.Sprintf(`\\.\pipe\send-metrics-%s`, unitTag)
 	}
