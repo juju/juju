@@ -52,14 +52,22 @@ func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.Re
 	}
 
 	for i, name := range args.ResourceNames {
-		r.Resources[i].Error = common.ServerError(errors.NotFoundf("resource %q", name))
-		for _, res := range resources {
-			if name == res.Name {
-				r.Resources[i].Resource = api.Resource2API(res)
-				r.Resources[i].Error = nil
-				break
-			}
+		res, ok := lookUpResource(name, resources)
+		if !ok {
+			r.Resources[i].Error = common.ServerError(errors.NotFoundf("resource %q", name))
+			continue
 		}
+
+		r.Resources[i].Resource = api.Resource2API(res)
 	}
 	return r, nil
+}
+
+func lookUpResource(name string, resources []resource.Resource) (resource.Resource, bool) {
+	for _, res := range resources {
+		if name == res.Name {
+			return res, true
+		}
+	}
+	return resource.Resource{}, false
 }
