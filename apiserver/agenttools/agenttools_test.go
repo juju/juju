@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package model
+package agenttools
 
 import (
 	"github.com/juju/errors"
@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&updaterSuite{})
+var _ = gc.Suite(&AgentToolsSuite{})
 
-type updaterSuite struct {
+type AgentToolsSuite struct {
 	coretesting.BaseSuite
 }
 
@@ -26,7 +26,7 @@ type dummyEnviron struct {
 	environs.Environ
 }
 
-func (s *updaterSuite) TestCheckTools(c *gc.C) {
+func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	sConfig := coretesting.FakeConfig()
 	sConfig = sConfig.Merge(coretesting.Attrs{
 		"agent-version": "2.5.0",
@@ -57,7 +57,7 @@ func (s *updaterSuite) TestCheckTools(c *gc.C) {
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
 }
 
-func (s *updaterSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
+func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	sConfig := coretesting.FakeConfig()
 	sConfig = sConfig.Merge(coretesting.Attrs{
 		"agent-version": "2.5-alpha1",
@@ -100,7 +100,7 @@ func (e *modelGetter) Model() (*state.Model, error) {
 	return &state.Model{}, nil
 }
 
-func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
+func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	fakeNewEnvirons := func(*config.Config) (environs.Environ, error) {
 		return dummyEnviron{}, nil
 	}
@@ -136,7 +136,7 @@ func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 2})
 }
 
-func (s *updaterSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
+func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	fakeNewEnvirons := func(*config.Config) (environs.Environ, error) {
 		return dummyEnviron{}, nil
 	}

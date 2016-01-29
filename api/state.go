@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/model"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
@@ -364,11 +363,6 @@ func (st *state) Deployer() *deployer.State {
 // Addresser returns access to the Addresser API.
 func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
-}
-
-// Model returns access to the Model API
-func (st *state) Model() *model.Facade {
-	return model.NewFacade(st)
 }
 
 // Logger returns access to the Logger API
