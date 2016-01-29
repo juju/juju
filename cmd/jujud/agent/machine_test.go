@@ -1019,7 +1019,7 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 		called = true
 		return newDummyWorker()
 	}
-	s.AgentSuite.PatchValue(&newDiscoverSpaces, newDiscoverSpaces)
+	s.PatchValue(&newDiscoverSpaces, newDiscoverSpaces)
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()

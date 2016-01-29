@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
-	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
@@ -581,19 +580,6 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.EndRestore()
 	}
 	return nil
-}
-
-func (a *MachineAgent) newDiscoverSpacesWorker(api *apidiscoverspaces.API) worker.Worker {
-	a.discoveringSpacesMutex.Lock()
-	defer a.discoveringSpacesMutex.Unlock()
-	a.discoveringSpaces = true
-
-	setDiscoverSpacesCompleted := func() {
-		a.discoveringSpacesMutex.Lock()
-		defer a.discoveringSpacesMutex.Unlock()
-		a.discoveringSpaces = false
-	}
-	return newDiscoverSpaces(api, setDiscoverSpacesCompleted)
 }
 
 // restoreStateWatcher watches for restoreInfo looking for changes in the restore process.
@@ -1268,7 +1254,16 @@ func (a *MachineAgent) startEnvWorkers(
 		return newAddresser(apiSt.Addresser())
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		return a.newDiscoverSpacesWorker(apiSt.DiscoverSpaces()), nil
+		a.discoveringSpacesMutex.Lock()
+		defer a.discoveringSpacesMutex.Unlock()
+		a.discoveringSpaces = true
+
+		setDiscoverSpacesCompleted := func() {
+			a.discoveringSpacesMutex.Lock()
+			defer a.discoveringSpacesMutex.Unlock()
+			a.discoveringSpaces = false
+		}
+		return newDiscoverSpaces(apiSt.DiscoverSpaces(), setDiscoverSpacesCompleted), nil
 	})
 
 	if machine.IsManager() {
