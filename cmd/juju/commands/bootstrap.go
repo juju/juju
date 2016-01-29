@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -80,6 +81,11 @@ Only the numeric version is relevant. To enable ease of scripting, the full bina
 is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is used.
 By default, Juju will bootstrap using the exact same version as the client.
 
+The optional --controller-space argument overrides the network space name to use
+for selecting controller API endpoints. It cannot be changed once set, and if empty
+will be inferred by the provider, if it supports spaces. Another use of the controller
+space name is as fallback space for unspecified service endpoint bindings.
+
 See Also:
    juju help switch
    juju help constraints
@@ -99,6 +105,7 @@ type bootstrapCommand struct {
 	BootstrapConstraints  constraints.Value
 	BootstrapSeries       string
 	BootstrapImage        string
+	ControllerSpace       string
 	UploadTools           bool
 	MetadataSource        string
 	Placement             string
@@ -129,6 +136,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "upgrade to the latest patch release tools on first bootstrap")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
+	f.StringVar(&c.ControllerSpace, "controller-space", "", "name of the space where juju controllers are in")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -177,6 +185,14 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
 		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
+
+	if c.ControllerSpace != "" {
+		if !names.IsValidSpace(c.ControllerSpace) {
+			errorMessage := fmt.Sprintf("cannot use %q for --controller-space: not a valid space name", c.ControllerSpace)
+			return errors.NewNotValid(nil, errorMessage)
+		}
+	}
+
 	return cmd.CheckEmpty(args)
 }
 
@@ -301,6 +317,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
 		BootstrapImage:       c.BootstrapImage,
+		ControllerSpaceName:  c.ControllerSpace,
 		Placement:            c.Placement,
 		UploadTools:          c.UploadTools,
 		AgentVersion:         c.AgentVersion,

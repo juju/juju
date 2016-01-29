@@ -205,6 +205,7 @@ type bootstrapTest struct {
 	placement            string
 	hostArch             string
 	keepBroken           bool
+	controllerSpace      string
 }
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, envName string) {
@@ -278,6 +279,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
+	c.Check(opBootstrap.Args.ControllerSpaceName, gc.DeepEquals, test.controllerSpace)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
@@ -386,6 +388,14 @@ var bootstrapTests = []bootstrapTest{{
 	version: "1.3.3-saucy-ppc64el",
 	args:    []string{"--agent-version", "1.4.0"},
 	err:     `requested agent version major.minor mismatch`,
+}, {
+	info: "--controller-space with invalid value",
+	args: []string{"--controller-space", "not a good name"},
+	err:  `cannot use "not a good name" for --controller-space: not a valid space name`,
+}, {
+	info:            "--controller-space with valid value",
+	args:            []string{"--controller-space", "juju-controllers"},
+	controllerSpace: "juju-controllers",
 }}
 
 func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
