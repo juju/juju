@@ -1020,7 +1020,7 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 		return newDummyWorker()
 	}
 	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, conf, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1035,6 +1035,29 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 			c.Fatalf("discoverspaces worker not created")
 		}
 	}
+	c.Assert(setSpacesDiscovered, gc.NotNil)
+
+	info, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	info.Tag = s.AdminUserTag(c)
+	// User can't log in
+	_, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
+
+	// Local machine can log in
+	info, ok = conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	setSpacesDiscovered()
+
+	// Now the user can log in
+	info.Tag = s.AdminUserTag(c)
+	info.Password = "dummy-secret"
+	_, err = api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
