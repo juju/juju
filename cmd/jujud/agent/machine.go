@@ -791,25 +791,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 	})
 
-<<<<<<< HEAD
-=======
-	// Check if the network management is disabled.
-	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
-	if disableNetworkManagement {
-		logger.Infof("network management is disabled")
-	}
-
-	// Start networker depending on configuration and job.
-	intrusiveMode := isNetworkManager && !disableNetworkManagement
-	runner.StartWorker("networker", func() (worker.Worker, error) {
-		w, err := newNetworker(apiConn.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start networker worker")
-		}
-		return w, nil
-	})
-
->>>>>>> upstream/master
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
