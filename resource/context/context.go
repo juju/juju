@@ -111,8 +111,8 @@ func (deps *contextDeps) NewTempDirSpec() (internal.DownloadTempTarget, error) {
 	return dir, nil
 }
 
-func (deps *contextDeps) WriteContent(filename string, content internal.Content) error {
-	return internal.ContextWriteContent(filename, content, deps)
+func (deps *contextDeps) WriteContent(target io.Writer, content internal.Content) error {
+	return internal.WriteContent(target, content, deps)
 }
 
 func (deps contextDeps) CloseAndLog(closer io.Closer, label string) {
@@ -123,7 +123,8 @@ func (deps contextDeps) MkdirAll(dirname string) error {
 	return os.MkdirAll(dirname, 0755)
 }
 
-func (deps contextDeps) CreateFile(filename string) (io.WriteCloser, error) {
+func (deps contextDeps) CreateWriter(filename string) (io.WriteCloser, error) {
+	// TODO(ericsnow) chmod 0644?
 	return os.Create(filename)
 }
 
@@ -139,6 +140,11 @@ func (deps contextDeps) Move(target, source string) error {
 	// Note that we follow the io.Copy() argument arder here
 	// (os.Rename does not).
 	return os.Rename(source, target)
+}
+
+func (deps contextDeps) Copy(target io.Writer, source io.Reader) error {
+	_, err := io.Copy(target, source)
+	return err
 }
 
 func (deps contextDeps) Join(path ...string) string {

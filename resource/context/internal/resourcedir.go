@@ -7,6 +7,8 @@ package internal
 //  (e.g. top-level resource pkg, charm/resource)
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 )
 
@@ -172,15 +174,28 @@ func (dir *Directory) WriteContent(relPath []string, content Content) error {
 	}
 	filename := dir.Resolve(relPath...)
 
-	err := dir.Deps.WriteContent(filename, content)
+	target, err := dir.Deps.CreateWriter(filename)
 	if err != nil {
+		return errors.Annotate(err, "could not create new file for resource")
+	}
+	defer dir.Deps.CloseAndLog(target, filename)
+
+	if err := dir.Deps.WriteContent(target, content); err != nil {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
 // DirectoryDeps exposes the external functionality needed by Directory.
 type DirectoryDeps interface {
+	// CreateWriter creates a new writer to which the resource file
+	// will be written.
+	CreateWriter(string) (io.WriteCloser, error)
+
+	// CloseAndLog closes the closer and logs any error.
+	CloseAndLog(io.Closer, string)
+
 	// WriteContent writes the content to the directory.
-	WriteContent(string, Content) error
+	WriteContent(io.Writer, Content) error
 }

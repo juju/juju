@@ -130,27 +130,3 @@ type NewContextContentCheckerDeps interface {
 	// NewChecksumWriter returns a new checksum writer.
 	NewChecksumWriter() ChecksumWriter
 }
-
-func ContextWriteContent(filename string, content Content, deps ContextWriteContentDeps) error {
-	return WriteContent(content, &contextWriteContentDeps{
-		ContextWriteContentDeps: deps,
-		filename:                filename,
-	})
-}
-
-type ContextWriteContentDeps interface {
-	//NewChecker provides a content checker for the given content.
-	NewChecker(Content) ContentChecker
-
-	// CreateFile exposes the functionality of os.Create().
-	CreateFile(string) (io.WriteCloser, error)
-}
-
-type contextWriteContentDeps struct {
-	ContextWriteContentDeps
-	filename string
-}
-
-func (deps contextWriteContentDeps) CreateTarget() (io.WriteCloser, error) {
-	return deps.CreateFile(deps.filename)
-}

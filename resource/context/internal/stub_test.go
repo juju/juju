@@ -24,8 +24,7 @@ type internalStub struct {
 	ReturnOpenResource            internal.ContextOpenedResource
 	ReturnNewTempDirSpec          internal.DownloadTempTarget
 	ReturnNewChecker              internal.ContentChecker
-	ReturnCreateTarget            io.WriteCloser
-	ReturnCreateFile              io.WriteCloser
+	ReturnCreateWriter            io.WriteCloser
 	ReturnNewTempDir              string
 }
 
@@ -104,8 +103,8 @@ func (s *internalStub) NewChecker(content internal.Content) internal.ContentChec
 	return s.ReturnNewChecker
 }
 
-func (s *internalStub) WriteContent(filename string, content internal.Content) error {
-	s.Stub.AddCall("WriteContent", filename, content)
+func (s *internalStub) WriteContent(target io.Writer, content internal.Content) error {
+	s.Stub.AddCall("WriteContent", target, content)
 	if err := s.Stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -127,22 +126,13 @@ func (s *internalStub) MkdirAll(dirname string) error {
 	return nil
 }
 
-func (s *internalStub) CreateTarget() (io.WriteCloser, error) {
-	s.Stub.AddCall("CreateTarget")
+func (s *internalStub) CreateWriter(filename string) (io.WriteCloser, error) {
+	s.Stub.AddCall("CreateWriter", filename)
 	if err := s.Stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.ReturnCreateTarget, nil
-}
-
-func (s *internalStub) CreateFile(filename string) (io.WriteCloser, error) {
-	s.Stub.AddCall("CreateFile", filename)
-	if err := s.Stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnCreateFile, nil
+	return s.ReturnCreateWriter, nil
 }
 
 func (s *internalStub) NewTempDir() (string, error) {
@@ -165,6 +155,15 @@ func (s *internalStub) RemoveDir(dirname string) error {
 
 func (s *internalStub) Move(target, source string) error {
 	s.Stub.AddCall("Move", target, source)
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *internalStub) Copy(target io.Writer, source io.Reader) error {
+	s.Stub.AddCall("Copy", target, source)
 	if err := s.Stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

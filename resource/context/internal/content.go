@@ -55,18 +55,11 @@ type ContentSource interface {
 
 // WriteContent writes the resource file to the target provided
 // by the deps.
-func WriteContent(content Content, deps WriteContentDeps) error {
+func WriteContent(target io.Writer, content Content, deps WriteContentDeps) error {
 	checker := deps.NewChecker(content)
 	source := checker.WrapReader(content.Data)
 
-	target, err := deps.CreateTarget()
-	if err != nil {
-		return errors.Annotate(err, "could not create new file for resource")
-	}
-	defer target.Close()
-	// TODO(ericsnow) chmod 0644?
-
-	if _, err := io.Copy(target, source); err != nil {
+	if err := deps.Copy(target, source); err != nil {
 		return errors.Annotate(err, "could not write resource to file")
 	}
 
@@ -82,9 +75,8 @@ type WriteContentDeps interface {
 	//NewChecker provides a content checker for the given content.
 	NewChecker(Content) ContentChecker
 
-	// CreateTarget creates a new writer to which the resource file
-	// will be written.
-	CreateTarget() (io.WriteCloser, error)
+	// Copy copies the data from the reader into the writer.
+	Copy(io.Writer, io.Reader) error
 }
 
 // ContentChecker exposes functionality for verifying the data read from a reader.

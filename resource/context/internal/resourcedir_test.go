@@ -193,7 +193,9 @@ func (s *DirectorySuite) TestWrite(c *gc.C) {
 		"Info",
 		"Content",
 		"Join",
+		"CreateWriter",
 		"WriteContent",
+		"CloseAndLog",
 	)
 }
 
@@ -219,7 +221,9 @@ func (s *DirectorySuite) TestWriteContent(c *gc.C) {
 
 	stub.CheckCallNames(c,
 		"Join",
+		"CreateWriter",
 		"WriteContent",
+		"CloseAndLog",
 	)
 }
 

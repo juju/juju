@@ -83,32 +83,24 @@ func (s *ContentSuite) TestWriteContent(c *gc.C) {
 		Size:        info.Size,
 		Fingerprint: info.Fingerprint,
 	}
-	writer, buf := filetesting.NewStubWriter(s.stub.Stub)
+	target, _ := filetesting.NewStubWriter(s.stub.Stub)
 	stub := &stubContent{
 		internalStub: s.stub,
 		Reader:       reader,
-		Writer:       writer,
-		Closer:       &filetesting.StubCloser{Stub: s.stub.Stub},
 	}
 	stub.ReturnNewChecker = stub
 	stub.ReturnWrapReader = stub
-	stub.ReturnCreateTarget = stub
 	deps := stub
 
-	err := internal.WriteContent(content, deps)
+	err := internal.WriteContent(target, content, deps)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
 		"NewChecker",
 		"WrapReader",
-		"CreateTarget",
-		"Read",
-		"Write",
-		"Read",
+		"Copy",
 		"Verify",
-		"Close",
 	)
-	c.Check(buf.String(), gc.Equals, "some data")
 }
 
 var _ = gc.Suite(&CheckerSuite{})
@@ -255,8 +247,6 @@ func (s *CheckerSuite) TestNopVerify(c *gc.C) {
 type stubContent struct {
 	*internalStub
 	io.Reader
-	io.Writer
-	io.Closer
 
 	ReturnWrapReader   io.Reader
 	ReturnCreateTarget io.WriteCloser
@@ -276,15 +266,6 @@ func (s *stubContent) Verify() error {
 	}
 
 	return nil
-}
-
-func (s *stubContent) CreateTarget() (io.WriteCloser, error) {
-	s.Stub.AddCall("CreateTarget")
-	if err := s.Stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnCreateTarget, nil
 }
 
 type stubChecker struct {
