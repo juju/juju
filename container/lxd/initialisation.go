@@ -72,7 +72,7 @@ func ensureDependencies(series string) error {
 		}
 
 		if config.RequiresBackports(series, pack) {
-			pkg = fmt.Sprintf("--target-release %s-backports %d", series, pkg)
+			pkg = fmt.Sprintf("--target-release %s-backports %s", series, pkg)
 		}
 
 		if err := pacman.Install(pkg); err != nil {

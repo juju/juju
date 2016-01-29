@@ -58,7 +58,7 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	// Here we want to test for any other series whilst avoiding the
 	// possibility of hitting a cloud archive-requiring release.
 	// As such, we simply pass an empty series.
-	paccmder, err := commands.NewPackageCommander("")
+	paccmder, err := commands.NewPackageCommander("xenial")
 	c.Assert(err, jc.ErrorIsNil)
 
 	container := NewContainerInitialiser("")
