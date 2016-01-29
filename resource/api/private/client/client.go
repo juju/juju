@@ -40,16 +40,16 @@ type UnitHTTPClient interface {
 
 // NewUnitFacadeClient creates a new API client for the resources
 // portion of the uniter facade.
-func NewUnitFacadeClient(facadeCaller FacadeCaller, httpClient UnitHTTPClient) *FacadeClient {
-	return &FacadeClient{
+func NewUnitFacadeClient(facadeCaller FacadeCaller, httpClient UnitHTTPClient) *UnitFacadeClient {
+	return &UnitFacadeClient{
 		FacadeCaller: facadeCaller,
 		HTTPClient:   httpClient,
 	}
 }
 
-// FacadeClient is an API client for the resources portion
+// UnitFacadeClient is an API client for the resources portion
 // of the uniter facade.
-type FacadeClient struct {
+type UnitFacadeClient struct {
 	FacadeCaller
 	HTTPClient
 }
@@ -57,7 +57,7 @@ type FacadeClient struct {
 // GetResource opens the resource (metadata/blob), if it exists, via
 // the HTTP API and returns it. If it does not exist or hasn't been
 // uploaded yet then errors.NotFound is returned.
-func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.ReadCloser, error) {
+func (c *UnitFacadeClient) GetResource(resourceName string) (resource.Resource, io.ReadCloser, error) {
 	var response *http.Response
 	req, err := api.NewHTTPDownloadRequest(resourceName)
 	if err != nil {
@@ -78,7 +78,7 @@ func (c *FacadeClient) GetResource(resourceName string) (resource.Resource, io.R
 	return resourceInfo, response.Body, nil
 }
 
-func (c *FacadeClient) getResourceInfo(resourceName string) (resource.Resource, error) {
+func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resource, error) {
 	var response private.ResourcesResult
 
 	args := private.ListResourcesArgs{

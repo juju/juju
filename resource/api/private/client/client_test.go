@@ -20,23 +20,23 @@ import (
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
-var _ = gc.Suite(&FacadeClientSuite{})
+var _ = gc.Suite(&UnitFacadeClientSuite{})
 
-type FacadeClientSuite struct {
+type UnitFacadeClientSuite struct {
 	testing.IsolationSuite
 
 	stub *testing.Stub
 	api  *stubAPI
 }
 
-func (s *FacadeClientSuite) SetUpTest(c *gc.C) {
+func (s *UnitFacadeClientSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
 	s.api = &stubAPI{Stub: s.stub}
 }
 
-func (s *FacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
+func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 	caller := &stubAPI{Stub: s.stub}
 	doer := &stubAPI{Stub: s.stub}
 
@@ -47,7 +47,7 @@ func (s *FacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 	c.Check(cl.HTTPClient, gc.Equals, doer)
 }
 
-func (s *FacadeClientSuite) TestGetResource(c *gc.C) {
+func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
 	s.api.setResource(opened.Resource, opened)
 	cl := client.NewUnitFacadeClient(s.api, s.api)
@@ -60,7 +60,7 @@ func (s *FacadeClientSuite) TestGetResource(c *gc.C) {
 	c.Check(content, jc.DeepEquals, opened)
 }
 
-func (s *FacadeClientSuite) TestUnitDoer(c *gc.C) {
+func (s *UnitFacadeClientSuite) TestUnitDoer(c *gc.C) {
 	req, err := http.NewRequest("GET", "/resources/eggs", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	body := filetesting.NewStubFile(s.stub, nil)
