@@ -679,7 +679,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isEnvironManager, isUnitHoster, isNetworkManager bool
+	var isEnvironManager, isUnitHoster bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageEnviron:
