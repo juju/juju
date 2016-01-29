@@ -50,8 +50,8 @@ func (spec DirectorySpec) IsUpToDate(content Content) (bool, error) {
 	return false, nil
 }
 
-// Open preps the spec'ed directory and returns it.
-func (spec DirectorySpec) Open() (*Directory, error) {
+// Initialize preps the spec'ed directory and returns it.
+func (spec DirectorySpec) Initialize() (*Directory, error) {
 	if err := spec.Deps.MkdirAll(spec.Dirname); err != nil {
 		return nil, errors.Annotate(err, "could not create resource dir")
 	}

@@ -14,7 +14,7 @@ import (
 
 // Download downloads the resource from the provied source to the target.
 func Download(target DownloadTarget, remote ContentSource) error {
-	resDir, err := target.Open()
+	resDir, err := target.Initialize()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -39,7 +39,7 @@ func DownloadIndirect(target DownloadTarget, remote ContentSource, deps Download
 		return errors.Trace(err)
 	}
 
-	resDir, err := target.Open()
+	resDir, err := target.Initialize()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -73,8 +73,8 @@ type DownloadIndirectDeps interface {
 // DownloadTarget exposes the functionality of a directory spec
 // needed by Download().
 type DownloadTarget interface {
-	// Open prepares the target directory and returns it.
-	Open() (DownloadDirectory, error)
+	// Initialize prepares the target directory and returns it.
+	Initialize() (DownloadDirectory, error)
 }
 
 // DownloadDirectory exposes the functionality of a resource directory

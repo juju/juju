@@ -36,7 +36,7 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	err := internal.Download(target, remote)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Open", "Write")
+	s.stub.CheckCallNames(c, "Initialize", "Write")
 	s.stub.CheckCall(c, 1, "Write", remote)
 }
 
@@ -59,7 +59,7 @@ func (s *DownloadSuite) TestDownloadIndirectOkay(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"NewTempDirSpec",
 		"DownloadDirect",
-		"Open",
+		"Initialize",
 		"Resolve",
 		"Resolve",
 		"ReplaceDirectory",
@@ -104,8 +104,8 @@ func (s *stubDownload) Close() error {
 	return nil
 }
 
-func (s *stubDownload) Open() (internal.DownloadDirectory, error) {
-	s.Stub.AddCall("Open")
+func (s *stubDownload) Initialize() (internal.DownloadDirectory, error) {
+	s.Stub.AddCall("Initialize")
 	if err := s.Stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

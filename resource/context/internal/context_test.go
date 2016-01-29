@@ -103,7 +103,7 @@ type stubContext struct {
 	ReturnResolve    string
 	ReturnInfo       resource.Resource
 	ReturnContent    internal.Content
-	ReturnOpen       internal.DownloadDirectory
+	ReturnInitialize internal.DownloadDirectory
 	ReturnIsUpToDate bool
 }
 
@@ -128,13 +128,13 @@ func (s *stubContext) Content() internal.Content {
 	return s.ReturnContent
 }
 
-func (s *stubContext) Open() (internal.DownloadDirectory, error) {
-	s.AddCall("Open")
+func (s *stubContext) Initialize() (internal.DownloadDirectory, error) {
+	s.AddCall("Initialize")
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.ReturnOpen, nil
+	return s.ReturnInitialize, nil
 }
 
 func (s *stubContext) IsUpToDate(content internal.Content) (bool, error) {

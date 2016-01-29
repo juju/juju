@@ -83,13 +83,13 @@ func (s *DirectorySpecSuite) TestIsUpToDate(c *gc.C) {
 	c.Check(isUpToDate, jc.IsFalse) // For now, always...
 }
 
-func (s *DirectorySpecSuite) TestOpen(c *gc.C) {
+func (s *DirectorySpecSuite) TestInitialize(c *gc.C) {
 	dataDir := "/var/lib/juju/agents/unit-spam-1/resources"
 	deps := s.stub
 	spec := internal.NewDirectorySpec(dataDir, "eggs", deps)
 	s.stub.ResetCalls()
 
-	dir, err := spec.Open()
+	dir, err := spec.Initialize()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "MkdirAll")

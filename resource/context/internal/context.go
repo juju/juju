@@ -68,8 +68,8 @@ type ContextDownloadDeps interface {
 type ContextDirectorySpec interface {
 	Resolver
 
-	// Open prepares the target directory and returns it.
-	Open() (DownloadDirectory, error)
+	// Initializeprepares the target directory and returns it.
+	Initialize() (DownloadDirectory, error)
 
 	// IsUpToDate indicates whether or not the resource dir is in sync
 	// with the content.
@@ -87,9 +87,9 @@ type contextDirectorySpec struct {
 	*DirectorySpec
 }
 
-// Open implements ContextDirectorySpec.
-func (spec contextDirectorySpec) Open() (DownloadDirectory, error) {
-	return spec.DirectorySpec.Open()
+// Initializeimplements ContextDirectorySpec.
+func (spec contextDirectorySpec) Initialize() (DownloadDirectory, error) {
+	return spec.DirectorySpec.Initialize()
 }
 
 // ContextDownloadDirectory is an adapter for TempDirectorySpec.
@@ -97,9 +97,9 @@ type ContextDownloadDirectory struct {
 	*TempDirectorySpec
 }
 
-// Open implements DownloadTarget.
-func (dir ContextDownloadDirectory) Open() (DownloadDirectory, error) {
-	return dir.TempDirectorySpec.Open()
+// Initialize implements DownloadTarget.
+func (dir ContextDownloadDirectory) Initialize() (DownloadDirectory, error) {
+	return dir.TempDirectorySpec.Initialize()
 }
 
 // ContextOpenedResource exposes the functionality of an "opened"
