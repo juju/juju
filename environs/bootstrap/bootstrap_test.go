@@ -39,14 +39,14 @@ const (
 	noKeysDefined  = false
 )
 
-type bootstrapSuite struct {
+// baseBootstrapSuite providers the basic bootstrap suite setup. It is intended
+// for embedding into another suite.
+type baseBootstrapSuite struct {
 	coretesting.BaseSuite
 	envtesting.ToolsFixture
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
-
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *baseBootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -59,10 +59,25 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 
-func (s *bootstrapSuite) TearDownTest(c *gc.C) {
+// setDummyStorage injects the local provider's fake storage implementation
+// into the given environment, so that tests can manipulate storage as if it
+// were real.
+func (s *baseBootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
+	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
+	env.storage = stor
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
+}
+
+func (s *baseBootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
+
+type bootstrapSuite struct {
+	baseBootstrapSuite
+}
+
+var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined, nil)
@@ -464,15 +479,6 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 	}
 }
 
-// setDummyStorage injects the local provider's fake storage implementation
-// into the given environment, so that tests can manipulate storage as if it
-// were real.
-func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
-	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
-	env.storage = stor
-	s.AddCleanup(func(c *gc.C) { closer.Close() })
-}
-
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
@@ -513,4 +519,126 @@ type bootstrapEnvironWithRegion struct {
 
 func (e bootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
 	return e.region, nil
+}
+
+type controllerSpaceSuite struct {
+	baseBootstrapSuite
+
+	baseEnviron       *bootstrapEnviron
+	networkingEnviron environs.NetworkingEnviron
+}
+
+var _ = gc.Suite(&controllerSpaceSuite{})
+
+func (s *controllerSpaceSuite) TestWithInvalidSpaceName(c *gc.C) {
+	s.initNonNetworkingEnviron(c)
+
+	err := s.bootstrapWithContollerSpaceUsingEnviron(c, "not valid", s.baseEnviron)
+
+	c.Assert(err, gc.ErrorMatches, `cannot use "not valid" as controller space: not a valid space name`)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	s.assertBootstrapNotStarted(c)
+}
+
+func (s *controllerSpaceSuite) TestWithNetworkingNotSupported(c *gc.C) {
+	s.initNonNetworkingEnviron(c)
+
+	err := s.bootstrapWithContollerSpaceUsingEnviron(c, "valid", s.baseEnviron)
+
+	c.Assert(err, gc.ErrorMatches, `cannot use "valid" as controller space: no networking support by the provider`)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	s.assertBootstrapNotStarted(c)
+}
+
+func (s *controllerSpaceSuite) TestWithNetworkingButNoSpacesSupport(c *gc.C) {
+	s.initNetworkingEnvironWithoutSpacesSupport(c)
+
+	err := s.bootstrapWithContollerSpaceUsingEnviron(c, "foo", s.networkingEnviron)
+
+	c.Assert(err, gc.ErrorMatches, `cannot use "foo" as controller space: provider error: spaces not supported`)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	s.assertBootstrapNotStarted(c)
+}
+
+func (s *controllerSpaceSuite) TestWithUnexpectedErrorFromSupportsSpaces(c *gc.C) {
+	s.initNetworkingEnvironWithSupportsSpacesReturningError(c, errors.New("failed badly"))
+
+	err := s.bootstrapWithContollerSpaceUsingEnviron(c, "juju", s.networkingEnviron)
+
+	c.Assert(err, gc.ErrorMatches, `cannot use "juju" as controller space: provider error: failed badly`)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	s.assertBootstrapNotStarted(c)
+}
+
+func (s *controllerSpaceSuite) TestValidSpaceNamePassedToBootstrap(c *gc.C) {
+	s.initNetworkingEnvironWithSpacesSupport(c)
+
+	specifiedSpaceName := "juju"
+	err := s.bootstrapWithContollerSpaceUsingEnviron(c, specifiedSpaceName, s.networkingEnviron)
+
+	s.assertBootstrapSucceedsUsingControllerSpace(c, err, specifiedSpaceName)
+}
+
+func (s *controllerSpaceSuite) initNonNetworkingEnviron(c *gc.C) {
+	s.baseEnviron = s.newBootstrapEnvironWithDefaults()
+	s.setDummyStorage(c, s.baseEnviron)
+}
+
+func (s *controllerSpaceSuite) newBootstrapEnvironWithDefaults() *bootstrapEnviron {
+	return newEnviron("foo", useDefaultKeys, nil)
+}
+
+func (s *controllerSpaceSuite) initNetworkingEnvironWithoutSpacesSupport(c *gc.C) {
+	s.initCustomNetworkingEnviron(c, false, errors.NotSupportedf("spaces"))
+}
+
+func (s *controllerSpaceSuite) initNetworkingEnvironWithSpacesSupport(c *gc.C) {
+	s.initCustomNetworkingEnviron(c, true, nil)
+}
+
+func (s *controllerSpaceSuite) initNetworkingEnvironWithSupportsSpacesReturningError(c *gc.C, supportsSpacesError error) {
+	s.initCustomNetworkingEnviron(c, true, supportsSpacesError)
+}
+
+func (s *controllerSpaceSuite) initCustomNetworkingEnviron(c *gc.C, supportsSpaces bool, supportsSpacesError error) {
+	s.baseEnviron = s.newBootstrapEnvironWithDefaults()
+	s.networkingEnviron = &bootstrapNetworkingEnviron{
+		bootstrapEnviron:    s.baseEnviron,
+		supportsSpaces:      supportsSpaces,
+		supportsSpacesError: supportsSpacesError,
+	}
+	s.setDummyStorage(c, s.baseEnviron)
+}
+
+func (s *controllerSpaceSuite) bootstrapWithContollerSpaceUsingEnviron(c *gc.C, spaceName string, environ environs.Environ) error {
+	params := bootstrap.BootstrapParams{
+		ControllerSpaceName: spaceName,
+	}
+	context := envtesting.BootstrapContext(c)
+	return bootstrap.Bootstrap(context, environ, params)
+}
+
+func (s *controllerSpaceSuite) assertBootstrapNotStarted(c *gc.C) {
+	c.Assert(s.baseEnviron.bootstrapCount, gc.Equals, 0)
+	c.Assert(s.baseEnviron.args.ControllerSpaceName, gc.DeepEquals, "")
+}
+
+func (s *controllerSpaceSuite) assertBootstrapSucceedsUsingControllerSpace(c *gc.C, bootstrapError error, specifiedSpaceName string) {
+	c.Assert(bootstrapError, jc.ErrorIsNil)
+	c.Assert(s.baseEnviron.bootstrapCount, gc.Equals, 1)
+	c.Assert(s.baseEnviron.args.ControllerSpaceName, gc.DeepEquals, specifiedSpaceName)
+}
+
+type bootstrapNetworkingEnviron struct {
+	*bootstrapEnviron
+	environs.Networking // stub out all methods we don't care about.
+
+	supportsSpaces      bool
+	supportsSpacesError error
+}
+
+var _ environs.NetworkingEnviron = (*bootstrapNetworkingEnviron)(nil)
+
+func (e *bootstrapNetworkingEnviron) SupportsSpaces() (bool, error) {
+	return e.supportsSpaces, e.supportsSpacesError
 }

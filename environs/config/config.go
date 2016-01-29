@@ -634,7 +634,8 @@ func Validate(cfg, old *Config) error {
 
 	if space, found := cfg.ControllerSpaceName(); found {
 		if !names.IsValidSpace(space) {
-			return errors.Errorf("controller-space: %q is not a valid space name", space)
+			msg := fmt.Sprintf("controller-space: %q is not a valid space name", space)
+			return errors.NewNotValid(nil, msg)
 		}
 	}
 

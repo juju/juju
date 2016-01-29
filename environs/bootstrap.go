@@ -38,6 +38,12 @@ type BootstrapParams struct {
 	// also instancecfg.DefaultBridgeName.
 	ContainerBridgeName string
 
+	// ControllerSpaceName, if non-empty, overrides the default space name to
+	// use for unspecified service endpoint bindings and to pick API/state
+	// endpoints. It's an error to specify it, if the provider does not support
+	// spaces.
+	ControllerSpaceName string
+
 	// ImageMetadata contains simplestreams image metadata for providers
 	// that rely on it for selecting images. This will be empty for
 	// providers that do not implements simplestreams.HasRegion.

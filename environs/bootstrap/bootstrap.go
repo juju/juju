@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
@@ -71,6 +72,12 @@ type BootstrapParams struct {
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
+
+	// ControllerSpaceName, if non-empty, overrides the default space name to
+	// use for unspecified service endpoint bindings and to pick API/state
+	// endpoints. It's an error to specify it, if the provider does not support
+	// spaces.
+	ControllerSpaceName string
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -159,6 +166,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Trace(err)
 	}
 
+	if err := validateControllerSpace(ctx, environ, args.ControllerSpaceName); err != nil {
+		return errors.Trace(err)
+	}
+
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
 	// agent-version set anyway, to appease FinishInstanceConfig.
@@ -181,6 +192,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		EnvironConstraints:   args.EnvironConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
+		ControllerSpaceName:  args.ControllerSpaceName,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
@@ -233,6 +245,30 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")
+	return nil
+}
+
+func validateControllerSpace(ctx environs.BootstrapContext, environ environs.Environ, controllerSpaceName string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot use %q as controller space", controllerSpaceName)
+
+	if controllerSpaceName == "" {
+		return nil
+	}
+
+	if !names.IsValidSpace(controllerSpaceName) {
+		return errors.NewNotValid(nil, "not a valid space name")
+	}
+
+	networkingEnviron, supportsNetworking := environs.SupportsNetworking(environ)
+	if !supportsNetworking || networkingEnviron == nil {
+		return errors.NewNotSupported(nil, "no networking support by the provider")
+	}
+
+	if supported, err := networkingEnviron.SupportsSpaces(); err != nil || !supported {
+		return errors.NewNotSupported(err, "provider error")
+	}
+
+	ctx.Infof("Using %q as the juju controller space", controllerSpaceName)
 	return nil
 }
 
