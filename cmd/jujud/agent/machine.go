@@ -52,8 +52,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -945,14 +943,9 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// LXC containers are only supported on bare metal and fully virtualized linux systems
-	// Nested LXC containers and Windows machines cannot run LXC containers
-	supportsLXC, err := lxc.IsLXCSupported()
-	if err != nil {
-		logger.Warningf("no lxc containers possible: %v", err)
-	}
-	if err == nil && supportsLXC {
-		supportedContainers = append(supportedContainers, instance.LXC)
+	supportsContainers := container.ContainersSupported()
+	if supportsContainers {
+		supportedContainers = append(supportedContainers, instance.LXC, instance.LXD)
 	}
 
 	supportsKvm, err := kvm.IsKVMSupported()
@@ -961,11 +954,6 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	}
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
-	}
-
-	supportsLXD := lxd.IsLXDSupported()
-	if supportsLXD {
-		supportedContainers = append(supportedContainers, instance.LXD)
 	}
 
 	return a.updateSupportedContainers(runner, st, supportedContainers, agentConfig)

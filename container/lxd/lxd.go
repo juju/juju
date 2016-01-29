@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"fmt"
-	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -168,12 +167,4 @@ func (manager *containerManager) IsInitialized() bool {
 	var err error
 	manager.client, err = ConnectLocal(manager.name)
 	return err == nil
-}
-
-func IsLXDSupported() bool {
-	if runtime.GOOS != "linux" {
-		return false
-	}
-
-	return !container.RunningInContainer()
 }
