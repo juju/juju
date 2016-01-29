@@ -43,6 +43,10 @@ type resourceStorage interface {
 
 	// Remove removes the identified data from the storage.
 	Remove(path string) error
+
+	// Get returns a reader for the resource at path. The size of the
+	// data is also returned.
+	Get(path string) (io.ReadCloser, int64, error)
 }
 
 type resourceState struct {
@@ -124,6 +128,29 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// OpenResource returns metadata about the resource, and a reader for
+// the resource.
+func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
+	resourceInfo, err := st.GetResource(serviceID, name)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+	if resourceInfo.IsPlaceholder() {
+		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
+	}
+
+	resourceReader, resSize, err := st.storage.Get(storagePath(name, serviceID))
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+	if resSize != resourceInfo.Size {
+		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
+		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+	}
+
+	return resourceInfo, resourceReader, nil
 }
 
 // storagePath returns the path used as the location where the resource

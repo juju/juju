@@ -347,6 +347,9 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/environment/:envuuid"+resourceapi.HTTPEndpointPattern,
 		newResourceHandler(httpCtxt),
 	)
+	handleAll(mux, "/environment/:envuuid/units/:unit/resources/:resource",
+		newUnitResourceHandler(httpCtxt),
+	)
 
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",

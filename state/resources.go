@@ -20,6 +20,9 @@ type Resources interface {
 	GetResource(serviceID, name string) (resource.Resource, error)
 	// SetResource stores the resource in the Juju model.
 	SetResource(serviceID string, res resource.Resource, r io.Reader) error
+
+	// OpenResource returns the metadata for a resource and a reader for the resource.
+	OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error)
 }
 
 var newResources func(Persistence) Resources

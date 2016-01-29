@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource"
 )
 
 var logger = loggo.GetLogger("juju.resource.api")
@@ -60,8 +61,9 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
 func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request, error) {
-	sizer := utils.NewSizingReader(r)
-	fp, err := charmresource.GenerateFingerprint(sizer)
+	var sizer utils.SizeTracker
+	sizingReader := io.TeeReader(r, &sizer)
+	fp, err := charmresource.GenerateFingerprint(sizingReader)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,10 +72,9 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 	}
 	size := sizer.Size()
 
-	method := "PUT"
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(service, name)
-	req, err := http.NewRequest(method, urlStr, nil)
+	req, err := http.NewRequest("PUT", urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,6 +116,42 @@ func ExtractUploadRequest(req *http.Request) (service, name string, size int64, 
 	}
 
 	return service, name, size, fp, nil
+}
+
+// NewHTTPDownloadRequest creates a new HTTP download request
+// for the given resource.
+//
+// Intended for use on the client side.
+func NewHTTPDownloadRequest(resourceName string) (*http.Request, error) {
+	return http.NewRequest("GET", "/resources/"+resourceName, nil)
+}
+
+// ExtractDownloadRequest pulls the download request info out of the
+// given HTTP request.
+//
+// Intended for use on the server side.
+func ExtractDownloadRequest(req *http.Request) string {
+	return req.URL.Query().Get(":resource")
+}
+
+// UpdateDownloadResponse sets the appropriate headers in the response
+// to an HTTP download request.
+//
+// Intended for use on the server side.
+func UpdateDownloadResponse(resp http.ResponseWriter, resource resource.Resource) {
+	resp.Header().Set("Content-Type", ContentTypeRaw)
+	resp.Header().Set("Content-Length", fmt.Sprint(resource.Size))
+	resp.Header().Set("Content-Sha384", resource.Fingerprint.String())
+}
+
+// ExtractDownloadResponse pulls the download size and checksum
+// from the HTTP response.
+func ExtractDownloadResponse(resp *http.Response) (int64, charmresource.Fingerprint, error) {
+	var fp charmresource.Fingerprint
+
+	// TODO(ericsnow) Finish!
+	// See UpdateDownloadResponse for the data to extract.
+	return 0, fp, errors.New("not finished")
 }
 
 // TODO(ericsnow) These are copied from apiserver/httpcontext.go...
