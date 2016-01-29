@@ -266,7 +266,7 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{
 		s.fakesudo,
-		"switch",
+		"env",
 		"JUJU_HOME=" + osenv.JujuHome(),
 		os.Args[0],
 		"kill-controller",
