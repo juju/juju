@@ -61,8 +61,8 @@ func ExtractEndpointDetails(url *url.URL) (service, name string) {
 
 // NewHTTPUploadRequest generates a new HTTP request for the given resource.
 func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request, error) {
-	var st utils.SizeTracker
-	sizingReader := io.TeeReader(r, &st)
+	var sizer utils.SizeTracker
+	sizingReader := io.TeeReader(r, &sizer)
 	fp, err := charmresource.GenerateFingerprint(sizingReader)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -70,7 +70,7 @@ func NewHTTPUploadRequest(service, name string, r io.ReadSeeker) (*http.Request,
 	if _, err := r.Seek(0, os.SEEK_SET); err != nil {
 		return nil, errors.Trace(err)
 	}
-	size := st.Size()
+	size := sizer.Size()
 
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(service, name)

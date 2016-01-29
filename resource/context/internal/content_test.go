@@ -133,7 +133,7 @@ func (s *CheckerSuite) TestNewContentChecker(c *gc.C) {
 		Fingerprint: info.Fingerprint,
 	}
 	sizeWriter, sizeBuf := filetesting.NewStubWriter(s.stub.Stub)
-	st := &stubChecker{
+	sizeTracker := &stubChecker{
 		Writer: sizeWriter,
 		stub:   s.stub.Stub,
 	}
@@ -143,12 +143,12 @@ func (s *CheckerSuite) TestNewContentChecker(c *gc.C) {
 		stub:   s.stub.Stub,
 	}
 
-	checker := internal.NewContentChecker(content, st, checksumWriter)
+	checker := internal.NewContentChecker(content, sizeTracker, checksumWriter)
 
 	s.stub.CheckNoCalls(c)
 	c.Check(checker, jc.DeepEquals, &internal.Checker{
 		Content:        content,
-		SizeTracker:    st,
+		SizeTracker:    sizeTracker,
 		ChecksumWriter: checksumWriter,
 	})
 	c.Check(sizeBuf.String(), gc.Equals, "")

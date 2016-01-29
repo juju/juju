@@ -146,7 +146,7 @@ func (deps contextDeps) Join(path ...string) string {
 }
 
 func (deps contextDeps) NewChecker(content internal.Content) internal.ContentChecker {
-	var st utils.SizeTracker
+	var sizer utils.SizeTracker
 	checksumWriter := charmresource.NewFingerprintHash()
-	return internal.NewContentChecker(content, &st, checksumWriter)
+	return internal.NewContentChecker(content, &sizer, checksumWriter)
 }

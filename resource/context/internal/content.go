@@ -112,10 +112,10 @@ type Checker struct {
 }
 
 // NewContentChecker returns a Checker for the provided data.
-func NewContentChecker(content Content, st SizeTracker, checksumWriter ChecksumWriter) *Checker {
+func NewContentChecker(content Content, sizeTracker SizeTracker, checksumWriter ChecksumWriter) *Checker {
 	return &Checker{
 		Content:        content,
-		SizeTracker:    st,
+		SizeTracker:    sizeTracker,
 		ChecksumWriter: checksumWriter,
 	}
 }

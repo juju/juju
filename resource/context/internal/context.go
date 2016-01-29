@@ -115,10 +115,10 @@ func NewContextContentChecker(content Content, deps NewContextContentCheckerDeps
 		return &NopChecker{}
 	}
 
-	st := deps.NewSizeTracker()
+	sizer := deps.NewSizeTracker()
 	checksumWriter := deps.NewChecksumWriter()
 	//checker.checksumWriter = charmresource.NewFingerprintHash()
-	return NewContentChecker(content, st, checksumWriter)
+	return NewContentChecker(content, sizer, checksumWriter)
 }
 
 // NewContextContentCheckerDeps exposes the functionality needed
