@@ -107,6 +107,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadHandlerFailed(c *gc.C) {
 		"HandleDownload",
 		"SendHTTPError",
 	)
+	s.stub.CheckCall(c, 2, "SendHTTPError", s.resp, failure)
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadCopyFailed(c *gc.C) {
@@ -146,6 +147,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailed(c *gc.C) {
 		"Connect",
 		"SendHTTPError",
 	)
+	s.stub.CheckCall(c, 1, "SendHTTPError", s.resp, failure)
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
@@ -173,7 +175,7 @@ type stubLegacyHTTPHandlerDeps struct {
 func (s *stubLegacyHTTPHandlerDeps) Connect(req *http.Request) (server.UnitDataStore, error) {
 	s.AddCall("Connect", req)
 	if err := s.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	return s.ReturnConnect, nil
@@ -192,7 +194,7 @@ func (s *stubLegacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWri
 func (s *stubLegacyHTTPHandlerDeps) HandleDownload(st server.UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
 	s.AddCall("HandleDownload", st, req)
 	if err := s.NextErr(); err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, err
 	}
 
 	return s.ReturnHandleDownload.Resource, s.ReturnHandleDownload, nil
@@ -201,7 +203,7 @@ func (s *stubLegacyHTTPHandlerDeps) HandleDownload(st server.UnitDataStore, req 
 func (s *stubLegacyHTTPHandlerDeps) Copy(w io.Writer, r io.Reader) error {
 	s.AddCall("Copy", w, r)
 	if err := s.NextErr(); err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	return nil
