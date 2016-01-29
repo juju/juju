@@ -324,7 +324,7 @@ class EnvJujuClient:
             self.juju('add-machine', ('ssh:' + machine,))
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
-        """Bootstrap, using sudo if necessary."""
+        """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
         elif self.env.joyent:
@@ -341,6 +341,7 @@ class EnvJujuClient:
         return args
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
@@ -986,7 +987,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     bootstrap_replaces = frozenset()
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
-        """Bootstrap, using sudo if necessary."""
+        """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
         elif self.env.joyent:
