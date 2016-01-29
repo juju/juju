@@ -254,6 +254,18 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 		}
 	}
 
+	// Generate the UUID for the server.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to generate environment uuid")
+	}
+	joint["uuid"] = uuid.String()
+
+	if err := em.checkVersion(joint); err != nil {
+		return nil, errors.Annotate(err, "failed to create config")
+	}
+
+	// validConfig must only be called once.
 	cfg, err := em.validConfig(joint)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -271,18 +283,8 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 			}
 		}
 	}
-	if err := em.checkVersion(attrs); err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	// Generate the UUID for the server.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to generate model uuid")
-	}
-	attrs["uuid"] = uuid.String()
-
-	return em.validConfig(attrs)
+	return cfg, nil
 }
 
 // CreateModel creates a new model using the account and

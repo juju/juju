@@ -12,9 +12,10 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 const uniterFacade = "Uniter"
@@ -52,7 +53,7 @@ func newStateForVersion(
 	}
 
 	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
-		return watcher.NewNotifyWatcher(caller, result)
+		return apiwatcher.NewNotifyWatcher(caller, result)
 	}
 	state.LeadershipSettings = NewLeadershipSettingsAccessor(
 		facadeCaller.FacadeCall,
@@ -374,7 +375,7 @@ func (st *State) WatchRelationUnits(
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewRelationUnitsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewRelationUnitsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 

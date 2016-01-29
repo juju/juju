@@ -529,7 +529,7 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C) startInstanceRequest
 	// Validate HTTP request bodies.
 	c.Assert(s.requests, gc.HasLen, 8)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // vmSizes
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d
+	c.Assert(s.requests[1].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 	c.Assert(s.requests[2].Method, gc.Equals, "GET") // skus
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
 	assertRequestBody(c, s.requests[3], s.publicIPAddress)

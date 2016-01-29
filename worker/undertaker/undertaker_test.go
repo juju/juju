@@ -55,13 +55,13 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	cfg, uuid := dummyCfgAndUUID(c)
 	client := &mockClient{
 		calls: make(chan string),
-		mockEnviron: clientEnviron{
+		mockModel: clientModel{
 			Life: state.Dying,
 			UUID: uuid,
 			HasMachinesAndServices: true,
 		},
 		cfg: cfg,
-		watcher: &mockEnvironResourceWatcher{
+		watcher: &mockModelResourceWatcher{
 			events: make(chan struct{}),
 		},
 	}
@@ -84,22 +84,22 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 		}, {
 			call: "ProcessDyingModel",
 			callback: func() {
-				c.Check(client.mockEnviron.Life, gc.Equals, state.Dying)
-				c.Check(client.mockEnviron.TimeOfDeath, gc.IsNil)
-				client.mockEnviron.HasMachinesAndServices = false
-				client.watcher.(*mockEnvironResourceWatcher).events <- struct{}{}
+				c.Check(client.mockModel.Life, gc.Equals, state.Dying)
+				c.Check(client.mockModel.TimeOfDeath, gc.IsNil)
+				client.mockModel.HasMachinesAndServices = false
+				client.watcher.(*mockModelResourceWatcher).events <- struct{}{}
 				mClock.advanceAfterNextNow(undertaker.RIPTime)
 			}}, {
 			call: "ProcessDyingModel",
 			callback: func() {
-				c.Check(client.mockEnviron.Life, gc.Equals, state.Dead)
-				c.Check(client.mockEnviron.TimeOfDeath, gc.NotNil)
+				c.Check(client.mockModel.Life, gc.Equals, state.Dead)
+				c.Check(client.mockModel.TimeOfDeath, gc.NotNil)
 			}}, {
 			call: "RemoveModel",
 			callback: func() {
 				oneDayLater := startTime.Add(undertaker.RIPTime)
 				c.Check(mClock.Now().Equal(oneDayLater), jc.IsTrue)
-				c.Check(client.mockEnviron.Removed, gc.Equals, true)
+				c.Check(client.mockModel.Removed, gc.Equals, true)
 			}},
 		} {
 			select {
@@ -114,7 +114,8 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 		}
 	}()
 
-	worker := undertaker.NewUndertaker(client, mClock)
+	worker, err := undertaker.NewUndertaker(client, mClock)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Kill()
 
 	wg.Wait()
@@ -123,14 +124,14 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveModelDocsNotCalledForStateServer(c *gc.C) {
-	mockWatcher := &mockEnvironResourceWatcher{
+	mockWatcher := &mockModelResourceWatcher{
 		events: make(chan struct{}, 1),
 	}
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	client := &mockClient{
 		calls: make(chan string, 1),
-		mockEnviron: clientEnviron{
+		mockModel: clientModel{
 			Life:     state.Dying,
 			UUID:     uuid.String(),
 			IsSystem: true,
@@ -158,8 +159,8 @@ func (s *undertakerSuite) TestRemoveModelDocsNotCalledForStateServer(c *gc.C) {
 		}, {
 			call: "ProcessDyingModel",
 			callback: func() {
-				c.Assert(client.mockEnviron.Life, gc.Equals, state.Dead)
-				c.Assert(client.mockEnviron.TimeOfDeath, gc.NotNil)
+				c.Assert(client.mockModel.Life, gc.Equals, state.Dead)
+				c.Assert(client.mockModel.TimeOfDeath, gc.NotNil)
 
 				mClock.advanceAfterNextNow(undertaker.RIPTime)
 			},
@@ -177,7 +178,8 @@ func (s *undertakerSuite) TestRemoveModelDocsNotCalledForStateServer(c *gc.C) {
 		}
 	}()
 
-	worker := undertaker.NewUndertaker(client, mClock)
+	worker, err := undertaker.NewUndertaker(client, mClock)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Kill()
 
 	wg.Wait()
@@ -194,8 +196,8 @@ func (s *undertakerSuite) TestRemoveModelOnRebootCalled(c *gc.C) {
 	client := &mockClient{
 		calls: make(chan string, 1),
 		// Mimic the situation where the worker is started after the
-		// environment has been set to dead 12hrs ago.
-		mockEnviron: clientEnviron{
+		// model has been set to dead 12hrs ago.
+		mockModel: clientModel{
 			Life:        state.Dead,
 			UUID:        uuid,
 			TimeOfDeath: &halfDayEarlier,
@@ -216,7 +218,7 @@ func (s *undertakerSuite) TestRemoveModelOnRebootCalled(c *gc.C) {
 		}{{
 			call: "ModelInfo",
 			callback: func() {
-				// As environ was set to dead 12hrs earlier, assert that the
+				// As model was set to dead 12hrs earlier, assert that the
 				// undertaker picks up where it left off and RemoveModel
 				// is called 12hrs later.
 				mClock.Advance(12 * time.Hour)
@@ -224,7 +226,7 @@ func (s *undertakerSuite) TestRemoveModelOnRebootCalled(c *gc.C) {
 		}, {
 			call: "RemoveModel",
 			callback: func() {
-				c.Assert(client.mockEnviron.Removed, gc.Equals, true)
+				c.Assert(client.mockModel.Removed, gc.Equals, true)
 			}},
 		} {
 			select {
@@ -239,7 +241,8 @@ func (s *undertakerSuite) TestRemoveModelOnRebootCalled(c *gc.C) {
 		}
 	}()
 
-	worker := undertaker.NewUndertaker(client, mClock)
+	worker, err := undertaker.NewUndertaker(client, mClock)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Kill()
 
 	wg.Wait()

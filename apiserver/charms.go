@@ -179,6 +179,11 @@ func (h *charmsHandler) archiveEntrySender(filePath string) bundleContentSenderF
 			defer contents.Close()
 			ctype := mime.TypeByExtension(filepath.Ext(filePath))
 			if ctype != "" {
+				// Older mime.types may map .js to x-javascript.
+				// Map it to javascript for consistency.
+				if ctype == params.ContentTypeXJS {
+					ctype = params.ContentTypeJS
+				}
 				w.Header().Set("Content-Type", ctype)
 			}
 			w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))

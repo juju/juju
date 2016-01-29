@@ -512,7 +512,7 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
 
-func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
+func (s *loginV0Suite) TestLoginReportsModelTag(c *gc.C) {
 	st, cleanup := s.setupServer(c)
 	defer cleanup()
 	// If we call api.Open without giving a username and password, then it
@@ -768,7 +768,7 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag, err := st.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
+	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeModelTag.String())
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {

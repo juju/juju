@@ -67,7 +67,7 @@ func (s *undertakerSuite) mockClient(c *gc.C, expectedRequest string, callback f
 
 			a, ok := args.(params.Entities)
 			c.Check(ok, jc.IsTrue)
-			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "model-"}})
+			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
 			callback(response)
 			return nil
@@ -90,7 +90,7 @@ func (s *undertakerSuite) TestWatchModelResourcesGetsChange(c *gc.C) {
 
 				a, ok := args.(params.Entities)
 				c.Check(ok, jc.IsTrue)
-				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "model-"}})
+				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
 				resp.Results = []params.NotifyWatchResult{{NotifyWatcherId: "1"}}
 			} else {

@@ -265,7 +265,7 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Presencer, isAlive bo
 	c.Assert(alive, gc.Equals, isAlive)
 }
 
-func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
+func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
 	origin := "http://localhost/"
 	url := fmt.Sprintf("wss://%s%s", addr, path)
 	config, err := websocket.NewConfig(url, origin)
@@ -274,8 +274,32 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	xcert, err := cert.ParseCert(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	pool.AddCert(xcert)
-	config.TlsConfig = &tls.Config{RootCAs: pool}
+	config.TlsConfig = &tls.Config{
+		RootCAs:    pool,
+		MaxVersion: tlsVersion,
+	}
 	return websocket.DialConfig(config)
+}
+
+func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer srv.Stop()
+
+	// We have to use 'localhost' because that is what the TLS cert says.
+	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
+
+	// Specify an unsupported TLS version
+	conn, err := dialWebsocket(c, addr, "/", tls.VersionSSL30)
+	c.Assert(err, gc.ErrorMatches, ".*protocol version not supported")
+	c.Assert(conn, gc.IsNil)
 }
 
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
@@ -288,16 +312,16 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
 	// '/' should be fine
-	conn, err := dialWebsocket(c, addr, "/")
+	conn, err := dialWebsocket(c, addr, "/", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	// '/model/MODELUUID/api' should be fine
-	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api")
+	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
 	// '/randompath' is not ok
-	conn, err = dialWebsocket(c, addr, "/randompath")
+	conn, err = dialWebsocket(c, addr, "/randompath", 0)
 	// Unfortunately go.net/websocket just returns Bad Status, it doesn't
 	// give us any information (whether this was a 404 Not Found, Internal
 	// Server Error, 200 OK, etc.)

@@ -87,12 +87,6 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	if _, ok := cfg.UUID(); !ok {
-		// TODO(axw) PrepareForCreateEnvironment is called twice; once before
-		// the UUID is set, and once after. It probably should just be called
-		// after?
-		return cfg, nil
-	}
 	env, err := newEnviron(prov, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening model")

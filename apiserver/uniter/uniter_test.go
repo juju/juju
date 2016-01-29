@@ -1796,8 +1796,10 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(mysqlChanges, gc.NotNil)
 	changed, ok := mysqlChanges.Changed["mysql/0"]
 	c.Assert(ok, jc.IsTrue)
-	expectChanges := multiwatcher.RelationUnitsChange{
-		Changed: map[string]multiwatcher.UnitSettings{"mysql/0": changed},
+	expectChanges := params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"mysql/0": params.UnitSettings{changed.Version},
+		},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{

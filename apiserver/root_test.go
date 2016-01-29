@@ -28,7 +28,7 @@ var _ = gc.Suite(&rootSuite{})
 
 var allowedDiscardedMethods = []string{
 	"AuthClient",
-	"AuthEnvironManager",
+	"AuthModelManager",
 	"AuthMachineAgent",
 	"AuthOwner",
 	"AuthUnitAgent",

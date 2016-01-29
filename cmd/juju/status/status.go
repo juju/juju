@@ -85,19 +85,14 @@ func (c *statusCommand) Info() *cmd.Info {
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 
-	oneLineFormatter := FormatOneline
-	defaultFormat := "yaml"
-	if c.CompatVersion() > 1 {
-		defaultFormat = "tabular"
-		oneLineFormatter = FormatOnelineV2
-	}
+	defaultFormat := "tabular"
 
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"short":   oneLineFormatter,
-		"oneline": oneLineFormatter,
-		"line":    oneLineFormatter,
+		"short":   FormatOneline,
+		"oneline": FormatOneline,
+		"line":    FormatOneline,
 		"tabular": FormatTabular,
 		"summary": FormatSummary,
 	})
@@ -149,7 +144,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	formatter := newStatusFormatter(status, c.CompatVersion(), c.isoTime)
+	formatter := newStatusFormatter(status, c.isoTime)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }

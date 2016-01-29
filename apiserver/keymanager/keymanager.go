@@ -50,7 +50,7 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients and environment managers can access the key manager service.
-	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	env, err := st.Model()

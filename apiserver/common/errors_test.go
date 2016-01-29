@@ -16,7 +16,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -137,6 +138,11 @@ var errorTransformTests = []struct {
 	code:       params.CodeLeadershipClaimDenied,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeadershipClaimDenied,
+}, {
+	err:        lease.ErrClaimDenied,
+	code:       params.CodeLeaseClaimDenied,
+	status:     http.StatusInternalServerError,
+	helperFunc: params.IsCodeLeaseClaimDenied,
 }, {
 	err:        common.OperationBlockedError("test"),
 	code:       params.CodeOperationBlocked,

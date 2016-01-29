@@ -284,6 +284,10 @@ func (st *State) Close() (err error) {
 		st.leadershipManager.Kill()
 		handle("leadership manager", st.leadershipManager.Wait())
 	}
+	if st.singularManager != nil {
+		st.singularManager.Kill()
+		handle("singular manager", st.singularManager.Wait())
+	}
 	st.mu.Lock()
 	if st.allManager != nil {
 		handle("allwatcher manager", st.allManager.Stop())

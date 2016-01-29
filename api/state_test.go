@@ -73,7 +73,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
+func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)

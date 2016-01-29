@@ -23,5 +23,5 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // newWorker is not currently tested; it should eventually replace New as the
 // package's exposed factory func, and then all tests should pass through it.
 func newWorker(apiCaller base.APICaller) (worker.Worker, error) {
-	return New(proxyupdater.NewFacade(apiCaller), false), nil
+	return NewWorker(proxyupdater.NewFacade(apiCaller), false)
 }

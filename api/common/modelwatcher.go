@@ -5,9 +5,10 @@ package common
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/watcher"
 )
 
 // ModelWatcher provides common client-side API functions
@@ -30,7 +31,7 @@ func (e *ModelWatcher) WatchForModelConfigChanges() (watcher.NotifyWatcher, erro
 	if err != nil {
 		return nil, err
 	}
-	return watcher.NewNotifyWatcher(e.facade.RawAPICaller(), result), nil
+	return apiwatcher.NewNotifyWatcher(e.facade.RawAPICaller(), result), nil
 }
 
 // ModelConfig returns the current model configuration.

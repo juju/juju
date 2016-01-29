@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/utils/series"
 
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -62,18 +63,22 @@ type proxyWorker struct {
 	first bool
 }
 
-var _ worker.NotifyWatchHandler = (*proxyWorker)(nil)
-
-// New returns a worker.Worker that updates proxy environment variables for the
+// NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process; and, if writeSystemFiles is true, for the whole machine.
-var New = func(api *apiproxyupdater.Facade, writeSystemFiles bool) worker.Worker {
+var NewWorker = func(api *apiproxyupdater.Facade, writeSystemFiles bool) (worker.Worker, error) {
 	logger.Debugf("write system files: %v", writeSystemFiles)
 	envWorker := &proxyWorker{
 		api:              api,
 		writeSystemFiles: writeSystemFiles,
 		first:            true,
 	}
-	return worker.NewNotifyWorker(envWorker)
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: envWorker,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (w *proxyWorker) writeEnvironmentFile() error {

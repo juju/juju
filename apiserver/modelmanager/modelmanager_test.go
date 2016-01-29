@@ -280,16 +280,16 @@ func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	}{
 		{
 			value:    42,
-			errMatch: `creating config from values failed: agent-version: expected string, got int\(42\)`,
+			errMatch: `failed to create config: agent-version must be a string but has type 'int'`,
 		}, {
 			value:    "not a number",
-			errMatch: `creating config from values failed: invalid agent version in model configuration: "not a number"`,
+			errMatch: `failed to create config: invalid version \"not a number\"`,
 		}, {
 			value:    bigger.String(),
-			errMatch: "agent-version cannot be greater than the server: .*",
+			errMatch: "failed to create config: agent-version cannot be greater than the server: .*",
 		}, {
 			value:    smaller.String(),
-			errMatch: "no tools found for version .*",
+			errMatch: "failed to create config: no tools found for version .*",
 		},
 	} {
 		c.Logf("test %d", i)

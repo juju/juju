@@ -33,7 +33,7 @@ func NewCleanerAPI(
 	res *common.Resources,
 	authorizer common.Authorizer,
 ) (*CleanerAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &CleanerAPI{

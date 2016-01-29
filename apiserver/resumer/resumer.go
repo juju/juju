@@ -26,7 +26,7 @@ type ResumerAPI struct {
 
 // NewResumerAPI creates a new instance of the Resumer API.
 func NewResumerAPI(st *state.State, _ *common.Resources, authorizer common.Authorizer) (*ResumerAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &ResumerAPI{

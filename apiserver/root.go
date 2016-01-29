@@ -289,9 +289,9 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
-// AuthEnvironManager returns whether the authenticated user is a
+// AuthModelManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthEnvironManager() bool {
+func (r *apiHandler) AuthModelManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 

@@ -101,13 +101,6 @@ type unitStatus struct {
 	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
-	// Legacy status fields, to be removed in Juju 2.0
-	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string        `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	Err            error         `json:"-" yaml:",omitempty"`
-	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
-
 	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
 	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
@@ -142,15 +135,15 @@ func (s statusInfoContents) MarshalYAML() (interface{}, error) {
 type unitStatusNoMarshal unitStatus
 
 func (s unitStatus) MarshalJSON() ([]byte, error) {
-	if s.Err != nil {
-		return json.Marshal(errorStatus{s.Err.Error()})
+	if s.WorkloadStatusInfo.Err != nil {
+		return json.Marshal(errorStatus{s.WorkloadStatusInfo.Err.Error()})
 	}
 	return json.Marshal(unitStatusNoMarshal(s))
 }
 
 func (s unitStatus) MarshalYAML() (interface{}, error) {
-	if s.Err != nil {
-		return errorStatus{s.Err.Error()}, nil
+	if s.WorkloadStatusInfo.Err != nil {
+		return errorStatus{s.WorkloadStatusInfo.Err.Error()}, nil
 	}
 	return unitStatusNoMarshal(s), nil
 }

@@ -137,7 +137,7 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
 	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -145,7 +145,7 @@ func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
 	c.Check(st.Close(), jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
 	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
@@ -156,7 +156,7 @@ func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
-func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
 	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -170,7 +170,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 1 leases doc, 1 modelusers doc, 1 settings doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -3353,7 +3353,7 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	c.Assert(id, gc.Equals, user.Name())
 }
 
-func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestParseModelTag(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, env.Tag())

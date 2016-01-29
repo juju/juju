@@ -35,9 +35,9 @@ func NewAddresserAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*AddresserAPI, error) {
-	isEnvironManager := authorizer.AuthEnvironManager()
-	if !isEnvironManager {
-		// Addresser must run as environment manager.
+	isModelManager := authorizer.AuthModelManager()
+	if !isModelManager {
+		// Addresser must run as model manager.
 		return nil, common.ErrPerm
 	}
 	sti := getState(st)
@@ -154,18 +154,18 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipA
 }
 
 // WatchIPAddresses observes changes to the IP addresses.
-func (api *AddresserAPI) WatchIPAddresses() (params.EntityWatchResult, error) {
+func (api *AddresserAPI) WatchIPAddresses() (params.EntitiesWatchResult, error) {
 	watch := &ipAddressesWatcher{api.st.WatchIPAddresses(), api.st}
 
 	if changes, ok := <-watch.Changes(); ok {
 		mappedChanges, err := watch.MapChanges(changes)
 		if err != nil {
-			return params.EntityWatchResult{}, errors.Trace(err)
+			return params.EntitiesWatchResult{}, errors.Trace(err)
 		}
-		return params.EntityWatchResult{
-			EntityWatcherId: api.resources.Register(watch),
-			Changes:         mappedChanges,
+		return params.EntitiesWatchResult{
+			EntitiesWatcherId: api.resources.Register(watch),
+			Changes:           mappedChanges,
 		}, nil
 	}
-	return params.EntityWatchResult{}, watcher.EnsureErr(watch)
+	return params.EntitiesWatchResult{}, watcher.EnsureErr(watch)
 }

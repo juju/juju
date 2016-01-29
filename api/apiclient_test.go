@@ -115,7 +115,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	c.Assert(remoteVersion, gc.Equals, version.Current)
 }
 
-func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
+func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802

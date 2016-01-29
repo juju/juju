@@ -40,7 +40,7 @@ func createAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 
@@ -267,7 +267,7 @@ func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published
 	return processErrors(append(errs.Results, parseErrs...))
 }
 
-// convertToParams converts environment-specific images metadata to structured metadata format.
+// convertToParams converts model-specific images metadata to structured metadata format.
 var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) (params.MetadataSaveParams, []params.ErrorResult) {
 	metadata := []params.CloudImageMetadataList{{}}
 	errs := []params.ErrorResult{}

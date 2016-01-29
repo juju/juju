@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -103,7 +103,7 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	environment, err := state.Model()
+	model, err := state.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,8 +112,8 @@ func NewContextFactory(
 		state:            state,
 		tracker:          tracker,
 		paths:            paths,
-		modelUUID:        environment.UUID(),
-		envName:          environment.Name(),
+		modelUUID:        model.UUID(),
+		envName:          model.Name(),
 		machineTag:       machineTag,
 		getRelationInfos: getRelationInfos,
 		relationCaches:   map[int]*RelationCache{},

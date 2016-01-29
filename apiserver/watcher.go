@@ -48,8 +48,8 @@ func init() {
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"EntityWatcher", 2, newEntityWatcher,
-		reflect.TypeOf((*srvEntityWatcher)(nil)),
+		"EntityWatcher", 2, newEntitiesWatcher,
+		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
 	)
 }
 
@@ -307,10 +307,10 @@ func (w *srvMachineStorageIdsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-// EntityWatcher defines an interface based on the StringsWatcher
+// EntitiesWatcher defines an interface based on the StringsWatcher
 // but also providing a method for the mapping of the received
 // strings to the tags of the according entities.
-type EntityWatcher interface {
+type EntitiesWatcher interface {
 	state.StringsWatcher
 
 	// MapChanges maps the received strings to their according tag strings.
@@ -319,27 +319,27 @@ type EntityWatcher interface {
 	MapChanges(in []string) ([]string, error)
 }
 
-// srvEntityWatcher defines the API for methods on a state.StringsWatcher.
+// srvEntitiesWatcher defines the API for methods on a state.StringsWatcher.
 // Each client has its own current set of watchers, stored in resources.
-// srvEntityWatcher notifies about changes for all entities of a given kind,
+// srvEntitiesWatcher notifies about changes for all entities of a given kind,
 // sending the changes as a list of strings, which could be transformed
 // from state entity ids to their corresponding entity tags.
-type srvEntityWatcher struct {
+type srvEntitiesWatcher struct {
 	st        *state.State
 	resources *common.Resources
 	id        string
-	watcher   EntityWatcher
+	watcher   EntitiesWatcher
 }
 
-func newEntityWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+func newEntitiesWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(EntityWatcher)
+	watcher, ok := resources.Get(id).(EntitiesWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvEntityWatcher{
+	return &srvEntitiesWatcher{
 		st:        st,
 		resources: resources,
 		id:        id,
@@ -349,14 +349,14 @@ func newEntityWatcher(st *state.State, resources *common.Resources, auth common.
 
 // Next returns when a change has occured to an entity of the
 // collection being watched since the most recent call to Next
-// or the Watch call that created the srvEntityWatcher.
-func (w *srvEntityWatcher) Next() (params.EntityWatchResult, error) {
+// or the Watch call that created the srvEntitiesWatcher.
+func (w *srvEntitiesWatcher) Next() (params.EntitiesWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
 		mapped, err := w.watcher.MapChanges(changes)
 		if err != nil {
-			return params.EntityWatchResult{}, errors.Annotate(err, "cannot map changes")
+			return params.EntitiesWatchResult{}, errors.Annotate(err, "cannot map changes")
 		}
-		return params.EntityWatchResult{
+		return params.EntitiesWatchResult{
 			Changes: mapped,
 		}, nil
 	}
@@ -364,10 +364,10 @@ func (w *srvEntityWatcher) Next() (params.EntityWatchResult, error) {
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}
-	return params.EntityWatchResult{}, err
+	return params.EntitiesWatchResult{}, err
 }
 
 // Stop stops the watcher.
-func (w *srvEntityWatcher) Stop() error {
+func (w *srvEntitiesWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }

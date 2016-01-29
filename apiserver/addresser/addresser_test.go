@@ -249,8 +249,8 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 
 	result, err := s.api.WatchIPAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.EntityWatchResult{
-		EntityWatcherId: "1",
+	c.Assert(result, gc.DeepEquals, params.EntitiesWatchResult{
+		EntitiesWatcherId: "1",
 		Changes: []string{
 			"ipaddress-00000000-1111-2222-3333-0123456789ab",
 			"ipaddress-00000000-1111-2222-4444-0123456789ab",
