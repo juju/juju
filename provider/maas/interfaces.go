@@ -105,24 +105,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // "interface_set" node details field.
 func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.InterfaceInfo, error) {
 
-	interfaceSet, ok := maasObject.GetMap()["interface_set"]
-	if !ok || interfaceSet.IsNil() {
-		// This means we're using an older MAAS API.
-		return nil, errors.NotSupportedf("interface_set")
-	}
-
-	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
-	// JSON bytes directly, rather than having to do call MarshalJSON just so
-	// the result can be unmarshaled from it.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311323
-
-	rawBytes, err := interfaceSet.MarshalJSON()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get interface_set JSON bytes")
-	}
-
-	interfaces, err := parseInterfaces(rawBytes)
+	interfaces, err := parseInterfacesForMAASObject(maasObject)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -189,6 +172,88 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 	return infos, nil
 }
 
+// parseInterfacesForMAASObject extracts and parses all entries of the
+// "interface_set" key of the given maasObject. It returns and error satisfying
+// errors.IsNotSupported() when the required information is missing, which means
+// the new API (1.9+) MAAS API is not supported.
+func parseInterfacesForMAASObject(maasObject *gomaasapi.MAASObject) ([]maasInterface, error) {
+
+	objectMap := maasObject.GetMap()
+	interfaceSet, found := objectMap["interface_set"]
+	if !found || interfaceSet.IsNil() {
+		// This means we're using an older MAAS API.
+		return nil, errors.NotSupportedf("required MAAS API")
+	}
+
+	// TODO(dimitern): Change gomaasapi JSONObject to give access to the raw
+	// JSON bytes directly, rather than having to do call MarshalJSON just so
+	// the result can be unmarshaled from it.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119311323
+
+	rawBytes, err := interfaceSet.MarshalJSON()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get interface_set JSON bytes")
+	}
+
+	return parseInterfaces(rawBytes)
+}
+
+// findPXEInterface scans the given interfaces and returns the first physical
+// interfaces matching the given pxeMACAddress. Returns an error satisfying
+// errors.IsNotFound() otherwise.
+func findPXEInterface(interfaces []maasInterface, pxeMACAddress string) (*maasInterface, error) {
+	for _, nic := range interfaces {
+		isPhysical := nic.Type == "physical"
+		sameMAC := nic.MACAddress == pxeMACAddress
+
+		if isPhysical && sameMAC {
+			return &nic, nil
+		}
+	}
+	return nil, errors.NotFoundf("PXE interface with MAC address %q", pxeMACAddress)
+}
+
+// getPXEMACAddressForMAASObject extracts the MAC address of the interface used
+// to PXE boot the node encapsulated in the given maasObject. It returns an
+// error satisfying errors.IsNotFound() if the value is missing or empty.
+func getPXEMACAddressForMAASObject(maasObject *gomaasapi.MAASObject) (string, error) {
+
+	objectMap := maasObject.GetMap()
+	pxeMACField, found := objectMap["pxe_mac"]
+	if !found || pxeMACField.IsNil() {
+		return "", errors.NewNotFound(nil, "missing or nil pxe_mac")
+	}
+	pxeMACMap, err := pxeMACField.GetMap()
+	if err != nil {
+		return "", errors.NewNotFound(err, "unexpected pxe_mac format")
+	}
+	macAddressField, found := pxeMACMap["mac_address"]
+	if !found || macAddressField.IsNil() {
+		return "", errors.NewNotFound(nil, "pxe_mac with missing or nil mac_address")
+	}
+	pxeMACAddress, err := macAddressField.GetString()
+	if err != nil {
+		return "", errors.NewNotFound(err, "unexpected pxe_mac.mac_address format")
+	} else if pxeMACAddress == "" {
+		return "", errors.NewNotFound(nil, "pxe_mac.mac_address is empty")
+	}
+
+	return pxeMACAddress, nil
+}
+
+// getInstanceMAASObject retrieves the details of the node with the given
+// instance.Id and returns its embedded MAASObject, if the node exists.
+func (environ *maasEnviron) getInstanceMAASObject(instId instance.Id) (*gomaasapi.MAASObject, error) {
+	inst, err := environ.getInstance(instId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	mi := inst.(*maasInstance)
+
+	return mi.maasObject, nil
+}
+
 // NetworkInterfaces implements Environ.NetworkInterfaces.
 func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	if !environ.supportsNetworkDeploymentUbuntu {
@@ -197,12 +262,11 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 		return environ.legacyNetworkInterfaces(instId)
 	}
 
-	inst, err := environ.getInstance(instId)
+	maasObject, err := environ.getInstanceMAASObject(instId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mi := inst.(*maasInstance)
-	return maasObjectNetworkInterfaces(mi.maasObject)
+	return maasObjectNetworkInterfaces(maasObject)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
