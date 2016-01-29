@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context/internal"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 var _ = gc.Suite(&DirectorySpecSuite{})
@@ -176,9 +177,11 @@ func (s *DirectorySuite) TestNewDirectory(c *gc.C) {
 }
 
 func (s *DirectorySuite) TestWrite(c *gc.C) {
+	res := resourcetesting.NewResource(c, s.stub.Stub, "spam", "some data")
 	stub := &stubDirectory{
 		internalStub: s.stub,
 	}
+	stub.ReturnInfo = res.Resource
 	opened := stub
 	dataDir := "/var/lib/juju/agents/unit-spam-1/resources"
 	deps := s.stub
@@ -206,7 +209,7 @@ func (s *DirectorySuite) TestWriteContent(c *gc.C) {
 		Size:        info.Size,
 		Fingerprint: info.Fingerprint,
 	}
-	relPath := []string{info.Path}
+	relPath := info.Path
 	stub := &stubDirectory{
 		internalStub: s.stub,
 	}

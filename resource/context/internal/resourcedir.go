@@ -138,7 +138,7 @@ func NewDirectory(spec *DirectorySpec, deps DirectoryDeps) *Directory {
 func (dir *Directory) Write(opened ContentSource) error {
 	// TODO(ericsnow) Also write the info file...
 
-	relPath := []string{opened.Info().Path}
+	relPath := opened.Info().Path
 	if err := dir.WriteContent(relPath, opened.Content()); err != nil {
 		return errors.Trace(err)
 	}
@@ -148,12 +148,12 @@ func (dir *Directory) Write(opened ContentSource) error {
 
 // WriteContent writes the resource file to the given path
 // within the directory.
-func (dir *Directory) WriteContent(relPath []string, content Content) error {
+func (dir *Directory) WriteContent(relPath string, content Content) error {
 	if len(relPath) == 0 {
 		// TODO(ericsnow) Use rd.readInfo().Path, like openResource() does?
 		return errors.NotImplementedf("")
 	}
-	filename := dir.Resolve(relPath...)
+	filename := dir.Resolve(relPath)
 
 	target, err := dir.Deps.CreateWriter(filename)
 	if err != nil {
