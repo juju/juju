@@ -46,19 +46,16 @@ func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 				return nil, errors.Trace(err)
 			}
 
-			var svcName string
-			switch ent := ent.(type) {
-			case *state.Unit:
-				svcName = ent.ServiceName()
-			default:
+			unit, ok := ent.(*state.Unit)
+			if !ok {
 				logger.Criticalf("unexpected type: %T", ent)
 				return nil, errors.Errorf("unexpected type: %T", ent)
 			}
+
 			st2 := &resourceUnitState{
 				state:     resources,
-				serviceID: svcName,
+				serviceID: unit.ServiceName(),
 			}
-
 			return st2, nil
 		},
 	)
