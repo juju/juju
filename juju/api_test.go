@@ -219,7 +219,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
@@ -340,13 +340,13 @@ type mockedStateFlags int
 const (
 	noFlags          mockedStateFlags = 0x0000
 	mockedHostPort   mockedStateFlags = 0x0001
-	mockedEnvironTag mockedStateFlags = 0x0002
+	mockedModelTag   mockedStateFlags = 0x0002
 	mockedPreferIPv6 mockedStateFlags = 0x0004
 )
 
 func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	hasHostPort := flags&mockedHostPort == mockedHostPort
-	hasEnvironTag := flags&mockedEnvironTag == mockedEnvironTag
+	hasModelTag := flags&mockedModelTag == mockedModelTag
 	preferIPv6 := flags&mockedPreferIPv6 == mockedPreferIPv6
 	addr := ""
 
@@ -367,7 +367,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		}
 	}
 	modelTag := ""
-	if hasEnvironTag {
+	if hasModelTag {
 		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
 	return &mockAPIState{
@@ -384,11 +384,11 @@ func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
-func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoNoModelTag(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
@@ -417,7 +417,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
 		return true
 	})
-	expectState = mockedAPIState(mockedHostPort | mockedEnvironTag | mockedPreferIPv6)
+	expectState = mockedAPIState(mockedHostPort | mockedModelTag | mockedPreferIPv6)
 	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
@@ -438,7 +438,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
+	expectState := mockedAPIState(mockedModelTag | mockedPreferIPv6)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
@@ -462,7 +462,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 }
 
-func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
+func (s *NewAPIClientSuite) TestNoModelTagDoesntOverwriteCached(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 	called := 0
 	// State returns a new set of APIHostPorts but not a new ModelTag. We

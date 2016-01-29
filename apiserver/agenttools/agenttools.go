@@ -120,7 +120,7 @@ func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVer
 // UpdateToolsAvailable invokes a lookup and further update in environ
 // for new patches of the current tool versions.
 func (api *AgentToolsAPI) UpdateToolsAvailable() error {
-	if !api.authorizer.AuthEnvironManager() {
+	if !api.authorizer.AuthModelManager() {
 		return common.ErrPerm
 	}
 	return updateToolsAvailability(api.st, api.findTools, api.envVersionUpdate)

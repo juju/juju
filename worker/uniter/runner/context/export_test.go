@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 

@@ -139,26 +139,6 @@ func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
 }
 
-func (s *ModelCommandSuite) TestCompatVersion(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
-	cmd, err := initTestCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.CompatVersion(), gc.Equals, 2)
-}
-
-func (s *ModelCommandSuite) TestCompatVersionDefault(c *gc.C) {
-	cmd, err := initTestCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
-}
-
-func (s *ModelCommandSuite) TestCompatVersionInvalid(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuCLIVersion, "invalid")
-	cmd, err := initTestCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
-}
-
 func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
 	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags)

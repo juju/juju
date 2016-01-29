@@ -60,7 +60,7 @@ const BootstrapMachineId = "0"
 //
 // The envCfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
-// and its constraints will be also be used for the environment-level
+// and its constraints will be also be used for the model-level
 // constraints. The connection to the state server will respect the
 // given timeout parameter.
 //

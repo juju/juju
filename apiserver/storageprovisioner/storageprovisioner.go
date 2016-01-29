@@ -64,7 +64,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		}
 		parentId := state.ParentId(tag.Id())
 		if parentId == "" {
-			return allowEnvironManager && authorizer.AuthEnvironManager()
+			return allowEnvironManager && authorizer.AuthModelManager()
 		}
 		// All containers with the authenticated
 		// machine as a parent are accessible by it.
@@ -76,8 +76,8 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			case names.ModelTag:
 				// Environment managers can access all volumes
 				// and filesystems scoped to the environment.
-				isEnvironManager := authorizer.AuthEnvironManager()
-				return isEnvironManager && tag == st.ModelTag()
+				isModelManager := authorizer.AuthModelManager()
+				return isModelManager && tag == st.ModelTag()
 			case names.MachineTag:
 				return canAccessStorageMachine(tag, false)
 			default:
@@ -92,13 +92,13 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			return authorizer.AuthEnvironManager()
+			return authorizer.AuthModelManager()
 		case names.FilesystemTag:
 			machineTag, ok := names.FilesystemMachine(tag)
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			return authorizer.AuthEnvironManager()
+			return authorizer.AuthModelManager()
 		case names.MachineTag:
 			return allowMachines && canAccessStorageMachine(tag, true)
 		default:
@@ -125,11 +125,11 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			if !canAccessStorageMachine(machineTag, true) {
 				return false
 			}
-			// Environment managers can access environment-scoped
+			// Environment managers can access model-scoped
 			// volumes and volumes scoped to their own machines.
 			// Other machine agents can access volumes regardless
 			// of their scope.
-			if !authorizer.AuthEnvironManager() {
+			if !authorizer.AuthModelManager() {
 				return true
 			}
 			var machineScope names.MachineTag

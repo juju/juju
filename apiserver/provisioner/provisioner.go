@@ -75,11 +75,11 @@ type ProvisionerAPI struct {
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		isEnvironManager := authorizer.AuthEnvironManager()
+		isModelManager := authorizer.AuthModelManager()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
@@ -94,7 +94,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 				if parentId == "" {
 					// All top-level machines are accessible by the
 					// environment manager.
-					return isEnvironManager
+					return isModelManager
 				}
 				// All containers with the authenticated machine as a
 				// parent are accessible by it.
@@ -744,36 +744,6 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	return result, nil
 }
 
-// SetProvisioned sets the provider specific instance id, nonce and
-// metadata for each given machine. Once set, the instance id cannot
-// be changed.
-//
-// TODO(dimitern) This is not used anymore (as of 1.19.0) and is
-// retained only for backwards-compatibility. It should be removed as
-// deprecated. SetInstanceInfo is used instead.
-func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Machines)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Machines {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
@@ -828,7 +798,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthEnvironManager() {
+	if !p.authorizer.AuthModelManager() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
@@ -1520,7 +1490,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 	return data, nil
 }
 
-// constructImageConstraint returns environment-specific criteria used to look for image metadata.
+// constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
 	// If we can determine current region,
 	// we want only metadata specific to this region.

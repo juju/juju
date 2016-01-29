@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -104,8 +104,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w, err := machine.WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange("mysql/0", "logging/0")
@@ -126,9 +126,6 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("logging/0")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *deployerSuite) TestUnit(c *gc.C) {

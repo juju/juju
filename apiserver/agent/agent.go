@@ -93,7 +93,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 }
 
 func (api *AgentAPIV2) StateServingInfo() (result state.StateServingInfo, err error) {
-	if !api.auth.AuthEnvironManager() {
+	if !api.auth.AuthModelManager() {
 		err = common.ErrPerm
 		return
 	}
@@ -106,7 +106,7 @@ func (api *AgentAPIV2) StateServingInfo() (result state.StateServingInfo, err er
 var MongoIsMaster = mongo.IsMaster
 
 func (api *AgentAPIV2) IsMaster() (params.IsMasterResult, error) {
-	if !api.auth.AuthEnvironManager() {
+	if !api.auth.AuthModelManager() {
 		return params.IsMasterResult{}, common.ErrPerm
 	}
 

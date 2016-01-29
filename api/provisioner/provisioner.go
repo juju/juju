@@ -9,11 +9,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to the Machiner API facade.
@@ -65,7 +66,7 @@ func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -78,7 +79,7 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 

@@ -499,9 +499,6 @@ var statusTests = []testCase{
 		setUnitStatus{"dummy-service/0", state.StatusTerminated, "", nil},
 		setAgentStatus{"dummy-service/0", state.StatusIdle, "", nil},
 
-		// dummy-service/0 used to expect "agent-state-info": "(started)",
-		// which is populated as the previous state by adjustInfoIfAgentDown
-		// but sice it no longer is down it no longer applies.
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
@@ -522,9 +519,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"exposed-service/0": M{
-								"machine":          "2",
-								"agent-state":      "error",
-								"agent-state-info": "You Require More Vespene Gas",
+								"machine": "2",
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
@@ -550,8 +545,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"agent-state": "stopped",
+								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -593,7 +587,7 @@ var statusTests = []testCase{
 						"dns-name":         "dummymodel-3.dns",
 						"instance-id":      "dummymodel-3",
 						"agent-state":      "stopped",
-						"agent-state-info": "(stopped: Really?)",
+						"agent-state-info": "Really?",
 						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
@@ -623,9 +617,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"exposed-service/0": M{
-								"machine":          "2",
-								"agent-state":      "error",
-								"agent-state-info": "You Require More Vespene Gas",
+								"machine": "2",
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
@@ -651,9 +643,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"agent-state": "stopped",
-								"life":        "dying",
+								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -689,9 +679,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"life":        "dying",
-								"agent-state": "stopped",
+								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -726,9 +714,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"exposed-service/0": M{
-								"machine":          "2",
-								"agent-state":      "error",
-								"agent-state-info": "You Require More Vespene Gas",
+								"machine": "2",
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
@@ -766,9 +752,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"life":        "dying",
-								"agent-state": "stopped",
+								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -803,9 +787,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"exposed-service/0": M{
-								"machine":          "2",
-								"agent-state":      "error",
-								"agent-state-info": "You Require More Vespene Gas",
+								"machine": "2",
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
@@ -844,9 +826,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "1",
-								"life":        "dying",
-								"agent-state": "stopped",
+								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -869,9 +849,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"exposed-service/0": M{
-								"machine":          "2",
-								"agent-state":      "error",
-								"agent-state-info": "You Require More Vespene Gas",
+								"machine": "2",
 								"workload-status": M{
 									"current": "error",
 									"message": "You Require More Vespene Gas",
@@ -940,9 +918,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"wordpress/0": M{
-								"machine":          "1",
-								"agent-state":      "error",
-								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
+								"machine": "1",
 								"workload-status": M{
 									"current": "error",
 									"message": "hook failed: some-relation-changed for mysql:server",
@@ -969,8 +945,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "pending",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -1036,9 +1011,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"wordpress/0": M{
-								"machine":          "1",
-								"agent-state":      "error",
-								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
+								"machine": "1",
 								"workload-status": M{
 									"current": "error",
 									"message": "hook failed: some-relation-changed for mysql:server",
@@ -1065,8 +1038,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "pending",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -1114,8 +1086,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "0",
-								"agent-state": "pending",
+								"machine": "0",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -1164,8 +1135,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"dummy-service/0": M{
-								"machine":     "0",
-								"agent-state": "started",
+								"machine": "0",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "agent is lost, sorry! See 'juju status-history dummy-service/0'",
@@ -1256,8 +1226,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"project/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1283,8 +1252,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine": "2",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1310,8 +1278,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"varnish/0": M{
-								"machine":     "3",
-								"agent-state": "pending",
+								"machine": "3",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -1338,8 +1305,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"private/0": M{
-								"machine":     "4",
-								"agent-state": "pending",
+								"machine": "4",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -1413,8 +1379,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"riak/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1426,8 +1391,7 @@ var statusTests = []testCase{
 								"public-address": "dummymodel-1.dns",
 							},
 							"riak/1": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine": "2",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1439,8 +1403,7 @@ var statusTests = []testCase{
 								"public-address": "dummymodel-2.dns",
 							},
 							"riak/2": M{
-								"machine":     "3",
-								"agent-state": "started",
+								"machine": "3",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1526,8 +1489,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1538,7 +1500,6 @@ var statusTests = []testCase{
 								},
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state": "started",
 										"workload-status": M{
 											"current": "active",
 											"since":   "01 Apr 15 01:23+10:00",
@@ -1567,8 +1528,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine": "2",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1579,8 +1539,6 @@ var statusTests = []testCase{
 								},
 								"subordinates": M{
 									"logging/1": M{
-										"agent-state":      "error",
-										"agent-state-info": "somehow lost in all those logs",
 										"workload-status": M{
 											"current": "error",
 											"message": "somehow lost in all those logs",
@@ -1635,8 +1593,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1647,7 +1604,6 @@ var statusTests = []testCase{
 								},
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state": "started",
 										"workload-status": M{
 											"current": "active",
 											"since":   "01 Apr 15 01:23+10:00",
@@ -1676,8 +1632,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine": "2",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1688,7 +1643,6 @@ var statusTests = []testCase{
 								},
 								"subordinates": M{
 									"logging/1": M{
-										"agent-state": "error",
 										"workload-status": M{
 											"current": "error",
 											"message": "somehow lost in all those logs",
@@ -1698,8 +1652,7 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"agent-state-info": "somehow lost in all those logs",
-										"public-address":   "dummymodel-2.dns",
+										"public-address": "dummymodel-2.dns",
 									},
 								},
 								"public-address": "dummymodel-2.dns",
@@ -1743,8 +1696,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1755,7 +1707,6 @@ var statusTests = []testCase{
 								},
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state": "started",
 										"workload-status": M{
 											"current": "active",
 											"since":   "01 Apr 15 01:23+10:00",
@@ -1843,8 +1794,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1856,8 +1806,7 @@ var statusTests = []testCase{
 								"public-address": "dummymodel-1.dns",
 							},
 							"mysql/1": M{
-								"machine":     "1/lxc/0",
-								"agent-state": "started",
+								"machine": "1/lxc/0",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1907,8 +1856,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/1": M{
-								"machine":     "1/lxc/0",
-								"agent-state": "started",
+								"machine": "1/lxc/0",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1961,8 +1909,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "pending",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -2016,8 +1963,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2073,8 +2019,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2129,8 +2074,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2221,8 +2165,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":     "1",
-								"agent-state": "started",
+								"machine": "1",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2245,8 +2188,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"servicewithmeterstatus/0": M{
-								"machine":     "2",
-								"agent-state": "started",
+								"machine": "2",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2258,8 +2200,7 @@ var statusTests = []testCase{
 								"public-address": "dummymodel-2.dns",
 							},
 							"servicewithmeterstatus/1": M{
-								"machine":     "3",
-								"agent-state": "started",
+								"machine": "3",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2275,8 +2216,7 @@ var statusTests = []testCase{
 								"public-address": "dummymodel-3.dns",
 							},
 							"servicewithmeterstatus/2": M{
-								"machine":     "4",
-								"agent-state": "started",
+								"machine": "4",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2874,136 +2814,6 @@ func (a *fakeApiClient) Close() error {
 	return nil
 }
 
-// Check that the client works with an older server which doesn't
-// return the top level Relations field nor the unit and machine level
-// Agent field (they were introduced at the same time).
-func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
-	// Construct an older style status response
-	client := newFakeApiClient(&params.FullStatus{
-		ModelName: "dummymodel",
-		Machines: map[string]params.MachineStatus{
-			"0": {
-				// Agent field intentionally not set
-				Id:             "0",
-				InstanceId:     instance.Id("dummymodel-0"),
-				AgentState:     "down",
-				AgentStateInfo: "(started)",
-				Series:         "quantal",
-				Containers:     map[string]params.MachineStatus{},
-				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageModel},
-				HasVote:        false,
-				WantsVote:      true,
-			},
-			"1": {
-				// Agent field intentionally not set
-				Id:             "1",
-				InstanceId:     instance.Id("dummymodel-1"),
-				AgentState:     "started",
-				AgentStateInfo: "hello",
-				Series:         "quantal",
-				Containers:     map[string]params.MachineStatus{},
-				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				HasVote:        false,
-				WantsVote:      false,
-			},
-		},
-		Services: map[string]params.ServiceStatus{
-			"mysql": {
-				Charm: "local:quantal/mysql-1",
-				Relations: map[string][]string{
-					"server": {"wordpress"},
-				},
-				Units: map[string]params.UnitStatus{
-					"mysql/0": {
-						// Agent field intentionally not set
-						Machine:    "1",
-						AgentState: "allocating",
-					},
-				},
-			},
-			"wordpress": {
-				Charm: "local:quantal/wordpress-3",
-				Relations: map[string][]string{
-					"db": {"mysql"},
-				},
-				Units: map[string]params.UnitStatus{
-					"wordpress/0": {
-						// Agent field intentionally not set
-						AgentState:     "error",
-						AgentStateInfo: "blam",
-						Machine:        "1",
-					},
-				},
-			},
-		},
-		Networks: map[string]params.NetworkStatus{},
-		// Relations field intentionally not set
-	})
-	s.PatchValue(&newApiClientForStatus, func(_ *statusCommand) (statusAPI, error) {
-		return &client, nil
-	})
-
-	expected := expect{
-		"sane output with an older client that doesn't return Agent or Relations fields",
-		M{
-			"model": "dummymodel",
-			"machines": M{
-				"0": M{
-					"agent-state":                "down",
-					"agent-state-info":           "(started)",
-					"instance-id":                "dummymodel-0",
-					"series":                     "quantal",
-					"state-server-member-status": "adding-vote",
-				},
-				"1": M{
-					"agent-state":      "started",
-					"agent-state-info": "hello",
-					"instance-id":      "dummymodel-1",
-					"series":           "quantal",
-				},
-			},
-			"services": M{
-				"mysql": M{
-					"charm":   "local:quantal/mysql-1",
-					"exposed": false,
-					"relations": M{
-						"server": L{"wordpress"},
-					},
-					"service-status": M{},
-					"units": M{
-						"mysql/0": M{
-							"machine":         "1",
-							"agent-state":     "allocating",
-							"workload-status": M{},
-							"agent-status":    M{},
-						},
-					},
-				},
-				"wordpress": M{
-					"charm":   "local:quantal/wordpress-3",
-					"exposed": false,
-					"relations": M{
-						"db": L{"mysql"},
-					},
-					"service-status": M{},
-					"units": M{
-						"wordpress/0": M{
-							"machine":          "1",
-							"agent-state":      "error",
-							"agent-state-info": "blam",
-							"workload-status":  M{},
-							"agent-status":     M{},
-						},
-					},
-				},
-			},
-		},
-	}
-	ctx := s.newContext(c)
-	defer s.resetContext(c, ctx)
-	ctx.run(c, []stepper{expected})
-}
-
 func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
@@ -3058,8 +2868,8 @@ Utilizing ports:
     started:  3 
             
     # UNITS: (4)
+     active:  3 
       error:  1 
-    started:  3 
             
  # SERVICES:  (3)
      logging  1/1 exposed
@@ -3118,22 +2928,13 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps)
 
-	const expectedV1 = `
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (error)
-- wordpress/0: dummymodel-1.dns (started)
-  - logging/0: dummymodel-1.dns (started)
-`
-	assertOneLineStatus(c, expectedV1)
-
-	const expectedV2 = `
+	const expected = `
 - mysql/0: dummymodel-2.dns (agent:idle, workload:active)
   - logging/1: dummymodel-2.dns (agent:idle, workload:error)
 - wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
   - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
-	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
-	assertOneLineStatus(c, expectedV2)
+	assertOneLineStatus(c, expected)
 }
 
 func assertOneLineStatus(c *gc.C, expected string) {
@@ -3245,11 +3046,6 @@ ID         STATE   DNS              INS-ID       SERIES  AZ
 	nextVersionStr := nextVersion().String()
 	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
 	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersionStr+spaces))
-}
-
-func (s *StatusSuite) TestStatusV2(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
-	s.testStatusWithFormatTabular(c, true)
 }
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
@@ -3421,8 +3217,8 @@ func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: dummymodel-1.dns (started)
-  - logging/0: dummymodel-1.dns (started)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3440,8 +3236,8 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (error)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:error)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3457,8 +3253,8 @@ func (s *StatusSuite) TestFilterToService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (started)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3481,8 +3277,8 @@ func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (started)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3499,8 +3295,8 @@ func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: dummymodel-1.dns (started)
-  - logging/0: dummymodel-1.dns (started)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3520,8 +3316,8 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: localhost (started)
-  - logging/0: localhost (started)
+- wordpress/0: localhost (agent:idle, workload:active)
+  - logging/0: localhost (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3542,8 +3338,8 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: localhost (started) 80/tcp
-  - logging/0: localhost (started)
+- wordpress/0: localhost (agent:idle, workload:active) 80/tcp
+  - logging/0: localhost (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3559,10 +3355,10 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (started)
-- wordpress/0: dummymodel-1.dns (started)
-  - logging/0: dummymodel-1.dns (started)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3580,8 +3376,8 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (started)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3595,10 +3391,10 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (started)
-- wordpress/0: dummymodel-1.dns (started)
-  - logging/0: dummymodel-1.dns (started)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3612,10 +3408,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummymodel-2.dns (started)
-  - logging/1: dummymodel-2.dns (started)
-- wordpress/0: dummymodel-1.dns (started)
-  - logging/0: dummymodel-1.dns (started)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3702,8 +3498,7 @@ var statusTimeTest = test(
 					},
 					"units": M{
 						"dummy-service/0": M{
-							"machine":     "1",
-							"agent-state": "pending",
+							"machine": "1",
 							"workload-status": M{
 								"current": "unknown",
 								"message": "Waiting for agent initialization to finish",
@@ -3740,17 +3535,15 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 					Status: "error",
 					Info:   "<error while provisioning>",
 				},
-				AgentState:     "",
-				AgentStateInfo: "<error while provisioning>",
-				InstanceId:     "pending",
-				InstanceState:  "",
-				Series:         "trusty",
-				Id:             "1",
-				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
+				InstanceId:    "pending",
+				InstanceState: "",
+				Series:        "trusty",
+				Id:            "1",
+				Jobs:          []multiwatcher.MachineJob{"JobHostUnits"},
 			},
 		},
 	}
-	formatter := newStatusFormatter(status, 0, true)
+	formatter := newStatusFormatter(status, true)
 	formatted := formatter.format()
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{

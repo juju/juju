@@ -30,23 +30,23 @@ type environWatcherSuite struct {
 
 var _ = gc.Suite(&environWatcherSuite{})
 
-type fakeEnvironAccessor struct {
-	envConfig      *config.Config
-	envConfigError error
+type fakeModelAccessor struct {
+	modelConfig      *config.Config
+	modelConfigError error
 }
 
-func (*fakeEnvironAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
+func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
 	changes := make(chan struct{}, 1)
 	// Simulate initial event.
 	changes <- struct{}{}
 	return &fakeNotifyWatcher{changes: changes}
 }
 
-func (f *fakeEnvironAccessor) ModelConfig() (*config.Config, error) {
-	if f.envConfigError != nil {
-		return nil, f.envConfigError
+func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
+	if f.modelConfigError != nil {
+		return nil, f.modelConfigError
 	}
-	return f.envConfig, nil
+	return f.modelConfig, nil
 }
 
 func (s *environWatcherSuite) TearDownTest(c *gc.C) {
@@ -58,7 +58,7 @@ func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewModelWatcher(
-		&fakeEnvironAccessor{},
+		&fakeModelAccessor{},
 		resources,
 		nil,
 	)
@@ -75,7 +75,7 @@ func (*environWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	}
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewModelWatcher(
-		&fakeEnvironAccessor{envConfig: testingEnvConfig},
+		&fakeModelAccessor{modelConfig: testingEnvConfig},
 		nil,
 		authorizer,
 	)
@@ -92,8 +92,8 @@ func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 		EnvironManager: true,
 	}
 	e := common.NewModelWatcher(
-		&fakeEnvironAccessor{
-			envConfigError: fmt.Errorf("pow"),
+		&fakeModelAccessor{
+			modelConfigError: fmt.Errorf("pow"),
 		},
 		nil,
 		authorizer,
@@ -109,7 +109,7 @@ func (*environWatcherSuite) TestModelConfigMaskedSecrets(c *gc.C) {
 	}
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewModelWatcher(
-		&fakeEnvironAccessor{envConfig: testingEnvConfig},
+		&fakeModelAccessor{modelConfig: testingEnvConfig},
 		nil,
 		authorizer,
 	)

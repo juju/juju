@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/lease"
 )
 
@@ -46,7 +47,7 @@ type FixtureParams struct {
 
 // Fixture collects together a running client and a bunch of useful data.
 type Fixture struct {
-	Client lease.Client
+	Client corelease.Client
 	Config lease.ClientConfig
 	Runner jujutxn.Runner
 	Clock  *Clock
@@ -135,9 +136,9 @@ func (c *callbackChecker) Check(params []interface{}, names []string) (bool, str
 
 type checkFunc func(params []interface{}, names []string) (bool, string)
 
-type checkInfoFunc func(info lease.Info, param interface{}) (bool, string)
+type checkInfoFunc func(info corelease.Info, param interface{}) (bool, string)
 
-func checkHolder(info lease.Info, holder interface{}) (bool, string) {
+func checkHolder(info corelease.Info, holder interface{}) (bool, string) {
 	actual := info.Holder
 	expect := holder.(string)
 	if actual == expect {
@@ -146,7 +147,7 @@ func checkHolder(info lease.Info, holder interface{}) (bool, string) {
 	return false, fmt.Sprintf("lease held by %q; expected %q", actual, expect)
 }
 
-func checkExpiry(info lease.Info, expiry interface{}) (bool, string) {
+func checkExpiry(info corelease.Info, expiry interface{}) (bool, string) {
 	actual := info.Expiry
 	expect := expiry.(time.Time)
 	if actual.Equal(expect) {

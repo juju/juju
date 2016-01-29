@@ -36,16 +36,6 @@ type FullStatus struct {
 type MachineStatus struct {
 	Agent AgentStatus
 
-	// The following fields mirror fields in AgentStatus (introduced
-	// in 1.19.x). The old fields below are being kept for
-	// compatibility with old clients.
-	// They can be removed once API versioning lands.
-	AgentState     Status
-	AgentStateInfo string
-	AgentVersion   string
-	Life           string
-	Err            error
-
 	DNSName       string
 	InstanceId    instance.Id
 	InstanceState string
@@ -320,17 +310,6 @@ const (
 	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
 	// the unit agent ought to be signalling activity, but none has been detected.
 	StatusLost Status = "lost"
-
-	// ---- Outdated ----
-
-	// StatusInstalling is set when:
-	// The unit agent is downloading the charm and running the install hook.
-	StatusInstalling Status = "installing"
-
-	// StatusStopping is set when:
-	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
-	// In Juju 2.x this will describe the state of the agent rather than a unit.
-	StatusStopping Status = "stopping"
 )
 
 const (

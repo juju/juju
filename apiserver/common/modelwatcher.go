@@ -62,7 +62,7 @@ func (e *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
 	}
 	allAttrs := config.AllAttrs()
 
-	if !e.authorizer.AuthEnvironManager() {
+	if !e.authorizer.AuthModelManager() {
 		// Mask out any secrets in the environment configuration
 		// with values of the same type, so it'll pass validation.
 		//

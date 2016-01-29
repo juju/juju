@@ -137,7 +137,7 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
 	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -145,7 +145,7 @@ func (s *StateSuite) TestOpenAcceptsMissingEnvironmentTag(c *gc.C) {
 	c.Check(st.Close(), jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
 	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
@@ -156,7 +156,7 @@ func (s *StateSuite) TestOpenRequiresExtantEnvironmentTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
-func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
 	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -3353,7 +3353,7 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	c.Assert(id, gc.Equals, user.Name())
 }
 
-func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
+func (s *StateSuite) TestParseModelTag(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, env.Tag())

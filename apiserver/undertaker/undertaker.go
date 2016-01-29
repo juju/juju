@@ -28,7 +28,7 @@ func NewUndertakerAPI(st *state.State, resources *common.Resources, authorizer c
 }
 
 func newUndertakerAPI(st State, resources *common.Resources, authorizer common.Authorizer) (*UndertakerAPI, error) {
-	if !authorizer.AuthMachineAgent() || !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() || !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &UndertakerAPI{
