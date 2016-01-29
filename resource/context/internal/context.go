@@ -14,7 +14,7 @@ import (
 // not been uploaded yet then errors.NotFound is returned.
 //
 // Note that the downloaded file is checked for correctness.
-func ContextDownload(deps ContextDownloadDeps) (string, error) {
+func ContextDownload(deps ContextDownloadDeps) (path string, err error) {
 	// TODO(katco): Potential race-condition: two commands running at
 	// once. Solve via collision using os.Mkdir() with a uniform
 	// temp dir name (e.g. "<datadir>/.<res name>.download")?
@@ -26,7 +26,7 @@ func ContextDownload(deps ContextDownloadDeps) (string, error) {
 		return "", errors.Trace(err)
 	}
 	defer deps.CloseAndLog(remote, "remote resource")
-	path := resDirSpec.Resolve(remote.Info().Path)
+	path = resDirSpec.Resolve(remote.Info().Path)
 
 	isUpToDate, err := resDirSpec.IsUpToDate(remote.Content())
 	if err != nil {
