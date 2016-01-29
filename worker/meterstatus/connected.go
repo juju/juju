@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/api/meterstatus"
-	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -49,12 +49,14 @@ func NewConnectedStatusWorker(cfg ConnectedConfig) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker.NewNotifyWorker(handler), nil
+	return watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: handler,
+	})
 }
 
 // NewConnectedStatusHandler creates a new meter status handler for handling meter status
 // changes as provided by the API.
-func NewConnectedStatusHandler(cfg ConnectedConfig) (worker.NotifyWatchHandler, error) {
+func NewConnectedStatusHandler(cfg ConnectedConfig) (watcher.NotifyHandler, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -66,7 +68,7 @@ func NewConnectedStatusHandler(cfg ConnectedConfig) (worker.NotifyWatchHandler, 
 }
 
 // SetUp is part of the worker.NotifyWatchHandler interface.
-func (w *connectedStatusHandler) SetUp() (apiwatcher.NotifyWatcher, error) {
+func (w *connectedStatusHandler) SetUp() (watcher.NotifyWatcher, error) {
 	var err error
 	w.code, w.info, _, err = w.config.StateFile.Read()
 	if err != nil {

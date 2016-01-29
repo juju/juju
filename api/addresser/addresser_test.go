@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
 type AddresserSuite struct {
@@ -97,20 +97,20 @@ func (s *AddresserSuite) TestCleanupIPAddressesServerError(c *gc.C) {
 func (s *AddresserSuite) TestWatchIPAddressesSuccess(c *gc.C) {
 	var numFacadeCalls int
 	var numWatcherCalls int
-	expectedResult := params.EntityWatchResult{
-		EntityWatcherId: "42",
+	expectedResult := params.EntitiesWatchResult{
+		EntitiesWatcherId: "42",
 		Changes: []string{
 			"ipaddress-11111111-0000-0000-0000-000000000000",
 			"ipaddress-22222222-0000-0000-0000-000000000000",
 		},
 	}
-	watcherFunc := func(caller base.APICaller, result params.EntityWatchResult) watcher.EntityWatcher {
+	watcherFunc := func(caller base.APICaller, result params.EntitiesWatchResult) watcher.EntitiesWatcher {
 		numWatcherCalls++
 		c.Check(caller, gc.NotNil)
 		c.Check(result, jc.DeepEquals, expectedResult)
 		return nil
 	}
-	s.PatchValue(addresser.NewEntityWatcher, watcherFunc)
+	s.PatchValue(addresser.NewEntitiesWatcher, watcherFunc)
 
 	apiCaller := successAPICaller(c, "WatchIPAddresses", nil, expectedResult, &numFacadeCalls)
 	api := addresser.NewAPI(apiCaller)
@@ -136,7 +136,7 @@ func (s *AddresserSuite) TestWatchIPAddressesClientError(c *gc.C) {
 
 func (s *AddresserSuite) TestWatchIPAddressesServerError(c *gc.C) {
 	var called int
-	expectedResult := params.EntityWatchResult{
+	expectedResult := params.EntitiesWatchResult{
 		Error: apiservertesting.ServerError("server boom!"),
 	}
 	apiCaller := successAPICaller(c, "WatchIPAddresses", nil, expectedResult, &called)

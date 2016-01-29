@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type serviceSuite struct {
@@ -44,8 +44,8 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiService.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -59,16 +59,13 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	err = s.wordpressService.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	w, err := s.apiService.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange()
@@ -91,9 +88,6 @@ func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.String())
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *serviceSuite) TestRefresh(c *gc.C) {
