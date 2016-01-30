@@ -355,14 +355,13 @@ func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 	var client block.BlockListAPI
 	for attempt := attempts.Start(); attempt.Next(); {
 		client, err = blockAPI(&c.EnvCommandBase)
-		if err != nil {
-			return err
-		}
-		_, err = client.List()
-		client.Close()
 		if err == nil {
-			ctx.Infof("Bootstrap complete")
-			return nil
+			_, err = client.List()
+			client.Close()
+			if err == nil {
+				ctx.Infof("Bootstrap complete")
+				return nil
+			}
 		}
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
