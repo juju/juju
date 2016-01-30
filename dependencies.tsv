@@ -39,6 +39,7 @@ github.com/julienschmidt/httprouter	git	109e267447e95ad1bb48b758e40dd7453eb7b039
 github.com/lxc/lxd	git	42b4c228e84cba622f221e04a1fa7164a416a440	2015-10-27T22:33:42Z
 github.com/mattn/go-colorable	git	40e4aedc8fabf8c23e040057540867186712faa5	2015-06-25T15:46:42Z
 github.com/mattn/go-isatty	git	d6aaa2f596ae91a0a58d8e7f2c79670991468e4f	2015-11-07T15:36:48Z
+github.com/tam7t/sigprof	git	0819c1940d084f60f912de548a06b84a0a8d2477	2015-05-13T14:04:49Z
 golang.org/x/crypto	git	aedad9a179ec1ea11b7064c57cbc6dc30d7724ec	2015-08-30T18:06:42Z
 golang.org/x/net	git	ea47fc708ee3e20177f3ca3716217c4ab75942cb	2015-08-29T23:03:18Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
