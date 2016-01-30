@@ -1,13 +1,11 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package state
 
 import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/resource/state"
 )
 
 var _ = gc.Suite(&StateSuite{})
@@ -33,7 +31,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *StateSuite) TestNewStateOkay(c *gc.C) {
-	st := state.NewState(s.raw)
+	st := NewState(s.raw)
 
 	c.Check(st, gc.NotNil)
 	s.stub.CheckCallNames(c, "Persistence", "Storage")

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package state
 
 import (
 	"io"
@@ -11,24 +11,23 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/state"
 )
 
 type stubRawState struct {
 	stub *testing.Stub
 
-	ReturnPersistence state.Persistence
-	ReturnStorage     state.Storage
+	ReturnPersistence Persistence
+	ReturnStorage     Storage
 }
 
-func (s *stubRawState) Persistence() state.Persistence {
+func (s *stubRawState) Persistence() Persistence {
 	s.stub.AddCall("Persistence")
 	s.stub.NextErr()
 
 	return s.ReturnPersistence
 }
 
-func (s *stubRawState) Storage() state.Storage {
+func (s *stubRawState) Storage() Storage {
 	s.stub.AddCall("Storage")
 	s.stub.NextErr()
 
@@ -70,6 +69,15 @@ func (s *stubPersistence) UnstageResource(id, serviceID string) error {
 
 func (s *stubPersistence) SetResource(id, serviceID string, res resource.Resource) error {
 	s.stub.AddCall("SetResource", id, serviceID, res)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubPersistence) SetUnitResource(id string, unit resource.Unit, res resource.Resource) error {
+	s.stub.AddCall("SetUnitResource", id, unit, res)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -122,7 +130,7 @@ type stubReader struct {
 func (s *stubReader) Read(buf []byte) (int, error) {
 	s.stub.AddCall("Read", buf)
 	if err := s.stub.NextErr(); err != nil {
-		return 0, errors.Trace(err)
+		return 0, err
 	}
 
 	return s.ReturnRead, nil

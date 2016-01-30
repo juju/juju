@@ -6,6 +6,7 @@
 package resource
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -66,4 +67,21 @@ func (res Resource) IsPlaceholder() bool {
 // TimestampGranular returns the timestamp at a resolution of 1 second.
 func (res Resource) TimestampGranular() time.Time {
 	return time.Unix(res.Timestamp.Unix(), 0)
+}
+
+// RevisionString returns the human-readable revision for the resource.
+func (res Resource) RevisionString() string {
+	if res.Origin == resource.OriginUpload {
+		return res.TimestampGranular().String()
+	}
+	return fmt.Sprintf("%d", res.Revision)
+}
+
+// Unit represents a Juju unit.
+type Unit interface {
+	// Name is the name of the Unit.
+	Name() string
+
+	// ServiceName is the name of the service to which the unit belongs.
+	ServiceName() string
 }

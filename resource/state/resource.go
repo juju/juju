@@ -35,6 +35,9 @@ type resourcePersistence interface {
 	// SetResource stores the resource info. If the resource
 	// is already staged then it is unstaged.
 	SetResource(id, serviceID string, res resource.Resource) error
+
+	// SetUnitResource stores the resource info for a unit.
+	SetUnitResource(id string, unit resource.Unit, res resource.Resource) error
 }
 
 type resourceStorage interface {
@@ -130,10 +133,23 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	return nil
 }
 
+// SetUnitResource records the resource being used by a unit in the Juju model.
+func (st resourceState) SetUnitResource(unit resource.Unit, res resource.Resource) error {
+	logger.Tracef("adding resource %q for unit %q", res.Name, unit.Name())
+	if err := res.Validate(); err != nil {
+		return errors.Annotate(err, "bad resource metadata")
+	}
+	err := st.persist.SetUnitResource(res.Name, unit, res)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
-	resourceInfo, err := st.GetResource(serviceID, name)
+func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	resourceInfo, err := st.GetResource(unit.ServiceName(), name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -141,13 +157,20 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	resourceReader, resSize, err := st.storage.Get(storagePath(name, serviceID))
+	resourceReader, resSize, err := st.storage.Get(storagePath(name, unit.ServiceName()))
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 	if resSize != resourceInfo.Size {
 		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+	}
+
+	resourceReader = unitSetter{
+		ReadCloser: resourceReader,
+		persist:    st.persist,
+		unit:       unit,
+		res:        resourceInfo,
 	}
 
 	return resourceInfo, resourceReader, nil
@@ -160,4 +183,26 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 // the "resources" section. The provided ID is located under there.
 func storagePath(id, serviceID string) string {
 	return path.Join("service-"+serviceID, "resources", id)
+}
+
+// unitSetter records the resource as in use by a unit when the wrapped
+// reader has been fully read.
+type unitSetter struct {
+	io.ReadCloser
+	persist resourcePersistence
+	unit    resource.Unit
+	res     resource.Resource
+}
+
+// Read implements io.Reader.
+func (u unitSetter) Read(p []byte) (n int, err error) {
+	n, err = u.ReadCloser.Read(p)
+	if err == io.EOF {
+		// record that the unit is now using this version of the resource
+		if err := u.persist.SetUnitResource(u.res.Name, u.unit, u.res); err != nil {
+			msg := "Failed to record that unit %q is using resource %q revision %v"
+			logger.Errorf(msg, u.unit.Name(), u.res.Name, u.res.RevisionString())
+		}
+	}
+	return n, err
 }

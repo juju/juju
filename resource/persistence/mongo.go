@@ -22,17 +22,17 @@ const (
 )
 
 // resourceID converts an external resource ID into an internal one.
-func (p Persistence) resourceID(id, serviceID string) string {
-	return fmt.Sprintf("resource#%s#%s", serviceID, id)
+func resourceID(id, ownerID string) string {
+	return fmt.Sprintf("resource#%s#%s", ownerID, id)
 }
 
 // stagedID converts an external resource ID into an internal staged one.
-func (p Persistence) stagedID(id, serviceID string) string {
-	return p.resourceID(id, serviceID) + stagedIDSuffix
+func stagedID(id, serviceID string) string {
+	return resourceID(id, serviceID) + stagedIDSuffix
 }
 
-func (p Persistence) newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := p.newStagedDoc(id, serviceID, res)
+func newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
+	doc := newStagedDoc(id, serviceID, res)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -42,8 +42,8 @@ func (p Persistence) newStagedResourceOps(id, serviceID string, res resource.Res
 	}}
 }
 
-func (p Persistence) newEnsureStagedSameOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := p.newStagedDoc(id, serviceID, res)
+func newEnsureStagedSameOps(id, serviceID string, res resource.Resource) []txn.Op {
+	doc := newStagedDoc(id, serviceID, res)
 
 	// Other than cause the txn to abort, we don't do anything here.
 	return []txn.Op{{
@@ -53,8 +53,8 @@ func (p Persistence) newEnsureStagedSameOps(id, serviceID string, res resource.R
 	}}
 }
 
-func (p Persistence) newRemoveStagedOps(id, serviceID string) []txn.Op {
-	fullID := p.stagedID(id, serviceID)
+func newRemoveStagedOps(id, serviceID string) []txn.Op {
+	fullID := stagedID(id, serviceID)
 
 	// We don't assert that it exists. We want "missing" to be a noop.
 	return []txn.Op{{
@@ -64,8 +64,8 @@ func (p Persistence) newRemoveStagedOps(id, serviceID string) []txn.Op {
 	}}
 }
 
-func (p Persistence) newInsertResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := p.newResourceDoc(id, serviceID, res)
+func newInsertResourceOps(id, ownerID, serviceID string, res resource.Resource) []txn.Op {
+	doc := newResourceDoc(id, ownerID, serviceID, res)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -75,8 +75,8 @@ func (p Persistence) newInsertResourceOps(id, serviceID string, res resource.Res
 	}}
 }
 
-func (p Persistence) newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := p.newResourceDoc(id, serviceID, res)
+func newUpdateResourceOps(id, ownerID, serviceID string, res resource.Resource) []txn.Op {
+	doc := newResourceDoc(id, ownerID, serviceID, res)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -84,18 +84,18 @@ func (p Persistence) newUpdateResourceOps(id, serviceID string, res resource.Res
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, p.newInsertResourceOps(id, serviceID, res)...)
+	}}, newInsertResourceOps(id, ownerID, serviceID, res)...)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
-func (p Persistence) newResourceDoc(id, serviceID string, res resource.Resource) *resourceDoc {
-	fullID := p.resourceID(id, serviceID)
+func newResourceDoc(id, ownerID, serviceID string, res resource.Resource) *resourceDoc {
+	fullID := resourceID(id, ownerID)
 	return resource2doc(fullID, serviceID, res)
 }
 
 // newStagedDoc generates a staging doc that represents the given resource.
-func (p Persistence) newStagedDoc(id, serviceID string, res resource.Resource) *resourceDoc {
-	stagedID := p.stagedID(id, serviceID)
+func newStagedDoc(id, serviceID string, res resource.Resource) *resourceDoc {
+	stagedID := stagedID(id, serviceID)
 	return resource2doc(stagedID, serviceID, res)
 }
 

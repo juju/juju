@@ -22,7 +22,7 @@ type Resources interface {
 	SetResource(serviceID string, res resource.Resource, r io.Reader) error
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 }
 
 var newResources func(Persistence) Resources

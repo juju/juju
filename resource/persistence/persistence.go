@@ -75,9 +75,9 @@ func (p Persistence) StageResource(id, serviceID string, res resource.Resource) 
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = p.newStagedResourceOps(id, serviceID, res)
+			ops = newStagedResourceOps(id, serviceID, res)
 		case 1:
-			ops = p.newEnsureStagedSameOps(id, serviceID, res)
+			ops = newEnsureStagedSameOps(id, serviceID, res)
 		default:
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
@@ -102,7 +102,35 @@ func (p Persistence) UnstageResource(id, serviceID string) error {
 			return nil, errors.New("unstaging the resource failed")
 		}
 
-		ops := p.newRemoveStagedOps(id, serviceID)
+		ops := newRemoveStagedOps(id, serviceID)
+		return ops, nil
+	}
+	if err := p.base.Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// SetUnitResource stores the resource info for a particular unit. This is an
+// "upsert".
+func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource.Resource) error {
+	// TODO(ericsnow) Ensure that the service is still there?
+	if err := res.Validate(); err != nil {
+		return errors.Annotate(err, "bad resource")
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// This is an "upsert".
+		var ops []txn.Op
+		switch attempt {
+		case 0:
+			ops = newInsertResourceOps(id, unit.Name(), unit.ServiceName(), res)
+		case 1:
+			ops = newUpdateResourceOps(id, unit.Name(), unit.ServiceName(), res)
+		default:
+			// Either insert or update will work so we should not get here.
+			return nil, errors.New("setting the resource failed")
+		}
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -126,15 +154,15 @@ func (p Persistence) SetResource(id, serviceID string, res resource.Resource) er
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = p.newInsertResourceOps(id, serviceID, res)
+			ops = newInsertResourceOps(id, serviceID, serviceID, res)
 		case 1:
-			ops = p.newUpdateResourceOps(id, serviceID, res)
+			ops = newUpdateResourceOps(id, serviceID, serviceID, res)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
 		// No matter what, we always remove any staging.
-		ops = append(ops, p.newRemoveStagedOps(id, serviceID)...)
+		ops = append(ops, newRemoveStagedOps(id, serviceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
