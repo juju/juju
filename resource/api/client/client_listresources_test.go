@@ -30,15 +30,15 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []resource.ServiceResources{{Resources: expected}})
+	c.Check(results, jc.DeepEquals, []resource.ServiceResources{
+		{Resources: expected},
+	})
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
-		&api.ListResourcesArgs{params.Entities{
-			[]params.Entity{{
-				Tag: "service-a-service",
-			}},
-		}},
+		&api.ListResourcesArgs{[]params.Entity{{
+			Tag: "service-a-service",
+		}}},
 		&api.ResourcesResults{
 			Results: []api.ResourcesResult{
 				apiResult,
@@ -66,12 +66,12 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
-		&api.ListResourcesArgs{params.Entities{
-			[]params.Entity{{
+		&api.ListResourcesArgs{[]params.Entity{
+			{
 				Tag: "service-a-service",
 			}, {
 				Tag: "service-other-service",
-			}},
+			},
 		}},
 		&api.ResourcesResults{
 			Results: []api.ResourcesResult{

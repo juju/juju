@@ -32,11 +32,10 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
-		Entities: params.Entities{
-			Entities: []params.Entity{{
-				Tag: "service-a-service",
-			}},
-		}})
+		Entities: []params.Entity{{
+			Tag: "service-a-service",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
@@ -55,11 +54,10 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
-		Entities: params.Entities{
-			Entities: []params.Entity{{
-				Tag: "service-a-service",
-			}},
-		}})
+		Entities: []params.Entity{{
+			Tag: "service-a-service",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
@@ -76,11 +74,10 @@ func (s *ListResourcesSuite) TestError(c *gc.C) {
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
-		Entities: params.Entities{
-			Entities: []params.Entity{{
-				Tag: "service-a-service",
-			}},
-		}})
+		Entities: []params.Entity{{
+			Tag: "service-a-service",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{

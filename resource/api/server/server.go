@@ -49,23 +49,23 @@ type resourceLister interface {
 // ListResources returns the list of resources for the given service.
 func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults, error) {
 	var r api.ResourcesResults
+	r.Results = make([]api.ResourcesResult, len(args.Entities))
 
-	for _, e := range args.Entities.Entities {
+	for i, e := range args.Entities {
 		logger.Tracef("Listing resources for %q", e.Tag)
-		tag, err := names.ParseServiceTag(e.Tag)
-		if err != nil {
-			result := badRequest(err)
-			r.Results = append(r.Results, result)
+		tag, apierr := parseServiceTag(e.Tag)
+		if apierr != nil {
+			r.Results[i] = api.ResourcesResult{
+				ErrorResult: params.ErrorResult{
+					Error: apierr,
+				},
+			}
 			continue
 		}
 
 		svcRes, err := f.lister.ListResources(tag.Id())
 		if err != nil {
-			r.Results = append(r.Results, api.ResourcesResult{
-				ErrorResult: params.ErrorResult{
-					Error: common.ServerError(err),
-				},
-			})
+			r.Results[i] = errorResult(err)
 			continue
 		}
 
@@ -87,12 +87,21 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 	return r, nil
 }
 
-func badRequest(err error) api.ResourcesResult {
-	apierr := common.ServerError(err)
-	apierr.Code = params.CodeBadRequest
+func parseServiceTag(tagStr string) (names.ServiceTag, *params.Error) { // note the concrete error type
+	serviceTag, err := names.ParseServiceTag(tagStr)
+	if err != nil {
+		return serviceTag, &params.Error{
+			Message: err.Error(),
+			Code:    params.CodeBadRequest,
+		}
+	}
+	return serviceTag, nil
+}
+
+func errorResult(err error) api.ResourcesResult {
 	return api.ResourcesResult{
 		ErrorResult: params.ErrorResult{
-			Error: apierr,
+			Error: common.ServerError(err),
 		},
 	}
 }

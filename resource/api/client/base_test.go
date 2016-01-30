@@ -128,7 +128,7 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 		typedArgs, ok := args.(*api.ListResourcesArgs)
 		c.Assert(ok, jc.IsTrue)
 
-		for _, e := range typedArgs.Entities.Entities {
+		for _, e := range typedArgs.Entities {
 			tag, err := names.ParseTag(e.Tag)
 			c.Assert(err, jc.ErrorIsNil)
 			service := tag.Id()

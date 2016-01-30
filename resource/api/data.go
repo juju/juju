@@ -6,7 +6,6 @@ package api
 // TODO(ericsnow) Eliminate the dependence on apiserver if possible.
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -17,9 +16,7 @@ import (
 )
 
 // ListResourcesArgs are the arguments for the ListResources endpoint.
-type ListResourcesArgs struct {
-	params.Entities
-}
+type ListResourcesArgs params.Entities
 
 // NewListResourcesArgs returns the arguments for the ListResources endpoint.
 func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
@@ -27,11 +24,11 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 	var errs []error
 	for _, service := range services {
 		if !names.IsValidService(service) {
-			err := errors.NewNotValid(nil, fmt.Sprintf("invalid service %q", service))
+			err := errors.Errorf("invalid service %q", service)
 			errs = append(errs, err)
 			continue
 		}
-		args.Entities.Entities = append(args.Entities.Entities, params.Entity{
+		args.Entities = append(args.Entities, params.Entity{
 			Tag: names.NewServiceTag(service).String(),
 		})
 	}
