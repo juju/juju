@@ -28,7 +28,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	doc := resource2doc(id, serviceID, resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -72,7 +72,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	doc := resource2doc(id, serviceID, resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -107,7 +107,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2ResourceUploadFull(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *MongoSuite) TestDoc2ResourceUploadFull(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2ResourceUploadBasic(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,7 +198,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	doc := resource2doc(id, serviceID, resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -237,7 +237,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -282,7 +282,7 @@ func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	res, err := doc2resource(resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
@@ -309,7 +309,7 @@ func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
 
 func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID, "")
+	id := resourceID("spam", serviceID)
 	doc := resource2doc(id, serviceID, resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{

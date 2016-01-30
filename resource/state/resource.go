@@ -4,13 +4,10 @@
 package state
 
 import (
-	"fmt"
 	"io"
 	"path"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -40,7 +37,7 @@ type resourcePersistence interface {
 	SetResource(id, serviceID string, res resource.Resource) error
 
 	// SetUnitResource stores the resource info for a unit.
-	SetUnitResource(serviceID, unitID string, res resource.Resource) error
+	SetUnitResource(id string, unit resource.Unit, res resource.Resource) error
 }
 
 type resourceStorage interface {
@@ -137,19 +134,13 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 }
 
 // SetUnitResource records the resource being used by a unit in the Juju model.
-func (st resourceState) SetUnitResource(serviceID, unitID string, res resource.Resource) (err error) {
-	defer func() {
-		if err != nil {
-			logger.Tracef("error setting resource %q for %q: %v", res.Name, unitID, err)
-		} else {
-			logger.Tracef("successfully added resource %q for %q", res.Name, unitID)
-		}
-	}()
-	logger.Tracef("adding resource %q for unit %q", res.Name, unitID)
+func (st resourceState) SetUnitResource(unit resource.Unit, res resource.Resource) error {
+	logger.Tracef("adding resource %q for unit %q", res.Name, unit.Name())
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource metadata")
 	}
-	if err := st.persist.SetUnitResource(serviceID, unitID, res); err != nil {
+	err := st.persist.SetUnitResource(res.Name, unit, res)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -157,8 +148,8 @@ func (st resourceState) SetUnitResource(serviceID, unitID string, res resource.R
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(forunit names.UnitTag, serviceID, name string) (resource.Resource, io.ReadCloser, error) {
-	resourceInfo, err := st.GetResource(serviceID, name)
+func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	resourceInfo, err := st.GetResource(unit.ServiceName(), name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -166,7 +157,7 @@ func (st resourceState) OpenResource(forunit names.UnitTag, serviceID, name stri
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	r, resSize, err := st.storage.Get(storagePath(name, serviceID))
+	resourceReader, resSize, err := st.storage.Get(storagePath(name, unit.ServiceName()))
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -175,15 +166,14 @@ func (st resourceState) OpenResource(forunit names.UnitTag, serviceID, name stri
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
-	r = resourceReader{
-		reader:  r,
-		persist: st.persist,
-		unit:    forunit,
-		service: serviceID,
-		res:     resourceInfo,
+	resourceReader = unitSetter{
+		ReadCloser: resourceReader,
+		persist:    st.persist,
+		unit:       unit,
+		res:        resourceInfo,
 	}
 
-	return resourceInfo, r, nil
+	return resourceInfo, resourceReader, nil
 }
 
 // storagePath returns the path used as the location where the resource
@@ -195,31 +185,24 @@ func storagePath(id, serviceID string) string {
 	return path.Join("service-"+serviceID, "resources", id)
 }
 
-// resourceReader tracks when a resource's bytes have been fully downloaded by the
-type resourceReader struct {
-	reader  io.ReadCloser
+// unitSetter records the resource as in use by a unit when the wrapped
+// reader has been fully read.
+type unitSetter struct {
+	io.ReadCloser
 	persist resourcePersistence
-	unit    names.UnitTag
-	service string
+	unit    resource.Unit
 	res     resource.Resource
 }
 
-func (r resourceReader) Read(p []byte) (n int, err error) {
-	n, err = r.reader.Read(p)
+// Read implements io.Reader.
+func (u unitSetter) Read(p []byte) (n int, err error) {
+	n, err = u.ReadCloser.Read(p)
 	if err == io.EOF {
 		// record that the unit is now using this version of the resource
-		if err := r.persist.SetUnitResource(r.unit.Id(), r.service, r.res); err != nil {
-			// what can we do here?
-			rev := fmt.Sprintf("%d", r.res.Revision)
-			if r.res.Origin == charmresource.OriginUpload {
-				rev = r.res.Timestamp.String()
-			}
-			logger.Errorf("Failed to record that unit %q is using resource %q revision %v", r.res.Name, rev)
+		if err := u.persist.SetUnitResource(u.res.Name, u.unit, u.res); err != nil {
+			msg := "Failed to record that unit %q is using resource %q revision %v"
+			logger.Errorf(msg, u.unit.Name(), u.res.Name, u.res.RevisionString())
 		}
 	}
 	return n, err
-}
-
-func (r resourceReader) Close() error {
-	return r.reader.Close()
 }

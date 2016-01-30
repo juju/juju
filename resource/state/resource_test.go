@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -273,11 +272,12 @@ func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	err := st.SetUnitResource("a-service", "some-unit", res)
+	unit := fakeUnit{"some-unit", "a-service"}
+	err := st.SetUnitResource(unit, res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetUnitResource")
-	s.stub.CheckCall(c, 0, "SetUnitResource", "a-service", "some-unit", res)
+	s.stub.CheckCall(c, 0, "SetUnitResource", res.Name, unit, res)
 }
 
 func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
@@ -286,22 +286,19 @@ func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	err := st.SetUnitResource("a-service", "some-unit", res)
+	err := st.SetUnitResource(fakeUnit{"some-unit", "a-service"}, res)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource metadata.*`)
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *ResourceSuite) TestResourceReaderEOF(c *gc.C) {
-	unit, err := names.ParseUnitTag("unit-foo-0")
-	c.Assert(err, jc.ErrorIsNil)
-	r := resourceReader{
-		reader:  ioutil.NopCloser(&bytes.Buffer{}),
-		persist: &stubPersistence{stub: s.stub},
-		unit:    unit,
-		service: "some-service",
-		res:     newUploadResource(c, "res", "res"),
+func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
+	r := unitSetter{
+		ReadCloser: ioutil.NopCloser(&bytes.Buffer{}),
+		persist:    &stubPersistence{stub: s.stub},
+		unit:       fakeUnit{"unit/0", "some-service"},
+		res:        newUploadResource(c, "res", "res"),
 	}
 	// have to try to read non-zero data, or bytes.buffer will happily return
 	// nil.
@@ -310,41 +307,33 @@ func (s *ResourceSuite) TestResourceReaderEOF(c *gc.C) {
 	c.Assert(n, gc.Equals, 0)
 	c.Assert(err, gc.Equals, io.EOF)
 
-	s.stub.CheckCall(c, 0, "SetUnitResource", r.unit.Id(), r.service, r.res)
+	s.stub.CheckCall(c, 0, "SetUnitResource", r.res.Name, r.unit, r.res)
 }
 
-func (s *ResourceSuite) TestOpenResourceReturnsResourceReader(c *gc.C) {
-	data := "spamspamspam"
-	res := newUploadResource(c, "spam", data)
-	file := &stubReader{stub: s.stub}
-	s.persist.ReturnListResources = []resource.Resource{res}
-	s.storage.storageReturns = []*bytes.Buffer{bytes.NewBufferString(data)}
-	st := NewState(s.raw)
+func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
+	r := unitSetter{
+		ReadCloser: ioutil.NopCloser(bytes.NewBufferString("foobar")),
+		persist:    &stubPersistence{stub: s.stub},
+		unit:       fakeUnit{"unit/0", "some-service"},
+		res:        newUploadResource(c, "res", "res"),
+	}
+	// read less than the full buffer
+	p := make([]byte, 3)
+	n, err := r.Read(p)
+	c.Assert(n, gc.Equals, 3)
+	c.Assert(err, gc.Equals, nil)
 
-	err := st.SetResource("a-service", res, file)
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.ResetCalls()
-
-	c.Log(st.ListResources("a-service"))
-
-	unit, err := names.ParseUnitTag("unit-foo-0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, r, err := st.OpenResource(unit, "service-a-service", "spam")
-	c.Assert(errors.Cause(err), jc.ErrorIsNil)
-	_, ok := r.(resourceReader)
-	c.Assert(ok, jc.IsTrue)
+	// Assert that we don't call SetUnitResource if we read but don't reach the
+	// end of the buffer.
+	s.stub.CheckNoCalls(c)
 }
 
-func (s *ResourceSuite) TestResourceReaderSetUnitErr(c *gc.C) {
-	unit, err := names.ParseUnitTag("unit-foo-0")
-	c.Assert(err, jc.ErrorIsNil)
-	r := resourceReader{
-		reader:  ioutil.NopCloser(&bytes.Buffer{}),
-		persist: &stubPersistence{stub: s.stub},
-		unit:    unit,
-		service: "some-service",
-		res:     newUploadResource(c, "res", "res"),
+func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
+	r := unitSetter{
+		ReadCloser: ioutil.NopCloser(&bytes.Buffer{}),
+		persist:    &stubPersistence{stub: s.stub},
+		unit:       fakeUnit{"foo/0", "some-service"},
+		res:        newUploadResource(c, "res", "res"),
 	}
 
 	s.stub.SetErrors(errors.Errorf("oops!"))
@@ -357,18 +346,15 @@ func (s *ResourceSuite) TestResourceReaderSetUnitErr(c *gc.C) {
 	// ensure that we return the EOF from bytes.buffer and not the error from SetUnitResource.
 	c.Assert(err, gc.Equals, io.EOF)
 
-	s.stub.CheckCall(c, 0, "SetUnitResource", r.unit.Id(), r.service, r.res)
+	s.stub.CheckCall(c, 0, "SetUnitResource", r.res.Name, r.unit, r.res)
 }
 
-func (s *ResourceSuite) TestResourceReaderErr(c *gc.C) {
-	unit, err := names.ParseUnitTag("unit-foo-0")
-	c.Assert(err, jc.ErrorIsNil)
-	r := resourceReader{
-		reader:  ioutil.NopCloser(&noWrapStubReader{stub: s.stub}),
-		persist: &stubPersistence{stub: s.stub},
-		unit:    unit,
-		service: "some-service",
-		res:     newUploadResource(c, "res", "res"),
+func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
+	r := unitSetter{
+		ReadCloser: ioutil.NopCloser(&stubReader{stub: s.stub}),
+		persist:    &stubPersistence{stub: s.stub},
+		unit:       fakeUnit{"foo/0", "some-service"},
+		res:        newUploadResource(c, "res", "res"),
 	}
 	expected := errors.Errorf("some-err")
 	s.stub.SetErrors(expected)
@@ -415,4 +401,17 @@ func newUploadResource(c *gc.C, name, data string) resource.Resource {
 	c.Assert(err, jc.ErrorIsNil)
 
 	return res
+}
+
+type fakeUnit struct {
+	unit    string
+	service string
+}
+
+func (f fakeUnit) Name() string {
+	return f.unit
+}
+
+func (f fakeUnit) ServiceName() string {
+	return f.service
 }

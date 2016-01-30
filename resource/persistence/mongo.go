@@ -21,18 +21,14 @@ const (
 	stagedIDSuffix = "#staged"
 )
 
-// resourceID converts an external resource ID into an internal one.  UnitID is
-// expected to be empty for resources related to a service.
-func resourceID(id, serviceID, unitID string) string {
-	if unitID == "" {
-		return fmt.Sprintf("resource#%s#%s", serviceID, id)
-	}
-	return fmt.Sprintf("resource#%s#%s#%s", serviceID, id, unitID)
+// resourceID converts an external resource ID into an internal one.
+func resourceID(id, ownerID string) string {
+	return fmt.Sprintf("resource#%s#%s", ownerID, id)
 }
 
 // stagedID converts an external resource ID into an internal staged one.
 func stagedID(id, serviceID string) string {
-	return resourceID(id, serviceID, "") + stagedIDSuffix
+	return resourceID(id, serviceID) + stagedIDSuffix
 }
 
 func newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
@@ -68,8 +64,8 @@ func newRemoveStagedOps(id, serviceID string) []txn.Op {
 	}}
 }
 
-func newInsertResourceOps(id, serviceID, unitID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, serviceID, unitID, res)
+func newInsertResourceOps(id, ownerID, serviceID string, res resource.Resource) []txn.Op {
+	doc := newResourceDoc(id, ownerID, serviceID, res)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -79,8 +75,8 @@ func newInsertResourceOps(id, serviceID, unitID string, res resource.Resource) [
 	}}
 }
 
-func newUpdateResourceOps(id, serviceID, unitID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, serviceID, unitID, res)
+func newUpdateResourceOps(id, ownerID, serviceID string, res resource.Resource) []txn.Op {
+	doc := newResourceDoc(id, ownerID, serviceID, res)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -88,12 +84,12 @@ func newUpdateResourceOps(id, serviceID, unitID string, res resource.Resource) [
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertResourceOps(id, serviceID, unitID, res)...)
+	}}, newInsertResourceOps(id, ownerID, serviceID, res)...)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
-func newResourceDoc(id, serviceID, unitID string, res resource.Resource) *resourceDoc {
-	fullID := resourceID(id, serviceID, unitID)
+func newResourceDoc(id, ownerID, serviceID string, res resource.Resource) *resourceDoc {
+	fullID := resourceID(id, ownerID)
 	return resource2doc(fullID, serviceID, res)
 }
 

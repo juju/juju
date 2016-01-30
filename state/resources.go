@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/resource"
 )
@@ -23,7 +22,7 @@ type Resources interface {
 	SetResource(serviceID string, res resource.Resource, r io.Reader) error
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(unit names.UnitTag, serviceID, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 }
 
 var newResources func(Persistence) Resources

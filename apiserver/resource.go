@@ -46,7 +46,7 @@ func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 				return nil, errors.Trace(err)
 			}
 
-			unit, ok := ent.(*state.Unit)
+			unit, ok := ent.(resource.Unit)
 			if !ok {
 				logger.Criticalf("unexpected type: %T", ent)
 				return nil, errors.Errorf("unexpected type: %T", ent)
@@ -65,7 +65,7 @@ func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 // resourceUnitState is an implementation of resource/api/private/server.UnitDataStore.
 type resourceUnitState struct {
 	state state.Resources
-	unit  *state.Unit
+	unit  resource.Unit
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.
@@ -75,5 +75,5 @@ func (s *resourceUnitState) ListResources() ([]resource.Resource, error) {
 
 // OpenResource implements resource/api/private/server.UnitDataStore.
 func (s *resourceUnitState) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return s.state.OpenResource(s.unit.UnitTag(), s.unit.ServiceName(), name)
+	return s.state.OpenResource(s.unit, name)
 }

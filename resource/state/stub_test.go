@@ -4,7 +4,6 @@
 package state
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 
@@ -77,8 +76,8 @@ func (s *stubPersistence) SetResource(id, serviceID string, res resource.Resourc
 	return nil
 }
 
-func (s *stubPersistence) SetUnitResource(serviceID, unitID string, res resource.Resource) error {
-	s.stub.AddCall("SetUnitResource", serviceID, unitID, res)
+func (s *stubPersistence) SetUnitResource(id string, unit resource.Unit, res resource.Resource) error {
+	s.stub.AddCall("SetUnitResource", id, unit, res)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -87,8 +86,9 @@ func (s *stubPersistence) SetUnitResource(serviceID, unitID string, res resource
 }
 
 type stubStorage struct {
-	stub           *testing.Stub
-	storageReturns []*bytes.Buffer
+	stub *testing.Stub
+
+	ReturnGet resource.Content
 }
 
 func (s *stubStorage) PutAndCheckHash(path string, r io.Reader, length int64, hash string) error {
@@ -121,17 +121,16 @@ func (s *stubStorage) Remove(path string) error {
 	return nil
 }
 
-func (s *stubStorage) Get(path string) (_ io.ReadCloser, resSize int64, _ error) {
+func (s *stubStorage) Get(path string) (io.ReadCloser, int64, error) {
 	s.stub.AddCall("Get", path)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	if len(s.storageReturns) == 0 {
-		return nil, 0, nil
+
+	if readCloser, ok := s.ReturnGet.Data.(io.ReadCloser); ok {
+		return readCloser, s.ReturnGet.Size, nil
 	}
-	buf := s.storageReturns[0]
-	s.storageReturns = s.storageReturns[1:]
-	return ioutil.NopCloser(buf), int64(buf.Len()), nil
+	return ioutil.NopCloser(s.ReturnGet.Data), s.ReturnGet.Size, nil
 }
 
 type stubReader struct {
@@ -141,21 +140,6 @@ type stubReader struct {
 }
 
 func (s *stubReader) Read(buf []byte) (int, error) {
-	s.stub.AddCall("Read", buf)
-	if err := s.stub.NextErr(); err != nil {
-		return 0, errors.Trace(err)
-	}
-
-	return s.ReturnRead, nil
-}
-
-type noWrapStubReader struct {
-	stub *testing.Stub
-
-	ReturnRead int
-}
-
-func (s *noWrapStubReader) Read(buf []byte) (int, error) {
 	s.stub.AddCall("Read", buf)
 	if err := s.stub.NextErr(); err != nil {
 		return 0, err
