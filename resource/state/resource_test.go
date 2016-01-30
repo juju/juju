@@ -216,25 +216,30 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	data := "some data"
+	opened := resourcetesting.NewResource(c, s.stub, "spam", data)
 	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
 	s.storage.ReturnGet = opened.Content()
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	info, reader, err := st.OpenResource("a-service", "spam")
+	info, reader, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources", "Get")
 	c.Check(info, jc.DeepEquals, opened.Resource)
-	c.Check(reader, gc.Equals, opened.ReadCloser)
+
+	b, err := ioutil.ReadAll(reader)
+	// note ioutil.ReadAll converts EOF to nil
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(b, gc.DeepEquals, []byte(data))
 }
 
 func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource("a-service", "spam")
+	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
 	s.stub.CheckCallNames(c, "ListResources")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -246,7 +251,7 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource("a-service", "spam")
+	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
 	s.stub.CheckCallNames(c, "ListResources")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -261,7 +266,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource("a-service", "spam")
+	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
 	s.stub.CheckCallNames(c, "ListResources", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)

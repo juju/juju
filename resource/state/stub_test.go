@@ -121,18 +121,6 @@ func (s *stubStorage) Remove(path string) error {
 	return nil
 }
 
-func (s *stubStorage) Get(path string) (io.ReadCloser, int64, error) {
-	s.stub.AddCall("Get", path)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, 0, errors.Trace(err)
-	}
-
-	if readCloser, ok := s.ReturnGet.Data.(io.ReadCloser); ok {
-		return readCloser, s.ReturnGet.Size, nil
-	}
-	return ioutil.NopCloser(s.ReturnGet.Data), s.ReturnGet.Size, nil
-}
-
 type stubReader struct {
 	stub *testing.Stub
 
