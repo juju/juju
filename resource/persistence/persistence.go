@@ -138,9 +138,9 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(id, unit.Name(), unit.ServiceName(), res)
+			ops = newInsertUnitResourceOps(id, unit.Name(), unit.ServiceName(), res)
 		case 1:
-			ops = newUpdateResourceOps(id, unit.Name(), unit.ServiceName(), res)
+			ops = newUpdateUnitResourceOps(id, unit.Name(), unit.ServiceName(), res)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
@@ -168,9 +168,9 @@ func (p Persistence) SetResource(id, serviceID string, res resource.Resource) er
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(id, serviceID, serviceID, res)
+			ops = newInsertResourceOps(id, serviceID, res)
 		case 1:
-			ops = newUpdateResourceOps(id, serviceID, serviceID, res)
+			ops = newUpdateResourceOps(id, serviceID, res)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")

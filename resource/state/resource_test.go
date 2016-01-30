@@ -218,7 +218,9 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	data := "some data"
 	opened := resourcetesting.NewResource(c, s.stub, "spam", data)
-	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
+	s.persist.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{opened.Resource},
+	}
 	s.storage.ReturnGet = opened.Content()
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
@@ -247,7 +249,9 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam")
-	s.persist.ReturnListResources = []resource.Resource{res}
+	s.persist.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{res},
+	}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -259,7 +263,9 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 
 func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
-	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
+	s.persist.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{opened.Resource},
+	}
 	content := opened.Content()
 	content.Size += 1
 	s.storage.ReturnGet = content
