@@ -55,7 +55,6 @@ func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 			st2 := &resourceUnitState{
 				unit:  unit,
 				state: resources,
-				serviceID: svcName,
 			}
 			return st2, nil
 		},
