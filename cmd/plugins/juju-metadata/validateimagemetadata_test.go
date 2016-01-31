@@ -101,6 +101,7 @@ environments:
         application-id: bar
         application-password: baz
         tenant-id: qux
+        controller-resource-group: fnord
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {

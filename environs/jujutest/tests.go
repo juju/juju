@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -25,7 +26,10 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	TestConfig coretesting.Attrs
+	TestConfig    coretesting.Attrs
+	Credential    cloud.Credential
+	CloudEndpoint string
+	CloudRegion   string
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
 	// ConfigStore holds the configuration storage
@@ -50,7 +54,17 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+	args := environs.PrepareForBootstrapParams{
+		Config:        cfg,
+		Credentials:   credential,
+		CloudEndpoint: t.CloudEndpoint,
+		CloudRegion:   t.CloudRegion,
+	}
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, args.Config.Name(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -120,22 +134,14 @@ func (t *Tests) TestStartStop(c *gc.C) {
 
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
-	err := bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateServerInstances, err := e.StateServerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateServerInstances, gc.Not(gc.HasLen), 0)
 
-	err = bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
 	e2 := t.Open(c)
-	err = bootstrap.EnsureNotBootstrapped(e2)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
 	stateServerInstances2, err := e2.StateServerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateServerInstances2, gc.Not(gc.HasLen), 0)
@@ -147,13 +153,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
-	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = bootstrap.EnsureNotBootstrapped(e3)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	err = environs.Destroy(e3, t.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)

@@ -455,9 +455,10 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"broken":   "",
-	"secret":   "pork",
-	"state-id": schema.Omit,
+	"broken":       "",
+	"secret":       "pork",
+	"state-id":     schema.Omit,
+	"state-server": false,
 }
 
 type environConfig struct {
@@ -506,11 +507,11 @@ func (p *environProvider) Schema() environschema.Fields {
 }
 
 func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return nil
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
 func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
-	return nil, errors.NotFoundf("credentials")
+	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {

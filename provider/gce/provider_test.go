@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/gce"
@@ -43,6 +44,15 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
 	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
 		Config: s.Config,
+		Credentials: cloud.NewCredential(
+			cloud.OAuth2AuthType,
+			map[string]string{
+				"project-id":   "x",
+				"client-id":    "y",
+				"client-email": "zz@example.com",
+				"private-key":  "why",
+			},
+		),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env, gc.NotNil)

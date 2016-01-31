@@ -50,7 +50,11 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		"state-server": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		envcmd.BootstrapContextNoVerify(coretesting.Context(c)),
+		configstore.NewMem(), cfg.Name(),
+		environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
