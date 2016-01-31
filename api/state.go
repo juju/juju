@@ -23,14 +23,11 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -320,16 +317,6 @@ func (st *state) DiskManager() (*diskmanager.State, error) {
 	return diskmanager.NewState(st, machineTag), nil
 }
 
-// StorageProvisioner returns a version of the state that provides
-// functionality required by the storageprovisioner worker.
-// The scope tag defines the type of storage that is provisioned, either
-// either attached directly to a specified machine (machine scoped),
-// or provisioned on the underlying cloud for use by any machine in a
-// specified environment (environ scoped).
-func (st *state) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
-	return storageprovisioner.NewState(st, scope)
-}
-
 // Firewaller returns a version of the state that provides functionality
 // required by the firewaller worker.
 func (st *state) Firewaller() *firewaller.State {
@@ -348,7 +335,7 @@ func (st *state) Upgrader() *upgrader.State {
 }
 
 // Reboot returns access to the Reboot API
-func (st *state) Reboot() (*reboot.State, error) {
+func (st *state) Reboot() (reboot.State, error) {
 	switch tag := st.authTag.(type) {
 	case names.MachineTag:
 		return reboot.NewState(st, tag), nil
@@ -372,11 +359,6 @@ func (st *state) Environment() *environment.Facade {
 	return environment.NewFacade(st)
 }
 
-// Logger returns access to the Logger API
-func (st *state) Logger() *apilogger.State {
-	return apilogger.NewState(st)
-}
-
 // KeyUpdater returns access to the KeyUpdater API
 func (st *state) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
@@ -395,11 +377,6 @@ func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Cleaner returns a version of the state that provides access to the cleaner API
 func (st *state) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
-}
-
-// Rsyslog returns access to the Rsyslog API
-func (st *state) Rsyslog() *rsyslog.State {
-	return rsyslog.NewState(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.

@@ -86,7 +86,7 @@ class NetworkInterfaceParser(object):
 
     @classmethod
     def is_stanza(cls, s):
-        return re.match(r'^(iface|mapping|auto|allow-|source|dns-)', s)
+        return re.match(r'^(iface|mapping|auto|allow-|source)', s)
 
     def __init__(self, filename):
         self._filename = filename

@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -50,6 +52,7 @@ type LiveTests struct {
 	gitjujutesting.CleanupSuite
 
 	envtesting.ToolsFixture
+	sstesting.TestDataSuite
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
@@ -92,7 +95,9 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
+	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -123,6 +128,7 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	t.Destroy(c)
+	t.TestDataSuite.TearDownSuite(c)
 	t.CleanupSuite.TearDownSuite(c)
 }
 
@@ -172,7 +178,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
+		BootstrapConstraints: cons,
+		EnvironConstraints:   cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -757,11 +766,21 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
-	result, err := t.Env.StartInstance(environs.StartInstanceParams{
+	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
+		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
+	))
+	params := environs.StartInstanceParams{
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
-	})
+	}
+	err = jujutesting.SetImageMetadata(
+		t.Env,
+		possibleTools.AllSeries(),
+		possibleTools.Arches(),
+		&params.ImageMetadata,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	result, err := t.Env.StartInstance(params)
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())
 		c.Check(err, jc.ErrorIsNil)

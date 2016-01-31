@@ -52,7 +52,6 @@ type configTest struct {
 	expect                  map[string]interface{}
 	envVars                 map[string]string
 	region                  string
-	controlBucket           string
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string
@@ -86,8 +85,7 @@ func restoreEnvVars(envVars map[string]string) {
 
 func (t configTest) check(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "openstack",
-		"control-bucket": "x",
+		"type": "openstack",
 	}).Merge(t.config)
 
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -128,7 +126,6 @@ func (t configTest) check(c *gc.C) {
 
 	ecfg := e.(*Environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
 		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
@@ -306,19 +303,6 @@ var configTests = []configTest{
 		}),
 		err: `invalid auth-url value "invalid"`,
 	}, {
-		summary: "invalid control-bucket",
-		config: requiredConfig.Merge(testing.Attrs{
-			"control-bucket": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "changing control-bucket",
-		config:  requiredConfig,
-		change: testing.Attrs{
-			"control-bucket": "new-x",
-		},
-		err: `cannot change control-bucket from "x" to "new-x"`,
-	}, {
 		summary: "valid auth args",
 		config: requiredConfig.Merge(testing.Attrs{
 			"username":    "jujuer",
@@ -443,7 +427,6 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":                  "openstack",
-		"control-bucket":        "x",
 		"default-image-id":      "id-1234",
 		"default-instance-type": "big",
 		"username":              "u",
@@ -464,41 +447,6 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 		_, ok := allAttrs[attr]
 		c.Assert(ok, jc.IsFalse)
 	}
-}
-
-func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "openstack",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, s.prepareForBootstrapParams(cfg))
-	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := env0.(*Environ).ecfg().controlBucket()
-	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
-
-	env1, err := providerInstance.PrepareForBootstrap(ctx, s.prepareForBootstrapParams(cfg))
-	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := env1.(*Environ).ecfg().controlBucket()
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
-}
-
-func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "openstack",
-		"control-bucket": "burblefoo",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), s.prepareForBootstrapParams(cfg))
-	c.Assert(err, jc.ErrorIsNil)
-	bucket := env.(*Environ).ecfg().controlBucket()
-	c.Assert(bucket, gc.Equals, "burblefoo")
 }
 
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {

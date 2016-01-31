@@ -4,14 +4,7 @@
 package jujutest
 
 import (
-	"bytes"
-	"io/ioutil"
-	"net/http"
-	"sort"
-
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -19,7 +12,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/storage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -38,7 +31,7 @@ type Tests struct {
 	CloudEndpoint string
 	CloudRegion   string
 	envtesting.ToolsFixture
-
+	sstesting.TestDataSuite
 	// ConfigStore holds the configuration storage
 	// used when preparing the environment.
 	// This is initialized by SetUpTest.
@@ -165,114 +158,4 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = environs.Destroy(e3, t.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-var noRetry = utils.AttemptStrategy{}
-
-func (t *Tests) TestPersistence(c *gc.C) {
-	env, ok := t.Prepare(c).(environs.EnvironStorage)
-	if !ok {
-		c.Skip("environment does not implement provider storage")
-		return
-	}
-	stor := env.Storage()
-
-	names := []string{
-		"aa",
-		"zzz/aa",
-		"zzz/bb",
-	}
-	for _, name := range names {
-		checkFileDoesNotExist(c, stor, name, noRetry)
-		checkPutFile(c, stor, name, []byte(name))
-	}
-	checkList(c, stor, "", names)
-	checkList(c, stor, "a", []string{"aa"})
-	checkList(c, stor, "zzz/", []string{"zzz/aa", "zzz/bb"})
-
-	storage2 := t.Open(c).(environs.EnvironStorage).Storage()
-	for _, name := range names {
-		checkFileHasContents(c, storage2, name, []byte(name), noRetry)
-	}
-
-	// remove the first file and check that the others remain.
-	err := storage2.Remove(names[0])
-	c.Check(err, jc.ErrorIsNil)
-
-	// check that it's ok to remove a file twice.
-	err = storage2.Remove(names[0])
-	c.Check(err, jc.ErrorIsNil)
-
-	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, stor, names[0], noRetry)
-
-	// ... and that the rest of the files are still around
-	checkList(c, storage2, "", names[1:])
-
-	for _, name := range names[1:] {
-		err := storage2.Remove(name)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// check they've all gone
-	checkList(c, storage2, "", nil)
-}
-
-func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
-	lnames, err := storage.List(stor, prefix)
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(dfc) gocheck should grow an SliceEquals checker.
-	expected := copyslice(lnames)
-	sort.Strings(expected)
-	actual := copyslice(names)
-	sort.Strings(actual)
-	c.Assert(expected, gc.DeepEquals, actual)
-}
-
-// copyslice returns a copy of the slice
-func copyslice(s []string) []string {
-	r := make([]string, len(s))
-	copy(r, s)
-	return r
-}
-
-func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
-	err := stor.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string, attempt utils.AttemptStrategy) {
-	r, err := storage.GetWithRetry(stor, name, attempt)
-	c.Assert(r, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
-	r, err := storage.GetWithRetry(stor, name, attempt)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r, gc.NotNil)
-	defer r.Close()
-
-	data, err := ioutil.ReadAll(r)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(data, gc.DeepEquals, contents)
-
-	url, err := stor.URL(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var resp *http.Response
-	for a := attempt.Start(); a.Next(); {
-		resp, err = utils.GetValidatingHTTPClient().Get(url)
-		c.Assert(err, jc.ErrorIsNil)
-		if resp.StatusCode != 404 {
-			break
-		}
-		c.Logf("get retrying after earlier get succeeded. *sigh*.")
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	data, err = ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, 200, gc.Commentf("error response: %s", data))
-	c.Check(data, gc.DeepEquals, contents)
 }

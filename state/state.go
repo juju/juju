@@ -35,11 +35,11 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
+	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -58,6 +58,10 @@ const (
 	// serviceLeadershipNamespace is the name of the lease.Client namespace
 	// used by the leadership manager.
 	serviceLeadershipNamespace = "service-leadership"
+
+	// singularControllerNamespace is the name of the lease.Client namespace
+	// used by the singular manager
+	singularControllerNamespace = "singular-controller"
 )
 
 // State represents the state of an environment
@@ -72,9 +76,14 @@ type State struct {
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
-	leadershipManager leadership.ManagerWorker
+	watcher  *watcher.Watcher
+	pwatcher *presence.Watcher
+	// leadershipManager keeps track of units' service leadership leases
+	// within this environment.
+	leadershipManager *lease.Manager
+	// singularManager keeps track of which controller machine is responsible
+	// for managing this state's environment.
+	singularManager *lease.Manager
 
 	// mu guards allManager, allEnvManager & allEnvWatcherBacking
 	mu                   sync.Mutex
@@ -196,10 +205,10 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		clientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
 
-	logger.Infof("creating lease client as %s", clientId)
+	logger.Infof("creating lease clients as %s", clientId)
 	clock := GetClock()
 	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
+	leadershipClient, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,
@@ -207,17 +216,41 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		Clock:      clock,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create lease client")
+		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
-	logger.Infof("starting leadership manager")
-	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: leaseClient,
-		Clock:  clock,
+	logger.Infof("starting leadership lease manager")
+	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: leadershipSecretary{},
+		Client:    leadershipClient,
+		Clock:     clock,
+		MaxSleep:  time.Minute,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership manager")
+		return errors.Annotatef(err, "cannot create leadership lease manager")
 	}
 	st.leadershipManager = leadershipManager
+
+	singularClient, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         clientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      datastore,
+		Clock:      clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create singular lease client")
+	}
+	logger.Infof("starting singular lease manager")
+	singularManager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: singularSecretary{st.environTag.Id()},
+		Client:    singularClient,
+		Clock:     clock,
+		MaxSleep:  time.Minute,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create singular lease manager")
+	}
+	st.singularManager = singularManager
 
 	logger.Infof("creating cloud image metadata storage")
 	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)

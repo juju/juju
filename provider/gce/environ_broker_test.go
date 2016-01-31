@@ -148,10 +148,7 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
-	s.FakeImages.Metadata = s.imageMetadata
-	s.FakeImages.ResolveInfo = s.resolveInfo
-
-	spec, err := gce.FindInstanceSpec(s.Env, s.Env.Config().ImageStream(), s.ic)
+	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spec, gc.DeepEquals, s.spec)
@@ -205,7 +202,7 @@ var getDisksTests = []struct {
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series)
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b")
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {

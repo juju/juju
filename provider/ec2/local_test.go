@@ -35,6 +35,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -81,6 +82,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
+	t.LiveTests.SetUpSuite(c)
 	t.Credential = cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -94,11 +96,10 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting()
+	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -188,6 +189,8 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
+	t.BaseSuite.SetUpSuite(c)
+	t.Tests.SetUpSuite(c)
 	t.Credential = cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -201,12 +204,12 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting()
-	t.BaseSuite.SetUpSuite(c)
+	t.restoreEC2Patching = patchEC2ForTesting(c)
 	t.srv.createRootDisks = true
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 	t.restoreEC2Patching()
 }
@@ -880,12 +883,19 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 	addr := network.Address{Value: "8.0.0.4"}
 
 	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", addr, "foo", "bar")
+	err = env.AllocateAddress(instId+"foo", "", &addr, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
 
 	// No network interface
-	err = env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err = env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
+
+	// Nil or empty address given.
+	err = env.AllocateAddress(instId, "", nil, "foo", "bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
+
+	err = env.AllocateAddress(instId, "", &network.Address{Value: ""}, "foo", "bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
@@ -912,7 +922,7 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualAddr, gc.Equals, addr)
 }
@@ -926,10 +936,7 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
-
-	err = env.AllocateAddress(instId, "", network.Address{}, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 }
 
@@ -942,7 +949,7 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
@@ -950,7 +957,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	addr := network.Address{Value: "8.0.0.4"}
 	// Allocate the address first so we can release it
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
+	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.ReleaseAddress(instId, "", addr, "", "")
@@ -1129,7 +1136,8 @@ func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.
 func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
 	t.SetFeatureFlags() // clear the flags.
 	env := t.prepareEnviron(c)
-	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0], "foo", "bar")
+	addr := network.NewAddresses("1.2.3.4")[0]
+	err := env.AllocateAddress("i-foo", "net1", &addr, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
@@ -1220,6 +1228,8 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
 	coretesting.BaseSuite
+	sstesting.TestDataSuite
+
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ
@@ -1227,11 +1237,17 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
-	t.restoreEC2Patching = patchEC2ForTesting()
+	t.TestDataSuite.SetUpSuite(c)
+
+	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+
+	t.restoreEC2Patching = patchEC2ForTesting(c)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
 	t.restoreEC2Patching()
+	t.TestDataSuite.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
 
@@ -1267,8 +1283,8 @@ func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
-func patchEC2ForTesting() func() {
-	ec2.UseTestImageData(ec2.TestImagesData)
+func patchEC2ForTesting(c *gc.C) func() {
+	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
@@ -1276,7 +1292,7 @@ func patchEC2ForTesting() func() {
 	return func() {
 		restoreFinishBootstrap()
 		restoreTimeouts()
-		ec2.UseTestImageData(nil)
+		ec2.UseTestImageData(c, nil)
 		ec2.UseTestInstanceTypeData(nil)
 		ec2.UseTestRegionData(nil)
 	}

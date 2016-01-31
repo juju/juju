@@ -66,7 +66,7 @@ var _ = gc.Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -170,7 +170,7 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
 	c.Assert(s.State.EnsureEnvironmentRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", s.State.EnvironUUID()))
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 envusers doc, 2 leases doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -258,7 +258,7 @@ type MultiEnvStateSuite struct {
 
 func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})

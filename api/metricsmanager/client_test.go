@@ -23,8 +23,10 @@ var _ = gc.Suite(&metricsManagerSuite{})
 
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.manager = metricsmanager.NewClient(s.APIState)
-	c.Assert(s.manager, gc.NotNil)
+	manager, err := metricsmanager.NewClient(s.APIState)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(manager, gc.NotNil)
+	s.manager = manager
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {

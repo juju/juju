@@ -6,6 +6,8 @@ package commands
 import (
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -113,6 +115,31 @@ func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
 	return false
 }
 
+// maybeTermsAgreementError returns err as a *termsAgreementError
+// if it has a "terms agreement required" error code, otherwise
+// it returns err unchanged.
+func maybeTermsAgreementError(err error) error {
+	const code = "term agreement required"
+	e, ok := errors.Cause(err).(*httpbakery.DischargeError)
+	if !ok || e.Reason == nil || e.Reason.Code != code {
+		return err
+	}
+	magicMarker := code + ":"
+	index := strings.LastIndex(e.Reason.Message, magicMarker)
+	if index == -1 {
+		return err
+	}
+	return &termsRequiredError{strings.Fields(e.Reason.Message[index+len(magicMarker):])}
+}
+
+type termsRequiredError struct {
+	Terms []string
+}
+
+func (e *termsRequiredError) Error() string {
+	return fmt.Sprintf("please agree to terms %q", strings.Join(e.Terms, " "))
+}
+
 // addCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
@@ -132,14 +159,14 @@ func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interfa
 	case "cs":
 		if err := client.AddCharm(curl); err != nil {
 			if !params.IsCodeUnauthorized(err) {
-				return nil, errors.Mask(err)
+				return nil, errors.Trace(err)
 			}
 			m, err := csclient.authorize(curl)
 			if err != nil {
-				return nil, errors.Mask(err)
+				return nil, maybeTermsAgreementError(err)
 			}
 			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-				return nil, errors.Mask(err)
+				return nil, errors.Trace(err)
 			}
 		}
 	default:
@@ -173,17 +200,31 @@ var newCharmStoreClient = func(client *http.Client) *csClient {
 // The macaroon is properly attenuated so that it can only be used to deploy
 // the given charm URL.
 func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
+	if curl == nil {
+		return nil, errors.New("empty charm url not allowed")
+	}
+
 	client := csclient.New(csclient.Params{
 		URL:          c.params.URL,
 		HTTPClient:   c.params.HTTPClient,
 		VisitWebPage: c.params.VisitWebPage,
 	})
+	endpoint := "/delegatable-macaroon"
+	endpoint += "?id=" + url.QueryEscape(curl.String())
+
 	var m *macaroon.Macaroon
-	if err := client.Get("/delegatable-macaroon", &m); err != nil {
+	if err := client.Get(endpoint, &m); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// We need to add the is-entity first party caveat to the
+	// delegatable macaroon in case we're talking to the old
+	// version of the charmstore.
+	// TODO (ashipika) - remove this once the new charmstore
+	// is deployed.
 	if err := m.AddFirstPartyCaveat("is-entity " + curl.String()); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return m, nil
 }

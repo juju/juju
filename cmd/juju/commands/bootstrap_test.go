@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -60,6 +60,7 @@ var _ = gc.Suite(&BootstrapSuite{})
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -147,7 +148,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		s.mockBlockClient.retry_count = 0
 		_, err := coretesting.RunCommand(
 			c, newBootstrapCommand(),
-			"devenv", "dummy",
+			"devenv", "dummy", "--auto-upgrade",
 		)
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -183,11 +184,12 @@ type bootstrapTest struct {
 	err     string
 	// binary version string for expected tools; if set, no default tools
 	// will be uploaded before running the test.
-	upload      string
-	constraints constraints.Value
-	placement   string
-	hostArch    string
-	keepBroken  bool
+	upload               string
+	constraints          constraints.Value
+	bootstrapConstraints constraints.Value
+	placement            string
+	hostArch             string
+	keepBroken           bool
 }
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
@@ -261,7 +263,11 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
-	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.EnvironConstraints, gc.DeepEquals, test.constraints)
+	if test.bootstrapConstraints == (constraints.Value{}) {
+		test.bootstrapConstraints = test.constraints
+	}
+	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
@@ -299,33 +305,22 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "conflicting --constraints",
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
-	err:  `failed to bootstrap environment: ambiguous constraints: "instance-type" overlaps with "mem"`,
-}, {
-	info: "bad --series",
-	args: []string{"--series", "1bad1"},
-	err:  `invalid value "1bad1" for flag --series: invalid series name "1bad1"`,
-}, {
-	info: "lonely --series",
-	args: []string{"--series", "fine"},
-	err:  `--series requires --upload-tools`,
-}, {
-	info: "lonely --upload-series",
-	args: []string{"--upload-series", "fine"},
-	err:  `--upload-series requires --upload-tools`,
-}, {
-	info: "--upload-series with --series",
-	args: []string{"--upload-tools", "--upload-series", "foo", "--series", "bar"},
-	err:  `--upload-series and --series can't be used together`,
+	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	// TODO(axw) use --config when we have it
-	args: []string{"-o", "broken=Bootstrap Destroy"},
+	args: []string{"-o", "broken=Bootstrap Destroy", "--auto-upgrade"},
 	err:  `failed to bootstrap environment: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
 	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
+}, {
+	info:                 "bootstrap and environ constraints",
+	args:                 []string{"--constraints", "mem=4G cpu-cores=4", "--bootstrap-constraints", "mem=8G"},
+	constraints:          constraints.MustParse("mem=4G cpu-cores=4"),
+	bootstrapConstraints: constraints.MustParse("mem=8G cpu-cores=4"),
 }, {
 	info:        "unsupported constraint passed through but no error",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
@@ -371,10 +366,6 @@ var bootstrapTests = []bootstrapTest{{
 	info: "--agent-version with --upload-tools",
 	args: []string{"--agent-version", "1.1.0", "--upload-tools"},
 	err:  `--agent-version and --upload-tools can't be used together`,
-}, {
-	info: "--agent-version with --no-auto-upgrade",
-	args: []string{"--agent-version", "1.1.0", "--no-auto-upgrade"},
-	err:  `--agent-version and --no-auto-upgrade can't be used together`,
 }, {
 	info: "invalid --agent-version value",
 	args: []string{"--agent-version", "foo"},
@@ -437,17 +428,17 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	const controllerName = "dev"
 	s.patchVersionAndSeries(c, "raring")
 
-	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "dev", "dummy")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "dev", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "dev", "dummy")
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "dev", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, `controller "dev" already exists`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
-	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "devenv", "dummy")
+	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "devenv", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
 	currentEnv, err := envcmd.ReadCurrentEnvironment()
@@ -461,37 +452,6 @@ type mockBootstrapInstance struct {
 
 func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
-}
-
-func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
-	ctx := s.checkSeriesArg(c, "--series")
-	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n-> peckham\nBootstrap complete\n")
-}
-
-func (s *BootstrapSuite) TestUploadSeriesDeprecation(c *gc.C) {
-	ctx := s.checkSeriesArg(c, "--upload-series")
-	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n-> peckham\nBootstrap complete\n")
-}
-
-func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
-	_bootstrap := &fakeBootstrapFuncs{}
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return _bootstrap
-	})
-	resetJujuHome(c)
-	s.PatchValue(&allInstances, func(environ environs.Environ) ([]instance.Instance, error) {
-		return []instance.Instance{&mockBootstrapInstance{}}, nil
-	})
-
-	ctx, err := coretesting.RunCommand(
-		c, newBootstrapCommand(), "--upload-tools", argVariant, "foo,bar",
-		"peckham", "dummy-cloud/region-1",
-	)
-
-	c.Assert(err, jc.ErrorIsNil)
-	return ctx
 }
 
 // In the case where we cannot examine an environment, we want the
@@ -514,7 +474,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	err = ioutil.WriteFile(jenvFile, []byte("nonsense"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), envName, "dummy")
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), envName, "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, `error reading controller "devenv" info:.*\n.*cannot unmarshal.*nonsense.*`)
 }
 
@@ -650,28 +610,19 @@ func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *gc.C) {
 	s.checkBootstrapWithVersion(c, "2.3.4-trusty-ppc64", "2.3.4")
 }
 
-func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 	resetJujuHome(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrap
 	})
-
-	num := version.Number{
-		Major: 2,
-		Minor: 22,
-		Patch: 46,
-	}
-	s.PatchValue(&version.Current, num)
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
-	s.PatchValue(&arch.HostArch, func() string { return "amd64" })
 	coretesting.RunCommand(
 		c, newBootstrapCommand(),
-		"--no-auto-upgrade",
+		"--auto-upgrade",
 		"devenv", "dummy-cloud/region-1",
 	)
-	c.Assert(*bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.22.46"))
+	c.Assert(bootstrap.args.AgentVersion, gc.IsNil)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -726,6 +677,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"devenv", "dummy-cloud/region-1",
 		// TODO(axw) use --config when we have it
 		"-o", "default-series=raring",
+		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
@@ -772,6 +724,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 		// TODO(axw) use --config when we have it
 		"-o", "default-series=raring",
 		"-o", "agent-stream=proposed",
+		"--auto-upgrade",
 	)
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
@@ -791,6 +744,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		"devenv", "dummy-cloud/region-1",
 		// TODO(axw) use --config when we have it
 		"-o", "broken=Bootstrap Destroy",
+		"--auto-upgrade",
 	)
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
@@ -819,6 +773,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 		"devenv", "dummy-cloud/region-1",
 		// TODO(axw) use --config when we have it
 		"-o", "broken=Bootstrap Destroy",
+		"--auto-upgrade",
 	)
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")

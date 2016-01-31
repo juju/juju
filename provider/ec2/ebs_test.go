@@ -65,6 +65,8 @@ type ebsVolumeSuite struct {
 }
 
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.Tests.SetUpSuite(c)
 	s.Credential = cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -82,11 +84,11 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 		"secret-key": "x",
 		"region":     "test",
 	})
-	s.restoreEC2Patching = patchEC2ForTesting()
-	s.BaseSuite.SetUpSuite(c)
+	s.restoreEC2Patching = patchEC2ForTesting(c)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 	s.restoreEC2Patching()
 }
