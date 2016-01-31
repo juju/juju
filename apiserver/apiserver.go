@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -203,6 +202,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	// as an RPC server.
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
+		MinVersion:   tls.VersionTLS10,
 	}
 	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
 	go srv.run(changeCertListener)
@@ -342,15 +342,10 @@ func (srv *Server) run(lis net.Listener) {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpCtxt, srv.logDir))
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
+	handleAll(mux, "/environment/:envuuid/logsink",
+		newLogSinkHandler(httpCtxt, srv.logDir))
+	handleAll(mux, "/environment/:envuuid/log",
+		newDebugLogDBHandler(httpCtxt, srvDying))
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			ctxt:    httpCtxt,
@@ -388,12 +383,7 @@ func (srv *Server) run(lis net.Listener) {
 		},
 	)
 	// For backwards compatibility we register all the old paths
-
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
+	handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
 
 	handleAll(mux, "/charms",
 		&charmsHandler{

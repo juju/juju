@@ -30,7 +30,7 @@ func init() {
 	gc.Suite(&apiCharmsSuite{})
 	gc.Suite(&cmdEnvironmentSuite{})
 	gc.Suite(&cmdStorageSuite{})
-	gc.Suite(&cmdSystemSuite{})
+	gc.Suite(&cmdControllerSuite{})
 	gc.Suite(&dblogSuite{})
 	gc.Suite(&cloudImageMetadataSuite{})
 	gc.Suite(&cmdSpaceSuite{})

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type machineSuite struct {
@@ -70,8 +70,8 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	w, err := s.apiMachine.WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange("wordpress/0")
@@ -92,9 +92,6 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("wordpress/0")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *machineSuite) TestActiveNetworks(c *gc.C) {

@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreleadership "github.com/juju/juju/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
@@ -65,13 +65,13 @@ func (s *TrackerSuite) unblockRelease(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestServiceName(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 	c.Assert(tracker.ServiceName(), gc.Equals, "led-service")
 }
 
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the ticket succeeds.
@@ -89,7 +89,7 @@ func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {
 
 func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the ticket fails.
@@ -116,7 +116,7 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 
 func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 	s.claimer.Stub.SetErrors(errors.New("pow"))
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer worker.Stop(tracker)
 
 	// Check the ticket fails.
@@ -135,7 +135,7 @@ func (s *TrackerSuite) TestOnLeaderError(c *gc.C) {
 
 func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the first ticket succeeds.
@@ -172,7 +172,7 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 
 func (s *TrackerSuite) TestGainLeadership(c *gc.C) {
 	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -211,7 +211,7 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 	s.claimer.Stub.SetErrors(
 		coreleadership.ErrClaimDenied, nil, coreleadership.ErrClaimDenied, nil,
 	)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -260,7 +260,7 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the ticket succeeds.
@@ -278,7 +278,7 @@ func (s *TrackerSuite) TestWaitLeaderAlreadyLeader(c *gc.C) {
 
 func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -315,7 +315,7 @@ func (s *TrackerSuite) TestWaitLeaderBecomeLeader(c *gc.C) {
 
 func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket fails.
@@ -347,7 +347,7 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 
 func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check initial ticket is closed immediately.
@@ -370,7 +370,7 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 
 func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	// Check the first ticket stays open.
@@ -406,7 +406,7 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
-	tracker := leadership.NewTrackerWorker(s.unitTag, s.claimer, trackerDuration)
+	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
 
 	ticket := tracker.WaitMinion()
@@ -434,7 +434,7 @@ func (s *TrackerSuite) TestWaitMinionNeverBecomeMinion(c *gc.C) {
 	}})
 }
 
-func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
+func assertClaimLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
 	// Grab a ticket...
 	ticket := tracker.ClaimLeader()
 
@@ -443,7 +443,7 @@ func assertClaimLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 	assertTicket(c, ticket, expect)
 }
 
-func assertWaitLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
+func assertWaitLeader(c *gc.C, tracker *leadership.Tracker, expect bool) {
 	ticket := tracker.WaitLeader()
 	if expect {
 		assertTicket(c, ticket, true)
@@ -459,7 +459,7 @@ func assertWaitLeader(c *gc.C, tracker leadership.Tracker, expect bool) {
 	}
 }
 
-func assertWaitMinion(c *gc.C, tracker leadership.Tracker, expect bool) {
+func assertWaitMinion(c *gc.C, tracker *leadership.Tracker, expect bool) {
 	ticket := tracker.WaitMinion()
 	if expect {
 		assertTicket(c, ticket, false)
@@ -475,7 +475,7 @@ func assertWaitMinion(c *gc.C, tracker leadership.Tracker, expect bool) {
 	}
 }
 
-func assertTicket(c *gc.C, ticket leadership.Ticket, expect bool) {
+func assertTicket(c *gc.C, ticket coreleadership.Ticket, expect bool) {
 	// Wait for the ticket to give a value...
 	select {
 	case <-time.After(coretesting.LongWait):

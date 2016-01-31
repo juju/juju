@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
@@ -58,8 +59,12 @@ func FinishInstanceConfig(env *environ, args environs.StartInstanceParams, spec 
 	return env.finishInstanceConfig(args, spec)
 }
 
-func FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(stream, ic)
+func FindInstanceSpec(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
+	return env.findInstanceSpec(ic, imageMetadata)
 }
 
 func BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {

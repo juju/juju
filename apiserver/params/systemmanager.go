@@ -3,11 +3,11 @@
 
 package params
 
-// DestroySystemArgs holds the arguments for destroying a system.
-type DestroySystemArgs struct {
+// DestroyControllerArgs holds the arguments for destroying a controller.
+type DestroyControllerArgs struct {
 	// DestroyEnvironments specifies whether or not the hosted environments
 	// should be destroyed as well. If this is not specified, and there are
-	// other hosted environments, the destruction of the system will fail.
+	// other hosted environments, the destruction of the controller will fail.
 	DestroyEnvironments bool `json:"destroy-environments"`
 }
 
@@ -21,7 +21,7 @@ type EnvironmentBlockInfo struct {
 }
 
 // EnvironmentBlockInfoList holds information about the blocked environments
-// for a system.
+// for a controller.
 type EnvironmentBlockInfoList struct {
 	Environments []EnvironmentBlockInfo `json:"environments,omitempty"`
 }

@@ -67,7 +67,7 @@ func (s *undertakerSuite) mockClient(c *gc.C, expectedRequest string, callback f
 
 			a, ok := args.(params.Entities)
 			c.Check(ok, jc.IsTrue)
-			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "environment-"}})
+			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.EnvironmentTag.String()}})
 
 			callback(response)
 			return nil
@@ -90,7 +90,7 @@ func (s *undertakerSuite) TestWatchEnvironResourcesGetsChange(c *gc.C) {
 
 				a, ok := args.(params.Entities)
 				c.Check(ok, jc.IsTrue)
-				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: "environment-"}})
+				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.EnvironmentTag.String()}})
 
 				resp.Results = []params.NotifyWatchResult{{NotifyWatcherId: "1"}}
 			} else {
@@ -125,5 +125,21 @@ func (s *undertakerSuite) TestWatchEnvironResourcesError(c *gc.C) {
 	w, err := client.WatchEnvironResources()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 	c.Assert(w, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
+	var called bool
+
+	// The undertaker feature tests ensure EnvironConfig is connected
+	// correctly end to end. This test just ensures that the API calls work.
+	client := s.mockClient(c, "EnvironConfig", func(response interface{}) {
+		called = true
+		c.Check(response, gc.DeepEquals, &params.EnvironConfigResult{Config: params.EnvironConfig(nil)})
+	})
+
+	// We intentionally don't test the error here. We are only interested that
+	// the EnvironConfig endpoint was called.
+	client.EnvironConfig()
 	c.Assert(called, jc.IsTrue)
 }

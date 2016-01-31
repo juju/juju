@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type undertakerSuite struct {
@@ -36,7 +36,7 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 	}
 }
 
-func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
+func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	undertakerClient := undertaker.NewClient(st)
 	c.Assert(undertakerClient, gc.NotNil)
@@ -128,13 +128,10 @@ func (s *undertakerSuite) TestWatchEnvironResources(c *gc.C) {
 
 	w, err := undertakerClient.WatchEnvironResources()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-
+	defer w.Kill()
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
+	wc.AssertStops()
 }
 
 func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
@@ -157,6 +154,17 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 
 	c.Assert(undertakerClient.RemoveEnviron(), jc.ErrorIsNil)
 	c.Assert(otherSt.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+}
+
+func (s *undertakerSuite) TestHostedEnvironConfig(c *gc.C) {
+	undertakerClient, otherSt := s.hostedAPI(c)
+	defer otherSt.Close()
+
+	cfg, err := undertakerClient.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid, ok := cfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, otherSt.EnvironUUID())
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {

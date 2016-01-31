@@ -72,7 +72,7 @@ var versionStrings = append([]string{
 	fmt.Sprintf("%d.12.0-precise-i386", version.Current.Major),
 	fmt.Sprintf("%d.12.0-raring-amd64", version.Current.Major),
 	fmt.Sprintf("%d.12.0-raring-i386", version.Current.Major),
-	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major),
+	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major+1),
 }, currentVersionStrings...)
 
 var expectedOutputCommon = makeExpectedOutputCommon()

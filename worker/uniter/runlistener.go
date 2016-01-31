@@ -11,10 +11,13 @@ import (
 	"net/rpc"
 	"sync"
 
+	"launchpad.net/tomb"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runcommands"
 )
@@ -144,6 +147,41 @@ func (s *RunListener) Close() error {
 func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", args.Commands)
 	return r.CommandRunner.RunCommands(args)
+}
+
+// newRunListenerWrapper returns a worker that will Close the supplied run
+// listener when the worker is killed. The Wait() method will never return
+// an error -- NewRunListener just drops the Run error on the floor and that's
+// not what I'm fixing here.
+func newRunListenerWrapper(rl *RunListener) worker.Worker {
+	rlw := &runListenerWrapper{rl: rl}
+	go func() {
+		defer rlw.tomb.Done()
+		defer rlw.tearDown()
+		<-rlw.tomb.Dying()
+	}()
+	return rlw
+}
+
+type runListenerWrapper struct {
+	tomb tomb.Tomb
+	rl   *RunListener
+}
+
+func (rlw *runListenerWrapper) tearDown() {
+	if err := rlw.rl.Close(); err != nil {
+		logger.Warningf("error closing runlistener: %v", err)
+	}
+}
+
+// Kill is part of the worker.Worker interface.
+func (rlw *runListenerWrapper) Kill() {
+	rlw.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (rlw *runListenerWrapper) Wait() error {
+	return rlw.tomb.Wait()
 }
 
 // The JujuRunServer is the entity that has the methods that are called over

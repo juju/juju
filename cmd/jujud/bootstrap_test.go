@@ -37,6 +37,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -301,11 +303,13 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
-	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	bootstrapCons := constraints.Value{Mem: uint64p(4096), CpuCores: uint64p(4)}
+	environCons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
 		"--env-config", s.b64yamlEnvcfg,
 		"--instance-id", string(s.instanceId),
-		"--constraints", tcons.String(),
+		"--bootstrap-constraints", bootstrapCons.String(),
+		"--environ-constraints", environCons.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
@@ -320,16 +324,17 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, tcons)
+	c.Assert(cons, gc.DeepEquals, environCons)
 
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	cons, err = machines[0].Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, tcons)
+	c.Assert(cons, gc.DeepEquals, bootstrapCons)
 }
 
 func uint64p(v uint64) *uint64 {
@@ -705,7 +710,7 @@ func writeTempFiles(c *gc.C, metadataDir string, expected []struct{ path, conten
 	}
 }
 
-func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
+func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata, []struct{ path, content string }) {
 	// setup data for this test
 	metadata := cloudimagemetadata.Metadata{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
@@ -714,8 +719,9 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 			Arch:            "amd64",
 			VirtType:        "virtType",
 			RootStorageType: "rootStore",
-			Source:          cloudimagemetadata.Custom},
-		ImageId: "imageId"}
+			Source:          "custom"},
+		Priority: simplestreams.CUSTOM_CLOUD_DATA,
+		ImageId:  "imageId"}
 
 	// setup files containing test's data
 	metadataDir := c.MkDir()
@@ -730,7 +736,7 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 		content: "ghi",
 	}}
 	writeTempFiles(c, metadataDir, expected)
-	return metadataDir, metadata
+	return metadataDir, metadata, expected
 }
 
 func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
@@ -747,13 +753,13 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 	// find all image metadata in state
 	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.DeepEquals, map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		metadata.Source: []cloudimagemetadata.Metadata{metadata},
 	})
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
-	dir, m := createImageMetadata(c)
+	dir, m, _ := createImageMetadata(c)
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
 		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
@@ -764,11 +770,13 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This metadata should have also been written to state...
+	// m.Version would be deduced from m.Series
+	m.Version = "14.04"
 	assertWrittenToState(c, m)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	dir, _ := createImageMetadata(c)
+	dir, _, _ := createImageMetadata(c)
 
 	msg := "my test error"
 	s.PatchValue(&seriesFromVersion, func(string) (string, error) {
@@ -785,27 +793,8 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 }
 
-// TODO (anastasiamac 2015-09-26) This test will become obsolete when store
-// functionality will be removed.
 func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
-	metadataDir := c.MkDir()
-	expected := []struct{ path, content string }{{
-		path:    "images/streams/v1/index.json",
-		content: "abc",
-	}, {
-		path:    "images/streams/v1/products.json",
-		content: "def",
-	}, {
-		path:    "wayward/file.txt",
-		content: "ghi",
-	}}
-	for _, pair := range expected {
-		path := filepath.Join(metadataDir, pair.path)
-		err := os.MkdirAll(filepath.Dir(path), 0755)
-		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	metadataDir, _, expected := createImageMetadata(c)
 
 	var stor statetesting.MapStorage
 	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
@@ -851,6 +840,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, jc.ErrorIsNil)

@@ -25,7 +25,6 @@ package dummy
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -88,7 +87,6 @@ func SampleConfig() testing.Attrs {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
-		"syslog-port":               2345,
 		"default-series":            config.LatestLtsSeries(),
 
 		"secret":       "pork",
@@ -264,10 +262,7 @@ type environState struct {
 	insts        map[instance.Id]*dummyInstance
 	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
-	storageDelay time.Duration
-	storage      *storageServer
 	apiListener  net.Listener
-	httpListener net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
 	preferIPv6   bool
@@ -316,7 +311,6 @@ func Reset() {
 	defer p.mu.Unlock()
 	providerInstance.ops = discardOperations
 	for _, s := range p.state {
-		s.httpListener.Close()
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
@@ -331,7 +325,6 @@ func Reset() {
 }
 
 func (state *environState) destroy() {
-	state.storage.files = make(map[string][]byte)
 	if !state.bootstrapped {
 		return
 	}
@@ -370,9 +363,7 @@ func (e *environ) GetStateInAPIServer() *state.State {
 	return st.apiState
 }
 
-// newState creates the state for a new environment with the
-// given name and starts an http server listening for
-// storage requests.
+// newState creates the state for a new environment with the given name.
 func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
 	s := &environState{
 		name:        name,
@@ -381,22 +372,7 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		insts:       make(map[instance.Id]*dummyInstance),
 		globalPorts: make(map[network.PortRange]bool),
 	}
-	s.storage = newStorageServer(s, "/"+name+"/private")
-	s.listenStorage()
 	return s
-}
-
-// listenStorage starts a network listener listening for http
-// requests to retrieve files in the state's storage.
-func (s *environState) listenStorage() {
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(fmt.Errorf("cannot start listener: %v", err))
-	}
-	s.httpListener = l
-	mux := http.NewServeMux()
-	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
-	go http.Serve(l, mux)
 }
 
 // listenAPI starts a network listener listening for API
@@ -446,19 +422,6 @@ func Listen(c chan<- Operation) {
 	for _, st := range p.state {
 		st.mu.Lock()
 		st.ops = c
-		st.mu.Unlock()
-	}
-}
-
-// SetStorageDelay causes any storage download operation in any current
-// environment to be delayed for the given duration.
-func SetStorageDelay(d time.Duration) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for _, st := range p.state {
-		st.mu.Lock()
-		st.storageDelay = d
 		st.mu.Unlock()
 	}
 }
@@ -774,7 +737,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetEnvironConstraints(args.Constraints); err != nil {
+		if err := st.SetEnvironConstraints(args.EnvironConstraints); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(password); err != nil {
@@ -1118,13 +1081,18 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
 	if !environs.AddressAllocationEnabled() {
 		// Any instId starting with "i-alloc-" when the feature flag is off will
 		// still work, in order to be able to test MAAS 1.8+ environment where
 		// we can use devices for containers.
 		if !strings.HasPrefix(string(instId), "i-alloc-") {
 			return errors.NotSupportedf("address allocation")
+		}
+		// Also, in this case we expect addr to be non-nil, but empty, so it can
+		// be used as an output argument (same as in provider/maas).
+		if addr == nil || addr.Value != "" {
+			return errors.NewNotValid(nil, "invalid address: nil or non-empty")
 		}
 	}
 
@@ -1139,11 +1107,16 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.maxAddr++
+
+	if addr.Value == "" {
+		*addr = network.NewAddress(fmt.Sprintf("0.10.0.%v", estate.maxAddr))
+	}
+
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
 		SubnetId:   subnetId,
-		Address:    addr,
+		Address:    *addr,
 		MACAddress: macAddress,
 		HostName:   hostname,
 	}
@@ -1459,6 +1432,7 @@ type dummyInstance struct {
 
 	mu        sync.Mutex
 	addresses []network.Address
+	broken    []string
 }
 
 func (inst *dummyInstance) Id() instance.Id {
@@ -1490,13 +1464,30 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 	inst0.mu.Unlock()
 }
 
-func (*dummyInstance) Refresh() error {
+// SetInstanceBroken marks the named methods of the instance as broken.
+// Any previously broken methods not in the set will no longer be broken.
+func SetInstanceBroken(inst instance.Instance, methods ...string) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.broken = methods
+	inst0.mu.Unlock()
+}
+
+func (inst *dummyInstance) checkBroken(method string) error {
+	for _, m := range inst.broken {
+		if m == method {
+			return fmt.Errorf("dummyInstance.%s is broken", method)
+		}
+	}
 	return nil
 }
 
 func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
+	if err := inst.checkBroken("Addresses"); err != nil {
+		return nil, err
+	}
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
@@ -1512,6 +1503,9 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("OpenPorts"); err != nil {
+		return err
+	}
 	inst.state.ops <- OpOpenPorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -1535,6 +1529,9 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRang
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("ClosePorts"); err != nil {
+		return err
+	}
 	inst.state.ops <- OpClosePorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -1558,6 +1555,9 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("Ports"); err != nil {
+		return nil, err
+	}
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}

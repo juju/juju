@@ -112,19 +112,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(elements[2], &d.Entity)
 }
 
-// When remote units leave scope, their ids will be noted in the
-// Departed field, and no further events will be sent for those units.
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
-// UnitSettings holds information about a service unit's settings
-// within a relation.
-type UnitSettings struct {
-	Version int64
-}
-
 // MachineInfo holds the information about a machine
 // that is tracked by multiwatcherStore.
 type MachineInfo struct {

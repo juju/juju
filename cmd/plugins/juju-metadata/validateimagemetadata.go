@@ -184,7 +184,7 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 		}
 		params.Sources = []simplestreams.DataSource{
 			simplestreams.NewURLDataSource(
-				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
+				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false),
 		}
 	}
 	params.Stream = c.stream

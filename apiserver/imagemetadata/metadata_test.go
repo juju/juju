@@ -22,47 +22,44 @@ func (s *metadataSuite) TestFindNil(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, []string{findMetadata})
+	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindEmpty(c *gc.C) {
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
-		s.calls = append(s.calls, findMetadata)
-		return map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{}, nil
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
+		return map[string][]cloudimagemetadata.Metadata{}, nil
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, []string{findMetadata})
+	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
-		s.calls = append(s.calls, findMetadata)
-		return map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
-			cloudimagemetadata.Public: []cloudimagemetadata.Metadata{},
-			cloudimagemetadata.Custom: []cloudimagemetadata.Metadata{},
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
+		return map[string][]cloudimagemetadata.Metadata{
+			"public": []cloudimagemetadata.Metadata{},
+			"custom": []cloudimagemetadata.Metadata{},
 		}, nil
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, []string{findMetadata})
+	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindError(c *gc.C) {
 	msg := "find error"
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
-		s.calls = append(s.calls, findMetadata)
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return nil, errors.New(msg)
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found.Result, gc.HasLen, 0)
-	s.assertCalls(c, []string{findMetadata})
+	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestFindOrder(c *gc.C) {
@@ -71,16 +68,15 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	customImageId3 := "custom3"
 	publicImageId := "public1"
 
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
-		s.calls = append(s.calls, findMetadata)
-		return map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
-				cloudimagemetadata.Public: []cloudimagemetadata.Metadata{
-					cloudimagemetadata.Metadata{ImageId: publicImageId},
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
+		return map[string][]cloudimagemetadata.Metadata{
+				"public": []cloudimagemetadata.Metadata{
+					cloudimagemetadata.Metadata{ImageId: publicImageId, Priority: 15},
 				},
-				cloudimagemetadata.Custom: []cloudimagemetadata.Metadata{
-					cloudimagemetadata.Metadata{ImageId: customImageId},
-					cloudimagemetadata.Metadata{ImageId: customImageId2},
-					cloudimagemetadata.Metadata{ImageId: customImageId3},
+				"custom": []cloudimagemetadata.Metadata{
+					cloudimagemetadata.Metadata{ImageId: customImageId, Priority: 87},
+					cloudimagemetadata.Metadata{ImageId: customImageId2, Priority: 20},
+					cloudimagemetadata.Metadata{ImageId: customImageId3, Priority: 56},
 				},
 			},
 			nil
@@ -89,13 +85,14 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 4)
+
 	c.Assert(found.Result, jc.SameContents, []params.CloudImageMetadata{
-		params.CloudImageMetadata{ImageId: customImageId},
-		params.CloudImageMetadata{ImageId: customImageId2},
-		params.CloudImageMetadata{ImageId: customImageId3},
-		params.CloudImageMetadata{ImageId: publicImageId},
+		params.CloudImageMetadata{ImageId: customImageId, Priority: 87},
+		params.CloudImageMetadata{ImageId: customImageId3, Priority: 56},
+		params.CloudImageMetadata{ImageId: customImageId2, Priority: 20},
+		params.CloudImageMetadata{ImageId: publicImageId, Priority: 15},
 	})
-	s.assertCalls(c, []string{findMetadata})
+	s.assertCalls(c, findMetadata)
 }
 
 func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
@@ -103,7 +100,7 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
 	// not expected to call state :D
-	s.assertCalls(c, []string{})
+	s.assertCalls(c, environConfig)
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
@@ -112,19 +109,55 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	}
 	msg := "save error"
 
-	s.state.saveMetadata = func(m cloudimagemetadata.Metadata) error {
-		s.calls = append(s.calls, saveMetadata)
-		if len(s.calls) == 1 {
+	saveCalls := 0
+	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
+		saveCalls += 1
+		c.Assert(m, gc.HasLen, saveCalls)
+		if saveCalls == 1 {
 			// don't err on first call
 			return nil
 		}
 		return errors.New(msg)
 	}
 
-	errs, err := s.api.Save(params.MetadataSaveParams{Metadata: []params.CloudImageMetadata{m, m}})
+	errs, err := s.api.Save(params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{{
+			Metadata: []params.CloudImageMetadata{m},
+		}, {
+			Metadata: []params.CloudImageMetadata{m, m},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, []string{saveMetadata, saveMetadata})
+	s.assertCalls(c, environConfig, saveMetadata, saveMetadata)
+}
+
+func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
+	errs, err := s.api.Delete(params.MetadataImageIds{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs.Results, gc.HasLen, 0)
+	// not expected to call state :D
+	s.assertCalls(c)
+}
+
+func (s *metadataSuite) TestDelete(c *gc.C) {
+	idOk := "ok"
+	idFail := "fail"
+	msg := "delete error"
+
+	s.state.deleteMetadata = func(imageId string) error {
+		if imageId == idFail {
+			return errors.New(msg)
+		}
+		return nil
+	}
+
+	errs, err := s.api.Delete(params.MetadataImageIds{[]string{idOk, idFail}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs.Results, gc.HasLen, 2)
+	c.Assert(errs.Results[0].Error, gc.IsNil)
+	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
+	s.assertCalls(c, deleteMetadata, deleteMetadata)
 }

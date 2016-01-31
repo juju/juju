@@ -110,10 +110,9 @@ type EnvironmentCreateArgs struct {
 // Environment holds the result of an API call returning a name and UUID
 // for an environment and the tag of the server in which it is running.
 type Environment struct {
-	Name       string
-	UUID       string
-	OwnerTag   string
-	ServerUUID string
+	Name     string
+	UUID     string
+	OwnerTag string
 }
 
 // UserEnvironment holds information about an environment and the last
@@ -295,29 +294,6 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// MachineSetProvisioned holds a machine tag, provider-specific
-// instance id, a nonce, or an error.
-//
-// NOTE: This is deprecated since 1.19.0 and not used by the
-// provisioner, it's just retained for backwards-compatibility and
-// should be removed.
-type MachineSetProvisioned struct {
-	Tag             string
-	InstanceId      instance.Id
-	Nonce           string
-	Characteristics *instance.HardwareCharacteristics
-}
-
-// SetProvisioned holds the parameters for making a SetProvisioned
-// call for a machine.
-//
-// NOTE: This is deprecated since 1.19.0 and not used by the
-// provisioner, it's just retained for backwards-compatibility and
-// should be removed.
-type SetProvisioned struct {
-	Machines []MachineSetProvisioned
-}
-
 // InstanceInfo holds a machine tag, provider-specific instance id, a
 // nonce, a list of networks and interfaces to set up.
 type InstanceInfo struct {
@@ -468,26 +444,45 @@ type StringsWatchResults struct {
 	Results []StringsWatchResult
 }
 
-// EntityWatchResult holds a EntityWatcher id, changes and an error
+// EntitiesWatchResult holds a EntitiesWatcher id, changes and an error
 // (if any).
-type EntityWatchResult struct {
-	EntityWatcherId string   `json:"EntityWatcherId"`
-	Changes         []string `json:"Changes"`
-	Error           *Error   `json:"Error"`
+type EntitiesWatchResult struct {
+	// Note legacy serialization tag.
+	EntitiesWatcherId string   `json:"EntityWatcherId"`
+	Changes           []string `json:"Changes"`
+	Error             *Error   `json:"Error"`
 }
 
-// EntityWatchResults holds the results for any API call which ends up
-// returning a list of EntityWatchers.
-type EntityWatchResults struct {
-	Results []EntityWatchResult
+// EntitiesWatchResults holds the results for any API call which ends up
+// returning a list of EntitiesWatchers.
+type EntitiesWatchResults struct {
+	Results []EntitiesWatchResult `json:"Results"`
 }
 
-// RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
-// and an error (if any).
+// UnitSettings specifies the version of some unit's settings in some relation.
+type UnitSettings struct {
+	Version int64 `json:"Version"`
+}
+
+// RelationUnitsChange describes the membership and settings of; or changes to;
+// some relation scope.
+type RelationUnitsChange struct {
+
+	// Changed holds a set of units that are known to be in scope, and the
+	// latest known settings version for each.
+	Changed map[string]UnitSettings `json:"Changed"`
+
+	// Departed holds a set of units that have previously been reported to
+	// be in scope, but which no longer are.
+	Departed []string `json:"Departed"`
+}
+
+// RelationUnitsWatchResult holds a RelationUnitsWatcher id, baseline state
+// (in the Changes field), and an error (if any).
 type RelationUnitsWatchResult struct {
-	RelationUnitsWatcherId string
-	Changes                multiwatcher.RelationUnitsChange
-	Error                  *Error
+	RelationUnitsWatcherId string              `json:"RelationUnitsWatcherId"`
+	Changes                RelationUnitsChange `json:"Changes"`
+	Error                  *Error              `json:"Error"`
 }
 
 // RelationUnitsWatchResults holds the results for any API call which ends up
@@ -570,6 +565,7 @@ type ProvisioningInfo struct {
 	Volumes        []VolumeParams
 	Tags           map[string]string
 	SubnetsToZones map[string][]string
+	ImageMetadata  []CloudImageMetadata
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -630,4 +626,17 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
+}
+
+// SingularClaim represents a request for exclusive model administration access
+// on the part of some controller.
+type SingularClaim struct {
+	ModelTag      string        `json:"ModelTag"`
+	ControllerTag string        `json:"ControllerTag"`
+	Duration      time.Duration `json:"Duration"`
+}
+
+// SingularClaims holds any number of SingularClaim~s.
+type SingularClaims struct {
+	Claims []SingularClaim `json:"Claims"`
 }
