@@ -168,7 +168,6 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 
 	// A null value means that we don't yet know which containers
 	// are supported. An empty slice means 'no containers are supported'.
-	//SupportedContainers *[]string
 	var exMachine migration.Machine
 	if exParent == nil {
 		exMachine = e.model.AddMachine(args)

@@ -156,10 +156,6 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 	c.Assert(newTools, jc.DeepEquals, oldTools)
 }
 
-func (s *MigrationImportSuite) setMachineExtras(c *gc.C, m *state.Machine) {
-
-}
-
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Let's add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, nil)
