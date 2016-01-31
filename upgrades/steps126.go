@@ -59,6 +59,20 @@ func stateStepsFor126() []Step {
 				return upgradeProviderChanges(env, st, version.Number{Major: 1, Minor: 26})
 			},
 		},
+		//TODO(perrito666) make this an unconditional upgrade step.
+		// it would be ideal not to have to modify this package whenever we add provider upgrade steps.
+		&upgradeStep{
+			description: "provider side upgrades",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				st := context.State()
+				env, err := utils.GetEnvironment(st)
+				if err != nil {
+					return errors.Annotate(err, "getting provider for upgrade")
+				}
+				return upgradeProviderChanges(env, st, version.Number{Major: 1, Minor: 26})
+			},
+		},
 		&upgradeStep{
 			description: "update machine preferred addresses",
 			targets:     []Target{DatabaseMaster},
