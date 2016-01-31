@@ -17,12 +17,15 @@ import (
 
 var logger = loggo.GetLogger("juju.state.migration")
 
+// ModelArgs represent the bare minimum information that is needed
+// to represent a model.
 type ModelArgs struct {
 	Owner              names.UserTag
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
 }
 
+// NewModel returns a Model based on the args specified.
 func NewModel(args ModelArgs) Model {
 	return &model{
 		Version:             1,
@@ -38,6 +41,10 @@ func NewModel(args ModelArgs) Model {
 	}
 }
 
+// DeserializeModel constructs a Model from a serialized
+// YAML byte stream. The normal use for this is to construct
+// the Model representation after getting the byte stream from
+// an API connection or read from a file.
 func DeserializeModel(bytes []byte) (Model, error) {
 	var source map[string]interface{}
 	err := yaml.Unmarshal(bytes, &source)
