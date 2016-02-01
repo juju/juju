@@ -23,5 +23,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // newWorker is not currently tested; it should eventually replace New as the
 // package's exposed factory func, and then all tests should pass through it.
 func newWorker(apiCaller base.APICaller) (worker.Worker, error) {
-	return NewWorker(proxyupdater.NewFacade(apiCaller), false)
+	// TODO(fwereade): This shouldn't be an "environment" facade, it
+	// should be specific to the proxyupdater, and be watching for
+	// *proxy settings* changes, not just watching the "environment".
+	return NewWorker(proxyupdater.NewFacade(apiCaller))
 }

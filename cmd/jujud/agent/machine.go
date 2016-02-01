@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -709,7 +708,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	// it's confined to jujud rather than extending into the worker itself.
 	// Start this worker first to try and get proxy settings in place
 	// before we do anything else.
-	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
 		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn), writeSystemFiles)
 		if err != nil {
@@ -807,18 +805,14 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return w, nil
 	})
 
-	// If not a local provider bootstrap machine, start the worker to
-	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || a.machineId != bootstrapMachineId {
-		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-			w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
-			}
-			return w, nil
-		})
-	}
+	// Start the worker to manage SSH keys.
+	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+		w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
+		}
+		return w, nil
+	})
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
@@ -930,15 +924,6 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 		st.Close()
 	}
 	return st, closer, nil
-}
-
-// shouldWriteProxyFiles returns true, unless the supplied conf identifies the
-// machine agent running directly on the host system in a local environment.
-var shouldWriteProxyFiles = func(conf agent.Config) bool {
-	if conf.Value(agent.ProviderType) != provider.Local {
-		return true
-	}
-	return conf.Tag() != names.NewMachineTag(bootstrapMachineId)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -1564,7 +1549,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	var needReplicasetInit = false
 	var machineAddrs []network.Address
 
-	mongoInstalled, err := mongo.IsServiceInstalled(agentConfig.Value(agent.Namespace))
+	mongoInstalled, err := mongo.IsServiceInstalled()
 	if err != nil {
 		return errors.Annotate(err, "error while checking if mongodb service is installed")
 	}
@@ -1649,12 +1634,11 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo:  dialInfo,
-		Namespace: agentConfig.Value(agent.Namespace),
-		DataDir:   agentConfig.DataDir(),
-		Port:      servingInfo.StatePort,
-		User:      mongoInfo.Tag.String(),
-		Password:  mongoInfo.Password,
+		DialInfo: dialInfo,
+		DataDir:  agentConfig.DataDir(),
+		Port:     servingInfo.StatePort,
+		User:     mongoInfo.Tag.String(),
+		Password: mongoInfo.Password,
 	})
 }
 
@@ -1925,7 +1909,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	}
 	logger.Infof("%q found, uninstalling agent", uninstallFile)
 
-	var errors []error
+	var errs []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
@@ -1935,17 +1919,17 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	if agentServiceName != "" {
 		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
 		if err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		} else if err := svc.Remove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
 
-	errors = append(errors, a.removeJujudSymlinks()...)
+	errs = append(errs, a.removeJujudSymlinks()...)
 
 	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	} else if insideLXC {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
@@ -1955,21 +1939,20 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		// to see if the loop device is attached to the container; that
 		// will fail if the data-dir is removed first.
 		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
-			errors = append(errors, err)
+			errs = append(errs, err)
 		}
 	}
 
-	namespace := agentConfig.Value(agent.Namespace)
-	if err := mongo.RemoveService(namespace); err != nil {
-		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
+	if err := mongo.RemoveService(); err != nil {
+		errs = append(errs, errors.Annotate(err, "cannot stop/remove mongo service"))
 	}
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
-	if len(errors) == 0 {
+	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errors)
+	return fmt.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {

@@ -59,7 +59,6 @@ type FakeEnsureMongo struct {
 	EnsureCount         int
 	InitiateCount       int
 	DataDir             string
-	Namespace           string
 	OplogSize           int
 	Info                state.StateServingInfo
 	InitiateParams      peergrouper.InitiateMongoParams
@@ -85,7 +84,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 
 func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	f.EnsureCount++
-	f.DataDir, f.Namespace, f.OplogSize = args.DataDir, args.Namespace, args.OplogSize
+	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
 	f.Info = state.StateServingInfo{
 		APIPort:        args.APIPort,
 		StatePort:      args.StatePort,
