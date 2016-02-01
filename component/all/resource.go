@@ -333,7 +333,7 @@ type resourcesUnitDataStore struct {
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) ListResources() ([]resource.Resource, error) {
+func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
 	return ds.resources.ListResources(ds.unit.ServiceName())
 }
 

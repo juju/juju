@@ -22,7 +22,7 @@ type UnitDataStore interface {
 	DownloadDataStore
 
 	// ListResources lists all the resources for the service.
-	ListResources() ([]resource.Resource, error)
+	ListResources() (resource.ServiceResources, error)
 }
 
 // NewUnitFacade returns the resources portion of the uniter's API facade.
@@ -52,7 +52,7 @@ func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.Re
 	}
 
 	for i, name := range args.ResourceNames {
-		res, ok := lookUpResource(name, resources)
+		res, ok := lookUpResource(name, resources.Resources)
 		if !ok {
 			r.Resources[i].Error = common.ServerError(errors.NotFoundf("resource %q", name))
 			continue

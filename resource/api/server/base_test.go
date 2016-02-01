@@ -79,14 +79,14 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 type stubDataStore struct {
 	stub *testing.Stub
 
-	ReturnListResources []resource.Resource
+	ReturnListResources resource.ServiceResources
 	ReturnGetResource   resource.Resource
 }
 
-func (s *stubDataStore) ListResources(service string) ([]resource.Resource, error) {
+func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
 	s.stub.AddCall("ListResources", service)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
 	return s.ReturnListResources, nil

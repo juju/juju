@@ -14,7 +14,7 @@ import (
 // Resources describes the state functionality for resources.
 type Resources interface {
 	// ListResources returns the list of resources for the given service.
-	ListResources(serviceID string) ([]resource.Resource, error)
+	ListResources(serviceID string) (resource.ServiceResources, error)
 
 	// GetResource returns the identified resource.
 	GetResource(serviceID, name string) (resource.Resource, error)

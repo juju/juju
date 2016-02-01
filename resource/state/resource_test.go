@@ -44,14 +44,14 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
-	s.persist.ReturnListResources = expected
+	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	resources, err := st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resources, jc.DeepEquals, expected)
+	c.Check(resources.Resources, jc.DeepEquals, expected)
 	s.stub.CheckCallNames(c, "ListResources")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
@@ -63,13 +63,13 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 	resources, err := st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resources, gc.HasLen, 0)
+	c.Check(resources.Resources, gc.HasLen, 0)
 	s.stub.CheckCallNames(c, "ListResources")
 }
 
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
-	s.persist.ReturnListResources = expected
+	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
@@ -218,7 +218,9 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	data := "some data"
 	opened := resourcetesting.NewResource(c, s.stub, "spam", data)
-	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
+	s.persist.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{opened.Resource},
+	}
 	s.storage.ReturnGet = opened.Content()
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
@@ -247,7 +249,9 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam")
-	s.persist.ReturnListResources = []resource.Resource{res}
+	s.persist.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{res},
+	}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -259,7 +263,9 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 
 func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
-	s.persist.ReturnListResources = []resource.Resource{opened.Resource}
+	s.persist.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{opened.Resource},
+	}
 	content := opened.Content()
 	content.Size += 1
 	s.storage.ReturnGet = content

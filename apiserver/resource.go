@@ -68,7 +68,7 @@ type resourceUnitState struct {
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.
-func (s *resourceUnitState) ListResources() ([]resource.Resource, error) {
+func (s *resourceUnitState) ListResources() (resource.ServiceResources, error) {
 	return s.state.ListResources(s.unit.ServiceName())
 }
 

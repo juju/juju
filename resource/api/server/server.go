@@ -5,7 +5,10 @@ package server
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -40,7 +43,7 @@ func NewFacade(data DataStore) *Facade {
 // for the ListResources endpoint.
 type resourceLister interface {
 	// ListResources returns the resources for the given service.
-	ListResources(service string) ([]resource.Resource, error)
+	ListResources(service string) (resource.ServiceResources, error)
 }
 
 // ListResources returns the list of resources for the given service.
@@ -50,24 +53,55 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 
 	for i, e := range args.Entities {
 		logger.Tracef("Listing resources for %q", e.Tag)
-		result, service := api.NewResourcesResult(e.Tag)
-		r.Results[i] = result
-		if result.Error != nil {
+		tag, apierr := parseServiceTag(e.Tag)
+		if apierr != nil {
+			r.Results[i] = api.ResourcesResult{
+				ErrorResult: params.ErrorResult{
+					Error: apierr,
+				},
+			}
 			continue
 		}
 
-		resources, err := f.lister.ListResources(service)
+		svcRes, err := f.lister.ListResources(tag.Id())
 		if err != nil {
-			api.SetResultError(&r.Results[i], err)
+			r.Results[i] = errorResult(err)
 			continue
 		}
 
-		var apiResources []api.Resource
-		for _, res := range resources {
-			apiRes := api.Resource2API(res)
-			apiResources = append(apiResources, apiRes)
+		var result api.ResourcesResult
+		for _, res := range svcRes.Resources {
+			result.Resources = append(result.Resources, api.Resource2API(res))
 		}
-		r.Results[i].Resources = apiResources
+		for _, unitRes := range svcRes.UnitResources {
+			unit := api.UnitResources{
+				Entity: params.Entity{Tag: unitRes.Tag.String()},
+			}
+			for _, res := range unitRes.Resources {
+				unit.Resources = append(unit.Resources, api.Resource2API(res))
+			}
+			result.UnitResources = append(result.UnitResources, unit)
+		}
+		r.Results[i] = result
 	}
 	return r, nil
+}
+
+func parseServiceTag(tagStr string) (names.ServiceTag, *params.Error) { // note the concrete error type
+	serviceTag, err := names.ParseServiceTag(tagStr)
+	if err != nil {
+		return serviceTag, &params.Error{
+			Message: err.Error(),
+			Code:    params.CodeBadRequest,
+		}
+	}
+	return serviceTag, nil
+}
+
+func errorResult(err error) api.ResourcesResult {
+	return api.ResourcesResult{
+		ErrorResult: params.ErrorResult{
+			Error: common.ServerError(err),
+		},
+	}
 }

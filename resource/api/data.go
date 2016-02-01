@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -29,7 +28,6 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 			errs = append(errs, err)
 			continue
 		}
-
 		args.Entities = append(args.Entities, params.Entity{
 			Tag: names.NewServiceTag(service).String(),
 		})
@@ -54,27 +52,18 @@ type ResourcesResult struct {
 
 	// Resources is the list of resources for the service.
 	Resources []Resource
+
+	// UnitResources contains a list of the resources for each unit in the
+	// service.
+	UnitResources []UnitResources
 }
 
-// NewResourcesResult produces a ResourcesResult for the given service
-// tag. The corresponding service ID is also returned. If any error
-// results, it is stored in the Error field of the result.
-func NewResourcesResult(tagStr string) (result ResourcesResult, serviceID string) {
-	serviceID, err := ServiceTag2ID(tagStr)
-	if err != nil {
-		result.Error = &params.Error{
-			Message: err.Error(),
-			Code:    params.CodeBadRequest,
-		}
-		return result, ""
-	}
+// A UnitResources contains a list of the resources the unit defined by Entity.
+type UnitResources struct {
+	params.Entity
 
-	return result, serviceID
-}
-
-// SetResultError sets the error on the result.
-func SetResultError(result *ResourcesResult, err error) {
-	result.Error = common.ServerError(err)
+	// Resources is a list of resources for the unit.
+	Resources []Resource
 }
 
 // Resource contains info about a Resource.

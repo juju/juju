@@ -6,6 +6,7 @@ package persistence
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
@@ -40,23 +41,36 @@ func NewPersistence(base PersistenceBase) *Persistence {
 }
 
 // ListResources returns the resource data for the given service ID.
-func (p Persistence) ListResources(serviceID string) ([]resource.Resource, error) {
+func (p Persistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	docs, err := p.resources(serviceID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
-	var results []resource.Resource
+	units := map[names.UnitTag][]resource.Resource{}
+
+	var results resource.ServiceResources
 	for _, doc := range docs {
 		res, err := doc2resource(doc)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return resource.ServiceResources{}, errors.Trace(err)
 		}
-		results = append(results, res)
+		if doc.UnitID == "" {
+			results.Resources = append(results.Resources, res)
+			continue
+		}
+		tag := names.NewUnitTag(doc.UnitID)
+		units[tag] = append(units[tag], res)
+	}
+	for tag, res := range units {
+		results.UnitResources = append(results.UnitResources, resource.UnitResources{
+			Tag:       tag,
+			Resources: res,
+		})
 	}
 	return results, nil
 }
@@ -124,9 +138,9 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(id, unit.Name(), unit.ServiceName(), res)
+			ops = newInsertUnitResourceOps(id, unit.Name(), unit.ServiceName(), res)
 		case 1:
-			ops = newUpdateResourceOps(id, unit.Name(), unit.ServiceName(), res)
+			ops = newUpdateUnitResourceOps(id, unit.Name(), unit.ServiceName(), res)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
@@ -154,9 +168,9 @@ func (p Persistence) SetResource(id, serviceID string, res resource.Resource) er
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(id, serviceID, serviceID, res)
+			ops = newInsertResourceOps(id, serviceID, res)
 		case 1:
-			ops = newUpdateResourceOps(id, serviceID, serviceID, res)
+			ops = newUpdateResourceOps(id, serviceID, res)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")

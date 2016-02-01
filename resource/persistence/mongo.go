@@ -64,8 +64,8 @@ func newRemoveStagedOps(id, serviceID string) []txn.Op {
 	}}
 }
 
-func newInsertResourceOps(id, ownerID, serviceID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, ownerID, serviceID, res)
+func newInsertUnitResourceOps(id, unitID, serviceID string, res resource.Resource) []txn.Op {
+	doc := newUnitResourceDoc(id, unitID, serviceID, res)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -75,8 +75,19 @@ func newInsertResourceOps(id, ownerID, serviceID string, res resource.Resource) 
 	}}
 }
 
-func newUpdateResourceOps(id, ownerID, serviceID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, ownerID, serviceID, res)
+func newInsertResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
+	doc := newResourceDoc(id, serviceID, res)
+
+	return []txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+}
+
+func newUpdateUnitResourceOps(id, unitID, serviceID string, res resource.Resource) []txn.Op {
+	doc := newUnitResourceDoc(id, unitID, serviceID, res)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -84,12 +95,30 @@ func newUpdateResourceOps(id, ownerID, serviceID string, res resource.Resource) 
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertResourceOps(id, ownerID, serviceID, res)...)
+	}}, newInsertUnitResourceOps(id, unitID, serviceID, res)...)
+}
+
+func newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
+	doc := newResourceDoc(id, serviceID, res)
+
+	// TODO(ericsnow) Using "update" doesn't work right...
+	return append([]txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}, newInsertResourceOps(id, serviceID, res)...)
+}
+
+// newUnitResourceDoc generates a doc that represents the given resource.
+func newUnitResourceDoc(id, unitID, serviceID string, res resource.Resource) *resourceDoc {
+	fullID := resourceID(id, unitID)
+	return unitResource2Doc(fullID, unitID, serviceID, res)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
-func newResourceDoc(id, ownerID, serviceID string, res resource.Resource) *resourceDoc {
-	fullID := resourceID(id, ownerID)
+func newResourceDoc(id, serviceID string, res resource.Resource) *resourceDoc {
+	fullID := resourceID(id, serviceID)
 	return resource2doc(fullID, serviceID, res)
 }
 
@@ -116,6 +145,7 @@ type resourceDoc struct {
 	DocID     string `bson:"_id"`
 	EnvUUID   string `bson:"env-uuid"`
 	ServiceID string `bson:"service-id"`
+	UnitID    string `bson:"unit-id"`
 
 	Name    string `bson:"name"`
 	Type    string `bson:"type"`
@@ -129,6 +159,12 @@ type resourceDoc struct {
 
 	Username  string    `bson:"username"`
 	Timestamp time.Time `bson:"timestamp-when-added"`
+}
+
+func unitResource2Doc(id, unitID, serviceID string, res resource.Resource) *resourceDoc {
+	doc := resource2doc(id, serviceID, res)
+	doc.UnitID = unitID
+	return doc
 }
 
 // resource2doc converts the resource into a DB doc.

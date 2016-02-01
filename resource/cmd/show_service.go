@@ -15,7 +15,7 @@ import (
 // ShowServiceClient has the API client methods needed by ShowServiceCommand.
 type ShowServiceClient interface {
 	// ListResources returns info about resources for services in the model.
-	ListResources(services []string) ([][]resource.Resource, error)
+	ListResources(services []string) ([]resource.ServiceResources, error)
 	// Close closes the connection.
 	Close() error
 }
@@ -94,10 +94,10 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("bad data returned from server")
 	}
 	v := vals[0]
-	res := make([]FormattedSvcResource, len(v))
+	res := make([]FormattedSvcResource, len(v.Resources))
 
-	for i := range v {
-		res[i] = FormatSvcResource(v[i])
+	for i, r := range v.Resources {
+		res[i] = FormatSvcResource(r)
 	}
 
 	return c.out.Write(ctx, res)

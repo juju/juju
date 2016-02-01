@@ -5,6 +5,8 @@ package internal
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
 )
@@ -33,6 +35,11 @@ func ReplaceDirectory(targetDir, sourceDir string, deps ReplaceDirectoryDeps) er
 	if err := deps.RemoveDir(targetDir); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := os.MkdirAll(filepath.Dir(targetDir), 0755); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := deps.Move(targetDir, sourceDir); err != nil {
 		return errors.Trace(err)
 	}

@@ -35,8 +35,6 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	resources, err := st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resources, gc.HasLen, 0)
-
 	data := "spamspamspam"
 	res := newResource(c, "spam", data)
 	file := bytes.NewBufferString(data)
@@ -47,9 +45,9 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	resources, err = st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(resources, jc.DeepEquals, []resource.Resource{
+	c.Check(resources, jc.DeepEquals, resource.ServiceResources{Resources: []resource.Resource{
 		res,
-	})
+	}})
 
 	// TODO(ericsnow) Add more as state.Resources grows more functionality.
 }

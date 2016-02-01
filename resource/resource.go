@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -84,4 +85,25 @@ type Unit interface {
 
 	// ServiceName is the name of the service to which the unit belongs.
 	ServiceName() string
+}
+
+// ServiceResources contains the list of resources for the service and all its
+// units.
+type ServiceResources struct {
+	// Resources are the current version of the resource for the service that
+	// resource-get will retrieve.
+	Resources []Resource
+
+	// UnitResources reports the currenly-in-use version of resources for each
+	// unit.
+	UnitResources []UnitResources
+}
+
+// UnitResources conains the list of resources used by a unit.
+type UnitResources struct {
+	// Tag is the tag of the unit.
+	Tag names.UnitTag
+
+	// Resources are the resource versions currently in use by this unit.
+	Resources []Resource
 }

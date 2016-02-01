@@ -14,7 +14,7 @@ import (
 
 type resourcePersistence interface {
 	// ListResources returns the resource data for the given service ID.
-	ListResources(serviceID string) ([]resource.Resource, error)
+	ListResources(serviceID string) (resource.ServiceResources, error)
 
 	// StageResource adds the resource in a separate staging area
 	// if the resource isn't already staged. If the resource already
@@ -58,10 +58,10 @@ type resourceState struct {
 }
 
 // ListResources returns the resource data for the given service ID.
-func (st resourceState) ListResources(serviceID string) ([]resource.Resource, error) {
+func (st resourceState) ListResources(serviceID string) (resource.ServiceResources, error) {
 	resources, err := st.persist.ListResources(serviceID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
 	return resources, nil
@@ -76,7 +76,7 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 		return res, errors.Trace(err)
 	}
 
-	for _, res := range resources {
+	for _, res := range resources.Resources {
 		if res.Name == name {
 			return res, nil
 		}

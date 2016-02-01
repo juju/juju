@@ -23,9 +23,11 @@ type ListResourcesSuite struct {
 func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
-	s.data.ReturnListResources = []resource.Resource{
-		res1,
-		res2,
+	s.data.ReturnListResources = resource.ServiceResources{
+		Resources: []resource.Resource{
+			res1,
+			res2,
+		},
 	}
 	facade := server.NewFacade(s.data)
 
@@ -59,9 +61,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
-		Results: []api.ResourcesResult{{
-			Resources: nil,
-		}},
+		Results: []api.ResourcesResult{{}},
 	})
 	s.stub.CheckCallNames(c, "ListResources")
 }
