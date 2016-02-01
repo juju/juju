@@ -474,6 +474,13 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// Get the configured controller space to use for unspecified bindings.
+	envConfig, err := s.st.EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get environment config")
+	}
+	controllerSpace, _ := envConfig.ControllerSpaceName()
+
 	// Create or replace service settings.
 	var settingsOp txn.Op
 	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
@@ -558,7 +565,7 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	//
 	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
 	// given bindings below, instead of nil.
-	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
+	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta(), controllerSpace)
 	if err == nil {
 		ops = append(ops, endpointBindingsOp)
 	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {

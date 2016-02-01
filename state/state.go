@@ -1186,6 +1186,24 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		storagePools.Add(storageParams.Pool)
 	}
 
+	var controllerSpace string
+	if len(args.EndpointBindings) > 0 {
+		// Ensure we have controller space to use for unspecified bindings.
+		envConfig, err := st.EnvironConfig()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get environment config")
+		}
+		var hasControllerSpace bool
+		controllerSpace, hasControllerSpace = envConfig.ControllerSpaceName()
+		if !hasControllerSpace {
+			// TODO(dimitern): This should be an error, but we can't do that at
+			// the moment, as deployments will stop working on providers without
+			// spaces support. Until we have a graceful handling of those
+			// providers, it only be logged as warning.
+			logger.Warningf("ignoring endpoint bindings for service %q: no controller space set to use for unspecified bindings", args.Name)
+		}
+	}
+
 	if args.Series == "" {
 		// args.Series is not set, so use the series in the URL.
 		args.Series = args.Charm.URL().Series
@@ -1272,14 +1290,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
-	endpointBindingsOp, err := createEndpointBindingsOp(
-		st, svc.globalKey(),
-		args.EndpointBindings, args.Charm.Meta(),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	statusDoc := statusDoc{
 		EnvUUID: st.EnvironUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
@@ -1300,7 +1310,21 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// TODO(dimitern): Drop requested networks across the board in a
 		// follow-up.
 		createRequestedNetworksOp(st, svc.globalKey(), nil),
-		endpointBindingsOp,
+	}
+
+	if controllerSpace != "" {
+		endpointBindingsOp, err := createEndpointBindingsOp(
+			st, svc.globalKey(),
+			args.EndpointBindings, args.Charm.Meta(),
+			controllerSpace,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, endpointBindingsOp)
+	}
+
+	ops = append(ops, []txn.Op{
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
@@ -1318,7 +1342,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
 		},
-	}
+	}...)
 
 	// Collect peer relation addition operations.
 	//

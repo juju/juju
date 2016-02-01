@@ -11,8 +11,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/network"
 )
 
 // endpointBindingsDoc represents how a service endpoints are bound to spaces.
@@ -75,9 +73,9 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 // map containing only those bindings that need updating, and a sorted slice of
 // keys to remove (if any) - those are present in oldMap but missing in both
 // newMap and defaults.
-func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, []string, error) {
+func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta, controllerSpace string) (map[string]string, []string, error) {
 
-	defaultsMap, err := defaultEndpointBindingsForCharm(meta)
+	defaultsMap, err := defaultEndpointBindingsForCharm(meta, controllerSpace)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -126,12 +124,12 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 }
 
 // createEndpointBindingsOp returns the op needed to create new endpoint
-// bindings using the optional givenMap and the specified charm metadata to for
-// determining defaults and to validate the effective bindings.
-func createEndpointBindingsOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
+// bindings using the optional givenMap and the specified charm metadata.
+// Unspecified bindings get bound to the given controllerSpace.
+func createEndpointBindingsOp(st *State, key string, givenMap map[string]string, meta *charm.Meta, controllerSpace string) (txn.Op, error) {
 
 	// No existing map to merge, just use the defaults.
-	initialMap, _, err := mergeBindings(givenMap, nil, meta)
+	initialMap, _, err := mergeBindings(givenMap, nil, meta, controllerSpace)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
@@ -154,7 +152,7 @@ func createEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 // updateEndpointBindingsOp returns an op that merges the existing bindings with
 // givenMap, using newMeta to validate the merged bindings, and asserting the
 // existing ones haven't changed in the since we fetched them.
-func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string, newMeta *charm.Meta) (txn.Op, error) {
+func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string, newMeta *charm.Meta, controllerSpace string) (txn.Op, error) {
 	// Fetch existing bindings.
 	existingMap, txnRevno, err := readEndpointBindings(st, key)
 	if err != nil {
@@ -162,7 +160,7 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	}
 
 	// Merge existing with given as needed.
-	updatedMap, removedKeys, err := mergeBindings(givenMap, existingMap, newMeta)
+	updatedMap, removedKeys, err := mergeBindings(givenMap, existingMap, newMeta, controllerSpace)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
@@ -247,10 +245,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		return errors.Trace(err)
 	}
 
-	// TODO(dimitern): Do not treat the default space specially here, this is
-	// temporary only to reduce the fallout across state tests and will be fixed
-	// in a follow-up.
-	spacesNamesSet := set.NewStrings(network.DefaultSpace)
+	spacesNamesSet := set.NewStrings()
 	for _, space := range spaces {
 		spacesNamesSet.Add(space.Name())
 	}
@@ -284,15 +279,19 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 }
 
 // defaultEndpointBindingsForCharm populates a bindings map containing each
-// endpoint of the given charm metadata bound to the default space.
-func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
+// endpoint of the given charm metadata bound to the controllerSpace.
+func defaultEndpointBindingsForCharm(charmMeta *charm.Meta, controllerSpace string) (map[string]string, error) {
+	if controllerSpace == "" {
+		return nil, errors.New("cannot determine default service endpoint bindings: no controller space set")
+	}
+
 	allRelations, err := CombinedCharmRelations(charmMeta)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	bindings := make(map[string]string, len(allRelations))
 	for name := range allRelations {
-		bindings[name] = network.DefaultSpace
+		bindings[name] = controllerSpace
 	}
 	return bindings, nil
 }

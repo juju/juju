@@ -2235,23 +2235,53 @@ func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *sta
 
 func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	// With unspecified bindings, all endpoints are explicitly bound to the
-	// default space when saved in state.
-	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
+	// controller space (if set) when saved in state. When controller space is
+	// not set, any bindings are ignored.
 
-	setBindings, err := service.EndpointBindings()
+	// Set controller space to use for unspecified bindings.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		config.ControllerSpaceName: "controllers",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
+	service1 := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
+
+	setBindings, err := service1.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings, jc.DeepEquals, map[string]string{
-		"server":  network.DefaultSpace,
-		"client":  network.DefaultSpace,
-		"cluster": network.DefaultSpace,
+		"server":  "controllers",
+		"client":  "controllers",
+		"cluster": "controllers",
 	})
 
-	s.assertServiceRemovedWithItsBindings(c, service)
+	s.assertServiceRemovedWithItsBindings(c, service1)
+
+	// Clear controller space to cause serivce2 bindings to be ignored.
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		config.ControllerSpaceName: "",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	service2 := s.AddTestingServiceWithBindings(c, "theirsql", ch, nil)
+
+	ignoredBindings, err := service2.EndpointBindings()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `endpoint bindings for "s#theirsql" not found`)
+	c.Assert(ignoredBindings, gc.IsNil)
+
+	s.assertServiceRemovedWithItsBindings(c, service2)
 }
 
 func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, true)
+	// Set controller space to use for unspecified bindings.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		config.ControllerSpaceName: "controllers",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add extra spaces to use in bindings.
+	_, err = s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("ha", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2267,7 +2297,7 @@ func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings, jc.DeepEquals, map[string]string{
 		"server":  "db",
-		"client":  network.DefaultSpace,
+		"client":  "controllers",
 		"cluster": "ha",
 	})
 
@@ -2275,7 +2305,13 @@ func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, true)
+	// Set controller space to use for unspecified bindings.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		config.ControllerSpaceName: "controllers",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
@@ -2289,7 +2325,7 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	effectiveOld := map[string]string{
 		"kludge":  "db",
 		"client":  "db",
-		"cluster": network.DefaultSpace,
+		"cluster": "controllers",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
 
@@ -2301,13 +2337,13 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	effectiveNew := map[string]string{
 		// These two should be preserved from oldCharm.
 		"client":  "db",
-		"cluster": network.DefaultSpace,
+		"cluster": "controllers",
 		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": network.DefaultSpace,
+		"server": "controllers",
 		// All the remaining are new and use the default.
-		"foo":  network.DefaultSpace,
-		"baz":  network.DefaultSpace,
-		"just": network.DefaultSpace,
+		"foo":  "controllers",
+		"baz":  "controllers",
+		"just": "controllers",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 

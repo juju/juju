@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -458,10 +459,12 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a coule of test spaces, but notably NOT the default one.
+	// Add a coule of test spaces, including the controller space.
 	_, err = s.state.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.state.AddSpace("apps", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.AddSpace("controllers", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add some testing charms for the services.
@@ -469,6 +472,12 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 		AddTestingCharm(c, s.state, "wordpress"),
 		AddTestingCharm(c, s.state, "mysql"),
 	}
+
+	// Set the controller space used for default (unspecified) bindings.
+	err = s.state.UpdateEnvironConfig(map[string]interface{}{
+		config.ControllerSpaceName: "controllers",
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a few services using the charms above: with no bindings, with just
 	// defaults, and with explicitly given bindings. For the first case we need
@@ -523,24 +532,24 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 	services := s.setupAddDefaultEndpointBindingsToServices(c)
 	initialBindings := s.getServicesBindings(c, services)
 	wpAllDefaults := map[string]string{
-		"url":             network.DefaultSpace,
-		"logging-dir":     network.DefaultSpace,
-		"monitoring-port": network.DefaultSpace,
-		"db":              network.DefaultSpace,
-		"cache":           network.DefaultSpace,
+		"url":             "controllers",
+		"logging-dir":     "controllers",
+		"monitoring-port": "controllers",
+		"db":              "controllers",
+		"cache":           "controllers",
 	}
 	msAllDefaults := map[string]string{
-		"server": network.DefaultSpace,
+		"server": "controllers",
 	}
 	c.Assert(initialBindings, jc.DeepEquals, map[string]map[string]string{
 		"wp-no-bindings":      map[string]string{},
 		"wp-default-bindings": wpAllDefaults,
 		"wp-given-bindings": map[string]string{
 			"url":             "apps",
-			"logging-dir":     network.DefaultSpace,
-			"monitoring-port": network.DefaultSpace,
+			"logging-dir":     "controllers",
+			"monitoring-port": "controllers",
 			"db":              "db",
-			"cache":           network.DefaultSpace,
+			"cache":           "controllers",
 		},
 
 		"ms-no-bindings":      map[string]string{},
@@ -557,10 +566,10 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 			"wp-default-bindings": wpAllDefaults,
 			"wp-given-bindings": map[string]string{
 				"url":             "apps",
-				"logging-dir":     network.DefaultSpace,
-				"monitoring-port": network.DefaultSpace,
+				"logging-dir":     "controllers",
+				"monitoring-port": "controllers",
 				"db":              "db",
-				"cache":           network.DefaultSpace,
+				"cache":           "controllers",
 			},
 
 			"ms-no-bindings":      msAllDefaults,

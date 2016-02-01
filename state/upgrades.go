@@ -242,6 +242,15 @@ func addDefaultBindingsToServices(st *State) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "cannot get environment config")
+	}
+	controllerSpace, hasControllerSpace := envConfig.ControllerSpaceName()
+	if !hasControllerSpace {
+		logger.Warningf("cannot add default endpoint bindings to services: no controller space set in config for unspecified bindings")
+		return nil
+	}
 
 	upgradesLogger.Debugf("adding default endpoint bindings to services (where missing)")
 	ops := make([]txn.Op, 0, len(services))
@@ -257,7 +266,7 @@ func addDefaultBindingsToServices(st *State) error {
 			return errors.Annotatef(err, "checking service %q for existing bindings", service.Name())
 		}
 		// Passing nil for the bindings map will use the defaults.
-		createOp, err := createEndpointBindingsOp(st, service.globalKey(), nil, ch.Meta())
+		createOp, err := createEndpointBindingsOp(st, service.globalKey(), nil, ch.Meta(), controllerSpace)
 		if err != nil {
 			return errors.Annotatef(err, "setting default endpoint bindings for service %q", service.Name())
 		}
@@ -268,7 +277,7 @@ func addDefaultBindingsToServices(st *State) error {
 
 // AddDefaultEndpointBindingsToServices adds default endpoint bindings for each
 // service. As long as the service has a charm URL set, each charm endpoint will
-// be bound to the default space.
+// be bound to the controller space set in config.
 func AddDefaultEndpointBindingsToServices(st *State) error {
 	return runForAllEnvStates(st, addDefaultBindingsToServices)
 }
