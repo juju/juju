@@ -7,7 +7,10 @@ package resource
 
 import (
 	"io"
+	"os"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -22,4 +25,25 @@ type Content struct {
 
 	// Fingerprint holds the checksum of the data.
 	Fingerprint charmresource.Fingerprint
+}
+
+// GenerateContent returns a new Content for the given data stream.
+func GenerateContent(reader io.ReadSeeker) (Content, error) {
+	var sizer utils.SizeTracker
+	sizingReader := io.TeeReader(reader, &sizer)
+	fp, err := charmresource.GenerateFingerprint(sizingReader)
+	if err != nil {
+		return Content{}, errors.Trace(err)
+	}
+	if _, err := reader.Seek(0, os.SEEK_SET); err != nil {
+		return Content{}, errors.Trace(err)
+	}
+	size := sizer.Size()
+
+	content := Content{
+		Data:        reader,
+		Size:        size,
+		Fingerprint: fp,
+	}
+	return content, nil
 }
