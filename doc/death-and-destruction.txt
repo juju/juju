@@ -58,7 +58,7 @@ juju destroy-machine
 Destroying a machine involves a single transaction defined as follows:
 
   * If the machine is not Alive, abort without error.
-  * If the machine is the last one with JobManageEnviron, or has any assigned
+  * If the machine is the last one with JobManageModel, or has any assigned
     units, abort with an appropriate error.
   * Set the machine to Dying.
 

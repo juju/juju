@@ -33,9 +33,10 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -43,7 +44,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -130,7 +130,7 @@ func (ctx *context) setExpectedError(err string) {
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
-			err := ctx.uniter.Stop()
+			err := worker.Stop(ctx.uniter)
 			if ctx.err == "" {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
@@ -376,7 +376,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := storage.NewStorage(ctx.st.EnvironUUID(), ctx.st.MongoSession())
+	storage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
@@ -491,7 +491,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// appropriately.
 		Clock: clock.WallClock,
 	}
-	ctx.uniter = uniter.NewUniter(&uniterParams)
+	ctx.uniter, err = uniter.NewUniter(&uniterParams)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type waitUniterDead struct {
@@ -526,25 +527,21 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 func (s waitUniterDead) waitDead(c *gc.C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
-	timeout := time.After(worstCase)
-	for {
-		// The repeated StartSync is to ensure timely completion of this method
-		// in the case(s) where a state change causes a uniter action which
-		// causes a state change which causes a uniter action, in which case we
-		// need more than one sync. At the moment there's only one situation
-		// that causes this -- setting the unit's service to Dying -- but it's
-		// not an intrinsically insane pattern of action (and helps to simplify
-		// the filter code) so this test seems like a small price to pay.
-		ctx.s.BackingState.StartSync()
-		select {
-		case <-u.Dead():
-			return u.Wait()
-		case <-time.After(coretesting.ShortWait):
-			continue
-		case <-timeout:
-			c.Fatalf("uniter still alive")
-		}
+
+	wait := make(chan error, 1)
+	go func() {
+		wait <- u.Wait()
+	}()
+
+	ctx.s.BackingState.StartSync()
+	select {
+	case err := <-wait:
+		return err
+	case <-time.After(worstCase):
+		u.Kill()
+		c.Fatalf("uniter still alive")
 	}
+	panic("unreachable")
 }
 
 type stopUniter struct {
@@ -558,7 +555,7 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 		return
 	}
 	ctx.uniter = nil
-	err := u.Stop()
+	err := worker.Stop(u)
 	if s.err == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -1379,7 +1376,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

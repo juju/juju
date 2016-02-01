@@ -10,30 +10,30 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type stateSuite struct {
 	firewallerSuite
-	*apitesting.EnvironWatcherTests
+	*apitesting.ModelWatcherTests
 }
 
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.firewaller, s.BackingState, true)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.firewaller, s.BackingState, true)
 }
 
 func (s *stateSuite) TearDownTest(c *gc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
-func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
-	w, err := s.firewaller.WatchEnvironMachines()
+func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
+	w, err := s.firewaller.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange(s.machines[0].Id(), s.machines[1].Id(), s.machines[2].Id())
@@ -56,9 +56,6 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
@@ -70,8 +67,8 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	expectChanges := []string{
 		"0:juju-public",
@@ -102,7 +99,4 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1:juju-public")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

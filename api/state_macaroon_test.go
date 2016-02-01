@@ -24,7 +24,7 @@ const testUserName = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	s.AddEnvUser(c, testUserName)
+	s.AddModelUser(c, testUserName)
 	info := s.APIInfo(c)
 	// Don't log in.
 	info.UseMacaroons = false
@@ -74,7 +74,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 	connectURL := connectURLFromReader(c, conn)
-	c.Assert(connectURL.Path, gc.Equals, "/environment/"+s.State.EnvironTag().Id()+"/path")
+	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.State.ModelTag().Id()+"/path")
 	c.Assert(dischargeCount, gc.Equals, 1)
 }
 

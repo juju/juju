@@ -17,7 +17,7 @@ import (
 // mockState implements State interface and allows inspection of called
 // methods.
 type mockState struct {
-	env      *mockEnvironment
+	env      *mockModel
 	removed  bool
 	isSystem bool
 	machines []undertaker.Machine
@@ -38,7 +38,7 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 		},
 	}
 
-	env := mockEnvironment{
+	env := mockModel{
 		owner: envOwner,
 		name:  envName,
 		life:  state.Alive,
@@ -53,14 +53,14 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 	return m
 }
 
-func (m *mockState) EnsureEnvironmentRemoved() error {
+func (m *mockState) EnsureModelRemoved() error {
 	if !m.removed {
-		return errors.New("found documents for environment")
+		return errors.New("found documents for model")
 	}
 	return nil
 }
 
-func (m *mockState) RemoveAllEnvironDocs() error {
+func (m *mockState) RemoveAllModelDocs() error {
 	if m.env.life != state.Dead {
 		return errors.New("transaction aborted")
 	}
@@ -68,9 +68,9 @@ func (m *mockState) RemoveAllEnvironDocs() error {
 	return nil
 }
 
-func (m *mockState) ProcessDyingEnviron() error {
+func (m *mockState) ProcessDyingModel() error {
 	if m.env.life != state.Dying {
-		return errors.New("environment is not dying")
+		return errors.New("model is not dying")
 	}
 	m.env.life = state.Dead
 	return nil
@@ -88,17 +88,17 @@ func (m *mockState) IsStateServer() bool {
 	return m.isSystem
 }
 
-func (m *mockState) Environment() (undertaker.Environment, error) {
+func (m *mockState) Model() (undertaker.Model, error) {
 	return m.env, nil
 }
 
-func (m *mockState) EnvironConfig() (*config.Config, error) {
+func (m *mockState) ModelConfig() (*config.Config, error) {
 	return &config.Config{}, nil
 }
 
-// mockEnvironment implements Environment interface and allows inspection of called
+// mockModel implements Model interface and allows inspection of called
 // methods.
-type mockEnvironment struct {
+type mockModel struct {
 	tod   time.Time
 	owner names.UserTag
 	life  state.Life
@@ -106,29 +106,29 @@ type mockEnvironment struct {
 	uuid  string
 }
 
-var _ undertaker.Environment = (*mockEnvironment)(nil)
+var _ undertaker.Model = (*mockModel)(nil)
 
-func (m *mockEnvironment) TimeOfDeath() time.Time {
+func (m *mockModel) TimeOfDeath() time.Time {
 	return m.tod
 }
 
-func (m *mockEnvironment) Owner() names.UserTag {
+func (m *mockModel) Owner() names.UserTag {
 	return m.owner
 }
 
-func (m *mockEnvironment) Life() state.Life {
+func (m *mockModel) Life() state.Life {
 	return m.life
 }
 
-func (m *mockEnvironment) Name() string {
+func (m *mockModel) Name() string {
 	return m.name
 }
 
-func (m *mockEnvironment) UUID() string {
+func (m *mockModel) UUID() string {
 	return m.uuid
 }
 
-func (m *mockEnvironment) Destroy() error {
+func (m *mockModel) Destroy() error {
 	m.life = state.Dying
 	return nil
 }

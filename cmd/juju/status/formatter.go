@@ -32,12 +32,12 @@ func (sf *statusFormatter) format() formattedStatus {
 		return formattedStatus{}
 	}
 	out := formattedStatus{
-		Environment: sf.status.EnvironmentName,
-		Machines:    make(map[string]machineStatus),
-		Services:    make(map[string]serviceStatus),
+		Model:    sf.status.ModelName,
+		Machines: make(map[string]machineStatus),
+		Services: make(map[string]serviceStatus),
 	}
 	if sf.status.AvailableVersion != "" {
-		out.EnvironmentStatus = &environmentStatus{
+		out.ModelStatus = &modelStatus{
 			AvailableVersion: sf.status.AvailableVersion,
 		}
 	}
@@ -105,7 +105,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	}
 
 	for _, job := range machine.Jobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}

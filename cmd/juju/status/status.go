@@ -14,7 +14,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -28,11 +28,11 @@ type statusAPI interface {
 // NewStatusCommand returns a new command, which reports on the
 // runtime state of various system entities.
 func NewStatusCommand() cmd.Command {
-	return envcmd.Wrap(&statusCommand{})
+	return modelcmd.Wrap(&statusCommand{})
 }
 
 type statusCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	patterns []string
 	isoTime  bool
@@ -46,7 +46,7 @@ There are a number of ways to format the status output:
 
 - {short|line|oneline}: List units and their subordinates. For each
            unit, the IP address and agent status are listed.
-- summary: Displays the subnet(s) and port(s) the environment utilises.
+- summary: Displays the subnet(s) and port(s) the model utilises.
            Also displays aggregate information about:
            - MACHINES: total #, and # in each state.
            - UNITS: total #, and # in each state.
@@ -76,9 +76,9 @@ func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
 		Args:    "[pattern ...]",
-		Purpose: "output status information about an environment",
+		Purpose: "output status information about a model",
 		Doc:     statusDoc,
-		Aliases: []string{"stat"},
+		Aliases: []string{"show-status"},
 	}
 }
 
@@ -114,8 +114,8 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-var connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
+var connectionError = `Unable to connect to model %q.
+Please check your credentials or use 'juju bootstrap' to create a new model.
 
 Error details:
 %v

@@ -158,8 +158,6 @@ const (
 	ProviderType           = "PROVIDER_TYPE"
 	ContainerType          = "CONTAINER_TYPE"
 	Namespace              = "NAMESPACE"
-	StorageDir             = "STORAGE_DIR"
-	StorageAddr            = "STORAGE_ADDR"
 	AgentServiceName       = "AGENT_SERVICE_NAME"
 	MongoOplogSize         = "MONGO_OPLOG_SIZE"
 	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
@@ -244,9 +242,8 @@ type Config interface {
 	// available) when connecting to the state or API server.
 	PreferIPv6() bool
 
-	// Environment returns the tag for the environment that the agent belongs
-	// to.
-	Environment() names.EnvironTag
+	// Model returns the tag for the model that the agent belongs to.
+	Model() names.ModelTag
 
 	// MetricsSpoolDir returns the spool directory where workloads store
 	// collected metrics.
@@ -330,7 +327,7 @@ type MigrateParams struct {
 	Jobs         []multiwatcher.MachineJob
 	DeleteValues []string
 	Values       map[string]string
-	Environment  names.EnvironTag
+	Model        names.ModelTag
 }
 
 // Ensure that the configInternal struct implements the Config interface.
@@ -355,7 +352,7 @@ type configInternal struct {
 	paths             Paths
 	tag               names.Tag
 	nonce             string
-	environment       names.EnvironTag
+	model             names.ModelTag
 	jobs              []multiwatcher.MachineJob
 	upgradedToVersion version.Number
 	caCert            string
@@ -374,7 +371,7 @@ type AgentConfigParams struct {
 	Tag               names.Tag
 	Password          string
 	Nonce             string
-	Environment       names.EnvironTag
+	Model             names.ModelTag
 	StateAddresses    []string
 	APIAddresses      []string
 	CACert            string
@@ -403,10 +400,10 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.Password == "" {
 		return nil, errors.Trace(requiredError("password"))
 	}
-	if uuid := configParams.Environment.Id(); uuid == "" {
-		return nil, errors.Trace(requiredError("environment"))
-	} else if !names.IsValidEnvironment(uuid) {
-		return nil, errors.Errorf("%q is not a valid environment uuid", uuid)
+	if uuid := configParams.Model.Id(); uuid == "" {
+		return nil, errors.Trace(requiredError("model"))
+	} else if !names.IsValidModel(uuid) {
+		return nil, errors.Errorf("%q is not a valid model uuid", uuid)
 	}
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))
@@ -419,7 +416,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
 		nonce:             configParams.Nonce,
-		environment:       configParams.Environment,
+		model:             configParams.Model,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
@@ -577,8 +574,8 @@ func (config *configInternal) Migrate(newParams MigrateParams) error {
 		}
 		config.values[key] = value
 	}
-	if newParams.Environment.Id() != "" {
-		config.environment = newParams.Environment
+	if newParams.Model.Id() != "" {
+		config.model = newParams.Model
 	}
 	if err := config.check(); err != nil {
 		return fmt.Errorf("migrated agent config is invalid: %v", err)
@@ -710,8 +707,8 @@ func (c *configInternal) Tag() names.Tag {
 	return c.tag
 }
 
-func (c *configInternal) Environment() names.EnvironTag {
-	return c.environment
+func (c *configInternal) Model() names.ModelTag {
+	return c.model
 }
 
 func (c *configInternal) Dir() string {
@@ -798,12 +795,12 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		}
 	}
 	return &api.Info{
-		Addrs:      addrs,
-		Password:   c.apiDetails.password,
-		CACert:     c.caCert,
-		Tag:        c.tag,
-		Nonce:      c.nonce,
-		EnvironTag: c.environment,
+		Addrs:    addrs,
+		Password: c.apiDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+		Nonce:    c.nonce,
+		ModelTag: c.model,
 	}, true
 }
 

@@ -68,7 +68,7 @@ func (s *EndpointSuite) TestCachedAddressesUsedIfAvailable(c *gc.C) {
 			"\ntest %d: prefer-ipv6 environ=%v, bootstrap=%v",
 			i, envPreferIPv6, bootPreferIPv6,
 		)
-		s.setPreferIPv6EnvironConfig(c, envPreferIPv6)
+		s.setPreferIPv6ModelConfig(c, envPreferIPv6)
 		s.setPreferIPv6BootstrapConfig(c, bootPreferIPv6)
 
 		// Without arguments, verify the first cached address is returned.
@@ -276,16 +276,16 @@ func (s *EndpointSuite) runAndCheckOutput(c *gc.C, format string, output []inter
 
 // getStoreInfo returns the current environment's EnvironInfo.
 func (s *EndpointSuite) getStoreInfo(c *gc.C) configstore.EnvironInfo {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := s.ConfigStore.ReadInfo(env.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	return info
 }
 
-// setPreferIPv6EnvironConfig sets the "prefer-ipv6" environment
+// setPreferIPv6ModelConfig sets the "prefer-ipv6" model
 // setting to given value.
-func (s *EndpointSuite) setPreferIPv6EnvironConfig(c *gc.C, value bool) {
+func (s *EndpointSuite) setPreferIPv6ModelConfig(c *gc.C, value bool) {
 	// Technically, because prefer-ipv6 is an immutable setting, what
 	// follows should be impossible, but the dummy provider doesn't
 	// seem to validate the new config against the current (old) one

@@ -8,8 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -31,11 +30,10 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&common.SetConstraintsCommand{}),
-		"mem=4G", "cpu-power=250")
+	_, err := testing.RunCommand(c, model.NewModelSetConstraintsCommand(), "mem=4G", "cpu-power=250")
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons, err := s.State.EnvironConstraints()
+	cons, err := s.State.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
@@ -48,7 +46,7 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, envcmd.Wrap(&common.GetConstraintsCommand{}), "svc")
+	context, err := testing.RunCommand(c, service.NewServiceGetConstraintsCommand(), "svc")
 	c.Assert(testing.Stdout(context), gc.Equals, "cpu-cores=64\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 }

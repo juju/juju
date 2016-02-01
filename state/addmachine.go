@@ -32,13 +32,13 @@ type MachineTemplate struct {
 
 	// Jobs holds the jobs to run on the machine's instance.
 	// A machine must have at least one job to do.
-	// JobManageEnviron can only be part of the jobs
+	// JobManageModel can only be part of the jobs
 	// when the first (bootstrap) machine is added.
 	Jobs []MachineJob
 
 	// NoVote holds whether a machine running
 	// a state server should abstain from peer voting.
-	// It is ignored if Jobs does not contain JobManageEnviron.
+	// It is ignored if Jobs does not contain JobManageModel.
 	NoVote bool
 
 	// Addresses holds the addresses to be associated with the
@@ -158,11 +158,11 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
-		return nil, errors.New("environment is no longer alive")
+		return nil, errors.New("model is no longer alive")
 	}
 	var ops []txn.Op
 	var mdocs []*machineDoc
@@ -189,23 +189,23 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	ops = append(ops, ssOps...)
 	ops = append(ops, env.assertAliveOp())
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, errors.New("environment is no longer alive"))
+		return nil, onAbort(err, errors.New("model is no longer alive"))
 	}
 	return ms, nil
 }
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	} else if env.Life() != Alive {
-		return nil, errors.New("environment is no longer alive")
+		return nil, errors.New("model is no longer alive")
 	}
 	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
 		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
-			return nil, errors.New("environment is no longer alive")
+			return nil, errors.New("model is no longer alive")
 		} else if enverr != nil {
 			err = enverr
 		}
@@ -260,7 +260,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 		}
 		jset[j] = true
 	}
-	if jset[JobManageEnviron] {
+	if jset[JobManageModel] {
 		if !allowStateServer {
 			return tmpl, errStateServerNotAllowed
 		}
@@ -290,7 +290,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps = append(prereqOps, assertEnvAliveOp(st.EnvironUUID()))
+	prereqOps = append(prereqOps, assertModelAliveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
@@ -301,7 +301,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				DocID:      mdoc.DocID,
 				MachineId:  mdoc.Id,
 				InstanceId: template.InstanceId,
-				EnvUUID:    mdoc.EnvUUID,
+				ModelUUID:  mdoc.ModelUUID,
 				Arch:       template.HardwareCharacteristics.Arch,
 				Mem:        template.HardwareCharacteristics.Mem,
 				RootDisk:   template.HardwareCharacteristics.RootDisk,
@@ -459,7 +459,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	return &machineDoc{
 		DocID:                   st.docID(id),
 		Id:                      id,
-		EnvUUID:                 st.EnvironUUID(),
+		ModelUUID:               st.ModelUUID(),
 		Series:                  template.Series,
 		Jobs:                    template.Jobs,
 		Clean:                   !template.Dirty,
@@ -486,9 +486,9 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	statusDoc := statusDoc{
-		Status:  StatusPending,
-		EnvUUID: st.EnvironUUID(),
-		Updated: time.Now().UnixNano(),
+		Status:    StatusPending,
+		ModelUUID: st.ModelUUID(),
+		Updated:   time.Now().UnixNano(),
 	}
 	globalKey := machineGlobalKey(mdoc.Id)
 	prereqOps = []txn.Op{
@@ -672,7 +672,7 @@ var errStateServerNotAllowed = errors.New("state server jobs specified but not a
 func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *StateServerInfo) ([]txn.Op, error) {
 	var newIds, newVotingIds []string
 	for _, doc := range mdocs {
-		if !hasJob(doc.Jobs, JobManageEnviron) {
+		if !hasJob(doc.Jobs, JobManageModel) {
 			continue
 		}
 		newIds = append(newIds, doc.Id)
@@ -699,7 +699,7 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	}
 	ops := []txn.Op{{
 		C:  stateServersC,
-		Id: environGlobalKey,
+		Id: modelGlobalKey,
 		Assert: bson.D{{
 			"$and", []bson.D{
 				{{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}}},
@@ -714,13 +714,13 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	return ops, nil
 }
 
-// EnsureAvailability adds state server machines as necessary to make
+// EnableHA adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
 // If placement is not empty, any new machines which may be required are started
 // according to the specified placement directives until the placement list is
 // exhausted; thereafter any new machines are started according to the constraints and series.
-func (st *State) EnsureAvailability(
+func (st *State) EnableHA(
 	numStateServers int, cons constraints.Value, series string, placement []string,
 ) (StateServersChanges, error) {
 
@@ -747,7 +747,7 @@ func (st *State) EnsureAvailability(
 			return nil, errors.New("cannot reduce state server count")
 		}
 
-		intent, err := st.ensureAvailabilityIntentions(currentInfo, placement)
+		intent, err := st.enableHAIntentions(currentInfo, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -776,7 +776,7 @@ func (st *State) EnsureAvailability(
 		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
+		ops, change, err = st.enableHAIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
@@ -796,9 +796,9 @@ type StateServersChanges struct {
 	Converted  []string
 }
 
-// ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.
-func (st *State) ensureAvailabilityIntentionOps(
-	intent *ensureAvailabilityIntent,
+// enableHAIntentionOps returns operations to fulfil the desired intent.
+func (st *State) enableHAIntentionOps(
+	intent *enableHAIntent,
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
@@ -836,7 +836,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
-				JobManageEnviron,
+				JobManageModel,
 			},
 			Constraints: cons,
 			Placement:   getPlacement(),
@@ -883,21 +883,21 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 	return m.AgentPresence()
 }
 
-type ensureAvailabilityIntent struct {
+type enableHAIntent struct {
 	newCount  int
 	placement []string
 
 	promote, maintain, demote, remove, convert []*Machine
 }
 
-// ensureAvailabilityIntentions returns what we would like
+// enableHAIntentions returns what we would like
 // to do to maintain the availability of the existing servers
 // mentioned in the given info, including:
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement []string) (*ensureAvailabilityIntent, error) {
-	var intent ensureAvailabilityIntent
+func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (*enableHAIntent, error) {
+	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): unscoped placements shouldn't ever get here (though
 		// they do currently).  We should fix up the CLI to always add a scope
@@ -960,7 +960,7 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo, placement [
 			intent.maintain = append(intent.maintain, m)
 		} else {
 			// The machine neither wants to nor has a vote, so remove its
-			// JobManageEnviron job immediately.
+			// JobManageModel job immediately.
 			intent.remove = append(intent.remove, m)
 		}
 	}
@@ -974,13 +974,13 @@ func convertStateServerOps(m *Machine) []txn.Op {
 		C:  machinesC,
 		Id: m.doc.DocID,
 		Update: bson.D{
-			{"$addToSet", bson.D{{"jobs", JobManageEnviron}}},
+			{"$addToSet", bson.D{{"jobs", JobManageModel}}},
 			{"$set", bson.D{{"novote", false}}},
 		},
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 	}, {
 		C:  stateServersC,
-		Id: environGlobalKey,
+		Id: modelGlobalKey,
 		Update: bson.D{
 			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
 			{"$addToSet", bson.D{{"machineids", m.doc.Id}}},
@@ -996,7 +996,7 @@ func promoteStateServerOps(m *Machine) []txn.Op {
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	}, {
 		C:      stateServersC,
-		Id:     environGlobalKey,
+		Id:     modelGlobalKey,
 		Update: bson.D{{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
@@ -1009,7 +1009,7 @@ func demoteStateServerOps(m *Machine) []txn.Op {
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
 	}, {
 		C:      stateServersC,
-		Id:     environGlobalKey,
+		Id:     modelGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
@@ -1020,12 +1020,12 @@ func removeStateServerOps(m *Machine) []txn.Op {
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}, {"hasvote", false}},
 		Update: bson.D{
-			{"$pull", bson.D{{"jobs", JobManageEnviron}}},
+			{"$pull", bson.D{{"jobs", JobManageModel}}},
 			{"$set", bson.D{{"novote", false}}},
 		},
 	}, {
 		C:      stateServersC,
-		Id:     environGlobalKey,
+		Id:     modelGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}
 }

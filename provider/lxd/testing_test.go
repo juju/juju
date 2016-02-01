@@ -217,7 +217,7 @@ func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.C
 		updates = make(testing.Attrs)
 	}
 	var err error
-	cfg := testing.EnvironConfig(c)
+	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	if raw := updates[cfgNamespace]; raw == nil || raw.(string) == "" {
@@ -314,7 +314,7 @@ func (s *BaseSuite) asNonLocal(clientCfg lxdclient.Config) (lxdclient.Config, er
 
 func NewBaseConfig(c *gc.C) *config.Config {
 	var err error
-	cfg := testing.EnvironConfig(c)
+	cfg := testing.ModelConfig(c)
 
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)

@@ -36,8 +36,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
-	if envStatus := fs.EnvironmentStatus; envStatus != nil {
-		p("[Environment]")
+	if envStatus := fs.ModelStatus; envStatus != nil {
+		p("[Model]")
 		if envStatus.AvailableVersion != "" {
 			p("UPGRADE-AVAILABLE")
 			p(envStatus.AvailableVersion)

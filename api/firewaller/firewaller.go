@@ -9,8 +9,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const firewallerFacade = "Firewaller"
@@ -18,15 +19,15 @@ const firewallerFacade = "Firewaller"
 // State provides access to the Firewaller API facade.
 type State struct {
 	facade base.FacadeCaller
-	*common.EnvironWatcher
+	*common.ModelWatcher
 }
 
 // NewState creates a new client-side Firewaller API facade.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &State{
-		facade:         facadeCaller,
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
+		facade:       facadeCaller,
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
 	}
 }
 
@@ -36,9 +37,9 @@ func (st *State) BestAPIVersion() int {
 	return st.facade.BestAPIVersion()
 }
 
-// EnvironTag returns the current environment's tag.
-func (st *State) EnvironTag() (names.EnvironTag, error) {
-	return st.facade.RawAPICaller().EnvironTag()
+// ModelTag returns the current model's tag.
+func (st *State) ModelTag() (names.ModelTag, error) {
+	return st.facade.RawAPICaller().ModelTag()
 }
 
 // life requests the life cycle of the given entity from the server.
@@ -73,32 +74,32 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	}, nil
 }
 
-// WatchEnvironMachines returns a StringsWatcher that notifies of
+// WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the life cycles of the top level machines in the current
-// environment.
-func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+// model.
+func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := st.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
-// changes to the opened ports for the current environment.
+// changes to the opened ports for the current model.
 func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
-	envTag, err := st.EnvironTag()
+	modelTag, err := st.ModelTag()
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid environ tag")
+		return nil, errors.Annotatef(err, "invalid model tag")
 	}
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: envTag.String()}},
+		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
 	err = st.facade.FacadeCall("WatchOpenedPorts", args, &results)
 	if err != nil {
@@ -111,6 +112,6 @@ func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

@@ -370,7 +370,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
 		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
-		"juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+		"juju-testenv-model-"+testing.ModelTag.Id(),
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
@@ -440,7 +440,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
 		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
-		"juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+		"juju-testenv-model-"+testing.ModelTag.Id(),
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
@@ -507,7 +507,7 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 
 var internalSecurityGroupPath = path.Join(
 	"/subscriptions", fakeSubscriptionId,
-	"resourceGroups", "juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+	"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
 	"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
 )
 

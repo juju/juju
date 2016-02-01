@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // APICallerFunc is a function type that implements APICaller.
@@ -29,8 +30,8 @@ func (APICallerFunc) BestFacadeVersion(facade string) int {
 	return 0
 }
 
-func (APICallerFunc) EnvironTag() (names.EnvironTag, error) {
-	return names.NewEnvironTag(""), nil
+func (APICallerFunc) ModelTag() (names.ModelTag, error) {
+	return coretesting.ModelTag, nil
 }
 
 func (APICallerFunc) Close() error {

@@ -11,11 +11,11 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newUpdateCommand() cmd.Command {
-	return envcmd.Wrap(&updateCommand{})
+	return modelcmd.Wrap(&updateCommand{})
 }
 
 // updateCommand calls the API to update an existing network space.

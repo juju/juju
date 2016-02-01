@@ -171,7 +171,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
 	}
 
-	st, err := newStateConnection(agentConfig.Environment(), mgoInfo)
+	st, err := newStateConnection(agentConfig.Model(), mgoInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

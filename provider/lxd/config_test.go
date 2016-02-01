@@ -30,7 +30,7 @@ var _ = gc.Suite(&configSuite{})
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	cfg, err := testing.EnvironConfig(c).Apply(lxd.ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(lxd.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
 }
@@ -243,7 +243,7 @@ func (ts configTestSpec) attrs() testing.Attrs {
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	attrs := ts.attrs()
-	cfg, err := testing.EnvironConfig(c).Apply(attrs)
+	cfg, err := testing.ModelConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
@@ -308,7 +308,7 @@ var newConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown-field": 12345},
 }}
 
-func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	// TODO(ericsnow) Move to a functional suite.
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")

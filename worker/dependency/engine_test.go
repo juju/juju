@@ -392,6 +392,28 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 	mh2.AssertOneStart(c)
 }
 
+func (s *EngineSuite) TestErrBounce(c *gc.C) {
+
+	// Start a simple dependency.
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("some-task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
+
+	// Start its dependent.
+	mh2 := newResourceIgnoringManifoldHarness("some-task")
+	err = s.engine.Install("another-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+
+	// The parent requests bounce causing both to restart.
+	// Note(mjs): the lack of a restart delay is not specifically
+	// tested as I can't think of a reliable way to do this.
+	mh1.InjectError(c, dependency.ErrBounce)
+	mh1.AssertOneStart(c)
+	mh2.AssertStart(c) // Might restart more than once
+}
+
 func (s *EngineSuite) TestErrUninstall(c *gc.C) {
 
 	// Start a simple dependency.

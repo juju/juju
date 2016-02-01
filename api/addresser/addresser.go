@@ -8,8 +8,9 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.api.addresser")
@@ -31,7 +32,7 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-// CanDeallocateAddresses checks if the current environment can
+// CanDeallocateAddresses checks if the current model can
 // deallocate IP addresses.
 func (api *API) CanDeallocateAddresses() (bool, error) {
 	var result params.BoolResult
@@ -58,20 +59,20 @@ func (api *API) CleanupIPAddresses() error {
 	return errors.Trace(result.Error)
 }
 
-var newEntityWatcher = watcher.NewEntityWatcher
+var newEntitiesWatcher = apiwatcher.NewEntitiesWatcher
 
-// WatchIPAddresses returns a EntityWatcher for observing the
+// WatchIPAddresses returns a EntitiesWatcher for observing the
 // tags of IP addresses with changes in life cycle.
 // The initial event will contain the tags of any IP addresses
 // which are no longer Alive.
-func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
-	var result params.EntityWatchResult
+func (api *API) WatchIPAddresses() (watcher.EntitiesWatcher, error) {
+	var result params.EntitiesWatchResult
 	err := api.facade.FacadeCall("WatchIPAddresses", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error == nil {
-		w := newEntityWatcher(api.facade.RawAPICaller(), result)
+		w := newEntitiesWatcher(api.facade.RawAPICaller(), result)
 		return w, nil
 	}
 	return nil, errors.Trace(result.Error)

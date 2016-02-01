@@ -40,7 +40,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{
 		stub: &s.Stub,
-		env:  coretesting.EnvironmentTag,
+		env:  coretesting.ModelTag,
 	}
 	s.getResource = dt.StubGetResource(dt.StubResources{
 		"agent-name": dt.StubResource{Output: s.agent},
@@ -101,7 +101,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdSet(c *gc.C) {
 }
 
 func (s *ManifoldSuite) setupMutatorTest(c *gc.C) agent.ConfigMutator {
-	s.agent.env = names.EnvironTag{}
+	s.agent.env = names.ModelTag{}
 	s.conn.stub = &s.Stub // will be unsafe if worker stopped before test finished
 	s.SetErrors(
 		nil, //                                               openConnection,
@@ -126,11 +126,11 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
 	err := mutator(mockSetter)
 	c.Check(err, jc.ErrorIsNil)
 	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "EnvironTag",
+		FuncName: "ModelTag",
 	}, {
 		FuncName: "Migrate",
 		Args: []interface{}{agent.MigrateParams{
-			Environment: coretesting.EnvironmentTag,
+			Model: coretesting.ModelTag,
 		}},
 	}})
 }
@@ -140,9 +140,9 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetBadAPIState(c *g
 	s.SetErrors(errors.New("no tag for you"))
 
 	err := mutator(nil)
-	c.Check(err, gc.ErrorMatches, "no environment uuid set on api: no tag for you")
+	c.Check(err, gc.ErrorMatches, "no model uuid set on api: no tag for you")
 	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "EnvironTag",
+		FuncName: "ModelTag",
 	}})
 }
 
@@ -154,11 +154,11 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetMigrateFailure(c
 	err := mutator(mockSetter)
 	c.Check(err, gc.ErrorMatches, "migrate failure")
 	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "EnvironTag",
+		FuncName: "ModelTag",
 	}, {
 		FuncName: "Migrate",
 		Args: []interface{}{agent.MigrateParams{
-			Environment: coretesting.EnvironmentTag,
+			Model: coretesting.ModelTag,
 		}},
 	}})
 }
@@ -218,13 +218,18 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	err := s.manifold.Output(worker, &apicaller)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(apicaller, gc.Equals, s.conn)
+
+	var conn api.Connection
+	err = s.manifold.Output(worker, &conn)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(conn, gc.Equals, s.conn)
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	var apicaller base.APICaller
 	err := s.manifold.Output(dummyWorker{}, &apicaller)
 	c.Check(apicaller, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *apicaller.apiConnWorker->*base.APICaller; got apicaller_test.dummyWorker->*base.APICaller")
+	c.Check(err.Error(), gc.Equals, "in should be a *apicaller.apiConnWorker; got apicaller_test.dummyWorker")
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
@@ -233,5 +238,5 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	var apicaller interface{}
 	err := s.manifold.Output(worker, &apicaller)
 	c.Check(apicaller, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *apicaller.apiConnWorker->*base.APICaller; got *apicaller.apiConnWorker->*interface {}")
+	c.Check(err.Error(), gc.Equals, "out should be *base.APICaller or *api.Connection; got *interface {}")
 }

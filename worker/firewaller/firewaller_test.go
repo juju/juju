@@ -47,7 +47,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 
 	// Create a manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Por
 }
 
 func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *state.Machine) {
-	units, err := juju.AddUnits(s.State, svc, 1, "")
+	units, err := juju.AddUnits(s.State, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	u := units[0]
 	id, err := u.AssignedMachineId()
@@ -831,8 +831,22 @@ func (s *NoneModeSuite) TearDownTest(c *gc.C) {
 	s.firewallerBaseSuite.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *NoneModeSuite) TestDoesNotStartAtAll(c *gc.C) {
+func (s *NoneModeSuite) TestStopImmediatelyWhenModeNone(c *gc.C) {
 	fw, err := firewaller.NewFirewaller(s.firewaller)
-	c.Assert(err, gc.ErrorMatches, `firewaller is disabled when firewall-mode is "none"`)
-	c.Assert(fw, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		fw.Kill()
+		fw.Wait()
+	}()
+
+	wait := make(chan error)
+	go func() {
+		wait <- fw.Wait()
+	}()
+	select {
+	case err := <-wait:
+		c.Assert(err, gc.ErrorMatches, `firewaller is disabled when firewall-mode is "none"`)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out")
+	}
 }

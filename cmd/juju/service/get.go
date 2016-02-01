@@ -4,26 +4,26 @@
 package service
 
 import (
-	"errors"
-
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewGetCommand gets the config values for a service.
+// NewGetCommand returns a command used to get service attributes.
 func NewGetCommand() cmd.Command {
-	return envcmd.Wrap(&getCommand{})
+	return modelcmd.Wrap(&getCommand{})
 }
 
 // getCommand retrieves the configuration of a service.
 type getCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName string
 	out         cmd.Output
-	api         GetServiceAPI
+	api         getServiceAPI
 }
 
 const getDoc = `
@@ -80,30 +80,34 @@ func (c *getCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-// GetServiceAPI defines the methods on the client API
-// that the get-config command calls.
-type GetServiceAPI interface {
+// getServiceAPI defines the methods on the client API
+// that the service get command calls.
+type getServiceAPI interface {
 	Close() error
 	ServiceGet(service string) (*params.ServiceGetResults, error)
 }
 
-func (c *getCommand) getAPI() (GetServiceAPI, error) {
+func (c *getCommand) getAPI() (getServiceAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.NewClient(root), nil
 }
 
 // Run fetches the configuration of the service and formats
 // the result as a YAML string.
 func (c *getCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer apiclient.Close()
 
-	results, err := client.ServiceGet(c.ServiceName)
+	results, err := apiclient.ServiceGet(c.ServiceName)
 	if err != nil {
 		return err
 	}

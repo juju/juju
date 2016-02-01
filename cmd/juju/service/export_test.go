@@ -6,27 +6,26 @@ package service
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewSetCommand returns a SetCommand with the api provided as specified.
-func NewSetCommandWithAPI(clientAPI ClientAPI, serviceAPI ServiceAPI) cmd.Command {
-	return envcmd.Wrap(&setCommand{
-		clientApi:  clientAPI,
+// NewSetCommandForTest returns a SetCommand with the api provided as specified.
+func NewSetCommandForTest(serviceAPI serviceAPI) cmd.Command {
+	return modelcmd.Wrap(&setCommand{
 		serviceApi: serviceAPI,
 	})
 }
 
 // NewGetCommand returns a GetCommand with the api provided as specified.
-func NewGetCommandForTest(api GetServiceAPI) cmd.Command {
-	return envcmd.Wrap(&getCommand{
+func NewGetCommandForTest(api getServiceAPI) cmd.Command {
+	return modelcmd.Wrap(&getCommand{
 		api: api,
 	})
 }
 
-// NewAddUnitCommand returns an AddUnitCommand with the api provided as specified.
-func NewAddUnitCommandForTest(api ServiceAddUnitAPI) cmd.Command {
-	return envcmd.Wrap(&addUnitCommand{
+// NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
+func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
+	return modelcmd.Wrap(&addUnitCommand{
 		api: api,
 	})
 }

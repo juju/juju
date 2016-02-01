@@ -5,9 +5,10 @@ package common
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 // APIAddresser provides common client-side API
@@ -38,11 +39,11 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// EnvironUUID returns the environment UUID to connect to the environment
+// ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
-func (a *APIAddresser) EnvironUUID() (string, error) {
+func (a *APIAddresser) ModelUUID() (string, error) {
 	var result params.StringResult
-	err := a.facade.FacadeCall("EnvironUUID", nil, &result)
+	err := a.facade.FacadeCall("ModelUUID", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -76,5 +77,5 @@ func (a *APIAddresser) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return watcher.NewNotifyWatcher(a.facade.RawAPICaller(), result), nil
+	return apiwatcher.NewNotifyWatcher(a.facade.RawAPICaller(), result), nil
 }
