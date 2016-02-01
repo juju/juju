@@ -75,14 +75,14 @@ func (s *relationUnitSuite) TestRelation(c *gc.C) {
 }
 
 func (s *relationUnitSuite) TestNetworkConfig(c *gc.C) {
-	// Set some provider addresses bound to both "default" and "internal"
-	// spaces.
+	// Set some provider addresses bound to "admin" and "internal" spaces and
+	// one without a space.
 	addresses := []network.Address{
-		network.NewAddressOnSpace(network.DefaultSpace, "8.8.8.8"),
+		network.NewAddressOnSpace("admin", "8.8.8.8"),
 		network.NewAddressOnSpace("", "8.8.4.4"),
 		network.NewAddressOnSpace("internal", "10.0.0.1"),
 		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace(network.DefaultSpace, "fc00::1"),
+		network.NewAddressOnSpace("admin", "fc00::1"),
 	}
 	err := s.wordpressMachine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)

@@ -51,6 +51,8 @@ func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
 	}
 	_, err := s.State.AddSpace("internal", "internal", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("admin", "admin", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.

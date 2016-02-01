@@ -34,13 +34,15 @@ func (s *uniterV2NetworkConfigSuite) SetUpTest(c *gc.C) {
 
 	_, err = s.State.AddSpace("internal", "internal", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("admin", "admin", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
 
 	providerAddresses := []network.Address{
-		network.NewAddressOnSpace(network.DefaultSpace, "8.8.8.8"),
+		network.NewAddressOnSpace("admin", "8.8.8.8"),
 		network.NewAddressOnSpace("", "8.8.4.4"),
 		network.NewAddressOnSpace("internal", "10.0.0.1"),
 		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace(network.DefaultSpace, "fc00::1"),
+		network.NewAddressOnSpace("admin", "fc00::1"),
 	}
 
 	err = s.machine0.SetProviderAddresses(providerAddresses...)
