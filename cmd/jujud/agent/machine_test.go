@@ -999,12 +999,11 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) {
-	var setSpacesDiscovered func()
 	var called bool
-	fakeNewDiscoverSpaces := func(api *discoverspaces.API, setFunc func()) worker.Worker {
-		setSpacesDiscovered = setFunc
+	spacesDiscovered := make(chan interface{})
+	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan interface{}) {
 		called = true
-		return newDummyWorker()
+		return newDummyWorker(), spacesDiscovered
 	}
 	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
 	m, conf, _ := s.primeAgent(c, state.JobManageEnviron)
@@ -1022,7 +1021,6 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 			c.Fatalf("discoverspaces worker not created")
 		}
 	}
-	c.Assert(setSpacesDiscovered, gc.NotNil)
 
 	info, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -1038,7 +1036,7 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	setSpacesDiscovered()
+	close(spacesDiscovered)
 
 	// Now the user can log in
 	info.Tag = s.AdminUserTag(c)
