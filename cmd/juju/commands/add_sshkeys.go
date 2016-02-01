@@ -14,14 +14,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-<<<<<<< HEAD:cmd/juju/commands/add_sshkeys.go
 // NewAddKeysCommand is used to add a new ssh key for a user.
 func NewAddKeysCommand() cmd.Command {
-	return envcmd.Wrap(&addKeysCommand{})
-=======
-func newAddKeysCommand() cmd.Command {
 	return modelcmd.Wrap(&addKeysCommand{})
->>>>>>> upstream/api-command-rename:cmd/juju/commands/authorizedkeys_add.go
 }
 
 var addKeysDoc = `
