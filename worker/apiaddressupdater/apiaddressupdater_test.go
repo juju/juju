@@ -48,9 +48,8 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), &apiAddressSetter{})
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), &apiAddressSetter{}, "")
 	c.Assert(err, jc.ErrorIsNil)
-	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
@@ -63,7 +62,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter, "")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -77,10 +76,42 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	}
 }
 
+func (s *APIAddressUpdaterSuite) TestAddressInitialUpdateWithControllerSpace(c *gc.C) {
+	updatedServers := [][]network.HostPort{
+		network.AddressesWithPort(
+			network.NewAddressesOnSpace("controllers", "localhost", "127.0.0.1"),
+			1234,
+		),
+	}
+	err := s.State.SetAPIHostPorts(updatedServers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter, "controllers")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	// SetAPIHostPorts should be called with the initial value.
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called")
+	case servers := <-setter.servers:
+		expectedServers := [][]network.HostPort{
+			network.AddressesWithPort(
+				network.NewAddressesOnSpace("controllers", "localhost"),
+				1234,
+			),
+		}
+		c.Assert(servers, gc.DeepEquals, expectedServers)
+	}
+}
+
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter, "")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -141,7 +172,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter, "")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()

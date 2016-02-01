@@ -753,7 +753,8 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
-		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
+		controllerSpace := agentConfig.Value(agent.ControllerSpaceName)
+		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater, controllerSpace)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start api address updater worker")
 		}

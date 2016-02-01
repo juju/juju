@@ -37,7 +37,8 @@ var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, er
 	}
 	facade := uniter.NewState(apiCaller, unitTag)
 	setter := agent.APIHostPortsSetter{a}
-	w, err := NewAPIAddressUpdater(facade, setter)
+	space := a.CurrentConfig().Value(agent.ControllerSpaceName)
+	w, err := NewAPIAddressUpdater(facade, setter, space)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
