@@ -642,13 +642,22 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 		Value:       "10.0.0.1",
 		Type:        network.IPv4Address,
 		NetworkName: "cloud",
-		Scope:       network.ScopeCloudLocal}, {
+		Scope:       network.ScopeCloudLocal,
+		SpaceName:   "",
+	}, {
 		Value:       "8.8.8.8",
 		Type:        network.IPv4Address,
 		NetworkName: "public",
-		Scope:       network.ScopePublic}}
+		Scope:       network.ScopePublic,
+		SpaceName:   "controllers",
+	}}
 
-	address := mongo.SelectPeerAddress(addresses)
+	// Preferred selection - by space.
+	address := mongo.SelectPeerAddress("controllers", addresses)
+	c.Assert(address, gc.Equals, "8.8.8.8")
+
+	// Legacy selection - by scope.
+	address = mongo.SelectPeerAddress("", addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")
 }
 
@@ -660,18 +669,28 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 			Type:        network.IPv4Address,
 			NetworkName: "cloud",
 			Scope:       network.ScopeCloudLocal,
+			SpaceName:   "",
 		},
-		Port: environs.DefaultStatePort}, {
+		Port: environs.DefaultStatePort,
+	}, {
 		Address: network.Address{
 			Value:       "8.8.8.8",
 			Type:        network.IPv4Address,
 			NetworkName: "public",
 			Scope:       network.ScopePublic,
+			SpaceName:   "foo",
 		},
-		Port: environs.DefaultStatePort}}
+		Port: environs.DefaultStatePort,
+	}}
+	stringPort := strconv.Itoa(environs.DefaultStatePort)
 
-	address := mongo.SelectPeerHostPort(hostPorts)
-	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(environs.DefaultStatePort))
+	// Preferred selection - by space.
+	hostPort := mongo.SelectPeerHostPort("foo", hostPorts)
+	c.Assert(hostPort, gc.Equals, "8.8.8.8:"+stringPort)
+
+	// Legacy selection - by scope.
+	hostPort = mongo.SelectPeerHostPort("", hostPorts)
+	c.Assert(hostPort, gc.Equals, "10.0.0.1:"+stringPort)
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {

@@ -33,6 +33,16 @@ func (st *State) stateServerAddresses() ([]string, error) {
 		defer ssState.Close()
 		logger.Debugf("ssState env: %s", ssState.EnvironTag())
 	}
+	// Get the controller space from the config (if set) to use below for the
+	// address selection.
+	envConfig, err := ssState.EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get environment config")
+	}
+	var controllerSpace string
+	if setSpace, isSet := envConfig.ControllerSpaceName(); isSet {
+		controllerSpace = setSpace
+	}
 
 	type addressMachine struct {
 		Addresses []address
@@ -51,7 +61,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		naddrs := networkAddresses(addrs.Addresses)
-		addr, ok := network.SelectControllerAddress(naddrs, false)
+		// TODO(dimitern): Add test cases to verify the non-empty controller
+		// space behavior below, which is only live tested on MAAS.
+		addr, ok := network.SelectControllerAddress(controllerSpace, naddrs, false)
 		if ok {
 			apiAddrs = append(apiAddrs, addr.Value)
 		}
