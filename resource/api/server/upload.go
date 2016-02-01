@@ -6,7 +6,6 @@ package server
 import (
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -22,7 +21,7 @@ type UploadDataStore interface {
 	GetResource(serviceID, name string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(serviceID string, res resource.Resource, r io.Reader) error
+	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) error
 }
 
 // TODO(ericsnow) Replace UploadedResource with resource.Opened.
@@ -34,7 +33,7 @@ type UploadedResource struct {
 	Service string
 
 	// Resource is the information about the resource.
-	Resource resource.Resource
+	Resource charmresource.Resource
 
 	// Data holds the resource blob.
 	Data io.ReadCloser
@@ -47,9 +46,6 @@ type UploadHandler struct {
 
 	// Store is the data store into which the resource will be stored.
 	Store UploadDataStore
-
-	// CurrentTimestamp is the function that provides the current timestamp.
-	CurrentTimestamp func() time.Time
 }
 
 // HandleRequest handles a resource upload request.
@@ -62,7 +58,7 @@ func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, err
 	}
 
 	uploadID := uploaded.Service + "/" + uploaded.Resource.Name // TODO(ericsnow) Get this from state.
-	if err := uh.Store.SetResource(uploaded.Service, uploaded.Resource, uploaded.Data); err != nil {
+	if err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -88,14 +84,14 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 		return nil, errors.Trace(err)
 	}
 
-	res, err = uh.updateResource(res, uReq.Fingerprint, uReq.Size)
+	chRes, err := uh.updateResource(res.Resource, uReq.Fingerprint, uReq.Size)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	uploaded := &UploadedResource{
 		Service:  uReq.Service,
-		Resource: res,
+		Resource: chRes,
 		Data:     req.Body,
 	}
 	return uploaded, nil
@@ -103,13 +99,11 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 
 // updateResource returns a copy of the provided resource, updated with
 // the given information.
-func (uh UploadHandler) updateResource(res resource.Resource, fp charmresource.Fingerprint, size int64) (resource.Resource, error) {
+func (uh UploadHandler) updateResource(res charmresource.Resource, fp charmresource.Fingerprint, size int64) (charmresource.Resource, error) {
 	res.Origin = charmresource.OriginUpload
 	res.Revision = 0
 	res.Fingerprint = fp
 	res.Size = size
-	res.Username = uh.Username
-	res.Timestamp = uh.CurrentTimestamp().UTC()
 
 	if err := res.Validate(); err != nil {
 		return res, errors.Trace(err)

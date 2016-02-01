@@ -6,9 +6,11 @@ package state
 import (
 	"io"
 	"path"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -57,7 +59,8 @@ type resourceState struct {
 	persist resourcePersistence
 	storage resourceStorage
 
-	newID func() (string, error)
+	newID            func() (string, error)
+	currentTimestamp func() time.Time
 }
 
 // ListResources returns the resource data for the given service ID.
@@ -90,22 +93,18 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
 // SetResource stores the resource in the Juju model.
-func (st resourceState) SetResource(serviceID string, res resource.Resource, r io.Reader) (err error) {
-	defer func() {
-		if err != nil {
-			logger.Tracef("error setting resource %q for service %q: %v", res.Name, serviceID, err)
-		} else {
-			logger.Tracef("successfully added resource %q for %q", res.Name, serviceID)
-		}
-	}()
+func (st resourceState) SetResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	res := resource.Resource{
+		Resource:  chRes,
+		Username:  userID,
+		Timestamp: st.currentTimestamp(),
+	}
 	logger.Tracef("adding resource %q for service %q", res.Name, serviceID)
+
 	if err := res.Validate(); err != nil {
-		return errors.Annotate(err, "bad resource metadata")
+		return res, errors.Annotate(err, "bad resource metadata")
 	}
 	id := res.Name
-	hash := res.Fingerprint.String()
-
-	// TODO(ericsnow) Do something else if r is nil?
 
 	// We use a staging approach for adding the resource metadata
 	// to the model. This is necessary because the resource data
@@ -113,15 +112,16 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 	// operation.
 
 	if err := st.persist.StageResource(id, serviceID, res); err != nil {
-		return errors.Trace(err)
+		return res, errors.Trace(err)
 	}
 
 	path := storagePath(res.Name, serviceID)
+	hash := res.Fingerprint.String()
 	if err := st.storage.PutAndCheckHash(path, r, res.Size, hash); err != nil {
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
-		return errors.Trace(err)
+		return res, errors.Trace(err)
 	}
 
 	if err := st.persist.SetResource(id, serviceID, res); err != nil {
@@ -131,9 +131,9 @@ func (st resourceState) SetResource(serviceID string, res resource.Resource, r i
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
-		return errors.Trace(err)
+		return res, errors.Trace(err)
 	}
-	return nil
+	return res, nil
 }
 
 // SetUnitResource records the resource being used by a unit in the Juju model.

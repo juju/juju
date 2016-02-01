@@ -25,10 +25,11 @@ var _ = gc.Suite(&ResourceSuite{})
 type ResourceSuite struct {
 	testing.IsolationSuite
 
-	stub    *testing.Stub
-	raw     *stubRawState
-	persist *stubPersistence
-	storage *stubStorage
+	stub      *testing.Stub
+	raw       *stubRawState
+	persist   *stubPersistence
+	storage   *stubStorage
+	timestamp time.Time
 }
 
 func (s *ResourceSuite) SetUpTest(c *gc.C) {
@@ -40,6 +41,14 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 	s.storage = &stubStorage{stub: s.stub}
 	s.raw.ReturnPersistence = s.persist
 	s.raw.ReturnStorage = s.storage
+	s.timestamp = time.Now().UTC()
+}
+
+func (s *ResourceSuite) now() time.Time {
+	s.stub.AddCall("currentTimestamp")
+	s.stub.NextErr() // Pop one off.
+
+	return s.timestamp
 }
 
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
@@ -83,136 +92,190 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	chRes := res.Resource
+	expected := res
+	expected.Timestamp = s.timestamp
 	path := "service-a-service/resources/spam"
-	hash := res.Fingerprint.String()
+	hash := chRes.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 
-	err := st.SetResource("a-service", res, file)
+	res, err := st.SetResource("a-service", "a-user", chRes, file)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "StageResource", "PutAndCheckHash", "SetResource")
-	s.stub.CheckCall(c, 0, "StageResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 1, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 2, "SetResource", res.Name, "a-service", res)
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"SetResource",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	s.stub.CheckCall(c, 3, "SetResource", res.Name, "a-service", expected)
+	c.Check(res, jc.DeepEquals, resource.Resource{
+		Resource:  chRes,
+		Username:  "a-user",
+		Timestamp: s.timestamp,
+	})
 }
 
 func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
-	res.Timestamp = time.Time{}
+	res.Revision = -1
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 
-	err := st.SetResource("a-service", res, file)
+	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource metadata.*`)
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, "currentTimestamp")
 }
 
 func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := res
+	expected.Timestamp = s.timestamp
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(failure, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, failure, nil, nil, ignoredErr)
 
-	err := st.SetResource("a-service", res, file)
+	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "StageResource")
-	s.stub.CheckCall(c, 0, "StageResource", res.Name, "a-service", res)
+	s.stub.CheckCallNames(c, "currentTimestamp", "StageResource")
+	s.stub.CheckCall(c, 1, "StageResource", res.Name, "a-service", expected)
 }
 
 func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := res
+	expected.Timestamp = s.timestamp
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, failure, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, failure, nil, ignoredErr)
 
-	err := st.SetResource("a-service", res, file)
+	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "StageResource", "PutAndCheckHash", "UnstageResource")
-	s.stub.CheckCall(c, 0, "StageResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 1, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 2, "UnstageResource", res.Name, "a-service")
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"UnstageResource",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	s.stub.CheckCall(c, 3, "UnstageResource", res.Name, "a-service")
 }
 
 func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := res
+	expected.Timestamp = s.timestamp
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	extraErr := errors.New("<just not your day>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, failure, extraErr, ignoredErr)
+	s.stub.SetErrors(nil, nil, failure, extraErr, ignoredErr)
 
-	err := st.SetResource("a-service", res, file)
+	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "StageResource", "PutAndCheckHash", "UnstageResource")
-	s.stub.CheckCall(c, 0, "StageResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 1, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 2, "UnstageResource", res.Name, "a-service")
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"UnstageResource",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	s.stub.CheckCall(c, 3, "UnstageResource", res.Name, "a-service")
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := res
+	expected.Timestamp = s.timestamp
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, failure, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, failure, nil, nil, ignoredErr)
 
-	err := st.SetResource("a-service", res, file)
+	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "StageResource", "PutAndCheckHash", "SetResource", "Remove", "UnstageResource")
-	s.stub.CheckCall(c, 0, "StageResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 1, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 2, "SetResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 3, "Remove", path)
-	s.stub.CheckCall(c, 4, "UnstageResource", res.Name, "a-service")
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"SetResource",
+		"Remove",
+		"UnstageResource",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	s.stub.CheckCall(c, 3, "SetResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 4, "Remove", path)
+	s.stub.CheckCall(c, 5, "UnstageResource", res.Name, "a-service")
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := res
+	expected.Timestamp = s.timestamp
 	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
+	st.currentTimestamp = s.now
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	extraErr1 := errors.New("<just not your day>")
 	extraErr2 := errors.New("<wow...just wow>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, failure, extraErr1, extraErr2, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, failure, extraErr1, extraErr2, ignoredErr)
 
-	err := st.SetResource("a-service", res, file)
+	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "StageResource", "PutAndCheckHash", "SetResource", "Remove", "UnstageResource")
-	s.stub.CheckCall(c, 0, "StageResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 1, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 2, "SetResource", res.Name, "a-service", res)
-	s.stub.CheckCall(c, 3, "Remove", path)
-	s.stub.CheckCall(c, 4, "UnstageResource", res.Name, "a-service")
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"SetResource",
+		"Remove",
+		"UnstageResource",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	s.stub.CheckCall(c, 3, "SetResource", res.Name, "a-service", expected)
+	s.stub.CheckCall(c, 4, "Remove", path)
+	s.stub.CheckCall(c, 5, "UnstageResource", res.Name, "a-service")
 }
 
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {

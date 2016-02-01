@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -23,8 +22,6 @@ import (
 type UploadSuite struct {
 	BaseSuite
 
-	timestamp time.Time
-
 	req    *http.Request
 	header http.Header
 	resp   *stubHTTPResponseWriter
@@ -34,8 +31,6 @@ var _ = gc.Suite(&UploadSuite{})
 
 func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.timestamp = time.Now()
 
 	method := "..."
 	urlStr := "..."
@@ -51,32 +46,23 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *UploadSuite) now() time.Time {
-	s.stub.AddCall("CurrentTimestamp")
-	s.stub.NextErr() // Pop one off.
-
-	return s.timestamp
-}
-
 func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	content := "<some data>"
 	res, _ := newResource(c, "spam", "a-user", content)
-	res.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, body := newUploadRequest(c, "spam", "a-service", content)
 
 	uploadID, err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
+	s.stub.CheckCallNames(c, "GetResource", "SetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
-	s.stub.CheckCall(c, 2, "SetResource", "a-service", res, ioutil.NopCloser(body))
+	s.stub.CheckCall(c, 1, "SetResource", "a-service", "a-user", res.Resource, ioutil.NopCloser(body))
 	c.Check(uploadID, jc.DeepEquals, &api.UploadResult{
 		UploadID: "a-service/spam",
 	})
@@ -84,55 +70,49 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 
 func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 	content := "<some data>"
-	res, _ := newResource(c, "spam", "a-user", content)
-	res.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", content)
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(nil, nil, failure)
+	s.stub.SetErrors(nil, failure)
 
 	_, err := uh.HandleRequest(req)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
+	s.stub.CheckCallNames(c, "GetResource", "SetResource")
 }
 
 func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
 	content := "<some data>"
 	expected, _ := newResource(c, "spam", "a-user", content)
-	expected.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, body := newUploadRequest(c, "spam", "a-service", content)
 
 	uploaded, err := uh.ReadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp")
+	s.stub.CheckCallNames(c, "GetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
 	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
 		Service:  "a-service",
-		Resource: expected,
+		Resource: expected.Resource,
 		Data:     ioutil.NopCloser(body),
 	})
 }
 
 func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	req.Header.Set("Content-Type", "text/plain")
@@ -145,9 +125,8 @@ func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 
 func (s *UploadSuite) TestReadResourceGetResourceFailure(c *gc.C) {
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	failure := errors.New("<failure>")
@@ -163,9 +142,8 @@ func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	req.Header.Set("Content-SHA384", "bogus")
@@ -180,9 +158,8 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	req.Header.Set("Content-Length", "should-be-an-int")

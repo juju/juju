@@ -101,8 +101,8 @@ func (s *stubDataStore) GetResource(service, name string) (resource.Resource, er
 	return s.ReturnGetResource, nil
 }
 
-func (s *stubDataStore) SetResource(serviceID string, res resource.Resource, r io.Reader) error {
-	s.stub.AddCall("SetResource", serviceID, res, r)
+func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) error {
+	s.stub.AddCall("SetResource", serviceID, userID, res, r)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

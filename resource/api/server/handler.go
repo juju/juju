@@ -5,7 +5,6 @@ package server
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -35,9 +34,8 @@ func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, err
 		Connect: connect,
 		HandleUpload: func(username string, st DataStore, req *http.Request) (*api.UploadResult, error) {
 			uh := UploadHandler{
-				Username:         username,
-				Store:            st,
-				CurrentTimestamp: time.Now,
+				Username: username,
+				Store:    st,
 			}
 			return uh.HandleRequest(req)
 		},

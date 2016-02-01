@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/loggo"
 )
 
@@ -46,6 +48,9 @@ func NewState(raw RawState) *State {
 			persist: persist,
 			storage: storage,
 			newID:   newID,
+			currentTimestamp: func() time.Time {
+				return time.Now().UTC()
+			},
 		},
 	}
 	return st
