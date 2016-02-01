@@ -388,7 +388,7 @@ func (s *ImageSuite) TestDeleteNotExistentImage(c *gc.C) {
 func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int64, checksum, path, sourceURL string) {
 	doc := struct {
 		Id        string    `bson:"_id"`
-		ModelUUID string    `bson:"envuuid"`
+		ModelUUID string    `bson:"modelUUID"`
 		Kind      string    `bson:"kind"`
 		Series    string    `bson:"series"`
 		Arch      string    `bson:"arch"`

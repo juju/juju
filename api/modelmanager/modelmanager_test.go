@@ -45,7 +45,7 @@ func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
 	apiPort := s.Environ.Config().APIPort()
 
 	// Numbers coming over the api are floats, not ints.
-	c.Assert(result, jc.DeepEquals, params.EnvironConfig{
+	c.Assert(result, jc.DeepEquals, params.ModelConfig{
 		"type":       "dummy",
 		"ca-cert":    coretesting.CACert,
 		"state-port": float64(1234),
@@ -90,9 +90,9 @@ func (s *modelmanagerSuite) TestListModelsBadUser(c *gc.C) {
 
 func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner}).Close()
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: owner}).Close()
 
 	modelManager := s.OpenAPI(c)

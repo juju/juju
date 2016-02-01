@@ -61,7 +61,7 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	}
 
 	// Get the charm and its information from the store.
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}

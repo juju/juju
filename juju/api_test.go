@@ -192,7 +192,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// time.
 	s.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait)
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
+	s.bootstrapEnv(c, coretesting.SampleModelName, defaultConfigStore(c))
 
 	startTime := time.Now()
 	apiclient, err := juju.NewAPIClientFromName("", nil)
@@ -201,7 +201,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	c.Assert(time.Since(startTime), jc.LessThan, coretesting.LongWait)
 
 	// We should get the default sample environment if we ask for ""
-	assertEnvironmentName(c, apiclient, coretesting.SampleEnvName)
+	assertEnvironmentName(c, apiclient, coretesting.SampleModelName)
 }
 
 func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
@@ -219,7 +219,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
@@ -257,7 +257,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
+	store := newConfigStore(coretesting.SampleModelName, &environInfo{
 		bootstrapConfig: map[string]interface{}{
 			"type":                      "dummy",
 			"name":                      "myenv",
@@ -270,7 +270,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 			"admin-secret":              "adminpass",
 		},
 	})
-	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
+	s.bootstrapEnv(c, coretesting.SampleModelName, store)
 
 	info, err := store.ReadInfo("myenv")
 	c.Assert(err, jc.ErrorIsNil)
@@ -340,13 +340,13 @@ type mockedStateFlags int
 const (
 	noFlags          mockedStateFlags = 0x0000
 	mockedHostPort   mockedStateFlags = 0x0001
-	mockedEnvironTag mockedStateFlags = 0x0002
+	mockedModelTag   mockedStateFlags = 0x0002
 	mockedPreferIPv6 mockedStateFlags = 0x0004
 )
 
 func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	hasHostPort := flags&mockedHostPort == mockedHostPort
-	hasEnvironTag := flags&mockedEnvironTag == mockedEnvironTag
+	hasModelTag := flags&mockedModelTag == mockedModelTag
 	preferIPv6 := flags&mockedPreferIPv6 == mockedPreferIPv6
 	addr := ""
 
@@ -367,7 +367,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		}
 	}
 	modelTag := ""
-	if hasEnvironTag {
+	if hasModelTag {
 		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
 	return &mockAPIState{
@@ -384,11 +384,11 @@ func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
-func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoNoModelTag(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
@@ -417,7 +417,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
 		return true
 	})
-	expectState = mockedAPIState(mockedHostPort | mockedEnvironTag | mockedPreferIPv6)
+	expectState = mockedAPIState(mockedHostPort | mockedModelTag | mockedPreferIPv6)
 	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
@@ -438,7 +438,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
+	expectState := mockedAPIState(mockedModelTag | mockedPreferIPv6)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
@@ -455,18 +455,18 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 	ep := info.APIEndpoint()
-	// We should have cached the environ tag, but not disturbed the
+	// We should have cached the model tag, but not disturbed the
 	// Addresses
 	c.Check(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `foo\.invalid`)
 	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 }
 
-func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
+func (s *NewAPIClientSuite) TestNoModelTagDoesntOverwriteCached(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 	called := 0
 	// State returns a new set of APIHostPorts but not a new ModelTag. We
-	// shouldn't override the cached value with environ tag of "".
+	// shouldn't override the cached value with model tag of "".
 	expectState := mockedAPIState(mockedHostPort)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
@@ -529,8 +529,8 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
-	setEndpointAddressAndHostname(c, store, coretesting.SampleEnvName, "0.1.2.3", "infoapi.invalid")
+	s.bootstrapEnv(c, coretesting.SampleModelName, store)
+	setEndpointAddressAndHostname(c, store, coretesting.SampleModelName, "0.1.2.3", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
@@ -555,7 +555,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	cfgOpenedState.close = infoOpenedState.close
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
+	st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -600,7 +600,7 @@ func (s *NewAPIClientSuite) TestBadConfigDoesntPanic(c *gc.C) {
 func setEndpointAddressAndHostname(c *gc.C, store configstore.Storage, envName string, addr, host string) {
 	// Populate the environment's info with an endpoint
 	// with a known address and hostname.
-	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	info, err := store.ReadInfo(coretesting.SampleModelName)
 	c.Assert(err, jc.ErrorIsNil)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses: []string{addr},
@@ -616,8 +616,8 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	coretesting.MakeSampleJujuHome(c)
 
 	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
-	setEndpointAddressAndHostname(c, store, coretesting.SampleEnvName, "0.1.2.3", "infoapi.invalid")
+	s.bootstrapEnv(c, coretesting.SampleModelName, store)
+	setEndpointAddressAndHostname(c, store, coretesting.SampleModelName, "0.1.2.3", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
@@ -645,7 +645,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
+		st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -686,8 +686,8 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
-	setEndpointAddressAndHostname(c, store, coretesting.SampleEnvName, "0.1.2.3", "infoapi.invalid")
+	s.bootstrapEnv(c, coretesting.SampleModelName, store)
+	setEndpointAddressAndHostname(c, store, coretesting.SampleModelName, "0.1.2.3", "infoapi.invalid")
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -696,7 +696,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
+	st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)
 }
@@ -711,8 +711,8 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
-	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	s.bootstrapEnv(c, coretesting.SampleModelName, store)
+	info, err := store.ReadInfo(coretesting.SampleModelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.BootstrapConfig(), gc.NotNil)
 	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
@@ -723,7 +723,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return mockedAPIState(noFlags), nil
 	}
-	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
+	st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
 	c.Check(err, jc.ErrorIsNil)
 	st.Close()
 }
@@ -738,8 +738,8 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 
 	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
-	info, err := store.ReadInfo(coretesting.SampleEnvName)
+	s.bootstrapEnv(c, coretesting.SampleModelName, store)
+	info, err := store.ReadInfo(coretesting.SampleModelName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	envName2 := coretesting.SampleCertName + "-2"

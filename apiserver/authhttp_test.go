@@ -229,8 +229,8 @@ func (s *authHttpSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response
 	return s.sendRequest(c, p)
 }
 
-func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
-	envState := s.Factory.MakeEnvironment(c, nil)
+func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
+	envState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
 	_, err := envState.AddModelUser(state.ModelUserSpec{

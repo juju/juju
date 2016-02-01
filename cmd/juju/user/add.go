@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const useraddCommandDoc = `
@@ -40,12 +40,12 @@ type AddUserAPI interface {
 }
 
 func NewAddCommand() cmd.Command {
-	return envcmd.WrapController(&addCommand{})
+	return modelcmd.WrapController(&addCommand{})
 }
 
 // addCommand adds new users into a Juju Server.
 type addCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	api         AddUserAPI
 	User        string
 	DisplayName string

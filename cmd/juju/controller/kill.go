@@ -13,8 +13,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -48,12 +47,12 @@ func wrapKillCommand(kill *killCommand, fn func(string) (api.Connection, error),
 	if fn == nil {
 		fn = kill.JujuCommandBase.NewAPIRoot
 	}
-	openStrategy := envcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
-	return envcmd.Wrap(
+	openStrategy := modelcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
+	return modelcmd.Wrap(
 		kill,
-		envcmd.EnvSkipFlags,
-		envcmd.EnvSkipDefault,
-		envcmd.EnvAPIOpener(openStrategy),
+		modelcmd.ModelSkipFlags,
+		modelcmd.ModelSkipDefault,
+		modelcmd.EnvAPIOpener(openStrategy),
 	)
 }
 
@@ -90,7 +89,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.EnvName())
+	cfgInfo, err := store.ReadInfo(c.ModelName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
@@ -98,11 +97,11 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.EnvName())
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ModelName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.EnvName()); err != nil {
+		if err = confirmDestruction(ctx, c.ModelName()); err != nil {
 			return err
 		}
 	}
@@ -115,7 +114,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	case errors.Cause(err) == common.ErrPerm:
 		return errors.Annotate(err, "cannot destroy controller")
 	default:
-		if errors.Cause(err) != envcmd.ErrConnTimedOut {
+		if errors.Cause(err) != modelcmd.ErrConnTimedOut {
 			logger.Debugf("unable to open api: %s", err)
 		}
 		ctx.Infof("Unable to open API: %s\n", err)
@@ -137,19 +136,12 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
-	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to destroy the controller,
-		// sending the info we were already able to collect.
-		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return c.killControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
-	}
-
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		return environs.Destroy(controllerEnviron, store)
 	}
 
-	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.EnvName())
+	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.ModelName())
 
 	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
 	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {

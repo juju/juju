@@ -16,7 +16,7 @@ import (
 type stateSuite struct {
 	uniterSuite
 	*apitesting.APIAddresserTests
-	*apitesting.EnvironWatcherTests
+	*apitesting.ModelWatcherTests
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -24,11 +24,11 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.uniter, s.BackingState, apitesting.NoSecrets)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, apitesting.NoSecrets)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	providerType, err := s.uniter.ProviderType()

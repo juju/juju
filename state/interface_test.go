@@ -42,12 +42,12 @@ var (
 	_ AgentEntity = (*Machine)(nil)
 	_ AgentEntity = (*Unit)(nil)
 
-	_ EnvironAccessor = (*State)(nil)
+	_ ModelAccessor = (*State)(nil)
 
 	_ UnitsWatcher = (*Machine)(nil)
 	_ UnitsWatcher = (*Service)(nil)
 
-	_ EnvironMachinesWatcher = (*State)(nil)
+	_ ModelMachinesWatcher = (*State)(nil)
 
 	_ InstanceIdGetter = (*Machine)(nil)
 

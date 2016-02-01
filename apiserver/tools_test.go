@@ -225,8 +225,8 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
-	// Check that we can upload tools to https://host:port/ENVUUID/tools
+func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
+	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/model/%s/tools", s.State.ModelUUID())
@@ -236,9 +236,9 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
-	// Check that we can upload tools to https://host:port/ENVUUID/tools
+func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
+	envState := s.setupOtherModel(c)
+	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/model/%s/tools", envState.ModelUUID())
@@ -248,8 +248,8 @@ func (s *toolsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot access the tools at https://host:port/BADENVUUID/tools
+func (s *toolsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
+	// Check that we cannot access the tools at https://host:port/BADModelUUID/tools
 	url := s.toolsURL(c, "")
 	url.Path = "/model/dead-beef-123456/tools"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
@@ -293,7 +293,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
 		Version: version.Binary{
 			Number: version.Current,
@@ -306,8 +306,8 @@ func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 	s.testDownload(c, tools, s.State.ModelUUID())
 }
 
-func (s *toolsSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
+func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
+	envState := s.setupOtherModel(c)
 	tools := s.storeFakeTools(c, envState, "abc", toolstorage.Metadata{
 		Version: version.Binary{
 			Number: version.Current,
@@ -443,7 +443,7 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 	return data
 }
 
-func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
 	current := version.Binary{
 		Number: version.Current,
 		Arch:   arch.HostArch(),

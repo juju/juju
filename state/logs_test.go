@@ -110,7 +110,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
-	// Set up 3 environments and generate different amounts of logs
+	// Set up 3 models and generate different amounts of logs
 	// for them.
 	now := time.Now().Truncate(time.Millisecond)
 
@@ -118,12 +118,12 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	startingLogsS0 := 10
 	s.generateLogs(c, s0, now, startingLogsS0)
 
-	s1 := s.Factory.MakeEnvironment(c, nil)
+	s1 := s.Factory.MakeModel(c, nil)
 	defer s1.Close()
 	startingLogsS1 := 10000
 	s.generateLogs(c, s1, now, startingLogsS1)
 
-	s2 := s.Factory.MakeEnvironment(c, nil)
+	s2 := s.Factory.MakeModel(c, nil)
 	defer s2.Close()
 	startingLogsS2 := 12000
 	s.generateLogs(c, s2, now, startingLogsS2)

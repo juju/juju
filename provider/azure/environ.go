@@ -62,7 +62,7 @@ type azureEnviron struct {
 	envName string
 
 	mu            sync.Mutex
-	config        *azureEnvironConfig
+	config        *azureModelConfig
 	instanceTypes map[string]instances.InstanceType
 	// azure management clients
 	compute       compute.ManagementClient

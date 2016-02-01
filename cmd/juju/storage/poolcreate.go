@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
@@ -57,7 +57,7 @@ func newPoolCreateCommand() cmd.Command {
 	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // poolCreateCommand lists storage pools.

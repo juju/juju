@@ -10,7 +10,6 @@ package provisioner_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -33,21 +32,16 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher/watchertest"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
-	*apitesting.EnvironWatcherTests
+	*apitesting.ModelWatcherTests
 	*apitesting.APIAddresserTests
 
 	st      api.Connection
@@ -66,7 +60,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +77,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = s.st.Provisioner()
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
@@ -545,8 +539,8 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	w, err := apiMachine.WatchContainers(instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange(container.Id())
@@ -566,9 +560,6 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(container.Id())
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
@@ -593,11 +584,11 @@ func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "container type must be specified")
 }
 
-func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
-	w, err := s.provisioner.WatchEnvironMachines()
+func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
+	w, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange(s.machine.Id())
@@ -622,9 +613,6 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
@@ -706,7 +694,7 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	// Change lxc-clone, and ensure it gets picked up.
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
-		err = st.UpdateEnvironConfig(map[string]interface{}{
+		err = st.UpdateModelConfig(map[string]interface{}{
 			"lxc-clone":      t.lxcUseClone,
 			"lxc-clone-aufs": t.lxcUseCloneAufs,
 		}, nil, nil)

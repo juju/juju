@@ -115,7 +115,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer st0.Close()
 
-	envs, err := st0.AllEnvironments()
+	envs, err := st0.AllModels()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")
 	}
@@ -146,7 +146,7 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 }
 
 func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
-	st, err := st0.ForEnviron(tag)
+	st, err := st0.ForModel(tag)
 	if err != nil {
 		return errors.Annotate(err, "failed open model")
 	}

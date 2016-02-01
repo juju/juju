@@ -34,8 +34,8 @@ type BootstrapMachineConfig struct {
 	// BootstrapConstraints holds the bootstrap machine's constraints.
 	BootstrapConstraints constraints.Value
 
-	// EnvironConstraints holds the environment-level constraints.
-	EnvironConstraints constraints.Value
+	// ModelConstraints holds the model-level constraints.
+	ModelConstraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
 	Jobs []multiwatcher.MachineJob
@@ -58,9 +58,9 @@ const BootstrapMachineId = "0"
 // state server, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
 //
-// The envCfg values will be stored in the state's EnvironConfig; the
+// The envCfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
-// and its constraints will be also be used for the environment-level
+// and its constraints will be also be used for the model-level
 // constraints. The connection to the state server will respect the
 // given timeout parameter.
 //
@@ -142,7 +142,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 }
 
 func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := st.SetEnvironConstraints(cfg.EnvironConstraints); err != nil {
+	if err := st.SetModelConstraints(cfg.ModelConstraints); err != nil {
 		return nil, errors.Errorf("cannot set initial environ constraints: %v", err)
 	}
 	m, err := initBootstrapMachine(c, st, cfg)
@@ -222,13 +222,10 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	switch job {
 	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
+	case multiwatcher.JobManageModel:
+		return state.JobManageModel, nil
 	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}

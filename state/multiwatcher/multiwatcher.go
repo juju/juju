@@ -39,7 +39,7 @@ type EntityId struct {
 	Id        string
 }
 
-// Delta holds details of a change to the environment.
+// Delta holds details of a change to the model.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
 	// otherwise it has been created or changed.
@@ -90,7 +90,7 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Unexpected operation %q", operation)
 	}
 	switch entityKind {
-	case "environment":
+	case "model":
 		d.Entity = new(ModelInfo)
 	case "machine":
 		d.Entity = new(MachineInfo)
@@ -110,19 +110,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
 	return json.Unmarshal(elements[2], &d.Entity)
-}
-
-// When remote units leave scope, their ids will be noted in the
-// Departed field, and no further events will be sent for those units.
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
-// UnitSettings holds information about a service unit's settings
-// within a relation.
-type UnitSettings struct {
-	Version int64
 }
 
 // MachineInfo holds the information about a machine
@@ -146,7 +133,7 @@ type MachineInfo struct {
 }
 
 // EntityId returns a unique identifier for a machine across
-// environments.
+// models.
 func (i *MachineInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "machine",
@@ -183,7 +170,7 @@ type ServiceInfo struct {
 }
 
 // EntityId returns a unique identifier for a service across
-// environments.
+// models.
 func (i *ServiceInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "service",
@@ -216,7 +203,7 @@ type UnitInfo struct {
 }
 
 // EntityId returns a unique identifier for a unit across
-// environments.
+// models.
 func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "unit",
@@ -242,7 +229,7 @@ type ActionInfo struct {
 }
 
 // EntityId returns a unique identifier for an action across
-// environments.
+// models.
 func (i *ActionInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "action",
@@ -267,7 +254,7 @@ type Endpoint struct {
 }
 
 // EntityId returns a unique identifier for a relation across
-// environments.
+// models.
 func (i *RelationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "relation",
@@ -285,7 +272,7 @@ type AnnotationInfo struct {
 }
 
 // EntityId returns a unique identifier for an annotation across
-// environments.
+// models.
 func (i *AnnotationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "annotation",
@@ -300,16 +287,13 @@ type MachineJob string
 
 const (
 	JobHostUnits        MachineJob = "JobHostUnits"
-	JobManageEnviron    MachineJob = "JobManageEnviron"
+	JobManageModel      MachineJob = "JobManageModel"
 	JobManageNetworking MachineJob = "JobManageNetworking"
-
-	// Deprecated in 1.18
-	JobManageStateDeprecated MachineJob = "JobManageState"
 )
 
 // NeedsState returns true if the job requires a state connection.
 func (job MachineJob) NeedsState() bool {
-	return job == JobManageEnviron
+	return job == JobManageModel
 }
 
 // AnyJobNeedsState returns true if any of the provided jobs
@@ -334,7 +318,7 @@ type BlockInfo struct {
 }
 
 // EntityId returns a unique identifier for a block across
-// environments.
+// models.
 func (i *BlockInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "block",
@@ -343,7 +327,7 @@ func (i *BlockInfo) EntityId() EntityId {
 	}
 }
 
-// BlockType values define environment block type.
+// BlockType values define model block type.
 type BlockType string
 
 const (
@@ -357,7 +341,7 @@ const (
 	BlockChange BlockType = "BlockChange"
 )
 
-// ModelInfo holds the information about an environment that is
+// ModelInfo holds the information about an model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
 	ModelUUID  string
@@ -367,10 +351,10 @@ type ModelInfo struct {
 	ServerUUID string
 }
 
-// EntityId returns a unique identifier for an environment.
+// EntityId returns a unique identifier for an model.
 func (i *ModelInfo) EntityId() EntityId {
 	return EntityId{
-		Kind:      "environment",
+		Kind:      "model",
 		ModelUUID: i.ModelUUID,
 		Id:        i.ModelUUID,
 	}

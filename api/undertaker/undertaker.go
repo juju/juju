@@ -5,10 +5,12 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/watcher"
 )
 
 // Client provides access to the undertaker API
@@ -22,9 +24,9 @@ type Client struct {
 type UndertakerClient interface {
 	ModelInfo() (params.UndertakerModelInfoResult, error)
 	ProcessDyingModel() error
-	RemoveEnviron() error
-	WatchEnvironResources() (watcher.NotifyWatcher, error)
-	EnvironConfig() (*config.Config, error)
+	RemoveModel() error
+	WatchModelResources() (watcher.NotifyWatcher, error)
+	ModelConfig() (*config.Config, error)
 }
 
 // NewClient creates a new client for accessing the undertaker API.
@@ -33,7 +35,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
-// ModelInfo returns information on the environment needed by the undertaker worker.
+// ModelInfo returns information on the model needed by the undertaker worker.
 func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	result := params.UndertakerModelInfoResult{}
 	p, err := c.params()
@@ -44,8 +46,8 @@ func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	return result, errors.Trace(err)
 }
 
-// ProcessDyingModel checks if a dying environment has any machines or services.
-// If there are none, the environment's life is changed from dying to dead.
+// ProcessDyingModel checks if a dying model has any machines or services.
+// If there are none, the model's life is changed from dying to dead.
 func (c *Client) ProcessDyingModel() error {
 	p, err := c.params()
 	if err != nil {
@@ -55,13 +57,13 @@ func (c *Client) ProcessDyingModel() error {
 	return c.facade.FacadeCall("ProcessDyingModel", p, nil)
 }
 
-// RemoveEnviron removes any records of this environment from Juju.
-func (c *Client) RemoveEnviron() error {
+// RemoveModel removes any records of this model from Juju.
+func (c *Client) RemoveModel() error {
 	p, err := c.params()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.facade.FacadeCall("RemoveEnviron", p, nil)
+	return c.facade.FacadeCall("RemoveModel", p, nil)
 }
 
 func (c *Client) params() (params.Entities, error) {
@@ -72,16 +74,16 @@ func (c *Client) params() (params.Entities, error) {
 	return params.Entities{Entities: []params.Entity{{modelTag.String()}}}, nil
 }
 
-// WatchEnvironResources starts a watcher for changes to the environment's
+// WatchModelResources starts a watcher for changes to the model's
 // machines and services.
-func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 
 	p, err := c.params()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = c.facade.FacadeCall("WatchEnvironResources", p, &results)
+	err = c.facade.FacadeCall("WatchModelResources", p, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -92,19 +94,19 @@ func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-// EnvironConfig returns configuration information on the environment needed
+// ModelConfig returns configuration information on the model needed
 // by the undertaker worker.
-func (c *Client) EnvironConfig() (*config.Config, error) {
+func (c *Client) ModelConfig() (*config.Config, error) {
 	p, err := c.params()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result params.EnvironConfigResult
-	err = c.facade.FacadeCall("EnvironConfig", p, &result)
+	var result params.ModelConfigResult
+	err = c.facade.FacadeCall("ModelConfig", p, &result)
 	if err != nil {
 		return nil, err
 	}

@@ -46,7 +46,7 @@ func (s *environProviderSuite) TestPrepareForBootstrapWithInternalConfig(c *gc.C
 
 func (s *environProviderSuite) testPrepareForBootstrapWithInternalConfig(c *gc.C, key string) {
 	ctx := envtesting.BootstrapContext(c)
-	cfg := makeTestEnvironConfig(c, testing.Attrs{key: "whatever"})
+	cfg := makeTestModelConfig(c, testing.Attrs{key: "whatever"})
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
 	_, err := s.provider.PrepareForBootstrap(ctx, cfg)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`internal config "%s" must not be specified`, key))
@@ -54,7 +54,7 @@ func (s *environProviderSuite) testPrepareForBootstrapWithInternalConfig(c *gc.C
 
 func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	cfg := makeTestEnvironConfig(c)
+	cfg := makeTestModelConfig(c)
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 

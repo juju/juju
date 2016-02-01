@@ -469,7 +469,7 @@ func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, pub
 	}
 	icfg.Bootstrap = true
 	icfg.Jobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
@@ -635,10 +635,10 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 
 // isStateInstanceConfig determines if given machine configuration
 // is for State Server by iterating over machine's jobs.
-// If JobManageEnviron is present, this is a state server.
+// If JobManageModel is present, this is a state server.
 func isStateInstanceConfig(icfg *InstanceConfig) bool {
 	for _, aJob := range icfg.Jobs {
-		if aJob == multiwatcher.JobManageEnviron {
+		if aJob == multiwatcher.JobManageModel {
 			return true
 		}
 	}

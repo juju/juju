@@ -62,6 +62,7 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
 		MachineAccessor: &mockMachineAccessor{},
 	})
 	c.Assert(err, gc.ErrorMatches, "validating config: unspecified Tag not valid")
+
 	w, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
@@ -215,10 +216,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.watcher.CheckCalls(c, []gitjujutesting.StubCall{
-		{FuncName: "Changes"}, {FuncName: "Changes"}, {FuncName: "Stop"},
-	})
-
 	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "SetMachineAddresses",
 		Args: []interface{}{
@@ -310,8 +307,6 @@ func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expect
 		}
 	}
 }
-
-var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
 	mr, err := machiner.NewMachiner(machiner.Config{

@@ -6,39 +6,33 @@ package service
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewSetCommand returns a SetCommand with the api provided as specified.
-func NewSetCommandWithAPI(clientAPI ClientAPI, serviceAPI ServiceAPI) cmd.Command {
-	return envcmd.Wrap(&setCommand{
-		clientApi:  clientAPI,
+// NewSetCommandForTest returns a SetCommand with the api provided as specified.
+func NewSetCommandForTest(serviceAPI serviceAPI) cmd.Command {
+	return modelcmd.Wrap(&setCommand{
 		serviceApi: serviceAPI,
 	})
 }
 
 // NewUnsetCommand returns an UnsetCommand with the api provided as specified.
 func NewUnsetCommand(api UnsetServiceAPI) cmd.Command {
-	return envcmd.Wrap(&unsetCommand{
+	return modelcmd.Wrap(&unsetCommand{
 		api: api,
 	})
 }
 
 // NewGetCommand returns a GetCommand with the api provided as specified.
-func NewGetCommand(api GetServiceAPI) cmd.Command {
-	return envcmd.Wrap(&getCommand{
+func NewGetCommand(api getServiceAPI) cmd.Command {
+	return modelcmd.Wrap(&getCommand{
 		api: api,
 	})
 }
 
 // NewAddUnitCommand returns an AddUnitCommand with the api provided as specified.
-func NewAddUnitCommand(api ServiceAddUnitAPI) cmd.Command {
-	return envcmd.Wrap(&addUnitCommand{
+func NewAddUnitCommand(api serviceAddUnitAPI) cmd.Command {
+	return modelcmd.Wrap(&addUnitCommand{
 		api: api,
 	})
 }
-
-var (
-	NewServiceSetConstraintsCommand = newServiceSetConstraintsCommand
-	NewServiceGetConstraintsCommand = newServiceGetConstraintsCommand
-)

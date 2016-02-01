@@ -49,7 +49,7 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	s.factory = jujuFactory.NewFactory(s.State)
 	s.machine0 = s.factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.machine1 = s.factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",

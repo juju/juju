@@ -54,7 +54,7 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 		"storage-account":     fakeStorageAccount,
 		"storage-account-key": fakeStorageAccountKey,
 	}}, attrs...)
-	cfg := makeTestEnvironConfig(c, attrs...)
+	cfg := makeTestModelConfig(c, attrs...)
 	volumeSource, err := s.provider.VolumeSource(cfg, storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -75,7 +75,7 @@ func (s *storageSuite) TestFilesystemSource(c *gc.C) {
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := makeTestEnvironConfig(c)
+	cfg := makeTestModelConfig(c)
 	_, err = s.provider.FilesystemSource(cfg, storageConfig)
 	c.Assert(err, gc.ErrorMatches, "filesystems not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)

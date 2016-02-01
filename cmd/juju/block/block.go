@@ -8,13 +8,13 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // BaseBlockCommand is base command for all
 // commands that enable blocks.
 type BaseBlockCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	desc string
 }
 
@@ -44,7 +44,7 @@ func (c *BaseBlockCommand) internalRun(operation string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *BaseBlockCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 }
 
 // BlockClientAPI defines the client API methods that block command uses.
@@ -54,11 +54,11 @@ type BlockClientAPI interface {
 }
 
 var getBlockClientAPI = func(p *BaseBlockCommand) (BlockClientAPI, error) {
-	return getBlockAPI(&p.EnvCommandBase)
+	return getBlockAPI(&p.ModelCommandBase)
 }
 
 func newDestroyCommand() cmd.Command {
-	return envcmd.Wrap(&destroyCommand{})
+	return modelcmd.Wrap(&destroyCommand{})
 }
 
 // destroyCommand blocks destroy environment.
@@ -97,7 +97,7 @@ func (c *destroyCommand) Run(_ *cmd.Context) error {
 }
 
 func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 // removeCommand blocks commands that remove juju objects.
@@ -142,7 +142,7 @@ func (c *removeCommand) Run(_ *cmd.Context) error {
 }
 
 func newChangeCommand() cmd.Command {
-	return envcmd.Wrap(&changeCommand{})
+	return modelcmd.Wrap(&changeCommand{})
 }
 
 // changeCommand blocks commands that may change environment.
@@ -167,7 +167,7 @@ To by-pass the block, where available, run desired remove command with --force o
     authorised-keys import
     deploy
     destroy-model
-    ensure-availability
+    enable-ha
     expose
     remove-machine
     remove-relation
@@ -178,11 +178,11 @@ To by-pass the block, where available, run desired remove command with --force o
     run
     set
     set-constraints
-    set-model
+    set-model-config
     sync-tools
     unexpose
     unset
-    unset-model
+    unset-model-config
     upgrade-charm
     upgrade-juju
     add-user

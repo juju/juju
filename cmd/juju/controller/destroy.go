@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -34,10 +34,10 @@ func NewDestroyCommand() cmd.Command {
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
-	return envcmd.Wrap(
+	return modelcmd.Wrap(
 		&destroyCommand{},
-		envcmd.EnvSkipFlags,
-		envcmd.EnvSkipDefault,
+		modelcmd.ModelSkipFlags,
+		modelcmd.ModelSkipDefault,
 	)
 }
 
@@ -58,7 +58,7 @@ Continue [y/N]? `[1:]
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	EnvironmentConfig() (map[string]interface{}, error)
+	ModelConfig() (map[string]interface{}, error)
 	DestroyController(destroyEnvs bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(envs ...names.ModelTag) ([]base.ModelStatus, error)
@@ -96,7 +96,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.EnvName())
+	cfgInfo, err := store.ReadInfo(c.ModelName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
@@ -104,11 +104,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.EnvName())
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ModelName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.EnvName()); err != nil {
+		if err = confirmDestruction(ctx, c.ModelName()); err != nil {
 			return err
 		}
 	}
@@ -129,16 +129,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to destroy the controller.
 	err = api.DestroyController(c.destroyEnvs)
-	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to destroy the controller,
-		// sending the info we were already able to collect.
-		return c.destroyControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
-	}
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
 	}
 
-	ctx.Infof("Destroying controller %q", c.EnvName())
+	ctx.Infof("Destroying controller %q", c.ModelName())
 	if c.destroyEnvs {
 		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
 
@@ -200,7 +195,7 @@ To remove all blocks in the controller, please run:
 		}
 		return cmd.ErrSilent
 	}
-	logger.Errorf(stdFailureMsg, c.EnvName())
+	logger.Errorf(stdFailureMsg, c.ModelName())
 	return destroyErr
 }
 
@@ -253,7 +248,7 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	assumeYes bool
 
 	// The following fields are for mocking out
@@ -297,7 +292,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		c.SetEnvName(args[0])
+		c.SetModelName(args[0])
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -313,20 +308,8 @@ func (c *destroyCommandBase) getControllerEnviron(info configstore.EnvironInfo, 
 		if sysAPI == nil {
 			return nil, errors.New("unable to get bootstrap information from API")
 		}
-		bootstrapCfg, err = sysAPI.EnvironmentConfig()
-		if params.IsCodeNotImplemented(err) {
-			// Fallback to the client API. Better to encapsulate the logic for
-			// old servers than worry about connecting twice.
-			client, err := c.getClientAPI()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			defer client.Close()
-			bootstrapCfg, err = client.ModelGet()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		} else if err != nil {
+		bootstrapCfg, err = sysAPI.ModelConfig()
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

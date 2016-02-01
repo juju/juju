@@ -73,7 +73,7 @@ func (s *utilsSuite) TestValidateBadModelUUID(c *gc.C) {
 }
 
 func (s *utilsSuite) TestValidateOtherModel(c *gc.C) {
-	envState := s.Factory.MakeEnvironment(c, nil)
+	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 
 	uuid, err := validateModelUUID(
@@ -86,7 +86,7 @@ func (s *utilsSuite) TestValidateOtherModel(c *gc.C) {
 }
 
 func (s *utilsSuite) TestValidateOtherModelControllerOnly(c *gc.C) {
-	envState := s.Factory.MakeEnvironment(c, nil)
+	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 
 	_, err := validateModelUUID(

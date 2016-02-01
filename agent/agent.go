@@ -327,7 +327,7 @@ type MigrateParams struct {
 	Jobs         []multiwatcher.MachineJob
 	DeleteValues []string
 	Values       map[string]string
-	Environment  names.ModelTag
+	Model        names.ModelTag
 }
 
 // Ensure that the configInternal struct implements the Config interface.
@@ -574,8 +574,8 @@ func (config *configInternal) Migrate(newParams MigrateParams) error {
 		}
 		config.values[key] = value
 	}
-	if newParams.Environment.Id() != "" {
-		config.model = newParams.Environment
+	if newParams.Model.Id() != "" {
+		config.model = newParams.Model
 	}
 	if err := config.check(); err != nil {
 		return fmt.Errorf("migrated agent config is invalid: %v", err)

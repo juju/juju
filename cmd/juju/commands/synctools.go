@@ -12,8 +12,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
@@ -24,13 +24,13 @@ import (
 var syncTools = sync.SyncTools
 
 func newSyncToolsCommand() cmd.Command {
-	return envcmd.Wrap(&syncToolsCommand{})
+	return modelcmd.Wrap(&syncToolsCommand{})
 }
 
 // syncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
 type syncToolsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	allVersions  bool
 	versionStr   string
 	majorVersion int

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -22,7 +22,7 @@ import (
 )
 
 func newValidateImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&validateImageMetadataCommand{})
+	return modelcmd.Wrap(&validateImageMetadataCommand{})
 }
 
 // validateImageMetadataCommand

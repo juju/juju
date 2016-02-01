@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -24,13 +23,11 @@ type AddUnitSuite struct {
 }
 
 type fakeServiceAddUnitAPI struct {
-	envType     string
-	service     string
-	numUnits    int
-	machineSpec string
-	placement   []*instance.Placement
-	err         error
-	newAPI      bool
+	envType   string
+	service   string
+	numUnits  int
+	placement []*instance.Placement
+	err       error
 }
 
 func (f *fakeServiceAddUnitAPI) Close() error {
@@ -41,25 +38,9 @@ func (f *fakeServiceAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeServiceAddUnitAPI) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
+func (f *fakeServiceAddUnitAPI) AddServiceUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
-	}
-
-	if service != f.service {
-		return nil, errors.NotFoundf("service %q", service)
-	}
-
-	f.numUnits += numUnits
-	f.machineSpec = machineSpec
-
-	// The add-unit subcommand doesn't check the results, so we can just return nil
-	return nil, nil
-}
-
-func (f *fakeServiceAddUnitAPI) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	if !f.newAPI {
-		return nil, &params.Error{Code: params.CodeNotImplemented}
 	}
 	if service != f.service {
 		return nil, errors.NotFoundf("service %q", service)
@@ -118,24 +99,6 @@ func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *AddUnitSuite) TestInvalidToParamWithOlderServer(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.numUnits, gc.Equals, 2)
-
-	err = s.runAddUnit(c, "--to", "bigglesplop", "some-service-name")
-	c.Assert(err, gc.ErrorMatches, `unsupported --to parameter "bigglesplop"`)
-}
-
-func (s *AddUnitSuite) TestUnsupportedNumUnitsWithOlderServer(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.numUnits, gc.Equals, 2)
-
-	err = s.runAddUnit(c, "-n", "2", "--to", "123", "some-service-name")
-	c.Assert(err, gc.ErrorMatches, `this version of Juju does not support --num-units > 1 with --to`)
-}
-
 func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 	err := s.runAddUnit(c, "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +110,6 @@ func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
-	s.fake.newAPI = true
 	err := s.runAddUnit(c, "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
@@ -173,36 +135,24 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	c.Check(stripped, gc.Matches, ".*TestBlockAddUnit.*")
 }
 
-func (s *AddUnitSuite) TestNonLocalCanHostUnits(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name", "--to", "0")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *AddUnitSuite) TestLocalCannotHostUnits(c *gc.C) {
-	s.fake.envType = "local"
-	err := s.runAddUnit(c, "some-service-name", "--to", "0")
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local model and cannot host units")
-	err = s.runAddUnit(c, "some-service-name", "--to", "1,#:0")
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local model and cannot host units")
-}
-
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 	err := s.runAddUnit(c, "some-service-name", "--to", "3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
-	c.Assert(s.fake.machineSpec, gc.Equals, "3")
+	c.Assert(s.fake.placement[0].Directive, gc.Equals, "3")
 
 	err = s.runAddUnit(c, "some-service-name", "--to", "23")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 3)
-	c.Assert(s.fake.machineSpec, gc.Equals, "23")
+	c.Assert(s.fake.placement[0].Directive, gc.Equals, "23")
 }
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	err := s.runAddUnit(c, "some-service-name", "--to", "lxc:1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
-	c.Assert(s.fake.machineSpec, gc.Equals, "lxc:1")
+	c.Assert(s.fake.placement[0].Directive, gc.Equals, "1")
+	c.Assert(s.fake.placement[0].Scope, gc.Equals, "lxc")
 }
 
 func (s *AddUnitSuite) TestNameChecks(c *gc.C) {

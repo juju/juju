@@ -48,7 +48,8 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), &apiAddressSetter{})
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), &apiAddressSetter{})
+	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
@@ -62,7 +63,8 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
@@ -78,7 +80,8 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
@@ -93,7 +96,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 0)
 	}
-	err := s.State.SetAPIHostPorts(updatedServers)
+	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	select {
@@ -138,7 +141,8 @@ LXC_BRIDGE="ignored"`[1:])
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()

@@ -25,7 +25,7 @@ import (
 )
 
 type KillSuite struct {
-	DestroySuite
+	baseDestroySuite
 }
 
 var _ = gc.Suite(&KillSuite{})
@@ -93,24 +93,6 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
 	checkControllerExistsInStore(c, "test3", s.store)
-}
-
-func (s *KillSuite) TestKillFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{Message: "DestroyController", Code: params.CodeNotImplemented}
-	_, err := s.runKillCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "test1", s.store)
-}
-
-func (s *KillSuite) TestClientKillDestroysControllerWithAPIError(c *gc.C) {
-	s.api.err = &params.Error{Message: "DestroyController", Code: params.CodeNotImplemented}
-	s.clientapi.err = errors.New("some destroy error")
-	ctx, err := s.runKillCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
-	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {

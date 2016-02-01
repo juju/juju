@@ -25,6 +25,7 @@ func init() {
 type AgentAPIV2 struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
+	*common.ModelWatcher
 
 	st   *state.State
 	auth common.Authorizer
@@ -43,6 +44,7 @@ func NewAgentAPIV2(st *state.State, resources *common.Resources, auth common.Aut
 	return &AgentAPIV2{
 		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
+		ModelWatcher:      common.NewModelWatcher(st, resources, auth),
 		st:                st,
 		auth:              auth,
 	}, nil
@@ -91,7 +93,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 }
 
 func (api *AgentAPIV2) StateServingInfo() (result state.StateServingInfo, err error) {
-	if !api.auth.AuthEnvironManager() {
+	if !api.auth.AuthModelManager() {
 		err = common.ErrPerm
 		return
 	}
@@ -104,7 +106,7 @@ func (api *AgentAPIV2) StateServingInfo() (result state.StateServingInfo, err er
 var MongoIsMaster = mongo.IsMaster
 
 func (api *AgentAPIV2) IsMaster() (params.IsMasterResult, error) {
-	if !api.auth.AuthEnvironManager() {
+	if !api.auth.AuthModelManager() {
 		return params.IsMasterResult{}, common.ErrPerm
 	}
 

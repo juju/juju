@@ -33,8 +33,8 @@ func NewClient(st base.APICallCloser) *Client {
 // API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects
 // both of these to be empty.
-func (c *Client) ConfigSkeleton(provider, region string) (params.EnvironConfig, error) {
-	var result params.EnvironConfigResult
+func (c *Client) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
+	var result params.ModelConfigResult
 	args := params.ModelSkeletonConfigArgs{
 		Provider: provider,
 		Region:   region,

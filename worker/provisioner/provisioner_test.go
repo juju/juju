@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -46,6 +46,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
+	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -69,7 +71,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -144,7 +146,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
@@ -159,7 +161,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 		Series:     "quantal",
 		Nonce:      agent.BootstrapNonce,
 		InstanceId: dummy.BootstrapInstanceId,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
+		Jobs:       []state.MachineJob{state.JobManageModel},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
@@ -184,14 +186,9 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.provisioner, gc.NotNil)
 }
 
-// stopper is stoppable.
-type stopper interface {
-	Stop() error
-}
-
-// stop stops a stopper.
-func stop(c *gc.C, s stopper) {
-	c.Assert(s.Stop(), jc.ErrorIsNil)
+// stop stops a Worker.
+func stop(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
@@ -430,7 +427,19 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent":      dt.StubResource{Output: mockAgent{config: agentConfig}},
+		"api-caller": dt.StubResource{Output: s.st},
+	})
+	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+	})
+	untyped, err := manifold.Start(getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	typed, ok := untyped.(provisioner.Provisioner)
+	c.Assert(ok, jc.IsTrue)
+	return typed
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
@@ -445,8 +454,8 @@ func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Valu
 	})
 }
 
-func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
+func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -459,7 +468,7 @@ func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Mac
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	c.Assert(p.Stop(), jc.ErrorIsNil)
+	stop(c, p)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -940,7 +949,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add the spaces used in constraints.
 	_, err := s.State.AddSpace("space1", nil, false)
@@ -1071,7 +1080,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add and provision a machine with volumes specified.
 	requestedVolumes := []state.MachineVolumeParams{{
@@ -1196,7 +1205,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		&mockToolsFinder{},
 	)
 	defer func() {
-		err := task.Stop()
+		err := worker.Stop(task)
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
 	}()
 	s.checkNoOperations(c)
@@ -1216,7 +1225,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
-	machineWatcher, err := s.provisioner.WatchEnvironMachines()
+	machineWatcher, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1225,7 +1234,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
-	return provisioner.NewProvisionerTask(
+	w, err := provisioner.NewProvisionerTask(
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,
@@ -1238,6 +1247,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		true,
 		retryStrategy,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
@@ -1387,7 +1398,7 @@ func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
-	added := s.ensureAvailability(c, 3)
+	added := s.enableHA(c, 3)
 	c.Assert(added, gc.HasLen, 2)
 	byId := make(map[string]*state.Machine)
 	for _, m := range added {
@@ -1432,4 +1443,13 @@ func (f mockToolsFinder) FindTools(number version.Number, series string, a strin
 		v.Arch = a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
+}
+
+type mockAgent struct {
+	agent.Agent
+	config agent.Config
+}
+
+func (mock mockAgent) CurrentConfig() agent.Config {
+	return mock.config
 }

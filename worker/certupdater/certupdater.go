@@ -10,12 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
 )
 
@@ -30,7 +30,7 @@ type CertificateUpdater struct {
 	addressWatcher  AddressWatcher
 	getter          StateServingInfoGetter
 	setter          StateServingInfoSetter
-	configGetter    EnvironConfigGetter
+	configGetter    ModelConfigGetter
 	hostPortsGetter APIHostPortsGetter
 	addresses       []network.Address
 }
@@ -42,10 +42,10 @@ type AddressWatcher interface {
 	Addresses() (addresses []network.Address)
 }
 
-// EnvironConfigGetter is an interface that is provided to NewCertificateUpdater
+// ModelConfigGetter is an interface that is provided to NewCertificateUpdater
 // which can be used to get environment config.
-type EnvironConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+type ModelConfigGetter interface {
+	ModelConfig() (*config.Config, error)
 }
 
 // StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
@@ -68,9 +68,9 @@ type APIHostPortsGetter interface {
 // machine addresses and then generates a new state server certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
+	configGetter ModelConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
 ) worker.Worker {
-	return worker.NewNotifyWorker(&CertificateUpdater{
+	return legacy.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
 		configGetter:    configGetter,
 		hostPortsGetter: hostPortsGetter,
@@ -80,7 +80,7 @@ func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInf
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
+func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
 	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
 	if err != nil {
@@ -131,7 +131,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 		return nil
 	}
 	// Grab the env config and update a copy with ca cert private key.
-	envConfig, err := c.configGetter.EnvironConfig()
+	envConfig, err := c.configGetter.ModelConfig()
 	if err != nil {
 		return errors.Annotate(err, "cannot read model config")
 	}

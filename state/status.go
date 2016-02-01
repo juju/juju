@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/mongo"
 )
 

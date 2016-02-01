@@ -75,7 +75,7 @@ func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIRefusesNonStateManager
 }
 
 func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
 	curl := charm.MustParseURL("cs:quantal/mysql")
@@ -123,7 +123,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 }
 
 func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
 	// Disallow read access to the wordpress charm in the charm store.
@@ -148,7 +148,7 @@ func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
 }
 
 func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
 	// Set up a charm store server that stores the request header.

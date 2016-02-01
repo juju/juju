@@ -153,7 +153,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
-	EnvironmentName: "dummymodel",
+	ModelName: "dummymodel",
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
@@ -162,13 +162,11 @@ var scenarioStatus = &params.FullStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
-			AgentState:     "down",
-			AgentStateInfo: "(started)",
-			Series:         "quantal",
-			Containers:     map[string]params.MachineStatus{},
-			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-			HasVote:        false,
-			WantsVote:      true,
+			Series:     "quantal",
+			Containers: map[string]params.MachineStatus{},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+			HasVote:    false,
+			WantsVote:  true,
 		},
 		"1": {
 			Id:         "1",
@@ -177,13 +175,11 @@ var scenarioStatus = &params.FullStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
-			AgentState:     "down",
-			AgentStateInfo: "(started)",
-			Series:         "quantal",
-			Containers:     map[string]params.MachineStatus{},
-			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-			HasVote:        false,
-			WantsVote:      false,
+			Series:     "quantal",
+			Containers: map[string]params.MachineStatus{},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 		"2": {
 			Id:         "2",
@@ -192,13 +188,11 @@ var scenarioStatus = &params.FullStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
-			AgentState:     "down",
-			AgentStateInfo: "(started)",
-			Series:         "quantal",
-			Containers:     map[string]params.MachineStatus{},
-			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-			HasVote:        false,
-			WantsVote:      false,
+			Series:     "quantal",
+			Containers: map[string]params.MachineStatus{},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	},
 	Services: map[string]params.ServiceStatus{
@@ -375,7 +369,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
@@ -456,7 +450,7 @@ func (s *baseSuite) setupStoragePool(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -40,7 +40,7 @@ func createAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 
@@ -94,7 +94,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
-	envCfg, err := api.metadata.EnvironConfig()
+	envCfg, err := api.metadata.ModelConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Annotatef(err, "getting environ config")
 	}
@@ -206,7 +206,7 @@ func (api *API) UpdateFromPublishedImages() error {
 }
 
 func (api *API) retrievePublished() error {
-	envCfg, err := api.metadata.EnvironConfig()
+	envCfg, err := api.metadata.ModelConfig()
 	if err != nil {
 		return errors.Annotatef(err, "getting environ config")
 	}
@@ -267,7 +267,7 @@ func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published
 	return processErrors(append(errs.Results, parseErrs...))
 }
 
-// convertToParams converts environment-specific images metadata to structured metadata format.
+// convertToParams converts model-specific images metadata to structured metadata format.
 var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) (params.MetadataSaveParams, []params.ErrorResult) {
 	metadata := []params.CloudImageMetadataList{{}}
 	errs := []params.ErrorResult{}

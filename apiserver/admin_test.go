@@ -505,14 +505,14 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
 	_, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
 
-func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
+func (s *loginV0Suite) TestLoginReportsModelTag(c *gc.C) {
 	st, cleanup := s.setupServer(c)
 	defer cleanup()
 	// If we call api.Open without giving a username and password, then it
@@ -532,7 +532,7 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 }
 
 func (s *loginV1Suite) TestLoginReportsEnvironAndControllerTag(c *gc.C) {
-	otherState := s.Factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	newEnvTag := otherState.ModelTag()
 
@@ -768,10 +768,10 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	modelTag, err := st.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
+	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeModelTag.String())
 }
 
-func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
+func (s *loginSuite) TestControllerModel(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -787,7 +787,7 @@ func (s *loginSuite) TestControllerEnvironment(c *gc.C) {
 	s.assertRemoteEnvironment(c, st, s.State.ModelTag())
 }
 
-func (s *loginSuite) TestControllerEnvironmentBadCreds(c *gc.C) {
+func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -837,7 +837,7 @@ func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
 	defer cleanup()
 
 	envOwner := s.Factory.MakeUser(c, nil)
-	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	envState := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: envOwner.UserTag(),
 	})
 	defer envState.Close()
@@ -860,7 +860,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	defer cleanup()
 
 	envOwner := s.Factory.MakeUser(c, nil)
-	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	envState := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: envOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
 			"state-server": false,
@@ -888,10 +888,10 @@ func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
 	defer cleanup()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
-	envState := s.Factory.MakeEnvironment(c, nil)
+	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
 	st, err := api.Open(info, fastDialOpts)
@@ -908,7 +908,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
 
-	envState := s.Factory.MakeEnvironment(c, nil)
+	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
 	st, err := api.Open(info, fastDialOpts)
@@ -965,9 +965,9 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The env user is also updated.
-	envUser, err := s.State.ModelUser(user.UserTag())
+	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := envUser.LastConnection()
+	when, err := modelUser.LastConnection()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, gc.NotNil)
 	c.Assert(when.After(startTime), jc.IsTrue)

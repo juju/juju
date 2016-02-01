@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -22,42 +22,42 @@ var _ = gc.Suite(&APIInfoSuite{})
 
 func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 	for i, test := range []struct {
-		message  string
-		args     []string
-		refresh  bool
-		user     bool
-		password bool
-		cacert   bool
-		servers  bool
-		envuuid  bool
-		srvuuid  bool
-		errMatch string
+		message   string
+		args      []string
+		refresh   bool
+		user      bool
+		password  bool
+		cacert    bool
+		servers   bool
+		modelUUID bool
+		srvuuid   bool
+		errMatch  string
 	}{
 		{
-			message: "no args skips password",
-			user:    true,
-			cacert:  true,
-			servers: true,
-			envuuid: true,
-			srvuuid: true,
+			message:   "no args skips password",
+			user:      true,
+			cacert:    true,
+			servers:   true,
+			modelUUID: true,
+			srvuuid:   true,
 		}, {
-			message:  "password shown if user specifies",
-			args:     []string{"--password"},
-			user:     true,
-			password: true,
-			cacert:   true,
-			servers:  true,
-			envuuid:  true,
-			srvuuid:  true,
+			message:   "password shown if user specifies",
+			args:      []string{"--password"},
+			user:      true,
+			password:  true,
+			cacert:    true,
+			servers:   true,
+			modelUUID: true,
+			srvuuid:   true,
 		}, {
-			message: "refresh the cache",
-			args:    []string{"--refresh"},
-			refresh: true,
-			user:    true,
-			cacert:  true,
-			servers: true,
-			envuuid: true,
-			srvuuid: true,
+			message:   "refresh the cache",
+			args:      []string{"--refresh"},
+			refresh:   true,
+			user:      true,
+			cacert:    true,
+			servers:   true,
+			modelUUID: true,
+			srvuuid:   true,
 		}, {
 			message: "just show the user field",
 			args:    []string{"user"},
@@ -75,9 +75,9 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			args:    []string{"state-servers"},
 			servers: true,
 		}, {
-			message: "just show the envuuid field",
-			args:    []string{"environ-uuid"},
-			envuuid: true,
+			message:   "just show the modelUUID field",
+			args:      []string{"environ-uuid"},
+			modelUUID: true,
 		}, {
 			message: "just show the srvuuid field",
 			args:    []string{"server-uuid"},
@@ -99,7 +99,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 	} {
 		c.Logf("test %v: %s", i, test.message)
 		command := &apiInfoCommand{}
-		wrappedCommand := envcmd.Wrap(command)
+		wrappedCommand := modelcmd.Wrap(command)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			c.Check(command.password, gc.Equals, test.password)
 			c.Check(command.cacert, gc.Equals, test.cacert)
 			c.Check(command.servers, gc.Equals, test.servers)
-			c.Check(command.envuuid, gc.Equals, test.envuuid)
+			c.Check(command.modelUUID, gc.Equals, test.modelUUID)
 			c.Check(command.srvuuid, gc.Equals, test.srvuuid)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
@@ -117,7 +117,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 }
 
 func (s *APIInfoSuite) TestOutput(c *gc.C) {
-	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+	s.PatchValue(&endpoint, func(c modelcmd.ModelCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 		return configstore.APIEndpoint{
 			Addresses:  []string{"localhost:12345", "10.0.3.1:12345"},
 			CACert:     "this is the cacert",
@@ -125,7 +125,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			ServerUUID: "bad0f00d-dead-beef-0000-01234567899a",
 		}, nil
 	})
-	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+	s.PatchValue(&creds, func(c modelcmd.ModelCommandBase) (configstore.APICredentials, error) {
 		return configstore.APICredentials{
 			User:     "tester",
 			Password: "sekrit",
@@ -225,14 +225,14 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 }
 
 func (s *APIInfoSuite) TestOutputNoServerUUID(c *gc.C) {
-	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+	s.PatchValue(&endpoint, func(c modelcmd.ModelCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 		return configstore.APIEndpoint{
 			Addresses: []string{"localhost:12345", "10.0.3.1:12345"},
 			CACert:    "this is the cacert",
 			ModelUUID: "deadbeef-dead-beef-dead-deaddeaddead",
 		}, nil
 	})
-	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+	s.PatchValue(&creds, func(c modelcmd.ModelCommandBase) (configstore.APICredentials, error) {
 		return configstore.APICredentials{
 			User:     "tester",
 			Password: "sekrit",
@@ -253,10 +253,10 @@ func (s *APIInfoSuite) TestOutputNoServerUUID(c *gc.C) {
 }
 
 func (s *APIInfoSuite) TestEndpointError(c *gc.C) {
-	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+	s.PatchValue(&endpoint, func(c modelcmd.ModelCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 		return configstore.APIEndpoint{}, fmt.Errorf("oops, no endpoint")
 	})
-	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+	s.PatchValue(&creds, func(c modelcmd.ModelCommandBase) (configstore.APICredentials, error) {
 		return configstore.APICredentials{}, nil
 	})
 	command := newAPIInfoCommand()
@@ -265,10 +265,10 @@ func (s *APIInfoSuite) TestEndpointError(c *gc.C) {
 }
 
 func (s *APIInfoSuite) TestCredentialsError(c *gc.C) {
-	s.PatchValue(&endpoint, func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+	s.PatchValue(&endpoint, func(c modelcmd.ModelCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 		return configstore.APIEndpoint{}, nil
 	})
-	s.PatchValue(&creds, func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+	s.PatchValue(&creds, func(c modelcmd.ModelCommandBase) (configstore.APICredentials, error) {
 		return configstore.APICredentials{}, fmt.Errorf("oops, no creds")
 	})
 	command := newAPIInfoCommand()

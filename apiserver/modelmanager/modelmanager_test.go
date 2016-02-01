@@ -114,7 +114,7 @@ func (s *modelManagerSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, err := s.State.ForEnviron(names.NewModelTag(model.UUID))
+	newState, err := s.State.ForModel(names.NewModelTag(model.UUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer newState.Close()
 
@@ -198,7 +198,7 @@ func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 	// looks for a random open port.
 	apiPort := s.Environ.Config().APIPort()
 
-	c.Assert(skeleton.Config, jc.DeepEquals, params.EnvironConfig{
+	c.Assert(skeleton.Config, jc.DeepEquals, params.ModelConfig{
 		"type":       "dummy",
 		"ca-cert":    coretesting.CACert,
 		"state-port": 1234,
@@ -280,16 +280,16 @@ func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	}{
 		{
 			value:    42,
-			errMatch: `creating config from values failed: agent-version: expected string, got int\(42\)`,
+			errMatch: `failed to create config: agent-version must be a string but has type 'int'`,
 		}, {
 			value:    "not a number",
-			errMatch: `creating config from values failed: invalid agent version in model configuration: "not a number"`,
+			errMatch: `failed to create config: invalid version \"not a number\"`,
 		}, {
 			value:    bigger.String(),
-			errMatch: "agent-version cannot be greater than the server: .*",
+			errMatch: "failed to create config: agent-version cannot be greater than the server: .*",
 		}, {
 			value:    smaller.String(),
-			errMatch: "no tools found for version .*",
+			errMatch: "failed to create config: no tools found for version .*",
 		},
 	} {
 		c.Logf("test %d", i)

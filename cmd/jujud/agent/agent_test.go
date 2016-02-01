@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	apienvironment "github.com/juju/juju/api/model"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -74,8 +74,8 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
-		return newDummyWorker()
+	s.PatchValue(&proxyupdater.NewWorker, func(*apiproxyupdater.Facade, bool) (worker.Worker, error) {
+		return newDummyWorker(), nil
 	})
 
 	// Tests should not try to use internet. Ensure base url is empty.

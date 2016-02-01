@@ -13,11 +13,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand displays a list of all spaces known to Juju.

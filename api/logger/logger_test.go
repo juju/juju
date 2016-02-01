@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/logger"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type loggerSuite struct {
@@ -35,7 +35,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	// Create the logger facade.
-	s.logger = stateAPI.Logger()
+	s.logger = logger.NewState(stateAPI)
 	c.Assert(s.logger, gc.NotNil)
 }
 
@@ -52,15 +52,16 @@ func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, watcher)
-	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
+	wc := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	// Initial event
 	wc.AssertOneChange()
 
@@ -75,6 +76,4 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	loggingConfig = loggingConfig + ";wibble=DEBUG"
 	s.setLoggingConfig(c, loggingConfig)
 	wc.AssertOneChange()
-	testing.AssertStop(c, watcher)
-	wc.AssertClosed()
 }

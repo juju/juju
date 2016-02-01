@@ -11,8 +11,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.
@@ -80,9 +81,6 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 	}
 	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
-		}
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -146,15 +144,7 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error,
 	}
 	results := new(params.ErrorResults)
 	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
-	if params.IsCodeNotImplemented(err) {
-		for _, batch := range batches {
-			err = u.AddMetrics(batch.Metrics)
-			if err != nil {
-				batchResults[batch.UUID] = errors.Annotate(err, "failed to send metric batch")
-			}
-		}
-		return batchResults, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Annotate(err, "failed to send metric batches")
 	}
 	for i, result := range results.Results {
@@ -553,7 +543,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -577,7 +567,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -600,7 +590,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -687,7 +677,7 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 

@@ -896,7 +896,7 @@ func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
 			C:     id.Kind,
-			Id:    ensureEnvUUID(id.ModelUUID, id.Id),
+			Id:    ensureModelUUID(id.ModelUUID, id.Id),
 			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
 	}
@@ -916,7 +916,7 @@ func (b *storeManagerTestBacking) deleteEntity(id multiwatcher.EntityId) {
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
 			C:     id.Kind,
-			Id:    ensureEnvUUID(id.ModelUUID, id.Id),
+			Id:    ensureModelUUID(id.ModelUUID, id.Id),
 			Revno: -1,
 		}
 	}

@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -63,7 +63,7 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
@@ -75,11 +75,11 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 
 func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoEnvUser: true,
-		Password:  "super-secret",
+		NoModelUser: true,
+		Password:    "super-secret",
 	})
 	apiInfo := s.APIInfo(c)
-	serverFile := envcmd.ServerFile{
+	serverFile := modelcmd.ServerFile{
 		Addresses: apiInfo.Addrs,
 		CACert:    apiInfo.CACert,
 		Username:  user.Name(),
@@ -101,7 +101,7 @@ func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'state-server'.
@@ -120,7 +120,7 @@ dummymodel (controller) -> new-model
 }
 
 func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"state-server": true},
 	})
@@ -139,7 +139,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 			err := s.State.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingModel()
-			if errors.Cause(err) != state.ErrEnvironmentNotDying {
+			if errors.Cause(err) != state.ErrModelNotDying {
 				c.Check(err, jc.ErrorIsNil)
 				if err == nil {
 					// success!
@@ -165,7 +165,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
@@ -177,7 +177,7 @@ func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "foo",
 	})
 
@@ -192,7 +192,7 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
@@ -205,7 +205,7 @@ func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "foo",
 	})
 	defer st.Close()

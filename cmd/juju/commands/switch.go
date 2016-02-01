@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -23,8 +23,8 @@ func newSwitchCommand() cmd.Command {
 
 type switchCommand struct {
 	cmd.CommandBase
-	EnvName string
-	List    bool
+	ModelName string
+	List      bool
 }
 
 var switchDoc = `
@@ -55,7 +55,7 @@ func (c *switchCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *switchCommand) Init(args []string) (err error) {
-	c.EnvName, err = cmd.ZeroOrOneArgs(args)
+	c.ModelName, err = cmd.ZeroOrOneArgs(args)
 	return
 }
 
@@ -108,7 +108,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 
 	if c.List {
 		// List all environments and controllers.
-		if c.EnvName != "" {
+		if c.ModelName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
 		for _, name := range names.SortedValues() {
@@ -122,7 +122,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 
 	jujuEnv := os.Getenv("JUJU_MODEL")
 	if jujuEnv != "" {
-		if c.EnvName == "" {
+		if c.ModelName == "" {
 			fmt.Fprintf(ctx.Stdout, "%s\n", jujuEnv)
 			return nil
 		} else {
@@ -130,7 +130,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	current, isController, err := envcmd.CurrentConnectionName()
+	current, isController, err := modelcmd.CurrentConnectionName()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -144,26 +144,26 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 
 	// Handle the different operation modes.
 	switch {
-	case c.EnvName == "" && current == "":
+	case c.ModelName == "" && current == "":
 		// Nothing specified and nothing to switch to.
 		return errors.New("no currently specified model")
-	case c.EnvName == "":
+	case c.ModelName == "":
 		// Simply print the current environment.
 		fmt.Fprintf(ctx.Stdout, "%s\n", current)
 		return nil
 	default:
 		// Switch the environment.
-		if !names.Contains(c.EnvName) {
-			return errors.Errorf("%q is not a name of an existing defined model or controller", c.EnvName)
+		if !names.Contains(c.ModelName) {
+			return errors.Errorf("%q is not a name of an existing defined model or controller", c.ModelName)
 		}
 		// If the name is not in the environment set, but is in the controller
 		// set, then write the name into the current controller file.
 		logger.Debugf("controllers: %v", configControllers)
 		logger.Debugf("models: %v", configEnvirons)
-		newEnv := c.EnvName
+		newEnv := c.ModelName
 		if configControllers.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			return envcmd.SetCurrentController(ctx, newEnv)
+			return modelcmd.SetCurrentController(ctx, newEnv)
 		}
-		return envcmd.SetCurrentEnvironment(ctx, newEnv)
+		return modelcmd.SetCurrentModel(ctx, newEnv)
 	}
 }

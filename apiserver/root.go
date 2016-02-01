@@ -48,7 +48,7 @@ type apiHandler struct {
 	entity           state.Entity
 	mongoUnavailable *uint32
 	// An empty modelUUID means that the user has logged in through the
-	// root of the API server rather than the /model/:env-uuid/api
+	// root of the API server rather than the /model/:model-uuid/api
 	// path, logins processed with v2 or later will only offer the
 	// user manager and model manager api endpoints from here.
 	modelUUID string
@@ -289,10 +289,10 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
-// AuthEnvironManager returns whether the authenticated user is a
+// AuthModelManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthEnvironManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageEnviron)
+func (r *apiHandler) AuthModelManager() bool {
+	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 
 // AuthClient returns whether the authenticated entity is a client

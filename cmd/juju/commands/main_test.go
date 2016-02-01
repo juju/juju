@@ -20,10 +20,10 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
@@ -38,7 +38,7 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(service.NewDeployCommand(), "juju deploy")
 }
 
 func setHelpText() string {
@@ -228,13 +228,13 @@ var commandNames = []string{
 	"disable-user",
 	"enable-ha",
 	"enable-user",
-	"ensure-availability",
 	"expose",
 	"generate-config", // alias for init
 	"get-config",
 	"get-constraints",
+	"get-model-config",
+	"get-model-constraints",
 	"get-user-credentials",
-	"get-model",
 	"help",
 	"help-tool",
 	"import-ssh-key",
@@ -262,6 +262,7 @@ var commandNames = []string{
 	"remove-ssh-keys",
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
+	"restore-backup",
 	"retry-provisioning",
 	"run",
 	"run-action",
@@ -269,7 +270,8 @@ var commandNames = []string{
 	"service",
 	"set-config",
 	"set-constraints",
-	"set-model",
+	"set-model-config",
+	"set-model-constraints",
 	"share-model",
 	"ssh-key",
 	"ssh-keys",
@@ -291,7 +293,7 @@ var commandNames = []string{
 	"unblock",
 	"unexpose",
 	"unset",
-	"unset-model",
+	"unset-model-config",
 	"unshare-model",
 	"upgrade-charm",
 	"upgrade-juju",
@@ -473,14 +475,14 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 	// Do nothing.
 }
 
-func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
 	registerCommands(&commands, testing.Context(c))
-	// There should not be any EnvironCommands registered.
-	// EnvironCommands must be wrapped using envcmd.Wrap.
+	// There should not be any ModelCommands registered.
+	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
-		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&bootstrapCommand{}))
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), modelcmd.ModelCommand(&bootstrapCommand{}))
 	}
 }
 

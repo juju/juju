@@ -31,9 +31,9 @@ type destroyControllerSuite struct {
 
 	controller *controller.ControllerAPI
 
-	otherState    *state.State
-	otherEnvOwner names.UserTag
-	otherEnvUUID  string
+	otherState     *state.State
+	otherEnvOwner  names.UserTag
+	otherModelUUID string
 }
 
 var _ = gc.Suite(&destroyControllerSuite{})
@@ -55,7 +55,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.controller = controller
 
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
-	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
 		Name:    "dummytoo",
 		Owner:   s.otherEnvOwner,
 		Prepare: true,
@@ -64,7 +64,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
-	s.otherEnvUUID = s.otherState.ModelUUID()
+	s.otherModelUUID = s.otherState.ModelUUID()
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBlocks(c *gc.C) {

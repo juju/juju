@@ -128,7 +128,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 
 	icfg.MachineAgentServiceName = env.machineAgentServiceName()
 	icfg.AgentEnvironment = map[string]string{
@@ -469,7 +469,7 @@ func (env *localEnviron) Destroy() error {
 			return err
 		}
 		args := []string{
-			"switch", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
 			juju, "kill-controller", "-y", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)

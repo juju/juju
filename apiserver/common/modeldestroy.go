@@ -37,19 +37,19 @@ func DestroyModel(st *state.State, modelTag names.ModelTag) error {
 func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels bool) error {
 	var err error
 	if modelTag != st.ModelTag() {
-		if st, err = st.ForEnviron(modelTag); err != nil {
+		if st, err = st.ForModel(modelTag); err != nil {
 			return errors.Trace(err)
 		}
 		defer st.Close()
 	}
 
 	if destroyHostedModels {
-		envs, err := st.AllEnvironments()
+		envs, err := st.AllModels()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		for _, env := range envs {
-			envSt, err := st.ForEnviron(env.ModelTag())
+			envSt, err := st.ForModel(env.ModelTag())
 			defer envSt.Close()
 			if err != nil {
 				return errors.Trace(err)

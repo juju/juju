@@ -159,7 +159,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 
 	// Create 3 state servers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)
@@ -218,7 +218,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) makeStateAgentVersion(c *gc.C, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	_, config, _ := s.configureMachine(c, machine.Id(), vers)

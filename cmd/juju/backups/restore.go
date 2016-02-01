@@ -13,8 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -22,10 +21,10 @@ import (
 )
 
 func newRestoreCommand() cmd.Command {
-	return envcmd.Wrap(&restoreCommand{})
+	return modelcmd.Wrap(&restoreCommand{})
 }
 
-// restoreCommand is a subcommand of backups that implement the restore behaior
+// restoreCommand is a subcommand of backups that implement the restore behavior
 // it is invoked with "juju backups restore".
 type restoreCommand struct {
 	CommandBase
@@ -66,6 +65,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 
 // SetFlags handles known option flags.
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set model constraints")
 
@@ -96,9 +96,6 @@ func (c *restoreCommand) Init(args []string) error {
 	return nil
 }
 
-const restoreAPIIncompatibility = "server version not compatible for " +
-	"restore with client version"
-
 // runRestore will implement the actual calls to the different Client parts
 // of restore.
 func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
@@ -121,9 +118,6 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	} else {
 		target = c.backupId
 		rErr = client.Restore(c.backupId, c.newClient)
-	}
-	if params.IsCodeNotImplemented(rErr) {
-		return errors.Errorf(restoreAPIIncompatibility)
 	}
 	if rErr != nil {
 		return errors.Trace(rErr)
@@ -173,7 +167,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 
 	cons := c.constraints
 	args := bootstrap.BootstrapParams{EnvironConstraints: cons, UploadTools: c.uploadTools}
-	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
+	if err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return nil
@@ -193,6 +187,11 @@ func (c *restoreCommand) newClient() (*backups.Client, func() error, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	if c.bootstrap {
 		if err := c.rebootstrap(ctx); err != nil {
 			return errors.Trace(err)

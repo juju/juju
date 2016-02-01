@@ -86,7 +86,7 @@ func (s *blockSuite) assertBlocked(c *gc.C, t state.BlockType) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr)
 }
 
-func (s *blockSuite) TestNewEnvironmentNotBlocked(c *gc.C) {
+func (s *blockSuite) TestNewModelNotBlocked(c *gc.C) {
 	assertNoEnvBlock(c, s.State)
 	s.assertNoTypedBlock(c, state.DestroyBlock)
 	s.assertNoTypedBlock(c, state.RemoveBlock)
@@ -174,8 +174,8 @@ func (s *blockSuite) TestRemoveAllBlocksForControllerNoBlocks(c *gc.C) {
 	c.Assert(len(blocks), gc.Equals, 0)
 }
 
-func (s *blockSuite) TestEnvUUID(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *blockSuite) TestModelUUID(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	err := st.SwitchBlockOn(state.ChangeBlock, "blocktest")
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,12 +189,12 @@ func (s *blockSuite) TestEnvUUID(c *gc.C) {
 func (s *blockSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewEnvironment(cfg, owner)
+	env, st, err := s.State.NewModel(cfg, owner)
 	c.Assert(err, jc.ErrorIsNil)
 	return env, st
 }

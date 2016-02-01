@@ -561,6 +561,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
+	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

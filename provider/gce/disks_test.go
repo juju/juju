@@ -197,7 +197,7 @@ func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	c.Assert(call[0].ZoneName, gc.Equals, "home-zone")
 }
 
-func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentEnvUUID(c *gc.C) {
+func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
 	otherDisk := &google.Disk{
 		Id:          1234568,
 		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",

@@ -223,7 +223,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(icfg.AgentEnvironment, gc.Not(gc.IsNil))
 		c.Assert(icfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
-		c.Assert(icfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
+		c.Assert(icfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 		return nil
 	}
 	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
@@ -266,7 +266,7 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{
 		s.fakesudo,
-		"switch",
+		"env",
 		"JUJU_HOME=" + osenv.JujuHome(),
 		os.Args[0],
 		"kill-controller",

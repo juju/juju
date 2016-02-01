@@ -19,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type storage struct {
-	envuuid    string
+	modelUUID  string
 	collection string
 	store      DataStore
 }
@@ -28,8 +28,8 @@ var _ Storage = (*storage)(nil)
 
 // NewStorage constructs a new Storage that stores image metadata
 // in the provided data store.
-func NewStorage(envuuid, collectionName string, store DataStore) Storage {
-	return &storage{envuuid, collectionName, store}
+func NewStorage(modelUUID, collectionName string, store DataStore) Storage {
+	return &storage{modelUUID, collectionName, store}
 }
 
 var emptyMetadata = Metadata{}
@@ -161,7 +161,7 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
-	// ModelUUID is the environment identifier.
+	// ModelUUID is the model identifier.
 	ModelUUID string `bson:"model-uuid"`
 
 	// Id contains unique key for cloud image metadata.
@@ -232,7 +232,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	r := imagesMetadataDoc{
-		ModelUUID:       s.envuuid,
+		ModelUUID:       s.modelUUID,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,

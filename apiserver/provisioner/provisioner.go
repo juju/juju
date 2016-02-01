@@ -61,8 +61,8 @@ type ProvisionerAPI struct {
 	*common.LifeGetter
 	*common.StateAddresser
 	*common.APIAddresser
-	*common.EnvironWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
@@ -75,11 +75,11 @@ type ProvisionerAPI struct {
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		isEnvironManager := authorizer.AuthEnvironManager()
+		isModelManager := authorizer.AuthModelManager()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
@@ -94,7 +94,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 				if parentId == "" {
 					// All top-level machines are accessible by the
 					// environment manager.
-					return isEnvironManager
+					return isModelManager
 				}
 				// All containers with the authenticated machine as a
 				// parent are accessible by it.
@@ -116,23 +116,23 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
-		Remover:                common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:         common.NewStateAddresser(st),
-		APIAddresser:           common.NewAPIAddresser(st, resources),
-		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
-		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
-		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
-		ToolsGetter:            common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
-		st:                     st,
-		resources:              resources,
-		authorizer:             authorizer,
-		getAuthFunc:            getAuthFunc,
+		Remover:              common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:       common.NewStateAddresser(st),
+		APIAddresser:         common.NewAPIAddresser(st, resources),
+		ModelWatcher:         common.NewModelWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
+		ToolsFinder:          common.NewToolsFinder(st, st, urlGetter),
+		ToolsGetter:          common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
+		st:                   st,
+		resources:            resources,
+		authorizer:           authorizer,
+		getAuthFunc:          getAuthFunc,
 	}, nil
 }
 
@@ -239,7 +239,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -298,7 +298,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -580,7 +580,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	envConfig, err := p.st.EnvironConfig()
+	envConfig, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -744,36 +744,6 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	return result, nil
 }
 
-// SetProvisioned sets the provider specific instance id, nonce and
-// metadata for each given machine. Once set, the instance id cannot
-// be changed.
-//
-// TODO(dimitern) This is not used anymore (as of 1.19.0) and is
-// retained only for backwards-compatibility. It should be removed as
-// deprecated. SetInstanceInfo is used instead.
-func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Machines)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Machines {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
@@ -828,7 +798,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthEnvironManager() {
+	if !p.authorizer.AuthModelManager() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
@@ -1093,7 +1063,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 }
 
 func (p *ProvisionerAPI) maybeGetNetworkingEnviron() (environs.NetworkingEnviron, error) {
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
 	}
@@ -1431,7 +1401,7 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1520,7 +1490,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 	return data, nil
 }
 
-// constructImageConstraint returns environment-specific criteria used to look for image metadata.
+// constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
 	// If we can determine current region,
 	// we want only metadata specific to this region.
@@ -1584,7 +1554,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 // obtainEnvCloudConfig returns environment specific cloud information
 // to be used in search for compatible images and their metadata.
 func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "could not get model config")
 	}

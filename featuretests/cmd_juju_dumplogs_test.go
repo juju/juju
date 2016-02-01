@@ -33,7 +33,7 @@ func (s *dumpLogsCommandSuite) SetUpTest(c *gc.C) {
 func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	// Create a controller machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	err := m.SetMongoPassword(password)
@@ -42,9 +42,9 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	s.PrimeStateAgent(c, m.Tag(), password)
 
 	//  Create multiple environments and add some logs for each.
-	st1 := s.Factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	st2 := s.Factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	states := []*state.State{s.State, st1, st2}
 

@@ -40,7 +40,7 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 // setUpManual adds "manually provisioned" machines to state:
 // one manager machine, and one non-manager.
 func (s *destroyModelSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	m0, err := s.State.AddMachine("precise", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,7 +55,7 @@ func (s *destroyModelSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 // one manager machine, one non-manager, and a container in the
 // non-manager.
 func (s *destroyModelSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	m0, err := s.State.AddMachine("precise", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
@@ -180,7 +180,7 @@ func (s *destroyModelSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestBlockDestroyDestroyHostedModel(c *gc.C) {
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 	info := s.APIInfo(c)
 	info.ModelTag = otherSt.ModelTag()
@@ -225,7 +225,7 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 	_, err := s.State.AddUser("jess", "jess", "", "test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.otherEnvOwner = names.NewUserTag("jess")
-	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
 		Owner:   s.otherEnvOwner,
 		Prepare: true,
 		ConfigAttrs: jujutesting.Attrs{

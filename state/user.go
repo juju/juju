@@ -356,7 +356,7 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
-	environment, err := u.st.ControllerEnvironment()
+	environment, err := u.st.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// Volume describes a volume (disk, logical volume, etc.) in the environment.
+// Volume describes a volume (disk, logical volume, etc.) in the model.
 type Volume interface {
 	GlobalEntity
 	LifeBinder
@@ -79,7 +79,7 @@ type volumeAttachment struct {
 	doc volumeAttachmentDoc
 }
 
-// volumeDoc records information about a volume in the environment.
+// volumeDoc records information about a volume in the model.
 type volumeDoc struct {
 	DocID           string        `bson:"_id"`
 	Name            string        `bson:"name"`
@@ -150,7 +150,7 @@ func (v *volume) validate() error {
 		}
 		switch tag.(type) {
 		case names.ModelTag:
-			// TODO(axw) support binding to environment
+			// TODO(axw) support binding to model
 			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:
 		case names.FilesystemTag:
@@ -198,8 +198,8 @@ func (v *volume) Life() Life {
 //   Filesystem:  If the volume is bound to a filesystem, i.e. the
 //                volume backs that filesystem, then it will be
 //                destroyed when the filesystem is removed from state.
-//   Environment: If the volume is bound to the environment, then the
-//                volume must be destroyed prior to the environment
+//   Model: If the volume is bound to the model, then the
+//                volume must be destroyed prior to the model
 //                being destroyed.
 func (v *volume) LifeBinding() names.Tag {
 	if v.doc.Binding == "" {
@@ -771,7 +771,7 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	if params.Pool != "" {
 		return params, nil
 	}
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return VolumeParams{}, errors.Trace(err)
 	}
@@ -1012,7 +1012,7 @@ func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []
 	}}
 }
 
-// AllVolumes returns all Volumes scoped to the environment.
+// AllVolumes returns all Volumes scoped to the model.
 func (st *State) AllVolumes() ([]Volume, error) {
 	volumes, err := st.volumes(nil)
 	if err != nil {

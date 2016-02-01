@@ -469,7 +469,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
 		machineCheck = false
-	} else if hasJob(m.doc.Jobs, JobManageEnviron) {
+	} else if hasJob(m.doc.Jobs, JobManageModel) {
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		machineCheck = false
@@ -483,13 +483,13 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
-			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
 	}
@@ -1495,7 +1495,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 
 // AssignToNewMachineOrContainer assigns the unit to a new machine,
 // with constraints determined according to the service and
-// environment constraints at the time of unit creation. If a
+// model constraints at the time of unit creation. If a
 // container is required, a clean, empty machine instance is required
 // on which to create the container. An existing clean, empty instance
 // is first searched for, and if not found, a new one is created.
@@ -1555,7 +1555,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 }
 
 // AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the service and environment constraints at the
+// determined according to the service and model constraints at the
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")

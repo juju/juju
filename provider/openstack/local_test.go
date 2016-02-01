@@ -1323,8 +1323,8 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	// but not matching name, and ensure it isn't seen by AllInstances
 	// See bug #1257481, for how similar names were causing them to get
 	// listed (and thus destroyed) at the wrong time
-	existingEnvName := s.TestConfig["name"]
-	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingEnvName)
+	existingModelName := s.TestConfig["name"]
+	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingModelName)
 
 	// We grab the Nova client directly from the env, just to save time
 	// looking all the stuff up

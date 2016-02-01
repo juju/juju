@@ -10,19 +10,19 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
 // NewListCommand returns a command to list the controllers the user knows about.
 func NewListCommand() cmd.Command {
-	return envcmd.WrapBase(&listCommand{})
+	return modelcmd.WrapBase(&listCommand{})
 }
 
 // listCommand returns the list of all controllers the user is
 // currently logged in to on the current machine.
 type listCommand struct {
-	envcmd.JujuCommandBase
+	modelcmd.JujuCommandBase
 	cfgStore configstore.Storage
 }
 

@@ -33,8 +33,8 @@ func (r *restrictedRootSuite) assertMethodAllowed(c *gc.C, rootName string, vers
 }
 
 func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
-	r.assertMethodAllowed(c, "AllEnvWatcher", 2, "Next")
-	r.assertMethodAllowed(c, "AllEnvWatcher", 2, "Stop")
+	r.assertMethodAllowed(c, "AllModelWatcher", 2, "Next")
+	r.assertMethodAllowed(c, "AllModelWatcher", 2, "Stop")
 
 	r.assertMethodAllowed(c, "ModelManager", 2, "CreateModel")
 	r.assertMethodAllowed(c, "ModelManager", 2, "ListModels")
@@ -45,7 +45,7 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 
 	r.assertMethodAllowed(c, "Controller", 2, "AllModels")
 	r.assertMethodAllowed(c, "Controller", 2, "DestroyController")
-	r.assertMethodAllowed(c, "Controller", 2, "EnvironmentConfig")
+	r.assertMethodAllowed(c, "Controller", 2, "ModelConfig")
 	r.assertMethodAllowed(c, "Controller", 2, "ListBlockedModels")
 }
 

@@ -10,13 +10,13 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewRemoveKeysCommand is used to delete ssk keys for a user.
 func NewRemoveKeysCommand() cmd.Command {
-	return envcmd.Wrap(&removeKeysCommand{})
+	return modelcmd.Wrap(&removeKeysCommand{})
 }
 
 var removeKeysDoc = `

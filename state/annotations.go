@@ -112,17 +112,17 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 
 	switch tag := tag.(type) {
 	case names.ModelTag:
-		env, err := st.GetEnvironment(tag)
+		env, err := st.GetModel(tag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "inserting annotations")
 		}
 		if env.UUID() == env.ControllerUUID() {
-			// This is the controller environment, and cannot be removed.
+			// This is the controller model, and cannot be removed.
 			// Ergo, we can skip the existence check below.
 			return ops, nil
 		}
 	}
-	// If the entity is not the state server environment, add a DocExists check on the
+	// If the entity is not the state server model, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
 	coll, id, err := st.tagToCollectionAndId(tag)

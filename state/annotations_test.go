@@ -161,7 +161,7 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RemoveEnvironment(s.State, st.ModelUUID())
+	err = state.RemoveModel(s.State, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected = "fail"
@@ -174,12 +174,12 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewEnvironment(cfg, owner)
+	env, st, err := s.State.NewModel(cfg, owner)
 	c.Assert(err, jc.ErrorIsNil)
 	return env, st
 }

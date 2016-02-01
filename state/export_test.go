@@ -297,8 +297,8 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
-func UserEnvNameIndex(username, envName string) string {
-	return userModelNameIndex(username, envName)
+func UserModelNameIndex(username, modelName string) string {
+	return userModelNameIndex(username, modelName)
 }
 
 func DocID(st *State, id string) string {
@@ -313,7 +313,7 @@ func StrictLocalID(st *State, id string) (string, error) {
 	return st.strictLocalID(id)
 }
 
-func GetUnitEnvUUID(unit *Unit) string {
+func GetUnitModelUUID(unit *Unit) string {
 	return unit.doc.ModelUUID
 }
 
@@ -343,10 +343,10 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// This is a naive environment destruction function, used to test environment
-// watching after the client calls DestroyModel and the environ doc is removed.
+// This is a naive model destruction function, used to test model
+// watching after the client calls DestroyModel and the model doc is removed.
 // It is also used to test annotations.
-func RemoveEnvironment(st *State, uuid string) error {
+func RemoveModel(st *State, uuid string) error {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
@@ -356,7 +356,7 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDead(st *State, modelUUID string) error {
+func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     modelUUID,
@@ -365,8 +365,8 @@ func SetEnvLifeDead(st *State, modelUUID string) error {
 	return st.runTransaction(ops)
 }
 
-func HostedEnvironCount(c *gc.C, st *State) int {
-	count, err := hostedEnvironCount(st)
+func HostedModelCount(c *gc.C, st *State) int {
+	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }

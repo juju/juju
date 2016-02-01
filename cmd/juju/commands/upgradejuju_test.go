@@ -19,7 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/envcmd"
+	cmdcommon "github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
@@ -42,7 +43,7 @@ type UpgradeJujuSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 
 	toolsDir string
-	CmdBlockHelper
+	cmdcommon.CmdBlockHelper
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
@@ -52,7 +53,7 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = cmdcommon.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -330,7 +331,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			"agent-version":      test.agentVersion,
 			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
-		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+		err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
@@ -351,7 +352,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 
 		// Check expected changes to environ/state.
-		cfg, err := s.State.EnvironConfig()
+		cfg, err := s.State.ModelConfig()
 		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, jc.IsTrue)
@@ -422,7 +423,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	}
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 
@@ -433,7 +434,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = cmdcommon.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -540,7 +541,7 @@ upgrade to this version by running
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
-		cfg, err := s.State.EnvironConfig()
+		cfg, err := s.State.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -562,7 +563,7 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 		"agent-metadata-url": "file://" + toolsDir + "/tools",
 	}
 
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	versions := make([]version.Binary, len(tools))
 	for i, v := range tools {
@@ -699,7 +700,7 @@ best version:
 		}
 
 		// Check agent version doesn't change
-		cfg, err := s.State.EnvironConfig()
+		cfg, err := s.State.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -723,10 +724,10 @@ func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	fakeAPI.patch(s)
 
 	cmd := &upgradeJujuCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
 	c.Assert(err, gc.IsNil)
 
 	// ensure find tools was called
@@ -742,10 +743,10 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	}
 	fakeAPI.patch(s)
 	cmd := &upgradeJujuCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
 		"\n"+
 		"Please wait for the upgrade to complete or if there was a problem with\n"+
@@ -759,12 +760,12 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI.setVersionErr = common.OperationBlockedError("the operation has been blocked")
 	fakeAPI.patch(s)
 	cmd := &upgradeJujuCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
-	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
 	s.AssertBlocked(c, err, ".*To unblock changes.*")
 }
 
@@ -785,10 +786,10 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 		fakeAPI.reset()
 
 		cmd := &upgradeJujuCommand{}
-		err := coretesting.InitCommand(envcmd.Wrap(cmd),
+		err := coretesting.InitCommand(modelcmd.Wrap(cmd),
 			append([]string{"--reset-previous-upgrade"}, args...))
 		c.Assert(err, jc.ErrorIsNil)
-		err = envcmd.Wrap(cmd).Run(ctx)
+		err = modelcmd.Wrap(cmd).Run(ctx)
 		if expect {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
@@ -872,7 +873,7 @@ func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
 }
 
 func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
-	config, err := a.st.EnvironConfig()
+	config, err := a.st.ModelConfig()
 	if err != nil {
 		return make(map[string]interface{}), err
 	}

@@ -11,11 +11,11 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newRenameCommand() cmd.Command {
-	return envcmd.Wrap(&renameCommand{})
+	return modelcmd.Wrap(&renameCommand{})
 }
 
 // renameCommand calls the API to rename an existing network space.

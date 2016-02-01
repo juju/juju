@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -57,7 +57,7 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	err := envcmd.WriteCurrentController("fake")
+	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
@@ -85,7 +85,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelsSuite) newCommand() cmd.Command {
-	return controller.NewEnvironmentsCommandForTest(s.api, s.api, s.creds)
+	return controller.NewModelsCommandForTest(s.api, s.api, s.creds)
 }
 
 func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {

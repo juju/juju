@@ -10,17 +10,17 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api        RemoveMachineAPI
 	MachineIds []string
 	Force      bool

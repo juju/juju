@@ -22,14 +22,11 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/model"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -151,7 +148,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
 	// server.  The JSON field names between the structures are disjoint, so only
-	// one should have an environ tag set.
+	// one should have an model tag set.
 
 	var modelTag string
 	var controllerTag string
@@ -162,7 +159,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	if result.LoginResult.ModelTag != "" {
 		modelTag = result.LoginResult.ModelTag
 		// If the server doesn't support login v1, it doesn't support
-		// multiple environments, so don't store a server tag.
+		// multiple models, so don't store a server tag.
 		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.ModelTag != "" {
@@ -319,16 +316,6 @@ func (st *state) DiskManager() (*diskmanager.State, error) {
 	return diskmanager.NewState(st, machineTag), nil
 }
 
-// StorageProvisioner returns a version of the state that provides
-// functionality required by the storageprovisioner worker.
-// The scope tag defines the type of storage that is provisioned, either
-// either attached directly to a specified machine (machine scoped),
-// or provisioned on the underlying cloud for use by any machine in a
-// specified environment (environ scoped).
-func (st *state) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
-	return storageprovisioner.NewState(st, scope)
-}
-
 // Firewaller returns a version of the state that provides functionality
 // required by the firewaller worker.
 func (st *state) Firewaller() *firewaller.State {
@@ -364,16 +351,6 @@ func (st *state) Deployer() *deployer.State {
 // Addresser returns access to the Addresser API.
 func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
-}
-
-// Model returns access to the Model API
-func (st *state) Model() *model.Facade {
-	return model.NewFacade(st)
-}
-
-// Logger returns access to the Logger API
-func (st *state) Logger() *apilogger.State {
-	return apilogger.NewState(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API

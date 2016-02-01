@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -21,7 +21,7 @@ func newAddCommand() cmd.Command {
 	cmd.newAPIFunc = func() (StorageAddAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const (

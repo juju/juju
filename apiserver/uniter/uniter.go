@@ -19,7 +19,7 @@ import (
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/meterstatus"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -39,7 +39,7 @@ type UniterAPIV3 struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.RebootRequester
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
@@ -122,7 +122,7 @@ func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer com
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
-		EnvironWatcher:             common.NewEnvironWatcher(st, resources, authorizer),
+		ModelWatcher:               common.NewModelWatcher(st, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
 		MeterStatus:                msAPI,
@@ -1049,18 +1049,8 @@ func (u *UniterAPIV3) JoinedRelations(args params.Entities) (params.StringsResul
 	return result, nil
 }
 
-// CurrentEnvironUUID returns the UUID for the current juju environment.
-func (u *UniterAPIV3) CurrentEnvironUUID() (params.StringResult, error) {
-	result := params.StringResult{}
-	env, err := u.st.Model()
-	if err == nil {
-		result.Result = env.UUID()
-	}
-	return result, err
-}
-
-// CurrentEnvironment returns the name and UUID for the current juju environment.
-func (u *UniterAPIV3) CurrentEnvironment() (params.ModelResult, error) {
+// CurrentModel returns the name and UUID for the current juju model.
+func (u *UniterAPIV3) CurrentModel() (params.ModelResult, error) {
 	result := params.ModelResult{}
 	env, err := u.st.Model()
 	if err == nil {
@@ -1071,14 +1061,14 @@ func (u *UniterAPIV3) CurrentEnvironment() (params.ModelResult, error) {
 }
 
 // ProviderType returns the provider type used by the current juju
-// environment.
+// model.
 //
 // TODO(dimitern): Refactor the uniter to call this instead of calling
-// EnvironConfig() just to get the provider type. Once we have machine
+// ModelConfig() just to get the provider type. Once we have machine
 // addresses, this might be completely unnecessary though.
 func (u *UniterAPIV3) ProviderType() (params.StringResult, error) {
 	result := params.StringResult{}
-	cfg, err := u.st.EnvironConfig()
+	cfg, err := u.st.ModelConfig()
 	if err == nil {
 		result.Result = cfg.Type()
 	}

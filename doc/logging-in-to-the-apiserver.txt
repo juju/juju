@@ -38,7 +38,7 @@ The incoming socket connection is handled inside the (*Server).run method.
  - "/" -> srv.apiHandler
 
 The apiHandler creates a go routine for handling the socket connection, and
-extracts the envuuid from the path, and calls the (*Server).serveConn method.
+extracts the modelUUID from the path, and calls the (*Server).serveConn method.
 
 serveConn validates the model UUID and gets an appropiate *state.State
 for the model specified.  An empty model UUID is treated as the
@@ -61,7 +61,7 @@ limits the rootName objects that can be called.  In order to do this, we need
 to pass the modelUUID from the path (remember this is either a valid uuid or the
 empty string), and the version of the login command used.
 
-In order to get the envuuid from the path into the Login method, we need to
+In order to get the modelUUID from the path into the Login method, we need to
 capture it in *Server.serveConn, where it is passed in as an argument.  We
 should pass it through to the newApiHandler function and store it on the
 apiHandler struct.  This handler is passed through as an arg to the

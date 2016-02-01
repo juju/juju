@@ -19,14 +19,14 @@ import (
 // server machines.
 func (st *State) stateServerAddresses() ([]string, error) {
 	ssState := st
-	env, err := st.ControllerEnvironment()
+	model, err := st.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.ModelTag() != env.ModelTag() {
-		// We are not using the state server environment, so get one.
+	if st.ModelTag() != model.ModelTag() {
+		// We are not using the state server model, so get one.
 		logger.Debugf("getting a state server state connection, current env: %s", st.ModelTag())
-		ssState, err = st.ForEnviron(env.ModelTag())
+		ssState, err = st.ForModel(model.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -41,7 +41,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	// TODO(rog) 2013/10/14 index machines on jobs.
 	machines, closer := ssState.getCollection(machinesC)
 	defer closer()
-	err = machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (st *State) Addresses() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.EnvironConfig()
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +93,7 @@ func (st *State) APIAddressesFromMachines() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.EnvironConfig()
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -162,7 +162,7 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.EnvironConfig()
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

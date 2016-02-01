@@ -20,7 +20,7 @@ var (
 //
 //  * infrastructure: we really don't have any business touching these once
 //    we've created them. They should have the rawAccess attribute set, so that
-//    multiEnvRunner will consider them forbidden.
+//    multiModelRunner will consider them forbidden.
 //
 //  * global: these hold information external to models. They may include
 //    model metadata, or references; but they're generally not relevant
@@ -29,7 +29,7 @@ var (
 //  * local (in opposition to global; and for want of a better term): these
 //    hold information relevant *within* specific models (machines,
 //    services, relations, settings, bookkeeping, etc) and should generally be
-//    read via an envStateCollection, and written via a multiEnvRunner. This is
+//    read via an modelStateCollection, and written via a multiModelRunner. This is
 //    the most common form of collection, and the above access should usually
 //    be automatic via Database.Collection and Database.Runner.
 //

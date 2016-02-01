@@ -11,8 +11,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -63,7 +64,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -157,9 +158,6 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	}
 	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.NotImplementedf("SetServiceStatus")
-		}
 		return errors.Trace(err)
 	}
 	return result.OneError()
@@ -179,9 +177,6 @@ func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	}
 	err := s.st.facade.FacadeCall("ServiceStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.ServiceStatusResult{}, errors.NotImplementedf("ServiceStatus")
-		}
 		return params.ServiceStatusResult{}, errors.Trace(err)
 	}
 	result := results.Results[0]

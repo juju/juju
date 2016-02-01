@@ -42,7 +42,7 @@ func (s *imageSuite) SetUpSuite(c *gc.C) {
 	s.authHttpSuite.SetUpSuite(c)
 }
 
-func (s *imageSuite) TestDownloadMissingEnvUUIDPath(c *gc.C) {
+func (s *imageSuite) TestDownloadMissingModelUUIDPath(c *gc.C) {
 	s.storeFakeImage(c, s.State, "lxc", "trusty", "amd64")
 
 	s.modelUUID = ""
@@ -64,7 +64,7 @@ func (s *imageSuite) TestDownloadEnvironmentPath(c *gc.C) {
 }
 
 func (s *imageSuite) TestDownloadOtherEnvironmentPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
+	envState := s.setupOtherModel(c)
 	s.storeFakeImage(c, envState, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
@@ -74,7 +74,7 @@ func (s *imageSuite) TestDownloadOtherEnvironmentPath(c *gc.C) {
 	s.testDownload(c, response)
 }
 
-func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
+func (s *imageSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
 	s.modelUUID = "dead-beef-123456"
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
 	response := s.downloadRequest(c, url)

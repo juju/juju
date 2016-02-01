@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
@@ -202,7 +202,7 @@ func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
 func (s *LoginSuite) TestWritesCurrentController(c *gc.C) {
 	_, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
-	currentController, err := envcmd.ReadCurrentController()
+	currentController, err := modelcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentController, gc.Equals, "foo")
 }

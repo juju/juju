@@ -5,11 +5,11 @@ package commands
 
 import (
 	"github.com/juju/juju/api/keymanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type SSHKeysBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.EnvCommandBase
 }
 
 // NewKeyManagerClient returns a keymanager client for the root api endpoint

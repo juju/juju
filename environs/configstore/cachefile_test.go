@@ -66,7 +66,7 @@ func (s *cacheFileInterfaceSuite) TestServerUUIDWrite(c *gc.C) {
 	c.Assert(cache.Environment, gc.HasLen, 1)
 }
 
-func (s *cacheFileInterfaceSuite) TestServerEnvNameExists(c *gc.C) {
+func (s *cacheFileInterfaceSuite) TestServerModelNameExists(c *gc.C) {
 	modelUUID := testing.ModelTag.Id()
 	s.writeEnv(c, "testing", modelUUID, modelUUID, "tester", "secret")
 

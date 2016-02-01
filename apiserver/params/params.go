@@ -163,8 +163,7 @@ type AddMachineParams struct {
 	Addrs                   []Address                        `json:"Addrs"`
 }
 
-// AddMachines holds the parameters for making the
-// AddMachinesWithPlacement call.
+// AddMachines holds the parameters for making the AddMachines call.
 type AddMachines struct {
 	MachineParams []AddMachineParams `json:"MachineParams"`
 }
@@ -194,17 +193,16 @@ type ServicesDeploy struct {
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
-	ServiceName   string
-	Series        string
-	CharmUrl      string
-	NumUnits      int
-	Config        map[string]string
-	ConfigYAML    string // Takes precedence over config if both are present.
-	Constraints   constraints.Value
-	ToMachineSpec string
-	Placement     []*instance.Placement
-	Networks      []string
-	Storage       map[string]storage.Constraints
+	ServiceName string
+	Series      string
+	CharmUrl    string
+	NumUnits    int
+	Config      map[string]string
+	ConfigYAML  string // Takes precedence over config if both are present.
+	Constraints constraints.Value
+	Placement   []*instance.Placement
+	Networks    []string
+	Storage     map[string]storage.Constraints
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -237,15 +235,6 @@ type ServiceExpose struct {
 type ServiceSet struct {
 	ServiceName string
 	Options     map[string]string
-}
-
-// TODO(wallyworld) - deprecated, remove when GUI updated.
-// ServiceSetYAML holds the parameters for
-// a ServiceSetYAML command. Config contains the
-// configuration data in YAML format.
-type ServiceSetYAML struct {
-	ServiceName string
-	Config      string
 }
 
 // ServiceUnset holds the parameters for a ServiceUnset
@@ -337,10 +326,9 @@ type AddServiceUnitsResults struct {
 
 // AddServiceUnits holds parameters for the AddUnits call.
 type AddServiceUnits struct {
-	ServiceName   string
-	NumUnits      int
-	ToMachineSpec string
-	Placement     []*instance.Placement
+	ServiceName string
+	NumUnits    int
+	Placement   []*instance.Placement
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.
@@ -409,7 +397,7 @@ type GetConstraintsResults struct {
 
 // SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
-	ServiceName string //optional, if empty, environment constraints are set.
+	ServiceName string //optional, if empty, model constraints are set.
 	Constraints constraints.Value
 }
 
@@ -481,7 +469,7 @@ type ContainerManagerConfigParams struct {
 	Type instance.ContainerType
 }
 
-// ContainerManagerConfig contains information from the environment config
+// ContainerManagerConfig contains information from the model config
 // that is needed for configuring the container manager.
 type ContainerManagerConfig struct {
 	ManagerConfig map[string]string
@@ -494,7 +482,7 @@ type UpdateBehavior struct {
 	EnableOSUpgrade       bool
 }
 
-// ContainerConfig contains information from the environment config that is
+// ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
 	ProviderType            string
@@ -613,11 +601,11 @@ type LoginResultV1 struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
 
-	// ModelTag is the tag for the environment that is being connected to.
-	ModelTag string `json:"environ-tag,omitempty"`
+	// ModelTag is the tag for the model that is being connected to.
+	ModelTag string `json:"model-tag,omitempty"`
 
-	// ControllerTag is the tag for the environment that holds the API servers.
-	// This is the initial environment created when bootstrapping juju.
+	// ControllerTag is the tag for the model that holds the API servers.
+	// This is the initial model created when bootstrapping juju.
 	ControllerTag string `json:"server-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
@@ -633,26 +621,26 @@ type LoginResultV1 struct {
 }
 
 // StateServersSpec contains arguments for
-// the EnsureAvailability client API call.
+// the EnableHA client API call.
 type StateServersSpec struct {
 	ModelTag        string
 	NumStateServers int               `json:"num-state-servers"`
 	Constraints     constraints.Value `json:"constraints,omitempty"`
 	// Series is the series to associate with new state server machines.
-	// If this is empty, then the environment's default series is used.
+	// If this is empty, then the model's default series is used.
 	Series string `json:"series,omitempty"`
 	// Placement defines specific machines to become new state server machines.
 	Placement []string `json:"placement,omitempty"`
 }
 
 // StateServersSpecs contains all the arguments
-// for the EnsureAvailability API call.
+// for the EnableHA API call.
 type StateServersSpecs struct {
 	Specs []StateServersSpec
 }
 
 // StateServersChangeResult contains the results
-// of a single EnsureAvailability API call or
+// of a single EnableHA API call or
 // an error.
 type StateServersChangeResult struct {
 	Result StateServersChanges
@@ -660,14 +648,14 @@ type StateServersChangeResult struct {
 }
 
 // StateServersChangeResults contains the results
-// of the EnsureAvailability API call.
+// of the EnableHA API call.
 type StateServersChangeResults struct {
 	Results []StateServersChangeResult
 }
 
 // StateServersChanges lists the servers
 // that have been added, removed or maintained in the
-// pool as a result of an ensure-availability operation.
+// pool as a result of an enable-ha operation.
 type StateServersChanges struct {
 	Added      []string `json:"added,omitempty"`
 	Maintained []string `json:"maintained,omitempty"`
@@ -781,7 +769,7 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
-// ModelInfo holds information about the Juju environment.
+// ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	DefaultSeries string `json:"DefaultSeries"`
 	ProviderType  string `json:"ProviderType"`

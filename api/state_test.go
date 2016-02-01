@@ -73,7 +73,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
+func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
@@ -88,8 +88,8 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	modelTag, err = apistate.ModelTag()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(modelTag, gc.Equals, env.ModelTag())
-	// The controller tag is also set, and since the environment is the
-	// controller environment, the uuid is the same.
+	// The controller tag is also set, and since the model is the
+	// controller model, the uuid is the same.
 	controllerTag, err := apistate.ControllerTag()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(controllerTag, gc.Equals, env.ModelTag())

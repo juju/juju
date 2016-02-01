@@ -25,7 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -130,7 +130,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.ControllerEnvironment()
+	env, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Owner()
 }
@@ -223,7 +223,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "")
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
@@ -240,7 +240,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ConfigStore = store
 
 	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("dummymodel", envcmd.BootstrapContext(ctx), s.ConfigStore)
+	environ, err := environs.PrepareFromName("dummymodel", modelcmd.BootstrapContext(ctx), s.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
@@ -272,7 +272,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
-	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -400,7 +400,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -414,7 +414,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 			secretAttrs[k] = v
 		}
 	}
-	return st.UpdateEnvironConfig(secretAttrs, nil, nil)
+	return st.UpdateModelConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -647,6 +647,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

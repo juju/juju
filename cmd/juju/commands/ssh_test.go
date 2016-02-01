@@ -131,7 +131,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	s.makeMachines(1, c, true)
 	// Setting proxy-ssh=false in the environment overrides --proxy.
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
@@ -153,9 +153,8 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 	for i := 0; i < t.NumMethod(); i++ {
 		name := t.Method(i).Name
 
-		// Close isn't an API method and ServiceCharmRelations is not
-		// relevant to "juju ssh".
-		if name == "Close" || name == "ServiceCharmRelations" {
+		// Close isn't an API method.
+		if name == "Close" {
 			continue
 		}
 		c.Logf("checking %q", name)

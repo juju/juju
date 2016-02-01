@@ -110,7 +110,7 @@ LXC_BRIDGE="ignored"`[1:])
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, jc.IsTrue)
 	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
-	expectEnvironConstraints := constraints.MustParse("mem=512M")
+	expectModelConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	initialAddrs := network.NewAddresses(
 		"zeroonetwothree",
@@ -122,8 +122,8 @@ LXC_BRIDGE="ignored"`[1:])
 	mcfg := agent.BootstrapMachineConfig{
 		Addresses:            initialAddrs,
 		BootstrapConstraints: expectBootstrapConstraints,
-		EnvironConstraints:   expectEnvironConstraints,
-		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+		ModelConstraints:     expectModelConstraints,
+		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 		InstanceId:           "i-bootstrap",
 		Characteristics:      expectHW,
 		SharedSecret:         "abc123",
@@ -168,16 +168,16 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Check that environment configuration has been added, and
 	// environment constraints set.
-	newEnvCfg, err := st.EnvironConfig()
+	newEnvCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnvCfg.AllAttrs(), gc.DeepEquals, envCfg.AllAttrs())
-	gotEnvironConstraints, err := st.EnvironConstraints()
+	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotEnvironConstraints, gc.DeepEquals, expectEnvironConstraints)
+	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 	c.Assert(m.Series(), gc.Equals, series.HostSeries())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
@@ -272,7 +272,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		BootstrapConstraints: constraints.MustParse("mem=1024M"),
-		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 		InstanceId:           "i-bootstrap",
 		Characteristics:      expectHW,
 	}
@@ -304,14 +304,11 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: multiwatcher.JobManageEnviron,
-		want: state.JobManageEnviron,
+		name: multiwatcher.JobManageModel,
+		want: state.JobManageModel,
 	}, {
 		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
-	}, {
-		name: multiwatcher.JobManageStateDeprecated,
-		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",
 		want: -1,

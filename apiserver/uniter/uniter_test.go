@@ -61,7 +61,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create two machines, two services and add a unit to each service.
 	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
@@ -1049,20 +1049,11 @@ func (s *uniterSuite) TestCharmArchiveURLs(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
+func (s *uniterSuite) TestCurrentModel(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.uniter.CurrentEnvironUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResult{Result: env.UUID()})
-}
-
-func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
-	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.uniter.CurrentEnvironment()
+	result, err := s.uniter.CurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := params.ModelResult{
 		Name: env.Name(),
@@ -1383,7 +1374,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType()
@@ -1805,8 +1796,10 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(mysqlChanges, gc.NotNil)
 	changed, ok := mysqlChanges.Changed["mysql/0"]
 	c.Assert(ok, jc.IsTrue)
-	expectChanges := multiwatcher.RelationUnitsChange{
-		Changed: map[string]multiwatcher.UnitSettings{"mysql/0": changed},
+	expectChanges := params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"mysql/0": params.UnitSettings{changed.Version},
+		},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{
@@ -2211,7 +2204,7 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 
 type unitMetricBatchesSuite struct {
 	uniterSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.ModelWatcherTest
 	uniter *uniter.UniterAPIV3
 }
 
@@ -2231,7 +2224,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
 		s.uniter,
 		s.State,
 		s.resources,

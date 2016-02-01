@@ -9,17 +9,17 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewListBlocksCommand returns a command to list the blocks in a controller.
 func NewListBlocksCommand() cmd.Command {
-	return envcmd.WrapController(&listBlocksCommand{})
+	return modelcmd.WrapController(&listBlocksCommand{})
 }
 
 // listBlocksCommand lists all blocks for environments within the controller.
 type listBlocksCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	out    cmd.Output
 	api    listBlocksAPI
 	apierr error

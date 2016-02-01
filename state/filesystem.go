@@ -25,7 +25,7 @@ import (
 // without a backing volume.
 var ErrNoBackingVolume = errors.New("filesystem has no backing volume")
 
-// Filesystem describes a filesystem in the environment. Filesystems may be
+// Filesystem describes a filesystem in the model. Filesystems may be
 // backed by a volume, and managed by Juju; otherwise they are first-class
 // entities managed by a filesystem provider.
 type Filesystem interface {
@@ -75,7 +75,7 @@ type FilesystemAttachment interface {
 	// NotProvisioned error if the attachment has not yet been made.
 	//
 	// Note that the presence of FilesystemAttachmentInfo does not necessarily
-	// imply that the filesystem is mounted; environment storage providers may
+	// imply that the filesystem is mounted; model storage providers may
 	// need to prepare a filesystem for attachment to a machine before it can
 	// be mounted.
 	Info() (FilesystemAttachmentInfo, error)
@@ -95,7 +95,7 @@ type filesystemAttachment struct {
 	doc filesystemAttachmentDoc
 }
 
-// filesystemDoc records information about a filesystem in the environment.
+// filesystemDoc records information about a filesystem in the model.
 type filesystemDoc struct {
 	DocID        string `bson:"_id"`
 	FilesystemId string `bson:"filesystemid"`
@@ -105,7 +105,7 @@ type filesystemDoc struct {
 	VolumeId     string `bson:"volumeid,omitempty"`
 	// TODO(axw) 2015-06-22 #1467379
 	// upgrade step to set "attachmentcount" and "binding"
-	// for 1.24 environments.
+	// for 1.24 models.
 	AttachmentCount int               `bson:"attachmentcount"`
 	Binding         string            `bson:"binding,omitempty"`
 	Info            *FilesystemInfo   `bson:"info,omitempty"`
@@ -179,7 +179,7 @@ func (f *filesystem) validate() error {
 		}
 		switch tag.(type) {
 		case names.ModelTag:
-			// TODO(axw) support binding to environment
+			// TODO(axw) support binding to model
 			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:
 		case names.StorageTag:
@@ -223,9 +223,9 @@ func (f *filesystem) Life() Life {
 //   Storage:     If the filesystem is bound to a storage instance,
 //                then the filesystem will be destroyed when the
 //                storage insance is removed from state.
-//   Environment: If the filesystem is bound to the environment, then
+//   Model: If the filesystem is bound to the model, then
 //                the filesystem must be destroyed prior to the
-//                environment being destroyed.
+//                model being destroyed.
 func (f *filesystem) LifeBinding() names.Tag {
 	if f.doc.Binding == "" {
 		return nil
@@ -780,7 +780,7 @@ func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (Filesyst
 	if params.Pool != "" {
 		return params, nil
 	}
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return FilesystemParams{}, errors.Trace(err)
 	}

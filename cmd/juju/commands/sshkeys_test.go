@@ -13,6 +13,7 @@ import (
 
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -53,32 +54,32 @@ func (s *SSHKeysSuite) TestHelpImport(c *gc.C) {
 
 type keySuiteBase struct {
 	jujutesting.JujuConnSuite
-	CmdBlockHelper
+	common.CmdBlockHelper
 }
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummymodel")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "dummymodel")
 }
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
 func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {
 	keyString := strings.Join(keys, "\n")
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keyString}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keyString)
 }
 
 func (s *keySuiteBase) assertEnvironKeys(c *gc.C, expected ...string) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))

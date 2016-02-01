@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/readpass"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -37,12 +37,12 @@ Examples:
 `
 
 func NewChangePasswordCommand() cmd.Command {
-	return envcmd.WrapController(&changePasswordCommand{})
+	return modelcmd.WrapController(&changePasswordCommand{})
 }
 
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	api      ChangePasswordAPI
 	writer   EnvironInfoCredsWriter
 	Generate bool

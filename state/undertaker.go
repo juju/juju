@@ -8,10 +8,10 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-var ErrEnvironmentNotDying = errors.New("model is not dying")
+var ErrModelNotDying = errors.New("model is not dying")
 
 // ProcessDyingModel checks if there are any machines or services left in
-// state. If there are none, the environment's life is changed from dying to dead.
+// state. If there are none, the model's life is changed from dying to dead.
 func (st *State) ProcessDyingModel() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		env, err := st.Model()
@@ -20,11 +20,11 @@ func (st *State) ProcessDyingModel() (err error) {
 		}
 
 		if env.Life() != Dying {
-			return nil, errors.Trace(ErrEnvironmentNotDying)
+			return nil, errors.Trace(ErrModelNotDying)
 		}
 
 		if st.IsStateServer() {
-			envs, err := st.AllEnvironments()
+			envs, err := st.AllModels()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

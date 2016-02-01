@@ -24,7 +24,7 @@ import (
 )
 
 // StorageInstance represents the state of a unit or service-wide storage
-// instance in the environment.
+// instance in the model.
 type StorageInstance interface {
 	Entity
 
@@ -193,7 +193,7 @@ func (st *State) storageInstance(tag names.StorageTag) (*storageInstance, error)
 }
 
 // AllStorageInstances lists all storage instances currently in state
-// for this Juju environment.
+// for this Juju model.
 func (st *State) AllStorageInstances() (storageInstances []StorageInstance, err error) {
 	storageCollection, closer := st.getCollection(storageInstancesC)
 	defer closer()
@@ -863,7 +863,7 @@ func validateStorageConstraintsAgainstCharm(
 	return nil
 }
 
-// validateStoragePool validates the storage pool for the environment.
+// validateStoragePool validates the storage pool for the model.
 // If machineId is non-nil, the storage scope will be validated against
 // the machineId; if the storage is not machine-scoped, then the machineId
 // will be updated to "".
@@ -906,13 +906,13 @@ func validateStoragePool(
 		default:
 			// The storage is not machine-scoped, so we clear out
 			// the machine ID to inform the caller that the storage
-			// scope should be the environment.
+			// scope should be the model.
 			*machineId = ""
 		}
 	}
 
-	// Ensure the pool type is supported by the environment.
-	conf, err := st.EnvironConfig()
+	// Ensure the pool type is supported by the model.
+	conf, err := st.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -960,7 +960,7 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no defaul
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
 func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	conf, err := st.EnvironConfig()
+	conf, err := st.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -969,7 +969,7 @@ func addDefaultStorageConstraints(st *State, allCons map[string]StorageConstrain
 		cons, ok := allCons[name]
 		if !ok {
 			if charmStorage.Shared {
-				// TODO(axw) get the environment's default shared storage
+				// TODO(axw) get the model's default shared storage
 				// pool, and create constraints here.
 				return errors.Errorf(
 					"no constraints specified for shared charm storage %q",
@@ -1022,7 +1022,7 @@ func storageConstraintsWithDefaults(
 	return withDefaults, nil
 }
 
-// defaultStoragePool returns the default storage pool for the environment.
+// defaultStoragePool returns the default storage pool for the model.
 // The default pool is either user specified, or one that is registered by the provider itself.
 func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons StorageConstraints) (string, error) {
 	switch kind {
@@ -1059,9 +1059,9 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 	return "", ErrNoDefaultStoragePool
 }
 
-// AddStorage adds storage instances to given unit as specified.
+// AddStorageForUnit adds storage instances to given unit as specified.
 // Missing storage constraints are populated
-// based on environment defaults. Storage store name is used to retrieve
+// based on model defaults. Storage store name is used to retrieve
 // existing storage instances for this store.
 // Combination of existing storage instances and
 // anticipated additional storage instances is validated against storage
@@ -1103,7 +1103,7 @@ func (st *State) addStorageForUnit(
 	}
 
 	// Populate missing configuration parameters with default values.
-	conf, err := st.EnvironConfig()
+	conf, err := st.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

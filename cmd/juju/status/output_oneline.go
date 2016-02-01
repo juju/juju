@@ -15,21 +15,8 @@ import (
 
 // FormatOneline returns a brief list of units and their subordinates.
 // Subordinates will be indented 2 spaces and listed under their
-// superiors.
-func FormatOneline(value interface{}) ([]byte, error) {
-	return formatOneline(value, func(out *bytes.Buffer, format, uName string, u unitStatus, level int) {
-		fmt.Fprintf(out, format,
-			uName,
-			u.PublicAddress,
-			u.AgentState,
-		)
-	})
-}
-
-// FormatOnelineV2 returns a brief list of units and their subordinates.
-// Subordinates will be indented 2 spaces and listed under their
 // superiors. This format works with version 2 of the CLI.
-func FormatOnelineV2(value interface{}) ([]byte, error) {
+func FormatOneline(value interface{}) ([]byte, error) {
 	return formatOneline(value, func(out *bytes.Buffer, format, uName string, u unitStatus, level int) {
 		status := fmt.Sprintf(
 			"agent:%s, workload:%s",

@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
 )
 
-type clientEnviron struct {
+type clientModel struct {
 	Life                   state.Life
 	TimeOfDeath            *time.Time
 	UUID                   string
@@ -25,11 +25,11 @@ type clientEnviron struct {
 }
 
 type mockClient struct {
-	calls       chan string
-	lock        sync.RWMutex
-	mockEnviron clientEnviron
-	watcher     watcher.NotifyWatcher
-	cfg         *config.Config
+	calls     chan string
+	lock      sync.RWMutex
+	mockModel clientModel
+	watcher   watcher.NotifyWatcher
+	cfg       *config.Config
 }
 
 func (m *mockClient) mockCall(call string) {
@@ -38,57 +38,57 @@ func (m *mockClient) mockCall(call string) {
 
 func (m *mockClient) ProcessDyingModel() error {
 	defer m.mockCall("ProcessDyingModel")
-	if m.mockEnviron.HasMachinesAndServices {
-		return errors.Errorf("found documents for model with uuid %s: 1 cleanups doc, 1 constraints doc, 1 modelusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
+	if m.mockModel.HasMachinesAndServices {
+		return errors.Errorf("found documents for model with uuid %s: 1 cleanups doc, 1 constraints doc, 1 leases doc, 1 modelusers doc, 1 settings doc", m.mockModel.UUID)
 	}
-	m.mockEnviron.Life = state.Dead
+	m.mockModel.Life = state.Dead
 	t := time.Now()
-	m.mockEnviron.TimeOfDeath = &t
+	m.mockModel.TimeOfDeath = &t
 
 	return nil
 }
 
-func (m *mockClient) RemoveEnviron() error {
-	defer m.mockCall("RemoveEnviron")
-	m.mockEnviron.Removed = true
+func (m *mockClient) RemoveModel() error {
+	defer m.mockCall("RemoveModel")
+	m.mockModel.Removed = true
 	return nil
 }
 
 func (m *mockClient) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	defer m.mockCall("ModelInfo")
-	result := params.UndertakerEnvironInfo{
-		Life:        params.Life(m.mockEnviron.Life.String()),
-		UUID:        m.mockEnviron.UUID,
+	result := params.UndertakerModelInfo{
+		Life:        params.Life(m.mockModel.Life.String()),
+		UUID:        m.mockModel.UUID,
 		Name:        "dummy",
 		GlobalName:  "bob/dummy",
-		IsSystem:    m.mockEnviron.IsSystem,
-		TimeOfDeath: m.mockEnviron.TimeOfDeath,
+		IsSystem:    m.mockModel.IsSystem,
+		TimeOfDeath: m.mockModel.TimeOfDeath,
 	}
 	return params.UndertakerModelInfoResult{Result: result}, nil
 }
 
-func (m *mockClient) EnvironConfig() (*config.Config, error) {
+func (m *mockClient) ModelConfig() (*config.Config, error) {
 	return m.cfg, nil
 }
 
-func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+func (m *mockClient) WatchModelResources() (watcher.NotifyWatcher, error) {
 	return m.watcher, nil
 }
 
-type mockEnvironResourceWatcher struct {
-	events chan struct{}
-	err    error
+type mockModelResourceWatcher struct {
+	events    chan struct{}
+	closeOnce sync.Once
+	err       error
 }
 
-func (w *mockEnvironResourceWatcher) Changes() <-chan struct{} {
+func (w *mockModelResourceWatcher) Changes() watcher.NotifyChannel {
 	return w.events
 }
 
-func (w *mockEnvironResourceWatcher) Err() error {
-	return w.err
+func (w *mockModelResourceWatcher) Kill() {
+	w.closeOnce.Do(func() { close(w.events) })
 }
 
-func (w *mockEnvironResourceWatcher) Stop() error {
-	close(w.events)
-	return nil
+func (w *mockModelResourceWatcher) Wait() error {
+	return w.err
 }
