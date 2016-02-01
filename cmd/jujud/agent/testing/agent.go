@@ -67,7 +67,7 @@ type FakeEnsureMongo struct {
 	ReplicasetInitiated bool
 }
 
-func (f *FakeEnsureMongo) IsServiceInstalled(string) (bool, error) {
+func (f *FakeEnsureMongo) IsServiceInstalled() (bool, error) {
 	return f.ServiceInstalled, nil
 }
 
