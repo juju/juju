@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
 
@@ -66,9 +65,6 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
-
-	// DefaultControllerSpace is the default juju controller space name.
-	DefaultControllerSpace = network.DefaultSpace
 
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
@@ -632,10 +628,10 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if space, found := cfg.ControllerSpaceName(); found {
-		if !names.IsValidSpace(space) {
-			msg := fmt.Sprintf("controller-space: %q is not a valid space name", space)
-			return errors.NewNotValid(nil, msg)
+	if newSpace, specified := cfg.defined[ControllerSpaceName].(string); specified {
+		// ControllerSpaceName has no implicit default, but can be set once.
+		if !names.IsValidSpace(newSpace) {
+			return errors.Errorf("cannot set controller-space to %q: not a valid space name", newSpace)
 		}
 	}
 
@@ -664,6 +660,30 @@ func Validate(cfg, old *Config) error {
 					newv := cfg.defined[attr]
 					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 				}
+
+			case ControllerSpaceName:
+				// ControllerSpaceName can be explicitly set once (either by the
+				// user or else by provider with spaces support). Cannot be
+				// changed once set.
+
+				oldv, oldExists := old.defined[attr]
+				newv, newExists := cfg.defined[attr]
+				if oldExists {
+					if !newExists {
+						return errors.Errorf("cannot clear controller-space")
+					}
+					oldSpace, _ := oldv.(string)
+					newSpace, _ := newv.(string)
+					if oldSpace != newSpace {
+						return errors.Errorf("cannot change controller-space from %q to %q", oldSpace, newSpace)
+					}
+				} else if newExists {
+					newSpace, _ := newv.(string)
+					if !names.IsValidSpace(newSpace) {
+						return errors.Errorf("cannot set controller-space to %q: not a valid space name", newSpace)
+					}
+				}
+
 			default:
 				if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
 					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
@@ -1275,8 +1295,13 @@ func (c *Config) IdentityPublicKey() *bakery.PublicKey {
 
 // ControllerSpaceName returns the name of the space juju controllers are in.
 func (c *Config) ControllerSpaceName() (string, bool) {
-	value, exists := c.defined[ControllerSpaceName].(string)
-	return value, exists
+	value, found := c.defined[ControllerSpaceName]
+	if !found {
+		return "", false
+	}
+
+	name, _ := value.(string)
+	return name, true
 }
 
 // fields holds the validation schema fields derived from configSchema.
@@ -1329,7 +1354,9 @@ var alwaysOptional = schema.Defaults{
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
-	ControllerSpaceName:          schema.Omit,
+
+	// ControllerSpaceName has no default unless set explicitly.
+	ControllerSpaceName: schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1397,7 +1424,6 @@ func allDefaults() schema.Defaults {
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-		ControllerSpaceName:          DefaultControllerSpace,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
