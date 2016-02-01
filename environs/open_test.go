@@ -34,7 +34,6 @@ func (s *OpenSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
-	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
@@ -64,12 +63,17 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := configstore.NewMem()
 	ctx := envtesting.BootstrapContext(c)
-	cfg, _, err := environs.ConfigForName("erewhemos", store)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "dummy",
+		"name": "admin-model",
+		//"state-server": true,
+	})
+	//cfg, _, err := environs.ConfigForName("erewhemos", store)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	_, err = environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := store.ReadInfo("erewhemos")
+	info, err := store.ReadInfo("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.NotNil)
 	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
@@ -88,50 +92,6 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
 	c.Assert(env, gc.IsNil)
-}
-
-func (*OpenSuite) TestConfigForName(c *gc.C) {
-	cfg, source, err := environs.ConfigForName("erewhemos", configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
-	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
-}
-
-func (*OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
-	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
-	c.Assert(err, gc.ErrorMatches, "no default model found")
-	c.Assert(cfg, gc.IsNil)
-	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
-}
-
-func (*OpenSuite) TestConfigForNameDefault(c *gc.C) {
-	testing.WriteEnvironments(c, testing.SingleEnvConfig)
-	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
-	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
-}
-
-func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
-	testing.WriteEnvironments(c, testing.SingleEnvConfig)
-	store := configstore.NewMem()
-	cfg, source, err := environs.ConfigForName("", store)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
-
-	info := store.CreateInfo("test-config")
-	var attrs testing.Attrs = cfg.AllAttrs()
-	attrs = attrs.Merge(testing.Attrs{
-		"name": "test-config",
-	})
-	info.SetBootstrapConfig(attrs)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, source, err = environs.ConfigForName("test-config", store)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(source, gc.Equals, environs.ConfigFromInfo)
-	c.Assert(testing.Attrs(cfg.AllAttrs()), gc.DeepEquals, attrs)
 }
 
 func (*OpenSuite) TestNew(c *gc.C) {
@@ -235,7 +195,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	store := configstore.NewMem()
 	env, err := environs.Prepare(envtesting.BootstrapContext(c), store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
-	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: model configuration with a certificate but no CA private key")
+	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: controller configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
 	// Ensure that the config storage info is cleaned up.
 	_, err = store.ReadInfo(cfg.Name())
@@ -276,18 +236,18 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.Prepare(ctx, store, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	e, err := environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.ReadInfo(e.Config().Name())
+	_, err = store.ReadInfo("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy(e, store)
+	err = environs.Destroy("controller-name", e, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
 	_, err = e.StateServerInstances()
 	c.Assert(err, gc.ErrorMatches, "model has been destroyed")
-	_, err = store.ReadInfo(e.Config().Name())
+	_, err = store.ReadInfo("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

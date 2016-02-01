@@ -149,7 +149,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newDebugHooksCommand())
 
 	// Configuration commands.
-	r.Register(newInitCommand())
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())

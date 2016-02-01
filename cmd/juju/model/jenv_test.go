@@ -173,25 +173,6 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 
-func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Cannot test on windows because it uses chmod")
-	}
-	// Create a jenv file.
-	f := openJenvFile(c, makeValidJenvContents())
-	defer f.Close()
-
-	// Remove write permissions to the environments.yaml file.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Chmod(envPath, 0200)
-	c.Assert(err, jc.ErrorIsNil)
-
-	jenvCmd := &model.JenvCommand{}
-	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new model "testing": cannot get the default model: .*: permission denied`)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
-}
-
 func (*jenvSuite) TestSwitchErrorCannotWriteCurrentModel(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Cannot test on windows because it uses chmod")
@@ -233,7 +214,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	currEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "testing")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> testing\n")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "-> testing\n")
 
 	// Trying to import the jenv with the same name a second time raises an
 	// error.
@@ -272,26 +253,7 @@ func (*jenvSuite) TestSuccessCustomEnvironmentName(c *gc.C) {
 	currEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currEnv, gc.Equals, "my-env")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> my-env\n")
-}
-
-func (*jenvSuite) TestSuccessNoJujuEnvironments(c *gc.C) {
-	// Create a jenv file.
-	contents := makeValidJenvContents()
-	f := openJenvFile(c, contents)
-	defer f.Close()
-
-	// Remove the Juju environments.yaml file.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Remove(envPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Importing a jenv does not require having environments already defined.
-	jenvCmd := &model.JenvCommand{}
-	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	assertJenvContents(c, contents, "testing")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "-> testing\n")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "-> my-env\n")
 }
 
 // openJenvFile creates and returns a jenv file with the given contents.

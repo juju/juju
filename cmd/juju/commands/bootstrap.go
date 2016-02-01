@@ -307,10 +307,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		)
 	}
 
-	// Create an environment config from the cloud and credentials.
+	// Create an environment config from the cloud and credentials. The
+	// controller's model should be called "admin".
 	configAttrs := map[string]interface{}{
 		"type": cloud.Type,
-		"name": c.ControllerName,
+		"name": "admin",
 	}
 	// TODO(axw) when we have an agreed-upon spec/solution, we will want to
 	// read in configuration from disk here.
@@ -348,7 +349,7 @@ When you are finished diagnosing the problem, remember to run juju destroy-model
 to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
-					return environsDestroy(environ, store)
+					return environsDestroy(c.ControllerName, environ, store)
 				})
 			}
 		}

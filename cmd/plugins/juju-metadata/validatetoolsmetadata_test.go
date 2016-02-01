@@ -90,7 +90,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
+	cacheTestEnvConfig(c)
 	s.metadataDir = c.MkDir()
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")

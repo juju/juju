@@ -179,6 +179,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuEnvEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
 		{"--log-file", logpath, "--debug", "switch"}, // global flags before
@@ -230,7 +231,6 @@ var commandNames = []string{
 	"enable-ha",
 	"enable-user",
 	"expose",
-	"generate-config", // alias for init
 	"get-config",
 	"get-constraints",
 	"get-model-config",
@@ -238,7 +238,8 @@ var commandNames = []string{
 	"get-user-credentials",
 	"help",
 	"help-tool",
-	"init",
+	"list-clouds",
+	"list-credentials",
 	"kill-controller",
 	"list-actions",
 	"list-all-blocks",

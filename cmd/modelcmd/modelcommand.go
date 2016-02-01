@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
@@ -31,13 +30,12 @@ var ErrNoModelSpecified = errors.New("no model specified")
 // GetDefaultModel returns the name of the Juju default model.
 // There is simple ordering for the default model.  Firstly check the
 // JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_HOME/current-model file.  If neither are
-// available, read environments.yaml and use the default model therein.
-// If no default is specified in the environments file, an empty string is returned.
-// Not having a default model specified is not an error.
+// set, look in the $JUJU_HOME/current-environment file.  If neither are
+// available, an empty string is returned; not having a default model
+// specified is not an error.
 func GetDefaultModel() (string, error) {
-	if defaultModel := os.Getenv(osenv.JujuModelEnvKey); defaultModel != "" {
-		return defaultModel, nil
+	if defaultEnv := os.Getenv(osenv.JujuModelEnvKey); defaultEnv != "" {
+		return defaultEnv, nil
 	}
 	if currentModel, err := ReadCurrentModel(); err != nil {
 		return "", errors.Trace(err)
@@ -49,14 +47,7 @@ func GetDefaultModel() (string, error) {
 	} else if currentController != "" {
 		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
 	}
-	models, err := environs.ReadEnvirons("")
-	if environs.IsNoEnv(err) {
-		// That's fine, not an error here.
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-	return models.Default, nil
+	return "", nil
 }
 
 // ModelCommand extends cmd.Command with a SetModelName method.
@@ -144,36 +135,6 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 		opener = NewPassthroughOpener(c.JujuCommandBase.NewAPIRoot)
 	}
 	return opener.Open(c.modelName)
-}
-
-// Config returns the configuration for the environment; obtaining bootstrap
-// information from the API if necessary.  If callers already have an active
-// client API connection, it will be used.  Otherwise, a new API connection will
-// be used if necessary.
-func (c *ModelCommandBase) Config(store configstore.Storage, client ModelGetter) (*config.Config, error) {
-	if c.modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
-	}
-	cfg, _, err := environs.ConfigForName(c.modelName, store)
-	if err == nil {
-		return cfg, nil
-	} else if !environs.IsEmptyConfig(err) {
-		return nil, errors.Trace(err)
-	}
-
-	if client == nil {
-		client, err = c.NewModelGetter()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer client.Close()
-	}
-
-	bootstrapCfg, err := client.ModelGet()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return config.New(config.NoDefaults, bootstrapCfg)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for

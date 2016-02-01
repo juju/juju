@@ -4,7 +4,9 @@
 package environs
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,67 +16,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 )
-
-var (
-	InvalidEnvironmentError = fmt.Errorf(
-		"model is not a juju-core model")
-)
-
-// ConfigSource represents where some configuration data
-// has come from.
-// TODO(rog) remove this when we don't have to support
-// old environments with no configstore info. See lp#1235217
-type ConfigSource int
-
-const (
-	ConfigFromNowhere ConfigSource = iota
-	ConfigFromInfo
-	ConfigFromEnvirons
-)
-
-// EmptyConfig indicates the .jenv file is empty.
-type EmptyConfig struct {
-	error
-}
-
-// IsEmptyConfig reports whether err is a EmptyConfig.
-func IsEmptyConfig(err error) bool {
-	_, ok := err.(EmptyConfig)
-	return ok
-}
-
-// ConfigForName returns the configuration for the environment with
-// the given name from the default environments file. If the name is
-// blank, the default environment will be used. If the configuration
-// is not found, an errors.NotFoundError is returned. If the given
-// store contains an entry for the environment and it has associated
-// bootstrap config, that configuration will be returned.
-// ConfigForName also returns where the configuration was sourced from
-// (this is also valid even when there is an error.
-func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
-	envs, err := ReadEnvirons("")
-	if err != nil {
-		return nil, ConfigFromNowhere, err
-	}
-	if name == "" {
-		name = envs.Default
-	}
-
-	info, err := store.ReadInfo(name)
-	if err == nil {
-		if len(info.BootstrapConfig()) == 0 {
-			return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("model has no bootstrap configuration data")}
-		}
-		logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
-		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-		return cfg, ConfigFromInfo, err
-	} else if !errors.IsNotFound(err) {
-		return nil, ConfigFromInfo, fmt.Errorf("cannot read model info for %q: %v", name, err)
-	}
-
-	cfg, err := envs.Config(name)
-	return cfg, ConfigFromEnvirons, err
-}
 
 // New returns a new environment based on the provided configuration.
 func New(config *config.Config) (Environ, error) {
@@ -88,9 +29,6 @@ func New(config *config.Config) (Environ, error) {
 // Prepare prepares a new environment based on the provided configuration.
 // It is an error to prepare a environment if there already exists an
 // entry in the config store with that name.
-//
-// TODO(axw) Prepare will be changed to accept PrepareForBootstrapParams
-//           instead of just a Config.
 func Prepare(
 	ctx BootstrapContext,
 	store configstore.Storage,
@@ -182,8 +120,17 @@ func ensureAdminSecret(cfg *config.Config) (*config.Config, error) {
 	})
 }
 
+func randomKey() string {
+	buf := make([]byte, 16)
+	_, err := io.ReadFull(rand.Reader, buf)
+	if err != nil {
+		panic(fmt.Errorf("error from crypto rand: %v", err))
+	}
+	return fmt.Sprintf("%x", buf)
+}
+
 // ensureCertificate generates a new CA certificate and
-// attaches it to the given environment configuration,
+// attaches it to the given controller configuration,
 // unless the configuration already has one.
 func ensureCertificate(cfg *config.Config) (*config.Config, error) {
 	_, hasCACert := cfg.CACert()
@@ -192,7 +139,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, error) {
 		return cfg, nil
 	}
 	if hasCACert && !hasCAKey {
-		return nil, fmt.Errorf("model configuration with a certificate but no CA private key")
+		return nil, fmt.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
 	caCert, caKey, err := cert.NewCA(cfg.Name(), time.Now().UTC().AddDate(10, 0, 0))
@@ -222,25 +169,19 @@ func ensureUUID(cfg *config.Config) (*config.Config, error) {
 	})
 }
 
-// Destroy destroys the environment and, if successful,
+// Destroy destroys the controller and, if successful,
 // its associated configuration data from the given store.
-//
-// TODO(axw) the info should be stored against the name
-// of the controller, not the environment name. For now
-// we just make sure all the tests use the same name
-// for the controller and the environment.
-func Destroy(env Environ, store configstore.Storage) error {
-	name := env.Config().Name()
+func Destroy(controllerName string, env Environ, store configstore.Storage) error {
 	if err := env.Destroy(); err != nil {
 		return err
 	}
-	return DestroyInfo(name, store)
+	return DestroyInfo(controllerName, store)
 }
 
 // DestroyInfo destroys the configuration data for the named
-// environment from the given store.
-func DestroyInfo(envName string, store configstore.Storage) error {
-	info, err := store.ReadInfo(envName)
+// controller from the given store.
+func DestroyInfo(controllerName string, store configstore.Storage) error {
+	info, err := store.ReadInfo(controllerName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -248,7 +189,7 @@ func DestroyInfo(envName string, store configstore.Storage) error {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
-		return errors.Annotate(err, "cannot destroy model configuration information")
+		return errors.Annotate(err, "cannot destroy controller information")
 	}
 	return nil
 }
