@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/resource"
 )
@@ -55,6 +56,8 @@ type resourceStorage interface {
 type resourceState struct {
 	persist resourcePersistence
 	storage resourceStorage
+
+	newID func() (string, error)
 }
 
 // ListResources returns the resource data for the given service ID.
@@ -174,6 +177,15 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// newID generates a new unique identifier for a resource.
+func newID() (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "could not create new resource ID")
+	}
+	return uuid.String(), nil
 }
 
 // storagePath returns the path used as the location where the resource

@@ -43,8 +43,9 @@ func NewState(raw RawState) *State {
 
 	st := &State{
 		resourceState: &resourceState{
-			persist,
-			storage,
+			persist: persist,
+			storage: storage,
+			newID:   newID,
 		},
 	}
 	return st
