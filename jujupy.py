@@ -92,6 +92,14 @@ class ErroredUnit(Exception):
         self.state = state
 
 
+class BootstrapMismatch(Exception):
+
+    def __init__(self, arg_name, arg_val, env_name, env_val):
+        super(BootstrapMismatch, self).__init__(
+            '--{} {} does not match {}: {}'.format(
+                arg_name, arg_val, env_name, env_val))
+
+
 class JESNotSupported(Exception):
 
     def __init__(self):
@@ -162,6 +170,13 @@ class WorkloadsNotReady(StatusNotMet):
 
 
 class EnvJujuClient:
+
+    # The environments.yaml options that are replaced by bootstrap options.
+    #
+    # As described in bug #1538735, default-series and --bootstrap-series must
+    # match.  'default-series' should be here, but is omitted so that
+    # default-series is always forced to match --bootstrap-series.
+    bootstrap_replaces = frozenset(['agent-version'])
 
     _show_status = 'show-status'
 
@@ -308,8 +323,8 @@ class EnvJujuClient:
         for machine in machines:
             self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools):
-        """Bootstrap, using sudo if necessary."""
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+        """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
         elif self.env.joyent:
@@ -317,13 +332,17 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        args = ('--constraints', constraints)
+        args = ('--constraints', constraints,
+                '--agent-version', self.get_matching_agent_version())
         if upload_tools:
             args = ('--upload-tools',) + args
+        if bootstrap_series is not None:
+            args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
-    def bootstrap(self, upload_tools=False):
-        args = self.get_bootstrap_args(upload_tools)
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
+        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
@@ -975,6 +994,30 @@ class EnvJujuClient2A1(EnvJujuClient):
 class EnvJujuClient1X(EnvJujuClient2A1):
     """Base for all 1.x client drivers."""
 
+    # The environments.yaml options that are replaced by bootstrap options.
+    # For Juju 1.x, no bootstrap options are used.
+    bootstrap_replaces = frozenset()
+
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+        """Return the bootstrap arguments for the substrate."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        if bootstrap_series is not None:
+            env_val = self.env.config.get('default-series')
+            if bootstrap_series != env_val:
+                raise BootstrapMismatch(
+                    'bootstrap-series', bootstrap_series, 'default-series',
+                    env_val)
+        return args
+
     def get_jes_command(self):
         """Return the JES command to destroy a controller.
 
@@ -1237,7 +1280,10 @@ def make_jes_home(juju_home, dir_name, config):
 
 def make_safe_config(client):
     config = dict(client.env.config)
-    config['agent-version'] = client.get_matching_agent_version()
+    if 'agent-version' in client.bootstrap_replaces:
+        config.pop('agent-version', None)
+    else:
+        config['agent-version'] = client.get_matching_agent_version()
     # AFAICT, we *always* want to set test-mode to True.  If we ever find a
     # use-case where we don't, we can make this optional.
     config['test-mode'] = True

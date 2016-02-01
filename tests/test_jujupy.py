@@ -29,6 +29,7 @@ from jujuconfig import (
     NoSuchEnvironment,
 )
 from jujupy import (
+    BootstrapMismatch,
     CannotConnectEnv,
     CONTROLLER,
     EnvJujuClient,
@@ -51,6 +52,7 @@ from jujupy import (
     KILL_CONTROLLER,
     make_client,
     make_jes_home,
+    make_safe_config,
     parse_new_state_server_from_error,
     SimpleEnvironment,
     Status,
@@ -102,6 +104,7 @@ class FakeEnvironmentState:
         self.state = 'not-bootstrapped'
         self.current_bundle = None
         self.models = {}
+        self.model_config = None
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -127,10 +130,12 @@ class FakeEnvironmentState:
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
-    def bootstrap(self, name):
-        self.name = name
+    def bootstrap(self, env, commandline_config):
+        self.name = env.environment
         self.state_servers.append(self.add_machine())
         self.state = 'bootstrapped'
+        self.model_config = copy.deepcopy(env.config)
+        self.model_config.update(commandline_config)
 
     def destroy_environment(self):
         self._clear()
@@ -218,6 +223,7 @@ class FakeJujuClient:
         self.env = env
         self.full_path = full_path
         self.debug = debug
+        self.bootstrap_replaces = {}
         self._jes_enabled = jes_enabled
 
     def clone(self, env, full_path=None, debug=None):
@@ -283,15 +289,18 @@ class FakeJujuClient:
             else:
                 self._backing_state.remove_machine(machine_id)
 
-    def bootstrap(self, upload_tools=False):
-        self._backing_state.bootstrap(self.env.environment)
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        commandline_config = {}
+        if bootstrap_series is not None:
+            commandline_config['default-series'] = bootstrap_series
+        self._backing_state.bootstrap(self.env, commandline_config)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
 
     def quickstart(self, bundle):
-        self._backing_state.bootstrap(self.env.environment)
+        self._backing_state.bootstrap(self.env, {})
         self._backing_state.deploy_bundle(bundle)
 
     def create_environment(self, controller_client, config_file):
@@ -344,7 +353,7 @@ class FakeJujuClient:
         pass
 
     def get_model_config(self):
-        pass
+        return copy.deepcopy(self._backing_state.model_config)
 
     def deployer(self, bundle, name=None):
         pass
@@ -820,67 +829,92 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
         with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
+                'bootstrap', ('--constraints', 'mem=2G arch=amd64',
+                              '--agent-version', '2.0'), False)
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
         with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
             mock.assert_called_once_with(
-                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
-                False)
+                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1',
+                                      '--agent-version', '2.0'), False)
 
     def test_bootstrap_non_sudo(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'needs_sudo', lambda: False):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+                'bootstrap', ('--constraints', 'mem=2G',
+                              '--agent-version', '2.0'), False)
 
     def test_bootstrap_sudo(self):
         env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True)
+                'bootstrap', ('--constraints', 'mem=2G',
+                              '--agent-version', '2.0'), True)
 
     def test_bootstrap_upload_tools(self):
         env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, None, None)
+        client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap(upload_tools=True)
             mock.assert_called_with(
-                'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
+                'bootstrap', (
+                    '--upload-tools', '--constraints', 'mem=2G',
+                    '--agent-version', '2.0'),
                 True)
+
+    def test_bootstrap_args(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(client, 'juju') as mock:
+            client.bootstrap(bootstrap_series='angsty')
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', '--agent-version', '2.0',
+                '--bootstrap-series', 'angsty'), False)
 
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             client.env.juju_home = 'foo'
             with client.bootstrap_async():
                 mock.assert_called_once_with(
-                    client, 'bootstrap', ('--constraints', 'mem=2G'))
+                    client, 'bootstrap', ('--constraints', 'mem=2G',
+                                          '--agent-version', '2.0'))
 
     def test_bootstrap_async_upload_tools(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
-            client = EnvJujuClient(env, None, None)
+            client = EnvJujuClient(env, '2.0-zeta1', None)
             with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
-                                          'mem=2G'))
+                                          'mem=2G', '--agent-version', '2.0'))
+
+    def test_get_bootstrap_args_bootstrap_series(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         bootstrap_series='angsty')
+        self.assertEqual(args, (
+            '--upload-tools', '--constraints', 'mem=2G',
+            '--agent-version', '2.0', '--bootstrap-series', 'angsty'))
 
     def test_create_environment_hypenated_controller(self):
         self.do_create_environment(
@@ -2256,6 +2290,23 @@ class TestEnvJujuClient1X(ClientTest):
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
                 True)
 
+    def test_bootstrap_args(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient1X(env, None, None)
+        with self.assertRaisesRegexp(
+                BootstrapMismatch,
+                '--bootstrap-series angsty does not match default-series:'
+                ' None'):
+            client.bootstrap(bootstrap_series='angsty')
+        env.config.update({
+            'default-series': 'angsty',
+            })
+        with patch.object(client, 'juju') as mock:
+            client.bootstrap(bootstrap_series='angsty')
+        mock.assert_called_with(
+            'bootstrap', ('--constraints', 'mem=2G'),
+            False)
+
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
@@ -2273,6 +2324,20 @@ class TestEnvJujuClient1X(ClientTest):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'))
+
+    def test_get_bootstrap_args_bootstrap_series(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient1X(env, None, None)
+        with self.assertRaisesRegexp(
+                BootstrapMismatch,
+                '--bootstrap-series angsty does not match default-series:'
+                ' None'):
+            client.get_bootstrap_args(upload_tools=True,
+                                      bootstrap_series='angsty')
+        env.config['default-series'] = 'angsty'
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         bootstrap_series='angsty')
+        self.assertEqual(args, ('--upload-tools', '--constraints', 'mem=2G'))
 
     def test_create_environment_system(self):
         self.do_create_environment(
@@ -3584,6 +3649,36 @@ def stub_bootstrap(client):
     os.mkdir(os.path.dirname(jenv_path))
     with open(jenv_path, 'w') as f:
         f.write('Bogus jenv')
+
+
+class TestMakeSafeConfig(TestCase):
+
+    def test_default(self):
+        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        config = make_safe_config(client)
+        self.assertEqual({
+            'name': 'foo',
+            'type': 'bar',
+            'test-mode': True,
+            'agent-version': '1.2-alpha3',
+            }, config)
+
+    def test_local(self):
+        with temp_dir() as juju_home:
+            env = SimpleEnvironment('foo', {'type': 'local'},
+                                    juju_home=juju_home)
+            client = FakeJujuClient(env)
+            with patch('jujupy.check_free_disk_space') as cfds_mock:
+                config = make_safe_config(client)
+        self.assertEqual(get_local_root(client.env.juju_home, client.env),
+                         config['root-dir'])
+
+    def test_bootstrap_replaces_agent_version(self):
+        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        client.bootstrap_replaces = {'agent-version'}
+        self.assertNotIn('agent-version', make_safe_config(client))
+        client.env.config['agent-version'] = '1.23'
+        self.assertNotIn('agent-version', make_safe_config(client))
 
 
 class TestTempBootstrapEnv(FakeHomeTestCase):

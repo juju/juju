@@ -531,13 +531,17 @@ class BootstrapManager:
         tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
     @contextmanager
-    def bootstrap_context(self, machines):
+    def bootstrap_context(self, machines, omit_config=None):
         """Context for bootstrapping a state server."""
         bootstrap_host = self.known_hosts.get('0')
-        update_env(self.client.env, self.temp_env_name, series=self.series,
-                   bootstrap_host=bootstrap_host,
-                   agent_url=self.agent_url, agent_stream=self.agent_stream,
-                   region=self.region)
+        kwargs = dict(
+            series=self.series, bootstrap_host=bootstrap_host,
+            agent_url=self.agent_url, agent_stream=self.agent_stream,
+            region=self.region)
+        if omit_config is not None:
+            for key in omit_config:
+                kwargs.pop(key.replace('-', '_'), None)
+        update_env(self.client.env, self.temp_env_name, **kwargs)
         ssh_machines = list(machines)
         if bootstrap_host is not None:
             ssh_machines.append(bootstrap_host)
@@ -650,8 +654,10 @@ class BootstrapManager:
         """
         try:
             with self.top_context() as machines:
-                with self.bootstrap_context(machines):
-                    self.client.bootstrap(upload_tools)
+                with self.bootstrap_context(
+                        machines, omit_config=self.client.bootstrap_replaces):
+                    self.client.bootstrap(
+                        upload_tools, bootstrap_series=self.series)
                 with self.runtime_context(machines):
                     yield machines
         except LoggedException:
