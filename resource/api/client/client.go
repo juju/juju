@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -85,16 +84,16 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 
 // Upload sends the provided resource blob up to Juju.
 func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
-	if !names.IsValidService(service) {
-		return errors.Errorf("invalid service %q", service)
+	uReq, err := api.NewUploadRequest(service, name, reader)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	req, err := api.NewHTTPUploadRequest(service, name, reader)
+	req, err := uReq.HTTPRequest()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	response := new(string)
+	response := new(string) // ignored
 	if err := c.doer.Do(req, reader, response); err != nil {
 		return errors.Trace(err)
 	}

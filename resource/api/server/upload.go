@@ -25,6 +25,8 @@ type UploadDataStore interface {
 	SetResource(serviceID string, res resource.Resource, r io.Reader) error
 }
 
+// TODO(ericsnow) Replace UploadedResource with resource.Opened.
+
 // UploadedResource holds both the information about an uploaded
 // resource and the reader containing its data.
 type UploadedResource struct {
@@ -68,23 +70,23 @@ func (uh UploadHandler) HandleRequest(req *http.Request) error {
 
 // ReadResource extracts the relevant info from the request.
 func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, error) {
-	service, name, size, fp, err := api.ExtractUploadRequest(req)
+	uReq, err := api.ExtractUploadRequest(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	res, err := uh.Store.GetResource(service, name)
+	res, err := uh.Store.GetResource(uReq.Service, uReq.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	res, err = uh.updateResource(res, fp, size)
+	res, err = uh.updateResource(res, uReq.Fingerprint, uReq.Size)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	uploaded := &UploadedResource{
-		Service:  service,
+		Service:  uReq.Service,
 		Resource: res,
 		Data:     req.Body,
 	}
