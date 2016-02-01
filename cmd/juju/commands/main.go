@@ -181,11 +181,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cachedimages.NewSuperCommand())
 
 	// Manage machines
-	r.Register(machine.NewSuperCommand())
-	r.RegisterSuperAlias("add-machine", "machine", "add", nil)
-	r.RegisterSuperAlias("remove-machine", "machine", "remove", nil)
-	r.RegisterSuperAlias("destroy-machine", "machine", "remove", nil)
-	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
+	r.Register(machine.NewAddCommand())
+	r.Register(machine.NewRemoveCommand())
+	r.Register(machine.NewListMachinesCommand())
+	r.Register(machine.NewShowMachineCommand())
 
 	// Mangage environment
 	r.Register(environment.NewGetCommand())
@@ -205,11 +204,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newEnsureAvailabilityCommand())
 
 	// Manage and control services
-	r.Register(service.NewSuperCommand())
-	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
-	r.RegisterSuperAlias("get", "service", "get", nil)
-	r.RegisterSuperAlias("set", "service", "set", nil)
-	r.RegisterSuperAlias("unset", "service", "unset", nil)
+	r.Register(service.NewAddUnitCommand())
+	r.Register(service.NewGetCommand())
+	r.Register(service.NewSetCommand())
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

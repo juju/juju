@@ -1,0 +1,107 @@
+commit 34c73b4c63a7d08ca8629bb7b063be849a2666b9
+Author: AlexisBruemmer <alexis.bruemmer@canonical.com>
+Date:   Fri Oct 30 10:39:53 2015 -0700
+
+    Add user friendly message to environment-destroy
+    
+    When an unusable environment fails with environment-destroy tell the user to use --force
+
+diff --git a/cmd/juju/commands/destroyenvironment.go b/cmd/juju/commands/destroyenvironment.go
+index 966e343..3e5810b 100644
+--- a/cmd/juju/commands/destroyenvironment.go
++++ b/cmd/juju/commands/destroyenvironment.go
+@@ -40,6 +40,7 @@ type destroyEnvironmentCommand struct {
+ 	cmd.CommandBase
+ 	assumeYes bool
+ 	force     bool
++	apierr	  error
+ }
+ 
+ func (c *destroyEnvironmentCommand) Info() *cmd.Info {
+@@ -80,6 +81,14 @@ func (c *destroyEnvironmentCommand) Init(args []string) error {
+ 	}
+ }
+ 
++func (c *destroyEnvironmentCommand) getAPIClient() (*api.Client, error) {
++	if c.apierr != nil {
++		return nil, c.apierr
++	}
++
++		return c.NewAPIClient()
++}
++
+ func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
+ 	store, err := configstore.Default()
+ 	if err != nil {
+@@ -113,14 +122,14 @@ func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
+ 		}
+ 	}
+ 
+-	apiclient, err := c.NewAPIClient()
++	apiclient, err := c.getAPIClient()
+ 	if err != nil {
+ 		if errors.IsNotFound(err) {
+ 			logger.Warningf("environment not found, removing config file")
+ 			ctx.Infof("environment not found, removing config file")
+ 			return environs.DestroyInfo(c.EnvName(), store)
+ 		}
+-		return errors.Annotate(err, "cannot connect to API")
++		return c.ensureUserFriendlyErrorLog(err)
+ 	}
+ 	defer apiclient.Close()
+ 	info, err := apiclient.EnvironmentInfo()
+diff --git a/cmd/juju/commands/destroyenvironment_test.go b/cmd/juju/commands/destroyenvironment_test.go
+index 32f092a..20f91ea 100644
+--- a/cmd/juju/commands/destroyenvironment_test.go
++++ b/cmd/juju/commands/destroyenvironment_test.go
+@@ -270,15 +270,15 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
+ }
+ 
+ func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
+-	wrappedCom, com := NewDestroyEnvironmentCommand()
++	wrappedCom, com := NewDestroyEnvironmentCommand(nil)
+ 	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv"}), gc.IsNil)
+ 	c.Check(com.assumeYes, jc.IsFalse)
+ 
+-	wrappedCom, com = NewDestroyEnvironmentCommand()
++	wrappedCom, com = NewDestroyEnvironmentCommand(nil)
+ 	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv", "-y"}), gc.IsNil)
+ 	c.Check(com.assumeYes, jc.IsTrue)
+ 
+-	wrappedCom, com = NewDestroyEnvironmentCommand()
++	wrappedCom, com = NewDestroyEnvironmentCommand(nil)
+ 	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv", "--yes"}), gc.IsNil)
+ 	c.Check(com.assumeYes, jc.IsTrue)
+ }
+@@ -339,6 +339,16 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
+ 	}
+ }
+ 
++func (s *destroyEnvSuite) TestUserFriendlyErrWithAPIError(c *gc.C) {
++	apierr := errors.New("connection timed out")
++	_, cmd := NewDestroyEnvironmentCommand(apierr)
++	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), cmd, "dummyenv", "--yes")
++	c.Check(<-errc, gc.ErrorMatches, "connection timed out")
++	c.Check(<-opc, gc.IsNil)
++
++	c.Check(c.GetTestLog(), jc.Contains, "If the environment is unusable")
++}
++
+ func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
+ 	_, err := store.ReadInfo(env.Config().Name())
+ 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+diff --git a/cmd/juju/commands/export_test.go b/cmd/juju/commands/export_test.go
+index d48c126..b9d3681 100644
+--- a/cmd/juju/commands/export_test.go
++++ b/cmd/juju/commands/export_test.go
+@@ -17,8 +17,8 @@ func (c *DestroyEnvironmentCommand) AssumeYes() bool {
+ 	return c.assumeYes
+ }
+ 
+-func NewDestroyEnvironmentCommand() (cmd.Command, *DestroyEnvironmentCommand) {
+-	command := &destroyEnvironmentCommand{}
++func NewDestroyEnvironmentCommand(apierr error) (cmd.Command, *DestroyEnvironmentCommand) {
++	command := &destroyEnvironmentCommand{apierr: apierr}
+ 	return envcmd.Wrap(
+ 		command,
+ 		envcmd.EnvSkipDefault,

@@ -868,7 +868,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 	}
 	ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
 	if err != nil {
-		return nil, StateServersChanges{}, errors.Annotate(err, "cannot prepare machine add operations")
+		return nil, StateServersChanges{}, errors.Annotate(err, "cannot prepare add-machine operations")
 	}
 	ops = append(ops, ssOps...)
 	return ops, change, nil

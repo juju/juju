@@ -15,7 +15,7 @@ type statusFormatter struct {
 	isoTime   bool
 }
 
-func newStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
 		relations: make(map[int]params.RelationStatus),
@@ -53,6 +53,29 @@ func (sf *statusFormatter) format() formattedStatus {
 			out.Networks = make(map[string]networkStatus)
 		}
 		out.Networks[k] = sf.formatNetwork(n)
+	}
+	return out
+}
+
+// Machineformat takes stored model information (params.FullStatus) and formats machine status info.
+func (sf *statusFormatter) Machineformat(machineId []string) formattedMachineStatus {
+	if sf.status == nil {
+		return formattedMachineStatus{}
+	}
+	out := formattedMachineStatus{
+		Environment: sf.status.EnvironmentName,
+		Machines:    make(map[string]machineStatus),
+	}
+	for k, m := range sf.status.Machines {
+		if len(machineId) != 0 {
+			for i := 0; i < len(machineId); i++ {
+				if m.Id == machineId[i] {
+					out.Machines[k] = sf.formatMachine(m)
+				}
+			}
+		} else {
+			out.Machines[k] = sf.formatMachine(m)
+		}
 	}
 	return out
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// fakeClientAPI is the fake client API for testing the service set,
-// get and unset commands.  It implements the following interfaces:
+// fakeClientAPI is the fake client API for testing the set-config
+// and set-config commands.  It implements the following interfaces:
 // SetServiceAPI, UnsetServiceAPI and GetServiceAPI
 type fakeClientAPI struct {
 	values    map[string]interface{}

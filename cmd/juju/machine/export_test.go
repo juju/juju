@@ -19,7 +19,7 @@ type AddCommand struct {
 }
 
 // NewAddCommand returns an AddCommand with the api provided as specified.
-func NewAddCommand(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *AddCommand) {
 	cmd := &addCommand{
 		api:               api,
 		machineManagerAPI: mmApi,
@@ -27,12 +27,28 @@ func NewAddCommand(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *Ad
 	return envcmd.Wrap(cmd), &AddCommand{cmd}
 }
 
+// NewListCommandForTest returns a listMachineCommand with specified api
+func NewListCommandForTest(api statusAPI) cmd.Command {
+	cmd := &listMachinesCommand{
+		api: api,
+	}
+	return envcmd.Wrap(cmd)
+}
+
+// NewShowCommandForTest returns a showMachineCommand with specified api
+func NewShowCommandForTest(api statusAPI) cmd.Command {
+	cmd := &showMachineCommand{
+		api: api,
+	}
+	return envcmd.Wrap(cmd)
+}
+
 type RemoveCommand struct {
 	*removeCommand
 }
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
-func NewRemoveCommand(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
 	cmd := &removeCommand{
 		api: api,
 	}

@@ -101,7 +101,7 @@ var GetClientConfig = func(client ServiceAddUnitAPI) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func newAddUnitCommand() cmd.Command {
+func NewAddUnitCommand() cmd.Command {
 	return envcmd.Wrap(&addUnitCommand{})
 }
 
@@ -123,10 +123,10 @@ service units can be added to a specific existing machine using the --to
 argument.
 
 Examples:
- juju service add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
- juju service add-unit mysql --to 23       (Add a mysql unit to machine 23)
- juju service add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
- juju service add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
+ juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
+ juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
+ juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
+ juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
 
 func (c *addUnitCommand) Info() *cmd.Info {
@@ -135,6 +135,7 @@ func (c *addUnitCommand) Info() *cmd.Info {
 		Args:    "<service name>",
 		Purpose: "add one or more units of an already-deployed service",
 		Doc:     addUnitDoc,
+		Aliases: []string{"add-units"},
 	}
 }
 
@@ -157,7 +158,7 @@ func (c *addUnitCommand) Init(args []string) error {
 }
 
 // ServiceAddUnitAPI defines the methods on the client API
-// that the service add-unit command calls.
+// that the add-unit command calls.
 type ServiceAddUnitAPI interface {
 	Close() error
 	EnvironmentUUID() string

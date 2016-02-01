@@ -63,19 +63,20 @@ MAAS provider to acquire a particular node by specifying its hostname.
 For more information on placement directives, see "juju help placement".
 
 Examples:
-   juju machine add                      (starts a new machine)
-   juju machine add -n 2                 (starts 2 new machines)
-   juju machine add lxc                  (starts a new machine with an lxc container)
-   juju machine add lxc -n 2             (starts 2 new machines with an lxc container)
-   juju machine add lxc:4                (starts a new lxc container on machine 4)
-   juju machine add --constraints mem=8G (starts a machine with at least 8GB RAM)
-   juju machine add ssh:user@10.10.0.3   (manually provisions a machine with ssh)
-   juju machine add zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
-   juju machine add maas2.name           (acquire machine maas2.name on MAAS)
+   juju add-machine                      (starts a new machine)
+   juju add-machine -n 2                 (starts 2 new machines)
+   juju add-machine lxc                  (starts a new machine with an lxc container)
+   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
+   juju add-machine lxc:4                (starts a new lxc container on machine 4)
+   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
+   juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
+   juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
+   juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
 See Also:
    juju help constraints
    juju help placement
+   juju help remove-machine
 `
 
 func init() {
@@ -91,7 +92,7 @@ func init() {
 	)
 }
 
-func newAddCommand() cmd.Command {
+func NewAddCommand() cmd.Command {
 	return envcmd.Wrap(&addCommand{})
 }
 
@@ -114,10 +115,11 @@ type addCommand struct {
 
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-machine",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
 		Doc:     addMachineDoc,
+		Aliases: []string{"add-machines"},
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-func newRemoveCommand() cmd.Command {
+func NewRemoveCommand() cmd.Command {
 	return envcmd.Wrap(&removeCommand{})
 }
 
@@ -34,18 +34,19 @@ opportunity to shut down cleanly.
 
 Examples:
 	# Remove machine number 5 which has no running units or containers
-	$ juju machine remove 5
+	$ juju remove-machine 5
 
 	# Remove machine 6 and any running units or containers
-	$ juju machine remove 6 --force
+	$ juju remove-machine 6 --force
 `
 
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
-		Args:    "<machine> ...",
+		Name:    "remove-machine",
+		Args:    "<machineID[s]> ...",
 		Purpose: "remove machines from the environment",
 		Doc:     destroyMachineDoc,
+		Aliases: []string{"remove-machines"},
 	}
 }
 

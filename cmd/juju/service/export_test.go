@@ -17,28 +17,16 @@ func NewSetCommandWithAPI(clientAPI ClientAPI, serviceAPI ServiceAPI) cmd.Comman
 	})
 }
 
-// NewUnsetCommand returns an UnsetCommand with the api provided as specified.
-func NewUnsetCommand(api UnsetServiceAPI) cmd.Command {
-	return envcmd.Wrap(&unsetCommand{
-		api: api,
-	})
-}
-
 // NewGetCommand returns a GetCommand with the api provided as specified.
-func NewGetCommand(api GetServiceAPI) cmd.Command {
+func NewGetCommandForTest(api GetServiceAPI) cmd.Command {
 	return envcmd.Wrap(&getCommand{
 		api: api,
 	})
 }
 
 // NewAddUnitCommand returns an AddUnitCommand with the api provided as specified.
-func NewAddUnitCommand(api ServiceAddUnitAPI) cmd.Command {
+func NewAddUnitCommandForTest(api ServiceAddUnitAPI) cmd.Command {
 	return envcmd.Wrap(&addUnitCommand{
 		api: api,
 	})
 }
-
-var (
-	NewServiceSetConstraintsCommand = newServiceSetConstraintsCommand
-	NewServiceGetConstraintsCommand = newServiceGetConstraintsCommand
-)
