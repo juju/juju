@@ -336,8 +336,7 @@ type MachineAgent struct {
 	mongoInitialized bool
 
 	// Used to signal that spaces have been discovered.
-	discoveringSpaces      bool
-	discoveringSpacesMutex sync.Mutex
+	discoveringSpaces chan interface{}
 
 	loopDeviceManager looputil.LoopDeviceManager
 }
@@ -1264,16 +1263,9 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		a.discoveringSpacesMutex.Lock()
-		defer a.discoveringSpacesMutex.Unlock()
-		a.discoveringSpaces = true
-
-		setDiscoverSpacesCompleted := func() {
-			a.discoveringSpacesMutex.Lock()
-			defer a.discoveringSpacesMutex.Unlock()
-			a.discoveringSpaces = false
-		}
-		return newDiscoverSpaces(apiSt.DiscoverSpaces(), setDiscoverSpacesCompleted), nil
+		var w worker.Worker
+		w, a.discoveringSpaces = newDiscoverSpaces(apiSt.DiscoverSpaces())
+		return w, nil
 	})
 
 	if machine.IsManager() {
@@ -1476,10 +1468,16 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 // limitLoginsUntilSpacesDiscovered will prevent logins from clients until
 // space discovery is completed.
 func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
-	a.discoveringSpacesMutex.Lock()
-	defer a.discoveringSpacesMutex.Unlock()
-	if !a.discoveringSpaces {
+	if a.discoveringSpaces == nil {
+		// Space discovery not started.
 		return nil
+	}
+	select {
+	case <-a.discoveringSpaces:
+		// The discoveringSpaces channel is closed.
+		return nil
+	default:
+		// Space discovery still in progress.
 	}
 	err := errors.New("space discovery still in progress")
 	authTag, parseErr := names.ParseTag(req.AuthTag)

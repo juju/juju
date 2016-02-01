@@ -24,9 +24,9 @@ import (
 var logger = loggo.GetLogger("juju.discoverspaces")
 
 type discoverspacesWorker struct {
-	api                        *discoverspaces.API
-	tomb                       tomb.Tomb
-	setDiscoverSpacesCompleted func()
+	api               *discoverspaces.API
+	tomb              tomb.Tomb
+	discoveringSpaces chan interface{}
 }
 
 var dashPrefix = regexp.MustCompile("^-*")
@@ -62,16 +62,16 @@ func convertSpaceName(name string, existing set.Strings) string {
 }
 
 // NewWorker returns a worker
-func NewWorker(api *discoverspaces.API, setDiscoverSpacesCompleted func()) worker.Worker {
+func NewWorker(api *discoverspaces.API) (worker.Worker, chan interface{}) {
 	dw := &discoverspacesWorker{
-		api: api,
-		setDiscoverSpacesCompleted: setDiscoverSpacesCompleted,
+		api:               api,
+		discoveringSpaces: make(chan interface{}),
 	}
 	go func() {
 		defer dw.tomb.Done()
 		dw.tomb.Kill(dw.loop())
 	}()
-	return dw
+	return dw, dw.discoveringSpaces
 }
 
 func (dw *discoverspacesWorker) Kill() {
@@ -94,8 +94,6 @@ func (dw *discoverspacesWorker) loop() (err error) {
 	networkingEnviron, ok := environs.SupportsNetworking(environ)
 
 	if ok {
-		// TODO: (mfoord) API should be switched off until this is
-		// completed.
 		err = dw.handleSubnets(networkingEnviron)
 		if err != nil {
 			return errors.Trace(err)
@@ -115,7 +113,7 @@ func (dw *discoverspacesWorker) loop() (err error) {
 }
 
 func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) error {
-	defer dw.setDiscoverSpacesCompleted()
+	defer close(dw.discoveringSpaces)
 	ok, err := env.SupportsSpaceDiscovery()
 	if err != nil {
 		return errors.Trace(err)
