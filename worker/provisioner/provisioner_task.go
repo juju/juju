@@ -607,7 +607,7 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
 
-		pInfo, err := task.blockUntilProvisioned(m.ProvisioningInfo)
+		pInfo, err := m.ProvisioningInfo()
 		if err != nil {
 			return task.setErrorStatus("fetching provisioning info for machine %q: %v", m, err)
 		}
@@ -832,12 +832,4 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[st
 		}
 	}
 	return result
-}
-
-func (task *provisionerTask) blockUntilProvisioned(provision func() (*params.ProvisioningInfo, error)) (*params.ProvisioningInfo, error) {
-	pInfo, err := provision()
-	if err != nil {
-		return nil, err
-	}
-	return pInfo, nil
 }
