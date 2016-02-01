@@ -144,6 +144,12 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		}
 
 		logger.Infof("effectinve bootstrap constraints: %s", instanceConstraints)
+
+		if instanceConfig.AgentEnvironment == nil {
+			instanceConfig.AgentEnvironment = make(map[string]string)
+		}
+		instanceConfig.AgentEnvironment[agent.ControllerSpaceName] = space
+		logger.Debugf("saved controller space %q in agent config", space)
 	}
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")

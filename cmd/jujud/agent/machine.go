@@ -1576,6 +1576,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	// need to set up has already been done.
 	var needReplicasetInit = false
 	var machineAddrs []network.Address
+	var controllerSpace string
 
 	mongoInstalled, err := mongo.IsServiceInstalled(agentConfig.Value(agent.Namespace))
 	if err != nil {
@@ -1604,14 +1605,14 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 			return errors.Annotate(err, "error while checking replicaset")
 		}
 
-		// If the replicaset is to be initialised the machine addresses
-		// need to be retrieved *before* MongoDB is restarted with the
-		// --replset option (in EnsureMongoServer). Once MongoDB is
+		// If the replicaset is to be initialised the machine addresses and
+		// controller space need to be retrieved *before* MongoDB is restarted
+		// with the --replset option (in EnsureMongoServer). Once MongoDB is
 		// started with --replset it won't respond to queries until the
 		// replicaset is initiated.
 		if needReplicasetInit {
 			logger.Infof("replicaset not yet configured")
-			machineAddrs, err = getMachineAddresses(agentConfig)
+			machineAddrs, controllerSpace, err = getMachineAddressesAndControllerSpace(agentConfig)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1621,10 +1622,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	// EnsureMongoServer installs/upgrades the init config as necessary.
 	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Initiate the replicaset if required.
@@ -1637,8 +1638,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		if !ok {
 			return errors.New("unable to retrieve mongo info to initiate replicaset")
 		}
-		if err := initiateReplicaSet(mongoInfo, servingInfo.StatePort, machineAddrs); err != nil {
-			return err
+		err := initiateReplicaSet(mongoInfo, servingInfo.StatePort, machineAddrs, controllerSpace)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -1747,23 +1749,28 @@ func isReplicasetInitNeeded(mongoInfo *mongo.MongoInfo) (bool, error) {
 	return numMembers < 1, nil
 }
 
-// getMachineAddresses connects to state to determine the machine's
-// network addresses.
-func getMachineAddresses(agentConfig agent.Config) ([]network.Address, error) {
-	logger.Debugf("opening state to get machine addresses")
+// getMachineAddresses connects to state to determine the machine's network
+// addresses and the controller space name to use (if set).
+func getMachineAddressesAndControllerSpace(agentConfig agent.Config) ([]network.Address, string, error) {
+	logger.Debugf("opening state to get machine addresses and controller space name")
 	dialOpts := mongo.DefaultDialOpts()
 	dialOpts.Direct = true
 	st, m, err := openState(agentConfig, dialOpts)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to open state to retrieve machine addresses")
+		return nil, "", errors.Annotate(err, "failed to open state to retrieve machine addresses and controller space")
 	}
 	defer st.Close()
-	return m.Addresses(), nil
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return nil, "", errors.Annotate(err, "failed to retrieve controller space name from config")
+	}
+	controllerSpace, _ := envConfig.ControllerSpaceName()
+	return m.Addresses(), controllerSpace, nil
 }
 
 // initiateReplicaSet connects to MongoDB and sets up the replicaset.
-func initiateReplicaSet(mongoInfo *mongo.MongoInfo, statePort int, machineAddrs []network.Address) error {
-	peerAddr := mongo.SelectPeerAddress(machineAddrs)
+func initiateReplicaSet(mongoInfo *mongo.MongoInfo, statePort int, machineAddrs []network.Address, controllerSpace string) error {
+	peerAddr := mongo.SelectPeerAddress(controllerSpace, machineAddrs)
 	if peerAddr == "" {
 		return errors.Errorf("no appropriate peer address found in %q", machineAddrs)
 	}

@@ -142,6 +142,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	newConfigAttrs := make(map[string]interface{})
 
+	controllerSpace, _ := envCfg.ControllerSpaceName()
+	logger.Debugf("using controller space %q from config", controllerSpace)
+
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
 	desiredVersion, ok := envCfg.AgentVersion()
@@ -215,7 +218,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	if err := c.startMongo(addrs, agentConfig); err != nil {
+	if err := c.startMongo(addrs, controllerSpace, agentConfig); err != nil {
 		return err
 	}
 
@@ -256,6 +259,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				InstanceId:           instanceId,
 				Characteristics:      c.Hardware,
 				SharedSecret:         sharedSecret,
+				ControllerSpaceName:  controllerSpace,
 			},
 			dialOpts,
 			environs.NewStatePolicy(),
@@ -293,7 +297,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
-func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(addrs []network.Address, controllerSpace string, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.MongoInfo()
@@ -329,7 +333,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 		return err
 	}
 
-	peerAddr := mongo.SelectPeerAddress(addrs)
+	peerAddr := mongo.SelectPeerAddress(controllerSpace, addrs)
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
