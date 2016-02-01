@@ -24,14 +24,18 @@ import (
 )
 
 type DestroySuite struct {
+	baseDestroySuite
+}
+
+var _ = gc.Suite(&DestroySuite{})
+
+type baseDestroySuite struct {
 	testing.FakeJujuHomeSuite
 	api       *fakeDestroyAPI
 	clientapi *fakeDestroyAPIClient
 	store     configstore.Storage
 	apierror  error
 }
-
-var _ = gc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
@@ -108,7 +112,7 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	return cfg.AllAttrs()
 }
 
-func (s *DestroySuite) SetUpTest(c *gc.C) {
+func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
@@ -252,24 +256,6 @@ func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
 	checkControllerExistsInStore(c, "test3", s.store)
-}
-
-func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{Message: "DestroyModel", Code: params.CodeNotImplemented}
-	_, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "test1", s.store)
-}
-
-func (s *DestroySuite) TestEnvironmentGetFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{Message: "ModelGet", Code: params.CodeNotImplemented}
-	s.clientapi.env = createBootstrapInfo(c, "test3")
-	_, err := s.runDestroyCommand(c, "test3", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.envgetcalled, jc.IsTrue)
-	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "test3", s.store)
 }
 
 func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {

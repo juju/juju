@@ -13,7 +13,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -25,7 +24,7 @@ func newRestoreCommand() cmd.Command {
 	return modelcmd.Wrap(&restoreCommand{})
 }
 
-// restoreCommand is a subcommand of backups that implement the restore behaior
+// restoreCommand is a subcommand of backups that implement the restore behavior
 // it is invoked with "juju backups restore".
 type restoreCommand struct {
 	CommandBase
@@ -97,9 +96,6 @@ func (c *restoreCommand) Init(args []string) error {
 	return nil
 }
 
-const restoreAPIIncompatibility = "server version not compatible for " +
-	"restore with client version"
-
 // runRestore will implement the actual calls to the different Client parts
 // of restore.
 func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
@@ -122,11 +118,6 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	} else {
 		target = c.backupId
 		rErr = client.Restore(c.backupId, c.newClient)
-	}
-	if params.IsCodeNotImplemented(rErr) {
-		// TODO (anastasiamac 2016-02-01) This seems reasonable...
-		// Does it no longer make sense for 2.0 and should be removed?
-		return errors.Errorf(restoreAPIIncompatibility)
 	}
 	if rErr != nil {
 		return errors.Trace(rErr)

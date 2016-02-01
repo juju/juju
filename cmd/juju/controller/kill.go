@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
@@ -137,15 +136,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
-	if params.IsCodeNotImplemented(err) {
-		// TODO (anastasiamac 2016-02-01) This seems to be valid for 2.0 as well.
-		// Not removing yet...
-		// Fall back to using the client endpoint to destroy the controller,
-		// sending the info we were already able to collect.
-		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return c.killControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
-	}
-
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		return environs.Destroy(controllerEnviron, store)

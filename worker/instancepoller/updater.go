@@ -194,7 +194,6 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				// (and hopefully the local provider will implement
 				// Addresses/Status in the not-too-distant future),
 				// so we won't need to worry about this case at all.
-				// TODO (anastasiamac 2016-02-01) Should this be removed now?
 				if params.IsCodeNotImplemented(err) {
 					pollInterval = 365 * 24 * time.Hour
 				} else {

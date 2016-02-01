@@ -324,12 +324,6 @@ func containerManagerConfig(
 	managerConfigResult, err := provisioner.ContainerManagerConfig(
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
-	if params.IsCodeNotImplemented(err) {
-		// We currently don't support upgrading;
-		// revert to the old configuration.
-		// TODO (anastasiamac 2016-02-01) This looks like it still makes sense for 2.0 :D no need to remove, right?
-		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: container.DefaultNamespace}
-	}
 	if err != nil {
 		return nil, err
 	}

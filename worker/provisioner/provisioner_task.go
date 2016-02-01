@@ -834,30 +834,10 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[st
 	return result
 }
 
-// ProvisioningInfo is new in 1.20; wait for the API server to be
-// upgraded so we don't spew errors on upgrade.
-func (task *provisionerTask) blockUntilProvisioned(
-	provision func() (*params.ProvisioningInfo, error),
-) (*params.ProvisioningInfo, error) {
-
-	var pInfo *params.ProvisioningInfo
-	var err error
-	for {
-		if pInfo, err = provision(); err == nil {
-			break
-		}
-		// TODO (anastasiamac 2016-02-01) This looks like a permanent fix rather than fallback. Does it need to go for 2.0?
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("waiting for state server to be upgraded")
-			select {
-			case <-task.catacomb.Dying():
-				return nil, task.catacomb.ErrDying()
-			case <-time.After(15 * time.Second):
-				continue
-			}
-		}
+func (task *provisionerTask) blockUntilProvisioned(provision func() (*params.ProvisioningInfo, error)) (*params.ProvisioningInfo, error) {
+	pInfo, err := provision()
+	if err != nil {
 		return nil, err
 	}
-
 	return pInfo, nil
 }
