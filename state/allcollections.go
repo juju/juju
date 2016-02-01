@@ -103,7 +103,7 @@ func allCollections() collectionSchema {
 		modelMigrationStatusC: {global: true},
 
 		// This collection records the model migrations which
-		// are currently in progress. It is used to ensures that only
+		// are currently in progress. It is used to ensure that only
 		// one model migration document exists per environment.
 		activeModelMigrationsC: {global: true},
 
