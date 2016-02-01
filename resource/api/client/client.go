@@ -93,12 +93,33 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 		return errors.Trace(err)
 	}
 
-	response := new(string) // ignored
-	if err := c.doer.Do(req, reader, response); err != nil {
+	var response api.UploadResult // ignored
+	if err := c.doer.Do(req, reader, &response); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
+}
+
+// PreUpload sends the provided resource blob up to Juju without making
+// it available yet. For example, PreUpload() is used before the service is deployed.
+func (c Client) PreUpload(service, name string, reader io.ReadSeeker) (uploadID string, err error) {
+	uReq, err := api.NewUploadRequest(service, name, reader)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	uReq.PreUpload = true
+	req, err := uReq.HTTPRequest()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var response api.UploadResult
+	if err := c.doer.Do(req, reader, &response); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return response.UploadID, nil
 }
 
 func resolveErrors(errs []error) error {

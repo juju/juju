@@ -24,7 +24,7 @@ type LegacyHTTPHandler struct {
 	Connect func(*http.Request) (DataStore, names.Tag, error)
 
 	// HandleUpload provides the upload functionality.
-	HandleUpload func(username string, st DataStore, req *http.Request) error
+	HandleUpload func(username string, st DataStore, req *http.Request) (*api.UploadResult, error)
 }
 
 // TODO(ericsnow) Can username be extracted from the request?
@@ -33,7 +33,7 @@ type LegacyHTTPHandler struct {
 func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *LegacyHTTPHandler {
 	return &LegacyHTTPHandler{
 		Connect: connect,
-		HandleUpload: func(username string, st DataStore, req *http.Request) error {
+		HandleUpload: func(username string, st DataStore, req *http.Request) (*api.UploadResult, error) {
 			uh := UploadHandler{
 				Username:         username,
 				Store:            st,
@@ -66,11 +66,12 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	switch req.Method {
 	case "PUT":
 		logger.Infof("handling resource upload request")
-		if err := h.HandleUpload(username, st, req); err != nil {
+		response, err := h.HandleUpload(username, st, req)
+		if err != nil {
 			api.SendHTTPError(resp, err)
 			return
 		}
-		api.SendHTTPStatusAndJSON(resp, http.StatusOK, "success")
+		api.SendHTTPStatusAndJSON(resp, http.StatusOK, &response)
 		logger.Infof("resource upload request successful")
 	default:
 		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))

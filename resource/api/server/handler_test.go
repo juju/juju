@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
 )
 
@@ -26,6 +27,7 @@ type LegacyHTTPHandlerSuite struct {
 	req      *http.Request
 	header   http.Header
 	resp     *stubHTTPResponseWriter
+	result   *api.UploadResult
 }
 
 var _ = gc.Suite(&LegacyHTTPHandlerSuite{})
@@ -45,6 +47,7 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 		stub:         s.stub,
 		returnHeader: s.header,
 	}
+	s.result = &api.UploadResult{}
 }
 
 func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
@@ -57,13 +60,13 @@ func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, n
 	return s.data, tag, nil
 }
 
-func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) error {
+func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
 	s.stub.AddCall("HandleUpload", username, st, req)
 	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return nil
+	return s.result, nil
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
@@ -127,6 +130,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
+	s.result.UploadID = "a-service/spam"
 	s.username = "youknowwho"
 	handler := server.LegacyHTTPHandler{
 		Connect:      s.connect,
@@ -149,11 +153,11 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
 	s.stub.CheckCall(c, 4, "WriteHeader", http.StatusOK)
-	s.stub.CheckCall(c, 5, "Write", `"success"`)
+	s.stub.CheckCall(c, 5, "Write", `{"UploadID":"a-service/spam"}`)
 	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
-		"Content-Length": []string{"9"},
+		"Content-Length": []string{"29"},
 	})
 }
 

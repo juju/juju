@@ -28,7 +28,7 @@ type BaseSuite struct {
 
 	stub     *testing.Stub
 	facade   *stubFacade
-	response string
+	response *api.UploadResult
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -36,7 +36,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.facade = newStubFacade(c, s.stub)
-	s.response = ""
+	s.response = &api.UploadResult{}
 }
 
 func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) error {
@@ -45,13 +45,13 @@ func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) 
 		return errors.Trace(err)
 	}
 
-	result, ok := resp.(*string)
+	result, ok := resp.(*api.UploadResult)
 	if !ok {
-		msg := fmt.Sprintf("bad response type %T, expected string", resp)
+		msg := fmt.Sprintf("bad response type %T, expected api.UploadResult", resp)
 		return errors.NewNotValid(nil, msg)
 	}
 
-	*result = s.response
+	*result = *s.response
 	return nil
 }
 

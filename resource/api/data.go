@@ -66,6 +66,14 @@ type UnitResources struct {
 	Resources []Resource
 }
 
+// UploadResult is the response from an upload request.
+type UploadResult struct {
+	// UploadID uniquely identifies the uploaded resource. For a
+	// "pre-upload" request this is a unique UUID. Otherwise it is the
+	// normal service/resource pair.
+	UploadID string
+}
+
 // Resource contains info about a Resource.
 type Resource struct {
 	CharmResource

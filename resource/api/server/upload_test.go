@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
 )
 
@@ -70,12 +71,15 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	}
 	req, body := newUploadRequest(c, "spam", "a-service", content)
 
-	err := uh.HandleRequest(req)
+	uploadID, err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
 	s.stub.CheckCall(c, 2, "SetResource", "a-service", res, ioutil.NopCloser(body))
+	c.Check(uploadID, jc.DeepEquals, &api.UploadResult{
+		UploadID: "a-service/spam",
+	})
 }
 
 func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
@@ -93,7 +97,7 @@ func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, nil, failure)
 
-	err := uh.HandleRequest(req)
+	_, err := uh.HandleRequest(req)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")

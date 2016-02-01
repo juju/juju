@@ -53,19 +53,23 @@ type UploadHandler struct {
 }
 
 // HandleRequest handles a resource upload request.
-func (uh UploadHandler) HandleRequest(req *http.Request) error {
+func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, error) {
 	defer req.Body.Close()
 
 	uploaded, err := uh.ReadResource(req)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	uploadID := uploaded.Service + "/" + uploaded.Resource.Name // TODO(ericsnow) Get this from state.
 	if err := uh.Store.SetResource(uploaded.Service, uploaded.Resource, uploaded.Data); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return nil
+	result := &api.UploadResult{
+		UploadID: uploadID,
+	}
+	return result, nil
 }
 
 // ReadResource extracts the relevant info from the request.
@@ -73,6 +77,10 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	uReq, err := api.ExtractUploadRequest(req)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if uReq.PreUpload {
+		// TODO(ericsnow) finish!
+		return nil, errors.NotImplementedf("")
 	}
 
 	res, err := uh.Store.GetResource(uReq.Service, uReq.Name)
