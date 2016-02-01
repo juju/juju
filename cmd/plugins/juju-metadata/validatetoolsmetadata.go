@@ -48,8 +48,8 @@ version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
 The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
-Series, Region, and Endpoint are the key attributes.
+the usual way from either the -e option, or JUJU_ENV. Series, Region, and
+Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which
 case cloud attributes like provider type, region etc are optional.

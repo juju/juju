@@ -278,6 +278,6 @@ func (s *APIInfoSuite) TestCredentialsError(c *gc.C) {
 
 func (s *APIInfoSuite) TestNoEnvironment(c *gc.C) {
 	command := newAPIInfoCommand()
-	_, err := testing.RunCommand(c, command)
+	_, err := testing.RunCommand(c, command, "-e", "erewhemos")
 	c.Assert(err, gc.ErrorMatches, `environment "erewhemos" not found`)
 }

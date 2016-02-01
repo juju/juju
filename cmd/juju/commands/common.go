@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -20,42 +19,10 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 )
 
-// destroyPreparedEnviron destroys the environment and logs an error
-// if it fails.
-var destroyPreparedEnviron = destroyPreparedEnvironProductionFunc
-
 var logger = loggo.GetLogger("juju.cmd.juju")
-
-func destroyPreparedEnvironProductionFunc(
-	ctx *cmd.Context,
-	env environs.Environ,
-	store configstore.Storage,
-	action string,
-) {
-	ctx.Infof("%s failed, destroying environment", action)
-	if err := environs.Destroy(env, store); err != nil {
-		logger.Errorf("the environment could not be destroyed: %v", err)
-	}
-}
-
-var destroyEnvInfo = destroyEnvInfoProductionFunc
-
-func destroyEnvInfoProductionFunc(
-	ctx *cmd.Context,
-	cfgName string,
-	store configstore.Storage,
-	action string,
-) {
-	ctx.Infof("%s failed, cleaning up the environment.", action)
-	if err := environs.DestroyInfo(cfgName, store); err != nil {
-		logger.Errorf("the environment jenv file could not be cleaned up: %v", err)
-	}
-}
 
 type resolveCharmStoreEntityParams struct {
 	urlStr          string

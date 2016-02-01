@@ -84,7 +84,7 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
 func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return envcmd.Wrap(
+	return envcmd.WrapController(
 		&destroyCommand{
 			destroyCommandBase: destroyCommandBase{
 				api:       api,
@@ -92,8 +92,8 @@ func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientA
 				apierr:    apierr,
 			},
 		},
-		envcmd.EnvSkipFlags,
-		envcmd.EnvSkipDefault,
+		envcmd.ControllerSkipFlags,
+		envcmd.ControllerSkipDefault,
 	)
 }
 

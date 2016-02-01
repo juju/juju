@@ -131,8 +131,7 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
-// An Environ represents a juju environment as specified
-// in the environments.yaml file.
+// An Environ represents a Juju environment.
 //
 // Due to the limitations of some providers (for example ec2), the
 // results of the Environ methods may not be fully sequentially

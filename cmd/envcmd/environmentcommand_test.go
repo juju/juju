@@ -13,14 +13,12 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -38,16 +36,7 @@ func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironment(c *gc.C) {
-	env, err := envcmd.GetDefaultEnvironment()
-	c.Assert(env, gc.Equals, "erewhemos")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Remove(envPath)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,19 +76,6 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicitLongForm(c *gc.C
 	testEnsureEnvName(c, "explicit", "--environment", "explicit")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
-	// Take environment name from the default.
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	testEnsureEnvName(c, testing.SampleEnvName)
-}
-
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitSingleConfig(c *gc.C) {
-	// Take environment name from the one and only environment,
-	// even if it is not explicitly marked as default.
-	testing.WriteEnvironments(c, testing.SingleEnvConfigNoDefault)
-	testEnsureEnvName(c, testing.SampleEnvName)
-}
-
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 	// If there is a current-environment file, use that.
 	err := envcmd.WriteCurrentEnvironment("fubar")
@@ -113,19 +89,6 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitControllerFile(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = initTestCommand(c)
 	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using controller "fubar"`)
-}
-
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Remove(envPath)
-	c.Assert(err, jc.ErrorIsNil)
-	testEnsureEnvName(c, "")
-}
-
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigNoDefault(c *gc.C) {
-	// If there are multiple environments but no default, the connection name is empty.
-	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
-	testEnsureEnvName(c, "")
 }
 
 func (s *EnvironmentCommandSuite) TestBootstrapContext(c *gc.C) {
@@ -310,116 +273,6 @@ func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
 	v, err := envcmd.GetEnvironmentVersion(s.fake)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.Compare(version.MustParse(vs)), gc.Equals, 0)
-}
-
-type EnvConfigSuite struct {
-	testing.FakeJujuHomeSuite
-	client  *fakeEnvGetter
-	store   configstore.Storage
-	envName string
-}
-
-var _ = gc.Suite(&EnvConfigSuite{})
-
-func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
-	bootstrapCfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":         "dummy",
-		"name":         name,
-		"state-server": "true",
-		"state-id":     "1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return bootstrapCfg.AllAttrs()
-}
-
-func (s *EnvConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.envName = "test-env"
-	s.client = &fakeEnvGetter{results: createBootstrapInfo(c, s.envName)}
-
-	var err error
-	s.store, err = configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *EnvConfigSuite) writeStore(c *gc.C, bootstrapInfo bool) {
-	info := s.store.CreateInfo(s.envName)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: s.envName + "-UUID",
-		ServerUUID:  s.envName + "-UUID",
-	})
-
-	if bootstrapInfo {
-		info.SetBootstrapConfig(createBootstrapInfo(c, s.envName))
-	}
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *EnvConfigSuite) TestConfigWithBootstrapInfo(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
-	s.writeStore(c, true)
-
-	cfg, err := cmd.Config(s.store, s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.Name(), gc.Equals, s.envName)
-	c.Check(s.client.getCalled, jc.IsFalse)
-	c.Check(s.client.closeCalled, jc.IsFalse)
-}
-
-func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClient(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
-	s.writeStore(c, false)
-
-	cfg, err := cmd.Config(s.store, s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.Name(), gc.Equals, s.envName)
-	c.Check(s.client.getCalled, jc.IsTrue)
-	c.Check(s.client.closeCalled, jc.IsFalse)
-}
-
-func (s *EnvConfigSuite) TestConfigWithNoBootstrapNoClient(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
-	s.writeStore(c, false)
-
-	cfg, err := cmd.Config(s.store, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.Name(), gc.Equals, s.envName)
-	c.Check(s.client.getCalled, jc.IsTrue)
-	c.Check(s.client.closeCalled, jc.IsTrue)
-}
-
-func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithClientErr(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, errors.New("problem opening connection"))
-	s.writeStore(c, false)
-
-	_, err := cmd.Config(s.store, nil)
-	c.Assert(err, gc.ErrorMatches, "problem opening connection")
-	c.Check(s.client.getCalled, jc.IsFalse)
-	c.Check(s.client.closeCalled, jc.IsFalse)
-}
-
-func (s *EnvConfigSuite) TestConfigWithNoBootstrapWithEnvGetError(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase(s.envName, s.client, nil)
-	s.writeStore(c, false)
-	s.client.err = errors.New("problem getting environment attributes")
-
-	_, err := cmd.Config(s.store, nil)
-	c.Assert(err, gc.ErrorMatches, "problem getting environment attributes")
-	c.Check(s.client.getCalled, jc.IsTrue)
-	c.Check(s.client.closeCalled, jc.IsTrue)
-}
-
-func (s *EnvConfigSuite) TestConfigEnvDoesntExist(c *gc.C) {
-	cmd := envcmd.NewEnvCommandBase("dummy", s.client, nil)
-	s.writeStore(c, false)
-
-	_, err := cmd.Config(s.store, nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(s.client.getCalled, jc.IsFalse)
-	c.Check(s.client.closeCalled, jc.IsFalse)
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})

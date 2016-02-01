@@ -55,8 +55,7 @@ func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for
-// the named environment. If envName is "", the default environment
-// will be used.
+// the named environment.
 func NewAPIClientFromName(envName string, bClient *httpbakery.Client) (*api.Client, error) {
 	st, err := newAPIClient(envName, bClient)
 	if err != nil {
@@ -66,8 +65,7 @@ func NewAPIClientFromName(envName string, bClient *httpbakery.Client) (*api.Clie
 }
 
 // NewAPIFromName returns an api.State connected to the API Server for
-// the named environment. If envName is "", the default environment will
-// be used.
+// the named environment.
 func NewAPIFromName(envName string, bClient *httpbakery.Client) (api.Connection, error) {
 	return newAPIClient(envName, bClient)
 }
@@ -99,24 +97,6 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 // newAPIFromStore implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
 func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
-	// Try to read the default environment configuration file.
-	// If it doesn't exist, we carry on in case
-	// there's some environment info for that environment.
-	// This enables people to copy environment files
-	// into their .juju/environments directory and have
-	// them be directly useful with no further configuration changes.
-	envs, err := environs.ReadEnvirons("")
-	if err == nil {
-		if envName == "" {
-			envName = envs.Default
-		}
-		if envName == "" {
-			return nil, fmt.Errorf("no default environment found")
-		}
-	} else if !environs.IsNoEnv(err) {
-		return nil, err
-	}
-
 	// Try to connect to the API concurrently using two different
 	// possible sources of truth for the API endpoint. Our
 	// preference is for the API endpoint cached in the API info,
@@ -127,10 +107,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	// found from the provider. We only start to make that
 	// connection after some suitable delay, so that in the
 	// hopefully usual case, we will make the connection to the API
-	// and never hit the provider. By preference we use provider
-	// attributes from the config store, but for backward
-	// compatibility reasons, we fall back to information from
-	// ReadEnvirons if that does not exist.
+	// and never hit the provider.
 	chooseError := func(err0, err1 error) error {
 		if err0 == nil {
 			return err1
@@ -144,11 +121,11 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	try := parallel.NewTry(0, chooseError)
 
 	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	var delay time.Duration
-	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
+	if len(info.APIEndpoint().Addresses) > 0 {
 		logger.Debugf(
 			"trying cached API connection settings - endpoints %v",
 			info.APIEndpoint().Addresses,
@@ -163,7 +140,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getConfig(info, envs, envName)
+		cfg, err := getConfig(info, envName)
 		if err != nil {
 			return nil, err
 		}
@@ -320,22 +297,15 @@ func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan stru
 }
 
 // getConfig looks for configuration info on the given environment
-func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName string) (*config.Config, error) {
-	if info != nil && len(info.BootstrapConfig()) > 0 {
-		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-		if err != nil {
-			logger.Warningf("failed to parse bootstrap-config: %v", err)
-		}
-		return cfg, err
+func getConfig(info configstore.EnvironInfo, envName string) (*config.Config, error) {
+	if len(info.BootstrapConfig()) == 0 {
+		return nil, errors.NotFoundf("environment %q", envName)
 	}
-	if envs != nil {
-		cfg, err := envs.Config(envName)
-		if err != nil && !errors.IsNotFound(err) {
-			logger.Warningf("failed to get config for environment %q: %v", envName, err)
-		}
-		return cfg, err
+	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+	if err != nil {
+		logger.Warningf("failed to parse bootstrap-config: %v", err)
 	}
-	return nil, errors.NotFoundf("environment %q", envName)
+	return cfg, err
 }
 
 func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error) {

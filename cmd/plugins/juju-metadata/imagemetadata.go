@@ -28,18 +28,26 @@ type imageMetadataCommandBase struct {
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
-	// We need to "prepare" the environment so that it gets the right
-	// configuration defaults, but we don't want to write anything out
-	// to disk. We use an in-memory configstore for that reason.
-	store := configstore.NewMem()
-	cfg, err := c.Config(store, nil)
+	// NOTE(axw) this is a work-around for the TODO below. This
+	// means that the command will only work if you've bootstrapped
+	// the specified environment.
+	store, err := configstore.Default()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not get config from store")
+		return nil, errors.Trace(err)
 	}
-	// We are preparing an environment to access parameters needed to access
-	// image metadata. We don't need, nor want, credential verification.
-	// In most cases, credentials will not be available.
-	//ctx := envcmd.BootstrapContextNoVerify(context)
+	info, err := store.ReadInfo(c.EnvName())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bootstrapConfig := info.BootstrapConfig()
+	if len(bootstrapConfig) == 0 {
+		return nil, errors.NotFoundf("bootstrap config for %q", c.EnvName())
+	}
+	cfg, err := config.New(config.NoDefaults, bootstrapConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// TODO(axw) we'll need to revise the metadata commands to work
 	// without preparing an environment. They should take the same
 	// format as bootstrap, i.e. cloud/region, and we'll use that to
@@ -72,7 +80,7 @@ var imageMetadataDoc = `
 generate-image creates simplestreams image metadata for the specified cloud.
 
 The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+the usual way from either the -e option, or JUJU_ENV.
 
 Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
 By default, "amd64" is used for the architecture but this may also be changed.

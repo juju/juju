@@ -190,7 +190,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	if t.Env == nil {
 		return
 	}
-	err := environs.Destroy(t.Env, t.ConfigStore)
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -823,7 +823,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	args.Config = cfg
 	env, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, "livetests", args)
 	c.Assert(err, jc.ErrorIsNil)
-	defer environs.Destroy(env, t.ConfigStore)
+	defer environs.Destroy("livetests", env, t.ConfigStore)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)

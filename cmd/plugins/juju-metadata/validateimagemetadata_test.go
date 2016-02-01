@@ -8,9 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -84,30 +87,48 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	return nil
 }
 
-const metadataTestEnvConfig = `
-default: ec2
+func cacheTestEnvConfig(c *gc.C) {
+	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":           "ec2",
+		"type":           "ec2",
+		"default-series": "precise",
+		"region":         "us-east-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-environments:
-    ec2:
-        type: ec2
-        default-series: precise
-        region: us-east-1
+	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":                      "azure",
+		"type":                      "azure",
+		"default-series":            "raring",
+		"location":                  "West US",
+		"subscription-id":           "foo",
+		"application-id":            "bar",
+		"application-password":      "baz",
+		"tenant-id":                 "qux",
+		"controller-resource-group": "fnord",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-    azure:
-        type: azure
-        default-series: raring
-        location: West US
-        subscription-id: foo
-        application-id: bar
-        application-password: baz
-        tenant-id: qux
-        controller-resource-group: fnord
-`
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ec2 := store.CreateInfo("ec2")
+	c.Assert(err, jc.ErrorIsNil)
+	ec2.SetBootstrapConfig(ec2Config.AllAttrs())
+	err = ec2.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	azure := store.CreateInfo("azure")
+	c.Assert(err, jc.ErrorIsNil)
+	azure.SetBootstrapConfig(azureConfig.AllAttrs())
+	err = azure.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
-	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
+	cacheTestEnvConfig(c)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 	// All of the following are recognized as fallbacks by goamz.

@@ -2594,7 +2594,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 
 	// Test that in the abasence of a client-specified
-	// DisablePackageCommands we use what's set in environments.yaml.
+	// DisablePackageCommands we use what's set in environment config.
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(false, false)
 	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}

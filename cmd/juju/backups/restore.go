@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/config"
 )
 
 func newRestoreCommand() cmd.Command {
@@ -136,17 +136,13 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
-	store, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cfg, err := c.Config(store, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	// TODO(axw) we need to extract controller config from the backup file
+	var cfg *config.Config
+	return errors.NotImplementedf("restore")
+
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
-	cfg, err = cfg.Apply(map[string]interface{}{
+	cfg, err := cfg.Apply(map[string]interface{}{
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
