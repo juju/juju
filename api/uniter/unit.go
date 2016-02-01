@@ -81,9 +81,6 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 	}
 	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
-		}
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -147,15 +144,7 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error,
 	}
 	results := new(params.ErrorResults)
 	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
-	if params.IsCodeNotImplemented(err) {
-		for _, batch := range batches {
-			err = u.AddMetrics(batch.Metrics)
-			if err != nil {
-				batchResults[batch.UUID] = errors.Annotate(err, "failed to send metric batch")
-			}
-		}
-		return batchResults, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Annotate(err, "failed to send metric batches")
 	}
 	for i, result := range results.Results {

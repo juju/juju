@@ -607,7 +607,7 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
 
-		pInfo, err := task.blockUntilProvisioned(m.ProvisioningInfo)
+		pInfo, err := m.ProvisioningInfo()
 		if err != nil {
 			return task.setErrorStatus("fetching provisioning info for machine %q: %v", m, err)
 		}
@@ -757,9 +757,7 @@ func (task *provisionerTask) startMachine(
 	// for each interface, so we can later manage interfaces
 	// dynamically at run-time.
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes, volumeAttachments)
-	if err != nil && params.IsCodeNotImplemented(err) {
-		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
-	} else if err == nil {
+	if err == nil {
 		logger.Infof(
 			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v, subnets to zones %v",
 			machine, inst.Id(), hardware,
@@ -834,31 +832,4 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[st
 		}
 	}
 	return result
-}
-
-// ProvisioningInfo is new in 1.20; wait for the API server to be
-// upgraded so we don't spew errors on upgrade.
-func (task *provisionerTask) blockUntilProvisioned(
-	provision func() (*params.ProvisioningInfo, error),
-) (*params.ProvisioningInfo, error) {
-
-	var pInfo *params.ProvisioningInfo
-	var err error
-	for {
-		if pInfo, err = provision(); err == nil {
-			break
-		}
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("waiting for state server to be upgraded")
-			select {
-			case <-task.catacomb.Dying():
-				return nil, task.catacomb.ErrDying()
-			case <-time.After(15 * time.Second):
-				continue
-			}
-		}
-		return nil, err
-	}
-
-	return pInfo, nil
 }

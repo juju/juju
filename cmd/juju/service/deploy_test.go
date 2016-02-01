@@ -29,7 +29,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -1016,30 +1015,4 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
 	c.Assert(called, jc.IsFalse)
-}
-
-func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {},
-		err: &params.Error{
-			Message: "IsMetered",
-			Code:    params.CodeNotImplemented,
-		},
-	}
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
-	stub := &jujutesting.Stub{}
-	handler := &testMetricsRegistrationHandler{Stub: stub}
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
-	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }
