@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -73,7 +74,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		Series: selectedSeries,
 	})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errors.Trace(err)
 	}
 
 	// Filter image metadata to the selected series.
@@ -100,13 +101,13 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 
 	publicKey, err := simplestreams.UserPublicSigningKey()
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errors.Trace(err)
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.BootstrapConstraints, args.EnvironConstraints, selectedSeries, publicKey,
 	)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errors.Trace(err)
 	}
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
@@ -125,9 +126,29 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	maybeSetBridge(instanceConfig)
 
+	instanceConstraints := args.BootstrapConstraints
+	if space := args.ControllerSpaceName; space != "" {
+
+		logger.Debugf("applying controller space %q to bootstrap constraints %q", space, args.BootstrapConstraints)
+		controllerSpaceConstraints, err := constraints.Parse("spaces=" + space)
+		if err != nil {
+			return nil, "", nil, errors.Annotatef(err, "parsing constraints with controller space %q", space)
+		}
+
+		instanceConstraints, err = constraints.Merge(
+			args.BootstrapConstraints,
+			controllerSpaceConstraints,
+		)
+		if err != nil {
+			return nil, "", nil, errors.Annotatef(err, "cannot merge controller space %q into bootstrap constraints", space)
+		}
+
+		logger.Infof("effectinve bootstrap constraints: %s", instanceConstraints)
+	}
+
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:    args.BootstrapConstraints,
+		Constraints:    instanceConstraints,
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
@@ -150,7 +171,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 			envConfig = updated
 		}
 		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		maybeSetBridge(icfg)
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
@@ -181,7 +202,7 @@ var FinishBootstrap = func(
 		instanceConfig.Config.BootstrapSSHOpts(),
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return ConfigureMachine(ctx, client, addr, instanceConfig)
 }
@@ -226,14 +247,14 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudcfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := udata.ConfigureJuju(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
@@ -390,7 +411,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 	if err != nil && len(output) > 0 {
 		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
 	}
-	return err
+	return errors.Trace(err)
 }
 
 // waitSSH waits for the instance to be assigned a routable
@@ -453,7 +474,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 		case <-checker.Dead():
 			result, err := checker.Result()
 			if err != nil {
-				return "", err
+				return "", errors.Trace(err)
 			}
 			return result.(*hostChecker).addr.Value, nil
 		}
