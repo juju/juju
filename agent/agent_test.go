@@ -731,41 +731,61 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 }
 
 func (*suite) TestSetAPIHostPorts(c *gc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
+	attrParams := attributeParams
+	attrParams.Values = make(map[string]string)
+	attrParams.Values[agent.ControllerSpaceName] = "controllers"
+	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := conf.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
 
-	// All the best candidate addresses for each server are
-	// used. Cloud-local addresses are preferred.  Otherwise, public
-	// or unknown scope addresses are used.
+	// All the best candidate addresses for each server are used. First we try
+	// to pick using the controller space, if not empty. Otherwise we fall back
+	// to the legacy approach: cloud-local addresses are preferred. Otherwise,
+	// public or unknown scope addresses are used.
 	//
 	// If a server has only machine-local addresses, or none
 	// at all, then it will be excluded.
-	server1 := network.NewAddresses("0.1.0.1", "0.1.0.2", "host.com")
+	server1 := network.NewAddressesOnSpace("controllers", "0.1.0.1", "0.1.0.2", "host.com")
 	server1[0].Scope = network.ScopeCloudLocal
 	server1[1].Scope = network.ScopeCloudLocal
 	server1[2].Scope = network.ScopePublic
 
-	server2 := network.NewAddresses("0.2.0.1", "0.2.0.2")
+	server2 := network.NewAddressesOnSpace("controllers", "0.2.0.1", "0.2.0.2")
 	server2[0].Scope = network.ScopePublic
 	server2[1].Scope = network.ScopePublic
 
-	server3 := network.NewAddresses("127.0.0.1")
+	server3 := network.NewAddressesOnSpace("", "127.0.0.1")
 	server3[0].Scope = network.ScopeMachineLocal
 
-	server4 := network.NewAddresses("0.4.0.1", "elsewhere.net")
+	server4 := network.NewAddressesOnSpace("controllers", "0.4.0.1", "elsewhere.net")
 	server4[0].Scope = network.ScopeUnknown
 	server4[1].Scope = network.ScopeUnknown
 
-	conf.SetAPIHostPorts([][]network.HostPort{
+	hpsToSet := [][]network.HostPort{
 		network.AddressesWithPort(server1, 1111),
 		network.AddressesWithPort(server2, 2222),
 		network.AddressesWithPort(server3, 3333),
 		network.AddressesWithPort(server4, 4444),
+	}
+
+	// First test the prefered case, when we have addresses in the controller
+	// space to pick from.
+	conf.SetAPIHostPorts(hpsToSet)
+	addrs, err = conf.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.DeepEquals, []string{
+		"0.1.0.1:1111",
+		"0.2.0.1:2222",
+		"0.4.0.1:4444",
 	})
+
+	// Now we unset controller space and test the legacy scope-based address
+	// selection still works.
+	conf.SetValue(agent.ControllerSpaceName, "")
+	conf.SetAPIHostPorts(hpsToSet)
 	addrs, err = conf.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, []string{

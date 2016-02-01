@@ -49,6 +49,11 @@ type BootstrapMachineConfig struct {
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	SharedSecret string
+
+	// ControllerSpaceName, if non-empty will be used for selecting controller
+	// API endpoints. When empty the legacy scope-based selection will be used
+	// as fallback.
+	ControllerSpaceName string
 }
 
 const BootstrapMachineId = "0"
@@ -109,7 +114,13 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 		logger.Debugf("local environment - not filtering addresses from %v", machineCfg.Addresses)
 	}
 
-	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
+	if err = initAPIHostPorts(
+		c,
+		st,
+		machineCfg.Addresses,
+		machineCfg.ControllerSpaceName,
+		servingInfo.APIPort,
+	); err != nil {
 		return nil, nil, err
 	}
 	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
@@ -210,19 +221,23 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	var hostPorts []network.HostPort
-	// First try to select the correct address using the default space where all
-	// API servers should be accessible on.
-	spaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
-	if ok {
-		logger.Debugf("selected %q as API address, using space %q", spaceAddr.Value, network.DefaultSpace)
-		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
-	} else {
-		// Fallback to using all instead.
-		hostPorts = network.AddressesWithPort(addrs, apiPort)
+func initAPIHostPorts(
+	c ConfigSetter,
+	st *state.State,
+	addrs []network.Address,
+	controllerSpace string,
+	apiPort int,
+) error {
+	if controllerSpace != "" {
+		address, ok := network.SelectControllerAddress(controllerSpace, addrs, false)
+		if ok {
+			logger.Debugf("selected %q as API address", address.String())
+			hostPorts := network.AddressesWithPort([]network.Address{address}, apiPort)
+			return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
+		}
 	}
-
+	logger.Debugf("falling back to using all addresses as API endpoints: %+v", addrs)
+	hostPorts := network.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
 
