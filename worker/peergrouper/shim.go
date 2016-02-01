@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	"gopkg.in/mgo.v2"
 
@@ -17,19 +18,21 @@ import (
 
 type stateShim struct {
 	*state.State
-	mongoPort int
-	apiPort   int
+	mongoPort       int
+	apiPort         int
+	controllerSpace string
 }
 
 func (s *stateShim) Machine(id string) (stateMachine, error) {
 	m, err := s.State.Machine(id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return &machineShim{
-		Machine:   m,
-		mongoPort: s.mongoPort,
-		apiPort:   s.apiPort,
+		Machine:         m,
+		mongoPort:       s.mongoPort,
+		apiPort:         s.apiPort,
+		controllerSpace: s.controllerSpace,
 	}, nil
 }
 
@@ -47,8 +50,9 @@ func (m *machineShim) MongoHostPorts() []network.HostPort {
 
 type machineShim struct {
 	*state.Machine
-	mongoPort int
-	apiPort   int
+	mongoPort       int
+	apiPort         int
+	controllerSpace string
 }
 
 type mongoSessionShim struct {

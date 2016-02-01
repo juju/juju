@@ -109,6 +109,14 @@ type pgWorker struct {
 	// publisher holds the implementation of the API
 	// address publisher.
 	publisher publisherInterface
+
+	// controllerSpace comes from the environment config and can be empty, if
+	// spaces are not supported. Otherwise it is used to select peer addresses
+	// and hostports.
+	//
+	// TODO(dimitern): Needs extra unit tests to verify it works when not empty;
+	// only live-tested on MAAS with non-empty controller space.
+	controllerSpace string
 }
 
 // New returns a new worker that maintains the mongo replica set
@@ -118,19 +126,22 @@ func New(st *state.State) (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	controllerSpace, _ := cfg.ControllerSpaceName()
 	return newWorker(&stateShim{
-		State:     st,
-		mongoPort: cfg.StatePort(),
-		apiPort:   cfg.APIPort(),
-	}, newPublisher(st, cfg.PreferIPv6())), nil
+		State:           st,
+		mongoPort:       cfg.StatePort(),
+		apiPort:         cfg.APIPort(),
+		controllerSpace: controllerSpace,
+	}, newPublisher(st, cfg.PreferIPv6()), controllerSpace), nil
 }
 
-func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface, controllerSpace string) worker.Worker {
 	w := &pgWorker{
-		st:        st,
-		notifyCh:  make(chan notifyFunc),
-		machines:  make(map[string]*machine),
-		publisher: pub,
+		st:              st,
+		notifyCh:        make(chan notifyFunc),
+		machines:        make(map[string]*machine),
+		publisher:       pub,
+		controllerSpace: controllerSpace,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -445,13 +456,14 @@ type machine struct {
 	apiHostPorts   []network.HostPort
 	mongoHostPorts []network.HostPort
 
-	worker         *pgWorker
-	stm            stateMachine
-	machineWatcher state.NotifyWatcher
+	worker          *pgWorker
+	stm             stateMachine
+	machineWatcher  state.NotifyWatcher
+	controllerSpace string
 }
 
 func (m *machine) mongoHostPort() string {
-	return mongo.SelectPeerHostPort(m.mongoHostPorts)
+	return mongo.SelectPeerHostPort(m.controllerSpace, m.mongoHostPorts)
 }
 
 func (m *machine) String() string {
@@ -464,13 +476,14 @@ func (m *machine) GoString() string {
 
 func (w *pgWorker) newMachine(stm stateMachine) *machine {
 	m := &machine{
-		worker:         w,
-		id:             stm.Id(),
-		stm:            stm,
-		apiHostPorts:   stm.APIHostPorts(),
-		mongoHostPorts: stm.MongoHostPorts(),
-		wantsVote:      stm.WantsVote(),
-		machineWatcher: stm.Watch(),
+		worker:          w,
+		id:              stm.Id(),
+		stm:             stm,
+		apiHostPorts:    stm.APIHostPorts(),
+		mongoHostPorts:  stm.MongoHostPorts(),
+		wantsVote:       stm.WantsVote(),
+		machineWatcher:  stm.Watch(),
+		controllerSpace: w.controllerSpace,
 	}
 	w.start(m.loop)
 	return m
