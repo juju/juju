@@ -139,49 +139,7 @@ func (s *ModelMigrationSuite) TestSpecValidation(c *gc.C) {
 		},
 		"empty InitiatedBy not valid",
 	}, {
-		"empty ControllerTag",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.ControllerTag = names.NewEnvironTag("fooo")
-		},
-		"ControllerTag not valid",
-	}, {
-		"invalid ControllerTag",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.ControllerTag = names.NewEnvironTag("")
-		},
-		"ControllerTag not valid",
-	}, {
-		"nil Addrs",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.Addrs = nil
-		},
-		"nil Addrs not valid",
-	}, {
-		"empty Addrs",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.Addrs = []string{}
-		},
-		"empty Addrs not valid",
-	}, {
-		"invalid Addrs",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.Addrs = []string{"1.2.3.4:555", "abc"}
-		},
-		`"abc" in Addrs not valid`,
-	}, {
-		"CACert",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.CACert = ""
-		},
-		"empty CACert not valid",
-	}, {
-		"EntityTag",
-		func(spec *state.ModelMigrationSpec) {
-			spec.TargetInfo.EntityTag = names.NewMachineTag("")
-		},
-		"empty EntityTag not valid",
-	}, {
-		"Password",
+		"TargetInfo is validated",
 		func(spec *state.ModelMigrationSpec) {
 			spec.TargetInfo.Password = ""
 		},

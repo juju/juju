@@ -14,7 +14,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	migration "github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/network"
 )
 
 // This file contains functionality for managing the state documents
@@ -270,42 +269,13 @@ type ModelMigrationSpec struct {
 	TargetInfo  migration.TargetInfo
 }
 
+// Validate returns an error if the ModelMigrationSpec contains bad
+// data. Nil is returned otherwise.
 func (spec *ModelMigrationSpec) Validate() error {
 	if spec.InitiatedBy == "" {
 		return errors.NotValidf("empty InitiatedBy")
 	}
-
-	target := &spec.TargetInfo
-	if !names.IsValidEnvironment(target.ControllerTag.Id()) {
-		return errors.NotValidf("ControllerTag")
-	}
-
-	if target.Addrs == nil {
-		return errors.NotValidf("nil Addrs")
-	}
-	if len(target.Addrs) < 1 {
-		return errors.NotValidf("empty Addrs")
-	}
-	for _, addr := range target.Addrs {
-		_, err := network.ParseHostPort(addr)
-		if err != nil {
-			return errors.NotValidf("%q in Addrs", addr)
-		}
-	}
-
-	if target.CACert == "" {
-		return errors.NotValidf("empty CACert")
-	}
-
-	if target.EntityTag.Id() == "" {
-		return errors.NotValidf("empty EntityTag")
-	}
-
-	if target.Password == "" {
-		return errors.NotValidf("empty Password")
-	}
-
-	return nil
+	return spec.TargetInfo.Validate()
 }
 
 // CreateModelMigration initialises state that tracks a model

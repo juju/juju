@@ -3,7 +3,11 @@
 
 package modelmigration
 
-import "github.com/juju/names"
+import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/network"
+	"github.com/juju/names"
+)
 
 // TargetInfo holds the details required to connect to a
 // migration's target controller.
@@ -30,4 +34,39 @@ type TargetInfo struct {
 
 	// Password holds the password to use with TargetEntityTag.
 	Password string
+}
+
+// Validate returns an error if the TargetInfo contains bad data. Nil
+// is returned otherwise.
+func (info *TargetInfo) Validate() error {
+	if !names.IsValidEnvironment(info.ControllerTag.Id()) {
+		return errors.NotValidf("ControllerTag")
+	}
+
+	if info.Addrs == nil {
+		return errors.NotValidf("nil Addrs")
+	}
+	if len(info.Addrs) < 1 {
+		return errors.NotValidf("empty Addrs")
+	}
+	for _, addr := range info.Addrs {
+		_, err := network.ParseHostPort(addr)
+		if err != nil {
+			return errors.NotValidf("%q in Addrs", addr)
+		}
+	}
+
+	if info.CACert == "" {
+		return errors.NotValidf("empty CACert")
+	}
+
+	if info.EntityTag.Id() == "" {
+		return errors.NotValidf("empty EntityTag")
+	}
+
+	if info.Password == "" {
+		return errors.NotValidf("empty Password")
+	}
+
+	return nil
 }
