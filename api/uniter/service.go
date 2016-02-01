@@ -158,9 +158,6 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	}
 	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.NotImplementedf("SetServiceStatus")
-		}
 		return errors.Trace(err)
 	}
 	return result.OneError()
@@ -180,9 +177,6 @@ func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	}
 	err := s.st.facade.FacadeCall("ServiceStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.ServiceStatusResult{}, errors.NotImplementedf("ServiceStatus")
-		}
 		return params.ServiceStatusResult{}, errors.Trace(err)
 	}
 	result := results.Results[0]

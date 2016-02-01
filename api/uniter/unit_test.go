@@ -814,40 +814,6 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *unitMetricBatchesSuite) TestSendMetricBatchNotImplemented(c *gc.C) {
-	var called bool
-	uniter.PatchUnitFacadeCall(s, s.apiUnit, func(request string, args, response interface{}) error {
-		switch request {
-		case "AddMetricBatches":
-			result := response.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			return &params.Error{Message: "not implemented", Code: params.CodeNotImplemented}
-		case "AddMetrics":
-			called = true
-			result := response.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			return nil
-		default:
-			panic(fmt.Errorf("unexpected request %q received", request))
-		}
-	})
-
-	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-	batch := params.MetricBatch{
-		UUID:     uuid,
-		CharmURL: s.charm.URL().String(),
-		Created:  time.Now(),
-		Metrics:  metrics,
-	}
-
-	results, err := s.apiUnit.AddMetricBatches([]params.MetricBatch{batch})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[batch.UUID], gc.IsNil)
-}
-
 func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	now := time.Now().Round(time.Second).UTC()

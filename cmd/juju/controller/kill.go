@@ -138,6 +138,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
 	if params.IsCodeNotImplemented(err) {
+		// TODO (anastasiamac 2016-02-01) This seems to be valid for 2.0 as well.
+		// Not removing yet...
 		// Fall back to using the client endpoint to destroy the controller,
 		// sending the info we were already able to collect.
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)

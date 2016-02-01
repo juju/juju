@@ -757,9 +757,7 @@ func (task *provisionerTask) startMachine(
 	// for each interface, so we can later manage interfaces
 	// dynamically at run-time.
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes, volumeAttachments)
-	if err != nil && params.IsCodeNotImplemented(err) {
-		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
-	} else if err == nil {
+	if err == nil {
 		logger.Infof(
 			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v, subnets to zones %v",
 			machine, inst.Id(), hardware,
@@ -848,6 +846,7 @@ func (task *provisionerTask) blockUntilProvisioned(
 		if pInfo, err = provision(); err == nil {
 			break
 		}
+		// TODO (anastasiamac 2016-02-01) This looks like a permanent fix rather than fallback. Does it need to go for 2.0?
 		if params.IsCodeNotImplemented(err) {
 			logger.Infof("waiting for state server to be upgraded")
 			select {

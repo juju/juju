@@ -130,6 +130,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Attempt to destroy the controller.
 	err = api.DestroyController(c.destroyEnvs)
 	if params.IsCodeNotImplemented(err) {
+		// TODO (anastasiamac 2016-02-01) This seems to be valid for 2.0 as well.
+		// Not removing yet...
 		// Fall back to using the client endpoint to destroy the controller,
 		// sending the info we were already able to collect.
 		return c.destroyControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
@@ -315,6 +317,8 @@ func (c *destroyCommandBase) getControllerEnviron(info configstore.EnvironInfo, 
 		}
 		bootstrapCfg, err = sysAPI.ModelConfig()
 		if params.IsCodeNotImplemented(err) {
+			// TODO (anastasiamac 2016-02-01) This seems to be valid for 2.0 as well.
+			// Not removing yet...
 			// Fallback to the client API. Better to encapsulate the logic for
 			// old servers than worry about connecting twice.
 			client, err := c.getClientAPI()

@@ -56,9 +56,6 @@ func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, siz
 	}
 	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return &params.UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
-		}
 		return &params.UnitStatusHistory{}, errors.Trace(err)
 	}
 	return &results, nil
@@ -363,8 +360,7 @@ func (c *Client) DestroyModel() error {
 
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
-// charm URL. If the API server does not support charm uploads, an
-// error satisfying params.IsCodeNotImplemented() is returned.
+// charm URL.
 func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())

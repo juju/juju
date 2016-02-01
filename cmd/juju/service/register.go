@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/apiserver/params"
 )
 
 type metricRegistrationPost struct {
@@ -45,12 +44,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
-	if params.IsCodeNotImplemented(err) {
-		// The state server is too old to support metering.  Warn
-		// the user, but don't return an error.
-		logger.Tracef("current state server version does not support charm metering")
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 	if !metered {
@@ -95,12 +89,7 @@ func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client
 	defer api.Close()
 
 	err := api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
-	if params.IsCodeNotImplemented(err) {
-		// The state server is too old to support metering.  Warn
-		// the user, but don't return an error.
-		logger.Warningf("current state server version does not support charm metering")
-		return nil
-	} else if err != nil {
+	if err != nil {
 		logger.Infof("failed to set metric credentials: %v", err)
 		return err
 	}

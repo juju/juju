@@ -124,6 +124,8 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 		rErr = client.Restore(c.backupId, c.newClient)
 	}
 	if params.IsCodeNotImplemented(rErr) {
+		// TODO (anastasiamac 2016-02-01) This seems reasonable...
+		// Does it no longer make sense for 2.0 and should be removed?
 		return errors.Errorf(restoreAPIIncompatibility)
 	}
 	if rErr != nil {
