@@ -42,7 +42,7 @@ func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.ModelMigrationSpec{
 		InitiatedBy: "admin",
-		TargetInfo: state.ModelMigTargetInfo{
+		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewEnvironTag(s.State.EnvironUUID()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",

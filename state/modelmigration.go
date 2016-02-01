@@ -155,12 +155,12 @@ func (mig *ModelMigration) InitiatedBy() string {
 
 // TargetInfo returns the details required to connect to the
 // migration's target controller.
-func (mig *ModelMigration) TargetInfo() (*ModelMigTargetInfo, error) {
+func (mig *ModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 	entityTag, err := names.ParseTag(mig.doc.TargetEntityTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ModelMigTargetInfo{
+	return &migration.TargetInfo{
 		ControllerTag: names.NewEnvironTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
@@ -267,34 +267,7 @@ func (mig *ModelMigration) Refresh() error {
 // ModelMigration instance.
 type ModelMigrationSpec struct {
 	InitiatedBy string
-	TargetInfo  ModelMigTargetInfo
-}
-
-// ModelMigTargetInfo holds the details required to connect to a
-// migration's target controller.
-//
-// TODO(mjs) - Note the similarity to api.Info. It would be nice
-// to be able to use api.Info here but state can't import api and
-// moving api.Info to live under the core package is too big a project
-// to be done right now.
-type ModelMigTargetInfo struct {
-	// ControllerTag holds tag for the target controller.
-	ControllerTag names.EnvironTag
-
-	// Addrs holds the addresses and ports of the target controller's
-	// API servers.
-	Addrs []string
-
-	// CACert holds the CA certificate that will be used to validate
-	// the target API server's certificate, in PEM format.
-	CACert string
-
-	// EntityTag holds the entity to authenticate with to the target
-	// controller.
-	EntityTag names.Tag
-
-	// Password holds the password to use with TargetEntityTag.
-	Password string
+	TargetInfo  migration.TargetInfo
 }
 
 func (spec *ModelMigrationSpec) Validate() error {
