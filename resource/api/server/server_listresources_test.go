@@ -61,9 +61,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
-		Results: []api.ResourcesResult{{
-			Resources: nil,
-		}},
+		Results: []api.ResourcesResult{{}},
 	})
 	s.stub.CheckCallNames(c, "ListResources")
 }

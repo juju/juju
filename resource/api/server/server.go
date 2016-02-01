@@ -82,7 +82,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			}
 			result.UnitResources = append(result.UnitResources, unit)
 		}
-		r.Results = append(r.Results, result)
+		r.Results[i] = result
 	}
 	return r, nil
 }
