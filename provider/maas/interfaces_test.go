@@ -509,25 +509,85 @@ func (s *interfacesSuite) TestGetPXEMACAddressForMAASObject(c *gc.C) {
 	}
 }
 
-func (s *interfacesSuite) TestFindPXEInterfaceSuccess(c *gc.C) {
-	foundInterface, err := findPXEInterface(exampleInterfaces, "52:54:00:70:9b:fe")
+func (s *interfacesSuite) TestFindPXEInterfaceSpaceSuccess(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "52:54:00:70:9b:fe")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundInterface.Name, gc.Equals, "eth0")
-	c.Assert(foundInterface.MACAddress, gc.Equals, "52:54:00:70:9b:fe")
+	c.Assert(foundSpace, gc.Equals, "default")
 }
 
-func (s *interfacesSuite) TestFindPXEInterfaceSkipsExistingNonPhysicalNICs(c *gc.C) {
-	foundInterface, err := findPXEInterface(exampleInterfaces, "52:54:00:70:9b:f1")
+func (s *interfacesSuite) TestFindPXEInterfaceSpaceSkipsExistingNonPhysicalNICs(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "52:54:00:70:9b:f1")
 	c.Assert(err, gc.ErrorMatches, `PXE interface with MAC address "52:54:00:70:9b:f1" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(foundInterface, gc.IsNil)
+	c.Assert(foundSpace, gc.Equals, "")
 }
 
-func (s *interfacesSuite) TestFindPXEInterfaceWithMissingMAC(c *gc.C) {
-	foundInterface, err := findPXEInterface(exampleInterfaces, "missing")
+func (s *interfacesSuite) TestFindPXEInterfaceSpaceWithMissingMAC(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "missing")
 	c.Assert(err, gc.ErrorMatches, `PXE interface with MAC address "missing" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(foundInterface, gc.IsNil)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithNilInterface(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "missing")
+	c.Assert(err, gc.ErrorMatches, `PXE interface with MAC address "missing" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithNoLinks(c *gc.C) {
+	pxeNIC := &maasInterface{
+		Name:       "ethX",
+		MACAddress: "a:b:c",
+		Links:      nil,
+	}
+
+	foundSpace, err := getPXEInterfaceSpace(pxeNIC)
+	c.Assert(err, gc.ErrorMatches, `PXE interface "ethX" \(a:b:c\) has no links`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithLinkNoSubnet(c *gc.C) {
+	pxeNIC := &maasInterface{
+		Name:       "ethX",
+		MACAddress: "a:b:c",
+		Links: []maasInterfaceLink{{
+			ID:     42,
+			Subnet: nil,
+		}},
+	}
+
+	foundSpace, err := getPXEInterfaceSpace(pxeNIC)
+	c.Assert(err, gc.ErrorMatches, `PXE interface "ethX" \(a:b:c\) link 42 has no subnet`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithNoSpaceOnSubnet(c *gc.C) {
+	pxeNIC := &maasInterface{
+		Name:       "ethX",
+		MACAddress: "a:b:c",
+		Links: []maasInterfaceLink{{
+			ID: 42,
+			Subnet: &maasSubnet{
+				CIDR:  "0.1.2.0/8",
+				Space: "",
+			},
+		}},
+	}
+
+	foundSpace, err := getPXEInterfaceSpace(pxeNIC)
+	c.Assert(err, gc.ErrorMatches, `PXE interface "ethX" \(a:b:c\) linked subnet "0.1.2.0/8" has no space`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceSuccess(c *gc.C) {
+	foundSpace, err := getPXEInterfaceSpace(&exampleInterfaces[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundSpace, gc.Equals, "default")
 }
 
 func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {

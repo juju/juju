@@ -28,7 +28,7 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Debugf("opening environment %q.", cfg.Name())
 	env, err := NewEnviron(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return env, nil
 }
@@ -50,7 +50,7 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	attrs["maas-agent-name"] = uuid.String()
 	return cfg.Apply(attrs)
@@ -63,7 +63,7 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 	}
 	env, err := p.Open(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env.(*maasEnviron)); err != nil {

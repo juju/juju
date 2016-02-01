@@ -488,6 +488,113 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*409.*")
 }
 
+func (suite *environSuite) TestBootstrapInfersAndSetsControllerSpaceWhenSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+
+	// No controller space set initially.
+	setSpace, isSet := env.Config().ControllerSpaceName()
+	c.Assert(setSpace, gc.Equals, "")
+	c.Assert(isSet, jc.IsFalse)
+
+	nodeJSON := `{
+        "system_id": "thenode",
+        "hostname": "thenode.maas",
+		"memory":       1024,
+		"cpu_count":    1,
+        "architecture": "amd64/generic",
+        "pxe_mac": { "mac_address" : "52:54:00:70:9b:fe" },
+        "interface_set": ` + exampleInterfaceSetJSON + `
+    }`
+	suite.addNode(nodeJSON)
+	suite.addSubnet(c, 1, 1, "thenode")
+	suite.addSubnet(c, 2, 2, "thenode")
+
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Controller space must be set now as inferred from the PXE interface.
+	setSpace, isSet = env.Config().ControllerSpaceName()
+	c.Assert(setSpace, gc.Equals, "default")
+	c.Assert(isSet, jc.IsTrue)
+}
+
+func (suite *environSuite) TestBootstrapRejectsInvalidExplictControllerSpaceWhenSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+
+	params := bootstrap.BootstrapParams{
+		ControllerSpaceName: "bad space",
+	}
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, params)
+	c.Assert(err, gc.ErrorMatches, `cannot use "bad space" as controller space: not a valid space name`)
+}
+
+func (suite *environSuite) TestBootstrapRejectsInvalidExplicitControllerSpaceWhenNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+
+	params := bootstrap.BootstrapParams{
+		ControllerSpaceName: "bad space",
+	}
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, params)
+	c.Assert(err, gc.ErrorMatches, `cannot use "bad space" as controller space: not a valid space name`)
+}
+
+func (suite *environSuite) TestBootstrapRejectsValidExplicitControllerSpaceWhenNotSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": []}`)
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+
+	params := bootstrap.BootstrapParams{
+		ControllerSpaceName: "good-space",
+	}
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, params)
+	c.Assert(err, gc.ErrorMatches, `cannot use "good-space" as controller space: spaces not supported by the provider`)
+}
+
+func (suite *environSuite) TestBootstrapValidatesAndSetsExplicitControllerSpaceWhenSupported(c *gc.C) {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+
+	// No controller space set initially.
+	setSpace, isSet := env.Config().ControllerSpaceName()
+	c.Assert(setSpace, gc.Equals, "")
+	c.Assert(isSet, jc.IsFalse)
+
+	nodeJSON := `{
+        "system_id": "thenode",
+        "hostname": "thenode.maas",
+		"memory":       1024,
+		"cpu_count":    1,
+        "architecture": "amd64/generic",
+        "interface_set": ` + exampleInterfaceSetJSON + `
+    }`
+	suite.addNode(nodeJSON)
+	suite.addSubnet(c, 1, 1, "thenode")
+
+	params := bootstrap.BootstrapParams{
+		ControllerSpaceName: "default", // matching exampleInterfaceSetJSON
+	}
+	// First try when we know the space is valid but missing.
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, params)
+	c.Assert(err, gc.ErrorMatches, `provided controller space "default" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	params.ControllerSpaceName = "space-1" // matching the added subnet.
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Controller space must be set now.
+	setSpace, isSet = env.Config().ControllerSpaceName()
+	c.Assert(setSpace, gc.Equals, "space-1")
+	c.Assert(isSet, jc.IsTrue)
+}
+
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := suite.makeEnviron()
 	// Add a dummy file to storage so we can use that to check the
@@ -918,19 +1025,19 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSpaces := []network.SpaceInfo{{
-		ProviderId: "Space 1",
+		ProviderId: "space-1",
 		Subnets: []network.SubnetInfo{
 			createSubnetInfo(1, 1, 1),
 			createSubnetInfo(2, 1, 6),
 		},
 	}, {
-		ProviderId: "Space 2",
+		ProviderId: "space-2",
 		Subnets: []network.SubnetInfo{
 			createSubnetInfo(3, 2, 2),
 			createSubnetInfo(4, 2, 7),
 		},
 	}, {
-		ProviderId: "Space 3",
+		ProviderId: "space-3",
 		Subnets: []network.SubnetInfo{
 			createSubnetInfo(5, 3, 3),
 			createSubnetInfo(6, 3, 8),
@@ -950,7 +1057,7 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 	testInstance := suite.createSubnets(c, false)
 	systemID := "node1"
 	for i := 1; i <= numberOfSubnets; i++ {
-		// Put most, but not all, of the subnets on node1.
+		// Put most, but not all of the subnets on node1.
 		if i == 2 {
 			systemID = "node2"
 		} else {

@@ -199,19 +199,52 @@ func parseInterfacesForMAASObject(maasObject *gomaasapi.MAASObject) ([]maasInter
 	return parseInterfaces(rawBytes)
 }
 
-// findPXEInterface scans the given interfaces and returns the first physical
-// interfaces matching the given pxeMACAddress. Returns an error satisfying
-// errors.IsNotFound() otherwise.
-func findPXEInterface(interfaces []maasInterface, pxeMACAddress string) (*maasInterface, error) {
+// findPXEInterfaceSpace scans the given interfaces and returns the space name
+// of the subnet to which the first physical interface matching the given
+// pxeMACAddress is linked to. Returns an error satisfying errors.IsNotFound()
+// otherwise.
+func findPXEInterfaceSpace(interfaces []maasInterface, pxeMACAddress string) (string, error) {
 	for _, nic := range interfaces {
 		isPhysical := nic.Type == "physical"
 		sameMAC := nic.MACAddress == pxeMACAddress
 
-		if isPhysical && sameMAC {
-			return &nic, nil
+		if !isPhysical || !sameMAC {
+			continue
 		}
+
+		logger.Debugf("PXE interface found as %q (%s)", nic.Name, nic.MACAddress)
+		return getPXEInterfaceSpace(&nic)
 	}
-	return nil, errors.NotFoundf("PXE interface with MAC address %q", pxeMACAddress)
+
+	return "", errors.NotFoundf("PXE interface with MAC address %q", pxeMACAddress)
+}
+
+// getPXEInterfaceSpace extracts the subnet of the first link of the given
+// interface and returns the space for that subnet. Returns an error satisfying
+// errors.IsNotFound() otherwise.
+func getPXEInterfaceSpace(pxeInterface *maasInterface) (string, error) {
+
+	name, mac := pxeInterface.Name, pxeInterface.MACAddress
+
+	if len(pxeInterface.Links) < 1 {
+		errorMessage := fmt.Sprintf("PXE interface %q (%s) has no links", name, mac)
+		return "", errors.NewNotFound(nil, errorMessage)
+	}
+
+	pxeSubnet := pxeInterface.Links[0].Subnet
+	if pxeSubnet == nil {
+		linkID := pxeInterface.Links[0].ID
+		errorMessage := fmt.Sprintf("PXE interface %q (%s) link %d has no subnet", name, mac, linkID)
+		return "", errors.NewNotFound(nil, errorMessage)
+	}
+
+	if pxeSubnet.Space == "" {
+		cidr := pxeSubnet.CIDR
+		errorMessage := fmt.Sprintf("PXE interface %q (%s) linked subnet %q has no space", name, mac, cidr)
+		return "", errors.NewNotFound(nil, errorMessage)
+	}
+
+	return pxeSubnet.Space, nil
 }
 
 // getPXEMACAddressForMAASObject extracts the MAC address of the interface used
@@ -516,7 +549,7 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 				}
 			}
 			if err := processNodes(node.Children); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 		return nil

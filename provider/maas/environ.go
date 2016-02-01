@@ -65,7 +65,7 @@ var (
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
-	return err
+	return errors.Trace(err)
 }
 
 func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
@@ -73,7 +73,7 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	params.Add("network", cidr)
 	params.Add("requested_address", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
-	return err
+	return errors.Trace(err)
 }
 
 func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
@@ -134,7 +134,7 @@ func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) er
 	params := url.Values{}
 	params.Add("ip", addr.Value)
 	_, err := ipaddresses.CallPost("release", params)
-	return err
+	return errors.Trace(err)
 }
 
 type maasEnviron struct {
@@ -157,6 +157,10 @@ type maasEnviron struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+
+	// controllerSpaceToUse is the name the space where the controller is
+	// deployed into. If empty, it will be inferred at bootstrap time.
+	controllerSpaceToUse string
 
 	// The following are initialized from the discovered MAAS API capabilities.
 	supportsDevices                 bool
@@ -222,9 +226,63 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		)
 	}
 
-	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
+	env.controllerSpaceToUse = ""
+	if providedSpace := args.ControllerSpaceName; providedSpace != "" {
+		if !env.supportsNetworkDeploymentUbuntu {
+			// NOTE: Not directly tested, as bootstrap.Bootstrap() already does
+			// this check, but it's better to be on the safe side.
+			errorMessage := fmt.Sprintf("cannot use controller space %q: spaces not supported", providedSpace)
+			return nil, errors.NewNotSupported(nil, errorMessage)
+		}
+		logger.Debugf("validating provided controller space %q", providedSpace)
+
+		spacesInfo, err := env.Spaces()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot validate provided controller space %q", providedSpace)
+		}
+
+		found := false
+		for _, spaceInfo := range spacesInfo {
+			// TODO(dimitern): Apply the same transformation to ProviderId we
+			// use in the discover spaces worker.
+			if string(spaceInfo.ProviderId) == providedSpace {
+				env.controllerSpaceToUse = providedSpace
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, errors.NotFoundf("provided controller space %q", providedSpace)
+		}
+		// common.BootstrapInstance will update the bootstrap constraints.
+		logger.Infof("deploying to provided controller space %q", env.controllerSpaceToUse)
+	}
+
+	result, series, commonFinalizer, err := common.BootstrapInstance(ctx, env, args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+
+	finalizerWrapper := func(context environs.BootstrapContext, instanceConfig *instancecfg.InstanceConfig) error {
+		if err := env.maybeInferControllerSpace(result.Instance.Id()); err != nil {
+			return errors.Trace(err)
+		}
+
+		if env.supportsNetworkDeploymentUbuntu {
+			updatedConfig, err := env.Config().Apply(map[string]interface{}{
+				config.ControllerSpaceName: env.controllerSpaceToUse,
+			})
+			if err != nil {
+				return errors.Annotate(err, "cannot update controller space in config")
+			}
+			if err := env.SetConfig(updatedConfig); err != nil {
+				return errors.Annotate(err, "cannot set updated config with controller space")
+			}
+
+			logger.Infof("controller space set to %q", env.controllerSpaceToUse)
+		}
+
+		return commonFinalizer(context, instanceConfig)
 	}
 
 	// We want to destroy the started instance if it doesn't transition to Deployed.
@@ -243,9 +301,54 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	bsResult := &environs.BootstrapResult{
 		Arch:     *result.Hardware.Arch,
 		Series:   series,
-		Finalize: finalizer,
+		Finalize: finalizerWrapper,
 	}
 	return bsResult, nil
+}
+
+// maybeInferControllerSpace populates controllerSpaceToUse (only when empty)
+// with the name of the space the given instance's PXE interface is linked to.
+func (env *maasEnviron) maybeInferControllerSpace(instId instance.Id) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot infer controller space name to use")
+
+	if env.controllerSpaceToUse != "" {
+		// Nothing to do - the user gave us the space to use and we've validated
+		// it already.
+		return nil
+	}
+
+	if !env.supportsNetworkDeploymentUbuntu {
+		logger.Debugf("no spaces support: skipping controller space detection")
+		return nil
+	}
+
+	maasObject, err := env.getInstanceMAASObject(instId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pxeMACAddress, err := getPXEMACAddressForMAASObject(maasObject)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("looking for the PXE interface with MAC address %q on node %q", pxeMACAddress, instId)
+
+	interfaces, err := parseInterfacesForMAASObject(maasObject)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pxeNICSpace, err := findPXEInterfaceSpace(interfaces, pxeMACAddress)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	env.controllerSpaceToUse = pxeNICSpace
+	logger.Debugf(
+		"inferred %q as the controller space name using node %q PXE interface's subnet",
+		env.controllerSpaceToUse, instId,
+	)
+	return nil
 }
 
 // StateServerInstances is specified in the Environ interface.
@@ -279,19 +382,19 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	}
 	cfg, err := env.Provider().Validate(cfg, oldCfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	env.ecfgUnlocked = ecfg
 
 	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
 
@@ -568,7 +671,7 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 		return nil
 	}
 	_, err := env.parsePlacement(placement)
-	return err
+	return errors.Trace(err)
 }
 
 const (
@@ -739,7 +842,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		switch {
 		case placement.zoneName != "":
@@ -801,7 +904,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	selectedNode, err := environ.selectNode(snArgs)
 	if err != nil {
-		return nil, errors.Errorf("cannot run instances: %v", err)
+		return nil, errors.Annotate(err, "cannot run instances")
 	}
 
 	inst := &maasInstance{selectedNode}
@@ -815,20 +918,20 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	hc, err := inst.hardwareCharacteristics()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	args.InstanceConfig.Tools = selectedTools[0]
 
 	hostname, err := inst.hostname()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Override the network bridge to use for both LXC and KVM
 	// containers on the new instance, if address allocation feature
@@ -840,25 +943,24 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
-		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, msg
+		return nil, errors.Annotate(err, "could not compose userdata for bootstrap node")
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
 	var startedNode *gomaasapi.MAASObject
 	var interfaces []network.InterfaceInfo
 	if startedNode, err = environ.startNode(*inst.maasObject, series, userdata); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	} else {
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
@@ -895,11 +997,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		requestedVolumes,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
 		err = errors.New("the version of MAAS being used does not support Juju storage")
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	return &environs.StartInstanceResult{
@@ -1126,7 +1228,7 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
 	if err != nil {
 		// error will already have been wrapped
-		return err
+		return errors.Trace(err)
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 
@@ -1402,7 +1504,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	if environ.supportsDevices {
 		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		devices := client.GetSubObject("devices")
@@ -1513,11 +1615,11 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 		if err == nil {
 			addresses, err := device["ip_addresses"].GetArray()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			systemId, err := device["system_id"].GetString()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 
 			if len(addresses) == 1 {
@@ -1528,10 +1630,10 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 				// the last address. Race conditions aside.
 				deviceAPI := environ.getMAASClient().GetSubObject("devices").GetSubObject(systemId)
 				err = deviceAPI.Delete()
-				return err
+				return errors.Trace(err)
 			}
 		} else if !errors.IsNotFound(err) {
-			return err
+			return errors.Trace(err)
 		}
 		// No device for this IP address, release the address normally.
 	}
@@ -1553,7 +1655,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	if err != nil {
 		logger.Warningf("failed to release address %q from instance %q after %d attempts: %v", addr, instId, retries, err)
 	}
-	return err
+	return errors.Trace(err)
 }
 
 // subnetsFromNode fetches all the subnets for a specific node.
