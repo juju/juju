@@ -247,27 +247,18 @@ func (mig *ModelMigration) SetStatusMessage(text string) error {
 // Refresh updates the contents of the ModelMigration from the underlying
 // state.
 func (mig *ModelMigration) Refresh() error {
-	migColl, closer := mig.st.getCollection(modelMigrationsC)
-	defer closer()
-	var doc modelMigDoc
-	err := migColl.FindId(mig.doc.Id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("migration")
-	} else if err != nil {
-		return errors.Annotate(err, "migration lookup failed")
-	}
-
+	// Only the status document is updated. The modelMigDoc is static
+	// after creation.
 	statusColl, closer := mig.st.getCollection(modelMigrationStatusC)
 	defer closer()
 	var statusDoc modelMigStatusDoc
-	err = statusColl.FindId(mig.doc.Id).One(&statusDoc)
+	err := statusColl.FindId(mig.doc.Id).One(&statusDoc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("migration status")
 	} else if err != nil {
 		return errors.Annotate(err, "migration status lookup failed")
 	}
 
-	mig.doc = doc
 	mig.statusDoc = statusDoc
 	return nil
 }
