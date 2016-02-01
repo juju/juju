@@ -39,7 +39,7 @@ type modelMigDoc struct {
 
 	// InitiatedBy holds the username of the user that triggered the
 	// migration. It should be in "user@domain" format.
-	InitiatedBy string `bson:"initiatedBy"`
+	InitiatedBy string `bson:"initiated-by"`
 
 	// TargetController holds the UUID of the target controller.
 	TargetController string `bson:"target-controller"`
@@ -111,19 +111,19 @@ func (mig *ModelMigration) ModelUUID() string {
 
 // StartTime returns the time when the migration was started.
 func (mig *ModelMigration) StartTime() time.Time {
-	return *unixNanoToTime0(mig.statusDoc.StartTime)
+	return unixNanoToTime0(mig.statusDoc.StartTime)
 }
 
 // SuccessTime returns the time when the migration reached
 // SUCCESS.
 func (mig *ModelMigration) SuccessTime() time.Time {
-	return *unixNanoToTime0(mig.statusDoc.SuccessTime)
+	return unixNanoToTime0(mig.statusDoc.SuccessTime)
 }
 
 // EndTime returns the time when the migration reached DONE or
 // REAPFAILED.
 func (mig *ModelMigration) EndTime() time.Time {
-	return *unixNanoToTime0(mig.statusDoc.EndTime)
+	return unixNanoToTime0(mig.statusDoc.EndTime)
 }
 
 // Phase returns the migration's phase.
@@ -138,7 +138,7 @@ func (mig *ModelMigration) Phase() (migration.Phase, error) {
 // PhaseChangedTime returns the time when the migration's phase last
 // changed.
 func (mig *ModelMigration) PhaseChangedTime() time.Time {
-	return *unixNanoToTime0(mig.statusDoc.PhaseChangedTime)
+	return unixNanoToTime0(mig.statusDoc.PhaseChangedTime)
 }
 
 // StatusMessage returns human readable text about the current
@@ -393,9 +393,9 @@ func IsModelMigrationActive(st *State, modelUUID string) (bool, error) {
 	return n > 0, nil
 }
 
-func unixNanoToTime0(i int64) *time.Time {
+func unixNanoToTime0(i int64) time.Time {
 	if i == 0 {
-		return new(time.Time)
+		return time.Time{}
 	}
-	return unixNanoToTime(i)
+	return time.Unix(0, i)
 }
