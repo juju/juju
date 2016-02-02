@@ -38,6 +38,9 @@ func NewModel(args ModelArgs) Model {
 		Machines_: machines{
 			Version: 1,
 		},
+		Services_: services{
+			Version: 1,
+		},
 	}
 }
 
@@ -69,6 +72,7 @@ type model struct {
 
 	Users_    users    `yaml:"users"`
 	Machines_ machines `yaml:"machines"`
+	Services_ services `yaml:"services"`
 
 	// TODO: add extra entities, but initially focus on Machines.
 	// Services, and through them, Units
@@ -150,9 +154,35 @@ func (m *model) setMachines(machineList []*machine) {
 	}
 }
 
+func (m *model) Services() []Service {
+	var result []Service
+	for _, service := range m.Services_.Services_ {
+		result = append(result, service)
+	}
+	return result
+}
+
+func (m *model) AddService(args ServiceArgs) Service {
+	service := newService(args)
+	m.Services_.Services_ = append(m.Services_.Services_, service)
+	return service
+}
+
+func (m *model) setServices(serviceList []*service) {
+	m.Services_ = services{
+		Version:   1,
+		Services_: serviceList,
+	}
+}
+
 func (m *model) Validate() error {
 	for _, machine := range m.Machines_.Machines_ {
 		if err := machine.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, service := range m.Services_.Services_ {
+		if err := service.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -192,6 +222,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"latest-tools": schema.String(),
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
+		"services":     schema.StringMap(schema.Any()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -231,6 +262,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotatef(err, "machines")
 	}
 	result.setMachines(machines)
+
+	serviceMap := valid["services"].(map[string]interface{})
+	services, err := importServices(serviceMap)
+	if err != nil {
+		return nil, errors.Annotatef(err, "services")
+	}
+	result.setServices(services)
 
 	return result, nil
 }

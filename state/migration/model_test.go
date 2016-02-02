@@ -72,6 +72,12 @@ func (*ModelSerializationSuite) modelMap() map[string]interface{} {
 				minimalMachineMap("0"),
 			},
 		},
+		"services": map[string]interface{}{
+			"version": 1,
+			"services": []interface{}{
+				minimalServiceMap(),
+			},
+		},
 	}
 }
 
@@ -92,6 +98,9 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Id().Id(), gc.Equals, "0")
+	services := model.Services()
+	c.Assert(services, gc.HasLen, 1)
+	c.Assert(services[0].Name(), gc.Equals, "ubuntu")
 }
 
 func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
@@ -110,6 +119,10 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 		"machines": map[string]interface{}{
 			"version":  1,
 			"machines": []interface{}{},
+		},
+		"services": map[string]interface{}{
+			"version":  1,
+			"services": []interface{}{},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
