@@ -39,9 +39,9 @@ func (s *PersistenceSuite) SetUpTest(c *gc.C) {
 
 func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	expected, docs := newResources(c, "a-service", "spam", "eggs")
-	unitRes, doc := newUnitResource(c, "a-service", "foo/0", "something")
+	unitRes, doc := newUnitResource(c, "a-service", "a-service/0", "something")
 	expected.UnitResources = []resource.UnitResources{{
-		Tag: names.NewUnitTag("foo/0"),
+		Tag: names.NewUnitTag("a-service/0"),
 		Resources: []resource.Resource{
 			unitRes,
 		},
@@ -226,21 +226,24 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 
 func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
-	unitname := "foo/0"
+	unitname := "a-service/0"
 	res, doc := newUnitResource(c, servicename, unitname, "eggs")
+	args := resource.ModelResource{
+		ID:        res.Name,
+		ServiceID: "a-service",
+		Resource:  res,
+	}
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
-	unit := fakeUnit{unitname, servicename}
-
-	err := p.SetUnitResource(res.Name, unit, res)
+	err := p.SetUnitResource("a-service/0", args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#foo/0#eggs",
+		Id:     "resource#a-service/0#eggs",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
@@ -248,14 +251,14 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 
 func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
-	p := NewPersistence(s.base)
-	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
 	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,
 	}
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
 
 	err := p.SetResource(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,31 +292,34 @@ func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 }
 
 func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
-	res, doc := newUnitResource(c, "a-service", "foo/0", "spam")
+	res, doc := newUnitResource(c, "a-service", "a-service/0", "spam")
+	args := resource.ModelResource{
+		ID:        res.Name,
+		ServiceID: "a-service",
+		Resource:  res,
+	}
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
 
-	unit := fakeUnit{"foo/0", "a-service"}
-
-	err := p.SetUnitResource(res.Name, unit, res)
+	err := p.SetUnitResource("a-service/0", args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#foo/0#spam",
+		Id:     "resource#a-service/0#spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#foo/0#spam",
+		Id:     "resource#a-service/0#spam",
 		Assert: txn.DocExists,
 		Remove: true,
 	}, {
 		C:      "resources",
-		Id:     "resource#foo/0#spam",
+		Id:     "resource#a-service/0#spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
@@ -338,12 +344,16 @@ func (s *PersistenceSuite) TestSetResourceBadResource(c *gc.C) {
 }
 
 func (s *PersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
-	res, _ := newUnitResource(c, "a-service", "foo/0", "spam")
+	res, _ := newUnitResource(c, "a-service", "a-service/0", "spam")
 	res.Timestamp = time.Time{}
+	args := resource.ModelResource{
+		ID:        res.Name,
+		ServiceID: "a-service",
+		Resource:  res,
+	}
 	p := NewPersistence(s.base)
 
-	unit := fakeUnit{"foo/0", "a-service"}
-	err := p.SetUnitResource(res.Name, unit, res)
+	err := p.SetUnitResource("a-service/0", args)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource.*`)
@@ -419,17 +429,4 @@ func checkResources(c *gc.C, resources, expected resource.ServiceResources) {
 		expMap[res.Name] = res
 	}
 	c.Check(resMap, jc.DeepEquals, expMap)
-}
-
-type fakeUnit struct {
-	unit    string
-	service string
-}
-
-func (f fakeUnit) Name() string {
-	return f.unit
-}
-
-func (f fakeUnit) ServiceName() string {
-	return f.service
 }

@@ -11,6 +11,9 @@ type ModelResource struct {
 	// ID is the model-defined ID for the resource.
 	ID string
 
+	// PendingID is the token for a pending resource, if any.
+	PendingID string
+
 	// ServiceID identifies the service for the resource.
 	ServiceID string
 

@@ -45,9 +45,9 @@ func NewState(raw RawState) *State {
 
 	st := &State{
 		resourceState: &resourceState{
-			persist: persist,
-			storage: storage,
-			newID:   newID,
+			persist:      persist,
+			storage:      storage,
+			newPendingID: newPendingID,
 			currentTimestamp: func() time.Time {
 				return time.Now().UTC()
 			},

@@ -127,16 +127,10 @@ func (p Persistence) UnstageResource(id, serviceID string) error {
 
 // SetUnitResource stores the resource info for a particular unit. This is an
 // "upsert".
-func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource.Resource) error {
+func (p Persistence) SetUnitResource(unitID string, args resource.ModelResource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
-	if err := res.Validate(); err != nil {
+	if err := args.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
-	}
-
-	args := resource.ModelResource{
-		ID:        id,
-		ServiceID: unit.ServiceName(),
-		Resource:  res,
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -144,9 +138,9 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(unit.Name(), args)
+			ops = newInsertUnitResourceOps(unitID, args)
 		case 1:
-			ops = newUpdateUnitResourceOps(unit.Name(), args)
+			ops = newUpdateUnitResourceOps(unitID, args)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
