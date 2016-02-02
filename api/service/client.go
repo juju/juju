@@ -55,50 +55,55 @@ func (c *Client) EnvironmentUUID() string {
 	return tag.Id()
 }
 
+// ServiceDelpoyArgs holds the arguments to be sent to Client.ServiceDeploy.
+type ServiceDeployArgs struct {
+	CharmURL      string
+	ServiceName   string
+	Series        string
+	NumUnits      int
+	ConfigYAML    string
+	Cons          constraints.Value
+	ToMachineSpec string
+	Placement     []*instance.Placement
+	Networks      []string
+	Storage       map[string]storage.Constraints
+	Resources     map[string]string
+}
+
 // ServiceDeploy obtains the charm, either locally or from
 // the charm store, and deploys it. It allows the specification of
 // requested networks that must be present on the machines where the
 // service is deployed. Another way to specify networks to include/exclude
 // is using constraints. Placement directives, if provided, specify the
 // machine on which the charm is deployed.
-func (c *Client) ServiceDeploy(
-	charmURL string,
-	serviceName string,
-	series string,
-	numUnits int,
-	configYAML string,
-	cons constraints.Value,
-	toMachineSpec string,
-	placement []*instance.Placement,
-	networks []string,
-	storage map[string]storage.Constraints,
-) error {
-	args := params.ServicesDeploy{
+func (c *Client) ServiceDeploy(args ServiceDeployArgs) error {
+	apiArgs := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName:   serviceName,
-			Series:        series,
-			CharmUrl:      charmURL,
-			NumUnits:      numUnits,
-			ConfigYAML:    configYAML,
-			Constraints:   cons,
-			ToMachineSpec: toMachineSpec,
-			Placement:     placement,
-			Networks:      networks,
-			Storage:       storage,
+			ServiceName:   args.ServiceName,
+			Series:        args.Series,
+			CharmUrl:      args.CharmURL,
+			NumUnits:      args.NumUnits,
+			ConfigYAML:    args.ConfigYAML,
+			Constraints:   args.Cons,
+			ToMachineSpec: args.ToMachineSpec,
+			Placement:     args.Placement,
+			Networks:      args.Networks,
+			Storage:       args.Storage,
+			Resources:     args.Resources,
 		}},
 	}
 	var results params.ErrorResults
 	var err error
-	if len(placement) > 0 {
-		err = c.FacadeCall("ServicesDeployWithPlacement", args, &results)
+	if len(args.Placement) > 0 {
+		err = c.FacadeCall("ServicesDeployWithPlacement", apiArgs, &results)
 		if err != nil {
 			if params.IsCodeNotImplemented(err) {
-				return errors.Errorf("unsupported --to parameter %q", toMachineSpec)
+				return errors.Errorf("unsupported --to parameter %q", args.ToMachineSpec)
 			}
 			return err
 		}
 	} else {
-		err = c.FacadeCall("ServicesDeploy", args, &results)
+		err = c.FacadeCall("ServicesDeploy", apiArgs, &results)
 	}
 	if err != nil {
 		return err

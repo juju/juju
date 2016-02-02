@@ -205,6 +205,7 @@ type ServiceDeploy struct {
 	Placement     []*instance.Placement
 	Networks      []string
 	Storage       map[string]storage.Constraints
+	Resources     map[string]string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.

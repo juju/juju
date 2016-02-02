@@ -224,7 +224,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resources", "resources to be uploaded to the controller")
-	
+
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
@@ -510,7 +510,12 @@ func (c *DeployCommand) deployCharm(
 		}
 	}
 
-	if err := deployer.serviceDeploy(serviceDeployParams{
+	resources, err := c.uploadResources()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	params := serviceDeployParams{
 		curl.String(),
 		serviceName,
 		series,
@@ -521,7 +526,9 @@ func (c *DeployCommand) deployCharm(
 		c.Placement,
 		c.Networks,
 		c.Storage,
-	}); err != nil {
+		resources,
+	}
+	if err := deployer.serviceDeploy(params); err != nil {
 		return err
 	}
 
@@ -544,6 +551,13 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
+// uploadResources uploads the bytes and most metadata for resources, returning
+// a map of resource name to uniqueIds, to be passed along with the
+// ServiceDeploy API command.
+func (c *DeployCommand) uploadResources() (map[string]string, error) {
+	return nil, nil
+}
+
 type serviceDeployParams struct {
 	charmURL      string
 	serviceName   string
@@ -555,6 +569,7 @@ type serviceDeployParams struct {
 	placement     []*instance.Placement
 	networks      string
 	storage       map[string]storage.Constraints
+	resources     map[string]string
 }
 
 type serviceDeployer struct {
@@ -589,7 +604,8 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		}
 		args.placement[i] = p
 	}
-	return serviceClient.ServiceDeploy(
+
+	clientArgs := apiservice.ServiceDeployArgs{
 		args.charmURL,
 		args.serviceName,
 		args.series,
@@ -600,7 +616,10 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		args.placement,
 		[]string{},
 		args.storage,
-	)
+		args.resources,
+	}
+
+	return serviceClient.ServiceDeploy(clientArgs)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {

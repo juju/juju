@@ -1139,6 +1139,7 @@ type AddServiceArgs struct {
 	NumUnits    int
 	Placement   []*instance.Placement
 	Constraints constraints.Value
+	Resources   map[string]string
 }
 
 // AddService creates a new service, running the supplied charm, with the

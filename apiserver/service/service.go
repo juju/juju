@@ -170,6 +170,7 @@ func DeployService(st *state.State, owner string, args params.ServiceDeploy) err
 			Placement:      args.Placement,
 			Networks:       requestedNetworks,
 			Storage:        args.Storage,
+			Resources:      args.Resources,
 		})
 	return err
 }

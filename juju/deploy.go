@@ -39,6 +39,10 @@ type DeployServiceParams struct {
 	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
 	Networks []string
 	Storage  map[string]storage.Constraints
+	// Resources is a map of resource name to unique ID, resources that were
+	// uploaded before the deploy call was made, which should be associated with
+	// this service.
+	Resources map[string]string
 }
 
 type ServiceDeployer interface {
@@ -94,6 +98,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		Settings:  settings,
 		NumUnits:  args.NumUnits,
 		Placement: args.Placement,
+		Resources: args.Resources,
 	}
 
 	if !args.Charm.Meta().Subordinate {
