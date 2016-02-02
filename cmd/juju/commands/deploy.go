@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservice "github.com/juju/juju/api/service"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
@@ -244,7 +243,7 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
-	deployer := serviceDeployer{ctx, client, c.newServiceAPIClient}
+	deployer := serviceDeployer{ctx, c.newServiceAPIClient}
 
 	// We may have been given a local bundle file.
 	bundlePath := c.CharmOrBundle
@@ -430,61 +429,44 @@ type serviceDeployParams struct {
 
 type serviceDeployer struct {
 	ctx                 *cmd.Context
-	client              *api.Client
 	newServiceAPIClient func() (*apiservice.Client, error)
 }
 
 func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
-	// If storage or placement is specified, we attempt to use a new API on the service facade.
-	if len(args.storage) > 0 || len(args.placement) > 0 {
-		notSupported := errors.New("cannot deploy charms with storage or placement: not supported by the API server")
-		serviceClient, err := c.newServiceAPIClient()
-		if err != nil {
-			return notSupported
-		}
-		defer serviceClient.Close()
-		for i, p := range args.placement {
-			if p.Scope == "env-uuid" {
-				p.Scope = serviceClient.EnvironmentUUID()
-			}
-			args.placement[i] = p
-		}
-		err = serviceClient.ServiceDeploy(
-			args.charmURL,
-			args.serviceName,
-			args.numUnits,
-			args.configYAML,
-			args.constraints,
-			args.placementSpec,
-			args.placement,
-			[]string{},
-			args.storage,
-		)
-		if params.IsCodeNotImplemented(err) {
-			return notSupported
-		}
+	_, err := charm.ParseURL(args.charmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	serviceClient, err := c.newServiceAPIClient()
+	if err != nil {
 		return err
 	}
-
+	if serviceClient.BestAPIVersion() < 1 {
+		return errors.Errorf("cannot deploy charms until the API server is upgraded to Juju 1.24 or later")
+	}
 	if len(args.networks) > 0 {
 		c.ctx.Infof(
 			"use of --networks is deprecated and is ignored. " +
 				"Please use spaces to manage placement within networks",
 		)
 	}
-
-	if err := c.client.ServiceDeploy(
+	for i, p := range args.placement {
+		if p.Scope == "env-uuid" {
+			p.Scope = serviceClient.EnvironmentUUID()
+		}
+		args.placement[i] = p
+	}
+	return serviceClient.ServiceDeploy(
 		args.charmURL,
 		args.serviceName,
 		args.numUnits,
 		args.configYAML,
 		args.constraints,
 		args.placementSpec,
-	); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+		args.placement,
+		[]string{},
+		args.storage,
+	)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
@@ -515,11 +497,7 @@ func (s *metricsCredentialsAPIImpl) SetMetricCredentials(serviceName string, dat
 
 // Close closes the api connection
 func (s *metricsCredentialsAPIImpl) Close() error {
-	err := s.api.Close()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = s.state.Close()
+	err := s.state.Close()
 	if err != nil {
 		return errors.Trace(err)
 	}

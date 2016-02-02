@@ -85,7 +85,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay)
 
 	if !a.logToStdErr {
 		if err := a.ReadConfig(a.Tag().String()); err != nil {

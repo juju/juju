@@ -16,6 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
@@ -130,6 +131,14 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *upgradeCharmCommand) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
@@ -138,7 +147,13 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	oldURL, err := client.ServiceGetCharmURL(c.ServiceName)
+
+	serviceClient, err := c.newServiceAPIClient()
+	if err != nil {
+		return err
+	}
+
+	oldURL, err := serviceClient.ServiceGetCharmURL(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -163,7 +178,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
+	return block.ProcessBlockedError(serviceClient.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
@@ -219,8 +234,5 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		return nil, err
 	}
 	ctx.Infof("Added charm %q to the environment.", addedURL)
-	if err := client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force); err != nil {
-		return nil, err
-	}
 	return addedURL, nil
 }

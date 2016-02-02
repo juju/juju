@@ -28,9 +28,6 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	if gitjujutesting.RaceEnabled {
-		t.Skip("skipping package under -race, see LP 1519145")
-	}
 	coretesting.MgoTestPackage(t)
 }
 
@@ -65,10 +62,15 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
 		MachineAccessor: &mockMachineAccessor{},
 	})
 	c.Assert(err, gc.ErrorMatches, "validating config: unspecified Tag not valid")
-	_, err = machiner.NewMachiner(machiner.Config{
+	w, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// must stop the worker to prevent a data race when cleanup suite
+	// rolls back the patches
+	err = stopWorker(w)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

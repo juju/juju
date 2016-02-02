@@ -4,12 +4,21 @@
 package base
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/names"
 )
+
+// OldAgentError is returned when an api call is not supported
+// by the Juju agent.
+func OldAgentError(operation string, vers string) error {
+	return errors.NewNotSupported(
+		nil, fmt.Sprintf("%s not supported. Please upgrade API server to Juju %v or later", operation, vers))
+}
 
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
