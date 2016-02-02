@@ -359,17 +359,22 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	data := "some data"
 	opened := resourcetesting.NewResource(c, s.stub, "spam", data)
-	s.persist.ReturnListResources = resource.ServiceResources{
-		Resources: []resource.Resource{opened.Resource},
-	}
+	s.persist.ReturnListModelResources = []resource.ModelResource{{
+		ID:          "service-a-service/spam",
+		ServiceID:   "a-service",
+		Resource:    opened.Resource,
+		StoragePath: "service-a-service/resources/spam",
+	}}
 	s.storage.ReturnGet = opened.Content()
+	unit := &fakeUnit{"foo/0", "a-service"}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	info, reader, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	info, reader, err := st.OpenResource(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListResources", "Get")
+	s.stub.CheckCallNames(c, "ListModelResources", "Get")
+	s.stub.CheckCall(c, 1, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 
 	b, err := ioutil.ReadAll(reader)
@@ -384,29 +389,35 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 
 	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListModelResources")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam")
-	s.persist.ReturnListResources = resource.ServiceResources{
-		Resources: []resource.Resource{res},
-	}
+	s.persist.ReturnListModelResources = []resource.ModelResource{{
+		ID:          "service-a-service/spam",
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: "service-a-service/resources/spam",
+	}}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListModelResources")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
-	s.persist.ReturnListResources = resource.ServiceResources{
-		Resources: []resource.Resource{opened.Resource},
-	}
+	s.persist.ReturnListModelResources = []resource.ModelResource{{
+		ID:          "service-a-service/spam",
+		ServiceID:   "a-service",
+		Resource:    opened.Resource,
+		StoragePath: "service-a-service/resources/spam",
+	}}
 	content := opened.Content()
 	content.Size += 1
 	s.storage.ReturnGet = content
@@ -415,7 +426,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 
 	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
-	s.stub.CheckCallNames(c, "ListResources", "Get")
+	s.stub.CheckCallNames(c, "ListModelResources", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 

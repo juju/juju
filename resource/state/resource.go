@@ -20,6 +20,9 @@ type resourcePersistence interface {
 	// ListResources returns the resource data for the given service ID.
 	ListResources(serviceID string) (resource.ServiceResources, error)
 
+	// ListModelResources returns the resource data for the given service ID.
+	ListModelResources(serviceID string) ([]resource.ModelResource, error)
+
 	// StageResource adds the resource in a separate staging area
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
@@ -76,15 +79,23 @@ func (st resourceState) ListResources(serviceID string) (resource.ServiceResourc
 
 // GetResource returns the resource data for the identified resource.
 func (st resourceState) GetResource(serviceID, name string) (resource.Resource, error) {
-	var res resource.Resource
+	res, err := st.getResource(serviceID, name)
+	if err != nil {
+		return res.Resource, errors.Trace(err)
+	}
+	return res.Resource, nil
+}
 
-	resources, err := st.ListResources(serviceID)
+func (st resourceState) getResource(serviceID, name string) (resource.ModelResource, error) {
+	var res resource.ModelResource
+
+	resources, err := st.persist.ListModelResources(serviceID)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
 
-	for _, res := range resources.Resources {
-		if res.Name == name {
+	for _, res := range resources {
+		if res.Resource.Name == name {
 			return res, nil
 		}
 	}
@@ -221,10 +232,11 @@ func (st resourceState) SetUnitResource(unit resource.Unit, res resource.Resourc
 func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
 	serviceID := unit.ServiceName()
 
-	resourceInfo, err := st.GetResource(serviceID, name)
+	modelResource, err := st.getResource(serviceID, name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
+	resourceInfo := modelResource.Resource
 	if resourceInfo.IsPlaceholder() {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}

@@ -37,7 +37,8 @@ func (s *stubRawState) Storage() Storage {
 type stubPersistence struct {
 	stub *testing.Stub
 
-	ReturnListResources resource.ServiceResources
+	ReturnListResources      resource.ServiceResources
+	ReturnListModelResources []resource.ModelResource
 }
 
 func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
@@ -47,6 +48,15 @@ func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResou
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubPersistence) ListModelResources(serviceID string) ([]resource.ModelResource, error) {
+	s.stub.AddCall("ListModelResources", serviceID)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnListModelResources, nil
 }
 
 func (s *stubPersistence) StageResource(args resource.ModelResource) error {
