@@ -241,8 +241,7 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	pendingID := ""
-	path := storagePath(name, serviceID, pendingID)
+	path := modelResource.StoragePath
 	resourceReader, resSize, err := st.storage.Get(path)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
@@ -252,7 +251,7 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
-	id := newResourceID(pendingID, serviceID, resourceInfo)
+	id := newResourceID(modelResource.PendingID, serviceID, resourceInfo)
 	resourceReader = unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
