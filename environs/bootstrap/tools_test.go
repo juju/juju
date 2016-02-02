@@ -59,7 +59,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.ValidateUploadAllowed(env, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `environment "foo" of type dummy does not support instances running on "ppc64el"`)
+	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
@@ -207,7 +207,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true)
-	c.Assert(err, gc.ErrorMatches, `environment "foo" of type dummy does not support instances running on "i386"`)
+	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "i386"`)
 	c.Assert(findToolsCalled, gc.Equals, 0)
 }
 

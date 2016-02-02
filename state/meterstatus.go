@@ -73,10 +73,10 @@ var (
 )
 
 type meterStatusDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-	Code    string `bson:"code"`
-	Info    string `bson:"info"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
+	Code      string `bson:"code"`
+	Info      string `bson:"info"`
 }
 
 // SetMeterStatus sets the meter status for the unit.
@@ -127,7 +127,7 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
 func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.Op {
-	doc.EnvUUID = st.EnvironUUID()
+	doc.ModelUUID = st.ModelUUID()
 	return txn.Op{
 		C:      meterStatusC,
 		Id:     st.docID(globalKey),

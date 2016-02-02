@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -55,13 +55,13 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	cfg, uuid := dummyCfgAndUUID(c)
 	client := &mockClient{
 		calls: make(chan string),
-		mockEnviron: clientEnviron{
+		mockModel: clientModel{
 			Life: state.Dying,
 			UUID: uuid,
 			HasMachinesAndServices: true,
 		},
 		cfg: cfg,
-		watcher: &mockEnvironResourceWatcher{
+		watcher: &mockModelResourceWatcher{
 			events: make(chan struct{}),
 		},
 	}
@@ -80,26 +80,26 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 			call     string
 			callback func()
 		}{{
-			call: "EnvironInfo",
+			call: "ModelInfo",
 		}, {
-			call: "ProcessDyingEnviron",
+			call: "ProcessDyingModel",
 			callback: func() {
-				c.Check(client.mockEnviron.Life, gc.Equals, state.Dying)
-				c.Check(client.mockEnviron.TimeOfDeath, gc.IsNil)
-				client.mockEnviron.HasMachinesAndServices = false
-				client.watcher.(*mockEnvironResourceWatcher).events <- struct{}{}
+				c.Check(client.mockModel.Life, gc.Equals, state.Dying)
+				c.Check(client.mockModel.TimeOfDeath, gc.IsNil)
+				client.mockModel.HasMachinesAndServices = false
+				client.watcher.(*mockModelResourceWatcher).events <- struct{}{}
 				mClock.advanceAfterNextNow(undertaker.RIPTime)
 			}}, {
-			call: "ProcessDyingEnviron",
+			call: "ProcessDyingModel",
 			callback: func() {
-				c.Check(client.mockEnviron.Life, gc.Equals, state.Dead)
-				c.Check(client.mockEnviron.TimeOfDeath, gc.NotNil)
+				c.Check(client.mockModel.Life, gc.Equals, state.Dead)
+				c.Check(client.mockModel.TimeOfDeath, gc.NotNil)
 			}}, {
-			call: "RemoveEnviron",
+			call: "RemoveModel",
 			callback: func() {
 				oneDayLater := startTime.Add(undertaker.RIPTime)
 				c.Check(mClock.Now().Equal(oneDayLater), jc.IsTrue)
-				c.Check(client.mockEnviron.Removed, gc.Equals, true)
+				c.Check(client.mockModel.Removed, gc.Equals, true)
 			}},
 		} {
 			select {
@@ -123,15 +123,15 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	assertNoMoreCalls(c, client)
 }
 
-func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) {
-	mockWatcher := &mockEnvironResourceWatcher{
+func (s *undertakerSuite) TestRemoveModelDocsNotCalledForStateServer(c *gc.C) {
+	mockWatcher := &mockModelResourceWatcher{
 		events: make(chan struct{}, 1),
 	}
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	client := &mockClient{
 		calls: make(chan string, 1),
-		mockEnviron: clientEnviron{
+		mockModel: clientModel{
 			Life:     state.Dying,
 			UUID:     uuid.String(),
 			IsSystem: true,
@@ -152,15 +152,15 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 			call     string
 			callback func()
 		}{{
-			call: "EnvironInfo",
+			call: "ModelInfo",
 			callback: func() {
 				mockWatcher.events <- struct{}{}
 			},
 		}, {
-			call: "ProcessDyingEnviron",
+			call: "ProcessDyingModel",
 			callback: func() {
-				c.Assert(client.mockEnviron.Life, gc.Equals, state.Dead)
-				c.Assert(client.mockEnviron.TimeOfDeath, gc.NotNil)
+				c.Assert(client.mockModel.Life, gc.Equals, state.Dead)
+				c.Assert(client.mockModel.TimeOfDeath, gc.NotNil)
 
 				mClock.advanceAfterNextNow(undertaker.RIPTime)
 			},
@@ -187,7 +187,7 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 	assertNoMoreCalls(c, client)
 }
 
-func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
+func (s *undertakerSuite) TestRemoveModelOnRebootCalled(c *gc.C) {
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := testing.NewClock(startTime)
 	halfDayEarlier := mClock.Now().Add(-12 * time.Hour)
@@ -196,8 +196,8 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 	client := &mockClient{
 		calls: make(chan string, 1),
 		// Mimic the situation where the worker is started after the
-		// environment has been set to dead 12hrs ago.
-		mockEnviron: clientEnviron{
+		// model has been set to dead 12hrs ago.
+		mockModel: clientModel{
 			Life:        state.Dead,
 			UUID:        uuid,
 			TimeOfDeath: &halfDayEarlier,
@@ -208,7 +208,7 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 
-	// We expect RemoveEnviron not to be called, as we have to wait another
+	// We expect RemoveModel not to be called, as we have to wait another
 	// 12hrs.
 	go func() {
 		defer wg.Done()
@@ -216,17 +216,17 @@ func (s *undertakerSuite) TestRemoveEnvironOnRebootCalled(c *gc.C) {
 			call     string
 			callback func()
 		}{{
-			call: "EnvironInfo",
+			call: "ModelInfo",
 			callback: func() {
-				// As environ was set to dead 12hrs earlier, assert that the
-				// undertaker picks up where it left off and RemoveEnviron
+				// As model was set to dead 12hrs earlier, assert that the
+				// undertaker picks up where it left off and RemoveModel
 				// is called 12hrs later.
 				mClock.Advance(12 * time.Hour)
 			},
 		}, {
-			call: "RemoveEnviron",
+			call: "RemoveModel",
 			callback: func() {
-				c.Assert(client.mockEnviron.Removed, gc.Equals, true)
+				c.Assert(client.mockModel.Removed, gc.Equals, true)
 			}},
 		} {
 			select {
@@ -270,7 +270,7 @@ func dummyCfgAndUUID(c *gc.C) (*config.Config, string) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

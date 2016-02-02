@@ -12,15 +12,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newListImagesCommand() cmd.Command {
-	return envcmd.Wrap(&listImagesCommand{})
+	return modelcmd.Wrap(&listImagesCommand{})
 }
 
 const listCommandDoc = `
-List information about image metadata stored in Juju environment.
+List information about image metadata stored in Juju model.
 This list can be filtered using various filters as described below.
 
 More than one filter can be specified. Result will contain metadata that matches all filters in combination.
@@ -28,8 +28,8 @@ More than one filter can be specified. Result will contain metadata that matches
 If no filters are supplied, all stored image metadata will be listed.
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= tabular)

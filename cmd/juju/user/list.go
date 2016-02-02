@@ -13,7 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const listCommandDoc = `
@@ -24,7 +24,7 @@ See Also:
 `
 
 func NewListCommand() cmd.Command {
-	return envcmd.WrapController(&listCommand{})
+	return modelcmd.WrapController(&listCommand{})
 }
 
 // listCommand shows all the users in the Juju server.

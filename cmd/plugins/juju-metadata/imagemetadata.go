@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -24,7 +24,7 @@ import (
 )
 
 type imageMetadataCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
@@ -35,12 +35,12 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configsto
 	// We are preparing an environment to access parameters needed to access
 	// image metadata. We don't need, nor want, credential verification.
 	// In most cases, credentials will not be available.
-	ctx := envcmd.BootstrapContextNoVerify(context)
+	ctx := modelcmd.BootstrapContextNoVerify(context)
 	return environs.Prepare(cfg, ctx, store)
 }
 
 func newImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&imageMetadataCommand{})
+	return modelcmd.Wrap(&imageMetadataCommand{})
 }
 
 // imageMetadataCommand is used to write out simplestreams image metadata information.
@@ -61,8 +61,8 @@ type imageMetadataCommand struct {
 var imageMetadataDoc = `
 generate-image creates simplestreams image metadata for the specified cloud.
 
-The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+The cloud specification comes from the current Juju model, as specified in
+the usual way from either ~/.juju/environments.yaml, the -m option, or JUJU_MODEL.
 
 Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
 By default, "amd64" is used for the architecture but this may also be changed.
@@ -95,7 +95,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
 		if environ, err = c.prepare(context, store); err == nil {
-			logger.Infof("creating image metadata for environment %q", environ.Config().Name())
+			logger.Infof("creating image metadata for model %q", environ.Config().Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
 				var cloudSpec simplestreams.CloudSpec
@@ -104,7 +104,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 						return err
 					}
 				} else {
-					return errors.Errorf("environment %q cannot provide region and endpoint", environ.Config().Name())
+					return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
 				}
 				// If only one of region or endpoint is provided, that is a problem.
 				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
@@ -125,11 +125,11 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 				c.privateStorage = v.(string)
 			}
 		} else {
-			logger.Warningf("environment could not be opened: %v", err)
+			logger.Warningf("model could not be opened: %v", err)
 		}
 	}
 	if environ == nil {
-		logger.Infof("no environment found, creating image metadata using user supplied data")
+		logger.Infof("no model found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
 		c.Series = config.LatestLtsSeries()

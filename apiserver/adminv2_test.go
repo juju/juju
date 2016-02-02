@@ -37,7 +37,7 @@ func (s *loginV2Suite) TestClientLoginToEnvironment(c *gc.C) {
 	defer apiState.Close()
 
 	client := apiState.Client()
-	_, err = client.GetEnvironmentConstraints()
+	_, err = client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -46,14 +46,14 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 	defer cleanup()
 
 	info := s.APIInfo(c)
-	info.EnvironTag = names.EnvironTag{}
+	info.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
 	client := apiState.Client()
-	_, err = client.GetEnvironmentConstraints()
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no environment, "Client" not supported`)
+	_, err = client.GetModelConstraints()
+	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
 }
 
 func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) {
@@ -62,14 +62,14 @@ func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) 
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoEnvUser: true,
-		Password:  password,
+		NoModelUser: true,
+		Password:    password,
 	})
 
 	info := s.APIInfo(c)
 	info.Tag = user.Tag()
 	info.Password = password
-	info.EnvironTag = names.EnvironTag{}
+	info.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
@@ -86,12 +86,7 @@ func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	defer cleanup()
 
 	info := s.APIInfo(c)
-	info.EnvironTag = names.EnvironTag{}
-	apiState, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
-
-	client := apiState.Client()
-	_, err = client.GetEnvironmentConstraints()
-	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = names.ModelTag{}
+	_, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
+	c.Assert(err, gc.ErrorMatches, ".*not implemented.*")
 }

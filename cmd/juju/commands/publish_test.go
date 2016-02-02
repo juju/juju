@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -148,7 +148,7 @@ func (s *PublishSuite) TestParseReference(c *gc.C) {
 		panic("unreachable")
 	})
 
-	_, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"precise/wordpress"}, s.dir)
+	_, err := testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"precise/wordpress"}, s.dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Fatal("shouldn't get here; location closure didn't run?")
 }
@@ -263,7 +263,7 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
+	ctx, err := testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:~user/precise/wordpress-42\n")
 
@@ -319,7 +319,7 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
+	ctx, err := testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:~user/precise/wordpress-42\n")
 
@@ -375,7 +375,7 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": "surprising-digest", "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(body))
 
-	_, err = testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
+	_, err = testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, gc.ErrorMatches, `charm changed but not to local charm digest; publishing race\?`)
 
 	// Ensure the branch was actually pushed.

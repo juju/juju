@@ -161,7 +161,7 @@ All test suites should embedd BaseSuite. Those that need the extra functionality
 can instead embedd one of the fake home suites:
 
 * FakeHomeSuite: creates a fake home directory with ~/.ssh and fake ssh keys.
-* FakeJujuHomeSuite: as above but also sets up a ~/.juju with a fake environment.
+* FakeJujuHomeSuite: as above but also sets up a ~/.juju with a fake model.
 
 The JujuConnSuite does this and more. It also sets up a state server and api
 server.  This is one problem with the JujuConnSuite, it almost always does a
@@ -308,4 +308,4 @@ Good tests
 
 Good tests should be:
   * small and obviously correct
-  * isolated from any system or environment values that may impact the test
+  * isolated from any system or model values that may impact the test

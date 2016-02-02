@@ -17,7 +17,7 @@ func init() {
 	// TODO: When the client can handle new versions, this should really be
 	// registered as version 1, since it was not present in the API in Juju
 	// 1.18
-	common.RegisterStandardFacade("Networker", 0, NewNetworkerAPI)
+	common.RegisterStandardFacade("Networker", 1, NewNetworkerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.networker")

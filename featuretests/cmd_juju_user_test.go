@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -30,7 +30,7 @@ var _ = gc.Suite(&UserSuite{})
 
 func (s *UserSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	envcmd.WriteCurrentEnvironment("dummyenv")
+	modelcmd.WriteCurrentModel("dummymodel")
 }
 
 func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {

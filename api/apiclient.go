@@ -58,8 +58,8 @@ type state struct {
 	// will be associated with (specifically macaroon auth cookies).
 	cookieURL *url.URL
 
-	// environTag holds the environment tag once we're connected
-	environTag string
+	// modelTag holds the model tag once we're connected
+	modelTag string
 
 	// controllerTag holds the controller tag once we're connected.
 	// This is only set with newer apiservers where they are using
@@ -248,8 +248,8 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 		return nil, nil, errors.Annotatef(err, "cannot make TLS configuration")
 	}
 	path := "/"
-	if info.EnvironTag.Id() != "" {
-		path = apiPath(info.EnvironTag, "/api")
+	if info.ModelTag.Id() != "" {
+		path = apiPath(info.ModelTag, "/api")
 	}
 
 	// Dial all addresses at reasonable intervals.
@@ -329,13 +329,13 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 	}
 	if _, ok := st.ServerVersion(); ok {
 		// If the server version is set, then we know the server is capable of
-		// serving streams at the environment path. We also fully expect
-		// that the server has returned a valid environment tag.
-		envTag, err := st.EnvironTag()
+		// serving streams at the model path. We also fully expect
+		// that the server has returned a valid model tag.
+		modelTag, err := st.ModelTag()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment tag, perhaps connected to system not environment")
+			return nil, errors.Annotate(err, "cannot get model tag, perhaps connected to system not model")
 		}
-		path = apiPath(envTag, path)
+		path = apiPath(modelTag, path)
 	}
 	target := url.URL{
 		Scheme:   "wss",
@@ -412,12 +412,12 @@ func (st *state) addCookiesToHeader(h http.Header) {
 func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	if _, err := st.ControllerTag(); err == nil {
 		// The controller tag is set, so the agent version is >= 1.23,
-		// so we can use the environment endpoint.
-		envTag, err := st.EnvironTag()
+		// so we can use the model endpoint.
+		modelTag, err := st.ModelTag()
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot get API endpoint address")
 		}
-		path = apiPath(envTag, path)
+		path = apiPath(modelTag, path)
 	}
 	return &url.URL{
 		Scheme:   st.serverScheme,
@@ -428,18 +428,18 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 }
 
 // apiPath returns the given API endpoint path relative
-// to the given environment tag. The caller is responsible
-// for ensuring that the environment tag is valid and
+// to the given model tag. The caller is responsible
+// for ensuring that the model tag is valid and
 // that the path is slash-prefixed.
-func apiPath(envTag names.EnvironTag, path string) string {
+func apiPath(modelTag names.ModelTag, path string) string {
 	if !strings.HasPrefix(path, "/") {
 		panic(fmt.Sprintf("apiPath called with non-slash-prefixed path %q", path))
 	}
-	if envTag.Id() == "" {
-		panic("apiPath called with empty environment tag")
+	if modelTag.Id() == "" {
+		panic("apiPath called with empty model tag")
 	}
-	if envUUID := envTag.Id(); envUUID != "" {
-		return "/environment/" + envUUID + path
+	if modelUUID := modelTag.Id(); modelUUID != "" {
+		return "/model/" + modelUUID + path
 	}
 	return path
 }
@@ -576,14 +576,14 @@ func (s *state) Addr() string {
 	return s.addr
 }
 
-// EnvironTag returns the tag of the environment we are connected to.
-func (s *state) EnvironTag() (names.EnvironTag, error) {
-	return names.ParseEnvironTag(s.environTag)
+// ModelTag returns the tag of the model we are connected to.
+func (s *state) ModelTag() (names.ModelTag, error) {
+	return names.ParseModelTag(s.modelTag)
 }
 
 // ControllerTag returns the tag of the server we are connected to.
-func (s *state) ControllerTag() (names.EnvironTag, error) {
-	return names.ParseEnvironTag(s.controllerTag)
+func (s *state) ControllerTag() (names.ModelTag, error) {
+	return names.ParseModelTag(s.controllerTag)
 }
 
 // APIHostPorts returns addresses that may be used to connect
@@ -592,7 +592,7 @@ func (s *state) ControllerTag() (names.EnvironTag, error) {
 // The addresses are scoped (public, cloud-internal, etc.), so
 // the client may choose which addresses to attempt. For the
 // Juju CLI, all addresses must be attempted, as the CLI may
-// be invoked both within and outside the environment (think
+// be invoked both within and outside the model (think
 // private clouds).
 func (s *state) APIHostPorts() [][]network.HostPort {
 	// NOTE: We're making a copy of s.hostPorts before returning it,

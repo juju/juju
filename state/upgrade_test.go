@@ -44,7 +44,7 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 }
 
 func (s *UpgradeSuite) addStateServers(c *gc.C) (machineId1, machineId2 string) {
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return changes.Added[0], changes.Added[1]
 }
@@ -57,7 +57,7 @@ func (s *UpgradeSuite) assertUpgrading(c *gc.C, expect bool) {
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	stateServer, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	stateServer, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := stateServer.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,7 +404,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 	assertReady(true)
 }
 
-func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c *gc.C) {
+func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreModelUUIDSchema(c *gc.C) {
 	serverIdB, serverIdC := s.addStateServers(c)
 
 	machines, closer := state.GetRawCollection(s.State, state.MachinesC)
@@ -413,7 +413,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c
 	defer closer()
 
 	// Add minimal machine and instanceData docs for the state servers
-	// that look how these documents did before the environment UUID
+	// that look how these documents did before the model UUID
 	// migration.
 	_, err := instanceData.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)

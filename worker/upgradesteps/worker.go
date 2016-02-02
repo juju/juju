@@ -185,7 +185,7 @@ func (w *upgradesteps) run() error {
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range w.jobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			w.isStateServer = true
 		}
 	}
@@ -278,9 +278,9 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		logger.Errorf(`aborted wait for other state servers: %v`, err)
 		// If master, trigger a rollback to the previous agent version.
 		if w.isMaster {
-			logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
 				w.fromVersion)
-			if rollbackErr := w.st.SetEnvironAgentVersion(w.fromVersion); rollbackErr != nil {
+			if rollbackErr := w.st.SetModelAgentVersion(w.fromVersion); rollbackErr != nil {
 				logger.Errorf("rollback failed: %v", rollbackErr)
 				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}
@@ -452,7 +452,7 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
 	for _, job := range jobs {
 		switch job {
-		case multiwatcher.JobManageEnviron:
+		case multiwatcher.JobManageModel:
 			targets = append(targets, upgrades.StateServer)
 			if isMaster {
 				targets = append(targets, upgrades.DatabaseMaster)

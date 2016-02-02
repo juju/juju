@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju"
 )
@@ -37,13 +37,13 @@ func Main(args []string) {
 var logger = loggo.GetLogger("juju.plugins.restore")
 
 func newRestoreCommand() cmd.Command {
-	return envcmd.Wrap(&restoreCommand{})
+	return modelcmd.Wrap(&restoreCommand{})
 }
 
 const restoreDoc = `
 Restore restores a backup created with juju backup
 by creating a new juju bootstrap instance and arranging
-it so that the existing instances in the environment
+it so that the existing instances in the model
 talk to it.
 
 It verifies that the existing bootstrap instance is
@@ -52,7 +52,7 @@ to choose the new instance.
 `
 
 type restoreCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Log             cmd.Log
 	Constraints     constraints.Value
 	backupFile      string
@@ -69,7 +69,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 }
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set model constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }

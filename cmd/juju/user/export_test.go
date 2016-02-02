@@ -6,7 +6,7 @@ package user
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
@@ -34,11 +34,11 @@ type DisenableUserBase struct {
 
 func NewAddCommandForTest(api AddUserAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
-	return envcmd.WrapController(c), &AddCommand{c}
+	return modelcmd.WrapController(c), &AddCommand{c}
 }
 
 func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
-	return envcmd.WrapController(&infoCommand{
+	return modelcmd.WrapController(&infoCommand{
 		infoCommandBase: infoCommandBase{
 			api: api,
 		}})
@@ -46,7 +46,7 @@ func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
 
 func NewCredentialsCommandForTest() (cmd.Command, *CredentialsCommand) {
 	c := &credentialsCommand{}
-	return envcmd.WrapController(c), &CredentialsCommand{c}
+	return modelcmd.WrapController(c), &CredentialsCommand{c}
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
@@ -56,7 +56,7 @@ func NewChangePasswordCommandForTest(api ChangePasswordAPI, writer EnvironInfoCr
 		api:    api,
 		writer: writer,
 	}
-	return envcmd.WrapController(c), &ChangePasswordCommand{c}
+	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as
@@ -67,7 +67,7 @@ func NewDisableCommandForTest(api disenableUserAPI) (cmd.Command, *DisenableUser
 			api: api,
 		},
 	}
-	return envcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
+	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewEnableCommand returns a EnableCommand with the api provided as
@@ -78,7 +78,7 @@ func NewEnableCommandForTest(api disenableUserAPI) (cmd.Command, *DisenableUserB
 			api: api,
 		},
 	}
-	return envcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
+	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
@@ -88,5 +88,5 @@ func NewListCommandForTest(api UserInfoAPI) cmd.Command {
 			api: api,
 		},
 	}
-	return envcmd.WrapController(c)
+	return modelcmd.WrapController(c)
 }

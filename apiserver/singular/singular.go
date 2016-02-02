@@ -26,8 +26,8 @@ func init() {
 // Backend supplies capabilities required by a Facade.
 type Backend interface {
 
-	// EnvironTag tells the Facade what models it should consider requests for.
-	EnvironTag() names.EnvironTag
+	// ModelTag tells the Facade what models it should consider requests for.
+	ModelTag() names.ModelTag
 
 	// SingularClaimer allows the Facade to make claims.
 	SingularClaimer() lease.Claimer
@@ -36,12 +36,12 @@ type Backend interface {
 // NewFacade returns a singular-controller API facade, backed by the supplied
 // state, so long as the authorizer represents a controller machine.
 func NewFacade(backend Backend, auth common.Authorizer) (*Facade, error) {
-	if !auth.AuthEnvironManager() {
+	if !auth.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{
 		auth:    auth,
-		model:   backend.EnvironTag(),
+		model:   backend.ModelTag(),
 		claimer: backend.SingularClaimer(),
 	}, nil
 }
@@ -50,7 +50,7 @@ func NewFacade(backend Backend, auth common.Authorizer) (*Facade, error) {
 // some specific model for a limited time.
 type Facade struct {
 	auth    common.Authorizer
-	model   names.EnvironTag
+	model   names.ModelTag
 	claimer lease.Claimer
 }
 

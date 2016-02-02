@@ -27,7 +27,7 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.DirtyKill(c, watcher)
 	context := &runContext{
-		config:  newEnvironConfig(c, fix.initialConfig),
+		config:  newModelConfig(c, fix.initialConfig),
 		watcher: watcher,
 	}
 	context.stub.SetErrors(fix.observerErrs...)
@@ -41,46 +41,46 @@ type runContext struct {
 	watcher *notifyWatcher
 }
 
-// SetConfig updates the configuration returned by EnvironConfig.
+// SetConfig updates the configuration returned by ModelConfig.
 func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
-	context.config = newEnvironConfig(c, extraAttrs)
+	context.config = newModelConfig(c, extraAttrs)
 }
 
-// EnvironConfig is part of the environ.ConfigObserver interface.
-func (context *runContext) EnvironConfig() (*config.Config, error) {
+// ModelConfig is part of the environ.ConfigObserver interface.
+func (context *runContext) ModelConfig() (*config.Config, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
-	context.stub.AddCall("EnvironConfig")
+	context.stub.AddCall("ModelConfig")
 	if err := context.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	return config.New(config.NoDefaults, context.config)
 }
 
-// KillNotify kills the watcher returned from WatchForEnvironConfigChanges with
+// KillNotify kills the watcher returned from WatchForModelConfigChanges with
 // the error configured in the enclosing fixture.
 func (context *runContext) KillNotify() {
 	context.watcher.Kill()
 }
 
-// SendNotify sends a value on the channel used by WatchForEnvironConfigChanges
+// SendNotify sends a value on the channel used by WatchForModelConfigChanges
 // results.
 func (context *runContext) SendNotify() {
 	context.watcher.changes <- struct{}{}
 }
 
-// CloseNotify closes the channel used by WatchForEnvironConfigChanges results.
+// CloseNotify closes the channel used by WatchForModelConfigChanges results.
 func (context *runContext) CloseNotify() {
 	close(context.watcher.changes)
 }
 
-// WatchForEnvironConfigChanges is part of the environ.ConfigObserver interface.
-func (context *runContext) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
+// WatchForModelConfigChanges is part of the environ.ConfigObserver interface.
+func (context *runContext) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
-	context.stub.AddCall("WatchForEnvironConfigChanges")
+	context.stub.AddCall("WatchForModelConfigChanges")
 	if err := context.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -112,14 +112,14 @@ func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 
-// newEnvironConfig returns an environment config map with the supplied attrs
+// newModelConfig returns an environment config map with the supplied attrs
 // (on top of some default set), or fails the test.
-func newEnvironConfig(c *gc.C, extraAttrs coretesting.Attrs) map[string]interface{} {
+func newModelConfig(c *gc.C, extraAttrs coretesting.Attrs) map[string]interface{} {
 	attrs := dummy.SampleConfig()
 	attrs["broken"] = ""
 	attrs["state-id"] = "42"
 	for k, v := range extraAttrs {
 		attrs[k] = v
 	}
-	return coretesting.CustomEnvironConfig(c, attrs).AllAttrs()
+	return coretesting.CustomModelConfig(c, attrs).AllAttrs()
 }

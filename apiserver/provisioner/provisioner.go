@@ -41,14 +41,14 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
-	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
 
 	// Version 1 has the same set of methods as 0, with the same
 	// signatures, but its ProvisioningInfo returns additional
 	// information. Clients may require version 1 so that they
 	// receive this additional information; otherwise they are
 	// compatible.
-	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
+	common.RegisterStandardFacade("Provisioner", 2, NewProvisionerAPI)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -61,8 +61,8 @@ type ProvisionerAPI struct {
 	*common.LifeGetter
 	*common.StateAddresser
 	*common.APIAddresser
-	*common.EnvironWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
@@ -75,11 +75,11 @@ type ProvisionerAPI struct {
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		isEnvironManager := authorizer.AuthEnvironManager()
+		isModelManager := authorizer.AuthModelManager()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
@@ -94,7 +94,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 				if parentId == "" {
 					// All top-level machines are accessible by the
 					// environment manager.
-					return isEnvironManager
+					return isModelManager
 				}
 				// All containers with the authenticated machine as a
 				// parent are accessible by it.
@@ -110,29 +110,29 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
-		Remover:                common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:         common.NewStateAddresser(st),
-		APIAddresser:           common.NewAPIAddresser(st, resources),
-		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
-		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
-		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
-		ToolsGetter:            common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
-		st:                     st,
-		resources:              resources,
-		authorizer:             authorizer,
-		getAuthFunc:            getAuthFunc,
+		Remover:              common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:       common.NewStateAddresser(st),
+		APIAddresser:         common.NewAPIAddresser(st, resources),
+		ModelWatcher:         common.NewModelWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
+		ToolsFinder:          common.NewToolsFinder(st, st, urlGetter),
+		ToolsGetter:          common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
+		st:                   st,
+		resources:            resources,
+		authorizer:           authorizer,
+		getAuthFunc:          getAuthFunc,
 	}, nil
 }
 
@@ -239,7 +239,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -298,7 +298,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -580,7 +580,7 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	envConfig, err := p.st.EnvironConfig()
+	envConfig, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -798,7 +798,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthEnvironManager() {
+	if !p.authorizer.AuthModelManager() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
@@ -1063,18 +1063,18 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 }
 
 func (p *ProvisionerAPI) maybeGetNetworkingEnviron() (environs.NetworkingEnviron, error) {
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to get environment config")
+		return nil, errors.Annotate(err, "failed to get model config")
 	}
 	environ, err := environs.New(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to construct an environment from config")
+		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}
 	netEnviron, supported := environs.SupportsNetworking(environ)
 	if !supported {
 		// " not supported" will be appended to the message below.
-		return nil, errors.NotSupportedf("environment %q networking", cfg.Name())
+		return nil, errors.NotSupportedf("model %q networking", cfg.Name())
 	}
 	return netEnviron, nil
 }
@@ -1401,7 +1401,7 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1490,7 +1490,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine) ([]params.Clou
 	return data, nil
 }
 
-// constructImageConstraint returns environment-specific criteria used to look for image metadata.
+// constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine) (*imagemetadata.ImageConstraint, environs.Environ, error) {
 	// If we can determine current region,
 	// we want only metadata specific to this region.
@@ -1554,14 +1554,14 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 // obtainEnvCloudConfig returns environment specific cloud information
 // to be used in search for compatible images and their metadata.
 func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *config.Config, environs.Environ, error) {
-	cfg, err := p.st.EnvironConfig()
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "could not get environment config")
+		return nil, nil, nil, errors.Annotate(err, "could not get model config")
 	}
 
 	env, err := environs.New(cfg)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "could not get environment")
+		return nil, nil, nil, errors.Annotate(err, "could not get model")
 	}
 
 	if inst, ok := env.(simplestreams.HasRegion); ok {

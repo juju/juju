@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/names"
@@ -22,12 +21,10 @@ import (
 )
 
 var (
-	RootType              = reflect.TypeOf(&apiHandler{})
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
 	NewBackups            = &newBackups
-	NewLogTailer          = &newLogTailer
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -56,10 +53,6 @@ func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
 }
 
-func ServerAuthenticator(srv *Server, tag names.Tag) authentication.EntityAuthenticator {
-	return srv.authCtxt
-}
-
 const LoginRateLimit = loginRateLimit
 
 // DelayLogins changes how the Login code works so that logins won't proceed
@@ -72,9 +65,9 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForModelUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c, lookForEnvUser, authenticator)
+		return checkCreds(st, c, lookForModelUser, authenticator)
 	}
 	doCheckCreds = delayedCheckCreds
 	return
@@ -98,12 +91,12 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state: srvSt,
 		tag:   names.NewMachineTag("0"),
 	}
-	h, err := newApiHandler(srv, st, nil, nil, st.EnvironUUID())
+	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }
 
-// TestingUpgradingApiHandler returns a limited srvRoot
+// TestingUpgradingRoot returns a limited srvRoot
 // in an upgrade scenario.
 func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
@@ -127,11 +120,11 @@ func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
 	return r, nil
 }
 
-var PreFacadeEnvironTag = names.NewEnvironTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
+var PreFacadeModelTag = names.NewModelTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
 
 func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 	return params.LoginResult{
-		EnvironTag: PreFacadeEnvironTag.String(),
+		ModelTag: PreFacadeModelTag.String(),
 	}, nil
 }
 

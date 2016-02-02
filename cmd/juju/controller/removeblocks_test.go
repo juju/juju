@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,7 +24,7 @@ var _ = gc.Suite(&removeBlocksSuite{})
 func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	err := envcmd.WriteCurrentController("fake")
+	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api = &fakeRemoveBlocksAPI{}

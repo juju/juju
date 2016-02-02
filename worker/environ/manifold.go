@@ -6,8 +6,8 @@ package environ
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -31,7 +31,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // manifoldStart creates a *Tracker given a base.APICaller.
 func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
 	w, err := NewTracker(Config{
-		Observer: environment.NewFacade(apiCaller),
+		Observer: agent.NewState(apiCaller),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

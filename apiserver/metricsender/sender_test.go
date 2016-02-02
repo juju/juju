@@ -122,11 +122,11 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 		for _, batch := range incoming {
 			c.Logf("received metrics batch: %+v", batch)
 
-			resp.Ack(batch.EnvUUID, batch.UUID)
+			resp.Ack(batch.ModelUUID, batch.UUID)
 
 			if statusMap != nil {
 				unitName, status, info := statusMap(batch.UnitName)
-				resp.SetStatus(batch.EnvUUID, unitName, status, info)
+				resp.SetStatus(batch.ModelUUID, unitName, status, info)
 			}
 
 			select {

@@ -17,7 +17,7 @@ Examples:
   2015-11-09 10:37:34 INFO juju.api api.go:267 connecting to API addresses: ...
   2015-11-09 10:37:34 INFO juju.api apiclient.go:473 dialing "wss://localhos...
   2015-11-09 10:37:34 INFO juju.api apiclient.go:266 connection established ...
-  environment: local
+  model: local
   machines:
     "0":
       agent-state: started
@@ -44,7 +44,7 @@ Examples:
   2015-11-09 10:38:05 INFO juju.api apiclient.go:266 connection established t...
   2015-11-09 10:38:05 DEBUG juju.api api.go:484 API hostnames unchanged - not...
   2015-11-09 10:38:05 DEBUG juju.api api.go:514 cacheChangedAPIInfo: serverUU...
-  environment: local
+  model: local
   machines:
     "0":
       agent-state: started
@@ -94,26 +94,26 @@ override this for specific units.
 All the agents are initially started with logging set to DEBUG. This
 means you see all internal Juju logging output until the agent has
 finished initialising and the logging system is told to use the
-logging setup configured for the environment.
+logging setup configured for the model.
 
 You can configure Juju's logging system using a number of different
 mechanisms:
 
 environments.yaml
-  - all environments support 'logging-config' as a key
-environment variable
+  - all models support 'logging-config' as a key
+model variable
   - export JUJU_LOGGING_CONFIG='...'
 setting the logging-config option at bootstrap time
   - juju bootstrap --logging-config='...'
 or setting the logging-config option later
-  - juju set-environment logging-config='...'
+  - juju set-model-config logging-config='...'
 
 The configuration format taken by all these mechanisms is the same:
 one or more "module.prefix=LEVEL" items separated by semicolons.
 
 Example:
 
-  juju set-environment logging-config "juju=WARNING; unit=INFO"
+  juju set-model-config logging-config "juju=WARNING; unit=INFO"
 
 Valid logging levels:
   CRITICAL

@@ -248,6 +248,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
+		// TODO (anastasiamac 2016-02-01) This does not look like it needs to be removed now.
 		if params.IsCodeNotImplemented(err) {
 			return instInfo, err
 		}
