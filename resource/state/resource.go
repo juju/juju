@@ -18,9 +18,11 @@ import (
 
 type resourcePersistence interface {
 	// ListResources returns the resource data for the given service ID.
+	// None of the resources will be pending.
 	ListResources(serviceID string) (resource.ServiceResources, error)
 
-	// ListModelResources returns the resource data for the given service ID.
+	// ListModelResources returns the resource data for the given
+	// service ID. None of the resources will be pending.
 	ListModelResources(serviceID string) ([]resource.ModelResource, error)
 
 	// StageResource adds the resource in a separate staging area

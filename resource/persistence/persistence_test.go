@@ -76,6 +76,25 @@ func (s *PersistenceSuite) TestListResourcesNoResources(c *gc.C) {
 	)
 }
 
+func (s *PersistenceSuite) TestListResourcesIgnorePending(c *gc.C) {
+	expected, docs := newResources(c, "a-service", "spam", "eggs")
+	expected.Resources = expected.Resources[:1]
+	docs[1].PendingID = "some-unique-ID-001"
+	s.base.docs = docs
+	p := NewPersistence(s.base)
+
+	resources, err := p.ListResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All")
+	s.stub.CheckCall(c, 0, "All",
+		"resources",
+		bson.D{{"service-id", "a-service"}},
+		&docs,
+	)
+	checkResources(c, resources, expected)
+}
+
 func (s *PersistenceSuite) TestListResourcesBaseError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
@@ -109,7 +128,7 @@ func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	)
 }
 
-func (s *PersistenceSuite) TestListModelResources(c *gc.C) {
+func (s *PersistenceSuite) TestListModelResourcesOkay(c *gc.C) {
 	var expected []resource.ModelResource
 	var docs []resourceDoc
 	for _, name := range []string{"spam", "ham"} {
@@ -117,6 +136,31 @@ func (s *PersistenceSuite) TestListModelResources(c *gc.C) {
 		expected = append(expected, res)
 		docs = append(docs, doc)
 	}
+	s.base.docs = docs
+	p := NewPersistence(s.base)
+
+	resources, err := p.ListModelResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All")
+	s.stub.CheckCall(c, 0, "All",
+		"resources",
+		bson.D{{"service-id", "a-service"}},
+		&docs,
+	)
+	checkModelResources(c, resources, expected)
+}
+
+func (s *PersistenceSuite) TestListModelResourcesIgnorePending(c *gc.C) {
+	var expected []resource.ModelResource
+	var docs []resourceDoc
+	for _, name := range []string{"spam", "ham"} {
+		res, doc := newResource(c, "a-service", name)
+		expected = append(expected, res)
+		docs = append(docs, doc)
+	}
+	expected = expected[:1]
+	docs[1].PendingID = "some-unique-ID-001"
 	s.base.docs = docs
 	p := NewPersistence(s.base)
 

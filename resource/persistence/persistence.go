@@ -41,6 +41,7 @@ func NewPersistence(base PersistenceBase) *Persistence {
 }
 
 // ListResources returns the resource data for the given service ID.
+// None of the resources will be pending.
 func (p Persistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
@@ -55,6 +56,10 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 
 	var results resource.ServiceResources
 	for _, doc := range docs {
+		if doc.PendingID != "" {
+			continue
+		}
+
 		res, err := doc2basicResource(doc)
 		if err != nil {
 			return resource.ServiceResources{}, errors.Trace(err)
@@ -75,7 +80,8 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 	return results, nil
 }
 
-// ListModelResources returns the resource data for the given service ID.
+// ListModelResources returns the resource data for the given service
+// ID. None of the resources will be pending.
 func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResource, error) {
 	docs, err := p.resources(serviceID)
 	if err != nil {
@@ -87,6 +93,9 @@ func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResou
 		if doc.UnitID != "" {
 			continue
 		}
+		if doc.PendingID != "" {
+			continue
+		}
 
 		res, err := doc2resource(doc)
 		if err != nil {
@@ -96,6 +105,9 @@ func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResou
 	}
 	return resources, nil
 }
+
+// TODO(ericsnow) Add ListPendingResources() or allow in
+// ListModelResources()?
 
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
