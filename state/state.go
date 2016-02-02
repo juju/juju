@@ -21,6 +21,9 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -32,11 +35,11 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
+	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -55,6 +58,10 @@ const (
 	// serviceLeadershipNamespace is the name of the lease.Client namespace
 	// used by the leadership manager.
 	serviceLeadershipNamespace = "service-leadership"
+
+	// singularControllerNamespace is the name of the lease.Client namespace
+	// used by the singular manager
+	singularControllerNamespace = "singular-controller"
 )
 
 // State represents the state of an environment
@@ -69,9 +76,14 @@ type State struct {
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
-	leadershipManager leadership.ManagerWorker
+	watcher  *watcher.Watcher
+	pwatcher *presence.Watcher
+	// leadershipManager keeps track of units' service leadership leases
+	// within this environment.
+	leadershipManager *lease.Manager
+	// singularManager keeps track of which controller machine is responsible
+	// for managing this state's environment.
+	singularManager *lease.Manager
 
 	// mu guards allManager, allEnvManager & allEnvWatcherBacking
 	mu                   sync.Mutex
@@ -121,7 +133,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	}, {
 		C:      environmentsC,
 		Id:     st.EnvironUUID(),
-		Assert: bson.D{{"life", Dying}},
+		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
 
@@ -193,10 +205,10 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		clientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
 
-	logger.Infof("creating lease client as %s", clientId)
+	logger.Infof("creating lease clients as %s", clientId)
 	clock := GetClock()
 	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
+	leadershipClient, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,
@@ -204,17 +216,41 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		Clock:      clock,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create lease client")
+		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
-	logger.Infof("starting leadership manager")
-	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: leaseClient,
-		Clock:  clock,
+	logger.Infof("starting leadership lease manager")
+	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: leadershipSecretary{},
+		Client:    leadershipClient,
+		Clock:     clock,
+		MaxSleep:  time.Minute,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership manager")
+		return errors.Annotatef(err, "cannot create leadership lease manager")
 	}
 	st.leadershipManager = leadershipManager
+
+	singularClient, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         clientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      datastore,
+		Clock:      clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create singular lease client")
+	}
+	logger.Infof("starting singular lease manager")
+	singularManager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: singularSecretary{st.environTag.Id()},
+		Client:    singularClient,
+		Clock:     clock,
+		MaxSleep:  time.Minute,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create singular lease manager")
+	}
+	st.singularManager = singularManager
 
 	logger.Infof("creating cloud image metadata storage")
 	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
@@ -1094,6 +1130,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 
 type AddServiceArgs struct {
 	Name        string
+	Series      string
 	Owner       string
 	Charm       *Charm
 	Networks    []string
@@ -1144,16 +1181,75 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
+	}
 
-	series := args.Charm.URL().Series
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return nil, errors.New("series is empty")
+		}
+	} else {
+		// User has specified series. Overriding supported series is
+		// handled by the client, so args.Series is not necessarily
+		// one of the charm's supported series. We require that the
+		// specified series is of the same operating system as one of
+		// the supported series. For old-style charms with the series
+		// in the URL, that series is the one and only supported
+		// series.
+		var supportedSeries []string
+		if series := args.Charm.URL().Series; series != "" {
+			supportedSeries = []string{series}
+		} else {
+			supportedSeries = args.Charm.Meta().Series
+		}
+		seriesOS, err := series.GetOSFromSeries(args.Series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		supportedOperatingSystems := make(map[os.OSType]bool)
+		for _, supportedSeries := range supportedSeries {
+			os, err := series.GetOSFromSeries(supportedSeries)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			supportedOperatingSystems[os] = true
+		}
+		if !supportedOperatingSystems[seriesOS] {
+			return nil, errors.NewNotSupported(errors.Errorf(
+				"series %q (OS %q) not supported by charm",
+				args.Series, seriesOS,
+			), "")
+		}
+	}
 
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data.placementType() == directivePlacement {
-			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
+		switch data.placementType() {
+		case machinePlacement:
+			// Ensure that the machine and charm series match.
+			m, err := st.Machine(data.machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subordinate := args.Charm.Meta().Subordinate
+			if err := validateUnitMachineAssignment(
+				m, args.Series, subordinate, storagePools,
+			); err != nil {
+				return nil, errors.Annotatef(
+					err, "cannot deploy to machine %s", m,
+				)
+			}
+
+		case directivePlacement:
+			if err := st.precheckInstance(args.Series, args.Constraints, data.directive); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -1167,7 +1263,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		DocID:         serviceID,
 		Name:          args.Name,
 		EnvUUID:       env.UUID(),
-		Series:        series,
+		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
@@ -1226,7 +1322,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addServiceUnitOps("", nil, args.Constraints)
+		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1235,7 +1331,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if x < len(args.Placement) {
 			placement = *args.Placement[x]
 		}
-		ops = append(ops, assignUnitOps(st, unit, placement)...)
+		ops = append(ops, assignUnitOps(unitName, placement)...)
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
@@ -1268,9 +1364,9 @@ var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
-func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
+func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
-		DocId:     unit,
+		DocId:     unitName,
 		Scope:     placement.Scope,
 		Directive: placement.Directive,
 	}

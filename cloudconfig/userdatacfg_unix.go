@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -34,10 +37,6 @@ const (
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
-	// toolsDownloadAttempts is the number of attempts to make for
-	// each tools URL when downloading tools.
-	toolsDownloadAttempts = 5
-
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
 	toolsDownloadWaitTime = 15
@@ -45,15 +44,15 @@ const (
 	// toolsDownloadTemplate is a bash template that generates a
 	// bash command to cycle through a list of URLs to download tools.
 	toolsDownloadTemplate = `{{$curl := .ToolsDownloadCommand}}
-for n in $(seq {{.ToolsDownloadAttempts}}); do
+n=1
+while true; do
 {{range .URLs}}
     printf "Attempt $n to download tools from %s...\n" {{shquote .}}
     {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
 {{end}}
-    if [ $n -lt {{.ToolsDownloadAttempts}} ]; then
-        echo "Download failed..... wait {{.ToolsDownloadWaitTime}}s"
-    fi
+    echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
+    n=$((n+1))
 done`
 )
 
@@ -205,6 +204,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
 	}
 
+	if w.icfg.PublicImageSigningKey != "" {
+		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
+	}
+
 	// Make the lock dir and change the ownership of the lock dir itself to
 	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
@@ -315,9 +319,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
-		cons := w.icfg.Constraints.String()
-		if cons != "" {
-			cons = " --constraints " + shquote(cons)
+		bootstrapCons := w.icfg.Constraints.String()
+		if bootstrapCons != "" {
+			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
+		}
+		environCons := w.icfg.EnvironConstraints.String()
+		if environCons != "" {
+			environCons = " --environ-constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -339,7 +347,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
-				cons +
+				bootstrapCons +
+				environCons +
 				metadataDir +
 				loggingOption,
 		)
@@ -360,7 +369,6 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"ToolsDownloadCommand":  curlCommand,
-		"ToolsDownloadAttempts": toolsDownloadAttempts,
 		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
 		"URLs":                  urls,
 	})

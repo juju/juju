@@ -25,7 +25,7 @@ func TestPackage(t *stdtesting.T) {
 type machines struct {
 	machine     *state.Machine
 	stateAPI    api.Connection
-	rebootState *apireboot.State
+	rebootState apireboot.State
 }
 
 type rebootSuite struct {
@@ -33,18 +33,16 @@ type rebootSuite struct {
 
 	machine     *state.Machine
 	stateAPI    api.Connection
-	rebootState *apireboot.State
+	rebootState apireboot.State
 
 	ct            *state.Machine
-	ctRebootState *apireboot.State
+	ctRebootState apireboot.State
 
 	lock       *fslock.Lock
 	lockReboot *fslock.Lock
 }
 
 var _ = gc.Suite(&rebootSuite{})
-
-var _ worker.NotifyWatchHandler = (*reboot.Reboot)(nil)
 
 func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error

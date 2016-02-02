@@ -186,7 +186,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	if serverUUID == "" {
 		serverUUID = envUUID
 	}
-	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name())
+	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name(), false)
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(environGlobalKey, cfg.AllAttrs()),
@@ -283,6 +283,10 @@ func (st *State) Close() (err error) {
 	if st.leadershipManager != nil {
 		st.leadershipManager.Kill()
 		handle("leadership manager", st.leadershipManager.Wait())
+	}
+	if st.singularManager != nil {
+		st.singularManager.Kill()
+		handle("singular manager", st.singularManager.Wait())
 	}
 	st.mu.Lock()
 	if st.allManager != nil {

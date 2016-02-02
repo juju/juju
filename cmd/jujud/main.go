@@ -21,6 +21,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
+	"github.com/juju/juju/cmd/pprof"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -180,24 +181,31 @@ func Main(args []string) int {
 			os.Exit(exit_panic)
 		}
 	}()
-	var code int = 1
+
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(exit_err)
 	}
+
+	code := 1
 	commandName := filepath.Base(args[0])
-	if commandName == names.Jujud {
+	switch commandName {
+	case names.Jujud:
+		// start pprof server and defer cleanup
+		stop := pprof.Start()
+		defer stop()
+
 		code, err = jujuDMain(args, ctx)
-	} else if commandName == names.Jujuc {
+	case names.Jujuc:
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = exit_err
 		err = fmt.Errorf("jujuc should not be called directly")
-	} else if commandName == names.JujuRun {
+	case names.JujuRun:
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
-	} else if commandName == names.JujuDumpLogs {
+	case names.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
-	} else {
+	default:
 		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {

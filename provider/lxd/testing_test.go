@@ -8,6 +8,7 @@ package lxd
 import (
 	"crypto/tls"
 	"encoding/pem"
+	"os"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -88,6 +89,8 @@ var (
 type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
 
+	osPathOrig string
+
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
@@ -104,6 +107,19 @@ type BaseSuiteUnpatched struct {
 	//InstanceType  instances.InstanceType
 
 	Ports []network.PortRange
+}
+
+func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
+	s.osPathOrig = os.Getenv("PATH")
+	if s.osPathOrig == "" {
+		// TODO(ericsnow) This shouldn't happen. However, an undiagnosed
+		// bug in testing.IsolationSuite is causing $PATH to remain unset
+		// sometimes.  Once that is cleared up this special-case can go
+		// away.
+		s.osPathOrig =
+			"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+	}
+	s.IsolationSuite.SetUpTest(c)
 }
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
@@ -134,7 +150,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// nothing
 	}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceConfig.Tools = tools[0]
@@ -238,6 +254,15 @@ func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Ins
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
 	raw := s.NewRawInstance(c, name)
 	return newInstance(raw, s.Env)
+}
+
+func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
+	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
+	defer restore()
+
+	running, err := lxdclient.IsRunningLocally()
+	c.Assert(err, jc.ErrorIsNil)
+	return running
 }
 
 type BaseSuite struct {

@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -14,7 +15,8 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 )
 
@@ -118,6 +120,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrDead:                params.CodeDead,
 	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
 	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
 	ErrPerm:                      params.CodeUnauthorized,
@@ -236,6 +239,19 @@ func ServerError(err error) *params.Error {
 		Code:    code,
 		Info:    info,
 	}
+}
+
+func DestroyErr(desc string, ids, errs []string) error {
+	// TODO(waigani) refactor DestroyErr to take a map of ids to errors.
+	if len(errs) == 0 {
+		return nil
+	}
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return errors.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 // RestoreError makes a best effort at converting the given error

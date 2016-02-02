@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -35,6 +36,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -79,7 +81,9 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
-	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
+	var err error
+	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
@@ -93,13 +97,15 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
-	stop(c, s.p)
+	if s.p != nil {
+		stop(c, s.p)
+	}
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (worker.StringsWatchHandler, worker.Runner) {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (watcher.StringsHandler, worker.Runner) {
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
-	runner := worker.NewRunner(allFatal, noImportance)
+	runner := worker.NewRunner(allFatal, noImportance, worker.RestartDelay)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +126,9 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
-		return worker.NewStringsWorker(handler), nil
+		return watcher.NewStringsWorker(watcher.StringsConfig{
+			Handler: handler,
+		})
 	})
 	return handler, runner
 }
@@ -152,13 +160,13 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 
 	// A stub worker callback to record what happens.
-	provisionerStarted := false
+	var provisionerStarted uint32
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
-		provisionerStarted = true
+		atomic.StoreUint32(&provisionerStarted, 1)
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -168,7 +176,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	<-s.aptCmdChan
 
 	// the container worker should have created the provisioner
-	c.Assert(provisionerStarted, jc.IsTrue)
+	c.Assert(atomic.LoadUint32(&provisionerStarted) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
@@ -208,10 +216,10 @@ func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
-	var called bool
+	var called uint32
 	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
 		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
-			called = true
+			atomic.StoreUint32(&called, 1)
 			c.Assert(arch, gc.Equals, expectArch)
 			result := version.Binary{
 				Number: v,
@@ -248,7 +256,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 	s.createContainer(c, m, containerType)
 	<-s.aptCmdChan
-	c.Assert(called, jc.IsTrue)
+	c.Assert(atomic.LoadUint32(&called) > 0, jc.IsTrue)
 }
 
 func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
@@ -404,7 +412,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	_, err = handler.SetUp()
 	c.Assert(err, jc.ErrorIsNil)
-	err = handler.Handle([]string{"0/lxc/0"})
+	err = handler.Handle(nil, []string{"0/lxc/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 
 }

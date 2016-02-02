@@ -46,7 +46,9 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -78,7 +80,9 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -113,11 +117,28 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, gc.ErrorMatches, `local:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+	}, {
+		"ListPlans", []interface{}{"local:quantal/metered-1"},
+	}})
+}
+
+func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
+	s.stub.SetErrors(nil, errors.New("something failed"))
+	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		EnvUUID:     "environment uuid",
+	}
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
-	authorization, err := json.Marshal([]byte("hello registration"))
-	authorization = append(authorization, byte(0xa))
-	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
@@ -132,11 +153,15 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/unmetered-1"}},
 	}})
+	s.stub.ResetCalls()
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{})
 }
 
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
@@ -147,7 +172,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		ServiceName: "service name",
 		EnvUUID:     "environment uuid",
 	}
-	err := s.register.Run(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
 	c.Assert(err, gc.ErrorMatches, `failed to register metrics:.*`)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
@@ -189,21 +214,44 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 			panic(err)
 		}
 	} else if req.Method == "GET" {
-		cURL := req.URL.Query().Get("charm")
-		c.AddCall("DefaultPlan", cURL)
+		if req.URL.Path == "/default" {
+			cURL := req.URL.Query().Get("charm-url")
+			c.AddCall("DefaultPlan", cURL)
+			rErr := c.NextErr()
+			if rErr != nil {
+				if errors.IsNotFound(rErr) {
+					http.Error(w, rErr.Error(), http.StatusNotFound)
+					return
+				}
+				http.Error(w, rErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			result := struct {
+				URL string `json:"url"`
+			}{"thisplan"}
+			err := json.NewEncoder(w).Encode(result)
+			if err != nil {
+				panic(err)
+			}
+			return
+		}
+		cURL := req.URL.Query().Get("charm-url")
+		c.AddCall("ListPlans", cURL)
 		rErr := c.NextErr()
 		if rErr != nil {
 			http.Error(w, rErr.Error(), http.StatusInternalServerError)
 			return
 		}
-		result := struct {
+		result := []struct {
 			URL string `json:"url"`
-		}{"thisplan"}
+		}{
+			{"thisplan"},
+			{"thisotherplan"},
+		}
 		err := json.NewEncoder(w).Encode(result)
 		if err != nil {
 			panic(err)
 		}
-
 	} else {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return

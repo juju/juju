@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 )
 
+var logger = loggo.GetLogger("juju.worker")
+
 // RestartDelay holds the length of time that a worker
 // will wait between exiting and restarting.
-var RestartDelay = 3 * time.Second
+const RestartDelay = 3 * time.Second
 
 // Worker is implemented by a running worker.
 type Worker interface {
@@ -41,9 +44,11 @@ type runner struct {
 	startedc      chan startInfo
 	isFatal       func(error) bool
 	moreImportant func(err0, err1 error) bool
-}
 
-var _ Runner = (*runner)(nil)
+	// restartDelay holds the length of time that a worker
+	// will wait between exiting and restarting.
+	restartDelay time.Duration
+}
 
 type startReq struct {
 	id    string
@@ -70,7 +75,7 @@ type doneInfo struct {
 // The function isFatal(err) returns whether err is a fatal error.  The
 // function moreImportant(err0, err1) returns whether err0 is considered
 // more important than err1.
-func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool) Runner {
+func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool, restartDelay time.Duration) Runner {
 	runner := &runner{
 		startc:        make(chan startReq),
 		stopc:         make(chan string),
@@ -78,6 +83,7 @@ func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bo
 		startedc:      make(chan startInfo),
 		isFatal:       isFatal,
 		moreImportant: moreImportant,
+		restartDelay:  restartDelay,
 	}
 	go func() {
 		defer runner.tomb.Done()
@@ -172,7 +178,7 @@ func (runner *runner) run() error {
 			if info == nil {
 				workers[req.id] = &workerInfo{
 					start:        req.start,
-					restartDelay: RestartDelay,
+					restartDelay: runner.restartDelay,
 				}
 				go runner.runWorker(0, req.id, req.start)
 				break
@@ -232,7 +238,7 @@ func (runner *runner) run() error {
 				break
 			}
 			go runner.runWorker(workerInfo.restartDelay, info.id, workerInfo.start)
-			workerInfo.restartDelay = RestartDelay
+			workerInfo.restartDelay = runner.restartDelay
 		}
 	}
 }

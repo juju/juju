@@ -12,6 +12,8 @@ import (
 
 // NewMetricsManager creates a runner that will run the metricsmanagement workers.
 func NewMetricsManager(client metricsmanager.MetricsManagerClient) (worker.Runner, error) {
+	// TODO(fwereade): break this out into separate manifolds (with their own facades).
+
 	// Periodic workers automatically retry so none should return an error. If they do
 	// it's ok to restart them individually.
 	isFatal := func(error) bool {
@@ -21,7 +23,7 @@ func NewMetricsManager(client metricsmanager.MetricsManagerClient) (worker.Runne
 	moreImportant := func(error, error) bool {
 		return false
 	}
-	runner := worker.NewRunner(isFatal, moreImportant)
+	runner := worker.NewRunner(isFatal, moreImportant, worker.RestartDelay)
 	err := runner.StartWorker("sender", func() (worker.Worker, error) {
 		return NewSender(client), nil
 	})

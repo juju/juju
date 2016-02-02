@@ -3,16 +3,12 @@
 
 package params
 
-// DestroySystemArgs holds the arguments for destroying a system.
-type DestroySystemArgs struct {
+// DestroyControllerArgs holds the arguments for destroying a controller.
+type DestroyControllerArgs struct {
 	// DestroyEnvironments specifies whether or not the hosted environments
 	// should be destroyed as well. If this is not specified, and there are
-	// other hosted environments, the destruction of the system will fail.
+	// other hosted environments, the destruction of the controller will fail.
 	DestroyEnvironments bool `json:"destroy-environments"`
-
-	// IgnoreBlocks specifies whether or not to ignore blocks
-	// on hosted environments.
-	IgnoreBlocks bool `json:"ignore-blocks"`
 }
 
 // EnvironmentBlockInfo holds information about an environment and its
@@ -25,7 +21,7 @@ type EnvironmentBlockInfo struct {
 }
 
 // EnvironmentBlockInfoList holds information about the blocked environments
-// for a system.
+// for a controller.
 type EnvironmentBlockInfoList struct {
 	Environments []EnvironmentBlockInfo `json:"environments,omitempty"`
 }
@@ -35,4 +31,18 @@ type EnvironmentBlockInfoList struct {
 // individual environments at a later date.
 type RemoveBlocksArgs struct {
 	All bool `json:"all"`
+}
+
+// EnvironmentStatus holds information about the status of a juju environment.
+type EnvironmentStatus struct {
+	EnvironTag         string `json:"environ-tag"`
+	Life               Life   `json:"life"`
+	HostedMachineCount int    `json:"hosted-machine-count"`
+	ServiceCount       int    `json:"service-count"`
+	OwnerTag           string `json:"owner-tag"`
+}
+
+// EnvironmentStatusResult holds status information about a group of environments.
+type EnvironmentStatusResults struct {
+	Results []EnvironmentStatus `json:"environments"`
 }

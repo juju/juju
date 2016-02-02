@@ -181,9 +181,9 @@ func (st *State) AllBlocks() ([]Block, error) {
 	return blocks, nil
 }
 
-// AllBlocksForSystem returns all blocks in any environments on
-// the system.
-func (st *State) AllBlocksForSystem() ([]Block, error) {
+// AllBlocksForController returns all blocks in any environments on
+// the controller.
+func (st *State) AllBlocksForController() ([]Block, error) {
 	blocksCollection, closer := st.getRawCollection(blocksC)
 	defer closer()
 
@@ -200,11 +200,11 @@ func (st *State) AllBlocksForSystem() ([]Block, error) {
 	return blocks, nil
 }
 
-// RemoveAllBlocksForSystem removes all the blocks for the system.
+// RemoveAllBlocksForController removes all the blocks for the controller.
 // It does not prevent new blocks from being added during / after
 // removal.
-func (st *State) RemoveAllBlocksForSystem() error {
-	blocks, err := st.AllBlocksForSystem()
+func (st *State) RemoveAllBlocksForController() error {
+	blocks, err := st.AllBlocksForController()
 	if err != nil {
 		return errors.Trace(err)
 	}

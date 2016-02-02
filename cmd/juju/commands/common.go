@@ -6,6 +6,8 @@ package commands
 import (
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -108,6 +110,15 @@ func environFromNameProductionFunc(
 	return env, cleanup, err
 }
 
+type resolveCharmStoreEntityParams struct {
+	urlStr          string
+	requestedSeries string
+	forceSeries     bool
+	csParams        charmrepo.NewCharmStoreParams
+	repoPath        string
+	conf            *config.Config
+}
+
 // resolveCharmStoreEntityURL resolves the given charm or bundle URL string
 // by looking it up in the appropriate charm repository.
 // If it is a charm store URL, the given csParams will
@@ -115,41 +126,71 @@ func environFromNameProductionFunc(
 // If it is a local charm or bundle URL, the local charm repository at
 // the given repoPath will be used. The given configuration
 // will be used to add any necessary attributes to the repo
-// and to resolve the default series if possible.
+// and to return the charm's supported series if possible.
 //
 // resolveCharmStoreEntityURL also returns the charm repository holding
 // the charm or bundle.
-func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
-	ref, err := charm.ParseURL(urlStr)
+func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL, []string, charmrepo.Interface, error) {
+	url, err := charm.ParseURL(args.urlStr)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	repo, err := charmrepo.InferRepository(ref, csParams, repoPath)
+	repo, err := charmrepo.InferRepository(url, args.csParams, args.repoPath)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	repo = config.SpecializeCharmRepo(repo, conf)
-	if ref.Series == "" {
-		if defaultSeries, ok := conf.DefaultSeries(); ok {
-			ref.Series = defaultSeries
+	repo = config.SpecializeCharmRepo(repo, args.conf)
+
+	if url.Schema == "local" && url.Series == "" {
+		if defaultSeries, ok := args.conf.DefaultSeries(); ok {
+			url.Series = defaultSeries
+		}
+		if url.Series == "" {
+			possibleURL := *url
+			possibleURL.Series = config.LatestLtsSeries()
+			logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
+			return nil, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
 		}
 	}
-	if ref.Schema == "local" && ref.Series == "" {
-		possibleURL := *ref
-		possibleURL.Series = config.LatestLtsSeries()
-		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
-		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
-	}
-	// TODO(wallyworld) - charm store does not yet support returning the
-	// supported series for a charm.
-	ref, _, err = repo.Resolve(ref)
+	resultUrl, supportedSeries, err := repo.Resolve(url)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	if ref.Series == "" {
-		return nil, nil, errors.New("resolved charm URL has no series")
+	return resultUrl, supportedSeries, repo, nil
+}
+
+func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
+	for _, series := range supportedSeries {
+		if series == requestedSeries {
+			return true
+		}
 	}
-	return ref, repo, nil
+	return false
+}
+
+// maybeTermsAgreementError returns err as a *termsAgreementError
+// if it has a "terms agreement required" error code, otherwise
+// it returns err unchanged.
+func maybeTermsAgreementError(err error) error {
+	const code = "term agreement required"
+	e, ok := errors.Cause(err).(*httpbakery.DischargeError)
+	if !ok || e.Reason == nil || e.Reason.Code != code {
+		return err
+	}
+	magicMarker := code + ":"
+	index := strings.LastIndex(e.Reason.Message, magicMarker)
+	if index == -1 {
+		return err
+	}
+	return &termsRequiredError{strings.Fields(e.Reason.Message[index+len(magicMarker):])}
+}
+
+type termsRequiredError struct {
+	Terms []string
+}
+
+func (e *termsRequiredError) Error() string {
+	return fmt.Sprintf("please agree to terms %q", strings.Join(e.Terms, " "))
 }
 
 // addCharmFromURL calls the appropriate client API calls to add the
@@ -171,14 +212,14 @@ func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interfa
 	case "cs":
 		if err := client.AddCharm(curl); err != nil {
 			if !params.IsCodeUnauthorized(err) {
-				return nil, errors.Mask(err)
+				return nil, errors.Trace(err)
 			}
 			m, err := csclient.authorize(curl)
 			if err != nil {
-				return nil, errors.Mask(err)
+				return nil, maybeTermsAgreementError(err)
 			}
 			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-				return nil, errors.Mask(err)
+				return nil, errors.Trace(err)
 			}
 		}
 	default:
@@ -212,17 +253,31 @@ var newCharmStoreClient = func(client *http.Client) *csClient {
 // The macaroon is properly attenuated so that it can only be used to deploy
 // the given charm URL.
 func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
+	if curl == nil {
+		return nil, errors.New("empty charm url not allowed")
+	}
+
 	client := csclient.New(csclient.Params{
 		URL:          c.params.URL,
 		HTTPClient:   c.params.HTTPClient,
 		VisitWebPage: c.params.VisitWebPage,
 	})
+	endpoint := "/delegatable-macaroon"
+	endpoint += "?id=" + url.QueryEscape(curl.String())
+
 	var m *macaroon.Macaroon
-	if err := client.Get("/delegatable-macaroon", &m); err != nil {
+	if err := client.Get(endpoint, &m); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// We need to add the is-entity first party caveat to the
+	// delegatable macaroon in case we're talking to the old
+	// version of the charmstore.
+	// TODO (ashipika) - remove this once the new charmstore
+	// is deployed.
 	if err := m.AddFirstPartyCaveat("is-entity " + curl.String()); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return m, nil
 }

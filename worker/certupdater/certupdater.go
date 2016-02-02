@@ -10,12 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
 )
 
@@ -70,7 +70,7 @@ type APIHostPortsGetter interface {
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
 	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
 ) worker.Worker {
-	return worker.NewNotifyWorker(&CertificateUpdater{
+	return legacy.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
 		configGetter:    configGetter,
 		hostPortsGetter: hostPortsGetter,
@@ -80,7 +80,7 @@ func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInf
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
+func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
 	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
 	if err != nil {

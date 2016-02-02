@@ -18,16 +18,18 @@ type cleanupKind string
 
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
-	cleanupRelationSettings              cleanupKind = "settings"
-	cleanupUnitsForDyingService          cleanupKind = "units"
-	cleanupDyingUnit                     cleanupKind = "dyingUnit"
-	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingEnvironment   cleanupKind = "services"
-	cleanupDyingMachine                  cleanupKind = "dyingMachine"
-	cleanupForceDestroyedMachine         cleanupKind = "machine"
-	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
-	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
-	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
+	cleanupRelationSettings               cleanupKind = "settings"
+	cleanupUnitsForDyingService           cleanupKind = "units"
+	cleanupDyingUnit                      cleanupKind = "dyingUnit"
+	cleanupRemovedUnit                    cleanupKind = "removedUnit"
+	cleanupServicesForDyingEnvironment    cleanupKind = "services"
+	cleanupDyingMachine                   cleanupKind = "dyingMachine"
+	cleanupForceDestroyedMachine          cleanupKind = "machine"
+	cleanupAttachmentsForDyingStorage     cleanupKind = "storageAttachments"
+	cleanupAttachmentsForDyingVolume      cleanupKind = "volumeAttachments"
+	cleanupAttachmentsForDyingFilesystem  cleanupKind = "filesystemAttachments"
+	cleanupEnvironmentsForDyingController cleanupKind = "environments"
+	cleanupMachinesForDyingEnvironment    cleanupKind = "environmentMachines"
 )
 
 // cleanupDoc represents a potentially large set of documents that should be
@@ -99,6 +101,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupAttachmentsForDyingVolume(doc.Prefix)
 		case cleanupAttachmentsForDyingFilesystem:
 			err = st.cleanupAttachmentsForDyingFilesystem(doc.Prefix)
+		case cleanupEnvironmentsForDyingController:
+			err = st.cleanupEnvironmentsForDyingController()
+		case cleanupMachinesForDyingEnvironment:
+			err = st.cleanupMachinesForDyingEnvironment()
 		default:
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -132,6 +138,57 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 	} else if count != 0 {
 		if _, err := settingsW.RemoveAll(sel); err != nil {
 			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
+		}
+	}
+	return nil
+}
+
+// cleanupEnvironmentsForDyingController sets all environments to dying, if
+// they are not already Dying or Dead. It's expected to be used when a
+// controller is destroyed.
+func (st *State) cleanupEnvironmentsForDyingController() (err error) {
+	environs, err := st.AllEnvironments()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, env := range environs {
+
+		if env.Life() == Alive {
+			if err := env.Destroy(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+// cleanupMachinesForDyingEnvironment sets all non-manager, non-manual
+// machines to Dying, if they are not already Dying or Dead. It's expected to
+// be used when an environment is destroyed.
+func (st *State) cleanupMachinesForDyingEnvironment() (err error) {
+	// This won't miss machines, because a Dying environment cannot have
+	// machines added to it. But we do have to remove the machines themselves
+	// via individual transactions, because they could be in any state at all.
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, m := range machines {
+		if m.IsManager() {
+			continue
+		}
+		if _, isContainer := m.ParentId(); isContainer {
+			continue
+		}
+		manual, err := m.IsManual()
+		if err != nil {
+			return err
+		} else if manual {
+			continue
+		}
+		err = m.ForceDestroy()
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil

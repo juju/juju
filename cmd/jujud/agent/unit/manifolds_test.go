@@ -46,7 +46,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		unit.LogSenderName,
 		unit.MachineLockName,
 		unit.ProxyConfigUpdaterName,
-		unit.RsyslogConfigUpdaterName,
 		unit.UniterName,
 		unit.UpgraderName,
 		unit.MetricSpoolName,

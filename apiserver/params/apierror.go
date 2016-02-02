@@ -53,7 +53,7 @@ var _ rpc.ErrorCoder = (*Error)(nil)
 // GoString implements fmt.GoStringer.  It means that a *Error shows its
 // contents correctly when printed with %#v.
 func (e Error) GoString() string {
-	return fmt.Sprintf("&params.Error{Message: %q, Code:  %q}", e.Code, e.Message)
+	return fmt.Sprintf("&params.Error{Message: %q, Code: %q}", e.Message, e.Code)
 }
 
 // The Code constants hold error codes for some kinds of error.
@@ -78,6 +78,7 @@ const (
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
+	CodeLeaseClaimDenied          = "lease claim denied"
 	CodeNotSupported              = "not supported"
 	CodeBadRequest                = "bad request"
 	CodeMethodNotAllowed          = "method not allowed"
@@ -200,6 +201,10 @@ func IsCodeOperationBlocked(err error) bool {
 
 func IsCodeLeadershipClaimDenied(err error) bool {
 	return ErrCode(err) == CodeLeadershipClaimDenied
+}
+
+func IsCodeLeaseClaimDenied(err error) bool {
+	return ErrCode(err) == CodeLeaseClaimDenied
 }
 
 func IsCodeNotSupported(err error) bool {

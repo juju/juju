@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -84,10 +83,10 @@ type changeCertListener struct {
 	certChanged <-chan params.StateServingInfo
 
 	// The config to update with any new certificate.
-	config tls.Config
+	config *tls.Config
 }
 
-func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config tls.Config) *changeCertListener {
+func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
 	cl := &changeCertListener{
 		Listener:    lis,
 		certChanged: certChanged,
@@ -109,7 +108,7 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	cl.m.Lock()
 	defer cl.m.Unlock()
 	config := cl.config
-	return tls.Server(conn, &config), nil
+	return tls.Server(conn, config), nil
 }
 
 // Close closes the listener.
@@ -202,8 +201,9 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
-	tlsConfig := tls.Config{
+	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
+		MinVersion:   tls.VersionTLS10,
 	}
 	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
 	go srv.run(changeCertListener)
@@ -343,23 +343,16 @@ func (srv *Server) run(lis net.Listener) {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
-
 	handleAll(mux, "/environment/:envuuid"+resourceapi.HTTPEndpointPattern,
 		newResourceHandler(httpCtxt),
 	)
 	handleAll(mux, "/environment/:envuuid/units/:unit/resources/:resource",
 		newUnitResourceHandler(httpCtxt),
 	)
-
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpCtxt, srv.logDir))
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
+	handleAll(mux, "/environment/:envuuid/logsink",
+		newLogSinkHandler(httpCtxt, srv.logDir))
+	handleAll(mux, "/environment/:envuuid/log",
+		newDebugLogDBHandler(httpCtxt, srvDying))
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			ctxt:    httpCtxt,
@@ -397,12 +390,7 @@ func (srv *Server) run(lis net.Listener) {
 		},
 	)
 	// For backwards compatibility we register all the old paths
-
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
+	handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
