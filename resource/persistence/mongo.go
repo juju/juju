@@ -146,7 +146,7 @@ type resourceDoc struct {
 	EnvUUID   string `bson:"env-uuid"`
 	ServiceID string `bson:"service-id"`
 	UnitID    string `bson:"unit-id"`
-	UploadID  string `bson:"upload-id"`
+	PendingID string `bson:"pending-id"`
 
 	Name    string `bson:"name"`
 	Type    string `bson:"type"`
@@ -176,6 +176,7 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 	return &resourceDoc{
 		DocID:     id,
 		ServiceID: args.ServiceID,
+		PendingID: args.PendingID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),
@@ -191,6 +192,8 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 		Timestamp: res.Timestamp,
 	}
 }
+
+// TODO(ericsnow) Return resource.ModelResource from doc2resource()?
 
 // doc2resource returns the resource.Resource represented by the doc.
 func doc2resource(doc resourceDoc) (resource.Resource, error) {

@@ -115,6 +115,53 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	})
 }
 
+func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
+	content := "some data\n..."
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now().UTC()
+
+	serviceID := "a-service"
+	id := resourceID("spam", serviceID)
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "spam",
+				Type: charmresource.TypeFile,
+				Path: "spam.tgz",
+			},
+			Origin:      charmresource.OriginUpload,
+			Fingerprint: fp,
+			Size:        int64(len(content)),
+		},
+		Username:  "a-user",
+		Timestamp: now,
+	}
+	doc := resource2doc(id, resource.ModelResource{
+		ID:        res.Name,
+		PendingID: "some-unique-ID-001",
+		ServiceID: serviceID,
+		Resource:  res,
+	})
+
+	c.Check(doc, jc.DeepEquals, &resourceDoc{
+		DocID:     id,
+		ServiceID: serviceID,
+		PendingID: "some-unique-ID-001",
+
+		Name: "spam",
+		Type: "file",
+		Path: "spam.tgz",
+
+		Origin:      "upload",
+		Fingerprint: fp.Bytes(),
+		Size:        int64(len(content)),
+
+		Username:  "a-user",
+		Timestamp: now,
+	})
+}
+
 func (s *MongoSuite) TestDoc2ResourceUploadFull(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
