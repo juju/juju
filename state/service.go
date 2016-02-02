@@ -14,13 +14,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 // Service represents the state of a service.
@@ -458,7 +459,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
+func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
@@ -519,7 +520,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			C:      servicesC,
 			Id:     s.doc.DocID,
 			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
+			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
 		},
 	}...)
 	// Add any extra peer relations that need creation.
@@ -563,14 +564,59 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 }
 
 // SetCharm changes the charm for the service. New units will be started with
-// this charm, and existing units will be upgraded to use it. If force is true,
-// units will be upgraded even if they are in an error state.
-func (s *Service) SetCharm(ch *Charm, force bool) error {
+// this charm, and existing units will be upgraded to use it.
+// If forceUnits is true, units will be upgraded even if they are in an error state.
+// If forceSeries is true, the charm will be used even if it's the service's series
+// is not supported by the charm.
+func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 	if ch.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change a service's subordinacy")
 	}
-	if ch.URL().Series != s.doc.Series {
-		return errors.Errorf("cannot change a service's series")
+	// For old style charms written for only one series, we still retain
+	// this check. Newer charms written for multi-series have a URL
+	// with series = "".
+	if ch.URL().Series != "" {
+		if ch.URL().Series != s.doc.Series {
+			return errors.Errorf("cannot change a service's series")
+		}
+	} else if !forceSeries {
+		supported := false
+		for _, series := range ch.Meta().Series {
+			if series == s.doc.Series {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			supportedSeries := "no series"
+			if len(ch.Meta().Series) > 0 {
+				supportedSeries = strings.Join(ch.Meta().Series, ", ")
+			}
+			return errors.Errorf("cannot upgrade charm, only these series are supported: %v", supportedSeries)
+		}
+	} else {
+		// Even with forceSeries=true, we do not allow a charm to be used which is for
+		// a different OS.
+		currentOS, err := series.GetOSFromSeries(s.doc.Series)
+		if err != nil {
+			// We don't expect an error here but there's not much we can
+			// do to recover.
+			return err
+		}
+		supportedOS := false
+		for _, chSeries := range ch.Meta().Series {
+			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
+			if err != nil {
+				return nil
+			}
+			if currentOS == charmSeriesOS {
+				supportedOS = true
+				break
+			}
+		}
+		if !supportedOS {
+			return errors.Errorf("cannot upgrade charm, OS %q not supported by charm", currentOS)
+		}
 	}
 
 	services, closer := s.st.getCollection(servicesC)
@@ -601,11 +647,11 @@ func (s *Service) SetCharm(ch *Charm, force bool) error {
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
-				Update: bson.D{{"$set", bson.D{{"forcecharm", force}}}},
+				Update: bson.D{{"$set", bson.D{{"forcecharm", forceUnits}}}},
 			}}
 		} else {
 			// Change the charm URL.
-			ops, err = s.changeCharmOps(ch, force)
+			ops, err = s.changeCharmOps(ch, forceUnits)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -615,7 +661,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) error {
 	err := s.st.run(buildTxn)
 	if err == nil {
 		s.doc.CharmURL = ch.URL()
-		s.doc.ForceCharm = force
+		s.doc.ForceCharm = forceUnits
 	}
 	return err
 }

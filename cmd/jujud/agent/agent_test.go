@@ -12,7 +12,7 @@ import (
 	apienvironment "github.com/juju/juju/api/environment"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -74,10 +74,10 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
-		return newDummyWorker()
+	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) (worker.Worker, error) {
+		return newDummyWorker(), nil
 	})
 
 	// Tests should not try to use internet. Ensure base url is empty.
-	imagemetadata.DefaultBaseURL = ""
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }

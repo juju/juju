@@ -26,8 +26,6 @@ type debugLogCommand struct {
 	params api.DebugLogParams
 }
 
-var DefaultLogLocation = "/var/log/juju/all-machines.log"
-
 // defaultLineCount is the default number of lines to
 // display, from the end of the consolidated log.
 const defaultLineCount = 10
@@ -60,6 +58,8 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
 	f.UintVar(&c.params.Limit, "limit", 0, "show at most this many lines")
 	f.BoolVar(&c.params.Replay, "replay", false, "start filtering from the start")
+	f.BoolVar(&c.params.NoTail, "T", false, "stop after returning existing log messages")
+	f.BoolVar(&c.params.NoTail, "no-tail", false, "")
 }
 
 func (c *debugLogCommand) Init(args []string) error {

@@ -34,8 +34,8 @@ func newLogSinkHandler(h httpContext, logDir string) http.Handler {
 		ctxt: h,
 		fileLogger: &lumberjack.Logger{
 			Filename:   logPath,
-			MaxSize:    500, // MB
-			MaxBackups: 1,
+			MaxSize:    300, // MB
+			MaxBackups: 2,
 		},
 	}
 }

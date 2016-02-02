@@ -78,7 +78,7 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 		configAttrSubscriptionId,
 		configAttrTenantId,
 		configAttrAppId,
-		configAttrAppKey,
+		configAttrAppPassword,
 		configAttrLocation,
 		configAttrControllerResourceGroup,
 		configAttrStorageAccountType,
@@ -87,12 +87,6 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	if _, ok := cfg.UUID(); !ok {
-		// TODO(axw) PrepareForCreateEnvironment is called twice; once before
-		// the UUID is set, and once after. It probably should just be called
-		// after?
-		return cfg, nil
-	}
 	env, err := newEnviron(prov, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
@@ -141,7 +135,7 @@ func (prov *azureEnvironProvider) BoilerplateConfig() string {
 func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	unknownAttrs := cfg.UnknownAttrs()
 	secretAttrs := map[string]string{
-		configAttrAppKey: unknownAttrs[configAttrAppKey].(string),
+		configAttrAppPassword: unknownAttrs[configAttrAppPassword].(string),
 	}
 	if storageAccountKey, ok := unknownAttrs[configAttrStorageAccountKey].(string); ok {
 		secretAttrs[configAttrStorageAccountKey] = storageAccountKey

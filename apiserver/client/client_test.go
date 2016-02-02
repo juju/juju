@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -444,6 +445,44 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	agentVersion, found := envConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
+type mockEnviron struct {
+	environs.Environ
+	allInstancesCalled bool
+	err                error
+}
+
+func (m *mockEnviron) AllInstances() ([]instance.Instance, error) {
+	m.allInstancesCalled = true
+	return nil, m.err
+}
+
+func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr string) {
+	env := &mockEnviron{err: envError}
+	s.PatchValue(client.GetEnvironment, func(cfg *config.Config) (environs.Environ, error) {
+		return env, nil
+	})
+	args := params.SetEnvironAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetEnvironAgentVersion(args)
+	c.Assert(env.allInstancesCalled, jc.IsTrue)
+	if expectErr != "" {
+		c.Assert(err, gc.ErrorMatches, expectErr)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *serverSuite) TestCheckProviderAPISuccess(c *gc.C) {
+	s.assertCheckProviderAPI(c, nil, "")
+	s.assertCheckProviderAPI(c, environs.ErrPartialInstances, "")
+	s.assertCheckProviderAPI(c, environs.ErrNoInstances, "")
+}
+
+func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
+	s.assertCheckProviderAPI(c, fmt.Errorf("instances error"), "cannot make API call to provider: instances error")
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
@@ -1040,7 +1079,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
-	c.Assert(info.ServerUUID, gc.Equals, env.ServerUUID())
+	c.Assert(info.ControllerUUID, gc.Equals, env.ControllerUUID())
 }
 
 var clientAnnotationsTests = []struct {
@@ -2168,15 +2207,15 @@ func (s *serverSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	result, err := s.APIState.Client().FindTools(2, -1, "", "")
+	result, err := s.APIState.Client().FindTools(99, -1, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.12.0-precise-amd64"))
-	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-precise-amd64"))
+	result, err = s.APIState.Client().FindTools(2, 99, "precise", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
-	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
 	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
 		s.APIState.Addr(), coretesting.EnvironmentTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
@@ -2820,7 +2859,7 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine is required by the environment`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)

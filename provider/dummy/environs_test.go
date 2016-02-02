@@ -70,6 +70,7 @@ func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
+	s.BaseSuite.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *liveSuite) TearDownTest(c *gc.C) {
@@ -101,6 +102,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
+	s.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -225,25 +227,25 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 
 	// Test allocating a couple of addresses.
 	newAddress := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err := e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress, "foo", "bar")
 
 	newAddress = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress, "foo", "bar")
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "AllocateAddress")
 	newAddress = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `dummy\.AllocateAddress is broken`)
 
 	// Finally, test the method respects the feature flag when
 	// disabled.
 	s.SetFeatureFlags() // clear the flags.
-	err = e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }

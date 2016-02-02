@@ -401,7 +401,7 @@ func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParam
 	var networks []string
 	icfg, err := instancecfg.NewInstanceConfig(
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
-		series, secureServerConnections, networks, stateInfo, apiInfo,
+		series, "", secureServerConnections, networks, stateInfo, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

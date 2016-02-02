@@ -138,8 +138,11 @@ type InstanceConfig struct {
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
-	// Constraints holds the initial environment constraints.
+	// Constraints holds the machine constraints.
 	Constraints constraints.Value
+
+	// EnvironConstraints holds the initial environment constraints.
+	EnvironConstraints constraints.Value
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -169,6 +172,9 @@ type InstanceConfig struct {
 
 	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
+
+	// The public key used to sign Juju simplestreams image metadata.
+	PublicImageSigningKey string
 
 	// CustomImageMetadata is optional custom simplestreams image metadata
 	// to store in environment storage at bootstrap time. This is ignored
@@ -405,7 +411,8 @@ func NewInstanceConfig(
 	machineID,
 	machineNonce,
 	imageStream,
-	series string,
+	series,
+	publicImageSigningKey string,
 	secureServerConnections bool,
 	networks []string,
 	mongoInfo *mongo.MongoInfo,
@@ -436,12 +443,13 @@ func NewInstanceConfig(
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
-		MachineId:    machineID,
-		MachineNonce: machineNonce,
-		Networks:     networks,
-		MongoInfo:    mongoInfo,
-		APIInfo:      apiInfo,
-		ImageStream:  imageStream,
+		MachineId:             machineID,
+		MachineNonce:          machineNonce,
+		Networks:              networks,
+		MongoInfo:             mongoInfo,
+		APIInfo:               apiInfo,
+		ImageStream:           imageStream,
+		PublicImageSigningKey: publicImageSigningKey,
 		AgentEnvironment: map[string]string{
 			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
 		},
@@ -452,10 +460,10 @@ func NewInstanceConfig(
 // NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapInstanceConfig(cons constraints.Value, series string) (*InstanceConfig, error) {
+func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, publicImageSigningKey string) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
+	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -465,6 +473,7 @@ func NewBootstrapInstanceConfig(cons constraints.Value, series string) (*Instanc
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
+	icfg.EnvironConstraints = environCons
 	return icfg, nil
 }
 

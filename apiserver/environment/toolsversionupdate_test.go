@@ -38,15 +38,11 @@ func (s *updaterSuite) TestCheckTools(c *gc.C) {
 	}
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 	var (
-		calledWithEnviron                environs.Environ
 		calledWithMajor, calledWithMinor int
-		calledWithFilter                 coretools.Filter
 	)
 	fakeToolFinder := func(e environs.Environ, maj int, min int, stream string, filter coretools.Filter) (coretools.List, error) {
-		calledWithEnviron = e
 		calledWithMajor = maj
 		calledWithMinor = min
-		calledWithFilter = filter
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
 		c.Assert(calledWithMajor, gc.Equals, 2)
@@ -74,16 +70,12 @@ func (s *updaterSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	}
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 	var (
-		calledWithEnviron                environs.Environ
 		calledWithMajor, calledWithMinor int
-		calledWithFilter                 coretools.Filter
 		calledWithStreams                []string
 	)
 	fakeToolFinder := func(e environs.Environ, maj int, min int, stream string, filter coretools.Filter) (coretools.List, error) {
-		calledWithEnviron = e
 		calledWithMajor = maj
 		calledWithMinor = min
-		calledWithFilter = filter
 		calledWithStreams = append(calledWithStreams, stream)
 		if stream == "released" {
 			return nil, coretools.ErrNoMatches

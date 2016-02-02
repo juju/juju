@@ -10,6 +10,8 @@ package renderers
 
 import (
 	"github.com/juju/utils/os"
+
+	"github.com/juju/juju/cloudconfig/cloudinit"
 )
 
 // ProviderRenderer defines a method to encode userdata depending on
@@ -18,8 +20,5 @@ import (
 // the userdata differently(bash vs yaml) since some providers might
 // not ship cloudinit on every OS
 type ProviderRenderer interface {
-
-	// EncodeUserdata takes a []byte and encodes it in the right format.
-	// The implementations are based on the different providers and OSTypes.
-	EncodeUserdata([]byte, os.OSType) ([]byte, error)
+	Render(cloudinit.CloudConfig, os.OSType) ([]byte, error)
 }

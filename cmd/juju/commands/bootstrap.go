@@ -78,8 +78,7 @@ metadata.
 If agent-version is specifed, this is the default tools version to use when running the Juju agents.
 Only the numeric version is relevant. To enable ease of scripting, the full binary version
 is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is used.
-An alias for bootstrapping Juju with the exact same version as the client is to use the
---no-auto-upgrade parameter.
+By default, Juju will bootstrap using the exact same version as the client.
 
 See Also:
    juju help switch
@@ -97,13 +96,14 @@ func newBootstrapCommand() cmd.Command {
 type bootstrapCommand struct {
 	envcmd.EnvCommandBase
 	Constraints           constraints.Value
+	BootstrapConstraints  constraints.Value
+	BootstrapSeries       string
+	BootstrapImage        string
 	UploadTools           bool
-	Series                []string
-	seriesOld             []string
 	MetadataSource        string
 	Placement             string
 	KeepBrokenEnvironment bool
-	NoAutoUpgrade         bool
+	AutoUpgrade           bool
 	AgentVersionParam     string
 	AgentVersion          *version.Number
 }
@@ -118,31 +118,37 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "specify bootstrap machine constraints")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "specify the series of the bootstrap machine")
+	if featureflag.Enabled(feature.ImageMetadata) {
+		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "specify the image of the bootstrap machine")
+	}
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
-	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
-	f.BoolVar(&c.NoAutoUpgrade, "no-auto-upgrade", false, "do not upgrade to newer tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to initially use for Juju agents")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "upgrade to the latest patch release tools on first bootstrap")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
-	if len(c.Series) > 0 && !c.UploadTools {
-		return fmt.Errorf("--upload-series requires --upload-tools")
-	}
-	if len(c.seriesOld) > 0 && !c.UploadTools {
-		return fmt.Errorf("--series requires --upload-tools")
-	}
-	if len(c.Series) > 0 && len(c.seriesOld) > 0 {
-		return fmt.Errorf("--upload-series and --series can't be used together")
-	}
 	if c.AgentVersionParam != "" && c.UploadTools {
 		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
 	}
-	if c.AgentVersionParam != "" && c.NoAutoUpgrade {
-		return fmt.Errorf("--agent-version and --no-auto-upgrade can't be used together")
+	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
+		return errors.NotValidf("series %q", c.BootstrapSeries)
+	}
+	if c.BootstrapImage != "" {
+		if c.BootstrapSeries == "" {
+			return errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
+		}
+		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !cons.HasArch() {
+			return errors.Errorf("--bootstrap-image must be used with --bootstrap-constraints, specifying architecture")
+		}
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -154,10 +160,12 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
 	}
-	if c.NoAutoUpgrade {
+	if !c.AutoUpgrade {
+		// With no auto upgrade chosen, we default to the version matching the bootstrap client.
 		vers := version.Current
 		c.AgentVersion = &vers
-	} else if c.AgentVersionParam != "" {
+	}
+	if c.AgentVersionParam != "" {
 		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
 			c.AgentVersion = &vers.Number
 		} else if vers, err := version.Parse(c.AgentVersionParam); err == nil {
@@ -172,32 +180,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-type seriesValue struct {
-	*cmd.StringsValue
-}
-
-// newSeriesValue is used to create the type passed into the gnuflag.FlagSet Var function.
-func newSeriesValue(defaultValue []string, target *[]string) *seriesValue {
-	v := seriesValue{(*cmd.StringsValue)(target)}
-	*(v.StringsValue) = defaultValue
-	return &v
-}
-
-// Implements gnuflag.Value Set.
-func (v *seriesValue) Set(s string) error {
-	if err := v.StringsValue.Set(s); err != nil {
-		return err
-	}
-	for _, name := range *(v.StringsValue) {
-		if !charm.IsValidSeries(name) {
-			v.StringsValue = nil
-			return fmt.Errorf("invalid series name %q", name)
-		}
-	}
-	return nil
-}
-
-// bootstrap functionality that Run calls to support cleaner testing
+// BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
 	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
@@ -226,13 +209,6 @@ var getEnvName = func(c *bootstrapCommand) string {
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
-
-	if len(c.seriesOld) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
-	}
-	if len(c.Series) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
-	}
 
 	envName := getEnvName(c)
 	if envName == "" {
@@ -307,12 +283,28 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 
+	// Merge environ and bootstrap-specific constraints.
+	constraintsValidator, err := environ.ConstraintsValidator()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		c.Constraints, c.BootstrapConstraints,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
+
 	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		Constraints:  c.Constraints,
-		Placement:    c.Placement,
-		UploadTools:  c.UploadTools,
-		AgentVersion: c.AgentVersion,
-		MetadataDir:  metadataDir,
+		EnvironConstraints:   c.Constraints,
+		BootstrapConstraints: bootstrapConstraints,
+		BootstrapSeries:      c.BootstrapSeries,
+		BootstrapImage:       c.BootstrapImage,
+		Placement:            c.Placement,
+		UploadTools:          c.UploadTools,
+		AgentVersion:         c.AgentVersion,
+		MetadataDir:          metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
@@ -321,6 +313,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
+
+	err = envcmd.SetCurrentEnvironment(ctx, envName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the state server's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.

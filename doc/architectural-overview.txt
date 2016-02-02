@@ -114,8 +114,6 @@ All agents run workers with the following responsibilities:
     we know; it is not the stupidest name in the codebase)
   * Watch and store the latest known addresses for the state servers
     (`worker/apiaddressupdater`)
-  * Watch and store rsyslog targets (`worker/rsyslog`) -- this *could* probably be
-    reasonably combined with the apiaddressupdater, but there's no guarantee that
 
 ### Machine Agent Workers
 

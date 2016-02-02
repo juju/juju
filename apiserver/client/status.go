@@ -419,15 +419,8 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 
 func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 	status.Id = machine.Id()
-	agentStatus, compatStatus := processMachine(machine)
+	agentStatus := processMachine(machine)
 	status.Agent = agentStatus
-
-	// These legacy status values will be deprecated for Juju 2.0.
-	status.AgentState = compatStatus.Status
-	status.AgentStateInfo = compatStatus.Info
-	status.AgentVersion = compatStatus.Version
-	status.Life = compatStatus.Life
-	status.Err = compatStatus.Err
 
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
@@ -454,11 +447,6 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 		} else {
 			status.InstanceId = "error"
 		}
-		// There's no point in reporting a pending agent state
-		// if the machine hasn't been provisioned. This
-		// also makes unprovisioned machines visually distinct
-		// in the output.
-		status.AgentState = ""
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
@@ -765,7 +753,7 @@ func populateStatusFromGetter(agent *params.AgentStatus, getter state.StatusGett
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func processMachine(machine *state.Machine) (out params.AgentStatus, compat params.AgentStatus) {
+func processMachine(machine *state.Machine) (out params.AgentStatus) {
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
@@ -773,7 +761,6 @@ func processMachine(machine *state.Machine) (out params.AgentStatus, compat para
 	}
 
 	populateStatusFromGetter(&out, machine)
-	compat = out
 
 	if out.Err != nil {
 		return
@@ -782,34 +769,6 @@ func processMachine(machine *state.Machine) (out params.AgentStatus, compat para
 		// The status is pending - there's no point
 		// in enquiring about the agent liveness.
 		return
-	}
-	agentAlive, err := machine.AgentPresence()
-	if err != nil {
-		return
-	}
-
-	if machine.Life() != state.Dead && !agentAlive {
-		// The agent *should* be alive but is not. Set status to
-		// StatusDown and munge Info to indicate the previous status and
-		// info. This is unfortunately making presentation decisions
-		// on behalf of the client (crappy).
-		//
-		// This is munging is only being left in place for
-		// compatibility with older clients.  TODO: At some point we
-		// should change this so that Info left alone. API version may
-		// help here.
-		//
-		// Better yet, Status shouldn't be changed here in the API at
-		// all! Status changes should only happen in State. One
-		// problem caused by this is that this status change won't be
-		// seen by clients using a watcher because it didn't happen in
-		// State.
-		if out.Info != "" {
-			compat.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
-		} else {
-			compat.Info = fmt.Sprintf("(%s)", out.Status)
-		}
-		compat.Status = params.StatusDown
 	}
 
 	return
@@ -831,10 +790,8 @@ func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.Age
 }
 
 func canBeLost(status *params.UnitStatus) bool {
-	// Pending and Installing are deprecated.
-	// Need to still check pending for existing deployments.
 	switch status.UnitAgent.Status {
-	case params.StatusPending, params.StatusInstalling, params.StatusAllocating:
+	case params.StatusAllocating:
 		return false
 	case params.StatusExecuting:
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))

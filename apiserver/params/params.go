@@ -195,6 +195,7 @@ type ServicesDeploy struct {
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName   string
+	Series        string
 	CharmUrl      string
 	NumUnits      int
 	Config        map[string]string
@@ -211,6 +212,7 @@ type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
 	ForceCharmUrl   bool
+	ForceSeries     bool
 	MinUnits        *int
 	SettingsStrings map[string]string
 	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
@@ -219,9 +221,10 @@ type ServiceUpdate struct {
 
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
-	ServiceName string
-	CharmUrl    string
-	Force       bool
+	ServiceName string `json:"servicename"`
+	CharmUrl    string `json:"charmurl"`
+	ForceUnits  bool   `json:"forceunits"`
+	ForceSeries bool   `json:"forceseries"`
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -534,30 +537,6 @@ type DeployerConnectionValues struct {
 	APIAddresses   []string
 }
 
-// SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
-type SetRsyslogCertParams struct {
-	CACert []byte
-	CAKey  []byte
-}
-
-// RsyslogConfigResult holds the result of a GetRsyslogConfig call.
-type RsyslogConfigResult struct {
-	Error  *Error `json:"Error"`
-	CACert string `json:"CACert"`
-	CAKey  string `json:"CAKey"`
-	// Port is only used by state servers as the port to listen on.
-	// Clients should use HostPorts for the rsyslog addresses to forward
-	// logs to.
-	Port int `json:"Port"`
-
-	HostPorts []HostPort `json:"HostPorts"`
-}
-
-// RsyslogConfigResults is the bulk form of RyslogConfigResult
-type RsyslogConfigResults struct {
-	Results []RsyslogConfigResult
-}
-
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
 type JobsResult struct {
 	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
@@ -800,4 +779,16 @@ type BundleChangesChange struct {
 	// is represented by the corresponding change id, and must be applied
 	// before this change is applied.
 	Requires []string `json:"requires"`
+}
+
+// EnvironmentInfo holds information about the Juju environment.
+type EnvironmentInfo struct {
+	DefaultSeries string `json:"DefaultSeries"`
+	ProviderType  string `json:"ProviderType"`
+	Name          string `json:"Name"`
+	UUID          string `json:"UUID"`
+	// The json name here is as per the older field name and is required
+	// for backward compatability. The other fields also have explicit
+	// matching serialization directives for the benefit of being explicit.
+	ControllerUUID string `json:"ServerUUID"`
 }

@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -331,26 +329,6 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	waitForUnitActive(s.State, unit, c)
 
 	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
-}
-
-func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
-	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&rsyslog.NewRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, _ names.Tag, _ string, _ []string, _ string) (worker.Worker, error) {
-		created <- mode
-		return newDummyWorker(), nil
-	})
-
-	_, unit, _, _ := s.primeAgent(c)
-	a := s.newAgent(c, unit)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for rsyslog worker to be created")
-	case mode := <-created:
-		c.Assert(mode, gc.Equals, rsyslog.RsyslogModeForwarding)
-	}
 }
 
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {

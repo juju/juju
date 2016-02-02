@@ -21,14 +21,11 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -168,20 +165,17 @@ type Connection interface {
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
 	DiskManager() (*diskmanager.State, error)
-	StorageProvisioner(scope names.Tag) *storageprovisioner.State
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State
-	Reboot() (*reboot.State, error)
+	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
 	Environment() *environment.Facade
-	Logger() *apilogger.State
 	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
-	Rsyslog() *rsyslog.State
 	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
 }

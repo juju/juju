@@ -317,7 +317,7 @@ tmpfs:
 func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
 	_, stderr, err := runPoolList(c, "--provider", "oops")
 	c.Assert(err, gc.NotNil)
-	c.Assert(stderr, jc.Contains, `"oops" for environment "dummyenv" not supported`)
+	c.Assert(stderr, jc.Contains, `"oops" not supported`)
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
@@ -437,7 +437,7 @@ func runVolumeList(c *gc.C, args ...string) (string, string, error) {
 
 func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
 	_, stderr, err := runVolumeList(c, "abc")
-	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr, jc.Contains, `"machine-abc" is not a valid machine tag`)
 }
 

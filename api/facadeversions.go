@@ -23,6 +23,7 @@ var facadeVersions = map[string]int{
 	"CharmRevisionUpdater":         0,
 	"Client":                       0,
 	"Cleaner":                      1,
+	"Controller":                   1,
 	"Deployer":                     0,
 	"DiskManager":                  1,
 	"EntityWatcher":                1,
@@ -50,7 +51,6 @@ var facadeVersions = map[string]int{
 	"Reboot":                       1,
 	"RelationUnitsWatcher":         0,
 	"Resumer":                      1,
-	"Rsyslog":                      0,
 	"Service":                      2,
 	"Storage":                      1,
 	"Spaces":                       1,
@@ -58,12 +58,12 @@ var facadeVersions = map[string]int{
 	"StatusHistory":                1,
 	"StorageProvisioner":           1,
 	"StringsWatcher":               0,
-	"SystemManager":                1,
 	"Upgrader":                     0,
 	"UnitAssigner":                 1,
 	"Uniter":                       2,
 	"UserManager":                  0,
 	"VolumeAttachmentsWatcher":     1,
+	"Undertaker":                   1,
 }
 
 // bestVersion tries to find the newest version in the version list that we can

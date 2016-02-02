@@ -1,7 +1,6 @@
 package environs
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -9,31 +8,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
-
-// LegacyStorage creates an Environ from the config in state and returns
-// its provider storage interface if it supports one. If the environment
-// does not support provider storage, then it will return an error
-// satisfying errors.IsNotSupported.
-func LegacyStorage(st *state.State) (storage.Storage, error) {
-	envConfig, err := st.EnvironConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get environment config: %v", err)
-	}
-	env, err := New(envConfig)
-	if err != nil {
-		return nil, fmt.Errorf("cannot access environment: %v", err)
-	}
-	if env, ok := env.(EnvironStorage); ok {
-		return env.Storage(), nil
-	}
-	errmsg := fmt.Sprintf("%s provider does not support provider storage", envConfig.Type())
-	return nil, errors.NewNotSupported(nil, errmsg)
-}
 
 // AddressesRefreshAttempt is the attempt strategy used when
 // refreshing instance addresses.
@@ -112,4 +89,17 @@ func APIInfo(env Environ) (*api.Info, error) {
 	envTag := names.NewEnvironTag(uuid)
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
 	return apiInfo, nil
+}
+
+// CheckProviderAPI returns an error if a simple API call
+// to check a basic response from the specified environ fails.
+func CheckProviderAPI(env Environ) error {
+	// We will make a simple API call to the provider
+	// to ensure the underlying substrate is ok.
+	_, err := env.AllInstances()
+	switch err {
+	case nil, ErrPartialInstances, ErrNoInstances:
+		return nil
+	}
+	return errors.Annotate(err, "cannot make API call to provider")
 }
