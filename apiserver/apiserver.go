@@ -306,6 +306,7 @@ func (srv *Server) run(lis net.Listener) {
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
 		srv.tomb.Done()
 		srv.statePool.Close()
+		srv.state.Close()
 	}()
 
 	srv.wg.Add(1)
