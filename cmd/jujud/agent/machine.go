@@ -484,6 +484,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:       upgrades.PreUpgradeSteps,
 			ShouldWriteProxyFiles: shouldWriteProxyFiles,
 			LogSource:             a.bufferedLogs,
+			NewDeployContext:      newDeployContext,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -676,13 +677,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isEnvironManager, isUnitHoster, isNetworkManager bool
+	var isEnvironManager, isNetworkManager bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageEnviron:
 			isEnvironManager = true
-		case multiwatcher.JobHostUnits:
-			isUnitHoster = true
 		case multiwatcher.JobManageNetworking:
 			isNetworkManager = true
 		case multiwatcher.JobManageStateDeprecated:
@@ -782,18 +781,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return nil, worker.ErrTerminateAgent
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
-	}
-
-	if isUnitHoster {
-		runner.StartWorker("deployer", func() (worker.Worker, error) {
-			apiDeployer := apiConn.Deployer()
-			context := newDeployContext(apiDeployer, agentConfig)
-			w, err := deployer.NewDeployer(apiDeployer, context)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
-			}
-			return w, nil
-		})
 	}
 
 	if isEnvironManager {
