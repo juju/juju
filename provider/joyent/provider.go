@@ -152,11 +152,6 @@ func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error)
 	return secretAttrs, nil
 }
 
-func (joyentProvider) BoilerplateConfig() string {
-	return boilerplateConfig
-
-}
-
 func GetProviderInstance() environs.EnvironProvider {
 	return providerInstance
 }

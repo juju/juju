@@ -26,10 +26,6 @@ type environProvider struct {
 
 var providerInstance environProvider
 
-func (environProvider) BoilerplateConfig() string {
-	return boilerplateConfig[1:]
-}
-
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
 	return []string{"region"}

@@ -12,22 +12,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// boilerplateConfig will be shown in help output, so please keep it up to
-// date when you change environment configuration below.
-var boilerplateConfig = `# https://juju.ubuntu.com/docs/config-cloudsigma.html
-cloudsigma:
-    type: cloudsigma
-
-    # region holds the cloudsigma region (zrh, lvs, ...).
-    #
-    # region: <your region>
-
-    # credentials for CloudSigma account
-    #
-    # username: <your username>
-    # password: <secret>
-`
-
 var configFields = schema.Fields{
 	"username": schema.String(),
 	"password": schema.String(),

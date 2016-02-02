@@ -373,48 +373,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	return cfg.Apply(localConfig.attrs)
 }
 
-// BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
-func (environProvider) BoilerplateConfig() string {
-	return `
-# https://juju.ubuntu.com/docs/config-local.html
-local:
-    type: local
-
-    # root-dir holds the directory that is used for the database.
-    # The default location is $JUJU_HOME/<env-name>.
-    # $JUJU_HOME defaults to ~/.juju. Override if needed.
-    #
-    # root-dir: ~/.juju/local
-
-    # network-bridge holds the name of the LXC network bridge to use.
-    # Override if the default LXC network bridge is different.
-    #
-    #
-    # network-bridge: lxcbr0
-
-    # The default series to deploy the state-server and charms on.
-    # Make sure to uncomment the following option and set the value to
-    # precise or trusty as desired.
-    #
-    # default-series: trusty
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`[1:]
-}
-
 // SecretAttrs implements environs.EnvironProvider.SecretAttrs.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs

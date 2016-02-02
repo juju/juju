@@ -17,51 +17,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// boilerplateConfig will be shown in help output, so please keep it up to
-// date when you change environment configuration below.
-const boilerplateConfig = `joyent:
-  type: joyent
-
-  # SDC config
-  # Can be set via env variables, or specified here
-  # sdc-user: <secret>
-  # Can be set via env variables, or specified here
-  # sdc-key-id: <secret>
-  # url defaults to us-west-1 DC, override if required
-  # sdc-url: https://us-west-1.api.joyentcloud.com
-
-  # Manta config
-  # Can be set via env variables, or specified here
-  # manta-user: <secret>
-  # Can be set via env variables, or specified here
-  # manta-key-id: <secret>
-  # url defaults to us-east DC, override if required
-  # manta-url: https://us-east.manta.joyent.com
-
-  # Auth config
-  # private-key-path is the private key used to sign Joyent requests.
-  # Alternatively, you can supply "private-key" with the content of the private
-  # key instead supplying the path to a file.
-  # private-key-path: ~/.ssh/foo_id
-  # algorithm defaults to rsa-sha256, override if required
-  # algorithm: rsa-sha256
-
-  # Whether or not to refresh the list of available updates for an
-  # OS. The default option of true is recommended for use in
-  # production systems, but disabling this can speed up local
-  # deployments for development or testing.
-  #
-  # enable-os-refresh-update: true
-
-  # Whether or not to perform OS upgrades when machines are
-  # provisioned. The default option of true is recommended for use
-  # in production systems, but disabling this can speed up local
-  # deployments for development or testing.
-  #
-  # enable-os-upgrade: true
-
-`
-
 const (
 	SdcAccount          = "SDC_ACCOUNT"
 	SdcKeyId            = "SDC_KEY_ID"
