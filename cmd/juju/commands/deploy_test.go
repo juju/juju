@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/juju/errors"
@@ -275,6 +276,29 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+}
+
+func (s *DeploySuite) TestResources(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	dir := c.MkDir()
+
+	foopath := path.Join(dir, "foo")
+	barpath := path.Join(dir, "bar")
+	err := ioutil.WriteFile(foopath, []byte("foo"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := fmt.Sprintf("foo=%s;bar=%s", foopath, barpath)
+
+	d := DeployCommand{}
+	err = coretesting.InitCommand(envcmd.Wrap(&d),
+		[]string{"local:dummy", "--resources", res})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
+		"foo": foopath,
+		"bar": barpath,
+	})
 }
 
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {

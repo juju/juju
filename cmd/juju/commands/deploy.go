@@ -62,6 +62,9 @@ type DeployCommand struct {
 	// the storage name defined in that service's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
+	// Resources is a map of resource name to filename to be uploaded on deploy.
+	Resources map[string]string
+
 	Steps []DeployStep
 }
 
@@ -120,6 +123,14 @@ Constraints can be specified when using deploy by specifying the --constraints
 flag.  When used with deploy, service-specific constraints are set so that later
 machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
+
+Resources may be uploaded at deploy time by specifying the --resources flag.
+Following the resources flag should be resources specifying by name=filepath
+pairs, separated by semicolons, for example:
+  
+  juju deploy foo --resources "bar=/some/path/file.tgz;baz=./my docs/cfg.xml"
+
+Where bar and baz are resources named in the metadata for the foo charm.
 
 Charms can be deployed to a specific machine using the --to argument.
 If the destination is an LXC container the default is to use lxc-clone
@@ -212,6 +223,8 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
+	f.Var(stringMap{&c.Resources}, "resources", "resources to be uploaded to the controller")
+	
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
@@ -235,6 +248,17 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
+
+	for name, path := range c.Resources {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return errors.Errorf("file for resource %q not found: %v", name, path)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "can't read file for resource %q", name)
+		}
+	}
+
 	return c.UnitCommandBase.Init(args)
 }
 
@@ -346,6 +370,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		ctx.Infof("deployment of bundle %q completed", bundlePath)
 		return nil
 	}
+
 	// Handle a charm.
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
