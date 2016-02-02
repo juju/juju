@@ -133,6 +133,29 @@ func newUpdateResourceOps(stored storedResource) []txn.Op {
 	}}, newInsertResourceOps(stored)...)
 }
 
+// newResolvePendingResourceOps generates transaction operations that
+// will resolve a pending resource doc and make it active.
+//
+// We trust that the provided resource really is pending
+// and that it matches the existing doc with the same ID.
+func newResolvePendingResourceOps(pending storedResource) []txn.Op {
+	oldID := pendingResourceID(pending.ID, pending.PendingID)
+	newRes := pending
+	newRes.PendingID = ""
+	// TODO(ericsnow) Update newRes.StoragePath? Doing so would require
+	// moving the resource in the blobstore to the correct path, which
+	// we cannot do in the transaction...
+	ops := []txn.Op{{
+		C:      resourcesC,
+		Id:     oldID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	// TODO(ericsnow) newInsertResourceOps() won't be right if the
+	// pending resource is replacing an existing one.
+	return append(ops, newInsertResourceOps(newRes)...)
+}
+
 // newUnitResourceDoc generates a doc that represents the given resource.
 func newUnitResourceDoc(unitID string, stored storedResource) *resourceDoc {
 	fullID := unitResourceID(stored.ID, unitID)
@@ -170,6 +193,17 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 func (p Persistence) getOne(resID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q", resID)
 	id := serviceResourceID(resID)
+	var doc resourceDoc
+	if err := p.base.One(resourcesC, id, &doc); err != nil {
+		return doc, errors.Trace(err)
+	}
+	return doc, nil
+}
+
+// getOnePending returns the resource that matches the provided model ID.
+func (p Persistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
+	logger.Tracef("querying db for resource %q (pending %q)", resID, pendingID)
+	id := pendingResourceID(resID, pendingID)
 	var doc resourceDoc
 	if err := p.base.One(resourcesC, id, &doc); err != nil {
 		return doc, errors.Trace(err)

@@ -239,3 +239,24 @@ func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 
 	return stored, nil
 }
+
+// NewResolvePendingResourceOps generates mongo transaction operations
+// to set the identified resource as active.
+func (p Persistence) NewResolvePendingResourceOps(oldID, newID, serviceID, pendingID string) ([]txn.Op, error) {
+	if pendingID == "" {
+		return nil, errors.New("missing pending ID")
+	}
+	oldDoc, err := p.getOnePending(oldID, pendingID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	pending, err := doc2resource(oldDoc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if pending.PendingID != pendingID {
+		return nil, errors.Errorf("mismatched pending ID; have %q, expected %q", pending.PendingID, pendingID)
+	}
+	ops := newResolvePendingResourceOps(pending)
+	return ops, nil
+}
