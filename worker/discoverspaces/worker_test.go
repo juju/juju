@@ -29,7 +29,7 @@ type workerSuite struct {
 
 	APIConnection    api.Connection
 	API              *apidiscoverspaces.API
-	spacesDiscovered chan interface{}
+	spacesDiscovered chan struct{}
 }
 
 var _ = gc.Suite(&workerSuite{})

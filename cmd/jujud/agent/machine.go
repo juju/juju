@@ -336,7 +336,7 @@ type MachineAgent struct {
 	mongoInitialized bool
 
 	// Used to signal that spaces have been discovered.
-	discoveringSpaces chan interface{}
+	discoveringSpaces chan struct{}
 
 	loopDeviceManager looputil.LoopDeviceManager
 }
@@ -1474,7 +1474,7 @@ func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest)
 	}
 	select {
 	case <-a.discoveringSpaces:
-		// The discoveringSpaces channel is closed.
+		logger.Debugf("space discovery completed - client login unblocked")
 		return nil
 	default:
 		// Space discovery still in progress.

@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.discoverspaces")
 type discoverspacesWorker struct {
 	api               *discoverspaces.API
 	tomb              tomb.Tomb
-	discoveringSpaces chan interface{}
+	discoveringSpaces chan struct{}
 }
 
 var dashPrefix = regexp.MustCompile("^-*")
@@ -62,10 +62,10 @@ func convertSpaceName(name string, existing set.Strings) string {
 }
 
 // NewWorker returns a worker
-func NewWorker(api *discoverspaces.API) (worker.Worker, chan interface{}) {
+func NewWorker(api *discoverspaces.API) (worker.Worker, chan struct{}) {
 	dw := &discoverspacesWorker{
 		api:               api,
-		discoveringSpaces: make(chan interface{}),
+		discoveringSpaces: make(chan struct{}),
 	}
 	go func() {
 		defer dw.tomb.Done()

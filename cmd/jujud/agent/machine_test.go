@@ -1000,8 +1000,8 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 
 func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) {
 	var called bool
-	spacesDiscovered := make(chan interface{})
-	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan interface{}) {
+	spacesDiscovered := make(chan struct{})
+	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan struct{}) {
 		called = true
 		return newDummyWorker(), spacesDiscovered
 	}
