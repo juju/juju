@@ -234,24 +234,37 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
 	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
-	// identify a cloud in clouds.yaml, but is the name of a provider, we
-	// synthesise a Cloud structure with a single region and no auth-types.
+	// identify a cloud in clouds.yaml, but is the name of a provider, and
+	// that provider implements environs.CloudRegionDetector, we'll
+	// synthesise a Cloud structure with the detected regions and no auth-
+	// types.
 	cloud, err := jujucloud.CloudByName(c.Cloud)
 	if errors.IsNotFound(err) {
 		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
-		_, err := environs.Provider(c.Cloud)
+		provider, err := environs.Provider(c.Cloud)
 		if errors.IsNotFound(err) {
-			return errors.NotFoundf("cloud %s", c.Cloud)
+			return errors.NotFoundf("cloud %q", c.Cloud)
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		// TODO(axw) ask the provider to detect the region and endpoint
-		// from the environment?
+		detector, ok := provider.(environs.CloudRegionDetector)
+		if !ok {
+			ctx.Verbosef(
+				"provider %q does not support detecting regions",
+				c.Cloud,
+			)
+			return errors.NotFoundf("cloud %q", c.Cloud)
+		}
+		regions, err := detector.DetectRegions()
+		if err != nil {
+			return errors.Annotatef(err,
+				"detecting regions for %q cloud provider",
+				c.Cloud,
+			)
+		}
 		cloud = &jujucloud.Cloud{
-			Type: c.Cloud,
-			Regions: map[string]jujucloud.Region{
-				c.Cloud: jujucloud.Region{},
-			},
+			Type:    c.Cloud,
+			Regions: regions,
 		}
 	} else if err != nil {
 		return errors.Trace(err)
@@ -276,24 +289,24 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		detected, err := provider.DetectCredentials()
 		if err != nil {
-			return errors.Annotate(err, "detecting credentials")
+			return errors.Annotatef(err, "detecting credentials for %q cloud provider", c.Cloud)
 		}
 		ctx.Verbosef("provider detected credentials: %v", detected)
 		if len(detected) == 0 {
 			return errors.NotFoundf("credentials for cloud %q", c.Cloud)
 		}
 		credential = &detected[0]
-		ctx.Verbosef("authenticating with %v", credential)
 		regionName = c.Region
-		if regionName == "" {
-			// TODO(axw) see TODO(axw) above, where we synthesise
-			// the cloud. We need to set the region to the same.
-			// We should defer to the provider to detect the region
-			// and endpoint.
-			regionName = c.Cloud
-		}
+		ctx.Verbosef("authenticating with %v", credential)
 	} else if err != nil {
 		return errors.Trace(err)
+	}
+
+	if regionName == "" && len(cloud.Regions) == 1 {
+		// If no region is specified and there is only one in the
+		// cloud, use it.
+		for regionName = range cloud.Regions {
+		}
 	}
 	region, ok := cloud.Regions[regionName]
 	if !ok {
@@ -301,10 +314,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		for name := range cloud.Regions {
 			regionNames = append(regionNames, name)
 		}
-		return errors.NotFoundf(
-			"region %q in cloud %q (expected one of %q)",
+		return errors.NewNotFound(nil, fmt.Sprintf(
+			"region %q in cloud %q not found (expected one of %q)",
 			regionName, c.Cloud, regionNames,
-		)
+		))
 	}
 
 	// Create an environment config from the cloud and credentials. The
@@ -338,6 +351,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	ctx.Infof(
+		"Creating Juju controller %q on %s/%s",
+		c.ControllerName, c.Cloud, regionName,
+	)
 
 	// If we error out for any reason, clean up the environment.
 	defer func() {
@@ -439,14 +457,6 @@ func (c *bootstrapCommand) getCredentials(
 	regionName := c.Region
 	if regionName == "" {
 		regionName = defaultRegion
-	}
-	if regionName == "" {
-		// If no region is specified, attempt to bootstrap using the
-		// cloud name as the region name.
-		//
-		// TODO(axw) this is a hack to support lxd. We should instead
-		// be asking the provider to auto-detect the region/endpoint.
-		regionName = cloudName
 	}
 
 	// Validate credential by checking schemas supported by the provider.

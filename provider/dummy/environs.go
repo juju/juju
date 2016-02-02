@@ -514,6 +514,10 @@ func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
 	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
 }
 
+func (*environProvider) DetectRegions() (map[string]cloud.Region, error) {
+	return map[string]cloud.Region{"dummy": {}}, nil
+}
+
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {

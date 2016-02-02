@@ -87,6 +87,20 @@ func (p EnvironProvider) RestrictedConfigAttributes() []string {
 	return []string{"region", "auth-url", "auth-mode"}
 }
 
+// DetectRegions implements environs.CloudRegionDetector.
+func (EnvironProvider) DetectRegions() (map[string]cloud.Region, error) {
+	// If OS_REGION_NAME and OS_AUTH_URL are both set,
+	// return return a region using them.
+	creds := identity.CredentialsFromEnv()
+	if creds.Region == "" {
+		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
+	}
+	if creds.URL == "" {
+		return nil, errors.NewNotFound(nil, "OS_AUTH_URL environment variable not set")
+	}
+	return map[string]cloud.Region{creds.Region: {creds.URL}}, nil
+}
+
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	return cfg, nil

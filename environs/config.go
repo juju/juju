@@ -85,7 +85,9 @@ func (r *globalProviderRegistry) Provider(providerType string) (EnvironProvider,
 	}
 	p, ok := r.providers[providerType]
 	if !ok {
-		return nil, errors.Errorf("no registered provider for %q", providerType)
+		return nil, errors.NewNotFound(
+			nil, fmt.Sprintf("no registered provider for %q", providerType),
+		)
 	}
 	return p, nil
 }

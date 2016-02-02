@@ -60,6 +60,12 @@ type BootstrapSuite struct {
 
 var _ = gc.Suite(&BootstrapSuite{})
 
+func init() {
+	environs.RegisterProvider("no-cloud-region-detection", noCloudRegionDetectionProvider{})
+	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{})
+	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
+}
+
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -724,6 +730,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	)
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
+Creating Juju controller "devenv" on dummy-cloud/region-1
 Bootstrapping model "admin"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
@@ -789,6 +796,36 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 			break
 		}
 	}
+}
+
+func (s *BootstrapSuite) TestBootstrapUnknownCloudOrProvider(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "no-such-provider")
+	c.Assert(err, gc.ErrorMatches, `cloud "no-such-provider" not found`)
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderNoRegionDetection(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "no-cloud-region-detection")
+	c.Assert(err, gc.ErrorMatches, `cloud "no-cloud-region-detection" not found`)
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "no-cloud-regions")
+	c.Assert(err, gc.ErrorMatches, `detecting regions for "no-cloud-regions" cloud provider: regions not found`)
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "no-credentials")
+	c.Assert(err, gc.ErrorMatches, `detecting credentials for "no-credentials" cloud provider: credentials not found`)
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "dummy/not-dummy")
+	c.Assert(err, gc.ErrorMatches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)`)
 }
 
 // createToolsSource writes the mock tools and metadata into a temporary
@@ -879,4 +916,28 @@ type fakeBootstrapFuncs struct {
 func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	fake.args = args
 	return nil
+}
+
+type noCloudRegionDetectionProvider struct {
+	environs.EnvironProvider
+}
+
+type noCloudRegionsProvider struct {
+	environs.EnvironProvider
+}
+
+func (noCloudRegionsProvider) DetectRegions() (map[string]cloud.Region, error) {
+	return nil, errors.NotFoundf("regions")
+}
+
+type noCredentialsProvider struct {
+	environs.EnvironProvider
+}
+
+func (noCredentialsProvider) DetectRegions() (map[string]cloud.Region, error) {
+	return map[string]cloud.Region{"region": {}}, nil
+}
+
+func (noCredentialsProvider) DetectCredentials() ([]cloud.Credential, error) {
+	return nil, errors.NotFoundf("credentials")
 }

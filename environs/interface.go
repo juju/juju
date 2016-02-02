@@ -59,9 +59,6 @@ type PrepareForBootstrapParams struct {
 	// be updated with the region, endpoint and credentials.
 	Config *config.Config
 
-	// TODO(axw) the attributes below will be populated in a
-	// follow-up.
-
 	// Credentials is the set of credentials to use to bootstrap.
 	Credentials cloud.Credential
 
@@ -94,9 +91,22 @@ type ProviderCredentials interface {
 	// environment variables, or reading configuration files in
 	// well-defined locations.
 	//
-	// If the no credentials can be detected, DetectCredentials should
+	// If no credentials can be detected, DetectCredentials should
 	// return an error satisfying errors.IsNotFound.
 	DetectCredentials() ([]cloud.Credential, error)
+}
+
+// CloudRegionDetector is an interface that an EnvironProvider implements
+// in order to automatically detect cloud regions from the environment.
+type CloudRegionDetector interface {
+	// DetectRetions automatically detects one or more regions
+	// from the environment. This may involve, for example, inspecting
+	// environment variables, or returning special hard-coded regions
+	// (e.g. "localhost" for lxd).
+	//
+	// If no regions can be detected, DetectRegions should return
+	// an error satisfying errors.IsNotFound.
+	DetectRegions() (map[string]cloud.Region, error)
 }
 
 // ModelConfigUpgrader is an interface that an EnvironProvider may

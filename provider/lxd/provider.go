@@ -8,6 +8,7 @@ package lxd
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -97,4 +98,12 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 		return nil, errors.Trace(err)
 	}
 	return ecfg.secret(), nil
+}
+
+// DetectRegions implements environs.CloudRegionDetector.
+func (environProvider) DetectRegions() (map[string]cloud.Region, error) {
+	// For now we just return a hard-coded "localhost" region,
+	// i.e. the local LXD daemon. We may later want to detect
+	// locally-configured remotes.
+	return map[string]cloud.Region{"localhost": {}}, nil
 }
