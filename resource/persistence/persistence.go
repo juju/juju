@@ -78,10 +78,10 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
 // errors.AlreadyExists is returned.
-func (p Persistence) StageResource(id, serviceID string, res resource.Resource) error {
+func (p Persistence) StageResource(args ModelResource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
-	if err := res.Validate(); err != nil {
+	if err := args.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
 
@@ -89,9 +89,9 @@ func (p Persistence) StageResource(id, serviceID string, res resource.Resource) 
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newStagedResourceOps(id, serviceID, res)
+			ops = newStagedResourceOps(args)
 		case 1:
-			ops = newEnsureStagedSameOps(id, serviceID, res)
+			ops = newEnsureStagedSameOps(args)
 		default:
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
@@ -133,14 +133,20 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 		return errors.Annotate(err, "bad resource")
 	}
 
+	args := ModelResource{
+		ID:        id,
+		ServiceID: unit.ServiceName(),
+		Resource:  res,
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// This is an "upsert".
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(id, unit.Name(), unit.ServiceName(), res)
+			ops = newInsertUnitResourceOps(unit.Name(), args)
 		case 1:
-			ops = newUpdateUnitResourceOps(id, unit.Name(), unit.ServiceName(), res)
+			ops = newUpdateUnitResourceOps(unit.Name(), args)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
@@ -156,10 +162,10 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 // SetResource stores the resource info. This is an "upsert". If the
 // resource is already staged then it is unstaged. The caller is
 // responsible for getting the staging right.
-func (p Persistence) SetResource(id, serviceID string, res resource.Resource) error {
+func (p Persistence) SetResource(args ModelResource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
-	if err := res.Validate(); err != nil {
+	if err := args.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
 
@@ -168,19 +174,32 @@ func (p Persistence) SetResource(id, serviceID string, res resource.Resource) er
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(id, serviceID, res)
+			ops = newInsertResourceOps(args)
 		case 1:
-			ops = newUpdateResourceOps(id, serviceID, res)
+			ops = newUpdateResourceOps(args)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
 		// No matter what, we always remove any staging.
-		ops = append(ops, newRemoveStagedOps(id, serviceID)...)
+		ops = append(ops, newRemoveStagedOps(args.ID, args.ServiceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ModelResource represents the full information about a resource
+// in a Juju model.
+type ModelResource struct {
+	// ID is the model-defined ID for the resource.
+	ID string
+
+	// ServiceID identifies the service for the resource.
+	ServiceID string
+
+	// Resource is the general info for the resource.
+	Resource resource.Resource
 }

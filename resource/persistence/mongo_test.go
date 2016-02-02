@@ -29,7 +29,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
-	doc := resource2doc(id, serviceID, resource.Resource{
+	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:    "spam",
@@ -44,6 +44,11 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		},
 		Username:  "a-user",
 		Timestamp: now,
+	}
+	doc := resource2doc(id, ModelResource{
+		ID:        res.Name,
+		ServiceID: serviceID,
+		Resource:  res,
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -73,7 +78,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
-	doc := resource2doc(id, serviceID, resource.Resource{
+	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "spam",
@@ -86,6 +91,11 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 		},
 		Username:  "a-user",
 		Timestamp: now,
+	}
+	doc := resource2doc(id, ModelResource{
+		ID:        res.Name,
+		ServiceID: serviceID,
+		Resource:  res,
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -199,7 +209,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
-	doc := resource2doc(id, serviceID, resource.Resource{
+	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:    "spam",
@@ -214,6 +224,11 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		},
 		Username:  "a-user",
 		Timestamp: now,
+	}
+	doc := resource2doc(id, ModelResource{
+		ID:        res.Name,
+		ServiceID: serviceID,
+		Resource:  res,
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -310,7 +325,7 @@ func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
 func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
-	doc := resource2doc(id, serviceID, resource.Resource{
+	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name: "spam",
@@ -319,6 +334,11 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 			},
 			Origin: charmresource.OriginUpload,
 		},
+	}
+	doc := resource2doc(id, ModelResource{
+		ID:        res.Name,
+		ServiceID: serviceID,
+		Resource:  res,
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{

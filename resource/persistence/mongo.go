@@ -31,8 +31,8 @@ func stagedID(id, serviceID string) string {
 	return resourceID(id, serviceID) + stagedIDSuffix
 }
 
-func newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newStagedDoc(id, serviceID, res)
+func newStagedResourceOps(args ModelResource) []txn.Op {
+	doc := newStagedDoc(args)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -42,8 +42,8 @@ func newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op 
 	}}
 }
 
-func newEnsureStagedSameOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newStagedDoc(id, serviceID, res)
+func newEnsureStagedSameOps(args ModelResource) []txn.Op {
+	doc := newStagedDoc(args)
 
 	// Other than cause the txn to abort, we don't do anything here.
 	return []txn.Op{{
@@ -64,8 +64,8 @@ func newRemoveStagedOps(id, serviceID string) []txn.Op {
 	}}
 }
 
-func newInsertUnitResourceOps(id, unitID, serviceID string, res resource.Resource) []txn.Op {
-	doc := newUnitResourceDoc(id, unitID, serviceID, res)
+func newInsertUnitResourceOps(unitID string, args ModelResource) []txn.Op {
+	doc := newUnitResourceDoc(unitID, args)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -75,8 +75,8 @@ func newInsertUnitResourceOps(id, unitID, serviceID string, res resource.Resourc
 	}}
 }
 
-func newInsertResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, serviceID, res)
+func newInsertResourceOps(args ModelResource) []txn.Op {
+	doc := newResourceDoc(args)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -86,8 +86,8 @@ func newInsertResourceOps(id, serviceID string, res resource.Resource) []txn.Op 
 	}}
 }
 
-func newUpdateUnitResourceOps(id, unitID, serviceID string, res resource.Resource) []txn.Op {
-	doc := newUnitResourceDoc(id, unitID, serviceID, res)
+func newUpdateUnitResourceOps(unitID string, args ModelResource) []txn.Op {
+	doc := newUnitResourceDoc(unitID, args)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -95,11 +95,11 @@ func newUpdateUnitResourceOps(id, unitID, serviceID string, res resource.Resourc
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertUnitResourceOps(id, unitID, serviceID, res)...)
+	}}, newInsertUnitResourceOps(unitID, args)...)
 }
 
-func newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, serviceID, res)
+func newUpdateResourceOps(args ModelResource) []txn.Op {
+	doc := newResourceDoc(args)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -107,25 +107,25 @@ func newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op 
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertResourceOps(id, serviceID, res)...)
+	}}, newInsertResourceOps(args)...)
 }
 
 // newUnitResourceDoc generates a doc that represents the given resource.
-func newUnitResourceDoc(id, unitID, serviceID string, res resource.Resource) *resourceDoc {
-	fullID := resourceID(id, unitID)
-	return unitResource2Doc(fullID, unitID, serviceID, res)
+func newUnitResourceDoc(unitID string, args ModelResource) *resourceDoc {
+	fullID := resourceID(args.ID, unitID)
+	return unitResource2Doc(fullID, unitID, args)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
-func newResourceDoc(id, serviceID string, res resource.Resource) *resourceDoc {
-	fullID := resourceID(id, serviceID)
-	return resource2doc(fullID, serviceID, res)
+func newResourceDoc(args ModelResource) *resourceDoc {
+	fullID := resourceID(args.ID, args.ServiceID)
+	return resource2doc(fullID, args)
 }
 
 // newStagedDoc generates a staging doc that represents the given resource.
-func newStagedDoc(id, serviceID string, res resource.Resource) *resourceDoc {
-	stagedID := stagedID(id, serviceID)
-	return resource2doc(stagedID, serviceID, res)
+func newStagedDoc(args ModelResource) *resourceDoc {
+	stagedID := stagedID(args.ID, args.ServiceID)
+	return resource2doc(stagedID, args)
 }
 
 // resources returns the resource docs for the given service.
@@ -146,6 +146,7 @@ type resourceDoc struct {
 	EnvUUID   string `bson:"env-uuid"`
 	ServiceID string `bson:"service-id"`
 	UnitID    string `bson:"unit-id"`
+	UploadID  string `bson:"upload-id"`
 
 	Name    string `bson:"name"`
 	Type    string `bson:"type"`
@@ -161,19 +162,20 @@ type resourceDoc struct {
 	Timestamp time.Time `bson:"timestamp-when-added"`
 }
 
-func unitResource2Doc(id, unitID, serviceID string, res resource.Resource) *resourceDoc {
-	doc := resource2doc(id, serviceID, res)
+func unitResource2Doc(id, unitID string, args ModelResource) *resourceDoc {
+	doc := resource2doc(id, args)
 	doc.UnitID = unitID
 	return doc
 }
 
 // resource2doc converts the resource into a DB doc.
-func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
+func resource2doc(id string, args ModelResource) *resourceDoc {
+	res := args.Resource
 	// TODO(ericsnow) We may need to limit the resolution of timestamps
 	// in order to avoid some conversion problems from Mongo.
 	return &resourceDoc{
 		DocID:     id,
-		ServiceID: serviceID,
+		ServiceID: args.ServiceID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),
