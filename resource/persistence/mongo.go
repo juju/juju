@@ -195,8 +195,8 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 
 // TODO(ericsnow) Return resource.ModelResource from doc2resource()?
 
-// doc2resource returns the resource.Resource represented by the doc.
-func doc2resource(doc resourceDoc) (resource.Resource, error) {
+// doc2basicResource returns the resource info represented by the doc.
+func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 	var res resource.Resource
 
 	resType, err := charmresource.ParseType(doc.Type)

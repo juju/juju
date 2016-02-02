@@ -170,7 +170,7 @@ func (s *MongoSuite) TestDoc2ResourceUploadFull(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	res, err := doc2resource(resourceDoc{
+	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
 
@@ -215,7 +215,7 @@ func (s *MongoSuite) TestDoc2ResourceUploadBasic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	res, err := doc2resource(resourceDoc{
+	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
 
@@ -305,7 +305,7 @@ func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	res, err := doc2resource(resourceDoc{
+	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
 
@@ -345,7 +345,7 @@ func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
 func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
-	res, err := doc2resource(resourceDoc{
+	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
 		ServiceID: serviceID,
 
