@@ -925,7 +925,7 @@ func (t *testMetricCredentialsSetter) Close() error {
 	return nil
 }
 
-func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
+func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	var called bool
 	setter := &testMetricCredentialsSetter{
 		assert: func(serviceName string, data []byte) {
@@ -948,25 +948,29 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
+	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:quantal/metered-1")
-	s.AssertService(c, "metered", curl, 1, 0)
+	curl := charm.MustParseURL("cs:quantal/metered-1")
+	svc, err := s.State.Service("metered")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := svc.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, curl)
 	c.Assert(called, jc.IsTrue)
 	envuuid, _ := s.Environ.Config().UUID()
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
 			EnvironmentUUID: envuuid,
-			CharmURL:        "local:quantal/metered-1",
+			CharmURL:        "cs:quantal/metered-1",
 			ServiceName:     "metered",
 			PlanURL:         "someplan",
 		}},
 	}})
 }
 
-func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
+func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	var called bool
 	setter := &testMetricCredentialsSetter{
 		assert: func(serviceName string, data []byte) {
@@ -989,20 +993,24 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
+	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:quantal/metered-1")
-	s.AssertService(c, "metered", curl, 1, 0)
+	curl := charm.MustParseURL("cs:quantal/metered-1")
+	svc, err := s.State.Service("metered")
+	c.Assert(err, jc.ErrorIsNil)
+	ch, _, err := svc.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, curl)
 	c.Assert(called, jc.IsTrue)
 	envuuid, _ := s.Environ.Config().UUID()
 	stub.CheckCalls(c, []jujutesting.StubCall{{
-		"DefaultPlan", []interface{}{"local:quantal/metered-1"},
+		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			EnvironmentUUID: envuuid,
-			CharmURL:        "local:quantal/metered-1",
+			CharmURL:        "cs:quantal/metered-1",
 			ServiceName:     "metered",
 			PlanURL:         "thisplan",
 		}},
@@ -1034,7 +1042,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 	c.Assert(called, jc.IsFalse)
 }
 
-func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
+func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	setter := &testMetricCredentialsSetter{
 		assert: func(serviceName string, data []byte) {},
 		err: &params.Error{
@@ -1052,9 +1060,9 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
+	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deploy := &DeployCommand{Steps: []DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}}}
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "local:quantal/metered-1", "--plan", "someplan")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")

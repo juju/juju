@@ -42,6 +42,9 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+	if deployInfo.CharmURL.Schema == "local" {
+		return nil
+	}
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
