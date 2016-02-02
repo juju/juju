@@ -31,7 +31,7 @@ func stagedID(id, serviceID string) string {
 	return resourceID(id, serviceID) + stagedIDSuffix
 }
 
-func newStagedResourceOps(args ModelResource) []txn.Op {
+func newStagedResourceOps(args resource.ModelResource) []txn.Op {
 	doc := newStagedDoc(args)
 
 	return []txn.Op{{
@@ -42,7 +42,7 @@ func newStagedResourceOps(args ModelResource) []txn.Op {
 	}}
 }
 
-func newEnsureStagedSameOps(args ModelResource) []txn.Op {
+func newEnsureStagedSameOps(args resource.ModelResource) []txn.Op {
 	doc := newStagedDoc(args)
 
 	// Other than cause the txn to abort, we don't do anything here.
@@ -64,7 +64,7 @@ func newRemoveStagedOps(id, serviceID string) []txn.Op {
 	}}
 }
 
-func newInsertUnitResourceOps(unitID string, args ModelResource) []txn.Op {
+func newInsertUnitResourceOps(unitID string, args resource.ModelResource) []txn.Op {
 	doc := newUnitResourceDoc(unitID, args)
 
 	return []txn.Op{{
@@ -75,7 +75,7 @@ func newInsertUnitResourceOps(unitID string, args ModelResource) []txn.Op {
 	}}
 }
 
-func newInsertResourceOps(args ModelResource) []txn.Op {
+func newInsertResourceOps(args resource.ModelResource) []txn.Op {
 	doc := newResourceDoc(args)
 
 	return []txn.Op{{
@@ -86,7 +86,7 @@ func newInsertResourceOps(args ModelResource) []txn.Op {
 	}}
 }
 
-func newUpdateUnitResourceOps(unitID string, args ModelResource) []txn.Op {
+func newUpdateUnitResourceOps(unitID string, args resource.ModelResource) []txn.Op {
 	doc := newUnitResourceDoc(unitID, args)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
@@ -98,7 +98,7 @@ func newUpdateUnitResourceOps(unitID string, args ModelResource) []txn.Op {
 	}}, newInsertUnitResourceOps(unitID, args)...)
 }
 
-func newUpdateResourceOps(args ModelResource) []txn.Op {
+func newUpdateResourceOps(args resource.ModelResource) []txn.Op {
 	doc := newResourceDoc(args)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
@@ -111,19 +111,19 @@ func newUpdateResourceOps(args ModelResource) []txn.Op {
 }
 
 // newUnitResourceDoc generates a doc that represents the given resource.
-func newUnitResourceDoc(unitID string, args ModelResource) *resourceDoc {
+func newUnitResourceDoc(unitID string, args resource.ModelResource) *resourceDoc {
 	fullID := resourceID(args.ID, unitID)
 	return unitResource2Doc(fullID, unitID, args)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
-func newResourceDoc(args ModelResource) *resourceDoc {
+func newResourceDoc(args resource.ModelResource) *resourceDoc {
 	fullID := resourceID(args.ID, args.ServiceID)
 	return resource2doc(fullID, args)
 }
 
 // newStagedDoc generates a staging doc that represents the given resource.
-func newStagedDoc(args ModelResource) *resourceDoc {
+func newStagedDoc(args resource.ModelResource) *resourceDoc {
 	stagedID := stagedID(args.ID, args.ServiceID)
 	return resource2doc(stagedID, args)
 }
@@ -162,14 +162,14 @@ type resourceDoc struct {
 	Timestamp time.Time `bson:"timestamp-when-added"`
 }
 
-func unitResource2Doc(id, unitID string, args ModelResource) *resourceDoc {
+func unitResource2Doc(id, unitID string, args resource.ModelResource) *resourceDoc {
 	doc := resource2doc(id, args)
 	doc.UnitID = unitID
 	return doc
 }
 
 // resource2doc converts the resource into a DB doc.
-func resource2doc(id string, args ModelResource) *resourceDoc {
+func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 	res := args.Resource
 	// TODO(ericsnow) We may need to limit the resolution of timestamps
 	// in order to avoid some conversion problems from Mongo.

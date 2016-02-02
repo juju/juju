@@ -115,7 +115,7 @@ func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,
@@ -139,7 +139,7 @@ func (s *PersistenceSuite) TestStageResourceExists(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,
@@ -166,7 +166,7 @@ func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
 	res.Timestamp = time.Time{}
 	p := NewPersistence(s.base)
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,
@@ -202,7 +202,7 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,
@@ -251,7 +251,7 @@ func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,
@@ -323,7 +323,7 @@ func (s *PersistenceSuite) TestSetResourceBadResource(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
 	res.Timestamp = time.Time{}
 	p := NewPersistence(s.base)
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: "a-service",
 		Resource:  res,

@@ -45,7 +45,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(id, ModelResource{
+	doc := resource2doc(id, resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: serviceID,
 		Resource:  res,
@@ -92,7 +92,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(id, ModelResource{
+	doc := resource2doc(id, resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: serviceID,
 		Resource:  res,
@@ -225,7 +225,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(id, ModelResource{
+	doc := resource2doc(id, resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: serviceID,
 		Resource:  res,
@@ -335,7 +335,7 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 			Origin: charmresource.OriginUpload,
 		},
 	}
-	doc := resource2doc(id, ModelResource{
+	doc := resource2doc(id, resource.ModelResource{
 		ID:        res.Name,
 		ServiceID: serviceID,
 		Resource:  res,

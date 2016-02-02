@@ -78,7 +78,7 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
 // errors.AlreadyExists is returned.
-func (p Persistence) StageResource(args ModelResource) error {
+func (p Persistence) StageResource(args resource.ModelResource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	if err := args.Resource.Validate(); err != nil {
@@ -133,7 +133,7 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 		return errors.Annotate(err, "bad resource")
 	}
 
-	args := ModelResource{
+	args := resource.ModelResource{
 		ID:        id,
 		ServiceID: unit.ServiceName(),
 		Resource:  res,
@@ -162,7 +162,7 @@ func (p Persistence) SetUnitResource(id string, unit resource.Unit, res resource
 // SetResource stores the resource info. This is an "upsert". If the
 // resource is already staged then it is unstaged. The caller is
 // responsible for getting the staging right.
-func (p Persistence) SetResource(args ModelResource) error {
+func (p Persistence) SetResource(args resource.ModelResource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	if err := args.Resource.Validate(); err != nil {
@@ -189,17 +189,4 @@ func (p Persistence) SetResource(args ModelResource) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// ModelResource represents the full information about a resource
-// in a Juju model.
-type ModelResource struct {
-	// ID is the model-defined ID for the resource.
-	ID string
-
-	// ServiceID identifies the service for the resource.
-	ServiceID string
-
-	// Resource is the general info for the resource.
-	Resource resource.Resource
 }
