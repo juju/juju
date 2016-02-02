@@ -252,7 +252,7 @@ func (c *DeployCommand) Init(args []string) error {
 	for name, path := range c.Resources {
 		_, err := os.Stat(path)
 		if os.IsNotExist(err) {
-			return errors.Errorf("file for resource %q not found: %v", name, path)
+			return errors.Annotatef(err, "file for resource %q", name)
 		}
 		if err != nil {
 			return errors.Annotatef(err, "can't read file for resource %q", name)

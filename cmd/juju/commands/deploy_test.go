@@ -301,6 +301,21 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	})
 }
 
+func (s *DeploySuite) TestResourceNotFound(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	dir := c.MkDir()
+
+	foopath := path.Join(dir, "foo")
+
+	res := fmt.Sprintf("foo=", foopath)
+
+	d := DeployCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(&d),
+		[]string{"local:dummy", "--resources", res})
+	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Assert(err, gc.ErrorMatches, ".*foo.*")
+}
+
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
