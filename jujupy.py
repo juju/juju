@@ -241,7 +241,7 @@ class EnvJujuClient:
             client_class = EnvJujuClient1X
         elif re.match('^2\.0-alpha2-fake-wrapper', version):
             client_class = EnvJujuClient
-        elif re.match('^2\.0-alpha[12]', version):
+        elif re.match('^2\.0-alpha1', version):
             client_class = EnvJujuClient2A1
         else:
             client_class = EnvJujuClient
