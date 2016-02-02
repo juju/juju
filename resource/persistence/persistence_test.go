@@ -43,7 +43,7 @@ func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	expected.UnitResources = []resource.UnitResources{{
 		Tag: names.NewUnitTag("a-service/0"),
 		Resources: []resource.Resource{
-			unitRes,
+			unitRes.Resource,
 		},
 	}}
 	docs = append(docs, doc)
@@ -115,13 +115,8 @@ func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 
-	err := p.StageResource(args)
+	err := p.StageResource(res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
@@ -139,13 +134,8 @@ func (s *PersistenceSuite) TestStageResourceExists(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 
-	err := p.StageResource(args)
+	err := p.StageResource(res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
@@ -164,15 +154,10 @@ func (s *PersistenceSuite) TestStageResourceExists(c *gc.C) {
 
 func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
-	res.Timestamp = time.Time{}
+	res.Resource.Timestamp = time.Time{}
 	p := NewPersistence(s.base)
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 
-	err := p.StageResource(args)
+	err := p.StageResource(res)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource.*`)
@@ -181,12 +166,12 @@ func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 }
 
 func (s *PersistenceSuite) TestUnstageResourceOkay(c *gc.C) {
-	res, _ := newResource(c, "a-service", "spam")
+	_, doc := newResource(c, "a-service", "spam")
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
-	err := p.UnstageResource(res.Name, "a-service")
+	err := p.UnstageResource(doc.Name, "a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
@@ -202,13 +187,8 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 
-	err := p.SetResource(args)
+	err := p.SetResource(res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
@@ -228,16 +208,11 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"
 	res, doc := newUnitResource(c, servicename, unitname, "eggs")
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
-	err := p.SetUnitResource("a-service/0", args)
+	err := p.SetUnitResource("a-service/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
@@ -251,16 +226,11 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 
 func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
 
-	err := p.SetResource(args)
+	err := p.SetResource(res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
@@ -293,16 +263,11 @@ func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 
 func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 	res, doc := newUnitResource(c, "a-service", "a-service/0", "spam")
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
 
-	err := p.SetUnitResource("a-service/0", args)
+	err := p.SetUnitResource("a-service/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
@@ -327,15 +292,10 @@ func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 
 func (s *PersistenceSuite) TestSetResourceBadResource(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
-	res.Timestamp = time.Time{}
+	res.Resource.Timestamp = time.Time{}
 	p := NewPersistence(s.base)
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
 
-	err := p.SetResource(args)
+	err := p.SetResource(res)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource.*`)
@@ -345,15 +305,10 @@ func (s *PersistenceSuite) TestSetResourceBadResource(c *gc.C) {
 
 func (s *PersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	res, _ := newUnitResource(c, "a-service", "a-service/0", "spam")
-	res.Timestamp = time.Time{}
-	args := resource.ModelResource{
-		ID:        res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
-	}
+	res.Resource.Timestamp = time.Time{}
 	p := NewPersistence(s.base)
 
-	err := p.SetUnitResource("a-service/0", args)
+	err := p.SetUnitResource("a-service/0", res)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `bad resource.*`)
@@ -365,20 +320,20 @@ func newResources(c *gc.C, serviceID string, names ...string) (resource.ServiceR
 	var docs []resourceDoc
 	for _, name := range names {
 		res, doc := newResource(c, serviceID, name)
-		resources = append(resources, res)
+		resources = append(resources, res.Resource)
 		docs = append(docs, doc)
 	}
 	return resource.ServiceResources{Resources: resources}, docs
 }
 
-func newUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {
+func newUnitResource(c *gc.C, serviceID, unitID, name string) (resource.ModelResource, resourceDoc) {
 	res, doc := newResource(c, serviceID, name)
 	doc.DocID = "resource#" + unitID + "#" + name
 	doc.UnitID = unitID
 	return res, doc
 }
 
-func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDoc) {
+func newResource(c *gc.C, serviceID, name string) (resource.ModelResource, resourceDoc) {
 	reader := strings.NewReader(name)
 	fp, err := charmresource.GenerateFingerprint(reader)
 	c.Assert(err, jc.ErrorIsNil)
@@ -399,8 +354,16 @@ func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDo
 		Timestamp: time.Now().UTC(),
 	}
 
+	mRes := resource.ModelResource{
+		ID:          name,
+		ServiceID:   serviceID,
+		Resource:    res,
+		StoragePath: "service-" + serviceID + "/resources/" + name,
+	}
+
 	doc := resourceDoc{
 		DocID:     "resource#" + serviceID + "#" + name,
+		ModelID:   mRes.ID,
 		ServiceID: serviceID,
 
 		Name:    res.Name,
@@ -414,9 +377,11 @@ func newResource(c *gc.C, serviceID, name string) (resource.Resource, resourceDo
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
+
+		StoragePath: mRes.StoragePath,
 	}
 
-	return res, doc
+	return mRes, doc
 }
 
 func checkResources(c *gc.C, resources, expected resource.ServiceResources) {
