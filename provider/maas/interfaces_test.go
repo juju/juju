@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -436,6 +437,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 }
 
 func (s *interfacesSuite) TestGetPXEMACAddressForMAASObject(c *gc.C) {
+	testing.SkipIfPPC64EL(c, "temporarily disabled on PPC64")
 
 	type nodeWithoutPXEMAC struct {
 		SystemID string `json:"system_id"`

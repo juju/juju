@@ -743,8 +743,8 @@ func (environ *maasEnviron) acquireNode(
 
 	acquireParams := convertConstraints(cons)
 	positiveSpaces, negativeSpaces := convertSpacesFromConstraints(cons.Spaces)
-	err := addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
-	if err != nil {
+	if err := addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces); err != nil {
+		logger.Errorf("failed to add interfaces: %v (params %#v; interfaces %#v; positiveSpaces %#v; negativeSpaces %#v", err, acquireParams, interfaces, positiveSpaces, negativeSpaces)
 		return gomaasapi.MAASObject{}, err
 	}
 	addStorage(acquireParams, volumes)
@@ -754,7 +754,8 @@ func (environ *maasEnviron) acquireNode(
 	}
 	if nodeName != "" {
 		acquireParams.Add("name", nodeName)
-	} else if cons.Arch == nil {
+	}
+	if cons.Arch == nil {
 		// TODO(axw) 2014-08-18 #1358219
 		// We should be requesting preferred
 		// architectures if unspecified, like
@@ -773,22 +774,28 @@ func (environ *maasEnviron) acquireNode(
 	}
 
 	var result gomaasapi.JSONObject
+	var err error
+	retries := 0
 	for a := shortAttempt.Start(); a.Next(); {
+		retries++
 		client := environ.getMAASClient().GetSubObject("nodes/")
-		logger.Tracef("calling acquire with params: %+v", acquireParams)
+		logger.Debugf("calling acquire with params: %#v", acquireParams)
 		result, err = client.CallPost("acquire", acquireParams)
+		logger.Debugf("result from acquire: %#v (error: %#v)", result, err)
 		if err == nil {
 			break
 		}
 	}
 	if err != nil {
-		return gomaasapi.MAASObject{}, err
+		logger.Errorf("failed to acquire a node with params %#v after %d retries", acquireParams, retries)
+		return gomaasapi.MAASObject{}, err // must be unwrapped until selectNode does not assume so.
 	}
 	node, err := result.GetMAASObject()
 	if err != nil {
-		err := errors.Annotate(err, "unexpected result from 'acquire' on MAAS API")
-		return gomaasapi.MAASObject{}, err
+		logger.Errorf("unexpected result from 'acquire' on MAAS API: %#v (error: %v)", node, err)
+		return gomaasapi.MAASObject{}, err // must be unwrapped until selectNode does not assume so.
 	}
+	logger.Debugf("acquired node %#v", node)
 	return node, nil
 }
 
@@ -802,23 +809,28 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	// loop.
 	err := fmt.Errorf("(no error)")
 	var result gomaasapi.JSONObject
+	retries := 0
 	for a := shortAttempt.Start(); a.Next() && err != nil; {
+		retries++
+		logger.Debugf("trying to start a node with params %#v", params)
 		result, err = node.CallPost("start", params)
+		logger.Debugf("startNode result: %#v (error: %#v)", result, err)
 		if err == nil {
 			break
 		}
 	}
 
-	if err == nil {
-		var startedNode gomaasapi.MAASObject
-		startedNode, err = result.GetMAASObject()
-		if err != nil {
-			logger.Errorf("cannot process API response after successfully starting node: %v", err)
-			return nil, err
-		}
-		return &startedNode, nil
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to start a node with params %#v after %d retries", params, retries)
 	}
-	return nil, err
+
+	startedNode, err := result.GetMAASObject()
+	logger.Debugf("startNode final result: %#v (error: %#v)", startedNode, err)
+	if err != nil {
+		logger.Errorf("cannot process API response after successfully starting node: %v", err)
+		return nil, errors.Annotate(err, "failed to get startNode result")
+	}
+	return &startedNode, nil
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -902,6 +914,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Interfaces:        interfaceBindings,
 		Volumes:           volumes,
 	}
+	logger.Debugf("selecting node with arguments: %#v", snArgs)
+
 	selectedNode, err := environ.selectNode(snArgs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot run instances")
