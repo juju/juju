@@ -24,28 +24,6 @@ const (
 	cfgExternalNetwork = "external-network"
 )
 
-// boilerplateConfig will be shown in help output, so please keep it up to
-// date when you change environment configuration below.
-var boilerplateConfig = `
-vmware:
-  type: vsphere
-
-  # IP address or DNS name of vsphere API host.
-  host:
-
-  # Vsphere API user credentials.
-  user:
-  password:
-
-  # Name of vsphere datacenter.
-  datacenter:
-
-  # Name of the network, that all created vms will use ot obtain public ip address. 
-  # This network should have ip pool configured or DHCP server connected to it.
-  # This parameter is optional. 
-  extenal-network:
-`[1:]
-
 // configFields is the spec for each vmware config value's type.
 var configFields = schema.Fields{
 	cfgHost:            schema.String(),

@@ -151,35 +151,6 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 	return cfg.Apply(envConfig.attrs)
 }
 
-func (_ manualProvider) BoilerplateConfig() string {
-	return `
-manual:
-    type: manual
-    # bootstrap-host holds the host name of the machine where the
-    # bootstrap machine agent will be started.
-    bootstrap-host: somehost.example.com
-
-    # bootstrap-user specifies the user to authenticate as when
-    # connecting to the bootstrap machine. It defaults to
-    # the current user.
-    # bootstrap-user: joebloggs
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of false is set so that Juju
-    # does not subsume any other way the system might be
-    # maintained.
-    #
-    # enable-os-upgrade: false
-
-`[1:]
-}
-
 func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	attrs := make(map[string]string)
 	return attrs, nil

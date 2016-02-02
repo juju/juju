@@ -88,49 +88,6 @@ Please ensure the credentials are correct.`)
 	return nil
 }
 
-// Boilerplate config YAML.  Don't mess with the indentation or add newlines!
-var boilerplateYAML = `
-# https://juju.ubuntu.com/docs/config-maas.html
-maas:
-    type: maas
-
-    # maas-server specifies the location of the MAAS server. It must
-    # specify the base path.
-    #
-    maas-server: 'http://192.168.1.1/MAAS/'
-
-    # maas-oauth holds the OAuth credentials from MAAS.
-    #
-    maas-oauth: '<add your OAuth credentials from MAAS here>'
-
-    # maas-server bootstrap ssh connection options
-    #
-
-    # bootstrap-timeout time to wait contacting a state server, in seconds.
-    bootstrap-timeout: 1800
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-
-`[1:]
-
-// BoilerplateConfig is specified in the EnvironProvider interface.
-func (maasEnvironProvider) BoilerplateConfig() string {
-	return boilerplateYAML
-}
-
 // SecretAttrs is specified in the EnvironProvider interface.
 func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	secretAttrs := make(map[string]string)

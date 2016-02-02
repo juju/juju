@@ -66,9 +66,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "dummy",
 		"name": "admin-model",
-		//"state-server": true,
 	})
-	//cfg, _, err := environs.ConfigForName("erewhemos", store)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
