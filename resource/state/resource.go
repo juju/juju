@@ -122,6 +122,7 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 		Resource: chRes,
 	}
 	if r != nil {
+		// TODO(ericsnow) Validate the user ID (or use a tag).
 		res.Username = userID
 		res.Timestamp = st.currentTimestamp()
 	}
