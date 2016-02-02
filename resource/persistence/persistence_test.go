@@ -109,6 +109,29 @@ func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	)
 }
 
+func (s *PersistenceSuite) TestListModelResources(c *gc.C) {
+	var expected []resource.ModelResource
+	var docs []resourceDoc
+	for _, name := range []string{"spam", "ham"} {
+		res, doc := newResource(c, "a-service", name)
+		expected = append(expected, res)
+		docs = append(docs, doc)
+	}
+	s.base.docs = docs
+	p := NewPersistence(s.base)
+
+	resources, err := p.ListModelResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All")
+	s.stub.CheckCall(c, 0, "All",
+		"resources",
+		bson.D{{"service-id", "a-service"}},
+		&docs,
+	)
+	checkModelResources(c, resources, expected)
+}
+
 func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
 	doc.DocID += "#staged"
@@ -392,6 +415,18 @@ func checkResources(c *gc.C, resources, expected resource.ServiceResources) {
 	expMap := make(map[string]resource.Resource)
 	for _, res := range expected.Resources {
 		expMap[res.Name] = res
+	}
+	c.Check(resMap, jc.DeepEquals, expMap)
+}
+
+func checkModelResources(c *gc.C, resources, expected []resource.ModelResource) {
+	resMap := make(map[string]resource.ModelResource)
+	for _, res := range resources {
+		resMap[res.ID] = res
+	}
+	expMap := make(map[string]resource.ModelResource)
+	for _, res := range expected {
+		expMap[res.ID] = res
 	}
 	c.Check(resMap, jc.DeepEquals, expMap)
 }

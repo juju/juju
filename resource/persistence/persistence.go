@@ -75,6 +75,28 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 	return results, nil
 }
 
+// ListModelResources returns the resource data for the given service ID.
+func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResource, error) {
+	docs, err := p.resources(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var resources []resource.ModelResource
+	for _, doc := range docs {
+		if doc.UnitID != "" {
+			continue
+		}
+
+		res, err := doc2resource(doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resources = append(resources, res)
+	}
+	return resources, nil
+}
+
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
 // errors.AlreadyExists is returned.
