@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/api"
 	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/discoverspaces"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
@@ -995,6 +996,53 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
+}
+
+func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) {
+	var called bool
+	spacesDiscovered := make(chan struct{})
+	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan struct{}) {
+		called = true
+		return newDummyWorker(), spacesDiscovered
+	}
+	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
+	m, conf, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	_ = s.singularRecord.nextRunner(c)
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "discoverspaces")
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if called {
+			break
+		}
+		if !attempt.HasNext() {
+			c.Fatalf("discoverspaces worker not created")
+		}
+	}
+
+	info, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	info.Tag = s.AdminUserTag(c)
+	// User can't log in
+	_, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
+
+	// Local machine can log in
+	info, ok = conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	close(spacesDiscovered)
+
+	// Now the user can log in
+	info.Tag = s.AdminUserTag(c)
+	info.Password = "dummy-secret"
+	_, err = api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {

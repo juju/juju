@@ -335,6 +335,9 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
+	// Used to signal that spaces have been discovered.
+	discoveringSpaces chan struct{}
+
 	loopDeviceManager looputil.LoopDeviceManager
 }
 
@@ -1260,7 +1263,9 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		return newDiscoverSpaces(apiSt.DiscoverSpaces()), nil
+		var w worker.Worker
+		w, a.discoveringSpaces = newDiscoverSpaces(apiSt.DiscoverSpaces())
+		return w, nil
 	})
 
 	if machine.IsManager() {
@@ -1454,7 +1459,42 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
+	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
+		return err
+	}
 	return a.limitLoginsDuringUpgrade(req)
+}
+
+// limitLoginsUntilSpacesDiscovered will prevent logins from clients until
+// space discovery is completed.
+func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
+	if a.discoveringSpaces == nil {
+		// Space discovery not started.
+		return nil
+	}
+	select {
+	case <-a.discoveringSpaces:
+		logger.Debugf("space discovery completed - client login unblocked")
+		return nil
+	default:
+		// Space discovery still in progress.
+	}
+	err := errors.New("space discovery still in progress")
+	authTag, parseErr := names.ParseTag(req.AuthTag)
+	if parseErr != nil {
+		return errors.Annotatef(err, "could not parse auth tag")
+	}
+	switch authTag := authTag.(type) {
+	case names.UserTag:
+		// use a restricted API mode
+		return err
+	case names.MachineTag:
+		if authTag == a.Tag() {
+			// allow logins from the local machine
+			return nil
+		}
+	}
+	return err
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
