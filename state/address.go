@@ -33,6 +33,16 @@ func (st *State) stateServerAddresses() ([]string, error) {
 		defer ssState.Close()
 		logger.Debugf("ssState env: %s", ssState.EnvironTag())
 	}
+	// Get the controller space from the config (if set) to use below for the
+	// address selection.
+	envConfig, err := ssState.EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get environment config")
+	}
+	var controllerSpace string
+	if setSpace, isSet := envConfig.ControllerSpaceName(); isSet {
+		controllerSpace = setSpace
+	}
 
 	type addressMachine struct {
 		Addresses []address
@@ -51,7 +61,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		naddrs := networkAddresses(addrs.Addresses)
-		addr, ok := network.SelectControllerAddress(naddrs, false)
+		// TODO(dimitern): Add test cases to verify the non-empty controller
+		// space behavior below, which is only live tested on MAAS.
+		addr, ok := network.SelectControllerAddress(controllerSpace, naddrs, false)
 		if ok {
 			apiAddrs = append(apiAddrs, addr.Value)
 		}
@@ -109,17 +121,27 @@ type apiHostPortsDoc struct {
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
-	// Filter any addresses not on the default space, if possible.
-	// All API servers need to be accessible there.
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "cannot get environment config")
+	}
+
+	controllerSpace, hasControllerSpace := envConfig.ControllerSpaceName()
+
 	var hpsToSet [][]network.HostPort
+	// Filter any addresses not on the controller space (when set). All API
+	// servers need to be accessible there.
 	for _, hps := range netHostsPorts {
-		defaultSpaceHP, ok := network.SelectHostPortBySpace(hps, network.DefaultSpace)
-		if !ok {
-			logger.Warningf("cannot determine API addresses in space %q to use as API endpoints; using all addresses", network.DefaultSpace)
-			hpsToSet = netHostsPorts
-			break
+		if hasControllerSpace {
+			hp, ok := network.SelectHostPortBySpace(hps, controllerSpace)
+			if ok {
+				hpsToSet = append(hpsToSet, []network.HostPort{hp})
+				continue
+			}
 		}
-		hpsToSet = append(hpsToSet, []network.HostPort{defaultSpaceHP})
+		hpsToSet = netHostsPorts
+		logger.Debugf("setting all addresses as API hostPorts: %+v", hpsToSet)
+		break
 	}
 
 	doc := apiHostPortsDoc{
@@ -137,7 +159,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 				"apihostports", fromNetworkHostsPorts(existing),
 			}},
 		}
-		if !hostsPortsEqual(netHostsPorts, existing) {
+		if !hostsPortsEqual(hpsToSet, existing) {
 			op.Update = bson.D{{
 				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
 			}}

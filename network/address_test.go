@@ -999,3 +999,54 @@ func (s *AddressSuite) TestResolvableHostnames(c *gc.C) {
 
 	c.Assert(scopedAddrsExpected, jc.DeepEquals, network.ResolvableHostnames(scopedAddrs))
 }
+
+func (s *AddressSuite) TestSelectAddressBySpaceSuccess(c *gc.C) {
+	fooAddresses := network.NewAddressesOnSpace("foo", "0.1.2.3", "fc00::1/64")
+
+	selected, ok := network.SelectAddressBySpace(fooAddresses, "foo")
+	c.Check(selected.String(), gc.Equals, "public:0.1.2.3@foo")
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *AddressSuite) TestSelectAddressBySpaceNotFound(c *gc.C) {
+	barAddresses := network.NewAddressesOnSpace("bar", "10.9.8.1", "2001:db8::42/64")
+
+	selected, ok := network.SelectAddressBySpace(barAddresses, "foo")
+	c.Check(selected.String(), gc.Equals, "")
+	c.Check(ok, jc.IsFalse)
+}
+
+func (s *AddressSuite) TestSelectAddressBySpaceWithNoSpaceAddresses(c *gc.C) {
+	noSpaceAddresses := network.NewAddresses("hostname", "10.9.8.1", "2001:db8::42/64")
+
+	selected, ok := network.SelectAddressBySpace(noSpaceAddresses, "foo")
+	c.Check(selected.String(), gc.Equals, "")
+	c.Check(ok, jc.IsFalse)
+
+	selected, ok = network.SelectAddressBySpace(noSpaceAddresses, "")
+	c.Check(selected.String(), gc.Equals, "hostname")
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *AddressSuite) TestSelectControllerAddress(c *gc.C) {
+	// Add a few addresses without space before the onces with.
+	addressesWithSpace := network.NewAddressesOnSpace("controller", "0.1.2.3", "2001:db8::42/64")
+	addressesWithoutSpace := network.NewAddresses("127.0.0.1", "192.168.2.3", "8.8.8.8", "fc00::123/64")
+	mixedAddresses := append(addressesWithoutSpace, addressesWithSpace...)
+
+	// First address on space "controller" will be picked.
+	selected, ok := network.SelectControllerAddress("controller", mixedAddresses, false)
+	c.Check(selected.String(), gc.Equals, "public:0.1.2.3@controller")
+	c.Check(ok, jc.IsTrue)
+
+	// When space is empty falls back to selection by local-cloud scope.
+	selected, ok = network.SelectControllerAddress("", mixedAddresses, false)
+	c.Check(selected.String(), gc.Equals, "local-cloud:192.168.2.3")
+	c.Check(ok, jc.IsTrue)
+
+	// With no addresses on the given space, also falls back to scope seleciton,
+	// but can also pick local-machine addresses.
+	selected, ok = network.SelectControllerAddress("missing", mixedAddresses, true)
+	c.Check(selected.String(), gc.Equals, "local-machine:127.0.0.1")
+	c.Check(ok, jc.IsTrue)
+}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -179,6 +180,10 @@ const (
 
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
+
+	// ControllerSpaceName stores the name of the space where juju controllers
+	// reside. It is used for unspecified service endpoint bindings.
+	ControllerSpaceName = "controller-space"
 
 	//
 	// Deprecated Settings Attributes
@@ -623,6 +628,13 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if newSpace, specified := cfg.defined[ControllerSpaceName].(string); specified {
+		// ControllerSpaceName has no implicit default, but can be set once.
+		if !names.IsValidSpace(newSpace) {
+			return errors.Errorf("cannot set controller-space to %q: not a valid space name", newSpace)
+		}
+	}
+
 	if uuid, ok := cfg.defined["uuid"]; ok && !utils.IsValidUUIDString(uuid.(string)) {
 		return errors.Errorf("uuid: expected uuid, got string(%q)", uuid)
 	}
@@ -648,6 +660,30 @@ func Validate(cfg, old *Config) error {
 					newv := cfg.defined[attr]
 					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 				}
+
+			case ControllerSpaceName:
+				// ControllerSpaceName can be explicitly set once (either by the
+				// user or else by provider with spaces support). Cannot be
+				// changed once set.
+
+				oldv, oldExists := old.defined[attr]
+				newv, newExists := cfg.defined[attr]
+				if oldExists {
+					if !newExists {
+						return errors.Errorf("cannot clear controller-space")
+					}
+					oldSpace, _ := oldv.(string)
+					newSpace, _ := newv.(string)
+					if oldSpace != newSpace {
+						return errors.Errorf("cannot change controller-space from %q to %q", oldSpace, newSpace)
+					}
+				} else if newExists {
+					newSpace, _ := newv.(string)
+					if !names.IsValidSpace(newSpace) {
+						return errors.Errorf("cannot set controller-space to %q: not a valid space name", newSpace)
+					}
+				}
+
 			default:
 				if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
 					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
@@ -1257,6 +1293,17 @@ func (c *Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
+// ControllerSpaceName returns the name of the space juju controllers are in.
+func (c *Config) ControllerSpaceName() (string, bool) {
+	value, found := c.defined[ControllerSpaceName]
+	if !found {
+		return "", false
+	}
+
+	name, _ := value.(string)
+	return name, true
+}
+
 // fields holds the validation schema fields derived from configSchema.
 var fields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -1307,6 +1354,9 @@ var alwaysOptional = schema.Defaults{
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
+
+	// ControllerSpaceName has no default unless set explicitly.
+	ControllerSpaceName: schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1418,6 +1468,7 @@ var immutableAttributes = []string{
 	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
+	ControllerSpaceName,
 }
 
 var (
@@ -1885,6 +1936,12 @@ data of the store. (default false)`,
 	},
 	IdentityPublicKey: {
 		Description: "Public key of the identity manager. If this is omitted, the public key will be fetched from the IdentityURL.",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	ControllerSpaceName: {
+		Description: "Space in which Juju controllers are deployed and where service endpoints are bound to implicitly. If empty, a sane default will be chosen by the provider.",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

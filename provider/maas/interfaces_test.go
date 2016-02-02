@@ -5,13 +5,16 @@ package maas
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"text/template"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testing"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +159,7 @@ const exampleInterfaceSetJSON = `
 		"enabled": true,
 		"id": 150,
 		"discovered": null,
-		"mac_address": "52:54:00:70:9b:fe",
+		"mac_address": "52:54:00:70:9b:f1",
 		"parents": [
 			"eth0"
 		],
@@ -204,7 +207,7 @@ const exampleInterfaceSetJSON = `
 		"enabled": true,
 		"id": 151,
 		"discovered": null,
-		"mac_address": "52:54:00:70:9b:fe",
+		"mac_address": "52:54:00:70:9b:f2",
 		"parents": [
 			"eth0"
 		],
@@ -252,7 +255,7 @@ const exampleInterfaceSetJSON = `
 		"enabled": true,
 		"id": 152,
 		"discovered": null,
-		"mac_address": "52:54:00:70:9b:fe",
+		"mac_address": "52:54:00:70:9b:f3",
 		"parents": [
 			"eth0"
 		],
@@ -264,21 +267,8 @@ const exampleInterfaceSetJSON = `
 	}
 ]`
 
-func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
-	result, err := parseInterfaces(nil)
-	c.Check(err, gc.ErrorMatches, "parsing interfaces: unexpected end of JSON input")
-	c.Check(result, gc.IsNil)
-}
-
-func (s *interfacesSuite) TestParseInterfacesBadJSON(c *gc.C) {
-	result, err := parseInterfaces([]byte("$bad"))
-	c.Check(err, gc.ErrorMatches, `parsing interfaces: invalid character '\$' .*`)
-	c.Check(result, gc.IsNil)
-}
-
-func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
-
-	vlan0 := maasVLAN{
+var (
+	exampleVLAN0 = maasVLAN{
 		ID:          5001,
 		Name:        "untagged",
 		VID:         0,
@@ -287,7 +277,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/vlans/5001/",
 	}
 
-	vlan50 := maasVLAN{
+	exampleVLAN50 = maasVLAN{
 		ID:          5004,
 		Name:        "admin",
 		VID:         50,
@@ -296,7 +286,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/vlans/5004/",
 	}
 
-	vlan100 := maasVLAN{
+	exampleVLAN100 = maasVLAN{
 		ID:          5005,
 		Name:        "public",
 		VID:         100,
@@ -305,7 +295,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/vlans/5005/",
 	}
 
-	vlan250 := maasVLAN{
+	exampleVLAN250 = maasVLAN{
 		ID:          5008,
 		Name:        "storage",
 		VID:         250,
@@ -314,33 +304,33 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		ResourceURI: "/MAAS/api/1.0/vlans/5008/",
 	}
 
-	subnetPXE := maasSubnet{
+	exampleSubnetPXE = maasSubnet{
 		ID:          3,
 		Name:        "pxe",
 		Space:       "default",
-		VLAN:        vlan0,
+		VLAN:        exampleVLAN0,
 		GatewayIP:   "10.20.19.2",
 		DNSServers:  []string{"10.20.19.2", "10.20.19.3"},
 		CIDR:        "10.20.19.0/24",
 		ResourceURI: "/MAAS/api/1.0/subnets/3/",
 	}
 
-	expected := []maasInterface{{
+	exampleInterfaces = []maasInterface{{
 		ID:          91,
 		Name:        "eth0",
 		Type:        "physical",
 		Enabled:     true,
 		MACAddress:  "52:54:00:70:9b:fe",
-		VLAN:        vlan0,
+		VLAN:        exampleVLAN0,
 		EffectveMTU: 1500,
 		Links: []maasInterfaceLink{{
 			ID:        436,
-			Subnet:    &subnetPXE,
+			Subnet:    &exampleSubnetPXE,
 			IPAddress: "10.20.19.103",
 			Mode:      "static",
 		}, {
 			ID:        437,
-			Subnet:    &subnetPXE,
+			Subnet:    &exampleSubnetPXE,
 			IPAddress: "10.20.19.104",
 			Mode:      "static",
 		}},
@@ -352,8 +342,8 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		Name:        "eth0.50",
 		Type:        "vlan",
 		Enabled:     true,
-		MACAddress:  "52:54:00:70:9b:fe",
-		VLAN:        vlan50,
+		MACAddress:  "52:54:00:70:9b:f1",
+		VLAN:        exampleVLAN50,
 		EffectveMTU: 1500,
 		Links: []maasInterfaceLink{{
 			ID: 517,
@@ -361,7 +351,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 				ID:          5,
 				Name:        "admin",
 				Space:       "admin",
-				VLAN:        vlan50,
+				VLAN:        exampleVLAN50,
 				GatewayIP:   "10.50.19.2",
 				DNSServers:  []string{},
 				CIDR:        "10.50.19.0/24",
@@ -378,8 +368,8 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		Name:        "eth0.100",
 		Type:        "vlan",
 		Enabled:     true,
-		MACAddress:  "52:54:00:70:9b:fe",
-		VLAN:        vlan100,
+		MACAddress:  "52:54:00:70:9b:f2",
+		VLAN:        exampleVLAN100,
 		EffectveMTU: 1500,
 		Links: []maasInterfaceLink{{
 			ID: 519,
@@ -387,7 +377,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 				ID:          6,
 				Name:        "public",
 				Space:       "public",
-				VLAN:        vlan100,
+				VLAN:        exampleVLAN100,
 				GatewayIP:   "10.100.19.2",
 				DNSServers:  []string{},
 				CIDR:        "10.100.19.0/24",
@@ -404,8 +394,8 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		Name:        "eth0.250",
 		Type:        "vlan",
 		Enabled:     true,
-		MACAddress:  "52:54:00:70:9b:fe",
-		VLAN:        vlan250,
+		MACAddress:  "52:54:00:70:9b:f3",
+		VLAN:        exampleVLAN250,
 		EffectveMTU: 1500,
 		Links: []maasInterfaceLink{{
 			ID: 523,
@@ -413,7 +403,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 				ID:          8,
 				Name:        "storage",
 				Space:       "storage",
-				VLAN:        vlan250,
+				VLAN:        exampleVLAN250,
 				GatewayIP:   "10.250.19.2",
 				DNSServers:  []string{},
 				CIDR:        "10.250.19.0/24",
@@ -426,10 +416,180 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 		Children:    []string{},
 		ResourceURI: "/MAAS/api/1.0/nodes/node-18489434-9eb0-11e5-bdef-00163e40c3b6/interfaces/152/",
 	}}
+)
 
+func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
+	result, err := parseInterfaces(nil)
+	c.Check(err, gc.ErrorMatches, "parsing interfaces: unexpected end of JSON input")
+	c.Check(result, gc.IsNil)
+}
+
+func (s *interfacesSuite) TestParseInterfacesBadJSON(c *gc.C) {
+	result, err := parseInterfaces([]byte("$bad"))
+	c.Check(err, gc.ErrorMatches, `parsing interfaces: invalid character '\$' .*`)
+	c.Check(result, gc.IsNil)
+}
+
+func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 	result, err := parseInterfaces([]byte(exampleInterfaceSetJSON))
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, expected)
+	c.Check(result, jc.DeepEquals, exampleInterfaces)
+}
+
+func (s *interfacesSuite) TestGetPXEMACAddressForMAASObject(c *gc.C) {
+	testing.SkipIfPPC64EL(c, "temporarily disabled on PPC64")
+
+	type nodeWithoutPXEMAC struct {
+		SystemID string `json:"system_id"`
+	}
+	type pxeMAC struct {
+		MACAddress string `json:"mac_address"`
+	}
+	type badPXEMAC struct {
+		BadMACAddress int `json:"mac_address,omitempty"`
+	}
+	type goodNode struct {
+		nodeWithoutPXEMAC
+		PXEMAC *pxeMAC `json:"pxe_mac"`
+	}
+	type nodeWithBadPXEMAC struct {
+		nodeWithoutPXEMAC
+		PXEMAC int `json:"pxe_mac,omitempty"`
+	}
+	type nodeWithBadPXEMACAndBadMACAddress struct {
+		nodeWithoutPXEMAC
+		PXEMAC badPXEMAC `json:"pxe_mac"`
+	}
+
+	for i, test := range []struct {
+		nodeData      interface{}
+		expectedError string
+		expectedMAC   string
+	}{{
+		nodeData:      nodeWithoutPXEMAC{},
+		expectedError: "missing or nil pxe_mac",
+	}, {
+		nodeData:      goodNode{PXEMAC: nil},
+		expectedError: "missing or nil pxe_mac",
+	}, {
+		nodeData:      nodeWithBadPXEMAC{PXEMAC: 42},
+		expectedError: `unexpected pxe_mac format: Requested map, got float64\.`,
+	}, {
+		nodeData:      nodeWithBadPXEMACAndBadMACAddress{PXEMAC: badPXEMAC{BadMACAddress: 0}},
+		expectedError: `pxe_mac with missing or nil mac_address`,
+	}, {
+		nodeData:      nodeWithBadPXEMACAndBadMACAddress{PXEMAC: badPXEMAC{BadMACAddress: 42}},
+		expectedError: `unexpected pxe_mac\.mac_address format: Requested string, got float64\.`,
+	}, {
+		nodeData:      goodNode{PXEMAC: &pxeMAC{MACAddress: ""}},
+		expectedError: `pxe_mac\.mac_address is empty`,
+	}, {
+		nodeData:      goodNode{PXEMAC: &pxeMAC{MACAddress: "aa:bb:cc:dd:ee:f0"}},
+		expectedError: "",
+		expectedMAC:   "aa:bb:cc:dd:ee:f0",
+	}} {
+		c.Logf("test #%d: expecting error %q", i, test.expectedError)
+
+		embeddedNode, _ := test.nodeData.(nodeWithoutPXEMAC)
+		embeddedNode.SystemID = "node-foo"
+
+		jsonBytes, err := json.Marshal(test.nodeData)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		testObject := s.testMAASObject.TestServer.NewNode(string(jsonBytes))
+
+		resultMAC, err := getPXEMACAddressForMAASObject(&testObject)
+		if test.expectedError != "" {
+			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
+			c.Check(resultMAC, gc.Equals, "")
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(resultMAC, gc.Equals, test.expectedMAC)
+		}
+	}
+}
+
+func (s *interfacesSuite) TestFindPXEInterfaceSpaceSuccess(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "52:54:00:70:9b:fe")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundSpace, gc.Equals, "default")
+}
+
+func (s *interfacesSuite) TestFindPXEInterfaceSpaceSkipsExistingNonPhysicalNICs(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "52:54:00:70:9b:f1")
+	c.Assert(err, gc.ErrorMatches, `PXE interface with MAC address "52:54:00:70:9b:f1" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestFindPXEInterfaceSpaceWithMissingMAC(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "missing")
+	c.Assert(err, gc.ErrorMatches, `PXE interface with MAC address "missing" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithNilInterface(c *gc.C) {
+	foundSpace, err := findPXEInterfaceSpace(exampleInterfaces, "missing")
+	c.Assert(err, gc.ErrorMatches, `PXE interface with MAC address "missing" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithNoLinks(c *gc.C) {
+	pxeNIC := &maasInterface{
+		Name:       "ethX",
+		MACAddress: "a:b:c",
+		Links:      nil,
+	}
+
+	foundSpace, err := getPXEInterfaceSpace(pxeNIC)
+	c.Assert(err, gc.ErrorMatches, `PXE interface "ethX" \(a:b:c\) has no links`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithLinkNoSubnet(c *gc.C) {
+	pxeNIC := &maasInterface{
+		Name:       "ethX",
+		MACAddress: "a:b:c",
+		Links: []maasInterfaceLink{{
+			ID:     42,
+			Subnet: nil,
+		}},
+	}
+
+	foundSpace, err := getPXEInterfaceSpace(pxeNIC)
+	c.Assert(err, gc.ErrorMatches, `PXE interface "ethX" \(a:b:c\) link 42 has no subnet`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceWithNoSpaceOnSubnet(c *gc.C) {
+	pxeNIC := &maasInterface{
+		Name:       "ethX",
+		MACAddress: "a:b:c",
+		Links: []maasInterfaceLink{{
+			ID: 42,
+			Subnet: &maasSubnet{
+				CIDR:  "0.1.2.0/8",
+				Space: "",
+			},
+		}},
+	}
+
+	foundSpace, err := getPXEInterfaceSpace(pxeNIC)
+	c.Assert(err, gc.ErrorMatches, `PXE interface "ethX" \(a:b:c\) linked subnet "0.1.2.0/8" has no space`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(foundSpace, gc.Equals, "")
+}
+
+func (s *interfacesSuite) TestGetPXEInterfaceSpaceSuccess(c *gc.C) {
+	foundSpace, err := getPXEInterfaceSpace(&exampleInterfaces[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundSpace, gc.Equals, "default")
 }
 
 func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
@@ -479,7 +639,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       1,
-		MACAddress:        "52:54:00:70:9b:fe",
+		MACAddress:        "52:54:00:70:9b:f1",
 		CIDR:              "10.50.19.0/24",
 		NetworkName:       "juju-private",
 		ProviderId:        "150",
@@ -498,7 +658,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       2,
-		MACAddress:        "52:54:00:70:9b:fe",
+		MACAddress:        "52:54:00:70:9b:f2",
 		CIDR:              "10.100.19.0/24",
 		NetworkName:       "juju-private",
 		ProviderId:        "151",
@@ -517,7 +677,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       3,
-		MACAddress:        "52:54:00:70:9b:fe",
+		MACAddress:        "52:54:00:70:9b:f3",
 		CIDR:              "10.250.19.0/24",
 		NetworkName:       "juju-private",
 		ProviderId:        "152",

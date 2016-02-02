@@ -31,7 +31,6 @@ const (
 	MachinesC          = machinesC
 	NetworkInterfacesC = networkInterfacesC
 	ServicesC          = servicesC
-	EndpointBindingsC  = endpointBindingsC
 	SettingsC          = settingsC
 	UnitsC             = unitsC
 	UsersC             = usersC
@@ -54,7 +53,6 @@ var (
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 	ServiceGlobalKey       = serviceGlobalKey
-	MergeBindings          = mergeBindings
 )
 
 type (

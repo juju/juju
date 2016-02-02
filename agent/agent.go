@@ -164,6 +164,7 @@ const (
 	MongoOplogSize         = "MONGO_OPLOG_SIZE"
 	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
 	AllowsSecureConnection = "SECURE_STATESERVER_CONNECTION"
+	ControllerSpaceName    = "CONTROLLER_SPACE_NAME"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -594,17 +595,23 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	if c.apiDetails == nil {
 		return
 	}
+	// The second argument is ignored, because empty name is OK.
+	controllerSpace, _ := c.values[ControllerSpaceName]
+	logger.Debugf("controller space from agent config: %q", controllerSpace)
+
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		// Try the preferred approach first.
-		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
-		if ok {
-			addrs = append(addrs, serverHP.NetAddr())
-		} else {
-			// Fallback to the legacy approach.
-			hps := network.SelectInternalHostPorts(serverHostPorts, false)
-			addrs = append(addrs, hps...)
+		// Try the preferred approach first, if controllerSpace is set.
+		if controllerSpace != "" {
+			serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, controllerSpace)
+			if ok {
+				addrs = append(addrs, serverHP.NetAddr())
+				continue
+			}
 		}
+		// Fallback to the legacy approach.
+		hps := network.SelectInternalHostPorts(serverHostPorts, false)
+		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)

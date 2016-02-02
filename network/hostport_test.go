@@ -571,3 +571,55 @@ func (*HostPortSuite) makeHostPorts() []network.HostPort {
 		)...,
 	)
 }
+
+func (s *HostPortSuite) TestSelectHostPortBySpaceSuccess(c *gc.C) {
+	fooAddresses := network.NewAddressesOnSpace("foo", "0.1.2.3", "fc00::1/64")
+	fooHostPorts := network.AddressesWithPort(fooAddresses, 1234)
+
+	selected, ok := network.SelectHostPortBySpace(fooHostPorts, "foo")
+	c.Check(selected.String(), gc.Equals, "0.1.2.3:1234")
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *HostPortSuite) TestSelectHostPortBySpaceNotFound(c *gc.C) {
+	barAddresses := network.NewAddressesOnSpace("bar", "10.9.8.1", "2001:db8::42/64")
+	barHostPorts := network.AddressesWithPort(barAddresses, 1234)
+
+	selected, ok := network.SelectHostPortBySpace(barHostPorts, "foo")
+	c.Check(selected, jc.DeepEquals, network.HostPort{})
+	c.Check(ok, jc.IsFalse)
+}
+
+func (s *HostPortSuite) TestSelectHostPortBySpaceWithNoSpaceAddresses(c *gc.C) {
+	noSpaceAddresses := network.NewAddresses("hostname", "10.9.8.1", "2001:db8::42/64")
+	noSpaceHostPorts := network.AddressesWithPort(noSpaceAddresses, 1234)
+
+	selected, ok := network.SelectHostPortBySpace(noSpaceHostPorts, "foo")
+	c.Check(selected, jc.DeepEquals, network.HostPort{})
+	c.Check(ok, jc.IsFalse)
+
+	selected, ok = network.SelectHostPortBySpace(noSpaceHostPorts, "")
+	c.Check(selected.String(), gc.Equals, "hostname:1234")
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *HostPortSuite) TestSelectControllerHostPort(c *gc.C) {
+	// Add a few addresses without space before the onces with.
+	addressesWithSpace := network.NewAddressesOnSpace("controller", "0.1.2.3", "2001:db8::42/64")
+	addressesWithoutSpace := network.NewAddresses("127.0.0.1", "192.168.2.3", "8.8.8.8", "fc00::123/64")
+	mixedAddresses := append(addressesWithoutSpace, addressesWithSpace...)
+	mixedHostPorts := network.AddressesWithPort(mixedAddresses, 1234)
+
+	// First HostPort on space "controller" will be picked.
+	selected := network.SelectControllerHostPort("controller", mixedHostPorts, false)
+	c.Check(selected, gc.Equals, "0.1.2.3:1234")
+
+	// When space is empty falls back to selection by local-cloud scope.
+	selected = network.SelectControllerHostPort("", mixedHostPorts, false)
+	c.Check(selected, gc.Equals, "192.168.2.3:1234")
+
+	// With no HostPorts on the given space, also falls back to scope seleciton,
+	// but can also pick local-machine addresses.
+	selected = network.SelectControllerHostPort("missing", mixedHostPorts, true)
+	c.Check(selected, gc.Equals, "127.0.0.1:1234")
+}

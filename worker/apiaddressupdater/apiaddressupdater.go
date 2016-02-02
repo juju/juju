@@ -21,8 +21,9 @@ var logger = loggo.GetLogger("juju.worker.apiaddressupdater")
 // In practice, APIAddressUpdater is used by a machine agent to watch
 // API addresses in state and write the changes to the agent's config file.
 type APIAddressUpdater struct {
-	addresser APIAddresser
-	setter    APIAddressSetter
+	addresser       APIAddresser
+	setter          APIAddressSetter
+	controllerSpace string
 }
 
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
@@ -41,10 +42,11 @@ type APIAddressSetter interface {
 // NewAPIAddressUpdater returns a worker.Worker that watches for changes to
 // API addresses and then sets them on the APIAddressSetter.
 // TODO(fwereade): this should have a config struct, and some validation.
-func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter) (worker.Worker, error) {
+func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter, controllerSpace string) (worker.Worker, error) {
 	handler := &APIAddressUpdater{
-		addresser: addresser,
-		setter:    setter,
+		addresser:       addresser,
+		setter:          setter,
+		controllerSpace: controllerSpace,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: handler,
@@ -70,15 +72,16 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	// Filter out any LXC bridge addresses. See LP bug #1416928.
 	hpsToSet := make([][]network.HostPort, 0, len(addresses))
 	for _, hostPorts := range addresses {
-		// First try to keep only addresses in the default space where all API servers are on.
-		defaultSpaceHP, ok := network.SelectHostPortBySpace(hostPorts, network.DefaultSpace)
-		if ok {
-			hpsToSet = append(hpsToSet, []network.HostPort{defaultSpaceHP})
-			continue
-		} else {
-			// As a fallback, use the old behavior.
-			logger.Warningf("cannot determine API addresses by space %q (using all as fallback)", network.DefaultSpace)
+		// First try to keep only addresses in the controller space (if set), where all API servers are on.
+		if c.controllerSpace != "" {
+			serverHP, ok := network.SelectHostPortBySpace(hostPorts, c.controllerSpace)
+			if ok {
+				hpsToSet = append(hpsToSet, []network.HostPort{serverHP})
+				continue
+			}
 		}
+		// As a fallback, use the old behavior.
+		logger.Debugf("cannot determine API host:ports by controller space %q: using all addresses instead: %+v", c.controllerSpace, hostPorts)
 
 		// Strip ports, filter, then add ports again.
 		filtered := network.FilterLXCAddresses(network.HostsWithoutPort(hostPorts))

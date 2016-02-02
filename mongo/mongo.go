@@ -78,22 +78,22 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 }
 
 // SelectPeerAddress returns the address to use as the mongo replica set peer
-// address by selecting it from the given addresses. If no addresses are
-// available an empty string is returned.
-func SelectPeerAddress(addrs []network.Address) string {
-	logger.Debugf("selecting mongo peer address from %+v", addrs)
+// address by selecting it from the given list of addresses and controllerSpace.
+// If no addresses are available an empty string is returned.
+func SelectPeerAddress(controllerSpace string, addrs []network.Address) string {
+	logger.Debugf("selecting mongo peer address (with controller space %q) from %+v", controllerSpace, addrs)
 	// ScopeMachineLocal addresses are OK if we can't pick by space, also the
 	// second bool return is ignored intentionally.
-	addr, _ := network.SelectControllerAddress(addrs, true)
+	addr, _ := network.SelectControllerAddress(controllerSpace, addrs, true)
 	return addr.Value
 }
 
 // SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
-func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	logger.Debugf("selecting mongo peer hostPort from %+v", hostPorts)
+func SelectPeerHostPort(controllerSpace string, hostPorts []network.HostPort) string {
+	logger.Debugf("selecting mongo peer host:port (with controller space %q) from %+v", controllerSpace, hostPorts)
 	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	return network.SelectControllerHostPort(hostPorts, true)
+	return network.SelectControllerHostPort(controllerSpace, hostPorts, true)
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)

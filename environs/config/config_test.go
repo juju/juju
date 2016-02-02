@@ -1009,6 +1009,51 @@ var configTests = []configTest{
 			"identity-public-key": "o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=",
 		},
 	},
+	{
+		about:       "UseDefaults: explicitly empty controller-space not allowed",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": "",
+		},
+		err: `empty controller-space in environment configuration`,
+	},
+	{
+		about:       "No defaults: explicitly empty controller-space not allowed",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.Merge(testing.Attrs{"controller-space": ""}),
+		err:         `empty controller-space in environment configuration`,
+	},
+	{
+		about:       "Explicit and valid controller space",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": "juju-controllers",
+		},
+	},
+	{
+		about:       "Invalid controller space - not a string",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": 42,
+		},
+		err: `controller-space: expected string, got int\(42\)`,
+	},
+	{
+		about:       "Invalid controller space - not a valid space name",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":             "my-type",
+			"name":             "my-name",
+			"controller-space": "bad name",
+		},
+		err: `cannot set controller-space to "bad name": not a valid space name`,
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1231,6 +1276,15 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		err := pk.UnmarshalText([]byte(identityPublicKey.(string)))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.IdentityPublicKey(), gc.DeepEquals, &pk)
+	}
+
+	explicitControllerSpace, spaceSet := cfg.ControllerSpaceName()
+	if controllerSpace, ok := test.attrs["controller-space"]; ok {
+		c.Assert(explicitControllerSpace, gc.Equals, controllerSpace)
+		c.Assert(spaceSet, jc.IsTrue)
+	} else {
+		c.Assert(explicitControllerSpace, gc.Equals, "")
+		c.Assert(spaceSet, jc.IsFalse)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -1574,6 +1628,14 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
 	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
 	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
+}, {
+	about: "Cannot change controller-space once set",
+	old:   testing.Attrs{"controller-space": "myspace"},
+	new:   testing.Attrs{"controller-space": "yourspace"},
+	err:   "cannot change controller-space from \"myspace\" to \"yourspace\"",
+}, {
+	about: "Can set controller-space explicitly",
+	new:   testing.Attrs{"controller-space": "myspace"},
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {

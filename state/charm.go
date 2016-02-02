@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -298,4 +299,42 @@ func (c *Charm) IsUploaded() bool {
 // rather than representing a deployed charm.
 func (c *Charm) IsPlaceholder() bool {
 	return c.doc.Placeholder
+}
+
+func getAllCharmEndpointNames(charmMeta *charm.Meta) (set.Strings, error) {
+	combinedEndpoints, err := CombinedCharmRelations(charmMeta)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all charm endpoints")
+	}
+
+	namesSet := set.NewStrings()
+	for name, _ := range combinedEndpoints {
+		namesSet.Add(name)
+	}
+	return namesSet, nil
+}
+
+// CombinedCharmRelations returns the relations defined in the given charm
+// metadata (from Provides, Requires, and Peers) in a single map. This works
+// because charm relation names must be unique regarless of their kind. Returns
+// an error if charmMeta is nil
+//
+// TODO(dimitern): 2015-11-27 bug http://pad.lv/1520623
+// This should be moved directly into the charm repo, as it's
+// generally useful.
+func CombinedCharmRelations(charmMeta *charm.Meta) (map[string]charm.Relation, error) {
+	if charmMeta == nil {
+		return nil, errors.Errorf("nil charm metadata")
+	}
+	combined := make(map[string]charm.Relation)
+	for name, relation := range charmMeta.Provides {
+		combined[name] = relation
+	}
+	for name, relation := range charmMeta.Requires {
+		combined[name] = relation
+	}
+	for name, relation := range charmMeta.Peers {
+		combined[name] = relation
+	}
+	return combined, nil
 }

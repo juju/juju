@@ -1172,6 +1172,16 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	createEndpointBindingsOp, err := prepareAddServiceArgsEndpointBindingsOp(st, args)
+	if err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Warningf("ignoring service %q bindings: %v", args.Name, err)
+		} else {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
@@ -1272,14 +1282,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
-	endpointBindingsOp, err := createEndpointBindingsOp(
-		st, svc.globalKey(),
-		args.EndpointBindings, args.Charm.Meta(),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	statusDoc := statusDoc{
 		EnvUUID: st.EnvironUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
@@ -1300,7 +1302,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// TODO(dimitern): Drop requested networks across the board in a
 		// follow-up.
 		createRequestedNetworksOp(st, svc.globalKey(), nil),
-		endpointBindingsOp,
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
@@ -1320,6 +1321,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		},
 	}
 
+	if createEndpointBindingsOp.C != "" {
+		// Only add it if we can use it.
+		ops = append(ops, createEndpointBindingsOp)
+	}
 	// Collect peer relation addition operations.
 	//
 	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
@@ -2337,6 +2342,21 @@ func SetSystemIdentity(st *State, identity string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ControllerSpaceName reads the controller-space setting using the given
+// configGetter and returns it. It returns an error satisfying
+// errors.IsNotFound() if the setting is empty.
+func ControllerSpaceName(configGetter EnvironConfigGetter) (string, error) {
+	envConfig, err := configGetter.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot read environment config")
+	}
+	controllerSpace, isSet := envConfig.ControllerSpaceName()
+	if !isSet || controllerSpace == "" {
+		return "", errors.NotFoundf("controller-space setting")
+	}
+	return controllerSpace, nil
 }
 
 var tagPrefix = map[byte]string{

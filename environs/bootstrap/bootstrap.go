@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
@@ -71,6 +72,12 @@ type BootstrapParams struct {
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
+
+	// ControllerSpaceName, if non-empty, overrides the default space name to
+	// use for unspecified service endpoint bindings and to pick API/state
+	// endpoints. It's an error to specify it, if the provider does not support
+	// spaces.
+	ControllerSpaceName string
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -105,25 +112,25 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		var err error
 		customImageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	if err := validateConstraints(environ, args.EnvironConstraints); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	constraintsValidator, err := environ.ConstraintsValidator()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	bootstrapConstraints, err := constraintsValidator.Merge(
 		args.EnvironConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
@@ -144,7 +151,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if errors.IsNotFound(err) {
 		return errors.New(noToolsMessage)
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
@@ -156,6 +163,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		&customImageMetadata,
 	)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := validateControllerSpace(ctx, environ, args.ControllerSpaceName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -171,22 +182,23 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": agentVersion.String(),
 	}); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err = environ.SetConfig(cfg); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ctx.Infof("Starting new instance for initial state server")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		EnvironConstraints:   args.EnvironConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
+		ControllerSpaceName:  args.ControllerSpaceName,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
 	})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	matchingTools, err := availableTools.Match(coretools.Filter{
@@ -194,11 +206,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		Series: result.Series,
 	})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	selectedTools, err := setBootstrapTools(environ, matchingTools)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if selectedTools.URL == "" {
 		if !args.UploadTools {
@@ -219,20 +231,46 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	ctx.Infof("Installing Juju agent on bootstrap instance")
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		args.BootstrapConstraints, args.EnvironConstraints, result.Series, publicKey,
 	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = customImageMetadata
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	ctx.Infof("Bootstrap agent installed")
+	return nil
+}
+
+func validateControllerSpace(ctx environs.BootstrapContext, environ environs.Environ, controllerSpaceName string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot use %q as controller space", controllerSpaceName)
+
+	if controllerSpaceName == "" {
+		return nil
+	}
+
+	if !names.IsValidSpace(controllerSpaceName) {
+		return errors.NewNotValid(nil, "not a valid space name")
+	}
+
+	networkingEnviron, supportsNetworking := environs.SupportsNetworking(environ)
+	if !supportsNetworking || networkingEnviron == nil {
+		return errors.NewNotSupported(nil, "no networking support by the provider")
+	}
+
+	if supported, perr := networkingEnviron.SupportsSpaces(); !supported && perr == nil {
+		return errors.NewNotSupported(nil, "spaces not supported by the provider")
+	} else if perr != nil {
+		return errors.NewNotSupported(perr, "provider error")
+	}
+
+	ctx.Infof("Using %q as the juju controller space", controllerSpaceName)
 	return nil
 }
 
@@ -352,7 +390,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 			err = environ.SetConfig(cfg)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
+			return nil, errors.Annotate(err, "failed to update environment configuration")
 		}
 	}
 	bootstrapVersion := newVersion
@@ -431,13 +469,13 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	validator, err := env.ConstraintsValidator()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf("unsupported constraints: %v", unsupported)
 	}
-	return err
+	return errors.Trace(err)
 }
 
 // EnsureNotBootstrapped returns nil if the environment is not
@@ -460,5 +498,5 @@ func EnsureNotBootstrapped(env environs.Environ) error {
 	case environs.ErrNotBootstrapped:
 		return nil
 	}
-	return err
+	return errors.Trace(err)
 }
