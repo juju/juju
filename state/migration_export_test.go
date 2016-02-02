@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -113,4 +114,31 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(containers, gc.HasLen, 1)
 	container := containers[0]
 	c.Assert(container.Id(), gc.Equals, nested.MachineTag())
+}
+
+func (s *MigrationExportSuite) TestServices(c *gc.C) {
+	service := s.Factory.MakeService(c, nil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	services := model.Services()
+	c.Assert(services, gc.HasLen, 1)
+
+	exported := services[0]
+	c.Assert(exported.Name(), gc.Equals, service.Name())
+	c.Assert(exported.Tag(), gc.Equals, service.ServiceTag())
+	c.Assert(exported.Series(), gc.Equals, service.Series())
+}
+
+func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
+	s.Factory.MakeService(c, &factory.ServiceParams{Name: "first"})
+	s.Factory.MakeService(c, &factory.ServiceParams{Name: "second"})
+	s.Factory.MakeService(c, &factory.ServiceParams{Name: "third"})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	services := model.Services()
+	c.Assert(services, gc.HasLen, 3)
 }

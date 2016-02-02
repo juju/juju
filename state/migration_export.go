@@ -54,6 +54,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.services(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -257,6 +260,33 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) migration.CloudInstan
 		inst.AvailabilityZone = *data.AvailZone
 	}
 	return inst
+}
+
+func (e *exporter) services() error {
+	services, err := e.st.AllServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("found %d services", len(services))
+	for _, service := range services {
+		args := migration.ServiceArgs{
+			Tag:         service.ServiceTag(),
+			Series:      service.doc.Series,
+			Subordinate: service.doc.Subordinate,
+			CharmURL:    service.doc.CharmURL.String(),
+			ForceCharm:  service.doc.ForceCharm,
+			Exposed:     service.doc.Exposed,
+			MinUnits:    service.doc.MinUnits,
+		}
+		exService := e.model.AddService(args)
+		// Find the current service status.
+		statusArgs, err := e.statusArgs(service.globalKey())
+		if err != nil {
+			return errors.Annotatef(err, "status for service %s", service.Name())
+		}
+		exService.SetStatus(statusArgs)
+	}
+	return nil
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {

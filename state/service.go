@@ -67,6 +67,12 @@ func (s *Service) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (s *Service) Tag() names.Tag {
+	return s.ServiceTag()
+}
+
+// ServiceTag returns the more specific ServiceTag rather than the generic
+// Tag.
+func (s *Service) ServiceTag() names.ServiceTag {
 	return names.NewServiceTag(s.Name())
 }
 
@@ -89,6 +95,11 @@ func serviceSettingsKey(serviceName string, curl *charm.URL) string {
 // key for the service.
 func (s *Service) settingsKey() string {
 	return serviceSettingsKey(s.doc.Name, s.doc.CharmURL)
+}
+
+// Series returns the specified series for this charm.
+func (s *Service) Series() string {
+	return s.doc.Series
 }
 
 // Life returns whether the service is Alive, Dying or Dead.
