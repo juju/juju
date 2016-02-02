@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )
@@ -37,11 +38,12 @@ func (s *stubRawState) Storage() Storage {
 type stubPersistence struct {
 	stub *testing.Stub
 
-	ReturnListResources        resource.ServiceResources
-	ReturnListPendingResources []resource.Resource
-	ReturnGetResource          resource.Resource
-	ReturnGetResourcePath      string
-	ReturnStageResource        *stubStagedResource
+	ReturnListResources                resource.ServiceResources
+	ReturnListPendingResources         []resource.Resource
+	ReturnGetResource                  resource.Resource
+	ReturnGetResourcePath              string
+	ReturnStageResource                *stubStagedResource
+	ReturnNewResolvePendingResourceOps []txn.Op
 }
 
 func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
@@ -96,6 +98,15 @@ func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) 
 	}
 
 	return nil
+}
+
+func (s *stubPersistence) NewResolvePendingResourceOps(oldID, newID, serviceID, pendingID string) ([]txn.Op, error) {
+	s.stub.AddCall("NewResolvePendingResourceOps", oldID, newID, serviceID, pendingID)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnNewResolvePendingResourceOps, nil
 }
 
 type stubStagedResource struct {

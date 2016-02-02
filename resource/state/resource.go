@@ -3,6 +3,8 @@
 
 package state
 
+// TODO(ericsnow) Figure out a way to drop the txn dependency here?
+
 import (
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )
@@ -40,6 +43,10 @@ type resourcePersistence interface {
 
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
+
+	// NewResolvePendingResourceOps generates mongo transaction operations
+	// to set the identified resource as active.
+	NewResolvePendingResourceOps(oldID, newID, serviceID, pendingID string) ([]txn.Op, error)
 }
 
 // StagedResource represents resource info that has been added to the
@@ -242,6 +249,13 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// NewResolvePendingResourceOps generates mongo transaction operations
+// to set the identified resource as active.
+func (st resourceState) NewResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
+	resID := newResourceID(serviceID, name)
+	return st.persist.NewResolvePendingResourceOps(resID, resID, serviceID, pendingID)
 }
 
 // TODO(ericsnow) Incorporate the service and resource name into the ID
