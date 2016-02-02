@@ -79,7 +79,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
 		ModelUUID:   "environment uuid",
 	}
@@ -92,11 +92,11 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			EnvironmentUUID: "environment uuid",
-			CharmURL:        "local:quantal/metered-1",
+			CharmURL:        "cs:quantal/metered-1",
 			ServiceName:     "service name",
 			PlanURL:         "someplan",
 		}},
@@ -108,7 +108,7 @@ func (s *registrationSuite) TestMeteredLocalCharm(c *gc.C) {
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
-		EnvUUID:     "environment uuid",
+		ModelUUID:   "environment uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,7 +162,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		ServiceName: "service name",
 		ModelUUID:   "environment uuid",
 	}
-	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, d)
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},

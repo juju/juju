@@ -36,8 +36,10 @@ func (a *AllocateBudget) SetFlags(f *gnuflag.FlagSet) {
 
 // RunPre is part of the DeployStep interface.
 func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+	if deployInfo.CharmURL.Schema == "local" {
+		return nil
+	}
 	charmsClient := charms.NewClient(state)
-	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
@@ -45,7 +47,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 		logger.Tracef("current state server version does not support charm metering")
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Annotate(err, "could not determine charm type")
 	}
 	if !metered {
 		return nil
@@ -57,7 +59,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	}
 	a.APIClient, err = getApiClient(client)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "could not create API client")
 	}
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {

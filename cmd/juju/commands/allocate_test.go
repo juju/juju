@@ -39,7 +39,7 @@ func (s *allocationSuite) SetUpTest(c *gc.C) {
 func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -48,17 +48,32 @@ func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
 	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "Allocation created.\n")
 }
 
-func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
+func (s *allocationSuite) TestLocalCharm(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		ServiceName: "service name",
+		ModelUUID:   "model uuid",
+	}
+	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{})
+	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "")
+}
+
+func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -69,7 +84,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}})
 
 }
@@ -77,7 +92,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -86,7 +101,7 @@ func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, errors.New("deployment failed"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}}}, {
 		"DeleteAllocation", []interface{}{"model uuid", "service name"}},
@@ -97,7 +112,7 @@ func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient().Client
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/unmetered-1"),
+		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
 		ServiceName: "service name",
 		ModelUUID:   "environment uuid",
 	}
@@ -106,7 +121,7 @@ func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/unmetered-1"}},
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/unmetered-1"}},
 	}})
 }
 

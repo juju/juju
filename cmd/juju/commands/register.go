@@ -47,7 +47,6 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		return nil
 	}
 	charmsClient := charms.NewClient(state)
-	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
