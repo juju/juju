@@ -72,7 +72,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
@@ -482,6 +481,8 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:       upgrades.PreUpgradeSteps,
 			ShouldWriteProxyFiles: shouldWriteProxyFiles,
 			LogSource:             a.bufferedLogs,
+			MachineID:             a.machineId,
+			BootstrapMachineID:    bootstrapMachineId,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -745,19 +746,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 		return w, nil
 	})
-
-	// If not a local provider bootstrap machine, start the worker to
-	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || a.machineId != bootstrapMachineId {
-		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-			w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
-			}
-			return w, nil
-		})
-	}
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {

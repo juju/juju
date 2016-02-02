@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
@@ -346,11 +345,6 @@ func (st *state) Addresser() *addresser.API {
 // Environment returns access to the Environment API
 func (st *state) Environment() *environment.Facade {
 	return environment.NewFacade(st)
-}
-
-// KeyUpdater returns access to the KeyUpdater API
-func (st *state) KeyUpdater() *keyupdater.State {
-	return keyupdater.NewState(st)
 }
 
 // InstancePoller returns access to the InstancePoller API
