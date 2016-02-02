@@ -21,22 +21,22 @@ type State struct {
 	facade base.FacadeCaller
 	scope  names.Tag
 
-	*common.EnvironWatcher
+	*common.ModelWatcher
 }
 
 // NewState creates a new client-side StorageProvisioner facade.
 func NewState(caller base.APICaller, scope names.Tag) (*State, error) {
 	switch scope.(type) {
-	case names.EnvironTag:
+	case names.ModelTag:
 	case names.MachineTag:
 	default:
-		return nil, errors.Errorf("expected EnvironTag or MachineTag, got %T", scope)
+		return nil, errors.Errorf("expected ModelTag or MachineTag, got %T", scope)
 	}
 	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
 	return &State{
 		facadeCaller,
 		scope,
-		common.NewEnvironWatcher(facadeCaller),
+		common.NewModelWatcher(facadeCaller),
 	}, nil
 }
 

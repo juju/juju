@@ -476,7 +476,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

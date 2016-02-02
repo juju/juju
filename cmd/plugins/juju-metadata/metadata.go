@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.plugins.metadata")
 
 var metadataDoc = `
 Juju metadata is used to find the correct image and tools when bootstrapping a
-Juju environment.
+Juju model.
 `
 
 // Main registers subcommands for the juju-metadata executable, and hands over control

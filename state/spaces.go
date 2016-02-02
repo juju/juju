@@ -23,7 +23,7 @@ type Space struct {
 
 type spaceDoc struct {
 	DocID      string `bson:"_id"`
-	EnvUUID    string `bson:"env-uuid"`
+	ModelUUID  string `bson:"model-uuid"`
 	Life       Life   `bson:"life"`
 	Name       string `bson:"name"`
 	IsPublic   bool   `bson:"is-public"`
@@ -87,11 +87,11 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
 		DocID:      spaceID,
-		EnvUUID:    st.EnvironUUID(),
+		ModelUUID:  st.ModelUUID(),
 		Life:       Alive,
 		Name:       name,
-		ProviderId: string(providerId),
 		IsPublic:   isPublic,
+		ProviderId: string(providerId),
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
@@ -153,7 +153,7 @@ func (st *State) Space(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// AllSpaces returns all spaces for the environment.
+// AllSpaces returns all spaces for the model.
 func (st *State) AllSpaces() ([]*Space, error) {
 	spacesCollection, closer := st.getCollection(spacesC)
 	defer closer()

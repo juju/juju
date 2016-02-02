@@ -324,11 +324,6 @@ func containerManagerConfig(
 	managerConfigResult, err := provisioner.ContainerManagerConfig(
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
-	if params.IsCodeNotImplemented(err) {
-		// We currently don't support upgrading;
-		// revert to the old configuration.
-		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: container.DefaultNamespace}
-	}
 	if err != nil {
 		return nil, err
 	}

@@ -23,8 +23,6 @@ type Client struct {
 // NewClient creates a new client for accessing the storage API.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Storage")
-	logger.Debugf("\nSTORAGE FRONT-END: %#v", frontend)
-	logger.Debugf("\nSTORAGE BACK-END: %#v", backend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 

@@ -32,7 +32,7 @@ type logsinkBaseSuite struct {
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/environment/"+s.State.EnvironUUID()+"/logsink", nil)
+	return s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
 }
 
 type logsinkSuite struct {
@@ -59,8 +59,8 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
-	reader := s.openWebsocketCustomPath(c, "/environment/does-not-exist/logsink")
-	assertJSONError(c, reader, `unknown environment: "does-not-exist"`)
+	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
+	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -145,9 +145,9 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check the recorded logs are correct.
-	envUUID := s.State.EnvironUUID()
+	modelUUID := s.State.ModelUUID()
 	c.Assert(docs[0]["t"].(time.Time).Sub(t0), gc.Equals, time.Duration(0))
-	c.Assert(docs[0]["e"], gc.Equals, envUUID)
+	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:42")
@@ -155,7 +155,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"].(time.Time).Sub(t1), gc.Equals, time.Duration(0))
-	c.Assert(docs[1]["e"], gc.Equals, envUUID)
+	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:99")
@@ -182,8 +182,8 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	logPath := filepath.Join(s.LogDir, "logsink.log")
 	logContents, err := ioutil.ReadFile(logPath)
 	c.Assert(err, jc.ErrorIsNil)
-	line0 := envUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
-	line1 := envUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
+	line0 := modelUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
+	line1 := modelUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
 	c.Assert(string(logContents), gc.Equals, line0+line1)
 
 	// Check the file mode is as expected. This doesn't work on

@@ -11,7 +11,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.machine")
 
 const machineCommandDoc = `
-"juju machine" provides commands to add and remove machines in the Juju environment.
+"juju machine" provides commands to add and remove machines in the Juju model.
 `
 
 const machineCommandPurpose = "manage machines"

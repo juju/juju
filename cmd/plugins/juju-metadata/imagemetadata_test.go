@@ -153,7 +153,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234", "--virt-type=pv", "--storage=root"})
+		newImageMetadataCommand(), ctx, []string{"-d", s.dir, "-m", "ec2", "-i", "1234", "--virt-type=pv", "--storage=root"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
@@ -171,7 +171,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-e", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234"})
+			"-d", s.dir, "-m", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
@@ -187,7 +187,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-e", "azure", "-r", "region", "-u", "endpoint", "-i", "1234"})
+			"-d", s.dir, "-m", "azure", "-r", "region", "-u", "endpoint", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
@@ -217,8 +217,8 @@ var errTests = []errTestParams{
 		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
 	},
 	{
-		// Missing endpoint/region for environment with no HasRegion interface
-		args: []string{"-i", "1234", "-e", "azure"},
+		// Missing endpoint/region for model with no HasRegion interface
+		args: []string{"-i", "1234", "-m", "azure"},
 	},
 }
 

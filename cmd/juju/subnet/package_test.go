@@ -122,7 +122,7 @@ func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
 	cmdInfo := s.superCmd.Info()
 	var expected string
 	if s.command != nil {
-		// Subcommands embed EnvCommandBase and have an extra
+		// Subcommands embed ModelCommandBase and have an extra
 		// "[options]" prepended before the args.
 		cmdInfo = s.command.Info()
 		expected = "(?sm).*^usage: juju subnet " +

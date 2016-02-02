@@ -896,7 +896,7 @@ cacert: |
   -----END CERTIFICATE-----
 stateaddresses:
 - state-addr.testing.invalid:12345
-environment: environment-deadbeef-0bad-400d-8000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 apiaddresses:
 - state-addr.testing.invalid:54321
 oldpassword: arble

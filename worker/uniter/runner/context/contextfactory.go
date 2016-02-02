@@ -68,7 +68,7 @@ type contextFactory struct {
 
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
-	envUUID    string
+	modelUUID  string
 	envName    string
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
@@ -103,7 +103,7 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	environment, err := state.Environment()
+	model, err := state.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,8 +112,8 @@ func NewContextFactory(
 		state:            state,
 		tracker:          tracker,
 		paths:            paths,
-		envUUID:          environment.UUID(),
-		envName:          environment.Name(),
+		modelUUID:        model.UUID(),
+		envName:          model.Name(),
 		machineTag:       machineTag,
 		getRelationInfos: getRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
@@ -140,7 +140,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		unit:               f.unit,
 		state:              f.state,
 		LeadershipContext:  leadershipContext,
-		uuid:               f.envUUID,
+		uuid:               f.modelUUID,
 		envName:            f.envName,
 		unitName:           f.unit.Name(),
 		assignedMachineTag: f.machineTag,
@@ -277,7 +277,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
-	environConfig, err := f.state.EnvironConfig()
+	environConfig, err := f.state.ModelConfig()
 	if err != nil {
 		return err
 	}

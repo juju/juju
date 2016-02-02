@@ -189,7 +189,7 @@ func (s *poolSuite) TestListFilterValidProviders(c *gc.C) {
 }
 
 func (s *poolSuite) TestListFilterUnregisteredProvider(c *gc.C) {
-	s.state.envName = "noprovidersregistered"
+	s.state.modelName = "noprovidersregistered"
 	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
 		[]string{validProvider})
@@ -257,5 +257,5 @@ func (s *poolSuite) TestListFilterInvalidProvidersAndNames(c *gc.C) {
 }
 
 func (s *poolSuite) registerProviders(c *gc.C) {
-	registry.RegisterEnvironStorageProviders(s.state.envName, "dummy")
+	registry.RegisterEnvironStorageProviders(s.state.modelName, "dummy")
 }

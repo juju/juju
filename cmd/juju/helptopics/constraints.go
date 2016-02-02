@@ -15,18 +15,18 @@ machine used may exceed these specifications if one that exactly matches does
 not exist.
 
 If a constraint is defined that cannot be fulfilled by any machine in the
-environment, no machine will be provisioned, and an error will be printed in the
+model, no machine will be provisioned, and an error will be printed in the
 machine's entry in juju status.
 
-Constraint defaults can be set on an environment or on specific services by
+Constraint defaults can be set on an model or on specific services by
 using the set-constraints command (see juju help set-constraints).  Constraints
-set on the environment or on a service can be viewed by using the get-
+set on the model or on a service can be viewed by using the get-
 constraints command.  In addition, you can specify constraints when executing a
 command by using the --constraints flag (for commands that support it).
 
-Constraints specified on the environment and service will be combined to
+Constraints specified on the model and service will be combined to
 determine the full list of constraints on the machine(s) to be provisioned by
-the command.  Service-specific constraints will override environment-specific
+the command.  Service-specific constraints will override model-specific
 constraints, which override the juju default constraints.
 
 Constraints are specified as key value pairs separated by an equals sign, with
@@ -76,13 +76,13 @@ cpu-power
    Cpu-power is a whole number that defines the speed of the machine's CPU,
    where 100 CpuPower is considered to be equivalent to 1 Amazon ECU (or,
    roughly, a single 2007-era Xeon).  Cpu-power is currently only supported by
-   the Amazon EC2 environment.
+   the Amazon EC2 model.
 
 tags
    Tags defines the list of tags that the machine must have applied to it.
    Multiple tags must be delimited by a comma. Both positive and negative
    tags constraints are supported, the latter have a "^" prefix. Tags are
-   currently only supported by the MaaS environment.
+   currently only supported by the MaaS model.
 
 spaces
    Spaces constraint allows specifying a list of Juju network space names a unit

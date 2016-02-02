@@ -57,11 +57,11 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
-		Scope:       coretesting.EnvironmentTag,
+		Scope:       coretesting.ModelTag,
 		Volumes:     newMockVolumeAccessor(),
 		Filesystems: newMockFilesystemAccessor(),
 		Life:        &mockLifecycleManager{},
-		Environ:     newMockEnvironAccessor(c),
+		Environ:     newMockModelAccessor(c),
 		Machines:    newMockMachineAccessor(c),
 		Status:      &mockStatusSetter{},
 		Clock:       &mockClock{},
@@ -1074,7 +1074,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	}})
 }
 
-func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
+func (s *storageProvisionerSuite) TestUpdateModelConfig(c *gc.C) {
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
 	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
@@ -1716,9 +1716,9 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	switch args.scope.(type) {
 	case names.MachineTag:
 		storageDir = "storage-dir"
-	case names.EnvironTag:
+	case names.ModelTag:
 	case nil:
-		args.scope = coretesting.EnvironmentTag
+		args.scope = coretesting.ModelTag
 	}
 	if args.volumes == nil {
 		args.volumes = newMockVolumeAccessor()
@@ -1730,7 +1730,7 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.life = &mockLifecycleManager{}
 	}
 	if args.environ == nil {
-		args.environ = newMockEnvironAccessor(c)
+		args.environ = newMockModelAccessor(c)
 	}
 	if args.machines == nil {
 		args.machines = newMockMachineAccessor(c)
@@ -1761,7 +1761,7 @@ type workerArgs struct {
 	volumes      *mockVolumeAccessor
 	filesystems  *mockFilesystemAccessor
 	life         *mockLifecycleManager
-	environ      *mockEnvironAccessor
+	environ      *mockModelAccessor
 	machines     *mockMachineAccessor
 	clock        clock.Clock
 	statusSetter *mockStatusSetter

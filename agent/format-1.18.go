@@ -40,7 +40,7 @@ type format_1_18Serialization struct {
 	StateAddresses []string `yaml:",omitempty"`
 	StatePassword  string   `yaml:",omitempty"`
 
-	Environment  string   `yaml:",omitempty"`
+	Model        string   `yaml:",omitempty"`
 	APIAddresses []string `yaml:",omitempty"`
 	APIPassword  string   `yaml:",omitempty"`
 
@@ -83,9 +83,9 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
-	var envTag names.EnvironTag
-	if format.Environment != "" {
-		envTag, err = names.ParseEnvironTag(format.Environment)
+	var modelTag names.ModelTag
+	if format.Model != "" {
+		modelTag, err = names.ParseModelTag(format.Model)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -100,7 +100,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
-		environment:       envTag,
+		model:             modelTag,
 		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
@@ -152,9 +152,9 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 }
 
 func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
-	var envTag string
-	if config.environment.Id() != "" {
-		envTag = config.environment.String()
+	var modelTag string
+	if config.model.Id() != "" {
+		modelTag = config.model.String()
 	}
 	format := &format_1_18Serialization{
 		Tag:               config.tag.String(),
@@ -164,7 +164,7 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,
-		Environment:       envTag,
+		Model:             modelTag,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
 		Values:            config.values,

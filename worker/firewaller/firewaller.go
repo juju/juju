@@ -30,7 +30,7 @@ type Firewaller struct {
 	catacomb        catacomb.Catacomb
 	st              *firewaller.State
 	environ         environs.Environ
-	environWatcher  watcher.NotifyWatcher
+	modelWatcher    watcher.NotifyWatcher
 	machinesWatcher watcher.StringsWatcher
 	portsWatcher    watcher.StringsWatcher
 	machineds       map[names.MachineTag]*machineData
@@ -67,18 +67,18 @@ func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
 
 func (fw *Firewaller) setUp() error {
 	var err error
-	fw.environWatcher, err = fw.st.WatchForEnvironConfigChanges()
+	fw.modelWatcher, err = fw.st.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := fw.catacomb.Add(fw.environWatcher); err != nil {
+	if err := fw.catacomb.Add(fw.modelWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
 	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = environ.WaitForEnviron(fw.environWatcher, fw.st, fw.catacomb.Dying())
+	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, fw.catacomb.Dying())
 	if err != nil {
 		if err == environ.ErrWaitAborted {
 			return fw.catacomb.ErrDying()
@@ -96,7 +96,7 @@ func (fw *Firewaller) setUp() error {
 		return errors.Errorf("firewaller is disabled when firewall-mode is %q", config.FwNone)
 	}
 
-	fw.machinesWatcher, err = fw.st.WatchEnvironMachines()
+	fw.machinesWatcher, err = fw.st.WatchModelMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -126,12 +126,12 @@ func (fw *Firewaller) loop() error {
 		select {
 		case <-fw.catacomb.Dying():
 			return fw.catacomb.ErrDying()
-		case _, ok := <-fw.environWatcher.Changes():
+		case _, ok := <-fw.modelWatcher.Changes():
 			logger.Debugf("got environ config changes")
 			if !ok {
 				return errors.New("environment configuration watcher closed")
 			}
-			config, err := fw.st.EnvironConfig()
+			config, err := fw.st.ModelConfig()
 			if err != nil {
 				return errors.Trace(err)
 			}

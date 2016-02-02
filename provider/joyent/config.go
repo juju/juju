@@ -181,7 +181,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 				envConfig.attrs[field] = localEnvVariable
 			} else {
 				if field != privateKeyPath {
-					return nil, fmt.Errorf("cannot get %s value from environment variable %s", field, envVar)
+					return nil, fmt.Errorf("cannot get %s value from model variable %s", field, envVar)
 				}
 			}
 		}

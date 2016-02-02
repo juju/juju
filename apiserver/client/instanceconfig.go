@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
@@ -20,7 +20,7 @@ import (
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
-	environConfig, err := st.EnvironConfig()
+	environConfig, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -43,9 +43,9 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	// Find the appropriate tools information.
 	agentVersion, ok := environConfig.AgentVersion()
 	if !ok {
-		return nil, errors.New("no agent version set in environment configuration")
+		return nil, errors.New("no agent version set in model configuration")
 	}
-	environment, err := st.Environment()
+	environment, err := st.Model()
 	if err != nil {
 		return nil, err
 	}

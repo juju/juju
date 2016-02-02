@@ -78,7 +78,7 @@ func (env *localEnviron) machineAgentServiceName() string {
 
 func ensureNotRoot() error {
 	if checkIfRoot() {
-		return fmt.Errorf("bootstrapping a local environment must not be done as root")
+		return fmt.Errorf("bootstrapping a local model must not be done as root")
 	}
 	return nil
 }
@@ -128,7 +128,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 
 	icfg.MachineAgentServiceName = env.machineAgentServiceName()
 	icfg.AgentEnvironment = map[string]string{

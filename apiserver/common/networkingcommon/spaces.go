@@ -16,23 +16,24 @@ import (
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func SupportsSpaces(backing NetworkBacking) error {
-	config, err := backing.EnvironConfig()
+	config, err := backing.ModelConfig()
 	if err != nil {
-		return errors.Annotate(err, "getting environment config")
+		return errors.Annotate(err, "getting model config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return errors.Annotate(err, "validating environment config")
+		return errors.Annotate(err, "validating model config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
 		return errors.NotSupportedf("networking")
 	}
 	ok, err = netEnv.SupportsSpaces()
-	if !ok {
-		return errors.NotSupportedf("spaces")
+	if !ok || err != nil {
+		err = errors.Annotate(err, "model does not support spaces")
+		return err
 	}
-	return err
+	return nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the

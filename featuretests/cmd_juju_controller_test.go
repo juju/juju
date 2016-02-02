@@ -18,10 +18,10 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -48,8 +48,8 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
-	envManager := environmentmanager.NewClient(conn)
-	_, err = envManager.CreateEnvironment(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	modelManager := modelmanager.NewClient(conn)
+	_, err = modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
 		"authorized-keys": "ssh-key",
 		"state-server":    isServer,
@@ -59,27 +59,27 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
-	c.Assert(testing.Stdout(context), gc.Equals, "dummyenv\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "dummymodel\n")
 }
 
-func (s *cmdControllerSuite) TestControllerEnvironmentsCommand(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
-	s.createEnv(c, "new-env", false)
-	context := s.run(c, "list-environments")
+func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	s.createEnv(c, "new-model", false)
+	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME      OWNER              LAST CONNECTION\n"+
-		"dummyenv  dummy-admin@local  just now\n"+
-		"new-env   dummy-admin@local  never connected\n"+
+		"NAME        OWNER              LAST CONNECTION\n"+
+		"dummymodel  dummy-admin@local  just now\n"+
+		"new-model   dummy-admin@local  never connected\n"+
 		"\n")
 }
 
 func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoEnvUser: true,
-		Password:  "super-secret",
+		NoModelUser: true,
+		Password:    "super-secret",
 	})
 	apiInfo := s.APIInfo(c)
-	serverFile := envcmd.ServerFile{
+	serverFile := modelcmd.ServerFile{
 		Addresses: apiInfo.Addrs,
 		CACert:    apiInfo.CACert,
 		Username:  user.Name(),
@@ -100,27 +100,27 @@ func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 	api.Close()
 }
 
-func (s *cmdControllerSuite) TestCreateEnvironment(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
+func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'state-server'.
-	context := s.run(c, "create-environment", "new-env", "authorized-keys=fake-key", "state-server=false")
+	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "state-server=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-created environment "new-env"
-dummyenv (controller) -> new-env
+created model "new-model"
+dummymodel (controller) -> new-model
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("new-env", nil)
+	api, err := juju.NewAPIFromName("new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
 
 func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"state-server": true},
 	})
@@ -130,7 +130,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	done := make(chan struct{})
 	// In order for the destroy controller command to complete we need to run
 	// the code that the cleaner and undertaker workers would be running in
-	// the agent in order to progress the lifecycle of the hosted environment,
+	// the agent in order to progress the lifecycle of the hosted model,
 	// and cleanup the documents.
 	go func() {
 		defer close(done)
@@ -138,8 +138,8 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		for a.Next() {
 			err := s.State.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
-			err = st.ProcessDyingEnviron()
-			if errors.Cause(err) != state.ErrEnvironmentNotDying {
+			err = st.ProcessDyingModel()
+			if errors.Cause(err) != state.ErrModelNotDying {
 				c.Check(err, jc.ErrorIsNil)
 				if err == nil {
 					// success!
@@ -155,18 +155,18 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		}
 	}()
 
-	s.run(c, "destroy-controller", "dummyenv", "-y", "--destroy-all-environments", "--debug")
+	s.run(c, "destroy-controller", "dummymodel", "-y", "--destroy-all-models", "--debug")
 	close(stop)
 	<-done
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	s.run(c, "remove-all-blocks")
@@ -177,40 +177,40 @@ func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "foo",
 	})
 
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.Close()
 
-	s.run(c, "kill-controller", "dummyenv", "-y")
+	s.run(c, "kill-controller", "dummymodel", "-y")
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"dummyenv","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
-		s.State.EnvironUUID(), s.AdminUserTag(c).String())
+	expected := fmt.Sprintf(`[{"name":"dummymodel","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+		s.State.ModelUUID(), s.AdminUserTag(c).String())
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
 	c.Check(strippedOut, gc.Equals, expected)
 }
 
 func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "foo",
 	})
 	defer st.Close()
 
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.Close()
 
 	opc := make(chan dummy.Operation, 200)
@@ -226,16 +226,16 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	undertaker.NewUndertaker(client, mClock)
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "kill-controller", "dummyenv", "-y")
+	s.run(c, "kill-controller", "dummymodel", "-y")
 
-	// Ensure that Destroy was called on the hosted environment ...
+	// Ensure that Destroy was called on the hosted model ...
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
 
 	// ... and that the configstore was removed.
-	_, err = store.ReadInfo("dummyenv")
+	_, err = store.ReadInfo("dummymodel")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

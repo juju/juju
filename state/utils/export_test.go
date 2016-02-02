@@ -4,5 +4,5 @@
 package utils
 
 var (
-	PatchedGetEnvironment = &getEnvironment
+	PatchedGetEnvironment = &getEnviron
 )

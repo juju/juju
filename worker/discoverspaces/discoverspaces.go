@@ -83,18 +83,18 @@ func (dw *discoverspacesWorker) Wait() error {
 }
 
 func (dw *discoverspacesWorker) loop() (err error) {
-	envCfg, err := dw.api.EnvironConfig()
+	modelCfg, err := dw.api.ModelConfig()
 	if err != nil {
 		return err
 	}
-	environ, err := environs.New(envCfg)
+	model, err := environs.New(modelCfg)
 	if err != nil {
 		return err
 	}
-	networkingEnviron, ok := environs.SupportsNetworking(environ)
+	networkingModel, ok := environs.SupportsNetworking(model)
 
 	if ok {
-		err = dw.handleSubnets(networkingEnviron)
+		err = dw.handleSubnets(networkingModel)
 		if err != nil {
 			close(dw.discoveringSpaces)
 			return errors.Trace(err)

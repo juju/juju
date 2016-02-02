@@ -36,7 +36,7 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	check(err)
 }
 
-func (s *TrackerSuite) TestEnvironConfigFails(c *gc.C) {
+func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
 			errors.New("no yuo"),
@@ -48,12 +48,12 @@ func (s *TrackerSuite) TestEnvironConfigFails(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, "cannot read environ config: no yuo")
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "EnvironConfig")
+		context.CheckCallNames(c, "ModelConfig")
 	})
 
 }
 
-func (s *TrackerSuite) TestEnvironConfigInvalid(c *gc.C) {
+func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix := &fixture{
 		initialConfig: coretesting.Attrs{
 			"type": "unknown",
@@ -65,12 +65,12 @@ func (s *TrackerSuite) TestEnvironConfigInvalid(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create environ: no registered provider for "unknown"`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "EnvironConfig")
+		context.CheckCallNames(c, "ModelConfig")
 	})
 
 }
 
-func (s *TrackerSuite) TestEnvironConfigValid(c *gc.C) {
+func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
 	fix := &fixture{
 		initialConfig: coretesting.Attrs{
 			"name": "this-particular-name",
@@ -104,7 +104,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot watch environ config: grrk splat")
-		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges")
+		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges")
 	})
 }
 
@@ -120,11 +120,11 @@ func (s *TrackerSuite) TestWatchCloses(c *gc.C) {
 		context.CloseNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "environ config watch closed")
-		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges")
+		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges")
 	})
 }
 
-func (s *TrackerSuite) TestWatchedEnvironConfigFails(c *gc.C) {
+func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
 			nil, nil, errors.New("blam ouch"),
@@ -140,11 +140,11 @@ func (s *TrackerSuite) TestWatchedEnvironConfigFails(c *gc.C) {
 		context.SendNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot read environ config: blam ouch")
-		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges", "EnvironConfig")
+		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }
 
-func (s *TrackerSuite) TestWatchedEnvironConfigIncompatible(c *gc.C) {
+func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix := &fixture{
 		initialConfig: coretesting.Attrs{
 			"broken": "SetConfig",
@@ -160,11 +160,11 @@ func (s *TrackerSuite) TestWatchedEnvironConfigIncompatible(c *gc.C) {
 		context.SendNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot update environ config: dummy.SetConfig is broken")
-		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges", "EnvironConfig")
+		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }
 
-func (s *TrackerSuite) TestWatchedEnvironConfigUpdates(c *gc.C) {
+func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 	fix := &fixture{
 		initialConfig: coretesting.Attrs{
 			"name": "original-name",
@@ -200,6 +200,6 @@ func (s *TrackerSuite) TestWatchedEnvironConfigUpdates(c *gc.C) {
 			}
 			break
 		}
-		context.CheckCallNames(c, "EnvironConfig", "WatchForEnvironConfigChanges", "EnvironConfig")
+		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }

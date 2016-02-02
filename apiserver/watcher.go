@@ -16,45 +16,45 @@ import (
 
 func init() {
 	common.RegisterFacade(
-		"AllWatcher", 0, NewAllWatcher,
+		"AllWatcher", 1, NewAllWatcher,
 		reflect.TypeOf((*SrvAllWatcher)(nil)),
 	)
-	// Note: AllEnvWatcher uses the same infrastructure as AllWatcher
+	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
 	// but they are get under separate names as it possible the may
 	// diverge in the future (especially in terms of authorisation
 	// checks).
 	common.RegisterFacade(
-		"AllEnvWatcher", 1, NewAllWatcher,
+		"AllModelWatcher", 2, NewAllWatcher,
 		reflect.TypeOf((*SrvAllWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"NotifyWatcher", 0, newNotifyWatcher,
+		"NotifyWatcher", 1, newNotifyWatcher,
 		reflect.TypeOf((*srvNotifyWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"StringsWatcher", 0, newStringsWatcher,
+		"StringsWatcher", 1, newStringsWatcher,
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"RelationUnitsWatcher", 0, newRelationUnitsWatcher,
+		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"VolumeAttachmentsWatcher", 1, newVolumeAttachmentsWatcher,
+		"VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"FilesystemAttachmentsWatcher", 1, newFilesystemAttachmentsWatcher,
+		"FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher,
 		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"EntityWatcher", 1, newEntitiesWatcher,
+		"EntityWatcher", 2, newEntitiesWatcher,
 		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
 	)
 }
 
-// NewAllEnvWatcher returns a new API server endpoint for interacting
-// with a watcher created by the WatchAll and WatchAllEnvs API calls.
+// NewAllModelWatcher returns a new API server endpoint for interacting
+// with a watcher created by the WatchAll and WatchAllModels API calls.
 func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
@@ -74,7 +74,7 @@ func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Aut
 // SrvAllWatcher defines the API methods on a state.Multiwatcher.
 // which watches any changes to the state. Each client has its own
 // current set of watchers, stored in resources. It is used by both
-// the AllWatcher and AllEnvWatcher facades.
+// the AllWatcher and AllModelWatcher facades.
 type SrvAllWatcher struct {
 	watcher   *state.Multiwatcher
 	id        string

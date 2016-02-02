@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -33,25 +33,23 @@ The --download option may be used without the --filename option.  In
 that case, the backup archive will be stored in the current working
 directory with a name matching juju-backup-<date>-<time>.tar.gz.
 
-WARNING: Remotely stored backups will be lost when the environment is
+WARNING: Remotely stored backups will be lost when the model is
 destroyed.  Furthermore, the remotely backup is not guaranteed to be
 available.
 
 Therefore, you should use the --download or --filename options, or use
 "juju backups download", to get a local copy of the backup archive.
-This local copy can then be used to restore an environment even if that
-environment was already destroyed or is otherwise unavailable.
+This local copy can then be used to restore an model even if that
+model was already destroyed or is otherwise unavailable.
 `
 
 func newCreateCommand() cmd.Command {
-	return envcmd.Wrap(&createCommand{})
+	return modelcmd.Wrap(&createCommand{})
 }
 
 // createCommand is the sub-command for creating a new backup.
 type createCommand struct {
 	CommandBase
-	// Quiet indicates that the full metadata should not be dumped.
-	Quiet bool
 	// NoDownload means the backups archive should not be downloaded.
 	NoDownload bool
 	// Filename is where the backup should be downloaded.
@@ -72,7 +70,7 @@ func (c *createCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
 	f.StringVar(&c.Filename, "filename", notset, "download to this file")
 }
@@ -97,6 +95,11 @@ func (c *createCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *createCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -108,7 +111,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if !c.Quiet {
+	if c.Log != nil && !c.Log.Quiet {
 		if c.NoDownload {
 			fmt.Fprintln(ctx.Stderr, downloadWarning)
 		}

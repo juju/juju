@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("DiscoverSpaces", 1, NewDiscoverSpacesAPI)
+	common.RegisterStandardFacade("DiscoverSpaces", 2, NewDiscoverSpacesAPI)
 }
 
 // DiscoverSpacesAPI implements the API used by the discoverspaces worker.
@@ -28,7 +28,7 @@ func NewDiscoverSpacesAPI(st *state.State, resources *common.Resources, authoriz
 }
 
 func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &DiscoverSpacesAPI{
@@ -38,17 +38,17 @@ func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resourc
 	}, nil
 }
 
-// EnvironConfig returns the current environment's configuration.
-func (api *DiscoverSpacesAPI) EnvironConfig() (params.EnvironConfigResult, error) {
-	result := params.EnvironConfigResult{}
+// ModelConfig returns the current model's configuration.
+func (api *DiscoverSpacesAPI) EnvironConfig() (params.ModelConfigResult, error) {
+	result := params.ModelConfigResult{}
 
-	config, err := api.st.EnvironConfig()
+	config, err := api.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
 	allAttrs := config.AllAttrs()
-	// No need to obscure any secrets as caller needs to be an
-	// EnvironManager to call any api methods.
+	// No need to obscure any secrets as caller needs to be a ModelManager to
+	// call any api methods.
 	result.Config = allAttrs
 	return result, nil
 }

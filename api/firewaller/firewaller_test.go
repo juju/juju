@@ -40,7 +40,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.units = make([]*state.Unit, 3)
 
 	var err error
-	s.machines[0], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
+	s.machines[0], err = s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
