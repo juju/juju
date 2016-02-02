@@ -749,7 +749,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 
 	updateBindings := func(updatesMap bson.M) {
 		ops := []txn.Op{{
-			C:      state.EndpointBindingsC,
+			C:      "endpointbindings",
 			Id:     mysqlKey,
 			Update: bson.D{{"$set", updatesMap}},
 		}}

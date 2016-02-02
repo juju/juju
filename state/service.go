@@ -474,13 +474,6 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Get the configured controller space to use for unspecified bindings.
-	envConfig, err := s.st.EnvironConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get environment config")
-	}
-	controllerSpace, _ := envConfig.ControllerSpaceName()
-
 	// Create or replace service settings.
 	var settingsOp txn.Op
 	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
@@ -565,13 +558,10 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	//
 	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
 	// given bindings below, instead of nil.
-	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta(), controllerSpace)
+	updateEndpointBindingsOp, err := prepareSetCharmEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
 	if err == nil {
-		ops = append(ops, endpointBindingsOp)
-	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
-		// If endpoint bindings do not exist this most likely means the service
-		// itself no longer exists, which will be caught soon enough anyway.
-		// ErrNoOperations on the other hand means there's nothing to update.
+		ops = append(ops, updateEndpointBindingsOp)
+	} else if err != jujutxn.ErrNoOperations {
 		return nil, errors.Trace(err)
 	}
 
@@ -1215,13 +1205,19 @@ func (s *Service) Networks() ([]string, error) {
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
-// name it is bound to.
+// name it is bound to. If there are no bindings defined it returns an empty map
+// and no error.
 func (s *Service) EndpointBindings() (map[string]string, error) {
 	// We don't need the TxnRevno below.
-	bindings, _, err := readEndpointBindings(s.st, s.globalKey())
-	if err != nil {
-		return nil, errors.Trace(err)
+	bindings, _, err := getEndpointBindings(s.st, s.globalKey())
+	if err == nil {
+		return bindings, nil
 	}
+	if !errors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "getting service %q endpoint bindings", s.Name())
+	}
+	// Missing bindings are not unexpected, when provider support not present.
+	logger.Infof("no endpoint bindings exist for service %q", s.Name())
 	return bindings, nil
 }
 

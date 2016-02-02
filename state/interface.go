@@ -94,11 +94,16 @@ type AgentEntity interface {
 	NotifyWatcherFactory
 }
 
+// EnvironConfigGetter defines the method needed to read the environment config.
+type EnvironConfigGetter interface {
+	EnvironConfig() (*config.Config, error)
+}
+
 // EnvironAccessor defines the methods needed to watch for environment
 // config changes, and read the environment config.
 type EnvironAccessor interface {
+	EnvironConfigGetter
 	WatchForEnvironConfigChanges() NotifyWatcher
-	EnvironConfig() (*config.Config, error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

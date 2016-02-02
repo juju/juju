@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -230,4 +231,20 @@ func (s *Space) Refresh() error {
 		return errors.Errorf("cannot refresh space %q: %v", s, err)
 	}
 	return nil
+}
+
+// getAllSpaceNames returns a set.Strings containing the names of all known
+// spaces.
+func getAllSpaceNames(st *State) (set.Strings, error) {
+	spaces, err := st.AllSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	namesSet := set.NewStrings()
+	for _, space := range spaces {
+		namesSet.Add(space.Name())
+	}
+
+	return namesSet, nil
 }

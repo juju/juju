@@ -1172,6 +1172,16 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	createEndpointBindingsOp, err := prepareAddServiceArgsEndpointBindingsOp(st, args)
+	if err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Warningf("ignoring service %q bindings: %v", args.Name, err)
+		} else {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
@@ -1184,24 +1194,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	storagePools := make(set.Strings)
 	for _, storageParams := range args.Storage {
 		storagePools.Add(storageParams.Pool)
-	}
-
-	var controllerSpace string
-	if len(args.EndpointBindings) > 0 {
-		// Ensure we have controller space to use for unspecified bindings.
-		envConfig, err := st.EnvironConfig()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment config")
-		}
-		var hasControllerSpace bool
-		controllerSpace, hasControllerSpace = envConfig.ControllerSpaceName()
-		if !hasControllerSpace {
-			// TODO(dimitern): This should be an error, but we can't do that at
-			// the moment, as deployments will stop working on providers without
-			// spaces support. Until we have a graceful handling of those
-			// providers, it only be logged as warning.
-			logger.Warningf("ignoring endpoint bindings for service %q: no controller space set to use for unspecified bindings", args.Name)
-		}
 	}
 
 	if args.Series == "" {
@@ -1310,21 +1302,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// TODO(dimitern): Drop requested networks across the board in a
 		// follow-up.
 		createRequestedNetworksOp(st, svc.globalKey(), nil),
-	}
-
-	if controllerSpace != "" {
-		endpointBindingsOp, err := createEndpointBindingsOp(
-			st, svc.globalKey(),
-			args.EndpointBindings, args.Charm.Meta(),
-			controllerSpace,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, endpointBindingsOp)
-	}
-
-	ops = append(ops, []txn.Op{
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
@@ -1342,8 +1319,12 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
 		},
-	}...)
+	}
 
+	if createEndpointBindingsOp.C != "" {
+		// Only add it if we can use it.
+		ops = append(ops, createEndpointBindingsOp)
+	}
 	// Collect peer relation addition operations.
 	//
 	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
@@ -2361,6 +2342,21 @@ func SetSystemIdentity(st *State, identity string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ControllerSpaceName reads the controller-space setting using the given
+// configGetter and returns it. It returns an error satisfying
+// errors.IsNotFound() if the setting is empty.
+func ControllerSpaceName(configGetter EnvironConfigGetter) (string, error) {
+	envConfig, err := configGetter.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot read environment config")
+	}
+	controllerSpace, isSet := envConfig.ControllerSpaceName()
+	if !isSet || controllerSpace == "" {
+		return "", errors.NotFoundf("controller-space setting")
+	}
+	return controllerSpace, nil
 }
 
 var tagPrefix = map[byte]string{
