@@ -29,44 +29,6 @@ type CmdSuite struct {
 
 var _ = gc.Suite(&CmdSuite{})
 
-const envConfig = `
-default:
-    peckham
-environments:
-    peckham:
-        type: dummy
-        state-server: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-    walthamstow:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
-    brokenenv:
-        type: dummy
-        broken: Bootstrap Destroy
-        state-server: false
-        authorized-keys: i-am-a-key
-        agent-stream: proposed
-    devenv:
-        type: dummy
-        state-server: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-        agent-stream: proposed
-`
-
-func (s *CmdSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	coretesting.WriteEnvironments(c, envConfig, "peckham", "walthamstow", "brokenenv")
-}
-
-func (s *CmdSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 // testInit checks that a command initialises correctly
 // with the given set of arguments.
 func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
@@ -116,7 +78,7 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
-	com.SetEnvName("peckham")
+	com.SetEnvName("dummyenv")
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {

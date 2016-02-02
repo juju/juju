@@ -76,11 +76,6 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return cfg, nil
 }
 
-func (p *fakeProvider) BoilerplateConfig() string {
-	p.Push("BoilerplateConfig")
-	return ""
-}
-
 func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	p.Push("SecretAttrs", cfg)
 	return nil, nil

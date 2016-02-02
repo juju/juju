@@ -34,10 +34,10 @@ func NewDestroyCommand() cmd.Command {
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
-	return envcmd.Wrap(
+	return envcmd.WrapController(
 		&destroyCommand{},
-		envcmd.EnvSkipFlags,
-		envcmd.EnvSkipDefault,
+		envcmd.ControllerSkipFlags,
+		envcmd.ControllerSkipDefault,
 	)
 }
 
@@ -96,7 +96,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.EnvName())
+	cfgInfo, err := store.ReadInfo(c.ControllerName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
@@ -104,11 +104,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.EnvName())
+		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.ControllerName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.EnvName()); err != nil {
+		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
 			return err
 		}
 	}
@@ -138,7 +138,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
 	}
 
-	ctx.Infof("Destroying controller %q", c.EnvName())
+	ctx.Infof("Destroying controller %q", c.ControllerName())
 	if c.destroyEnvs {
 		ctx.Infof("Waiting for hosted environment resources to be reclaimed.")
 
@@ -152,7 +152,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
 	}
-	return environs.Destroy(controllerEnviron, store)
+	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
 }
 
 // destroyControllerViaClient attempts to destroy the controller using the client
@@ -169,7 +169,7 @@ func (c *destroyCommand) destroyControllerViaClient(ctx *cmd.Context, info confi
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, nil)
 	}
 
-	return environs.Destroy(controllerEnviron, store)
+	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
@@ -200,7 +200,7 @@ To remove all blocks in the controller, please run:
 		}
 		return cmd.ErrSilent
 	}
-	logger.Errorf(stdFailureMsg, c.EnvName())
+	logger.Errorf(stdFailureMsg, c.ControllerName())
 	return destroyErr
 }
 
@@ -253,7 +253,7 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
-	envcmd.EnvCommandBase
+	envcmd.ControllerCommandBase
 	assumeYes bool
 
 	// The following fields are for mocking out
@@ -297,7 +297,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		c.SetEnvName(args[0])
+		c.SetControllerName(args[0])
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])

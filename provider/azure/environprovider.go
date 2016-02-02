@@ -129,11 +129,6 @@ func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapCont
 	return env, nil
 }
 
-// BoilerplateProvider is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) BoilerplateConfig() string {
-	return boilerplateYAML
-}
-
 // SecretAttrs is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	unknownAttrs := cfg.UnknownAttrs()

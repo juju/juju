@@ -21,7 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -56,10 +55,10 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.juju/environments.yaml
-//         The dummy environments.yaml file, holding
-//         a default environment named "dummyenv"
-//         which uses the "dummy" environment type.
+//     RootDir/home/ubuntu/.juju/environments/cache.yaml
+//         The dummy cache.yaml file, holding a default
+//         controller and environment named "dummyenv"
+//         which uses the "dummy" provider.
 //     RootDir/var/lib/juju
 //         An empty directory returned as DataDir - the
 //         root of the juju data storage space.
@@ -224,11 +223,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
+	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummyenv")
 
-	// TODO(rog) remove these files and add them only when
-	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -502,18 +498,6 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	return sch, nil
 }
 
-func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
-	attrs := s.sampleConfig().Delete("name")
-	whole := map[string]interface{}{
-		"environments": map[string]interface{}{
-			"dummyenv": attrs,
-		},
-	}
-	data, err := goyaml.Marshal(whole)
-	c.Assert(err, jc.ErrorIsNil)
-	s.WriteConfig(string(data))
-}
-
 func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 	if s.DummyConfig == nil {
 		s.DummyConfig = dummy.SampleConfig()
@@ -589,18 +573,6 @@ func (s *JujuConnSuite) ConfDir() string {
 		panic("DataDir called out of test context")
 	}
 	return filepath.Join(s.RootDir, "/etc/juju")
-}
-
-// WriteConfig writes a juju config file to the "home" directory.
-func (s *JujuConnSuite) WriteConfig(configData string) {
-	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
-	}
-	path := osenv.JujuHomePath("environments.yaml")
-	err := ioutil.WriteFile(path, []byte(configData), 0600)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {

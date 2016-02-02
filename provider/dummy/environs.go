@@ -627,15 +627,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	}, nil
 }
 
-func (*environProvider) BoilerplateConfig() string {
-	return `
-# Fake configuration for dummy provider.
-dummy:
-    type: dummy
-
-`[1:]
-}
-
 var errBroken = errors.New("broken environment")
 
 // Override for testing - the data directory with which the state api server is initialised.

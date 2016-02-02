@@ -43,8 +43,6 @@ func (s *fakeHomeSuite) TearDownTest(c *gc.C) {
 func (s *fakeHomeSuite) TestFakeHomeSetsUpJujuHome(c *gc.C) {
 	jujuDir := gitjujutesting.HomePath(".juju")
 	c.Assert(jujuDir, jc.IsDirectory)
-	envFile := filepath.Join(jujuDir, "environments.yaml")
-	c.Assert(envFile, jc.IsNonEmptyFile)
 }
 
 func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {

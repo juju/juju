@@ -44,16 +44,6 @@ type EnvironProvider interface {
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
-	// Boilerplate returns a default configuration for the environment in yaml format.
-	// The text should be a key followed by some number of attributes:
-	//    `environName:
-	//        type: environTypeName
-	//        attr1: val1
-	//    `
-	// The text is used as a template (see the template package) with one extra template
-	// function available, rand, which expands to a random hexadecimal string when invoked.
-	BoilerplateConfig() string
-
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
@@ -131,8 +121,7 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
-// An Environ represents a juju environment as specified
-// in the environments.yaml file.
+// An Environ represents a Juju environment.
 //
 // Due to the limitations of some providers (for example ec2), the
 // results of the Environ methods may not be fully sequentially
