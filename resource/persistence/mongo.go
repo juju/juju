@@ -197,7 +197,22 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 	}
 }
 
-// TODO(ericsnow) Return resource.ModelResource from doc2resource()?
+// doc2resource returns the resource info represented by the doc.
+func doc2resource(doc resourceDoc) (resource.ModelResource, error) {
+	res, err := doc2basicResource(doc)
+	if err != nil {
+		return resource.ModelResource{}, errors.Trace(err)
+	}
+
+	mRes := resource.ModelResource{
+		//ID: doc.ModelID,
+		PendingID:   doc.PendingID,
+		ServiceID:   doc.ServiceID,
+		Resource:    res,
+		StoragePath: doc.StoragePath,
+	}
+	return mRes, nil
+}
 
 // doc2basicResource returns the resource info represented by the doc.
 func doc2basicResource(doc resourceDoc) (resource.Resource, error) {

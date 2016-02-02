@@ -162,7 +162,57 @@ func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2ResourceUploadFull(c *gc.C) {
+func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
+	serviceID := "a-service"
+	id := resourceID("spam", serviceID)
+	content := "some data\n..."
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now().UTC()
+
+	res, err := doc2resource(resourceDoc{
+		DocID:     id,
+		ServiceID: serviceID,
+		PendingID: "some-unique-ID-001",
+
+		Name: "spam",
+		Type: "file",
+		Path: "spam.tgz",
+
+		Origin:      "upload",
+		Fingerprint: fp.Bytes(),
+		Size:        int64(len(content)),
+
+		Username:  "a-user",
+		Timestamp: now,
+
+		StoragePath: "service-a-service/resources/spam-some-unique-ID-001",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(res, jc.DeepEquals, resource.ModelResource{
+		//ID: "spam",
+		PendingID: "some-unique-ID-001",
+		ServiceID: "a-service",
+		Resource: resource.Resource{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name: "spam",
+					Type: charmresource.TypeFile,
+					Path: "spam.tgz",
+				},
+				Origin:      charmresource.OriginUpload,
+				Fingerprint: fp,
+				Size:        int64(len(content)),
+			},
+			Username:  "a-user",
+			Timestamp: now,
+		},
+		StoragePath: "service-a-service/resources/spam-some-unique-ID-001",
+	})
+}
+
+func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
 	content := "some data\n..."
@@ -207,7 +257,7 @@ func (s *MongoSuite) TestDoc2ResourceUploadFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2ResourceUploadBasic(c *gc.C) {
+func (s *MongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
 	content := "some data\n..."
@@ -297,7 +347,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
+func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
 	content := "some data\n..."
@@ -342,7 +392,7 @@ func (s *MongoSuite) TestDoc2ResourceCharmstoreFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2ResourcePlaceholder(c *gc.C) {
+func (s *MongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 	serviceID := "a-service"
 	id := resourceID("spam", serviceID)
 	res, err := doc2basicResource(resourceDoc{
