@@ -92,18 +92,19 @@ func init() {
 	)
 }
 
+// NewAddCommand returns a command that adds a machine to a model.
 func NewAddCommand() cmd.Command {
 	return modelcmd.Wrap(&addCommand{})
 }
 
-// addCommand starts a new machine and registers it in the environment.
+// addCommand starts a new machine and registers it in the model.
 type addCommand struct {
 	modelcmd.ModelCommandBase
 	api               AddMachineAPI
 	machineManagerAPI MachineManagerAPI
-	// If specified, use this series, else use the environment default-series
+	// If specified, use this series, else use the model default-series
 	Series string
-	// If specified, these constraints are merged with those already in the environment.
+	// If specified, these constraints are merged with those already in the model.
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
 	Placement *instance.Placement

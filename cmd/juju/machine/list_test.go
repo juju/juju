@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for info.
 
 package machine_test
@@ -27,7 +27,7 @@ type fakeStatusAPI struct{}
 
 func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 	result := &params.FullStatus{
-		EnvironmentName: "dummyenv",
+		ModelName: "dummyenv",
 		Machines: map[string]params.MachineStatus{
 			"0": {
 				Id: "0",
@@ -77,7 +77,7 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineListCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"environment: dummyenv\n"+
+		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
 		"    agent-state: started\n"+
@@ -96,7 +96,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"{\"environment\":\"dummyenv\",\"machines\":{\"0\":{\"agent-state\":\"started\",\"dns-name\":\"10.0.0.1\",\"instance-id\":\"juju-dummy-machine-0\",\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"agent-state\":\"pending\",\"dns-name\":\"10.0.0.2\",\"instance-id\":\"juju-dummy-machine-1\",\"series\":\"trusty\"}}}\n")
+		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"agent-state\":\"started\",\"dns-name\":\"10.0.0.1\",\"instance-id\":\"juju-dummy-machine-0\",\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"agent-state\":\"pending\",\"dns-name\":\"10.0.0.2\",\"instance-id\":\"juju-dummy-machine-1\",\"series\":\"trusty\"}}}\n")
 }
 
 func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {

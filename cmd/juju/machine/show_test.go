@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for info.
 
 package machine_test
@@ -30,7 +30,7 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineShowCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"environment: dummyenv\n"+
+		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
 		"    agent-state: started\n"+
@@ -48,7 +48,7 @@ func (s *MachineShowCommandSuite) TestShowSingleMachine(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineShowCommand(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"environment: dummyenv\n"+
+		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
 		"    agent-state: started\n"+
@@ -74,6 +74,6 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineShowCommand(), "--format", "json", "0", "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"{\"environment\":\"dummyenv\",\"machines\":{\"0\":{\"agent-state\":\"started\",\"dns-name\":\"10.0.0.1\",\"instance-id\":\"juju-dummy-machine-0\",\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"agent-state\":\"pending\",\"dns-name\":\"10.0.0.2\",\"instance-id\":\"juju-dummy-machine-1\",\"series\":\"trusty\"}}}\n")
+		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"agent-state\":\"started\",\"dns-name\":\"10.0.0.1\",\"instance-id\":\"juju-dummy-machine-0\",\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"agent-state\":\"pending\",\"dns-name\":\"10.0.0.2\",\"instance-id\":\"juju-dummy-machine-1\",\"series\":\"trusty\"}}}\n")
 
 }

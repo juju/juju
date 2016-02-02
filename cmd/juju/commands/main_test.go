@@ -105,11 +105,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju help set-config shows the default help without global options",
-		args:    []string{"help", "set-config"},
-		code:    0,
-		out:     setHelpText(),
-	}, {
 		summary: "juju --help set-config shows the same help as 'help set-config'",
 		args:    []string{"--help", "set-config"},
 		code:    0,

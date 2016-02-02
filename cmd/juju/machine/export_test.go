@@ -32,7 +32,7 @@ func NewListCommandForTest(api statusAPI) cmd.Command {
 	cmd := &listMachinesCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewShowCommandForTest returns a showMachineCommand with specified api
@@ -40,7 +40,7 @@ func NewShowCommandForTest(api statusAPI) cmd.Command {
 	cmd := &showMachineCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 type RemoveCommand struct {

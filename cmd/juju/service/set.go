@@ -127,7 +127,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 			SettingsYAML: string(b),
 		}), block.BlockChange)
 	} else if c.SetDefault == true {
-		return block.ProcessBlockedError(api.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
+		return block.ProcessBlockedError(apiclient.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}

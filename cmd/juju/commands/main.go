@@ -212,6 +212,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(service.NewDeployCommand())
 	r.Register(service.NewExposeCommand())
 	r.Register(service.NewUnexposeCommand())
+	r.Register(service.NewServiceGetConstraintsCommand())
+	r.Register(service.NewServiceSetConstraintsCommand())
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

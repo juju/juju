@@ -69,6 +69,7 @@ func parsePlacement(spec string) (*instance.Placement, error) {
 	return placement, nil
 }
 
+// NewAddUnitCommand returns a command that adds a unit[s] to a service.
 func NewAddUnitCommand() cmd.Command {
 	return modelcmd.Wrap(&addUnitCommand{})
 }

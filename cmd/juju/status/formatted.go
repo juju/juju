@@ -20,7 +20,7 @@ type formattedStatus struct {
 }
 
 type formattedMachineStatus struct {
-	Environment string                   `json:"environment"`
+	Model string                   `json:"model"`
 	Machines    map[string]machineStatus `json:"machines"`
 }
 

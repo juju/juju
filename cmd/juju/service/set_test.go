@@ -65,7 +65,7 @@ func (s *SetSuite) TestSetCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
 
 	// --to-default and no config name provided
-	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), []string{"service", "--to-default"})
+	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"service", "--to-default"})
 	c.Assert(err, gc.ErrorMatches, "no configuration options specified")
 
 }
@@ -146,7 +146,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 }
 
 func (s *SetSuite) TestSetConfigToDefault(c *gc.C) {
-	s.fakeClientAPI = &fakeClientAPI{servName: "dummy-service", values: map[string]interface{}{
+	s.fakeServiceAPI = &fakeServiceAPI{serviceName: "dummy-service", values: map[string]interface{}{
 		"username": "hello",
 	}}
 	s.assertSetSuccess(c, s.dir, []string{

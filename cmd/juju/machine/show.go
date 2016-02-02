@@ -1,4 +1,4 @@
-// Copyright 2013, 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package machine
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/juju/status"
 )
 
@@ -33,14 +33,14 @@ with the "--format" option.  Available formats are yaml,
 tabular, and json
 `
 
-// NewShowMachineCommand shows details on specified machine.
+// NewShowMachineCommand returns a command that shows details on the specified machine[s].
 func NewShowMachineCommand() cmd.Command {
-	return envcmd.Wrap(&showMachineCommand{})
+	return modelcmd.Wrap(&showMachineCommand{})
 }
 
-// showMachineCommand struct holds details on specified machine.
+// showMachineCommand struct holds details on the specified machine[s].
 type showMachineCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out       cmd.Output
 	isoTime   bool
 	machineId []string

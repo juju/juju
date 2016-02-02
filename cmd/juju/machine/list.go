@@ -1,4 +1,4 @@
-// Copyright 2013, 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package machine
@@ -11,7 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/juju/status"
 )
 
@@ -29,17 +29,16 @@ type statusAPI interface {
 	Close() error
 }
 
-// NewListMachineCommand lists the machines in a model.
+// NewListMachineCommand returns a command that lists the machines in a model.
 func NewListMachinesCommand() cmd.Command {
-	return envcmd.Wrap(&listMachinesCommand{})
+	return modelcmd.Wrap(&listMachinesCommand{})
 }
 
-//listMachineCommand holds infomation about machines in a model.
+// listMachineCommand holds infomation about machines in a model.
 type listMachinesCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out     cmd.Output
 	isoTime bool
-	pattern []string
 	api     statusAPI
 }
 
@@ -47,7 +46,7 @@ type listMachinesCommand struct {
 func (c *listMachinesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-machines",
-		Purpose: "list machines on a model",
+		Purpose: "list machines in a model",
 		Doc:     listMachinesCommandDoc,
 		Aliases: []string{"machines", "machine", "list-machine"},
 	}
@@ -55,12 +54,10 @@ func (c *listMachinesCommand) Info() *cmd.Info {
 
 // Init ensures the list-machines Command does not take arguments.
 func (c *listMachinesCommand) Init(args []string) (err error) {
-	err = nil
 	if args != nil {
 		return errors.Errorf("The list-machines command does not take any arguments")
 	}
-	c.pattern = args
-	return err
+	return nil
 }
 
 // SetFlags sets utc and format flags based on user specified options.
@@ -73,8 +70,8 @@ func (c *listMachinesCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-var connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
+var connectionError = `Unable to connect to model %q.
+Please check your credentials or use 'juju bootstrap' to create a new model.
 
 Error details:
 %v
@@ -94,7 +91,7 @@ func (c *listMachinesCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	fullStatus, err := apiclient.Status(c.pattern)
+	fullStatus, err := apiclient.Status(nil)
 	if err != nil {
 		if fullStatus == nil {
 			// Status call completely failed, there is nothing to report
@@ -107,6 +104,6 @@ func (c *listMachinesCommand) Run(ctx *cmd.Context) error {
 	}
 
 	formatter := status.NewStatusFormatter(fullStatus, c.isoTime)
-	formatted := formatter.Machineformat(c.pattern)
+	formatted := formatter.Machineformat(nil)
 	return c.out.Write(ctx, formatted)
 }
