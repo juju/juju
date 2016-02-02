@@ -44,7 +44,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return configWithDefaults(cfg)
 }
 
-// UpgradeEnvironConfig is specified in the EnvironConfigUpgrader interface.
+// UpgradeModelConfig is specified in the ModelConfigUpgrader interface.
 func (environProvider) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
 	return configWithDefaults(cfg)
 }

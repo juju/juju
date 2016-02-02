@@ -96,7 +96,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
-			Environment:       coretesting.EnvironmentTag,
+			Model:             coretesting.ModelTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	managerConfig := container.ManagerConfig{
@@ -1074,12 +1074,14 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
-	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)
+	w, err := provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker, toolsFinder)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newLxcProvisioner(c)
-	c.Assert(p.Stop(), gc.IsNil)
+	stop(c, p)
 }
 
 func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {

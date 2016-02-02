@@ -690,7 +690,7 @@ func blobVolumeId(blob azurestorage.Blob) (string, bool) {
 // and a constructor.
 func getStorageClient(
 	newClient internalazurestorage.NewClientFunc,
-	cfg *azureEnvironConfig,
+	cfg *azureModelConfig,
 ) (internalazurestorage.Client, error) {
 	storageAccountName := cfg.storageAccount
 	storageAccountKey := cfg.storageAccountKey

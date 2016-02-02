@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -49,7 +49,7 @@ var _ = gc.Suite(&DebugMetricsMockSuite{})
 
 func (s *DebugMetricsMockSuite) TestUnit(c *gc.C) {
 	client := MockGetMetricsClient{testing.Stub{}}
-	s.PatchValue(metricsdebug.NewClient, func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
+	s.PatchValue(metricsdebug.NewClient, func(_ modelcmd.ModelCommandBase) (metricsdebug.GetMetricsClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "metered/0")
@@ -59,7 +59,7 @@ func (s *DebugMetricsMockSuite) TestUnit(c *gc.C) {
 
 func (s *DebugMetricsMockSuite) TestService(c *gc.C) {
 	client := MockGetMetricsClient{testing.Stub{}}
-	s.PatchValue(metricsdebug.NewClient, func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
+	s.PatchValue(metricsdebug.NewClient, func(_ modelcmd.ModelCommandBase) (metricsdebug.GetMetricsClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "metered")
@@ -69,7 +69,7 @@ func (s *DebugMetricsMockSuite) TestService(c *gc.C) {
 
 func (s *DebugMetricsMockSuite) TestNotValidServiceOrUnit(c *gc.C) {
 	client := MockGetMetricsClient{testing.Stub{}}
-	s.PatchValue(metricsdebug.NewClient, func(_ envcmd.EnvCommandBase) (metricsdebug.GetMetricsClient, error) {
+	s.PatchValue(metricsdebug.NewClient, func(_ modelcmd.ModelCommandBase) (metricsdebug.GetMetricsClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "!!!!!!")

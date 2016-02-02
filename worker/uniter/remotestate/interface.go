@@ -3,6 +3,10 @@
 
 package remotestate
 
+import (
+	"github.com/juju/juju/worker"
+)
+
 type Watcher interface {
 	// RemoteStateChanged returns a channel which is signalled
 	// whenever the remote state is changed.
@@ -11,7 +15,5 @@ type Watcher interface {
 	// Snapshot returns the current snapshot of the remote state.
 	Snapshot() Snapshot
 
-	// TODO(axw) Kill instead of Stop
-	Stop() error
-	Wait() error
+	worker.Worker
 }

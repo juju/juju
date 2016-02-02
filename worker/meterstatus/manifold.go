@@ -100,5 +100,4 @@ func newStatusWorker(config ManifoldConfig, getResource dependency.GetResourceFu
 		Status:    status,
 	}
 	return config.NewConnectedStatusWorker(cfg)
-
 }

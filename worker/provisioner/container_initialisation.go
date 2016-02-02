@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -65,7 +65,7 @@ type ContainerSetupParams struct {
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
 // containers are created on the given machine.
-func NewContainerSetupHandler(params ContainerSetupParams) worker.StringsWatchHandler {
+func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandler {
 	return &ContainerSetup{
 		runner:              params.Runner,
 		imageURLGetter:      params.ImageURLGetter,
@@ -96,7 +96,7 @@ func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
 // Handle is called whenever containers change on the machine being watched.
 // Machines start out with no containers so the first time Handle is called,
 // it will be because a container has been added.
-func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
+func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resultError error) {
 	// Consume the initial watcher event.
 	if len(containerIds) == 0 {
 		return nil
@@ -324,11 +324,6 @@ func containerManagerConfig(
 	managerConfigResult, err := provisioner.ContainerManagerConfig(
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
-	if params.IsCodeNotImplemented(err) {
-		// We currently don't support upgrading;
-		// revert to the old configuration.
-		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: container.DefaultNamespace}
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +364,11 @@ func startProvisionerWorker(
 	// already been added to the machine. It will see that the
 	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		return NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder), nil
+		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
 }
 

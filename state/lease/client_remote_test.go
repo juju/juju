@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 // ClientRemoteSuite checks that clients do not break one another's promises.

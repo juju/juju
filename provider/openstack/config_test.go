@@ -218,12 +218,12 @@ var configTests = []configTest{
 		},
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing region in environment",
+		summary: "missing region in model",
 		envVars: map[string]string{
 			"OS_REGION_NAME": "",
 			"NOVA_REGION":    "",
 		},
-		err: "required environment variable not set for credentials attribute: Region",
+		err: "required model variable not set for credentials attribute: Region",
 	}, {
 		summary: "invalid username",
 		config: attrs{
@@ -231,8 +231,8 @@ var configTests = []configTest{
 		},
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing username in environment",
-		err:     "required environment variable not set for credentials attribute: User",
+		summary: "missing username in model",
+		err:     "required model variable not set for credentials attribute: User",
 		envVars: map[string]string{
 			"OS_USERNAME":   "",
 			"NOVA_USERNAME": "",
@@ -244,8 +244,8 @@ var configTests = []configTest{
 		},
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing password in environment",
-		err:     "required environment variable not set for credentials attribute: Secrets",
+		summary: "missing password in model",
+		err:     "required model variable not set for credentials attribute: Secrets",
 		envVars: map[string]string{
 			"OS_PASSWORD":   "",
 			"NOVA_PASSWORD": "",
@@ -257,8 +257,8 @@ var configTests = []configTest{
 		},
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing tenant in environment",
-		err:     "required environment variable not set for credentials attribute: TenantName",
+		summary: "missing tenant in model",
+		err:     "required model variable not set for credentials attribute: TenantName",
 		envVars: map[string]string{
 			"OS_TENANT_NAME":  "",
 			"NOVA_PROJECT_ID": "",
@@ -270,8 +270,8 @@ var configTests = []configTest{
 		},
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing auth-url in environment",
-		err:     "required environment variable not set for credentials attribute: URL",
+		summary: "missing auth-url in model",
+		err:     "required model variable not set for credentials attribute: URL",
 		envVars: map[string]string{
 			"OS_AUTH_URL": "",
 		},
@@ -300,7 +300,7 @@ var configTests = []configTest{
 		envVars: map[string]string{
 			"OS_USERNAME": "",
 		},
-		err: "required environment variable not set for credentials attribute: User",
+		err: "required model variable not set for credentials attribute: User",
 	}, {
 		summary: "keypair authorization mode without secret key",
 		config: attrs{
@@ -310,7 +310,7 @@ var configTests = []configTest{
 		envVars: map[string]string{
 			"OS_PASSWORD": "",
 		},
-		err: "required environment variable not set for credentials attribute: Secrets",
+		err: "required model variable not set for credentials attribute: Secrets",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
@@ -332,7 +332,7 @@ var configTests = []configTest{
 		authURL:    "http://some/url",
 		authMode:   AuthLegacy,
 	}, {
-		summary: "valid auth args in environment",
+		summary: "valid auth args in model",
 		envVars: map[string]string{
 			"OS_USERNAME":    "jujuer",
 			"OS_PASSWORD":    "open sesame",
@@ -346,7 +346,7 @@ var configTests = []configTest{
 		authURL:    "http://some/url",
 		region:     "region",
 	}, {
-		summary:  "default auth mode based on environment",
+		summary:  "default auth mode based on model",
 		authMode: AuthUserPass,
 	}, {
 		summary: "default use floating ip",

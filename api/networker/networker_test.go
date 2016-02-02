@@ -14,13 +14,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/networker"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type networkerSuite struct {
@@ -177,34 +176,6 @@ func (s *networkerSuite) TestMachineNetworkConfigPermissionDenied(c *gc.C) {
 	c.Assert(info, gc.IsNil)
 }
 
-func (s *networkerSuite) TestMachineNetworkConfigNameChange(c *gc.C) {
-	var called bool
-	networker.PatchFacadeCall(s, s.networker, func(request string, args, response interface{}) error {
-		if !called {
-			called = true
-			c.Assert(request, gc.Equals, "MachineNetworkConfig")
-			return &params.Error{
-				Message: "MachineNetworkConfig",
-				Code:    params.CodeNotImplemented,
-			}
-		}
-		c.Assert(request, gc.Equals, "MachineNetworkInfo")
-		expected := params.Entities{
-			Entities: []params.Entity{{Tag: names.NewMachineTag("42").String()}},
-		}
-		c.Assert(args, gc.DeepEquals, expected)
-		result := response.(*params.MachineNetworkConfigResults)
-		result.Results = make([]params.MachineNetworkConfigResult, 1)
-		result.Results[0].Error = common.ServerError(common.ErrPerm)
-		return nil
-	})
-	// Make a call, in this case result is "permission denied".
-	info, err := s.networker.MachineNetworkConfig(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(info, gc.IsNil)
-}
-
 type orderedIfc []network.InterfaceInfo
 
 func (o orderedIfc) Len() int {
@@ -348,8 +319,8 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 
 	// Start network interface watcher.
 	w, err := s.networker.WatchInterfaces(names.NewMachineTag("0"))
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 	wc.AssertOneChange()
 
 	// Disable the first interface.
@@ -409,8 +380,4 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	err = containerIfaces[0].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	// Stop watcher; check Changes chan closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

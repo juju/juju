@@ -14,7 +14,7 @@ import (
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyIsState   = tags.JujuEnv
+	metadataKeyIsState   = tags.JujuModel
 	metadataKeyCloudInit = lxdclient.UserdataKey
 )
 

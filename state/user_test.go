@@ -205,7 +205,7 @@ func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.Disable()
-	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
+	c.Assert(err, gc.ErrorMatches, "cannot disable controller model owner")
 }
 
 func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {

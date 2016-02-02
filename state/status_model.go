@@ -45,7 +45,7 @@ const (
 	// correctly.
 	StatusError Status = "error"
 
-	// The entity is actively participating in the environment.
+	// The entity is actively participating in the model.
 	// For unit agents, this is a state we preserve for backwards
 	// compatibility with scripts during the life of Juju 1.x.
 	// In Juju 2.x, the agent-state will remain “active” and scripts
@@ -56,7 +56,7 @@ const (
 // Status values specific to machine agents.
 const (
 
-	// The machine is not yet participating in the environment.
+	// The machine is not yet participating in the model.
 	StatusPending Status = "pending"
 
 	// The machine's agent will perform no further action, other than

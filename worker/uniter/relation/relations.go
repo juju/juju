@@ -10,11 +10,10 @@ import (
 	"github.com/juju/utils/set"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -294,7 +293,7 @@ func nextRelationHook(
 		}
 		// NOTE(axw) we use != and not > to cater due to the
 		// use of the relation settings document's txn-revno
-		// as the version. When env-uuid migration occurs, the
+		// as the version. When model-uuid migration occurs, the
 		// document is recreated, resetting txn-revno.
 		if remoteChangeVersion != localChangeVersion {
 			return hook.Info{
@@ -425,7 +424,9 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 }
 
 // add causes the unit agent to join the supplied relation, and to
-// store persistent state in the supplied dir.
+// store persistent state in the supplied dir. It will block until the
+// operation succeeds or fails; or until the abort chan is closed, in
+// which case it will return resolver.ErrLoopAborted.
 func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 	logger.Infof("joining relation %q", rel)
 	ru, err := rel.Unit(r.unit)
@@ -433,26 +434,28 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 		return errors.Trace(err)
 	}
 	relationer := NewRelationer(ru, dir)
-	w, err := r.unit.Watch()
+	unitWatcher, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() {
-		if e := w.Stop(); e != nil {
+		if e := worker.Stop(unitWatcher); e != nil {
 			if err == nil {
 				err = e
 			} else {
-				logger.Errorf("error stopping unit watcher: %v", e)
+				logger.Errorf("while stopping unit watcher: %v", e)
 			}
 		}
 	}()
 	for {
 		select {
 		case <-r.abort:
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
+			// Should this be a different error? e.g. resolver.ErrAborted, that
+			// Loop translates into ErrLoopAborted?
+			return resolver.ErrLoopAborted
+		case _, ok := <-unitWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(w)
+				return errors.New("unit watcher closed")
 			}
 			err := relationer.Join()
 			if params.IsCodeCannotEnterScopeYet(err) {

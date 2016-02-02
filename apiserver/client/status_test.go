@@ -34,7 +34,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.EnvironmentName, gc.Equals, "dummyenv")
+	c.Check(status.ModelName, gc.Equals, "dummymodel")
 	c.Check(status.Services, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	c.Check(status.Networks, gc.HasLen, 0)

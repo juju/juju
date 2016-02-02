@@ -121,9 +121,9 @@ func (s *stubAPICaller) BestFacadeVersion(facade string) int {
 	return 42
 }
 
-func (s *stubAPICaller) EnvironTag() (names.EnvironTag, error) {
-	s.MethodCall(s, "EnvironTag")
-	return names.NewEnvironTag("foobar"), nil
+func (s *stubAPICaller) ModelTag() (names.ModelTag, error) {
+	s.MethodCall(s, "ModelTag")
+	return names.NewModelTag("foobar"), nil
 }
 
 func (s *stubAPICaller) ConnectStream(string, url.Values) (base.Stream, error) {

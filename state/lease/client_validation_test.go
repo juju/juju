@@ -8,6 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/lease"
 )
 
@@ -55,37 +56,37 @@ func (s *ClientValidationSuite) TestNewClientClock(c *gc.C) {
 
 func (s *ClientValidationSuite) TestClaimLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("$name", lease.Request{"holder", time.Minute})
+	err := fix.Client.ClaimLease("$name", corelease.Request{"holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestClaimLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", lease.Request{"$holder", time.Minute})
+	err := fix.Client.ClaimLease("name", corelease.Request{"$holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestClaimLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", lease.Request{"holder", 0})
+	err := fix.Client.ClaimLease("name", corelease.Request{"holder", 0})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
 func (s *ClientValidationSuite) TestExtendLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("$name", lease.Request{"holder", time.Minute})
+	err := fix.Client.ExtendLease("$name", corelease.Request{"holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestExtendLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("name", lease.Request{"$holder", time.Minute})
+	err := fix.Client.ExtendLease("name", corelease.Request{"$holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestExtendLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("name", lease.Request{"holder", 0})
+	err := fix.Client.ExtendLease("name", corelease.Request{"holder", 0})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
