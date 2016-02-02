@@ -19,4 +19,9 @@ type ModelResource struct {
 
 	// Resource is the general info for the resource.
 	Resource Resource
+
+	// TODO(ericsnow) Use StoragePath for the directory path too?
+
+	// StoragePath is the path to where the resource content is stored.
+	StoragePath string
 }

@@ -135,11 +135,12 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 	// is stored separately and adding to both should be an atomic
 	// operation.
 
+	path := storagePath(res.Name, serviceID, pendingID)
+	args.StoragePath = path
 	if err := st.persist.StageResource(args); err != nil {
 		return res, errors.Trace(err)
 	}
 
-	path := storagePath(res.Name, serviceID, pendingID)
 	hash := res.Fingerprint.String()
 	if err := st.storage.PutAndCheckHash(path, r, res.Size, hash); err != nil {
 		if err := st.persist.UnstageResource(id, serviceID); err != nil {
@@ -203,9 +204,10 @@ func (st resourceState) SetUnitResource(unit resource.Unit, res resource.Resourc
 	serviceID := unit.ServiceName()
 	id := newResourceID(pendingID, serviceID, res)
 	args := resource.ModelResource{
-		ID:        id,
-		ServiceID: serviceID,
-		Resource:  res,
+		ID:          id,
+		ServiceID:   serviceID,
+		Resource:    res,
+		StoragePath: storagePath(res.Name, serviceID, pendingID),
 	}
 	err := st.persist.SetUnitResource(unit.Name(), args)
 	if err != nil {

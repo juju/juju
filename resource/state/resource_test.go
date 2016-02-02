@@ -104,13 +104,14 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	chRes := res.Resource
+	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
-	path := "service-a-service/resources/spam"
 	hash := chRes.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
@@ -153,10 +154,12 @@ func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
 	file := &stubReader{stub: s.stub}
@@ -176,13 +179,14 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
-	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
@@ -208,13 +212,14 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
-	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
@@ -241,13 +246,14 @@ func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
-	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
@@ -277,13 +283,14 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
+	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
-	path := "service-a-service/resources/spam"
 	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
@@ -317,14 +324,15 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	chRes := res.Resource
 	s.pendingID = "some-unique-ID-001"
+	path := "service-a-service/resources/spam-some-unique-ID-001"
 	expected := resource.ModelResource{
-		ID:        "service-a-service/spam-some-unique-ID-001",
-		PendingID: s.pendingID,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/spam-some-unique-ID-001",
+		PendingID:   s.pendingID,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: path,
 	}
 	expected.Resource.Timestamp = s.timestamp
-	path := "service-a-service/resources/spam-some-unique-ID-001"
 	hash := chRes.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
@@ -422,9 +430,10 @@ func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "SetUnitResource")
 	s.stub.CheckCall(c, 0, "SetUnitResource", "a-service/0", resource.ModelResource{
-		ID:        "service-a-service/" + res.Name,
-		ServiceID: "a-service",
-		Resource:  res,
+		ID:          "service-a-service/" + res.Name,
+		ServiceID:   "a-service",
+		Resource:    res,
+		StoragePath: "service-a-service/resources/spam",
 	})
 }
 
@@ -447,9 +456,10 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"unit/0", "some-service"},
 		args: resource.ModelResource{
-			ID:        "res",
-			ServiceID: "some-service",
-			Resource:  newUploadResource(c, "res", "res"),
+			ID:          "res",
+			ServiceID:   "some-service",
+			Resource:    newUploadResource(c, "res", "res"),
+			StoragePath: "service-some-service/resources/res",
 		},
 	}
 	// have to try to read non-zero data, or bytes.buffer will happily return
@@ -468,9 +478,10 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"unit/0", "some-service"},
 		args: resource.ModelResource{
-			ID:        "res",
-			ServiceID: "some-service",
-			Resource:  newUploadResource(c, "res", "res"),
+			ID:          "res",
+			ServiceID:   "some-service",
+			Resource:    newUploadResource(c, "res", "res"),
+			StoragePath: "service-some-service/resources/res",
 		},
 	}
 	// read less than the full buffer
@@ -490,9 +501,10 @@ func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"some-service/0", "some-service"},
 		args: resource.ModelResource{
-			ID:        "res",
-			ServiceID: "some-service",
-			Resource:  newUploadResource(c, "res", "res"),
+			ID:          "res",
+			ServiceID:   "some-service",
+			Resource:    newUploadResource(c, "res", "res"),
+			StoragePath: "service-some-service/resources/res",
 		},
 	}
 
@@ -515,9 +527,10 @@ func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"foo/0", "some-service"},
 		args: resource.ModelResource{
-			ID:        "res",
-			ServiceID: "some-service",
-			Resource:  newUploadResource(c, "res", "res"),
+			ID:          "res",
+			ServiceID:   "some-service",
+			Resource:    newUploadResource(c, "res", "res"),
+			StoragePath: "service-some-service/resources/res",
 		},
 	}
 	expected := errors.Errorf("some-err")

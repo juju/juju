@@ -160,6 +160,8 @@ type resourceDoc struct {
 
 	Username  string    `bson:"username"`
 	Timestamp time.Time `bson:"timestamp-when-added"`
+
+	StoragePath string `bson:"storage-path"`
 }
 
 func unitResource2Doc(id, unitID string, args resource.ModelResource) *resourceDoc {
@@ -190,6 +192,8 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
+
+		StoragePath: args.StoragePath,
 	}
 }
 
