@@ -504,6 +504,8 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
+const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<relation-name>=<space>] [<relation2-name>=<space2>] ...]'. "
+
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name=space-name
 // * =space-name
@@ -521,19 +523,26 @@ func (c *DeployCommand) parseBind() error {
 			continue
 		}
 
-		e := "--bind must be in the form '[<relation-name>]=<space> [[<relation2-name>]=<space2> ...]'. "
 		v := strings.Split(s, "=")
+		var endpoint, space string
 		switch len(v) {
 		case 1:
-			return errors.New(e + "Could not find '='.")
+			endpoint = ""
+			space = v[0]
 		case 2:
-			if !names.IsValidSpace(v[1]) {
-				return errors.New(e + "Space name invalid.")
+			if v[0] == "" {
+				return errors.New(parseBindErrorPrefix + "Found = without relation name. Use a lone space name to set the default.")
 			}
-			bindings[v[0]] = v[1]
+			endpoint = v[0]
+			space = v[1]
 		default:
-			return errors.New(e + "Found multiple = in binding. Did you forget to space-separate the binding list?")
+			return errors.New(parseBindErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
 		}
+
+		if !names.IsValidSpace(space) {
+			return errors.New(parseBindErrorPrefix + "Space name invalid.")
+		}
+		bindings[endpoint] = space
 	}
 	c.Bindings = bindings
 	return nil
