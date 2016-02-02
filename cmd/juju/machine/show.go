@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/juju/status"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const showMachineCommandDoc = `

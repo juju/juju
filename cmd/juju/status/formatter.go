@@ -63,8 +63,8 @@ func (sf *statusFormatter) Machineformat(machineId []string) formattedMachineSta
 		return formattedMachineStatus{}
 	}
 	out := formattedMachineStatus{
-		Model: sf.status.ModelName,
-		Machines:    make(map[string]machineStatus),
+		Model:    sf.status.ModelName,
+		Machines: make(map[string]machineStatus),
 	}
 	for k, m := range sf.status.Machines {
 		if len(machineId) != 0 {
