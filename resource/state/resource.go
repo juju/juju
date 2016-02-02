@@ -253,6 +253,10 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 
 // NewResolvePendingResourceOps generates mongo transaction operations
 // to set the identified resource as active.
+//
+// Leaking mongo details (transaction ops) is a necessary evil since we
+// do not have any machinery to facilitate transactions between
+// different components.
 func (st resourceState) NewResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
 	resID := newResourceID(serviceID, name)
 	return st.persist.NewResolvePendingResourceOps(resID, resID, serviceID, pendingID)
