@@ -745,7 +745,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha1')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2A1)
+            self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-alpha2')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
@@ -2185,7 +2185,7 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha1')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2A1)
+            self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-alpha2')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
@@ -3668,7 +3668,7 @@ class TestMakeSafeConfig(TestCase):
             env = SimpleEnvironment('foo', {'type': 'local'},
                                     juju_home=juju_home)
             client = FakeJujuClient(env)
-            with patch('jujupy.check_free_disk_space') as cfds_mock:
+            with patch('jujupy.check_free_disk_space'):
                 config = make_safe_config(client)
         self.assertEqual(get_local_root(client.env.juju_home, client.env),
                          config['root-dir'])
