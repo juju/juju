@@ -1061,7 +1061,21 @@ func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1=space1 rel2=space2 space3"}
+	deploy := &DeployCommand{BindToSpaces: "rel1=space1  rel2=space2 space3"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+}
+
+func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints2(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "rel1=space1  space3 rel2=space2"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+}
+
+func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints3(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "space3  rel1=space1 rel2=space2"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})

@@ -508,9 +508,9 @@ const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<re
 
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name=space-name
-// * =space-name
+// * space-name
 // * The above in a space separated list to specify multiple bindings,
-//   e.g. "rel1@space1 rel2@space2 @space3"
+//   e.g. "rel1=space1 rel2=space2 space3"
 func (c *DeployCommand) parseBind() error {
 	bindings := make(map[string]string)
 	if c.BindToSpaces == "" {
