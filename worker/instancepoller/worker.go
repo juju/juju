@@ -65,7 +65,7 @@ func (u *updaterWorker) loop() (err error) {
 	}
 	logger.Infof("instance poller received inital environment configuration")
 
-	watcher, err := u.st.WatchEnvironMachines()
+	watcher, err := u.st.WatchModelMachines()
 	if err != nil {
 		return err
 	}

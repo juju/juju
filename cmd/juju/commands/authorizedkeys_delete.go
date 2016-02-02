@@ -10,12 +10,12 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newDeleteKeysCommand() cmd.Command {
-	return envcmd.Wrap(&deleteKeysCommand{})
+	return modelcmd.Wrap(&deleteKeysCommand{})
 }
 
 var deleteKeysDoc = `

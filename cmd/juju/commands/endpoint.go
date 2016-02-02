@@ -8,16 +8,16 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newEndpointCommand() cmd.Command {
-	return envcmd.Wrap(&endpointCommand{})
+	return modelcmd.Wrap(&endpointCommand{})
 }
 
 // endpointCommand returns the API endpoints
 type endpointCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out     cmd.Output
 	refresh bool
 	all     bool
@@ -28,7 +28,7 @@ Returns the address(es) of the current API server formatted as host:port.
 
 Without arguments apt-endpoints returns the last endpoint used to successfully
 connect to the API server. If a cached endpoints information is available from
-the current environment's .jenv file, it is returned without trying to connect
+the current model's .jenv file, it is returned without trying to connect
 to the API server. When no cache is available or --refresh is given, api-endpoints
 connects to the API server, retrieves all known endpoints and updates the .jenv
 file before returning the first one. Example:
@@ -64,7 +64,7 @@ func (c *endpointCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Print out the addresses of the API server endpoints.
 func (c *endpointCommand) Run(ctx *cmd.Context) error {
-	apiendpoint, err := endpoint(c.EnvCommandBase, c.refresh)
+	apiendpoint, err := endpoint(c.ModelCommandBase, c.refresh)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

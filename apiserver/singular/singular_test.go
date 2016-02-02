@@ -47,7 +47,7 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 		func(claim *params.SingularClaim) { claim.ModelTag = "environ-blargle" },
 		func(claim *params.SingularClaim) { claim.ControllerTag = "" },
 		func(claim *params.SingularClaim) { claim.ControllerTag = "machine-456" },
-		func(claim *params.SingularClaim) { claim.ControllerTag = coretesting.EnvironmentTag.String() },
+		func(claim *params.SingularClaim) { claim.ControllerTag = coretesting.ModelTag.String() },
 		func(claim *params.SingularClaim) { claim.Duration = time.Second - time.Millisecond },
 		func(claim *params.SingularClaim) { claim.Duration = time.Minute + time.Millisecond },
 	}
@@ -57,7 +57,7 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 	claims.Claims = make([]params.SingularClaim, count)
 	for i, breaker := range breakers {
 		claim := params.SingularClaim{
-			ModelTag:      coretesting.EnvironmentTag.String(),
+			ModelTag:      coretesting.ModelTag.String(),
 			ControllerTag: "machine-123",
 			Duration:      time.Minute,
 		}
@@ -101,14 +101,14 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 	expectCalls := []testing.StubCall{}
 	for i, duration := range durations {
 		claims.Claims[i] = params.SingularClaim{
-			ModelTag:      coretesting.EnvironmentTag.String(),
+			ModelTag:      coretesting.ModelTag.String(),
 			ControllerTag: "machine-123",
 			Duration:      duration,
 		}
 		expectCalls = append(expectCalls, testing.StubCall{
 			FuncName: "Claim",
 			Args: []interface{}{
-				coretesting.EnvironmentTag.Id(),
+				coretesting.ModelTag.Id(),
 				"machine-123",
 				durations[i],
 			},
@@ -142,9 +142,9 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 		}, {
 			"grarble floop", // rejected
 		}, {
-			coretesting.EnvironmentTag.String(), // stub-error
+			coretesting.ModelTag.String(), // stub-error
 		}, {
-			coretesting.EnvironmentTag.String(), // success
+			coretesting.ModelTag.String(), // success
 		}},
 	}
 	count := len(waits.Entities)
@@ -163,10 +163,10 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 
 	backend.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "WaitUntilExpired",
-		Args:     []interface{}{coretesting.EnvironmentTag.Id()},
+		Args:     []interface{}{coretesting.ModelTag.Id()},
 	}, {
 		FuncName: "WaitUntilExpired",
-		Args:     []interface{}{coretesting.EnvironmentTag.Id()},
+		Args:     []interface{}{coretesting.ModelTag.Id()},
 	}})
 }
 

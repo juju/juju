@@ -83,9 +83,9 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) 
 }
 
 func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keys)
 }
@@ -113,7 +113,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 }
 
 func (s *keyManagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))

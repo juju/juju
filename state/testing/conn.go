@@ -16,11 +16,11 @@ import (
 )
 
 // Initialize initializes the state and returns it. If state was not
-// already initialized, and cfg is nil, the minimal default environment
+// already initialized, and cfg is nil, the minimal default model
 // configuration will be used.
 func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.Policy) *state.State {
 	if cfg == nil {
-		cfg = testing.EnvironConfig(c)
+		cfg = testing.ModelConfig(c)
 	}
 	mgoInfo := NewMongoInfo()
 	dialOpts := NewDialOpts()
@@ -53,7 +53,7 @@ func NewDialOpts() mongo.DialOpts {
 // returns it.
 func NewState(c *gc.C) *state.State {
 	owner := names.NewLocalUserTag("test-admin")
-	cfg := testing.EnvironConfig(c)
+	cfg := testing.ModelConfig(c)
 	policy := MockPolicy{}
 	return Initialize(c, owner, cfg, &policy)
 }

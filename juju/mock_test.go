@@ -14,7 +14,7 @@ type mockAPIState struct {
 
 	addr         string
 	apiHostPorts [][]network.HostPort
-	environTag   string
+	modelTag     string
 }
 
 func (s *mockAPIState) Close() error {
@@ -32,12 +32,12 @@ func (s *mockAPIState) APIHostPorts() [][]network.HostPort {
 	return s.apiHostPorts
 }
 
-func (s *mockAPIState) EnvironTag() (names.EnvironTag, error) {
-	return names.ParseEnvironTag(s.environTag)
+func (s *mockAPIState) ModelTag() (names.ModelTag, error) {
+	return names.ParseModelTag(s.modelTag)
 }
 
-func (s *mockAPIState) ControllerTag() (names.EnvironTag, error) {
-	return names.EnvironTag{}, errors.NotImplementedf("ControllerTag")
+func (s *mockAPIState) ControllerTag() (names.ModelTag, error) {
+	return names.ModelTag{}, errors.NotImplementedf("ControllerTag")
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {

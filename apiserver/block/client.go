@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Block", 1, NewAPI)
+	common.RegisterStandardFacade("Block", 2, NewAPI)
 }
 
 // Block defines the methods on the block API end point.

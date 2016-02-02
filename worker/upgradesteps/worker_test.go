@@ -219,11 +219,11 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	}
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(config.Version, gc.Equals, version.Current) // Upgrade almost finished
@@ -259,7 +259,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	// This test checks when a state server is upgrading and one of
 	// the other state servers doesn't signal it is ready in time.
 
-	err := s.State.SetEnvironAgentVersion(version.Current)
+	err := s.State.SetModelAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The master state server in this scenario is functionally tested
@@ -270,7 +270,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -334,7 +334,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -355,12 +355,12 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 	}
 
 	check([]multiwatcher.MachineJob{multiwatcher.JobHostUnits}, false, upgrades.HostMachine)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron}, false, upgrades.StateServer)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron}, true,
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel}, false, upgrades.StateServer)
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel}, true,
 		upgrades.StateServer, upgrades.DatabaseMaster)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}, false,
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}, false,
 		upgrades.StateServer, upgrades.HostMachine)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}, true,
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}, true,
 		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
@@ -408,7 +408,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
 	mongoInfo := s.State.MongoConnectionInfo()
-	st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -428,12 +428,12 @@ func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {
 
 func (s *UpgradeSuite) create3StateServers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
 	machine0 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	machineIdA = machine0.Id()
 	s.setMachineAlive(c, machineIdA)
 
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 
@@ -553,7 +553,7 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 }
 
 func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

@@ -297,8 +297,8 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
-func UserEnvNameIndex(username, envName string) string {
-	return userEnvNameIndex(username, envName)
+func UserModelNameIndex(username, modelName string) string {
+	return userModelNameIndex(username, modelName)
 }
 
 func DocID(st *State, id string) string {
@@ -313,8 +313,8 @@ func StrictLocalID(st *State, id string) (string, error) {
 	return st.strictLocalID(id)
 }
 
-func GetUnitEnvUUID(unit *Unit) string {
-	return unit.doc.EnvUUID
+func GetUnitModelUUID(unit *Unit) string {
+	return unit.doc.ModelUUID
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
@@ -343,12 +343,12 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// This is a naive environment destruction function, used to test environment
-// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// This is a naive model destruction function, used to test model
+// watching after the client calls DestroyModel and the model doc is removed.
 // It is also used to test annotations.
-func RemoveEnvironment(st *State, uuid string) error {
+func RemoveModel(st *State, uuid string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     uuid,
 		Assert: txn.DocExists,
 		Remove: true,
@@ -356,17 +356,17 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDead(st *State, envUUID string) error {
+func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
-		Id:     envUUID,
+		C:      modelsC,
+		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
 }
 
-func HostedEnvironCount(c *gc.C, st *State) int {
-	count, err := hostedEnvironCount(st)
+func HostedModelCount(c *gc.C, st *State) int {
+	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
@@ -421,7 +421,7 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	envUUID string,
+	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -430,14 +430,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t,
-		EnvUUID:  envUUID,
-		Entity:   entity.String(),
-		Module:   module,
-		Location: location,
-		Level:    level,
-		Message:  msg,
+		Id:        bson.NewObjectId(),
+		Time:      t,
+		ModelUUID: modelUUID,
+		Entity:    entity.String(),
+		Module:    module,
+		Location:  location,
+		Level:     level,
+		Message:   msg,
 	}
 }
 

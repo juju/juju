@@ -20,15 +20,15 @@ type instancecfgSuite struct {
 var _ = gc.Suite(&instancecfgSuite{})
 
 func (*instancecfgSuite) TestInstanceTagsStateServer(c *gc.C) {
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{})
-	stateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	cfg := testing.CustomModelConfig(c, testing.Attrs{})
+	stateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 	nonStateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	testInstanceTags(c, cfg, stateServerJobs, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
-		"juju-is-state": "true",
+		"juju-model-uuid": testing.ModelTag.Id(),
+		"juju-is-state":   "true",
 	})
 	testInstanceTags(c, cfg, nonStateServerJobs, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
+		"juju-model-uuid": testing.ModelTag.Id(),
 	})
 }
 
@@ -40,18 +40,18 @@ func (*instancecfgSuite) TestInstanceTagsNoUUID(c *gc.C) {
 	testInstanceTags(c,
 		cfgWithoutUUID,
 		[]multiwatcher.MachineJob(nil),
-		map[string]string{"juju-env-uuid": ""},
+		map[string]string{"juju-model-uuid": ""},
 	)
 }
 
 func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"resource-tags": "a=b c=",
 	})
 	testInstanceTags(c, cfg, nil, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
-		"a":             "b",
-		"c":             "",
+		"juju-model-uuid": testing.ModelTag.Id(),
+		"a":               "b",
+		"c":               "",
 	})
 }
 

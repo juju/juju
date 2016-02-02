@@ -112,7 +112,7 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 				}}
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)

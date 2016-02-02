@@ -22,11 +22,11 @@ type Client struct {
 
 // UndertakerClient defines the methods on the undertaker API end point.
 type UndertakerClient interface {
-	EnvironInfo() (params.UndertakerEnvironInfoResult, error)
-	ProcessDyingEnviron() error
-	RemoveEnviron() error
-	WatchEnvironResources() (watcher.NotifyWatcher, error)
-	EnvironConfig() (*config.Config, error)
+	ModelInfo() (params.UndertakerModelInfoResult, error)
+	ProcessDyingModel() error
+	RemoveModel() error
+	WatchModelResources() (watcher.NotifyWatcher, error)
+	ModelConfig() (*config.Config, error)
 }
 
 // NewClient creates a new client for accessing the undertaker API.
@@ -35,55 +35,55 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
-// EnvironInfo returns information on the environment needed by the undertaker worker.
-func (c *Client) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	result := params.UndertakerEnvironInfoResult{}
+// ModelInfo returns information on the model needed by the undertaker worker.
+func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
+	result := params.UndertakerModelInfoResult{}
 	p, err := c.params()
 	if err != nil {
-		return params.UndertakerEnvironInfoResult{}, errors.Trace(err)
+		return params.UndertakerModelInfoResult{}, errors.Trace(err)
 	}
-	err = c.facade.FacadeCall("EnvironInfo", p, &result)
+	err = c.facade.FacadeCall("ModelInfo", p, &result)
 	return result, errors.Trace(err)
 }
 
-// ProcessDyingEnviron checks if a dying environment has any machines or services.
-// If there are none, the environment's life is changed from dying to dead.
-func (c *Client) ProcessDyingEnviron() error {
+// ProcessDyingModel checks if a dying model has any machines or services.
+// If there are none, the model's life is changed from dying to dead.
+func (c *Client) ProcessDyingModel() error {
 	p, err := c.params()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return c.facade.FacadeCall("ProcessDyingEnviron", p, nil)
+	return c.facade.FacadeCall("ProcessDyingModel", p, nil)
 }
 
-// RemoveEnviron removes any records of this environment from Juju.
-func (c *Client) RemoveEnviron() error {
+// RemoveModel removes any records of this model from Juju.
+func (c *Client) RemoveModel() error {
 	p, err := c.params()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.facade.FacadeCall("RemoveEnviron", p, nil)
+	return c.facade.FacadeCall("RemoveModel", p, nil)
 }
 
 func (c *Client) params() (params.Entities, error) {
-	envTag, err := c.st.EnvironTag()
+	modelTag, err := c.st.ModelTag()
 	if err != nil {
 		return params.Entities{}, errors.Trace(err)
 	}
-	return params.Entities{Entities: []params.Entity{{envTag.String()}}}, nil
+	return params.Entities{Entities: []params.Entity{{modelTag.String()}}}, nil
 }
 
-// WatchEnvironResources starts a watcher for changes to the environment's
+// WatchModelResources starts a watcher for changes to the model's
 // machines and services.
-func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 
 	p, err := c.params()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = c.facade.FacadeCall("WatchEnvironResources", p, &results)
+	err = c.facade.FacadeCall("WatchModelResources", p, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -98,15 +98,15 @@ func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
-// EnvironConfig returns configuration information on the environment needed
+// ModelConfig returns configuration information on the model needed
 // by the undertaker worker.
-func (c *Client) EnvironConfig() (*config.Config, error) {
+func (c *Client) ModelConfig() (*config.Config, error) {
 	p, err := c.params()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result params.EnvironConfigResult
-	err = c.facade.FacadeCall("EnvironConfig", p, &result)
+	var result params.ModelConfigResult
+	err = c.facade.FacadeCall("ModelConfig", p, &result)
 	if err != nil {
 		return nil, err
 	}
