@@ -44,7 +44,6 @@ import (
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	apiundertaker "github.com/juju/juju/api/undertaker"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -82,7 +81,6 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
@@ -1360,34 +1358,6 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	// data-dir should have been removed on termination
 	_, err = os.Stat(ac.DataDir())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
-func (s *MachineSuite) TestMachineAgentRsyslogManageEnviron(c *gc.C) {
-	s.testMachineAgentRsyslogConfigWorker(c, state.JobManageEnviron, rsyslog.RsyslogModeAccumulate)
-}
-
-func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
-	s.testMachineAgentRsyslogConfigWorker(c, state.JobHostUnits, rsyslog.RsyslogModeForwarding)
-}
-
-func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
-	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
-		created <- mode
-		return newDummyWorker(), nil
-	})
-
-	stm, _, _ := s.primeAgent(c, job)
-	a := s.newAgent(c, stm)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for rsyslog worker to be created")
-	case mode := <-created:
-		c.Assert(mode, gc.Equals, expectedMode)
-	}
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {

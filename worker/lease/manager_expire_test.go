@@ -28,6 +28,8 @@ func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 			"redis": corelease.Info{Expiry: offset(-time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]corelease.Info) {
@@ -55,6 +57,8 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 			"redis": corelease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]corelease.Info) {
@@ -67,12 +71,46 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 	})
 }
 
+func (s *ExpireSuite) TestStartup_NoExpiry_NotLongEnough(c *gc.C) {
+	fix := &Fixture{}
+	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+		clock.Advance(almostSeconds(3600))
+	})
+}
+
+func (s *ExpireSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
+	fix := &Fixture{
+		leases: map[string]corelease.Info{
+			"goose": corelease.Info{Expiry: offset(3 * time.Hour)},
+		},
+		expectCalls: []call{{
+			method: "Refresh",
+			callback: func(leases map[string]corelease.Info) {
+				leases["redis"] = corelease.Info{
+					Expiry: offset(time.Minute),
+				}
+			},
+		}, {
+			method: "ExpireLease",
+			args:   []interface{}{"redis"},
+			callback: func(leases map[string]corelease.Info) {
+				delete(leases, "redis")
+			},
+		}},
+	}
+	fix.RunTest(c, func(_ *lease.Manager, clock *coretesting.Clock) {
+		clock.Advance(time.Hour)
+	})
+}
+
 func (s *ExpireSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": corelease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    corelease.ErrInvalid,
@@ -92,6 +130,8 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 			"redis": corelease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    corelease.ErrInvalid,
@@ -111,6 +151,8 @@ func (s *ExpireSuite) TestExpire_OtherError(c *gc.C) {
 			"redis": corelease.Info{Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    errors.New("snarfblat hobalob"),
@@ -156,6 +198,8 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 					Expiry: offset(63 * time.Second),
 				}
 			},
+		}, {
+			method: "Refresh",
 		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
@@ -217,6 +261,8 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 				}
 			},
 		}, {
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]corelease.Info) {
@@ -257,6 +303,8 @@ func (s *ExpireSuite) TestExpire_Multiple(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]corelease.Info) {

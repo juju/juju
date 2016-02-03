@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -82,6 +83,14 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
+
+	// MachineID is the id of the machine agent, used by the
+	// authenticationworker.
+	MachineID string
+
+	// BootstrapMachineID is the id of the bootstrap machine. It is used by the
+	// authenticationworker.
+	BootstrapMachineID string
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -268,6 +277,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 		}),
+		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+			MachineID: config.MachineID,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+		}),
 	}
 }
 
@@ -292,4 +309,5 @@ const (
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
 	deployerName             = "deployer"
+	authenticationworkerName = "authenticationworker"
 )

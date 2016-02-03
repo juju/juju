@@ -39,6 +39,8 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			callback: func(leases map[string]corelease.Info) {
@@ -66,6 +68,8 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    corelease.ErrInvalid,
@@ -127,6 +131,8 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			},
 		},
 		expectCalls: []call{{
+			method: "Refresh",
+		}, {
 			method: "ExpireLease",
 			args:   []interface{}{"redis"},
 			err:    corelease.ErrInvalid,
