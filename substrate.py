@@ -88,7 +88,7 @@ class AWSAccount:
     def iter_security_groups(self):
         """Iterate through security groups created by juju in this account.
 
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         groups = self.client.get_all_security_groups(
             filters={'description': 'juju group'})
@@ -100,7 +100,7 @@ class AWSAccount:
 
         :param instance_ids: If supplied, list only security groups used by
             the specified instances.
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         logging.info('Listing security groups in use.')
         reservations = self.client.get_all_instances(instance_ids=instance_ids)
@@ -186,7 +186,7 @@ class OpenStackAccount:
     def iter_security_groups(self):
         """Iterate through security groups created by juju in this account.
 
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         return ((g.id, g.name) for g in self.client.security_groups.list()
                 if g.description == 'juju group')
@@ -196,7 +196,7 @@ class OpenStackAccount:
 
         :param instance_ids: If supplied, list only security groups used by
             the specified instances.
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         group_names = set()
         for server in self.client.servers.list():
