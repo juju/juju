@@ -36,14 +36,14 @@ func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	// Create a hosted model to migrate.
-	s.State2 = s.Factory.MakeEnvironment(c, nil)
+	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.ModelMigrationSpec{
 		InitiatedBy: "admin",
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewEnvironTag(s.State.EnvironUUID()),
+			ControllerTag: names.NewEnvironTag(s.State.ModelUUID()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			EntityTag:     names.NewUserTag("user"),
@@ -56,7 +56,7 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(mig.ModelUUID(), gc.Equals, s.State2.EnvironUUID())
+	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
 	c.Check(mig.Id(), gc.Equals, mig.ModelUUID()+":0")
 
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
@@ -78,16 +78,16 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 	st2 := s.State2
-	st3 := s.Factory.MakeEnvironment(c, nil)
+	st3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { st3.Close() })
 
 	mig2, err := state.CreateModelMigration(st2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig2.Id(), gc.Equals, st2.EnvironUUID()+":0")
+	c.Check(mig2.Id(), gc.Equals, st2.ModelUUID()+":0")
 
 	mig3, err := state.CreateModelMigration(st3, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig3.Id(), gc.Equals, st3.EnvironUUID()+":0")
+	c.Check(mig3.Id(), gc.Equals, st3.ModelUUID()+":0")
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
@@ -98,20 +98,20 @@ func (s *ModelMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
 		return mig.Id()
 	}
 
-	envUUID := s.State2.EnvironUUID()
-	c.Check(createAndAbort(), gc.Equals, envUUID+":0")
-	c.Check(createAndAbort(), gc.Equals, envUUID+":1")
-	c.Check(createAndAbort(), gc.Equals, envUUID+":2")
+	modelUUID := s.State2.ModelUUID()
+	c.Check(createAndAbort(), gc.Equals, modelUUID+":0")
+	c.Check(createAndAbort(), gc.Equals, modelUUID+":1")
+	c.Check(createAndAbort(), gc.Equals, modelUUID+":2")
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 	// Ensure that sequence numbers aren't "used up" unnecessarily
 	// when the create txn is going to fail.
-	envUUID := s.State2.EnvironUUID()
+	modelUUID := s.State2.ModelUUID()
 
 	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, envUUID+":0")
+	c.Check(mig.Id(), gc.Equals, modelUUID+":0")
 
 	// This attempt will fail because a migration is already in
 	// progress.
@@ -124,7 +124,7 @@ func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C)
 
 	mig, err = state.CreateModelMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, envUUID+":1")
+	c.Check(mig.Id(), gc.Equals, modelUUID+":1")
 }
 
 func (s *ModelMigrationSuite) TestSpecValidation(c *gc.C) {
@@ -213,7 +213,7 @@ func (s *ModelMigrationSuite) TestGetNotExist(c *gc.C) {
 }
 
 func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
-	envUUID := s.State2.EnvironUUID()
+	modelUUID := s.State2.ModelUUID()
 
 	for i := 0; i < 10; i++ {
 		c.Logf("loop %d", i)
@@ -221,7 +221,7 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		mig, err := state.GetModelMigration(s.State2)
-		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", envUUID, i))
+		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", modelUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	}
@@ -404,7 +404,7 @@ func assertMigrationNotActive(c *gc.C, st *state.State) {
 }
 
 func isMigrationActive(c *gc.C, st *state.State) bool {
-	isActive, err := state.IsModelMigrationActive(st, st.EnvironUUID())
+	isActive, err := state.IsModelMigrationActive(st, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return isActive
 }

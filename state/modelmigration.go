@@ -279,8 +279,8 @@ func (spec *ModelMigrationSpec) Validate() error {
 }
 
 // CreateModelMigration initialises state that tracks a model
-// migration. It will return an error if there is already an
-// environment migration in progress.
+// migration. It will return an error if there is already a
+// model migration in progress.
 func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, error) {
 	if st.IsStateServer() {
 		return nil, errors.New("controllers can't be migrated")
@@ -290,7 +290,7 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 	}
 
 	now := GetClock().Now().UnixNano()
-	modelUUID := st.EnvironUUID()
+	modelUUID := st.ModelUUID()
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -356,7 +356,7 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 	migColl, closer := st.getCollection(modelMigrationsC)
 	defer closer()
 
-	query := migColl.Find(bson.M{"model-uuid": st.EnvironUUID()})
+	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-_id").Limit(1)
 	var doc modelMigDoc
 	err := query.One(&doc)
