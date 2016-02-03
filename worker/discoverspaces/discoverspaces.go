@@ -96,9 +96,11 @@ func (dw *discoverspacesWorker) loop() (err error) {
 	if ok {
 		err = dw.handleSubnets(networkingEnviron)
 		if err != nil {
+			close(dw.discoveringSpaces)
 			return errors.Trace(err)
 		}
 	}
+	close(dw.discoveringSpaces)
 
 	// TODO(mfoord): we'll have a watcher here checking if we need to
 	// update the spaces/subnets definition.
@@ -113,7 +115,6 @@ func (dw *discoverspacesWorker) loop() (err error) {
 }
 
 func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) error {
-	defer close(dw.discoveringSpaces)
 	ok, err := env.SupportsSpaceDiscovery()
 	if err != nil {
 		return errors.Trace(err)
