@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// Model is a database agnostic representation of an existing model.
 type Model interface {
 	Tag() names.EnvironTag
 	Owner() names.UserTag
@@ -139,6 +140,10 @@ type Service interface {
 	ForceCharm() bool
 	Exposed() bool
 	MinUnits() int
+
+	Settings() map[string]interface{}
+	SettingsRefCount() int
+	LeadershipSettings() map[string]interface{}
 
 	Status() Status
 	SetStatus(StatusArgs)
