@@ -5,6 +5,7 @@ package networker_test
 
 import (
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,17 +23,35 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/networker"
+	workertesting "github.com/juju/juju/worker/testing"
 )
 
 type manifoldSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
+	newCalled    bool
+	facadeCaller basetesting.FacadeCallerFunc
 }
 
 var _ = gc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) TestMachineNetworker(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *gc.C) {
+	s.newCalled = false
 
-	caller := basetesting.FacadeCallerFunc(
+	s.PatchValue(&networker.NewNetworker, func(
+		st apinetworker.State,
+		agentConfig agent.Config,
+		intrusiveMode bool,
+		configBaseDir string,
+	) (worker.Worker, error) {
+
+		s.newCalled = true
+		c.Assert(st, gc.NotNil)
+		c.Assert(intrusiveMode, jc.IsTrue)
+
+		return nil, nil
+	})
+
+	s.facadeCaller = basetesting.FacadeCallerFunc(
 		func(request string, args, response interface{}) error {
 
 			if result, ok := response.(*params.EnvironConfigResult); ok {
@@ -40,34 +59,34 @@ func (s *manifoldSuite) TestMachineNetworker(c *gc.C) {
 			}
 			return nil
 		})
+}
 
-	apiCaller := api.Connection(&dummyConn{facadeCaller: caller})
+func (s *manifoldSuite) TestMachineNetworker(c *gc.C) {
 
-	called := false
-	s.PatchValue(&networker.NewNetworker, func(
-		st apinetworker.State,
-		agentConfig agent.Config,
-		intrusiveMode bool,
-		configBaseDir string,
-	) (worker.Worker, error) {
-		called = true
-
-		c.Assert(st, gc.NotNil)
-		c.Assert(intrusiveMode, jc.IsTrue)
-
-		return nil, nil
-	})
-
-	a := &dummyAgent{
-		tag: names.NewMachineTag("1"),
-		jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageNetworking,
+	cfg := networker.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
+	_, err := workertesting.RunPostUpgradeManifold(
+		networker.Manifold(cfg),
+		&dummyAgent{
+			tag: names.NewMachineTag("1"),
+			jobs: []multiwatcher.MachineJob{
+				multiwatcher.JobManageNetworking,
+			},
 		},
-	}
-
-	_, err := networker.NewWorker(a, apiCaller)
+		api.Connection(&dummyConn{facadeCaller: s.facadeCaller}))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.newCalled, jc.IsTrue)
+
+}
+
+func (s *manifoldSuite) TestUnit(c *gc.C) {
+
+	cfg := networker.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
+	_, err := workertesting.RunPostUpgradeManifold(
+		networker.Manifold(cfg),
+		&dummyAgent{tag: names.NewUnitTag("foo/0")},
+		api.Connection(&dummyConn{facadeCaller: s.facadeCaller}))
+	c.Assert(err, gc.ErrorMatches, "agent's tag is not a machine tag")
+	c.Assert(s.newCalled, jc.IsFalse)
 }
 
 type dummyConn struct {

@@ -660,6 +660,8 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 	}
 }
 
+var newEnvirons = environs.New
+
 // startAPIWorkers is called to start workers which rely on the
 // machine agent's API connection (via the apiworkers manifold). It
 // returns a Runner with a number of workers attached to it.
@@ -674,7 +676,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isEnvironManager
+	var isEnvironManager bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageEnviron:
@@ -695,6 +697,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			worker.Stop(runner)
 		}
 	}()
+
+	envConfig, err := apiConn.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
 
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
