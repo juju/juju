@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
@@ -31,6 +32,15 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	provider, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
+}
+
+func (s *providerSuite) TestDetectRegions(c *gc.C) {
+	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
+	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regions, jc.DeepEquals, map[string]cloud.Region{
+		"localhost": {},
+	})
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
