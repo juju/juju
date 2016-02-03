@@ -40,27 +40,27 @@ type address struct {
 	Origin_      string `yaml:"origin,omitempty"`
 }
 
-// Value implements Address.Value interface method.
+// Value implements Address.
 func (a *address) Value() string {
 	return a.Value_
 }
 
-// Type implements Address.Type interface method.
+// Type implements Address.
 func (a *address) Type() string {
 	return a.Type_
 }
 
-// NetworkName implements Address.NetworkName interface method.
+// NetworkName implements Address.
 func (a *address) NetworkName() string {
 	return a.NetworkName_
 }
 
-// Scope implements Address.Scope interface method.
+// Scope implements Address.
 func (a *address) Scope() string {
 	return a.Scope_
 }
 
-// Origin implements Address.Origin interface method.
+// Origin implements Address.
 func (a *address) Origin() string {
 	return a.Origin_
 }

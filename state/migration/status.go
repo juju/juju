@@ -38,22 +38,22 @@ type status struct {
 	Updated_ time.Time              `yaml:"updated"`
 }
 
-// Value implements Status.Value interface method.
+// Value implements Status.
 func (a *status) Value() string {
 	return a.Value_
 }
 
-// Message implements Status.Message interface method.
+// Message implements Status.
 func (a *status) Message() string {
 	return a.Message_
 }
 
-// Data implements Status.Data interface method.
+// Data implements Status.
 func (a *status) Data() map[string]interface{} {
 	return a.Data_
 }
 
-// Updated implements Status.Updated interface method.
+// Updated implements Status.
 func (a *status) Updated() time.Time {
 	return a.Updated_
 }

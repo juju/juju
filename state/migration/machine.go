@@ -78,32 +78,32 @@ func newMachine(args MachineArgs) *machine {
 	return m
 }
 
-// Id implements Machine.Id.
+// Id implements Machine.
 func (m *machine) Id() string {
 	return m.Id_
 }
 
-// Tag implements Machine.Tag.
+// Tag implements Machine.
 func (m *machine) Tag() names.MachineTag {
 	return names.NewMachineTag(m.Id_)
 }
 
-// Nonce implements Machine.Nonce.
+// Nonce implements Machine.
 func (m *machine) Nonce() string {
 	return m.Nonce_
 }
 
-// PasswordHash implements Machine.PasswordHash.
+// PasswordHash implements Machine.
 func (m *machine) PasswordHash() string {
 	return m.PasswordHash_
 }
 
-// Placement implements Machine.Placement.
+// Placement implements Machine.
 func (m *machine) Placement() string {
 	return m.Placement_
 }
 
-// Instance implements Machine.Instance.
+// Instance implements Machine.
 func (m *machine) Instance() CloudInstance {
 	// To avoid typed nils check nil here.
 	if m.Instance_ == nil {
@@ -112,22 +112,22 @@ func (m *machine) Instance() CloudInstance {
 	return m.Instance_
 }
 
-// SetInstance implements Machine.SetInstance.
+// SetInstance implements Machine.
 func (m *machine) SetInstance(args CloudInstanceArgs) {
 	m.Instance_ = newCloudInstance(args)
 }
 
-// Series implements Machine.Series.
+// Series implements Machine.
 func (m *machine) Series() string {
 	return m.Series_
 }
 
-// ContainerType implements Machine.ContainerType.
+// ContainerType implements Machine.
 func (m *machine) ContainerType() string {
 	return m.ContainerType_
 }
 
-// Status implements Machine.Status.
+// Status implements Machine.
 func (m *machine) Status() Status {
 	// To avoid typed nils check nil here.
 	if m.Status_ == nil {
@@ -136,12 +136,12 @@ func (m *machine) Status() Status {
 	return m.Status_
 }
 
-// SetStatus implements Machine.SetStatus.
+// SetStatus implements Machine.
 func (m *machine) SetStatus(args StatusArgs) {
 	m.Status_ = newStatus(args)
 }
 
-// ProviderAddresses implements Machine.ProviderAddresses.
+// ProviderAddresses implements Machine.
 func (m *machine) ProviderAddresses() []Address {
 	var result []Address
 	for _, addr := range m.ProviderAddresses_ {
@@ -150,7 +150,7 @@ func (m *machine) ProviderAddresses() []Address {
 	return result
 }
 
-// MachineAddresses implements Machine.MachineAddresses.
+// MachineAddresses implements Machine.
 func (m *machine) MachineAddresses() []Address {
 	var result []Address
 	for _, addr := range m.MachineAddresses_ {
@@ -159,7 +159,7 @@ func (m *machine) MachineAddresses() []Address {
 	return result
 }
 
-// SetAddresses implements Machine.SetAddresses.
+// SetAddresses implements Machine.
 func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 	m.MachineAddresses_ = nil
 	m.ProviderAddresses_ = nil
@@ -175,7 +175,7 @@ func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 	}
 }
 
-// PreferredPublicAddress implements Machine.PreferredPublicAddress.
+// PreferredPublicAddress implements Machine.
 func (m *machine) PreferredPublicAddress() Address {
 	// To avoid typed nils check nil here.
 	if m.PreferredPublicAddress_ == nil {
@@ -184,7 +184,7 @@ func (m *machine) PreferredPublicAddress() Address {
 	return m.PreferredPublicAddress_
 }
 
-// PreferredPrivateAddress implements Machine.PreferredPrivateAddress.
+// PreferredPrivateAddress implements Machine.
 func (m *machine) PreferredPrivateAddress() Address {
 	// To avoid typed nils check nil here.
 	if m.PreferredPrivateAddress_ == nil {
@@ -193,7 +193,7 @@ func (m *machine) PreferredPrivateAddress() Address {
 	return m.PreferredPrivateAddress_
 }
 
-// SetPreferredAddresses implements Machine.SetPreferredAddresses.
+// SetPreferredAddresses implements Machine.
 func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs) {
 	if public.Value != "" {
 		m.PreferredPublicAddress_ = newAddress(public)
@@ -203,7 +203,7 @@ func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs)
 	}
 }
 
-// Tools implements Machine.Tools.
+// Tools implements Machine.
 func (m *machine) Tools() AgentTools {
 	// To avoid a typed nil, check before returning.
 	if m.Tools_ == nil {
@@ -212,17 +212,17 @@ func (m *machine) Tools() AgentTools {
 	return m.Tools_
 }
 
-// SetTools implements Machine.SetTools.
+// SetTools implements Machine.
 func (m *machine) SetTools(args AgentToolsArgs) {
 	m.Tools_ = newAgentTools(args)
 }
 
-// Jobs implements Machine.Jobs.
+// Jobs implements Machine.
 func (m *machine) Jobs() []string {
 	return m.Jobs_
 }
 
-// SupportedContainers implements Machine.SupportedContainers.
+// SupportedContainers implements Machine.
 func (m *machine) SupportedContainers() ([]string, bool) {
 	if m.SupportedContainers_ == nil {
 		return nil, false
@@ -230,7 +230,7 @@ func (m *machine) SupportedContainers() ([]string, bool) {
 	return *m.SupportedContainers_, true
 }
 
-// Containers implements Machine.Containers.
+// Containers implements Machine.
 func (m *machine) Containers() []Machine {
 	var result []Machine
 	for _, container := range m.Containers_ {
@@ -239,14 +239,14 @@ func (m *machine) Containers() []Machine {
 	return result
 }
 
-// AddContainer implements Machine.AddContainer.
+// AddContainer implements Machine.
 func (m *machine) AddContainer(args MachineArgs) Machine {
 	container := newMachine(args)
 	m.Containers_ = append(m.Containers_, container)
 	return container
 }
 
-// Validate implements Machine.Validate.
+// Validate implements Machine.
 func (m *machine) Validate() error {
 	if m.Id_ == "" {
 		return errors.NotValidf("missing id")
@@ -445,49 +445,49 @@ type cloudInstance struct {
 	AvailabilityZone_ string   `yaml:"availability-zone,omitempty"`
 }
 
-// InstanceId implements CloudInstance.InstanceId.
+// InstanceId implements CloudInstance.
 func (c *cloudInstance) InstanceId() string {
 	return c.InstanceId_
 }
 
-// Status implements CloudInstance.Status.
+// Status implements CloudInstance.
 func (c *cloudInstance) Status() string {
 	return c.Status_
 }
 
-// Architecture implements CloudInstance.Architecture.
+// Architecture implements CloudInstance.
 func (c *cloudInstance) Architecture() string {
 	return c.Architecture_
 }
 
-// Memory implements CloudInstance.Memory.
+// Memory implements CloudInstance.
 func (c *cloudInstance) Memory() uint64 {
 	return c.Memory_
 }
 
-// RootDisk implements CloudInstance.RootDisk.
+// RootDisk implements CloudInstance.
 func (c *cloudInstance) RootDisk() uint64 {
 	return c.RootDisk_
 }
 
-// CpuCores implements CloudInstance.CpuCores.
+// CpuCores implements CloudInstance.
 func (c *cloudInstance) CpuCores() uint64 {
 	return c.CpuCores_
 }
 
-// CpuPower implements CloudInstance.CpuPower.
+// CpuPower implements CloudInstance.
 func (c *cloudInstance) CpuPower() uint64 {
 	return c.CpuPower_
 }
 
-// Tags implements CloudInstance.Tags.
+// Tags implements CloudInstance.
 func (c *cloudInstance) Tags() []string {
 	tags := make([]string, len(c.Tags_))
 	copy(tags, c.Tags_)
 	return tags
 }
 
-// AvailabilityZone implements CloudInstance.AvailabilityZone.
+// AvailabilityZone implements CloudInstance.
 func (c *cloudInstance) AvailabilityZone() string {
 	return c.AvailabilityZone_
 }
@@ -593,22 +593,22 @@ type agentTools struct {
 	Size_         int64          `yaml:"size"`
 }
 
-// Version implements AgentTools.Version.
+// Version implements AgentTools.
 func (a *agentTools) Version() version.Binary {
 	return a.ToolsVersion_
 }
 
-// URL implements AgentTools.URL.
+// URL implements AgentTools.
 func (a *agentTools) URL() string {
 	return a.URL_
 }
 
-// SHA256 implements AgentTools.SHA256.
+// SHA256 implements AgentTools.
 func (a *agentTools) SHA256() string {
 	return a.SHA256_
 }
 
-// Size implements AgentTools.Size.
+// Size implements AgentTools.
 func (a *agentTools) Size() int64 {
 	return a.Size_
 }

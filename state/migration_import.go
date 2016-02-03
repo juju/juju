@@ -284,9 +284,9 @@ func (i *importer) makeMachineDoc(m migration.Machine) (*machineDoc, error) {
 }
 
 func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
-	// At the time this was originally written, there are three
-	// valid jobs. If any jobs gets deprecated or changed in the future,
-	// older models that specify those jobs need to be handled here.
+	// At time of writing, there are three valid jobs. If any jobs gets
+	// deprecated or changed in the future, older models that specify those
+	// jobs need to be handled here.
 	result := make([]MachineJob, 0, len(jobs))
 	for _, job := range jobs {
 		switch job {

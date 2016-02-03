@@ -92,7 +92,7 @@ func paramsJobsFromJobs(jobs []MachineJob) []multiwatcher.MachineJob {
 }
 
 // MigrationValue converts the state job into a useful human readable
-// string.
+// string for model migration.
 func (job MachineJob) MigrationValue() string {
 	if value, ok := jobMigrationValue[job]; ok {
 		return value
