@@ -1096,7 +1096,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
-			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
+			// Each time aipserver worker is restarted, we need a fresh copy of state due
+			// to the fact that state holds lease managers which are killed and need to be reset.
+			stateOpener := func() (*state.State, error) {
+				logger.Debugf("opening state for apistate worker")
+				st, _, err := openState(agentConfig, stateWorkerDialOpts)
+				return st, err
+			}
+			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -1416,8 +1423,16 @@ func _getFirewallMode(apiSt api.Connection) (string, error) {
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
 
-func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged chan params.StateServingInfo) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) { return a.newApiserverWorker(st, certChanged) }
+func (a *MachineAgent) apiserverWorkerStarter(
+	stateOpener func() (*state.State, error), certChanged chan params.StateServingInfo,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		st, err := stateOpener()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return a.newApiserverWorker(st, certChanged)
+	}
 }
 
 func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
