@@ -105,9 +105,9 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		"configYAML",
 		constraints.MustParse("mem=4G"),
 		[]*instance.Placement{{"scope", "directive"}},
-		map[string]string{"foo": "bar"},
 		nil, // networks shouldn't be used anymore
 		map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		map[string]string{"foo": "bar"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)

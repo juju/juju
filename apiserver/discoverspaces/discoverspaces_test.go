@@ -67,24 +67,24 @@ func (s *DiscoverSpacesSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *DiscoverSpacesSuite) TestEnvironConfigFailure(c *gc.C) {
+func (s *DiscoverSpacesSuite) TestModelConfigFailure(c *gc.C) {
 	apiservertesting.BackingInstance.SetErrors(errors.New("boom"))
 
-	result, err := s.facade.EnvironConfig()
+	result, err := s.facade.ModelConfig()
 	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
+	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{})
 
-	apiservertesting.BackingInstance.CheckCallNames(c, "EnvironConfig")
+	apiservertesting.BackingInstance.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *DiscoverSpacesSuite) TestEnvironConfigSuccess(c *gc.C) {
-	result, err := s.facade.EnvironConfig()
+func (s *DiscoverSpacesSuite) TestModelConfigSuccess(c *gc.C) {
+	result, err := s.facade.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
+	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{
 		Config: apiservertesting.BackingInstance.EnvConfig.AllAttrs(),
 	})
 
-	apiservertesting.BackingInstance.CheckCallNames(c, "EnvironConfig")
+	apiservertesting.BackingInstance.CheckCallNames(c, "ModelConfig")
 }
 
 func (s *DiscoverSpacesSuite) TestListSpaces(c *gc.C) {

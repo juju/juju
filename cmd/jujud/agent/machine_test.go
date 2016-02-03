@@ -529,7 +529,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	dummy.SetInstanceAddresses(insts[0], addrs)
 }
 
-func (s *MachineSuite) TestManageEnviron(c *gc.C) {
+func (s *MachineSuite) TestManageModel(c *gc.C) {
 	usefulVersion := version.Binary{
 		Number: version.Current,
 		Arch:   arch.HostArch(),
@@ -598,7 +598,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	started := newSignal()
 	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
 		started.trigger()
@@ -619,7 +619,7 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 	started.assertTriggered(c, "resumer worker to start")
 }
 
-func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
+func (s *MachineSuite) TestManageModelStartsInstancePoller(c *gc.C) {
 	started := newSignal()
 	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) (worker.Worker, error) {
 		started.trigger()
@@ -643,7 +643,7 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 
 const startWorkerWait = 250 * time.Millisecond
 
-func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
+func (s *MachineSuite) TestManageModelDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
 	s.PatchValue(&getFirewallMode, func(api.Connection) (string, error) {
 		return config.FwNone, nil
 	})
@@ -667,7 +667,7 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 	started.assertNotTriggered(c, startWorkerWait, "firewaller started")
 }
 
-func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Binary{
 		Number: version.Current,
@@ -715,7 +715,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 	started := newSignal()
 	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
@@ -774,7 +774,7 @@ func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupport
 	s.testAddresserNewWorkerResult(c, true)
 }
 
-func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -784,7 +784,7 @@ func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *g
 	runner.waitForWorker(c, "dblogpruner")
 }
 
-func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsStatusHistoryPruner(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -795,7 +795,7 @@ func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
 	runner.waitForWorker(c, "statushistorypruner")
 }
 
-func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
+func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageModel agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Binary{
 		Number: version.Current,
@@ -985,7 +985,7 @@ func (s *MachineSuite) waitForOpenState(c *gc.C, reportOpened *func(io.Closer), 
 	panic("can't happen")
 }
 
-func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
+func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		apiInfo, ok := conf.APIInfo()
 		c.Assert(ok, jc.IsTrue)
@@ -998,7 +998,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) {
+func (s *MachineSuite) TestManageModelBlocksAPIUntilSpacesDiscovered(c *gc.C) {
 	var called bool
 	spacesDiscovered := make(chan struct{})
 	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan struct{}) {
@@ -1006,7 +1006,7 @@ func (s *MachineSuite) TestManageEnvironBlocksAPIUntilSpacesDiscovered(c *gc.C) 
 		return newDummyWorker(), spacesDiscovered
 	}
 	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
-	m, conf, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, conf, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1079,7 +1079,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 	}
 }
 
-func (s *MachineSuite) TestAgentSetsToolsVersionManageEnviron(c *gc.C) {
+func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
 }
 
@@ -1087,7 +1087,7 @@ func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
 }
 
-func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
 		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -1962,7 +1962,7 @@ func (s *MachineSuite) TestReplicasetInitForNewStateServer(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
-func (s *MachineSuite) TestManageEnvironRunsUndertaker(c *gc.C) {
+func (s *MachineSuite) TestManageModelRunsUndertaker(c *gc.C) {
 	started := make(chan struct{})
 	s.AgentSuite.PatchValue(&getUndertakerAPI, func(st api.Connection) apiundertaker.UndertakerClient {
 		close(started)
@@ -2025,7 +2025,7 @@ func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
 	s.commonMachineSuite.TearDownTest(c)
 }
 
-func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
+func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 
 	s.SetupScenario(c)

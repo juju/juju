@@ -116,13 +116,13 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPIV2, err := uniter.NewUniterAPIV3(
+	uniterAPIV3, err := uniter.NewUniterAPIV3(
 		s.State,
 		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.uniter = uniterAPIV2
+	s.uniter = uniterAPIV3
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -2341,22 +2341,20 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	}
 }
 
-//TODO run all common V0 and V1 tests.
 type uniterNetworkConfigSuite struct {
-	uniterSuite
-	uniter *uniter.UniterAPIV3
+	base uniterSuite // not embedded so it doesn't run all tests.
 }
 
 var _ = gc.Suite(&uniterNetworkConfigSuite{})
 
 func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.JujuConnSuite.SetUpTest(c)
+	s.base.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.base.machine0, err = s.base.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddSpace("internal", "internal", nil, false)
+	_, err = s.base.State.AddSpace("internal", "internal", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	providerAddresses := []network.Address{
@@ -2367,67 +2365,67 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		network.NewAddressOnSpace(network.DefaultSpace, "fc00::1"),
 	}
 
-	err = s.machine0.SetProviderAddresses(providerAddresses...)
+	err = s.base.machine0.SetProviderAddresses(providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine0.SetInstanceInfo("i-am", "fake_nonce", nil, nil, nil, nil, nil)
+	err = s.base.machine0.SetInstanceInfo("i-am", "fake_nonce", nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	factory := jujuFactory.NewFactory(s.State)
-	s.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+	factory := jujuFactory.NewFactory(s.base.State)
+	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "wordpress",
 		URL:  "cs:quantal/wordpress-3",
 	})
-	s.wordpress, err = s.State.AddService(state.AddServiceArgs{
+	s.base.wordpress, err = s.base.State.AddService(state.AddServiceArgs{
 		Name:  "wordpress",
-		Charm: s.wpCharm,
-		Owner: s.AdminUserTag(c).String(),
+		Charm: s.base.wpCharm,
+		Owner: s.base.AdminUserTag(c).String(),
 		EndpointBindings: map[string]string{
 			"db": "internal",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.wordpress,
-		Machine: s.machine0,
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.base.wordpress,
+		Machine: s.base.machine0,
 	})
 
-	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.base.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.base.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c),
+		Creator: s.base.AdminUserTag(c),
 	})
-	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.wordpress,
-		Machine: s.machine0,
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.base.wordpress,
+		Machine: s.base.machine0,
 	})
-	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine1,
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.base.mysql,
+		Machine: s.base.machine1,
 	})
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.wordpressUnit.Tag(),
+	s.base.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: s.base.wordpressUnit.Tag(),
 	}
 
 	// Create the resource registry separately to track invocations to
 	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.base.resources = common.NewResources()
+	s.base.AddCleanup(func(_ *gc.C) { s.base.resources.StopAll() })
 
-	s.uniter, err = uniter.NewUniterAPIV3(
-		s.State,
-		s.resources,
-		s.authorizer,
+	s.base.uniter, err = uniter.NewUniterAPIV3(
+		s.base.State,
+		s.base.resources,
+		s.base.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2436,18 +2434,18 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfig(c *gc.C) {
 
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
-	rel := s.addRelation(c, "wordpress", "mysql")
-	wpRelUnit, err := rel.Unit(s.wordpressUnit)
+	rel := s.base.addRelation(c, "wordpress", "mysql")
+	wpRelUnit, err := rel.Unit(s.base.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wpRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, wpRelUnit, true)
+	s.base.assertInScope(c, wpRelUnit, true)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
-		{Relation: rel.Tag().String(), Unit: s.wordpressUnit.Tag().String()},
+		{Relation: rel.Tag().String(), Unit: s.base.wordpressUnit.Tag().String()},
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: "relation-42", Unit: s.wordpressUnit.Tag().String()},
+		{Relation: "relation-42", Unit: s.base.wordpressUnit.Tag().String()},
 	}}
 
 	// For the relation "wordpress:db mysql:server" we expect to see only
@@ -2459,7 +2457,7 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfig(c *gc.C) {
 		Address: "10.0.0.2",
 	}}
 
-	result, err := s.uniter.NetworkConfig(args)
+	result, err := s.base.uniter.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{

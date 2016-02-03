@@ -112,17 +112,17 @@ func (s *DiscoverSpacesSuite) TestCreateSpaces(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *DiscoverSpacesSuite) TestEnvironConfig(c *gc.C) {
+func (s *DiscoverSpacesSuite) TestModelConfig(c *gc.C) {
 	var called int
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.EnvironConfigResult{
+	expectedResult := params.ModelConfigResult{
 		Config: cfg.AllAttrs(),
 	}
-	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectedResult, &called)
+	apiCaller := successAPICaller(c, "ModelConfig", nil, expectedResult, &called)
 	api := discoverspaces.NewAPI(apiCaller)
 
-	result, err := api.EnvironConfig()
+	result, err := api.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cfg)
 	c.Assert(called, gc.Equals, 1)

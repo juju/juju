@@ -39,7 +39,7 @@ func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resourc
 }
 
 // ModelConfig returns the current model's configuration.
-func (api *DiscoverSpacesAPI) EnvironConfig() (params.ModelConfigResult, error) {
+func (api *DiscoverSpacesAPI) ModelConfig() (params.ModelConfigResult, error) {
 	result := params.ModelConfigResult{}
 
 	config, err := api.st.ModelConfig()

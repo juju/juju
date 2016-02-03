@@ -89,6 +89,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 			s.mockBlockClient.discoveringSpacesError -= 1
 			return nil, errors.New("space discovery still in progress")
 		}
+		return s.mockBlockClient, nil
 	})
 
 	s.modelFlags = []string{"-m", "--model"}
@@ -183,7 +184,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
 	resetJujuHome(c, "devenv")
 
 	s.mockBlockClient.discoveringSpacesError = 2
-	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv", "--auto-upgrade")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
 }

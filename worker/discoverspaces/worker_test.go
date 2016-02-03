@@ -40,7 +40,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
-	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	s.API = s.APIConnection.DiscoverSpaces()
 
 	s.OpsChan = make(chan dummy.Operation, 10)

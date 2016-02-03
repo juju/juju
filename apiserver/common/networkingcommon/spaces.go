@@ -29,9 +29,11 @@ func SupportsSpaces(backing NetworkBacking) error {
 		return errors.NotSupportedf("networking")
 	}
 	ok, err = netEnv.SupportsSpaces()
-	if !ok || err != nil {
-		err = errors.Annotate(err, "model does not support spaces")
-		return err
+	if !ok {
+		if err != nil && !errors.IsNotSupported(err) {
+			logger.Warningf("checking model spaces support failed with: %v", err)
+		}
+		return errors.NotSupportedf("spaces")
 	}
 	return nil
 }

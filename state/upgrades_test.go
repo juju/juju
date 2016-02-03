@@ -451,7 +451,7 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(EnvUserSpec{
+	_, err = s.state.AddModelUser(ModelUserSpec{
 		User:        ownerTag,
 		CreatedBy:   ownerTag,
 		DisplayName: "",
