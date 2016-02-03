@@ -251,13 +251,29 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	return resourceInfo, resourceReader, nil
 }
 
-// NewResolvePendingResourceOps generates mongo transaction operations
-// to set the identified resource as active.
+// TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that
+// it has more meat to it?
+
+// NewResolvePendingResourcesOps generates mongo transaction operations
+// to set the identified resources as active.
 //
 // Leaking mongo details (transaction ops) is a necessary evil since we
 // do not have any machinery to facilitate transactions between
 // different components.
-func (st resourceState) NewResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
+func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error) {
+	// TODO(ericsnow) Pull from the charm store if not already.
+	var allOps []txn.Op
+	for name, pendingID := range pendingIDs {
+		ops, err := st.newResolvePendingResourceOps(serviceID, name, pendingID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allOps = append(allOps, ops...)
+	}
+	return allOps, nil
+}
+
+func (st resourceState) newResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
 	resID := newResourceID(serviceID, name)
 	return st.persist.NewResolvePendingResourceOps(resID, resID, serviceID, pendingID)
 }
