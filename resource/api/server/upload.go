@@ -20,6 +20,9 @@ type UploadDataStore interface {
 	// GetResource returns the identified resource.
 	GetResource(serviceID, name string) (resource.Resource, error)
 
+	// GetPendingResource returns the identified resource.
+	GetPendingResource(serviceID, pendingID string) (resource.Resource, error)
+
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) error
 }
@@ -74,14 +77,17 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var res resource.Resource
 	if uReq.PendingID != "" {
-		// TODO(ericsnow) Update an existing pending resource.
-		return nil, errors.NotImplementedf("")
-	}
-
-	res, err := uh.Store.GetResource(uReq.Service, uReq.Name)
-	if err != nil {
-		return nil, errors.Trace(err)
+		res, err = uh.Store.GetPendingResource(uReq.Service, uReq.PendingID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		res, err = uh.Store.GetResource(uReq.Service, uReq.Name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	chRes, err := uh.updateResource(res.Resource, uReq.Fingerprint, uReq.Size)

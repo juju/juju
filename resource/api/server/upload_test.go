@@ -109,6 +109,30 @@ func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
 	})
 }
 
+func (s *UploadSuite) TestReadResourcePending(c *gc.C) {
+	content := "<some data>"
+	expected, _ := newResource(c, "spam", "a-user", content)
+	stored, _ := newResource(c, "spam", "", "")
+	s.data.ReturnGetPendingResource = stored
+	uh := server.UploadHandler{
+		Username: "a-user",
+		Store:    s.data,
+	}
+	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req.URL.RawQuery += "&pendingid=some-unique-id"
+
+	uploaded, err := uh.ReadResource(req)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "GetPendingResource")
+	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "some-unique-id")
+	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
+		Service:  "a-service",
+		Resource: expected.Resource,
+		Data:     ioutil.NopCloser(body),
+	})
+}
+
 func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 	uh := server.UploadHandler{
 		Username: "a-user",
