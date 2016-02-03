@@ -101,6 +101,32 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	s.stub.CheckCallNames(c, "ListResources")
 }
 
+func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
+	resources := newUploadResources(c, "spam", "eggs")
+	s.persist.ReturnListPendingResources = []resource.ModelResource{{
+		ID:          "service-a-service/spam-some-unique-id",
+		PendingID:   "some-unique-id",
+		ServiceID:   "a-service",
+		Resource:    resources[0],
+		StoragePath: "service-a-service/resources/spam-some-unique-id",
+	}, {
+		ID:          "service-a-service/eggs-other-unique-id",
+		PendingID:   "other-unique-id",
+		ServiceID:   "a-service",
+		Resource:    resources[1],
+		StoragePath: "service-a-service/resources/eggs-other-unique-id",
+	}}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	res, err := st.GetPendingResource("a-service", "other-unique-id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "ListPendingResources")
+	s.stub.CheckCall(c, 0, "ListPendingResources", "a-service")
+	c.Check(res, jc.DeepEquals, resources[1])
+}
+
 func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	chRes := res.Resource

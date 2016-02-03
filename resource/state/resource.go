@@ -25,6 +25,10 @@ type resourcePersistence interface {
 	// service ID. None of the resources will be pending.
 	ListModelResources(serviceID string) ([]resource.ModelResource, error)
 
+	// ListPendingResources returns the resource data for the given
+	// service ID.
+	ListPendingResources(serviceID string) ([]resource.ModelResource, error)
+
 	// StageResource adds the resource in a separate staging area
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
@@ -102,6 +106,23 @@ func (st resourceState) getResource(serviceID, name string) (resource.ModelResou
 		}
 	}
 	return res, errors.NotFoundf("resource %q", name)
+}
+
+// GetPendingResource returns the resource data for the identified resource.
+func (st resourceState) GetPendingResource(serviceID, pendingID string) (resource.Resource, error) {
+	var res resource.Resource
+
+	resources, err := st.persist.ListPendingResources(serviceID)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
+	for _, res := range resources {
+		if res.PendingID == pendingID {
+			return res.Resource, nil
+		}
+	}
+	return res, errors.NotFoundf("pending resource %q", pendingID)
 }
 
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
