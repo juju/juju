@@ -6,8 +6,10 @@ package migration
 import (
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -43,13 +45,13 @@ func (*ModelSerializationSuite) TestUnknownVersion(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
 }
 
-func (*ModelSerializationSuite) TestParsing(c *gc.C) {
+func (*ModelSerializationSuite) modelMap() map[string]interface{} {
 	latestTools := version.MustParse("2.0.1")
 	configMap := map[string]interface{}{
 		"name": "awesome",
 		"uuid": "some-uuid",
 	}
-	model, err := importModel(map[string]interface{}{
+	return map[string]interface{}{
 		"version":      1,
 		"owner":        "magic",
 		"config":       configMap,
@@ -67,22 +69,29 @@ func (*ModelSerializationSuite) TestParsing(c *gc.C) {
 		"machines": map[string]interface{}{
 			"version": 1,
 			"machines": []interface{}{
-				map[string]interface{}{
-					"id":         "0",
-					"containers": []interface{}{},
-				},
+				minimalMachineMap("0"),
 			},
 		},
-	})
+	}
+}
+
+func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
+	initial := s.modelMap()
+	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Owner_, gc.Equals, "magic")
+
+	model, err := DeserializeModel(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Owner(), gc.Equals, names.NewUserTag("magic"))
 	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
-	c.Assert(model.Config_, jc.DeepEquals, configMap)
-	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
-	c.Assert(model.Users_.Users_, gc.HasLen, 1)
-	c.Assert(model.Users_.Users_[0].Name_, gc.Equals, "admin@local")
-	c.Assert(model.Machines_.Machines_, gc.HasLen, 1)
-	c.Assert(model.Machines_.Machines_[0].Id_, gc.Equals, "0")
+	c.Assert(model.Config(), jc.DeepEquals, initial["config"])
+	c.Assert(model.LatestToolsVersion(), gc.Equals, version.MustParse("2.0.1"))
+	users := model.Users()
+	c.Assert(users, gc.HasLen, 1)
+	c.Assert(users[0].Name(), gc.Equals, names.NewUserTag("admin@local"))
+	machines := model.Machines()
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Id(), gc.Equals, "0")
 }
 
 func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
@@ -99,13 +108,8 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 			"users":   []interface{}{},
 		},
 		"machines": map[string]interface{}{
-			"version": 1,
-			"machines": []interface{}{
-				map[string]interface{}{
-					"id":         "0",
-					"containers": []interface{}{},
-				},
-			},
+			"version":  1,
+			"machines": []interface{}{},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

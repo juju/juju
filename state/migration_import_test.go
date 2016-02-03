@@ -38,7 +38,7 @@ func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
-	in := newDescription(out, uuid, "new")
+	in := newModel(out, uuid, "new")
 
 	newEnv, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,7 +118,7 @@ func (s *MigrationImportSuite) TestEnvironmentUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
-	in := newDescription(out, uuid, "new")
+	in := newModel(out, uuid, "new")
 
 	newEnv, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,21 +137,76 @@ func (s *MigrationImportSuite) TestEnvironmentUsers(c *gc.C) {
 	c.Assert(allUsers, gc.HasLen, 3)
 }
 
-// newDescription replaces the uuid and name of the config attributes so we
+func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
+	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
+	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
+	c.Assert(newMachine.Series(), gc.Equals, oldMachine.Series())
+	c.Assert(newMachine.ContainerType(), gc.Equals, oldMachine.ContainerType())
+	newHardware, err := newMachine.HardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	oldHardware, err := oldMachine.HardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newHardware, jc.DeepEquals, oldHardware)
+	c.Assert(newMachine.Jobs(), jc.DeepEquals, oldMachine.Jobs())
+	c.Assert(newMachine.Life(), gc.Equals, oldMachine.Life())
+	newTools, err := newMachine.AgentTools()
+	c.Assert(err, jc.ErrorIsNil)
+	oldTools, err := oldMachine.AgentTools()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newTools, jc.DeepEquals, oldTools)
+}
+
+func (s *MigrationImportSuite) TestMachines(c *gc.C) {
+	// Let's add a machine with an LXC container.
+	machine1 := s.Factory.MakeMachine(c, nil)
+
+	// machine1 should have some instance data.
+	hardware, err := machine1.HardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hardware, gc.NotNil)
+
+	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
+
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMachines, gc.HasLen, 2)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%#v", newSt)
+	defer newSt.Close()
+
+	importedMachines, err := newSt.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedMachines, gc.HasLen, 2)
+
+	// AllMachines returns the machines in the same order, yay us.
+	for i, newMachine := range importedMachines {
+		s.AssertMachineEqual(c, newMachine, allMachines[i])
+	}
+
+	// And a few extra checks.
+	parent := importedMachines[0]
+	container := importedMachines[1]
+	containers, err := parent.Containers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containers, jc.DeepEquals, []string{container.Id()})
+	parentId, isContainer := container.ParentId()
+	c.Assert(parentId, gc.Equals, parent.Id())
+	c.Assert(isContainer, jc.IsTrue)
+}
+
+// newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // environment / model are unique together in a controller.
-func newDescription(d migration.Description, uuid, name string) migration.Description {
-	return &mockDescription{d, uuid, name}
-}
-
-type mockDescription struct {
-	d    migration.Description
-	uuid string
-	name string
-}
-
-func (m *mockDescription) Model() migration.Model {
-	return &mockModel{m.d.Model(), m.uuid, m.name}
+func newModel(m migration.Model, uuid, name string) migration.Model {
+	return &mockModel{m, uuid, name}
 }
 
 type mockModel struct {

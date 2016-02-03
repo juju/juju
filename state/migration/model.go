@@ -7,51 +7,56 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/schema"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/version"
 )
 
-type description struct {
-	// Version conceptually encapsulates an understanding of which fields
-	// exist and how they are populated. As extra fields and entities are
-	// added, the version should be incremented and tests written to ensure
-	// that newer versions of the code are still able to create Model
-	// representations from versions.
-	//
-	// The version is all about the serialization of the structures from
-	// the migration package. Each type will likely have a version.
-	version int
-	model   *model
-	// TODO: extra binaries...
-	// Tools
-	// Charms
-}
+var logger = loggo.GetLogger("juju.state.migration")
 
+// ModelArgs represent the bare minimum information that is needed
+// to represent a model.
 type ModelArgs struct {
 	Owner              names.UserTag
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
 }
 
-func NewDescription(args ModelArgs) Description {
-	return &description{
-		version: 1,
-		model: &model{
-			Version:             1,
-			Owner_:              args.Owner.Canonical(),
-			Config_:             args.Config,
-			LatestToolsVersion_: args.LatestToolsVersion,
-			Users_: users{
-				Version: 1,
-			},
+// NewModel returns a Model based on the args specified.
+func NewModel(args ModelArgs) Model {
+	return &model{
+		Version:             1,
+		Owner_:              args.Owner.Canonical(),
+		Config_:             args.Config,
+		LatestToolsVersion_: args.LatestToolsVersion,
+		Users_: users{
+			Version: 1,
+		},
+		Machines_: machines{
+			Version: 1,
 		},
 	}
 }
 
-func (d *description) Model() Model {
-	return d.model
+// DeserializeModel constructs a Model from a serialized
+// YAML byte stream. The normal use for this is to construct
+// the Model representation after getting the byte stream from
+// an API connection or read from a file.
+func DeserializeModel(bytes []byte) (Model, error) {
+	var source map[string]interface{}
+	err := yaml.Unmarshal(bytes, &source)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model, err := importModel(source)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return model, nil
 }
 
 type model struct {
@@ -132,11 +137,26 @@ func (m *model) Machines() []Machine {
 	return result
 }
 
+func (m *model) AddMachine(args MachineArgs) Machine {
+	machine := newMachine(args)
+	m.Machines_.Machines_ = append(m.Machines_.Machines_, machine)
+	return machine
+}
+
 func (m *model) setMachines(machineList []*machine) {
 	m.Machines_ = machines{
 		Version:   1,
 		Machines_: machineList,
 	}
+}
+
+func (m *model) Validate() error {
+	for _, machine := range m.Machines_.Machines_ {
+		if err := machine.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // importModel constructs a new Model from a map that in normal usage situations
