@@ -45,6 +45,10 @@ func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
 func parseControllers(c *gc.C) *controller.Controllers {
 	controllers, err := controller.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
+
+	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
+	c.Assert(controllers.Controllers["local.mark-test-prodstack"].Servers, gc.HasLen, 2)
+	c.Assert(controllers.Controllers["local.mallards"].APIEndpoints, gc.HasLen, 2)
 	return controllers
 }
 

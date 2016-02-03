@@ -23,10 +23,10 @@ controllers:
   local.mallards:
     servers: [maas-1-05.cluster.mallards]
     uuid: this-is-another-uuid
-    api-endpoints: [this-is-another-of-many-api-endpoints]
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
   local.mark-test-prodstack:
-    servers: [vm-23532.prodstack.canonical.com]
+    servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
