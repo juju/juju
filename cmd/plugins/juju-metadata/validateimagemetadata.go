@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -21,7 +21,7 @@ import (
 )
 
 func newValidateImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&validateImageMetadataCommand{})
+	return modelcmd.Wrap(&validateImageMetadataCommand{})
 }
 
 // validateImageMetadataCommand
@@ -40,20 +40,20 @@ var validateImagesMetadataDoc = `
 validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
-The cloud specification comes from the current Juju environment, as specified in
-the usual way from either the -e option, or JUJU_ENV. Series, Region, and
+The cloud specification comes from the current Juju model, as specified in
+the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
 Endpoint are the key attributes.
 
-The key environment attributes may be overridden using command arguments, so
+The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
 
 Examples:
 
- - validate using the current environment settings but with series raring
+ - validate using the current model settings but with series raring
 
   juju metadata validate-images -s raring
 
- - validate using the current environment settings but with series raring and
+ - validate using the current model settings but with series raring and
  using metadata from local directory (the directory is expected to have an
  "images" subdirectory containing the metadata, and corresponds to the parameter
  passed to the image metadata generatation command).
@@ -78,7 +78,7 @@ RETVAL=$?
 func (c *validateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-images",
-		Purpose: "validate image metadata and ensure image(s) exist for an environment",
+		Purpose: "validate image metadata and ensure image(s) exist for a model",
 		Doc:     validateImagesMetadataDoc,
 	}
 }
@@ -90,7 +90,7 @@ func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
-	f.StringVar(&c.stream, "m", "", "the images stream (defaults to released)")
+	f.StringVar(&c.stream, "stream", "", "the images stream (defaults to released)")
 }
 
 func (c *validateImageMetadataCommand) Init(args []string) error {

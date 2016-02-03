@@ -46,15 +46,15 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, uuid stri
 }
 
 func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, error) {
-	envs, err := api.AllEnvironments()
+	envs, err := api.AllModels()
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
 	if len(envs) == 0 {
-		return ctrData{}, nil, errors.New("no environments found")
+		return ctrData{}, nil, errors.New("no models found")
 	}
 
-	status, err := api.EnvironmentStatus(names.NewEnvironTag(ctrUUID))
+	status, err := api.ModelStatus(names.NewModelTag(ctrUUID))
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
@@ -64,18 +64,18 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 	ctrStatus := status[0]
 
 	hostedEnvCount := len(envs) - 1
-	hostedTags := make([]names.EnvironTag, hostedEnvCount)
+	hostedTags := make([]names.ModelTag, hostedEnvCount)
 	envName := map[string]string{}
 	var i int
 	for _, env := range envs {
 		if env.UUID != ctrUUID {
 			envName[env.UUID] = env.Name
-			hostedTags[i] = names.NewEnvironTag(env.UUID)
+			hostedTags[i] = names.NewModelTag(env.UUID)
 			i++
 		}
 	}
 
-	hostedStatus, err := api.EnvironmentStatus(hostedTags...)
+	hostedStatus, err := api.ModelStatus(hostedTags...)
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
@@ -128,7 +128,7 @@ func s(n int) string {
 
 func fmtCtrStatus(data ctrData) string {
 	envNo := data.HostedEnvCount
-	out := fmt.Sprintf("Waiting on %d environment%s", envNo, s(envNo))
+	out := fmt.Sprintf("Waiting on %d model%s", envNo, s(envNo))
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))

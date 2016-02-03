@@ -44,8 +44,8 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	}
 	c.Assert(keys, jc.SameContents, []string{
 		"_id", // default index
-		"e-t", // env-uuid and timestamp
-		"e-n", // env-uuid and entity
+		"e-t", // model-uuid and timestamp
+		"e-n", // model-uuid and entity
 	})
 }
 
@@ -63,7 +63,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 2)
 
 	c.Assert(docs[0]["t"], gc.Equals, t0)
-	c.Assert(docs[0]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
@@ -71,7 +71,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1)
-	c.Assert(docs[1]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
@@ -110,7 +110,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
-	// Set up 3 environments and generate different amounts of logs
+	// Set up 3 models and generate different amounts of logs
 	// for them.
 	now := time.Now().Truncate(time.Millisecond)
 
@@ -118,12 +118,12 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	startingLogsS0 := 10
 	s.generateLogs(c, s0, now, startingLogsS0)
 
-	s1 := s.Factory.MakeEnvironment(c, nil)
+	s1 := s.Factory.MakeModel(c, nil)
 	defer s1.Close()
 	startingLogsS1 := 10000
 	s.generateLogs(c, s1, now, startingLogsS1)
 
-	s2 := s.Factory.MakeEnvironment(c, nil)
+	s2 := s.Factory.MakeModel(c, nil)
 	defer s2.Close()
 	startingLogsS2 := 12000
 	s.generateLogs(c, s2, now, startingLogsS2)
@@ -146,7 +146,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
 		var doc bson.M
-		err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Sort("-t").One(&doc)
+		err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(doc["t"].(time.Time), gc.Equals, now)
 	}
@@ -166,7 +166,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
-	count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
+	count, err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
@@ -251,12 +251,12 @@ func (s *LogTailerSuite) TestEnvironmentFiltering(c *gc.C) {
 	good := logTemplate{Message: "good"}
 	writeLogs := func() {
 		s.writeLogs(c, 1, logTemplate{
-			EnvUUID: "someuuid0",
-			Message: "bad",
+			ModelUUID: "someuuid0",
+			Message:   "bad",
 		})
 		s.writeLogs(c, 1, logTemplate{
-			EnvUUID: "someuuid1",
-			Message: "bad",
+			ModelUUID: "someuuid1",
+			Message:   "bad",
 		})
 		s.writeLogs(c, 1, good)
 	}
@@ -529,12 +529,12 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 }
 
 type logTemplate struct {
-	EnvUUID  string
-	Entity   names.Tag
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
+	ModelUUID string
+	Entity    names.Tag
+	Module    string
+	Location  string
+	Level     loggo.Level
+	Message   string
 }
 
 // writeLogs creates count log messages at the current time using
@@ -574,8 +574,8 @@ func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
 }
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
-	if lt.EnvUUID == "" {
-		lt.EnvUUID = s.State.EnvironUUID()
+	if lt.ModelUUID == "" {
+		lt.ModelUUID = s.State.ModelUUID()
 	}
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")
@@ -597,7 +597,7 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface{} {
 	s.normaliseLogTemplate(&lt)
 	return state.MakeLogDoc(
-		lt.EnvUUID,
+		lt.ModelUUID,
 		lt.Entity,
 		t,
 		lt.Module,

@@ -127,7 +127,7 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("environment configuration has no agent-version")
+		return nil, fmt.Errorf("model configuration has no agent-version")
 	}
 	return cfg, nil
 }

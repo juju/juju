@@ -41,13 +41,13 @@ var validateInitToolsErrorTests = []struct {
 		args: []string{"-p", "ec2", "-s", "series", "-r", "region"},
 		err:  `metadata directory required if provider type is specified`,
 	}, {
-		args: []string{"-s", "series", "-r", "region", "-m", "x"},
+		args: []string{"-s", "series", "-r", "region", "--majorminor-version", "x"},
 		err:  `invalid major version number x: .*`,
 	}, {
-		args: []string{"-s", "series", "-r", "region", "-m", "2.x"},
+		args: []string{"-s", "series", "-r", "region", "--majorminor-version", "2.x"},
 		err:  `invalid minor version number x: .*`,
 	}, {
-		args: []string{"-s", "series", "-r", "region", "-m", "2.2.1"},
+		args: []string{"-s", "series", "-r", "region", "--majorminor-version", "2.2.1"},
 		err:  `invalid major.minor version number 2.2.1`,
 	},
 }
@@ -115,7 +115,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		newValidateToolsMetadataCommand(), ctx, []string{"-e", "ec2", "-j", "1.11.4", "-d", s.metadataDir},
+		newValidateToolsMetadataCommand(), ctx, []string{"-m", "ec2", "-j", "1.11.4", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -131,12 +131,12 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		newValidateToolsMetadataCommand(), ctx, []string{"-e", "ec2", "-j", "1.11.4"},
+		newValidateToolsMetadataCommand(), ctx, []string{"-m", "ec2", "-j", "1.11.4"},
 	)
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `error: .*environment has no access-key or secret-key`)
+	c.Check(strippedOut, gc.Matches, `error: .*model has no access-key or secret-key`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
@@ -241,7 +241,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 	code := cmd.Main(
 		newValidateToolsMetadataCommand(), ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
-			"-u", "some-auth-url", "-d", s.metadataDir, "-m", "1"},
+			"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1"},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -255,7 +255,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	code := cmd.Main(
 		newValidateToolsMetadataCommand(), ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
-			"-u", "some-auth-url", "-d", s.metadataDir, "-m", "1.12"},
+			"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1.12"},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()

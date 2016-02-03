@@ -223,7 +223,7 @@ var configTests = []configTest{
 		}),
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing region in environment",
+		summary: "missing region in model",
 		config:  requiredConfig.Delete("region"),
 		err:     "missing region not valid",
 	}, {
@@ -233,7 +233,7 @@ var configTests = []configTest{
 		}),
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing username in environment",
+		summary: "missing username in model",
 		config:  requiredConfig.Delete("username"),
 		err:     "missing username not valid",
 	}, {
@@ -243,7 +243,7 @@ var configTests = []configTest{
 		}),
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing password in environment",
+		summary: "missing password in model",
 		config:  requiredConfig.Delete("password"),
 		err:     "missing password not valid",
 	}, {
@@ -253,7 +253,7 @@ var configTests = []configTest{
 		}),
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing tenant in environment",
+		summary: "missing tenant in model",
 		config:  requiredConfig.Delete("tenant-name"),
 		err:     "missing tenant-name not valid",
 	}, {
@@ -263,7 +263,7 @@ var configTests = []configTest{
 		}),
 		err: `.*expected string, got int\(666\)`,
 	}, {
-		summary: "missing auth-url in environment",
+		summary: "missing auth-url in model",
 		config:  requiredConfig.Delete("auth-url"),
 		err:     "missing auth-url not valid",
 	}, {

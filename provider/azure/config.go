@@ -84,7 +84,7 @@ var internalConfigAttributes = []string{
 	configAttrControllerResourceGroup,
 }
 
-type azureEnvironConfig struct {
+type azureModelConfig struct {
 	*config.Config
 	token                   *azure.ServicePrincipalToken
 	subscriptionId          string
@@ -99,7 +99,7 @@ var knownStorageAccountTypes = []string{
 	"Standard_LRS", "Standard_GRS", "Standard_RAGRS", "Standard_ZRS", "Premium_LRS",
 }
 
-func (prov *azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironConfig, error) {
+func (prov *azureEnvironProvider) newConfig(cfg *config.Config) (*azureModelConfig, error) {
 	azureConfig, err := validateConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -118,7 +118,7 @@ func (*azureEnvironProvider) Validate(newCfg, oldCfg *config.Config) (*config.Co
 	return newCfg, nil
 }
 
-func validateConfig(newCfg, oldCfg *config.Config) (*azureEnvironConfig, error) {
+func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 	err := config.Validate(newCfg, oldCfg)
 	if err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureEnvironConfig, error) 
 		return nil, errors.Annotate(err, "constructing service principal token")
 	}
 
-	azureConfig := &azureEnvironConfig{
+	azureConfig := &azureModelConfig{
 		newCfg,
 		token,
 		subscriptionId,

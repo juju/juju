@@ -112,7 +112,7 @@ func (st *mockState) DeleteMetadata(imageId string) error {
 	return st.deleteMetadata(imageId)
 }
 
-func (st *mockState) EnvironConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig() (*config.Config, error) {
 	st.Stub.MethodCall(st, environConfig)
 	return st.environConfig()
 }

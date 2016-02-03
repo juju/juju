@@ -18,7 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -51,7 +51,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envcmd.BootstrapContextNoVerify(coretesting.Context(c)),
+		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
 		configstore.NewMem(), cfg.Name(),
 		environs.PrepareForBootstrapParams{Config: cfg},
 	)

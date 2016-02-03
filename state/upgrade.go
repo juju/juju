@@ -167,7 +167,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 		return provisioned, errors.Annotate(err, "cannot read state servers")
 	}
 
-	upgradeDone, err := info.isEnvUUIDUpgradeDone()
+	upgradeDone, err := info.isModelUUIDUpgradeDone()
 	if err != nil {
 		return provisioned, errors.Trace(err)
 	}
@@ -181,7 +181,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	var sel bson.D
 	var field string
 	if upgradeDone {
-		sel = bson.D{{"env-uuid", info.st.EnvironUUID()}}
+		sel = bson.D{{"model-uuid", info.st.ModelUUID()}}
 		field = "machineid"
 	} else {
 		field = "_id"
@@ -199,11 +199,11 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	return provisioned, nil
 }
 
-func (info *UpgradeInfo) isEnvUUIDUpgradeDone() (bool, error) {
+func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
 	instanceData, closer := info.st.getRawCollection(instanceDataC)
 	defer closer()
 
-	query := instanceData.Find(bson.D{{"env-uuid", bson.D{{"$exists", true}}}})
+	query := instanceData.Find(bson.D{{"model-uuid", bson.D{{"$exists", true}}}})
 	n, err := query.Count()
 	if err != nil {
 		return false, errors.Annotatef(err, "couldn't query instance upgrade status")

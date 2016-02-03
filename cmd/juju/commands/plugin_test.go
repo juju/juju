@@ -173,8 +173,8 @@ func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
 
 func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
-	output := badrun(c, 0, "foo", "-e", "myenv", "-p", "pluginarg")
-	expectedDebug := `foo -e myenv -p pluginarg\n.*env is:  myenv\n.*home is: .*\.juju\n`
+	output := badrun(c, 0, "foo", "-m", "myenv", "-p", "pluginarg")
+	expectedDebug := fmt.Sprintf(`foo %v myenv -p pluginarg\n.*env is:  myenv\n.*home is: .*\.juju\n`, "-m")
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
@@ -224,7 +224,7 @@ if [ "$1" = "--debug" ]; then
 fi
 
 echo {{.Name}} $*
-echo "env is: " $JUJU_ENV
+echo "env is: " $JUJU_MODEL
 echo "home is: " $JUJU_HOME
 exit {{.ExitStatus}}
 `

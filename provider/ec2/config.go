@@ -119,7 +119,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
 		auth, err := aws.EnvAuth()
 		if err != nil || ecfg.accessKey() != "" || ecfg.secretKey() != "" {
-			return nil, fmt.Errorf("environment has no access-key or secret-key")
+			return nil, fmt.Errorf("model has no access-key or secret-key")
 		}
 		ecfg.attrs["access-key"] = auth.AccessKey
 		ecfg.attrs["secret-key"] = auth.SecretKey

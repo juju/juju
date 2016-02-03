@@ -146,7 +146,7 @@ func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
+	c.Assert(err, gc.ErrorMatches, "bootstrapping a local model must not be done as root")
 }
 
 func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {

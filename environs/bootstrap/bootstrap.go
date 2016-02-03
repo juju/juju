@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.
+const noToolsMessage = `Juju cannot bootstrap because no tools are available for your model.
 You may want to use the 'agent-metadata-url' configuration setting to specify the tools location.
 `
 
@@ -80,7 +80,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	cfg := environ.Config()
 	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
-		return errors.Errorf("environment configuration has no admin-secret")
+		return errors.Errorf("model configuration has no admin-secret")
 	}
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
@@ -88,13 +88,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// authorized-keys are optional config settings... but it's impossible
 		// to actually *create* a config without them)... and when it does,
 		// we'll be here to catch this problem early.
-		return errors.Errorf("environment configuration has no authorized-keys")
+		return errors.Errorf("model configuration has no authorized-keys")
 	}
 	if _, hasCACert := cfg.CACert(); !hasCACert {
-		return errors.Errorf("environment configuration has no ca-cert")
+		return errors.Errorf("model configuration has no ca-cert")
 	}
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
-		return errors.Errorf("environment configuration has no ca-private-key")
+		return errors.Errorf("model configuration has no ca-private-key")
 	}
 
 	// Set default tools metadata source, add image metadata source,
@@ -133,8 +133,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		bootstrapSeries = &args.BootstrapSeries
 	}
 
-	ctx.Infof("Bootstrapping environment %q", cfg.Name())
-	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
+	ctx.Infof("Bootstrapping model %q", cfg.Name())
+	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 	availableTools, err := findAvailableTools(
@@ -352,7 +352,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 			err = environ.SetConfig(cfg)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
+			return nil, fmt.Errorf("failed to update model configuration: %v", err)
 		}
 	}
 	bootstrapVersion := newVersion

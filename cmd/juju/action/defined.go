@@ -10,11 +10,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newDefinedCommand() cmd.Command {
-	return envcmd.Wrap(&definedCommand{})
+	return modelcmd.Wrap(&definedCommand{})
 }
 
 // definedCommand lists actions defined by the charm of a given service.

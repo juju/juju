@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -33,7 +33,7 @@ func writeServerFile(endpointProvider EndpointProvider, ctx *cmd.Context, userna
 	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	outputInfo := envcmd.ServerFile{
+	outputInfo := modelcmd.ServerFile{
 		Username:  username,
 		Password:  password,
 		Addresses: endpoint.Addresses,

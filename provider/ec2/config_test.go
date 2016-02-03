@@ -199,12 +199,12 @@ var configTests = []configTest{
 		config: attrs{
 			"access-key": "jujuer",
 		},
-		err: ".*environment has no access-key or secret-key",
+		err: ".*model has no access-key or secret-key",
 	}, {
 		config: attrs{
 			"secret-key": "badness",
 		},
-		err: ".*environment has no access-key or secret-key",
+		err: ".*model has no access-key or secret-key",
 	}, {
 		config: attrs{
 			"admin-secret": "Futumpsh",
@@ -312,7 +312,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	os.Setenv("EC2_ACCESS_KEY", "")
 	os.Setenv("EC2_SECRET_KEY", "")
 	test := configTests[0]
-	test.err = ".*environment has no access-key or secret-key"
+	test.err = ".*model has no access-key or secret-key"
 	test.check(c)
 }
 

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -90,12 +90,12 @@ func init() {
 }
 
 func newAddCommand() cmd.Command {
-	return envcmd.Wrap(&addCommand{})
+	return modelcmd.Wrap(&addCommand{})
 }
 
 // addCommand starts a new machine and registers it in the environment.
 type addCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api               AddMachineAPI
 	machineManagerAPI MachineManagerAPI
 	// If specified, use this series, else use the environment default-series
@@ -136,7 +136,7 @@ func (c *addCommand) Init(args []string) error {
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
-		placement = "env-uuid" + ":" + placement
+		placement = "model-uuid" + ":" + placement
 		c.Placement, err = instance.ParsePlacement(placement)
 	}
 	if err != nil {
@@ -150,11 +150,10 @@ func (c *addCommand) Init(args []string) error {
 
 type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	EnvironmentGet() (map[string]interface{}, error)
-	EnvironmentUUID() string
+	ModelGet() (map[string]interface{}, error)
+	ModelUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -208,7 +207,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("load config")
-	configAttrs, err := client.EnvironmentGet()
+	configAttrs, err := client.ModelGet()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,9 +236,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	logger.Infof("environment provisioning")
-	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
-		c.Placement.Scope = client.EnvironmentUUID()
+	logger.Infof("model provisioning")
+	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
+		c.Placement.Scope = client.ModelUUID()
 	}
 
 	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
@@ -275,24 +274,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		results, err = machineManager.AddMachines(machines)
 	} else {
 		results, err = client.AddMachines(machines)
-		if params.IsCodeNotImplemented(err) {
-			if c.Placement != nil {
-				containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-				if parseErr != nil {
-					// The user specified a non-container placement directive:
-					// return original API not implemented error.
-					return err
-				}
-				machineParams.ContainerType = containerType
-				machineParams.ParentId = c.Placement.Directive
-				machineParams.Placement = nil
-			}
-			logger.Infof(
-				"AddMachinesWithPlacement not supported by the API server, " +
-					"falling back to 1.18 compatibility mode",
-			)
-			results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
-		}
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)

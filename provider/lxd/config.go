@@ -30,7 +30,7 @@ const (
 // defined by the LXD provider.
 var configSchema = environschema.Fields{
 	cfgNamespace: {
-		Description: `Identifies the namespace to associate with containers created by the provider.  It is prepended to the container names.  By default the environment's name is used as the namespace.`,
+		Description: `Identifies the namespace to associate with containers created by the provider.  It is prepended to the container names.  By default the model's name is used as the namespace.`,
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},

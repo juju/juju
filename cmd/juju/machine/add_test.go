@@ -80,11 +80,11 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		}, {
 			args:      []string{"zone=us-east-1a"},
 			count:     1,
-			placement: "env-uuid:zone=us-east-1a",
+			placement: "model-uuid:zone=us-east-1a",
 		}, {
 			args:      []string{"anything-here"},
 			count:     1,
-			placement: "env-uuid:anything-here",
+			placement: "model-uuid:anything-here",
 		}, {
 			args:        []string{"anything", "else"},
 			errorString: `unrecognized args: \["else"\]`,
@@ -231,7 +231,7 @@ func (f *fakeAddMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeAddMachineAPI) EnvironmentUUID() string {
+func (f *fakeAddMachineAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
@@ -258,10 +258,6 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	return f.AddMachines(args)
-}
-
 func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 	return errors.NotImplementedf("ForceDestroyMachines")
 }
@@ -270,7 +266,7 @@ func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) 
 	return "", errors.NotImplementedf("ProvisioningScript")
 }
 
-func (f *fakeAddMachineAPI) EnvironmentGet() (map[string]interface{}, error) {
+func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
 	providerType := "dummy"
 	if f.providerType != "" {
 		providerType = f.providerType

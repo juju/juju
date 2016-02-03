@@ -109,9 +109,9 @@ type CloudRegionDetector interface {
 	DetectRegions() (map[string]cloud.Region, error)
 }
 
-// EnvironConfigUpgrader is an interface that an EnvironProvider may
+// ModelConfigUpgrader is an interface that an EnvironProvider may
 // implement in order to modify environment configuration on agent upgrade.
-type EnvironConfigUpgrader interface {
+type ModelConfigUpgrader interface {
 	// UpgradeConfig upgrades an old environment configuration by adding,
 	// updating or removing attributes. UpgradeConfig must be idempotent,
 	// as it may be called multiple times in the event of a partial upgrade.

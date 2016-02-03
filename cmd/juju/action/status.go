@@ -10,11 +10,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newStatusCommand() cmd.Command {
-	return envcmd.Wrap(&statusCommand{})
+	return modelcmd.Wrap(&statusCommand{})
 }
 
 // statusCommand shows the status of an Action by ID.

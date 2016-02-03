@@ -1360,8 +1360,8 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	// but not matching name, and ensure it isn't seen by AllInstances
 	// See bug #1257481, for how similar names were causing them to get
 	// listed (and thus destroyed) at the wrong time
-	existingEnvName := s.TestConfig["name"]
-	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingEnvName)
+	existingModelName := s.TestConfig["name"]
+	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingModelName)
 
 	// We grab the Nova client directly from the env, just to save time
 	// looking all the stuff up
@@ -1666,8 +1666,8 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		openstack.InstanceServerDetail(instances[0]).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-			"juju-is-state": "true",
+			"juju-model-uuid": coretesting.ModelTag.Id(),
+			"juju-is-state":   "true",
 		},
 	)
 }
@@ -1685,9 +1685,9 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 			openstack.InstanceServerDetail(instances[0]).Metadata,
 			jc.DeepEquals,
 			map[string]string{
-				"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-				"juju-is-state": "true",
-				extraKey:        extraValue,
+				"juju-model-uuid": coretesting.ModelTag.Id(),
+				"juju-is-state":   "true",
+				extraKey:          extraValue,
 			},
 		)
 	}

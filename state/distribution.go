@@ -22,7 +22,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if u.st.policy == nil {
 		return candidates, nil
 	}
-	cfg, err := u.st.EnvironConfig()
+	cfg, err := u.st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}

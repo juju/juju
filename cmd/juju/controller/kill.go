@@ -13,20 +13,19 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
 
 const killDoc = `
 Forcibly destroy the specified controller.  If the API server is accessible,
-this command will attempt to destroy the controller environment and all
-hosted environments and their resources.
+this command will attempt to destroy the controller model and all
+hosted models and their resources.
 
-If the API server is unreachable, the machines of the controller environment
+If the API server is unreachable, the machines of the controller model
 will be destroyed through the cloud provisioner.  If there are additional
-machines, including machines within hosted environments, these machines will
+machines, including machines within hosted models, these machines will
 not be destroyed and will never be reconnected to the Juju controller being
 destroyed. 
 `
@@ -48,12 +47,12 @@ func wrapKillCommand(kill *killCommand, fn func(string) (api.Connection, error),
 	if fn == nil {
 		fn = kill.JujuCommandBase.NewAPIRoot
 	}
-	openStrategy := envcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
-	return envcmd.WrapController(
+	openStrategy := modelcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
+	return modelcmd.WrapController(
 		kill,
-		envcmd.ControllerSkipFlags,
-		envcmd.ControllerSkipDefault,
-		envcmd.ControllerAPIOpener(openStrategy),
+		modelcmd.ControllerSkipFlags,
+		modelcmd.ControllerSkipDefault,
+		modelcmd.ControllerAPIOpener(openStrategy),
 	)
 }
 
@@ -97,8 +96,8 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.ControllerName())
+	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ControllerName())
 	}
 
 	if !c.assumeYes {
@@ -115,7 +114,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	case errors.Cause(err) == common.ErrPerm:
 		return errors.Annotate(err, "cannot destroy controller")
 	default:
-		if errors.Cause(err) != envcmd.ErrConnTimedOut {
+		if errors.Cause(err) != modelcmd.ErrConnTimedOut {
 			logger.Debugf("unable to open api: %s", err)
 		}
 		ctx.Infof("Unable to open API: %s\n", err)
@@ -137,13 +136,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
-	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to destroy the controller,
-		// sending the info we were already able to collect.
-		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return c.killControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
-	}
-
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
@@ -151,7 +143,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.ControllerName())
 
-	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
 	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 		ctx.Infof(fmtCtrStatus(ctrStatus))
 		for _, envStatus := range envsStatus {
@@ -159,7 +151,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
+	ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 
 	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
 }
@@ -174,7 +166,7 @@ func (c *killCommand) killControllerViaClient(ctx *cmd.Context, info configstore
 	}
 
 	if api != nil {
-		err = api.DestroyEnvironment()
+		err = api.DestroyModel()
 		if err != nil {
 			ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		}

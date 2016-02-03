@@ -11,11 +11,11 @@ import (
 	"github.com/juju/utils/ssh"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newListKeysCommand() cmd.Command {
-	return envcmd.Wrap(&listKeysCommand{})
+	return modelcmd.Wrap(&listKeysCommand{})
 }
 
 var listKeysDoc = `

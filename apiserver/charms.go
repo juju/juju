@@ -429,7 +429,7 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (string, st
 // downloadCharm downloads the given charm name from the provider storage and
 // saves the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArchivePath string) error {
-	storage := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	storage := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot get charm from state")
@@ -453,7 +453,7 @@ func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArc
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
 		defer cleanupFile(tempCharmArchive)
-		return errors.Annotate(err, "cannot get charm from environment storage")
+		return errors.Annotate(err, "cannot get charm from model storage")
 	}
 	defer reader.Close()
 

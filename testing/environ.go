@@ -35,8 +35,8 @@ const FakeDefaultSeries = "trusty"
 // FakeVersionNumber is a valid version number that can be used in testing.
 var FakeVersionNumber = version.MustParse("1.99.0")
 
-// EnvironmentTag is a defined known valid UUID that can be used in testing.
-var EnvironmentTag = names.NewEnvironTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
+// ModelTag is a defined known valid UUID that can be used in testing.
+var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
@@ -44,7 +44,7 @@ func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
-		"uuid":                      EnvironmentTag.Id(),
+		"uuid":                      ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
@@ -58,10 +58,10 @@ func FakeConfig() Attrs {
 	}
 }
 
-// EnvironConfig returns a default environment configuration suitable for
+// ModelConfig returns a default environment configuration suitable for
 // setting in the state.
-func EnvironConfig(c *gc.C) *config.Config {
-	return CustomEnvironConfig(c, Attrs{"uuid": mustUUID()})
+func ModelConfig(c *gc.C) *config.Config {
+	return CustomModelConfig(c, Attrs{"uuid": mustUUID()})
 }
 
 // mustUUID returns a stringified uuid or panics
@@ -73,9 +73,9 @@ func mustUUID() string {
 	return uuid.String()
 }
 
-// CustomEnvironConfig returns an environment configuration with
+// CustomModelConfig returns an environment configuration with
 // additional specified keys added.
-func CustomEnvironConfig(c *gc.C, extra Attrs) *config.Config {
+func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "1.2.3",
 	}).Merge(extra).Delete("admin-secret", "ca-private-key")
@@ -85,7 +85,7 @@ func CustomEnvironConfig(c *gc.C, extra Attrs) *config.Config {
 }
 
 const (
-	SampleEnvName = "erewhemos"
+	SampleModelName = "erewhemos"
 )
 
 const DefaultMongoPassword = "conn-from-name-secret"

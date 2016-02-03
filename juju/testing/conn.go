@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -55,9 +55,9 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.juju/environments/cache.yaml
+//     RootDir/home/ubuntu/.juju/models/cache.yaml
 //         The dummy cache.yaml file, holding a default
-//         controller and environment named "dummyenv"
+//         controller and environment named "dummymodel"
 //         which uses the "dummy" provider.
 //     RootDir/var/lib/juju
 //         An empty directory returned as DataDir - the
@@ -130,7 +130,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.ControllerEnvironment()
+	env, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Owner()
 }
@@ -146,7 +146,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-	apiInfo.EnvironTag = s.State.EnvironTag()
+	apiInfo.ModelTag = s.State.ModelTag()
 	return apiInfo
 }
 
@@ -223,7 +223,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummyenv")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "dummymodel")
 
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,9 +234,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	ctx := testing.Context(c)
 	environ, err := environs.Prepare(
-		envcmd.BootstrapContext(ctx),
+		modelcmd.BootstrapContext(ctx),
 		s.ConfigStore,
-		"dummyenv",
+		"dummymodel",
 		environs.PrepareForBootstrapParams{
 			Config:      cfg,
 			Credentials: cloud.NewEmptyCredential(),
@@ -244,7 +244,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -273,7 +273,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
-	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -288,7 +288,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
-	info, err := s.ConfigStore.ReadInfo("dummyenv")
+	info, err := s.ConfigStore.ReadInfo("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}
@@ -364,21 +364,21 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
-	environUUID, ok := config.UUID()
+	modelUUID, ok := config.UUID()
 	if !ok {
-		return nil, fmt.Errorf("cannot connect without environment UUID")
+		return nil, fmt.Errorf("cannot connect without model UUID")
 	}
-	environTag := names.NewEnvironTag(environUUID)
+	modelTag := names.NewModelTag(modelUUID)
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
-	st, err := state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -401,7 +401,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -415,7 +415,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 			secretAttrs[k] = v
 		}
 	}
-	return st.UpdateEnvironConfig(secretAttrs, nil, nil)
+	return st.UpdateModelConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -486,7 +486,7 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 		return nil, err
 	}
 
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
@@ -503,7 +503,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		s.DummyConfig = dummy.SampleConfig()
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"name":           "dummyenv",
+		"name":           "dummymodel",
 		"admin-secret":   AdminSecret,
 		"agent-version":  version.Current.String(),
 		"ca-cert":        testing.CACert,
@@ -623,7 +623,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
-			Environment:       s.State.EnvironTag(),
+			Model:             s.State.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config
@@ -632,6 +632,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

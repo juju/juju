@@ -96,7 +96,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 
 	// the secrets will not be updated, as they already exist
-	attrs, err := st.Client().EnvironmentGet()
+	attrs, err := st.Client().ModelGet()
 	c.Assert(attrs["secret"], gc.Equals, "pork")
 
 	c.Assert(st.Close(), gc.IsNil)
@@ -198,10 +198,10 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID))
+		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
 		called++
 		return expectState, nil
 	}
@@ -220,7 +220,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	c.Check(ep.Addresses, jc.DeepEquals, []string{
 		"0.1.2.3:1234", "[2001:db8::1]:1234",
 	})
-	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
+	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 	mockStore.written = false
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
@@ -236,7 +236,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Skip("not really possible now that there is no defined admin user")
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 
-	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
+	store := newConfigStore(coretesting.SampleModelName, &environInfo{
 		bootstrapConfig: map[string]interface{}{
 			"type":                      "dummy",
 			"name":                      "myenv",
@@ -262,8 +262,8 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		c.Check(apiInfo.Tag, gc.Equals, dummy.AdminUserTag())
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
 		c.Check(apiInfo.Password, gc.Equals, "adminpass")
-		// EnvironTag wasn't in regular Config
-		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
+		// ModelTag wasn't in regular Config
+		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
@@ -300,7 +300,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 		},
 	})
 	st, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
-	c.Assert(err, gc.ErrorMatches, `environment "noconfig" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "noconfig" not found`)
 	c.Assert(st, gc.IsNil)
 }
 
@@ -320,13 +320,13 @@ type mockedStateFlags int
 const (
 	noFlags          mockedStateFlags = 0x0000
 	mockedHostPort   mockedStateFlags = 0x0001
-	mockedEnvironTag mockedStateFlags = 0x0002
+	mockedModelTag   mockedStateFlags = 0x0002
 	mockedPreferIPv6 mockedStateFlags = 0x0004
 )
 
 func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	hasHostPort := flags&mockedHostPort == mockedHostPort
-	hasEnvironTag := flags&mockedEnvironTag == mockedEnvironTag
+	hasModelTag := flags&mockedModelTag == mockedModelTag
 	preferIPv6 := flags&mockedPreferIPv6 == mockedPreferIPv6
 	addr := ""
 
@@ -346,13 +346,13 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 			network.AddressesWithPort(apiAddrs, 1234),
 		}
 	}
-	environTag := ""
-	if hasEnvironTag {
-		environTag = "environment-df136476-12e9-11e4-8a70-b2227cce2b54"
+	modelTag := ""
+	if hasModelTag {
+		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
 	return &mockAPIState{
 		apiHostPorts: apiHostPorts,
-		environTag:   environTag,
+		modelTag:     modelTag,
 		addr:         addr,
 	}
 }
@@ -364,14 +364,14 @@ func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
-func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoNoModelTag(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
+		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
 		called++
 		return expectState, nil
 	}
@@ -389,7 +389,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
 		"0.1.2.3:1234", "[2001:db8::1]:1234",
 	})
-	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, fakeUUID)
+	c.Check(info.APIEndpoint().ModelUUID, gc.Equals, fakeUUID)
 
 	// Now simulate prefer-ipv6: true
 	store = newConfigStore("noconfig", noTagStoreInfo)
@@ -397,7 +397,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
 		return true
 	})
-	expectState = mockedAPIState(mockedHostPort | mockedEnvironTag | mockedPreferIPv6)
+	expectState = mockedAPIState(mockedHostPort | mockedModelTag | mockedPreferIPv6)
 	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
@@ -408,20 +408,20 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
 		"[2001:db8::1]:1234", "0.1.2.3:1234",
 	})
-	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, fakeUUID)
+	c.Check(info.APIEndpoint().ModelUUID, gc.Equals, fakeUUID)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
-	// The local cache doesn't have an EnvironTag, which the API does
+	// The local cache doesn't have an ModelTag, which the API does
 	// return. However, the API doesn't have apiHostPorts, we don't want to
 	// override the local cache with bad endpoints.
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
+	expectState := mockedAPIState(mockedModelTag | mockedPreferIPv6)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
+		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
 		called++
 		return expectState, nil
 	}
@@ -435,22 +435,22 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 	ep := info.APIEndpoint()
-	// We should have cached the environ tag, but not disturbed the
+	// We should have cached the model tag, but not disturbed the
 	// Addresses
 	c.Check(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `foo\.invalid`)
-	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
+	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 }
 
-func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
+func (s *NewAPIClientSuite) TestNoModelTagDoesntOverwriteCached(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 	called := 0
-	// State returns a new set of APIHostPorts but not a new EnvironTag. We
-	// shouldn't override the cached value with environ tag of "".
+	// State returns a new set of APIHostPorts but not a new ModelTag. We
+	// shouldn't override the cached value with model tag of "".
 	expectState := mockedAPIState(mockedHostPort)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID))
+		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
 		called++
 		return expectState, nil
 	}
@@ -467,7 +467,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	c.Check(ep.Addresses, gc.DeepEquals, []string{
 		"0.1.2.3:1234", "[2001:db8::1]:1234",
 	})
-	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
+	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 
 	// Now simulate prefer-ipv6: true
 	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
@@ -485,7 +485,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	c.Check(ep.Addresses, gc.DeepEquals, []string{
 		"[2001:db8::1]:1234", "0.1.2.3:1234",
 	})
-	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
+	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
@@ -501,7 +501,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
 	// We expect to  get the isNotFound error as it is more important than the
 	// infoConnectError "an error"
-	c.Assert(err, gc.ErrorMatches, "environment \"noconfig\" not found")
+	c.Assert(err, gc.ErrorMatches, "model \"noconfig\" not found")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -702,7 +702,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 }
 
 func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
-	envInfo, err := client.EnvironmentInfo()
+	envInfo, err := client.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envInfo.Name, gc.Equals, expectName)
 }
@@ -788,7 +788,7 @@ type CacheAPIEndpointsSuite struct {
 	jujutesting.JujuConnSuite
 
 	hostPorts   [][]network.HostPort
-	envTag      names.EnvironTag
+	modelTag    names.ModelTag
 	apiHostPort network.HostPort
 	store       configstore.Storage
 
@@ -834,7 +834,7 @@ func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
 	s.resolveSeq = 1
 	s.resolveNumCalls = 0
 	s.numResolved = 0
-	s.envTag = names.NewEnvironTag(fakeUUID)
+	s.modelTag = names.NewModelTag(fakeUUID)
 	s.store = configstore.NewMem()
 
 	s.JujuConnSuite.SetUpTest(c)
@@ -850,7 +850,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 		return true
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6True(c, info)
 
@@ -860,7 +860,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 	s.numResolved = 0
 	info = s.store.CreateInfo("env-name2")
 	mockAPIInfo := s.APIInfo(c)
-	mockAPIInfo.EnvironTag = s.envTag
+	mockAPIInfo.ModelTag = s.modelTag
 	hps := network.CollapseHostPorts(s.hostPorts)
 	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
 	err = juju.CacheAPIInfo(s.APIState, info, mockAPIInfo)
@@ -874,7 +874,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 		return false
 	})
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.envTag.Id(), "")
+	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6False(c, info)
 
@@ -884,7 +884,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 	s.numResolved = 0
 	info = s.store.CreateInfo("env-name2")
 	mockAPIInfo := s.APIInfo(c)
-	mockAPIInfo.EnvironTag = s.envTag
+	mockAPIInfo.ModelTag = s.modelTag
 	hps := network.CollapseHostPorts(s.hostPorts)
 	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
 	err = juju.CacheAPIInfo(s.APIState, info, mockAPIInfo)
@@ -1223,9 +1223,9 @@ var dummyStoreInfo = &environInfo{
 		Password: "foopass",
 	},
 	endpoint: configstore.APIEndpoint{
-		Addresses:   []string{"foo.invalid"},
-		CACert:      "certificated",
-		EnvironUUID: fakeUUID,
+		Addresses: []string{"foo.invalid"},
+		CACert:    "certificated",
+		ModelUUID: fakeUUID,
 	},
 }
 

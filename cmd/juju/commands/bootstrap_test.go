@@ -22,8 +22,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -89,7 +89,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 
 	s.mockBlockClient = &mockBlockClient{}
-	s.PatchValue(&blockAPI, func(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 		return s.mockBlockClient, nil
 	})
 }
@@ -316,11 +316,11 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
 	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
-	info:    "bad environment",
+	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
 	// TODO(axw) use --config when we have it
 	args: []string{"-o", "broken=Bootstrap Destroy", "--auto-upgrade"},
-	err:  `failed to bootstrap environment: dummy.Bootstrap is broken`,
+	err:  `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -346,13 +346,13 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
 	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	err:      `failed to bootstrap environment: cannot build tools for "ppc64el" using a machine running on "amd64"`,
+	err:      `failed to bootstrap model: cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap environment: environment "admin" of type dummy does not support instances running on "mips64"`,
+	err:      `failed to bootstrap model: model "admin" of type dummy does not support instances running on "mips64"`,
 }, {
 	info:     "--upload-tools always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -438,7 +438,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentEnvironment(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "devenv", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> devenv")
-	currentEnv, err := envcmd.ReadCurrentEnvironment()
+	currentEnv, err := modelcmd.ReadCurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentEnv, gc.Equals, "devenv")
 }
@@ -451,7 +451,7 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
 }
 
-// In the case where we cannot examine an environment, we want the
+// In the case where we cannot examine a model, we want the
 // error to propagate back up to the user.
 func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
@@ -464,7 +464,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	environmentsDir := testing.HomePath(".juju", "environments")
+	environmentsDir := testing.HomePath(".juju", "models")
 	err := os.MkdirAll(environmentsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	jenvFile := filepath.Join(environmentsDir, envName+".jenv")
@@ -514,7 +514,7 @@ func (s *BootstrapSuite) TestBootstrapJenvExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := coretesting.Context(c)
-	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), envName, "dummy")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), envName, "dummy", "--auto-upgrade")
 	err = <-errc
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, `controller "devenv" already exists`)
@@ -530,7 +530,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 		c, newBootstrapCommand(), "--metadata-source", c.MkDir(),
 		"devenv", "dummy",
 	)
-	c.Check(err, gc.ErrorMatches, `failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*`)
+	c.Check(err, gc.ErrorMatches, `failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*`)
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -632,14 +632,14 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// are automatically synchronized.
 	_, err := coretesting.RunCommand(
 		c, newBootstrapCommand(), "--metadata-source", sourceDir,
-		"controller-name", "dummy-cloud/region-1",
+		"devenv", "dummy-cloud/region-1",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := store.ReadInfo("controller-name")
+	info, err := store.ReadInfo("devenv")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -694,7 +694,7 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	)
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -706,7 +706,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 		"-o", "default-series=raring",
 	)
 	c.Assert(err, gc.ErrorMatches,
-		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
@@ -729,11 +729,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Creating Juju controller "devenv" on dummy-cloud/region-1
-Bootstrapping environment "admin"
+Bootstrapping model "admin"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
 `[1:], arch.HostArch()))
-	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot upload bootstrap tools: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
@@ -748,7 +748,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		"--auto-upgrade",
 	)
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
 	for opDestroy == nil {
 		select {
@@ -777,7 +777,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 		"--auto-upgrade",
 	)
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
 	done := false
 	for !done {
 		select {
@@ -841,7 +841,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuHome restores an new, clean Juju home environment without tools.
 func resetJujuHome(c *gc.C) {
-	jenvDir := testing.HomePath(".juju", "environments")
+	jenvDir := testing.HomePath(".juju", "models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 
