@@ -77,11 +77,11 @@ type modelMigStatusDoc struct {
 	// UnixNano).
 	StartTime int64 `bson:"start-time"`
 
-	// StartTime holds the time the migration reached the SUCCESS phase (stored as per
-	// UnixNano).
+	// StartTime holds the time the migration reached the SUCCESS
+	// phase (stored as per UnixNano).
 	SuccessTime int64 `bson:"success-time"`
 
-	// StartTime holds the time the migration reached a terminal (end)
+	// EndTime holds the time the migration reached a terminal (end)
 	// phase (stored as per UnixNano).
 	EndTime int64 `bson:"end-time"`
 
@@ -90,8 +90,8 @@ type modelMigStatusDoc struct {
 	// constants.
 	Phase string `bson:"phase"`
 
-	// StartTime holds the time that Phase last changed (stored as per
-	// UnixNano).
+	// PhaseChangedTime holds the time that Phase last changed (stored
+	// as per UnixNano).
 	PhaseChangedTime int64 `bson:"phase-changed-time"`
 
 	// StatusMessage holds a human readable message about the
@@ -187,7 +187,6 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 	}
 
 	nextDoc := mig.statusDoc
-	var ops []txn.Op
 	nextDoc.Phase = nextPhase.String()
 	nextDoc.PhaseChangedTime = now
 	update := bson.M{
@@ -198,6 +197,7 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 		nextDoc.SuccessTime = now
 		update["success-time"] = now
 	}
+	var ops []txn.Op
 	if nextPhase.IsTerminal() {
 		nextDoc.EndTime = now
 		update["end-time"] = now
