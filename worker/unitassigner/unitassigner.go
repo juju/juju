@@ -5,8 +5,8 @@ package unitassigner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -20,19 +20,21 @@ type UnitAssigner interface {
 	SetAgentStatus(args params.SetStatus) error
 }
 
-func New(ua UnitAssigner) worker.Worker {
-	return worker.NewStringsWorker(unitAssigner{api: ua})
+func New(ua UnitAssigner) (worker.Worker, error) {
+	return watcher.NewStringsWorker(watcher.StringsConfig{
+		Handler: unitAssignerHandler{api: ua},
+	})
 }
 
-type unitAssigner struct {
+type unitAssignerHandler struct {
 	api UnitAssigner
 }
 
-func (u unitAssigner) SetUp() (watcher.StringsWatcher, error) {
+func (u unitAssignerHandler) SetUp() (watcher.StringsWatcher, error) {
 	return u.api.WatchUnitAssignments()
 }
 
-func (u unitAssigner) Handle(ids []string) error {
+func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 	logger.Tracef("Handling unit assignments: %q", ids)
 	if len(ids) == 0 {
 		return nil
@@ -85,6 +87,6 @@ func (u unitAssigner) Handle(ids []string) error {
 	return nil
 }
 
-func (unitAssigner) TearDown() error {
+func (unitAssignerHandler) TearDown() error {
 	return nil
 }

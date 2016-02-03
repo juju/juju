@@ -17,11 +17,11 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
