@@ -18,7 +18,7 @@ import (
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/meterstatus"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"

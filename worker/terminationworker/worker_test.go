@@ -37,8 +37,8 @@ func (s *TerminationWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *TerminationWorkerSuite) TearDownTest(c *gc.C) {
-	close(s.c)
 	signal.Stop(s.c)
+	close(s.c)
 	s.BaseSuite.TearDownTest(c)
 }
 

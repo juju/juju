@@ -7,10 +7,11 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 // Machine represents a juju machine as seen by the firewaller worker.
@@ -43,7 +44,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
