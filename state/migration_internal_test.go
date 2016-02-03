@@ -19,6 +19,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		environmentsC,
 		envUsersC,
 		envUserLastConnectionC,
+		// machine
+		instanceDataC,
+		machinesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -45,6 +48,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Transaction stuff.
 		"txns",
 		"txns.log",
+
+		// The container ref document is primarily there to keep track
+		// of a particular machine's containers. The migration format
+		// uses object containment for this purpose.
+		containerRefsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -56,11 +64,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		sequenceC,
 
 		// machine
-		containerRefsC,
-		instanceDataC,
-		machinesC,
 		rebootC,
-		ipaddressesC,
 
 		// service / unit
 		assignUnitC,
@@ -87,6 +91,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumeAttachmentsC,
 
 		// network
+		ipaddressesC,
 		networksC,
 		networkInterfacesC,
 		requestedNetworksC,
@@ -174,6 +179,65 @@ func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
 		"LastConnection",
 	)
 	s.AssertExportedFields(c, envUserLastConnectionDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID is the env + machine id
+		"DocID",
+		// ID is the machine id
+		"Id",
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+		// Life is always alive, confirmed by export precheck.
+		"Life",
+
+		"Addresses",
+		"ContainerType",
+		"Jobs",
+		"MachineAddresses",
+		"Nonce",
+		"PasswordHash",
+		"Placement",
+		"PreferredPrivateAddress",
+		"PreferredPublicAddress",
+		"Series",
+		"SupportedContainers",
+		"SupportedContainersKnown",
+		"Tools",
+	)
+	todo := set.NewStrings(
+		"Principals",
+		"Volumes",
+		"NoVote",
+		"Clean",
+		"Filesystems",
+		"HasVote",
+	)
+	s.AssertExportedFields(c, machineDoc{}, fields.Union(todo))
+}
+
+func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID is the env + machine id
+		"DocID",
+		"MachineId",
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+
+		"InstanceId",
+		"Status",
+		"Arch",
+		"Mem",
+		"RootDisk",
+		"CpuCores",
+		"CpuPower",
+		"Tags",
+		"AvailZone",
+	)
+	s.AssertExportedFields(c, instanceData{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
