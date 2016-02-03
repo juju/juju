@@ -647,7 +647,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
 		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
@@ -1193,7 +1193,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
-			tagUUID, ok := getTagByKey(tags.JujuEnv, inst.Tags)
+			tagUUID, ok := getTagByKey(tags.JujuModel, inst.Tags)
 			// tagless instances will always be included to avoid
 			// breakage of old environments, if one of these exists it might
 			// hinder the ability to deploy a second environment of the same
@@ -1314,7 +1314,7 @@ func (e *environ) portsInGroup(name string) (ports []network.PortRange, err erro
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
 			e.Config().FirewallMode())
 	}
 	if err := e.openPortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
@@ -1326,7 +1326,7 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
 			e.Config().FirewallMode())
 	}
 	if err := e.closePortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
@@ -1338,7 +1338,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())

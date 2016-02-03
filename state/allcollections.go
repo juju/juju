@@ -20,16 +20,16 @@ var (
 //
 //  * infrastructure: we really don't have any business touching these once
 //    we've created them. They should have the rawAccess attribute set, so that
-//    multiEnvRunner will consider them forbidden.
+//    multiModelRunner will consider them forbidden.
 //
-//  * global: these hold information external to environments. They may include
-//    environment metadata, or references; but they're generally not relevant
-//    from the perspective of a given environment.
+//  * global: these hold information external to models. They may include
+//    model metadata, or references; but they're generally not relevant
+//    from the perspective of a given model.
 //
 //  * local (in opposition to global; and for want of a better term): these
-//    hold information relevant *within* specific environments (machines,
+//    hold information relevant *within* specific models (machines,
 //    services, relations, settings, bookkeeping, etc) and should generally be
-//    read via an envStateCollection, and written via a multiEnvRunner. This is
+//    read via an modelStateCollection, and written via a multiModelRunner. This is
 //    the most common form of collection, and the above access should usually
 //    be automatic via Database.Collection and Database.Runner.
 //
@@ -87,12 +87,12 @@ func allCollections() collectionSchema {
 		// the simplestreams data source pointing to binaries required by juju.
 		toolsmetadataC: {global: true},
 
-		// This collection holds environment information; in particular its
+		// This collection holds model information; in particular its
 		// Life and its UUID.
-		environmentsC: {global: true},
+		modelsC: {global: true},
 
 		// This collection holds user information that's not specific to any
-		// one environment.
+		// one model.
 		usersC: {
 			global: true,
 			indexes: []mgo.Index{{
@@ -110,8 +110,8 @@ func allCollections() collectionSchema {
 		// This collection is used as a unique key restraint. The _id field is
 		// a concatenation of multiple fields that form a compound index,
 		// allowing us to ensure users cannot have the same name for two
-		// different environments at a time.
-		userenvnameC: {global: true},
+		// different models at a time.
+		usermodelnameC: {global: true},
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
@@ -120,13 +120,13 @@ func allCollections() collectionSchema {
 		// This collection holds persistent state for the metrics manager.
 		metricsManagerC: {global: true},
 
-		// This collection holds lease data, which is per-environment, but is
-		// not itself multi-environment-aware; happily it will imminently be
+		// This collection holds lease data, which is per-model, but is
+		// not itself multi-model-aware; happily it will imminently be
 		// deprecated in favour of the non-global leasesC below.
 		// TODO(fwereade): drop leaseC entirely so can't use wrong const.
 		leaseC: {global: true},
 
-		// This collection was deprecated before multi-environment support
+		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
 
@@ -138,11 +138,11 @@ func allCollections() collectionSchema {
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
 		// given collection.
-		envUsersC: {},
+		modelUsersC: {},
 
-		// This collection holds the last time the environment user connected
-		// to the environment.
-		envUserLastConnectionC: {
+		// This collection holds the last time the model user connected
+		// to the model.
+		modelUserLastConnectionC: {
 			rawAccess: true,
 		},
 
@@ -164,9 +164,9 @@ func allCollections() collectionSchema {
 		// for use by other clients in future.
 		leasesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "type"},
+				Key: []string{"model-uuid", "type"},
 			}, {
-				Key: []string{"env-uuid", "namespace"},
+				Key: []string{"model-uuid", "namespace"},
 			}},
 		},
 
@@ -177,11 +177,11 @@ func allCollections() collectionSchema {
 		servicesC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "service"},
+				Key: []string{"model-uuid", "service"},
 			}, {
-				Key: []string{"env-uuid", "principal"},
+				Key: []string{"model-uuid", "principal"},
 			}, {
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		minUnitsC: {},
@@ -196,9 +196,9 @@ func allCollections() collectionSchema {
 		settingsrefsC: {},
 		relationsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "endpoints.relationname"},
+				Key: []string{"model-uuid", "endpoints.relationname"},
 			}, {
-				Key: []string{"env-uuid", "endpoints.servicename"},
+				Key: []string{"model-uuid", "endpoints.servicename"},
 			}},
 		},
 		relationScopesC: {},
@@ -216,30 +216,30 @@ func allCollections() collectionSchema {
 		// These collections hold information associated with storage.
 		blockDevicesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		filesystemsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}},
 		},
 		filesystemAttachmentsC: {},
 		storageInstancesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "owner"},
+				Key: []string{"model-uuid", "owner"},
 			}},
 		},
 		storageAttachmentsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}, {
-				Key: []string{"env-uuid", "unitid"},
+				Key: []string{"model-uuid", "unitid"},
 			}},
 		},
 		volumesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}},
 		},
 		volumeAttachmentsC: {},
@@ -251,27 +251,27 @@ func allCollections() collectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"uuid"},
 			}, {
-				Key: []string{"env-uuid", "state"},
+				Key: []string{"model-uuid", "state"},
 			}, {
-				Key: []string{"env-uuid", "subnetid"},
+				Key: []string{"model-uuid", "subnetid"},
 			}},
 		},
 		networkInterfacesC: {
 			indexes: []mgo.Index{{
-				Key:    []string{"env-uuid", "interfacename", "machineid"},
+				Key:    []string{"model-uuid", "interfacename", "machineid"},
 				Unique: true,
 			}, {
-				Key:    []string{"env-uuid", "macaddress", "networkname"},
+				Key:    []string{"model-uuid", "macaddress", "networkname"},
 				Unique: true,
 			}, {
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}, {
-				Key: []string{"env-uuid", "networkname"},
+				Key: []string{"model-uuid", "networkname"},
 			}},
 		},
 		networksC: {
 			indexes: []mgo.Index{{
-				Key:    []string{"env-uuid", "providerid"},
+				Key:    []string{"model-uuid", "providerid"},
 				Unique: true,
 			}},
 		},
@@ -279,7 +279,7 @@ func allCollections() collectionSchema {
 		requestedNetworksC: {},
 		subnetsC: {
 			indexes: []mgo.Index{{
-				// TODO(dimitern): make unique per-environment, not globally.
+				// TODO(dimitern): make unique per-model, not globally.
 				// Note: currently in Mongodb sparse and unique
 				// indexes don't work for compound indexes.
 				Key: []string{"providerid"},
@@ -310,7 +310,7 @@ func allCollections() collectionSchema {
 		// The remaining non-global collections share the property of being
 		// relevant to multiple other kinds of entities, and are thus generally
 		// indexed by globalKey(). This is unhelpfully named in this context --
-		// it's meant to imply "global within an environment", because it was
+		// it's meant to imply "global within an model", because it was
 		// named before multi-env support.
 
 		// This collection holds user annotations for various entities. They
@@ -319,7 +319,7 @@ func allCollections() collectionSchema {
 
 		// This collection in particular holds an astounding number of
 		// different sorts of data: service config settings by charm version,
-		// unit relation settings, environment config, etc etc etc.
+		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
 		constraintsC:        {},
@@ -327,7 +327,7 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "globalkey"},
+				Key: []string{"model-uuid", "globalkey"},
 			}},
 		},
 		spacesC: {
@@ -360,62 +360,62 @@ func allCollections() collectionSchema {
 // it in allCollections, above; and please keep this list sorted for easy
 // inspection.
 const (
-	actionNotificationsC   = "actionnotifications"
-	actionresultsC         = "actionresults"
-	actionsC               = "actions"
-	annotationsC           = "annotations"
-	assignUnitC            = "assignUnits"
-	blockDevicesC          = "blockdevices"
-	blocksC                = "blocks"
-	charmsC                = "charms"
-	cleanupsC              = "cleanups"
-	cloudimagemetadataC    = "cloudimagemetadata"
-	constraintsC           = "constraints"
-	containerRefsC         = "containerRefs"
-	envUsersC              = "envusers"
-	environmentsC          = "environments"
-	filesystemAttachmentsC = "filesystemAttachments"
-	filesystemsC           = "filesystems"
-	instanceDataC          = "instanceData"
-	ipaddressesC           = "ipaddresses"
-	leaseC                 = "lease"
-	leasesC                = "leases"
-	machinesC              = "machines"
-	meterStatusC           = "meterStatus"
-	metricsC               = "metrics"
-	metricsManagerC        = "metricsmanager"
-	minUnitsC              = "minunits"
-	networkInterfacesC     = "networkinterfaces"
-	networksC              = "networks"
-	openedPortsC           = "openedPorts"
-	rebootC                = "reboot"
-	relationScopesC        = "relationscopes"
-	relationsC             = "relations"
-	requestedNetworksC     = "requestednetworks"
-	restoreInfoC           = "restoreInfo"
-	sequenceC              = "sequence"
-	servicesC              = "services"
-	endpointBindingsC      = "endpointbindings"
-	settingsC              = "settings"
-	settingsrefsC          = "settingsrefs"
-	stateServersC          = "stateServers"
-	statusesC              = "statuses"
-	statusesHistoryC       = "statuseshistory"
-	storageAttachmentsC    = "storageattachments"
-	storageConstraintsC    = "storageconstraints"
-	storageInstancesC      = "storageinstances"
-	subnetsC               = "subnets"
-	spacesC                = "spaces"
-	toolsmetadataC         = "toolsmetadata"
-	txnLogC                = "txns.log"
-	txnsC                  = "txns"
-	unitsC                 = "units"
-	upgradeInfoC           = "upgradeInfo"
-	userenvnameC           = "userenvname"
-	usersC                 = "users"
-	userLastLoginC         = "userLastLogin"
-	envUserLastConnectionC = "envUserLastConnection"
-	volumeAttachmentsC     = "volumeattachments"
-	volumesC               = "volumes"
+	actionNotificationsC     = "actionnotifications"
+	actionresultsC           = "actionresults"
+	actionsC                 = "actions"
+	annotationsC             = "annotations"
+	assignUnitC              = "assignUnits"
+	blockDevicesC            = "blockdevices"
+	blocksC                  = "blocks"
+	charmsC                  = "charms"
+	cleanupsC                = "cleanups"
+	cloudimagemetadataC      = "cloudimagemetadata"
+	constraintsC             = "constraints"
+	containerRefsC           = "containerRefs"
+	filesystemAttachmentsC   = "filesystemAttachments"
+	filesystemsC             = "filesystems"
+	instanceDataC            = "instanceData"
+	ipaddressesC             = "ipaddresses"
+	leaseC                   = "lease"
+	leasesC                  = "leases"
+	machinesC                = "machines"
+	meterStatusC             = "meterStatus"
+	metricsC                 = "metrics"
+	metricsManagerC          = "metricsmanager"
+	minUnitsC                = "minunits"
+	modelUsersC              = "modelusers"
+	modelsC                  = "models"
+	networkInterfacesC       = "networkinterfaces"
+	networksC                = "networks"
+	openedPortsC             = "openedPorts"
+	rebootC                  = "reboot"
+	relationScopesC          = "relationscopes"
+	relationsC               = "relations"
+	requestedNetworksC       = "requestednetworks"
+	restoreInfoC             = "restoreInfo"
+	sequenceC                = "sequence"
+	servicesC                = "services"
+	endpointBindingsC        = "endpointbindings"
+	settingsC                = "settings"
+	settingsrefsC            = "settingsrefs"
+	stateServersC            = "stateServers"
+	statusesC                = "statuses"
+	statusesHistoryC         = "statuseshistory"
+	storageAttachmentsC      = "storageattachments"
+	storageConstraintsC      = "storageconstraints"
+	storageInstancesC        = "storageinstances"
+	subnetsC                 = "subnets"
+	spacesC                  = "spaces"
+	toolsmetadataC           = "toolsmetadata"
+	txnLogC                  = "txns.log"
+	txnsC                    = "txns"
+	unitsC                   = "units"
+	upgradeInfoC             = "upgradeInfo"
+	usermodelnameC           = "usermodelname"
+	usersC                   = "users"
+	userLastLoginC           = "userLastLogin"
+	modelUserLastConnectionC = "modelUserLastConnection"
+	volumeAttachmentsC       = "volumeattachments"
+	volumesC                 = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)
 )

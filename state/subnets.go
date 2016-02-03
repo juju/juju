@@ -51,7 +51,7 @@ type Subnet struct {
 
 type subnetDoc struct {
 	DocID             string `bson:"_id"`
-	EnvUUID           string `bson:"env-uuid"`
+	ModelUUID         string `bson:"model-uuid"`
 	Life              Life   `bson:"life"`
 	ProviderId        string `bson:"providerid,omitempty"`
 	CIDR              string `bson:"cidr"`

@@ -91,8 +91,8 @@ type stateShim struct {
 	st *state.State
 }
 
-func (s *stateShim) EnvironConfig() (*config.Config, error) {
-	return s.st.EnvironConfig()
+func (s *stateShim) ModelConfig() (*config.Config, error) {
+	return s.st.ModelConfig()
 }
 
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {

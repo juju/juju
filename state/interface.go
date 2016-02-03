@@ -94,11 +94,11 @@ type AgentEntity interface {
 	NotifyWatcherFactory
 }
 
-// EnvironAccessor defines the methods needed to watch for environment
-// config changes, and read the environment config.
-type EnvironAccessor interface {
-	WatchForEnvironConfigChanges() NotifyWatcher
-	EnvironConfig() (*config.Config, error)
+// ModelAccessor defines the methods needed to watch for model
+// config changes, and read the model config.
+type ModelAccessor interface {
+	WatchForModelConfigChanges() NotifyWatcher
+	ModelConfig() (*config.Config, error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a
@@ -108,10 +108,10 @@ type UnitsWatcher interface {
 	WatchUnits() StringsWatcher
 }
 
-// EnvironMachinesWatcher defines a single method -
-// WatchEnvironMachines.
-type EnvironMachinesWatcher interface {
-	WatchEnvironMachines() StringsWatcher
+// ModelMachinesWatcher defines a single method -
+// WatchModelMachines.
+type ModelMachinesWatcher interface {
+	WatchModelMachines() StringsWatcher
 }
 
 // InstanceIdGetter defines a single method - InstanceId.

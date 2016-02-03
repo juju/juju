@@ -66,10 +66,10 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResul
 	return result, nil
 }
 
-// EnvironConfig returns the current environment configuration.
-func (api *API) EnvironConfig() (*config.Config, error) {
-	var result params.EnvironConfigResult
-	err := api.facade.FacadeCall("EnvironConfig", nil, &result)
+// ModelConfig returns the current model configuration.
+func (api *API) ModelConfig() (*config.Config, error) {
+	var result params.ModelConfigResult
+	err := api.facade.FacadeCall("ModelConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}

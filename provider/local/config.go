@@ -87,7 +87,7 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
+func newModelConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	return &environConfig{
 		Config: config,
 		attrs:  attrs,

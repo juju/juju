@@ -22,7 +22,7 @@ func NewAPI(apiCaller base.APICaller, controllerTag names.MachineTag) (*API, err
 	if !names.IsValidMachine(controllerId) {
 		return nil, errors.NotValidf("controller tag")
 	}
-	modelTag, err := apiCaller.EnvironTag()
+	modelTag, err := apiCaller.ModelTag()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -37,7 +37,7 @@ func NewAPI(apiCaller base.APICaller, controllerTag names.MachineTag) (*API, err
 // API allows controller machines to claim responsibility for; or to wait for
 // no other machine to have responsibility for; administration for some model.
 type API struct {
-	modelTag      names.EnvironTag
+	modelTag      names.ModelTag
 	controllerTag names.MachineTag
 	facadeCaller  base.FacadeCaller
 }

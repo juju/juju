@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newDeleteImageMetadataCommand() cmd.Command {
@@ -16,7 +16,7 @@ func newDeleteImageMetadataCommand() cmd.Command {
 	deleteCmd.newAPIFunc = func() (MetadataDeleteAPI, error) {
 		return deleteCmd.NewImageMetadataAPI()
 	}
-	return envcmd.Wrap(deleteCmd)
+	return modelcmd.Wrap(deleteCmd)
 }
 
 const deleteImageCommandDoc = `

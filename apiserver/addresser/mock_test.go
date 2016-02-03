@@ -79,12 +79,12 @@ func (mst *mockState) setUpState() {
 
 var _ addresser.StateInterface = (*mockState)(nil)
 
-// EnvironConfig implements StateInterface.
-func (mst *mockState) EnvironConfig() (*config.Config, error) {
+// ModelConfig implements StateInterface.
+func (mst *mockState) ModelConfig() (*config.Config, error) {
 	mst.mu.Lock()
 	defer mst.mu.Unlock()
 
-	mst.stub.MethodCall(mst, "EnvironConfig")
+	mst.stub.MethodCall(mst, "ModelConfig")
 
 	if err := mst.stub.NextErr(); err != nil {
 		return nil, err

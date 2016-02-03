@@ -14,15 +14,15 @@ import (
 
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.storage")
 
 const storageCmdDoc = `
 "juju storage" is used to manage storage instances in
- the Juju environment.
+ the Juju model.
 `
 
 const storageCmdPurpose = "manage storage instances"
@@ -49,7 +49,7 @@ func NewSuperCommand() cmd.Command {
 // StorageCommandBase is a helper base structure that has a method to get the
 // storage managing client.
 type StorageCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewStorageAPI returns a storage api for the root api endpoint

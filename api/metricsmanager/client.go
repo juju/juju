@@ -15,8 +15,8 @@ import (
 
 // Client provides access to the metrics manager api
 type Client struct {
-	envTag names.EnvironTag
-	facade base.FacadeCaller
+	modelTag names.ModelTag
+	facade   base.FacadeCaller
 }
 
 // MetricsManagerClient defines the methods on the metricsmanager API end point.
@@ -29,14 +29,14 @@ var _ MetricsManagerClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsmanager api
 func NewClient(apiCaller base.APICaller) (*Client, error) {
-	envTag, err := apiCaller.EnvironTag()
+	modelTag, err := apiCaller.ModelTag()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	facade := base.NewFacadeCaller(apiCaller, "MetricsManager")
 	return &Client{
-		envTag: envTag,
-		facade: facade,
+		modelTag: modelTag,
+		facade:   facade,
 	}, nil
 }
 
@@ -44,7 +44,7 @@ func NewClient(apiCaller base.APICaller) (*Client, error) {
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
 	p := params.Entities{Entities: []params.Entity{
-		{c.envTag.String()},
+		{c.modelTag.String()},
 	}}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("CleanupOldMetrics", p, &results)
@@ -57,7 +57,7 @@ func (c *Client) CleanupOldMetrics() error {
 // SendMetrics will send any unsent metrics to the collection service.
 func (c *Client) SendMetrics() error {
 	p := params.Entities{Entities: []params.Entity{
-		{c.envTag.String()},
+		{c.modelTag.String()},
 	}}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("SendMetrics", p, &results)

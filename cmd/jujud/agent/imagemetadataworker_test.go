@@ -41,7 +41,7 @@ func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	})
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()

@@ -66,8 +66,8 @@ const (
 )
 
 var (
-	ErrNotPrepared = errors.New("environment is not prepared")
-	ErrDestroyed   = errors.New("environment has been destroyed")
+	ErrNotPrepared = errors.New("model is not prepared")
+	ErrDestroyed   = errors.New("model has been destroyed")
 )
 
 // SampleConfig() returns an environment configuration with all required
@@ -76,7 +76,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"uuid":                      testing.EnvironmentTag.Id(),
+		"uuid":                      testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
@@ -305,7 +305,7 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	logger.Infof("reset environment")
+	logger.Infof("reset model")
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -440,7 +440,7 @@ func Listen(c chan<- Operation) {
 
 var configSchema = environschema.Fields{
 	"state-server": {
-		Description: "Whether the environment should start a state server",
+		Description: "Whether the model should start a state server",
 		Type:        environschema.Tbool,
 	},
 	"broken": {
@@ -638,7 +638,7 @@ dummy:
 `[1:]
 }
 
-var errBroken = errors.New("broken environment")
+var errBroken = errors.New("broken model")
 
 // Override for testing - the data directory with which the state api server is initialised.
 var DataDir = ""
@@ -691,7 +691,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, fmt.Errorf("no CA certificate in model configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
@@ -707,7 +707,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return nil, fmt.Errorf("environment is already bootstrapped")
+		return nil, fmt.Errorf("model is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
@@ -740,7 +740,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetEnvironConstraints(args.EnvironConstraints); err != nil {
+		if err := st.SetModelConstraints(args.EnvironConstraints); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(password); err != nil {
@@ -749,7 +749,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
 			panic(err)
 		}
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			panic(err)
 		}
@@ -894,7 +894,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return nil, errors.New("no CA certificate in environment configuration")
+		return nil, errors.New("no CA certificate in model configuration")
 	}
 	if args.InstanceConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
@@ -1455,7 +1455,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1471,7 +1471,7 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1487,7 +1487,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() (ports []network.PortRange, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {

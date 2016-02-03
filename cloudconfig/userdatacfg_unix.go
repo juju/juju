@@ -246,7 +246,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			urls = append(urls, w.icfg.Tools.URL)
 		} else {
 			for _, addr := range w.icfg.ApiHostAddrs() {
-				// TODO(axw) encode env UUID in URL when EnvironTag
+				// TODO(axw) encode env UUID in URL when ModelTag
 				// is guaranteed to be available in APIInfo.
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
 				urls = append(urls, url)
@@ -325,7 +325,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 		environCons := w.icfg.EnvironConstraints.String()
 		if environCons != "" {
-			environCons = " --environ-constraints " + shquote(environCons)
+			environCons = " --constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -344,7 +344,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			// The bootstrapping is always run with debug on.
 			w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --model-config " + shquote(base64yaml(w.icfg.Config)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
 				bootstrapCons +

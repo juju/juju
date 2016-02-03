@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/diskmanager"
-	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
@@ -47,9 +46,9 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert string
 
-	// EnvironTag holds the environ tag for the environment we are
+	// ModelTag holds the model tag for the model we are
 	// trying to connect to.
-	EnvironTag names.EnvironTag
+	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
@@ -130,11 +129,11 @@ type Connection interface {
 	// This should not be used outside the api/* packages or tests.
 	base.APICaller
 
-	// ControllerTag returns the environment tag of the controller
-	// (as opposed to the environment tag of the currently connected
-	// environment inside that controller).
+	// ControllerTag returns the model tag of the controller
+	// (as opposed to the model tag of the currently connected
+	// model inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.EnvironTag, error)
+	ControllerTag() (names.ModelTag, error)
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
@@ -169,7 +168,6 @@ type Connection interface {
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
-	Environment() *environment.Facade
 	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
 	DiscoverSpaces() *discoverspaces.API

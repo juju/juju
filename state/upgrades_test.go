@@ -91,7 +91,7 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
-	_, err := s.state.AddMachine("quantal", JobManageEnviron)
+	_, err := s.state.AddMachine("quantal", JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.state.AddMachines([]MachineTemplate{
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
@@ -331,31 +331,31 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 	defer closer()
 	err := settingsColl.Insert(
 		bson.D{
-			// Post-env-uuid migration, with no settings.
+			// Post-model-uuid migration, with no settings.
 			{"_id", "1"},
-			{"env-uuid", "env-uuid"},
+			{"model-uuid", "model-uuid"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
 		},
 		bson.D{
-			// Post-env-uuid migration, with settings. One
+			// Post-model-uuid migration, with settings. One
 			// of the settings is called "settings", and
 			// one "version".
 			{"_id", "2"},
-			{"env-uuid", "env-uuid"},
+			{"model-uuid", "model-uuid"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
 			{"settings", int64(123)},
 			{"version", "onetwothree"},
 		},
 		bson.D{
-			// Pre-env-uuid migration, with no settings.
+			// Pre-model-uuid migration, with no settings.
 			{"_id", "3"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
 		},
 		bson.D{
-			// Pre-env-uuid migration, with settings.
+			// Pre-model-uuid migration, with settings.
 			{"_id", "4"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
@@ -365,7 +365,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		bson.D{
 			// Already migrated, with no settings.
 			{"_id", "5"},
-			{"env-uuid", "env-uuid"},
+			{"model-uuid", "model-uuid"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
 			{"version", int64(98)},
@@ -374,7 +374,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		bson.D{
 			// Already migrated, with settings.
 			{"_id", "6"},
-			{"env-uuid", "env-uuid"},
+			{"model-uuid", "model-uuid"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
 			{"version", int64(98)},
@@ -388,15 +388,15 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 
 	// Expected docs, excluding txn-queu which we cannot predict.
 	expected := []bson.M{{
-		"_id":       "1",
-		"env-uuid":  "env-uuid",
-		"txn-revno": int64(100),
-		"settings":  bson.M{},
-		"version":   int64(99),
+		"_id":        "1",
+		"model-uuid": "model-uuid",
+		"txn-revno":  int64(100),
+		"settings":   bson.M{},
+		"version":    int64(99),
 	}, {
-		"_id":       "2",
-		"env-uuid":  "env-uuid",
-		"txn-revno": int64(101),
+		"_id":        "2",
+		"model-uuid": "model-uuid",
+		"txn-revno":  int64(101),
 		"settings": bson.M{
 			"settings": int64(123),
 			"version":  "onetwothree",
@@ -416,16 +416,16 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		},
 		"version": int64(99),
 	}, {
-		"_id":       "5",
-		"env-uuid":  "env-uuid",
-		"txn-revno": int64(99),
-		"version":   int64(98),
-		"settings":  bson.M{},
+		"_id":        "5",
+		"model-uuid": "model-uuid",
+		"txn-revno":  int64(99),
+		"version":    int64(98),
+		"settings":   bson.M{},
 	}, {
-		"_id":       "6",
-		"env-uuid":  "env-uuid",
-		"txn-revno": int64(99),
-		"version":   int64(98),
+		"_id":        "6",
+		"model-uuid": "model-uuid",
+		"txn-revno":  int64(99),
+		"version":    int64(98),
 		"settings": bson.M{
 			"settings": int64(123),
 			"version":  "onetwothree",
@@ -439,7 +439,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 
 		var docs []bson.M
 		err = settingsColl.Find(
-			bson.D{{"env-uuid", bson.D{{"$ne", s.state.EnvironUUID()}}}},
+			bson.D{{"model-uuid", bson.D{{"$ne", s.state.ModelUUID()}}}},
 		).Sort("_id").Select(bson.M{"txn-queue": 0}).All(&docs)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(docs, jc.DeepEquals, expected)
@@ -451,7 +451,7 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
-	_, err = s.state.AddEnvironmentUser(EnvUserSpec{
+	_, err = s.state.AddModelUser(ModelUserSpec{
 		User:        ownerTag,
 		CreatedBy:   ownerTag,
 		DisplayName: "",

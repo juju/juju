@@ -367,7 +367,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		"type": StubProviderType,
 		"name": envName,
 	}
-	sb.EnvConfig = coretesting.CustomEnvironConfig(c, extraAttrs)
+	sb.EnvConfig = coretesting.CustomModelConfig(c, extraAttrs)
 	sb.Zones = []providercommon.AvailabilityZone{}
 	if withZones {
 		sb.Zones = make([]providercommon.AvailabilityZone, len(ProviderInstance.Zones))
@@ -420,8 +420,8 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	}
 }
 
-func (sb *StubBacking) EnvironConfig() (*config.Config, error) {
-	sb.MethodCall(sb, "EnvironConfig")
+func (sb *StubBacking) ModelConfig() (*config.Config, error) {
+	sb.MethodCall(sb, "ModelConfig")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
@@ -532,7 +532,7 @@ func (sp *StubProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	case StubZonedNetworkingEnvironName:
 		return ZonedNetworkingEnvironInstance, nil
 	}
-	panic("unexpected environment name: " + cfg.Name())
+	panic("unexpected model name: " + cfg.Name())
 }
 
 // GoString implements fmt.GoStringer.

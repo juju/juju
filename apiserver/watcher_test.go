@@ -45,7 +45,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("123")
 
 	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 1, id).(machineStorageIdsWatcher)
+	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id).(machineStorageIdsWatcher)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +63,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("123")
 
 	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 1, id).(machineStorageIdsWatcher)
+	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id).(machineStorageIdsWatcher)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 

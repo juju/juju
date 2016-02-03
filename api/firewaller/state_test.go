@@ -15,22 +15,22 @@ import (
 
 type stateSuite struct {
 	firewallerSuite
-	*apitesting.EnvironWatcherTests
+	*apitesting.ModelWatcherTests
 }
 
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.firewaller, s.BackingState, true)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.firewaller, s.BackingState, true)
 }
 
 func (s *stateSuite) TearDownTest(c *gc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
-func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
-	w, err := s.firewaller.WatchEnvironMachines()
+func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
+	w, err := s.firewaller.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()

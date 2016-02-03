@@ -376,7 +376,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := storage.NewStorage(ctx.st.EnvironUUID(), ctx.st.MongoSession())
+	storage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
@@ -1376,7 +1376,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

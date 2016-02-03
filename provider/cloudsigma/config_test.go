@@ -47,7 +47,7 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&configSuite{})
 
-func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *configSuite) TestNewModelConfig(c *gc.C) {
 
 	type checker struct {
 		checker gc.Checker
@@ -203,7 +203,7 @@ func (s *configSuite) TestConfigName(c *gc.C) {
 	c.Check(environ.Config().Name(), gc.Equals, "testname")
 }
 
-func (s *configSuite) TestEnvironConfig(c *gc.C) {
+func (s *configSuite) TestModelConfig(c *gc.C) {
 	testConfig := newConfig(c, validAttrs())
 	ecfg, err := validateConfig(testConfig, nil)
 	c.Assert(ecfg, gc.NotNil)

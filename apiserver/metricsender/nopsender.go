@@ -18,7 +18,7 @@ type NopSender struct {
 func (n NopSender) Send(batches []*wireformat.MetricBatch) (*wireformat.Response, error) {
 	var resp = make(wireformat.EnvironmentResponses)
 	for _, batch := range batches {
-		resp.Ack(batch.EnvUUID, batch.UUID)
+		resp.Ack(batch.ModelUUID, batch.UUID)
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {

@@ -48,15 +48,15 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	mongoAddrs := s.State.MongoConnectionInfo().Addrs
 	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(envConfig.APIPort()))}
 
 	c.Check(instanceConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
 	c.Check(instanceConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
-	toolsURL := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-		apiAddrs[0], jujutesting.EnvironmentTag.Id(), instanceConfig.Tools.Version)
+	toolsURL := fmt.Sprintf("https://%s/model/%s/tools/%s",
+		apiAddrs[0], jujutesting.ModelTag.Id(), instanceConfig.Tools.Version)
 	c.Assert(instanceConfig.Tools.URL, gc.Equals, toolsURL)
 	c.Assert(instanceConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")
 }

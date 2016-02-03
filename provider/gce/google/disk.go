@@ -107,7 +107,7 @@ type DiskSpec struct {
 	// last character, which cannot be a dash.
 	Name string
 	// Description holds a description of the disk, it currently holds
-	// envUUID.
+	// modelUUID.
 	// This field is used instead of a tag or metadata because, at the moment of writing
 	// this feature, compute (v1) API does not support any way to add extra data
 	// to disks.

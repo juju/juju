@@ -29,7 +29,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	cfg, err := testing.EnvironConfig(c).Apply(gce.ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(gce.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
 	s.rootDir = c.MkDir()
@@ -106,7 +106,7 @@ func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	if filename != "" {
 		attrs["auth-file"] = filename
 	}
-	cfg, err := testing.EnvironConfig(c).Apply(attrs)
+	cfg, err := testing.ModelConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
@@ -247,7 +247,7 @@ var newConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown-field": 12345},
 }}
 
-func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 

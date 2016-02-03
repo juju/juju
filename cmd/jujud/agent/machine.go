@@ -37,9 +37,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver"
@@ -84,7 +86,6 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
@@ -93,6 +94,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -223,7 +225,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	}
 
 	// Due to changes in the logging, and needing to care about old
-	// environments that have been upgraded, we need to explicitly remove the
+	// models that have been upgraded, we need to explicitly remove the
 	// file writer if one has been added, otherwise we will get duplicate
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
@@ -682,15 +684,13 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isEnvironManager, isUnitHoster bool
+	var isModelManager, isUnitHoster bool
 	for _, job := range entity.Jobs() {
 		switch job {
-		case multiwatcher.JobManageEnviron:
-			isEnvironManager = true
+		case multiwatcher.JobManageModel:
+			isModelManager = true
 		case multiwatcher.JobHostUnits:
 			isUnitHoster = true
-		case multiwatcher.JobManageStateDeprecated:
-			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -712,7 +712,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	// before we do anything else.
 	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.New(apiConn.Environment(), writeSystemFiles)
+		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn), writeSystemFiles)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
 		}
@@ -723,12 +723,12 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
 	})
 
-	envConfig, err := apiConn.Environment().EnvironConfig()
+	modelConfig, err := apiConn.Agent().ModelConfig()
 	if err != nil {
-		return nil, fmt.Errorf("cannot read environment config: %v", err)
+		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
 
-	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	ignoreMachineAddresses, _ := modelConfig.IgnoreMachineAddresses()
 	// Containers only have machine addresses, so we can't ignore them.
 	if names.IsContainerMachine(agentConfig.Tag().Id()) {
 		ignoreMachineAddresses = false
@@ -826,7 +826,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		})
 	}
 
-	if isEnvironManager {
+	if isModelManager {
 		runner.StartWorker("resumer", func() (worker.Worker, error) {
 			// The action of resumer is so subtle that it is not tested,
 			// because we can't figure out how to do so without
@@ -847,12 +847,12 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			checkerParams := toolsversionchecker.VersionCheckerParams{
 				CheckInterval: time.Hour * 6,
 			}
-			return toolsversionchecker.New(apiConn.Environment(), &checkerParams), nil
+			return toolsversionchecker.New(agenttools.NewFacade(apiConn), &checkerParams), nil
 		})
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
-		env, err := newEnvirons(envConfig)
+		env, err := newEnvirons(modelConfig)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting environ")
 		}
@@ -901,13 +901,13 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 	if !ok {
 		return nil, nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	// Ensure storage is available during upgrades.
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	registerSimplestreamsDataSource(stor, false)
 
 	closer := func() {
@@ -983,7 +983,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
-	envUUID, err := st.EnvironTag()
+	modelUUID, err := st.ModelTag()
 	if err != nil {
 		return err
 	}
@@ -993,7 +993,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
 	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		cfg, err := pr.EnvironConfig()
+		cfg, err := pr.ModelConfig()
 		if err != nil {
 			return errors.Annotate(err, "unable to get environ config")
 		}
@@ -1001,7 +1001,7 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
+				st.Addr(), modelUUID.Id(), []byte(agentConfig.CACert()),
 				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
 			})
 	}
@@ -1055,10 +1055,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		switch job {
 		case state.JobHostUnits:
 			// Implemented elsewhere with workers that use the API.
-		case state.JobManageEnviron:
+		case state.JobManageModel:
 			useMultipleCPUs()
-			a.startWorkerAfterUpgrade(runner, "env worker manager", func() (worker.Worker, error) {
-				return envworkermanager.NewEnvWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
+			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
+				return modelworkermanager.NewModelWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				w, err := peergrouperNew(st)
@@ -1105,11 +1105,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
 			})
-
-		case state.JobManageStateDeprecated:
-			// Legacy environments may set this, but we ignore it.
 		default:
-			logger.Warningf("ignoring unknown job %q", job)
+			return nil, errors.Errorf("unknown job type %q", job)
 		}
 	}
 	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
@@ -1129,12 +1126,12 @@ func (s stateWorkerCloser) Close() error {
 // startEnvWorkers starts state server workers that need to run per
 // environment.
 func (a *MachineAgent) startEnvWorkers(
-	ssSt envworkermanager.InitialState,
+	ssSt modelworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
-	envUUID := st.EnvironUUID()
-	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", envUUID)
-	logger.Infof("starting workers for env %s", envUUID)
+	modelUUID := st.ModelUUID()
+	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", modelUUID)
+	logger.Infof("starting workers for env %s", modelUUID)
 
 	// Establish API connection for this environment.
 	agentConfig := a.CurrentConfig()
@@ -1142,7 +1139,7 @@ func (a *MachineAgent) startEnvWorkers(
 	if !ok {
 		return nil, errors.New("API info not available")
 	}
-	apiInfo.EnvironTag = st.EnvironTag()
+	apiInfo.ModelTag = st.ModelTag()
 	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1163,7 +1160,7 @@ func (a *MachineAgent) startEnvWorkers(
 		runner.Wait()
 		err := apiSt.Close()
 		if err != nil {
-			logger.Errorf("failed to close API connection for env %s: %v", envUUID, err)
+			logger.Errorf("failed to close API connection for env %s: %v", modelUUID, err)
 		}
 	}()
 
@@ -1199,7 +1196,7 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-		scope := st.EnvironTag()
+		scope := st.ModelTag()
 		api, err := apistorageprovisioner.NewState(apiSt, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1314,12 +1311,12 @@ func (a *MachineAgent) startEnvWorkers(
 
 // undertakerWorker manages the controlled take-down of a dying environment.
 func (a *MachineAgent) undertakerWorker(
-	ssSt envworkermanager.InitialState,
+	ssSt modelworkermanager.InitialState,
 	st *state.State,
 ) (_ worker.Worker, err error) {
-	envUUID := st.EnvironUUID()
-	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for env %s", envUUID)
-	logger.Infof("starting undertaker worker for env %s", envUUID)
+	modelUUID := st.ModelUUID()
+	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for model %s", modelUUID)
+	logger.Infof("starting undertaker worker for model %s", modelUUID)
 	singularRunner, runner, apiSt, err := a.newRunnersForAPIConn(ssSt, st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1340,7 +1337,7 @@ func (a *MachineAgent) undertakerWorker(
 }
 
 func (a *MachineAgent) newRunnersForAPIConn(
-	ssSt envworkermanager.InitialState,
+	ssSt modelworkermanager.InitialState,
 	st *state.State,
 ) (
 	worker.Runner,
@@ -1354,7 +1351,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 	if !ok {
 		return nil, nil, nil, errors.New("API info not available")
 	}
-	apiInfo.EnvironTag = st.EnvironTag()
+	apiInfo.ModelTag = st.ModelTag()
 	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -1375,7 +1372,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 		runner.Wait()
 		err := apiSt.Close()
 		if err != nil {
-			logger.Errorf("failed to close API connection for env %s: %v", st.EnvironUUID(), err)
+			logger.Errorf("failed to close API connection for env %s: %v", st.ModelUUID(), err)
 		}
 	}()
 
@@ -1395,11 +1392,11 @@ func (a *MachineAgent) newRunnersForAPIConn(
 var getFirewallMode = _getFirewallMode
 
 func _getFirewallMode(apiSt api.Connection) (string, error) {
-	envConfig, err := apiSt.Environment().EnvironConfig()
+	modelConfig, err := apiSt.Agent().ModelConfig()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot read environment config")
+		return "", errors.Annotate(err, "cannot read model config")
 	}
-	return envConfig.FirewallMode(), nil
+	return modelConfig.FirewallMode(), nil
 }
 
 // stateWorkerDialOpts is a mongo.DialOpts suitable
@@ -1789,7 +1786,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Environment(), info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(agentConfig.Model(), info, dialOpts, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}

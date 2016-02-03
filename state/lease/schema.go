@@ -76,8 +76,8 @@ func (doc leaseDoc) validate() error {
 	if doc.Type != typeLease {
 		return errors.Errorf("invalid type %q", doc.Type)
 	}
-	// state.multiEnvRunner prepends environ ids in our documents, and
-	// state.envStateCollection does not strip them out.
+	// state.multiModelRunner prepends environ ids in our documents, and
+	// state.modelStateCollection does not strip them out.
 	if !strings.HasSuffix(doc.Id, leaseDocId(doc.Namespace, doc.Name)) {
 		return errors.Errorf("inconsistent _id")
 	}
@@ -148,8 +148,8 @@ func (doc clockDoc) validate() error {
 	if doc.Type != typeClock {
 		return errors.Errorf("invalid type %q", doc.Type)
 	}
-	// state.multiEnvRunner prepends environ ids in our documents, and
-	// state.envStateCollection does not strip them out.
+	// state.multiModelRunner prepends environ ids in our documents, and
+	// state.modelStateCollection does not strip them out.
 	if !strings.HasSuffix(doc.Id, clockDocId(doc.Namespace)) {
 		return errors.Errorf("inconsistent _id")
 	}

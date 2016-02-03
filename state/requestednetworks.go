@@ -12,17 +12,17 @@ import (
 // service or machine. The document ID field is the globalKey of a
 // service or a machine.
 type requestedNetworksDoc struct {
-	DocID    string   `bson:"_id"`
-	Id       string   `bson:"requestednetworkid"`
-	EnvUUID  string   `bson:"env-uuid"`
-	Networks []string `bson:"networks"`
+	DocID     string   `bson:"_id"`
+	Id        string   `bson:"requestednetworkid"`
+	ModelUUID string   `bson:"model-uuid"`
+	Networks  []string `bson:"networks"`
 }
 
 func (st *State) newRequestedNetworksDoc(id string, networks []string) *requestedNetworksDoc {
 	return &requestedNetworksDoc{
-		DocID:    st.docID(id),
-		EnvUUID:  st.EnvironUUID(),
-		Networks: networks,
+		DocID:     st.docID(id),
+		ModelUUID: st.ModelUUID(),
+		Networks:  networks,
 	}
 }
 

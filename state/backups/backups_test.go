@@ -94,7 +94,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := backups.DBInfo{"a", "b", "c", targets}
 	meta := backupstesting.NewMetadataStarted()
-	backupstesting.SetOrigin(meta, "<env ID>", "<machine ID>", "<hostname>")
+	backupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
 	err := s.api.Create(meta, &paths, &dbInfo)
 
@@ -116,7 +116,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(meta.Size(), gc.Equals, int64(10))
 	c.Check(meta.Checksum(), gc.Equals, "<checksum>")
 	c.Check(meta.Stored().Unix(), gc.Equals, stored.Unix())
-	c.Check(meta.Origin.Environment, gc.Equals, "<env ID>")
+	c.Check(meta.Origin.Model, gc.Equals, "<model ID>")
 	c.Check(meta.Origin.Machine, gc.Equals, "<machine ID>")
 	c.Check(meta.Origin.Hostname, gc.Equals, "<hostname>")
 	c.Check(meta.Notes, gc.Equals, "some notes")

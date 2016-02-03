@@ -107,8 +107,8 @@ gce:
 }
 
 func (s *providerSuite) TestUpgradeConfig(c *gc.C) {
-	c.Assert(s.provider, gc.Implements, new(environs.EnvironConfigUpgrader))
-	upgrader := s.provider.(environs.EnvironConfigUpgrader)
+	c.Assert(s.provider, gc.Implements, new(environs.ModelConfigUpgrader))
+	upgrader := s.provider.(environs.ModelConfigUpgrader)
 
 	_, ok := s.Config.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsFalse)

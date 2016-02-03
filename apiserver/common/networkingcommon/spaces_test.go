@@ -80,7 +80,7 @@ func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 	}
 
 	baseCalls := []apiservertesting.StubMethodCall{
-		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
 	}
@@ -146,30 +146,30 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 	s.checkCreateSpaces(c, p)
 }
 
-func (s *SpacesSuite) TestCreateSpacesEnvironConfigError(c *gc.C) {
+func (s *SpacesSuite) TestCreateSpacesModelConfigError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.EnvironConfig()
+		errors.New("boom"), // Backing.ModelConfig()
 	)
 
 	spaces := params.CreateSpacesParams{}
 	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
-	c.Assert(err, gc.ErrorMatches, "getting environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "getting model config: boom")
 }
 
 func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.EnvironConfig()
+		nil,                // Backing.ModelConfig()
 		errors.New("boom"), // Provider.Open()
 	)
 
 	spaces := params.CreateSpacesParams{}
 	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
-	c.Assert(err, gc.ErrorMatches, "validating environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "validating model config: boom")
 }
 
 func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil, // Backing.EnvironConfig()
+		nil, // Backing.ModelConfig()
 		nil, // Provider.Open()
 		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
 	)
@@ -179,23 +179,23 @@ func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
-func (s *SpacesSuite) TestSuppportsSpacesEnvironConfigError(c *gc.C) {
+func (s *SpacesSuite) TestSuppportsSpacesModelConfigError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.EnvironConfig()
+		errors.New("boom"), // Backing.ModelConfig()
 	)
 
 	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
-	c.Assert(err, gc.ErrorMatches, "getting environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "getting model config: boom")
 }
 
 func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.EnvironConfig()
+		nil,                // Backing.ModelConfig()
 		errors.New("boom"), // environs.New()
 	)
 
 	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
-	c.Assert(err, gc.ErrorMatches, "validating environment config: boom")
+	c.Assert(err, gc.ErrorMatches, "validating model config: boom")
 }
 
 func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
@@ -219,7 +219,7 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
 		apiservertesting.WithoutSubnets)
 
 	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.EnvironConfig()
+		nil,                // Backing.ModelConfig()
 		nil,                // environs.New()
 		errors.New("boom"), // Backing.SupportsSpaces()
 	)
