@@ -38,12 +38,6 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"ControllerTag not valid",
 	}, {
-		"nil Addrs",
-		func(info *migration.TargetInfo) {
-			info.Addrs = nil
-		},
-		"nil Addrs not valid",
-	}, {
 		"empty Addrs",
 		func(info *migration.TargetInfo) {
 			info.Addrs = []string{}

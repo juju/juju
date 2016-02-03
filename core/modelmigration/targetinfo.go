@@ -43,9 +43,6 @@ func (info *TargetInfo) Validate() error {
 		return errors.NotValidf("ControllerTag")
 	}
 
-	if info.Addrs == nil {
-		return errors.NotValidf("nil Addrs")
-	}
 	if len(info.Addrs) < 1 {
 		return errors.NotValidf("empty Addrs")
 	}
