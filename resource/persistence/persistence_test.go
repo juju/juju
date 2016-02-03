@@ -176,6 +176,32 @@ func (s *PersistenceSuite) TestListModelResourcesIgnorePending(c *gc.C) {
 	checkModelResources(c, resources, expected)
 }
 
+func (s *PersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
+	var expected []resource.ModelResource
+	var docs []resourceDoc
+	for _, name := range []string{"spam", "ham"} {
+		res, doc := newResource(c, "a-service", name)
+		expected = append(expected, res)
+		docs = append(docs, doc)
+	}
+	expected = expected[1:]
+	expected[0].PendingID = "some-unique-ID-001"
+	docs[1].PendingID = "some-unique-ID-001"
+	s.base.docs = docs
+	p := NewPersistence(s.base)
+
+	resources, err := p.ListPendingResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "All")
+	s.stub.CheckCall(c, 0, "All",
+		"resources",
+		bson.D{{"service-id", "a-service"}},
+		&docs,
+	)
+	checkModelResources(c, resources, expected)
+}
+
 func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
 	doc.DocID += "#staged"

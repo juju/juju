@@ -106,6 +106,30 @@ func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResou
 	return resources, nil
 }
 
+// ListPendingResources returns the resource data for the given service
+// ID. None of the resources will be pending.
+func (p Persistence) ListPendingResources(serviceID string) ([]resource.ModelResource, error) {
+	docs, err := p.resources(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var resources []resource.ModelResource
+	for _, doc := range docs {
+		if doc.PendingID == "" {
+			continue
+		}
+		// doc.UnitID will always be empty here.
+
+		res, err := doc2resource(doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resources = append(resources, res)
+	}
+	return resources, nil
+}
+
 // TODO(ericsnow) Add ListPendingResources() or allow in
 // ListModelResources()?
 
