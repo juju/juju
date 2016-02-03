@@ -125,7 +125,10 @@ func testConfig(c *gc.C) *config.Config {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	_, err = environs.Prepare(
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }

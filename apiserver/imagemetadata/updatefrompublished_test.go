@@ -165,7 +165,10 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	s.state.environConfig = func() (*config.Config, error) {
 		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 		c.Assert(err, jc.ErrorIsNil)
-		env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+		env, err := environs.Prepare(
+			modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
+			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		return env.Config(), err
 	}
@@ -216,7 +219,7 @@ type mockEnvironProvider struct {
 	environs.EnvironProvider
 }
 
-func (p mockEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p mockEnvironProvider) PrepareForBootstrap(environs.BootstrapContext, environs.PrepareForBootstrapParams) (environs.Environ, error) {
 	return &mockEnviron{}, nil
 }
 
@@ -289,15 +292,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 	// testingEnvConfig prepares an environment configuration using
 	// mock provider which impelements simplestreams.HasRegion interface.
 	s.state.environConfig = func() (*config.Config, error) {
-		s.calls = append(s.calls, environConfig)
-		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-		c.Assert(err, jc.ErrorIsNil)
-		env, err := environs.Prepare(
-			modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
-			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
-		)
-		c.Assert(err, jc.ErrorIsNil)
-		return env.Config(), err
+		return s.env.Config(), nil
 	}
 
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {

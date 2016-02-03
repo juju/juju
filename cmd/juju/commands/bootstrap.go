@@ -269,7 +269,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-
 	if err := checkProviderType(cloud.Type); errors.IsNotFound(err) {
 		// This error will get handled later.
 	} else if err != nil {
@@ -340,7 +339,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 	environ, err := environsPrepare(
-		envcmd.BootstrapContext(ctx), store, c.ControllerName,
+		modelcmd.BootstrapContext(ctx), store, c.ControllerName,
 		environs.PrepareForBootstrapParams{
 			Config:        cfg,
 			Credentials:   *credential,
@@ -426,6 +425,7 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
+	c.SetModelName(c.ControllerName)
 	err = c.SetBootstrapEndpointAddress(environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")

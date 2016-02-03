@@ -84,7 +84,7 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 		"secret-key": "x",
 		"region":     "test",
 	})
-	s.restoreEC2Patching = patchEC2ForTesting()
+	s.restoreEC2Patching = patchEC2ForTesting(c)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {

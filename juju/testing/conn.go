@@ -236,7 +236,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	environ, err := environs.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ConfigStore,
-		"dummyenv",
+		"dummymodel",
 		environs.PrepareForBootstrapParams{
 			Config:      cfg,
 			Credentials: cloud.NewEmptyCredential(),
@@ -503,7 +503,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		s.DummyConfig = dummy.SampleConfig()
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"name":           "dummyenv",
+		"name":           "dummymodel",
 		"admin-secret":   AdminSecret,
 		"agent-version":  version.Current.String(),
 		"ca-cert":        testing.CACert,

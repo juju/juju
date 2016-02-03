@@ -35,13 +35,13 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := store.ReadInfo(c.EnvName())
+	info, err := store.ReadInfo(c.ModelName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	bootstrapConfig := info.BootstrapConfig()
 	if len(bootstrapConfig) == 0 {
-		return nil, errors.NotFoundf("bootstrap config for %q", c.EnvName())
+		return nil, errors.NotFoundf("bootstrap config for %q", c.ModelName())
 	}
 	cfg, err := config.New(config.NoDefaults, bootstrapConfig)
 	if err != nil {

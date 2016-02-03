@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.cmd.modelcmd")
+var logger = loggo.GetLogger("juju.cmd.envcmd")
 
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
@@ -57,7 +57,7 @@ type ModelCommand interface {
 	// SetModelName is called prior to the wrapped command's Init method
 	// with the active model name. The model name is guaranteed
 	// to be non-empty at entry of Init.
-	SetModelName(envName string)
+	SetModelName(modelName string)
 
 	// ModelName returns the name of the model.
 	ModelName() string
@@ -74,7 +74,7 @@ type ModelCommandBase struct {
 
 	// ModelName will very soon be package visible only as we want to be able
 	// to specify an model in multiple ways, and not always referencing
-	// a file on disk based on the ModelName or the environemnts.yaml file.
+	// a file on disk based on the ModelName.
 	modelName string
 
 	// opener is the strategy used to open the API connection.
@@ -85,8 +85,8 @@ type ModelCommandBase struct {
 }
 
 // SetModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelName(envName string) {
-	c.modelName = envName
+func (c *ModelCommandBase) SetModelName(modelName string) {
+	c.modelName = modelName
 }
 
 // ModelName implements the ModelCommand interface.
@@ -212,13 +212,13 @@ var getConfigStore = func() (configstore.Storage, error) {
 }
 
 // ConnectionInfoForName reads the environment information for the named
-// environment (envName) and returns it.
-func ConnectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+// environment (modelName) and returns it.
+func ConnectionInfoForName(modelName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := store.ReadInfo(envName)
+	info, err := store.ReadInfo(modelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -259,7 +259,7 @@ func ModelSkipFlags(w *modelCommandWrapper) {
 // ModelSkipDefault instructs the wrapper not to
 // use the default model.
 func ModelSkipDefault(w *modelCommandWrapper) {
-	w.useDefaultEnvironment = false
+	w.useDefaultModel = false
 }
 
 // EnvAPIOpener instructs the underlying environment command to use a
@@ -276,10 +276,10 @@ func EnvAPIOpener(opener APIOpener) WrapEnvOption {
 // before it is returned.
 func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 	wrapper := &modelCommandWrapper{
-		ModelCommand:          c,
-		skipFlags:             false,
-		useDefaultEnvironment: true,
-		allowEmptyEnv:         false,
+		ModelCommand:    c,
+		skipFlags:       false,
+		useDefaultModel: true,
+		allowEmptyEnv:   false,
 	}
 	for _, option := range options {
 		option(wrapper)
@@ -290,31 +290,31 @@ func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 type modelCommandWrapper struct {
 	ModelCommand
 
-	skipFlags             bool
-	useDefaultEnvironment bool
-	allowEmptyEnv         bool
-	envName               string
+	skipFlags       bool
+	useDefaultModel bool
+	allowEmptyEnv   bool
+	modelName       string
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
-		f.StringVar(&w.envName, "m", "", "juju model to operate in")
-		f.StringVar(&w.envName, "model", "", "")
+		f.StringVar(&w.modelName, "m", "", "juju model to operate in")
+		f.StringVar(&w.modelName, "model", "", "")
 	}
 	w.ModelCommand.SetFlags(f)
 }
 
 func (w *modelCommandWrapper) Init(args []string) error {
 	if !w.skipFlags {
-		if w.envName == "" && w.useDefaultEnvironment {
+		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.
-			defaultEnv, err := GetDefaultModel()
+			defaultModel, err := GetDefaultModel()
 			if err != nil {
 				return err
 			}
-			w.envName = defaultEnv
+			w.modelName = defaultModel
 		}
-		if w.envName == "" && !w.useDefaultEnvironment {
+		if w.modelName == "" && !w.useDefaultModel {
 			if w.allowEmptyEnv {
 				return w.ModelCommand.Init(args)
 			} else {
@@ -322,7 +322,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 			}
 		}
 	}
-	w.SetModelName(w.envName)
+	w.SetModelName(w.modelName)
 	return w.ModelCommand.Init(args)
 }
 
@@ -358,9 +358,9 @@ type ModelGetter interface {
 	Close() error
 }
 
-// GetEnvironmentVersion retrieves the environment's agent-version
+// GetModelVersion retrieves the models's agent-version
 // value from an API client.
-func GetEnvironmentVersion(client ModelGetter) (version.Number, error) {
+func GetModelVersion(client ModelGetter) (version.Number, error) {
 	noVersion := version.Number{}
 	attrs, err := client.ModelGet()
 	if err != nil {

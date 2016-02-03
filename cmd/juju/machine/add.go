@@ -207,7 +207,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("load config")
-	configAttrs, err := client.EnvironmentGet()
+	configAttrs, err := client.ModelGet()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -282,13 +282,6 @@ func (s *localServerSuite) TestBootstrap(c *gc.C) {
 	s.Tests.TestBootstrap(c)
 }
 
-func (s *localServerSuite) TestPersistence(c *gc.C) {
-	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env, s.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
-	s.Tests.TestPersistence(c)
-}
-
 func (s *localServerSuite) TestStartStop(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
 	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore)

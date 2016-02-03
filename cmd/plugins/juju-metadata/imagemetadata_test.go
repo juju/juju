@@ -154,7 +154,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		newImageMetadataCommand(), ctx, []string{
-			"-e", "ec2-latest-lts",
+			"-m", "ec2-latest-lts",
 			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)

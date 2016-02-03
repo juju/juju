@@ -303,19 +303,6 @@ var configTests = []configTest{
 		}),
 		err: `invalid auth-url value "invalid"`,
 	}, {
-		summary: "invalid control-bucket",
-		config: requiredConfig.Merge(testing.Attrs{
-			"control-bucket": 666,
-		}),
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		summary: "changing control-bucket",
-		config:  requiredConfig,
-		change: testing.Attrs{
-			"control-bucket": "new-x",
-		},
-		err: `cannot change control-bucket from "x" to "new-x"`,
-	}, {
 		summary: "valid auth args",
 		config: requiredConfig.Merge(testing.Attrs{
 			"username":    "jujuer",

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -54,8 +53,6 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
-
-	modelFlags []string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -95,8 +92,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 		return s.mockBlockClient, nil
 	})
-
-	s.modelFlags = []string{"-m", "--model"}
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -324,7 +319,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
 	// TODO(axw) use --config when we have it
-	args: []string{"-o", "broken=Bootstrap Destroy"},
+	args: []string{"-o", "broken=Bootstrap Destroy", "--auto-upgrade"},
 	err:  `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
@@ -456,6 +451,8 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
 }
 
+// In the case where we cannot examine a model, we want the
+// error to propagate back up to the user.
 func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
 	if runtime.GOOS == "windows" {
@@ -474,7 +471,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	err = ioutil.WriteFile(jenvFile, []byte("nonsense"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), envName, "dummy")
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), envName, "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, `error reading controller "devenv" info:.*\n.*cannot unmarshal.*nonsense.*`)
 }
 
@@ -635,14 +632,14 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// are automatically synchronized.
 	_, err := coretesting.RunCommand(
 		c, newBootstrapCommand(), "--metadata-source", sourceDir,
-		"controller-name", "dummy-cloud/region-1",
+		"devenv", "dummy-cloud/region-1",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := store.ReadInfo("controller-name")
+	info, err := store.ReadInfo("devenv")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -678,9 +675,9 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(
 		cmdtesting.NullContext(c), newBootstrapCommand(),
 		"devenv", "dummy-cloud/region-1",
-		"--auto-upgrade",
 		// TODO(axw) use --config when we have it
 		"-o", "default-series=raring",
+		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "admin")
@@ -713,6 +710,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
+
 	buildToolsTarballAlwaysFails := func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
 		return nil, fmt.Errorf("an error")
 	}
@@ -723,10 +721,10 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"devenv", "dummy-cloud/region-1",
-		"--auto-upgrade",
 		// TODO(axw) use --config when we have it
 		"-o", "default-series=raring",
 		"-o", "agent-stream=proposed",
+		"--auto-upgrade",
 	)
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
@@ -747,6 +745,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		"devenv", "dummy-cloud/region-1",
 		// TODO(axw) use --config when we have it
 		"-o", "broken=Bootstrap Destroy",
+		"--auto-upgrade",
 	)
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
@@ -773,9 +772,9 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(),
 		"--keep-broken",
 		"devenv", "dummy-cloud/region-1",
-		"--auto-upgrade",
 		// TODO(axw) use --config when we have it
 		"-o", "broken=Bootstrap Destroy",
+		"--auto-upgrade",
 	)
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")

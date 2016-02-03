@@ -35,8 +35,8 @@ func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no currently specified model")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentEnvironment(c *gc.C) {
-	err := envcmd.WriteCurrentEnvironment("fubar")
+func (s *SwitchSimpleSuite) TestCurrentModel(c *gc.C) {
+	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
@@ -163,9 +163,9 @@ func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
 	c.Assert(err, jc.ErrorIsNil)
 	info := store.CreateInfo(name)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: "env-uuid",
+		Addresses: []string{"localhost"},
+		CACert:    testing.CACert,
+		ModelUUID: "model-uuid",
 	})
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)

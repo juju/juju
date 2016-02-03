@@ -20,7 +20,6 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -38,7 +37,7 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&ModelCommandSuite{})
 
-func (s *ModelCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetDefaultModelNothingSet(c *gc.C) {
 	env, err := modelcmd.GetDefaultModel()
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,17 +67,17 @@ func (s *ModelCommandSuite) TestGetDefaultModelBothSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestModelCommandMInitExplicit(c *gc.C) {
-	// Take environment name from command line arg.
+func (s *ModelCommandSuite) TestModelCommandInitExplicit(c *gc.C) {
+	// Take model name from command line arg.
 	testEnsureModelName(c, "explicit", "-m", "explicit")
 }
 
-func (s *ModelCommandSuite) TestModelCommandModelInitExplicit(c *gc.C) {
-	// Take environment name from command line arg.
+func (s *ModelCommandSuite) TestModelCommandInitExplicitLongForm(c *gc.C) {
+	// Take model name from command line arg.
 	testEnsureModelName(c, "explicit", "--model", "explicit")
 }
 
-func (s *ModelCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
+func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
 	// If there is a current-model file, use that.
 	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +150,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(modelcmd.GetConfigStore, func() (configstore.Storage, error) {
 		return s.store, nil
 	})
-	newInfo := s.store.CreateInfo("env-name")
+	newInfo := s.store.CreateInfo("model-name")
 	newInfo.SetAPICredentials(configstore.APICredentials{
 		User:     "foo",
 		Password: "foopass",
@@ -168,7 +167,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	cmd, err := initTestCommand(c, "-m", "env-name")
+	cmd, err := initTestCommand(c, "-m", "model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,14 +190,14 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 		ModelUUID: "fake-uuid",
 	}
 	s.PatchValue(modelcmd.EndpointRefresher, func(_ *modelcmd.ModelCommandBase) (io.Closer, error) {
-		info, err := s.store.ReadInfo("env-name")
+		info, err := s.store.ReadInfo("model-name")
 		info.SetAPIEndpoint(newEndpoint)
 		err = info.Write()
 		c.Assert(err, jc.ErrorIsNil)
 		return new(closer), nil
 	})
 
-	cmd, err := initTestCommand(c, "-m", "env-name")
+	cmd, err := initTestCommand(c, "-m", "model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,31 +250,31 @@ func (s *EnvironmentVersionSuite) SetUpTest(*gc.C) {
 
 func (s *EnvironmentVersionSuite) TestApiCallFails(c *gc.C) {
 	s.fake.err = errors.New("boom")
-	_, err := modelcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetModelVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "unable to retrieve model config: boom")
 }
 
 func (s *EnvironmentVersionSuite) TestNoVersion(c *gc.C) {
-	_, err := modelcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetModelVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "version not found in model config")
 }
 
 func (s *EnvironmentVersionSuite) TestInvalidVersionType(c *gc.C) {
 	s.fake.agentVersion = 99
-	_, err := modelcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetModelVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "invalid model version type in config")
 }
 
 func (s *EnvironmentVersionSuite) TestInvalidVersion(c *gc.C) {
 	s.fake.agentVersion = "a.b.c"
-	_, err := modelcmd.GetEnvironmentVersion(s.fake)
+	_, err := modelcmd.GetModelVersion(s.fake)
 	c.Assert(err, gc.ErrorMatches, "unable to parse model version: .+")
 }
 
 func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
 	vs := "1.22.1"
 	s.fake.agentVersion = vs
-	v, err := modelcmd.GetEnvironmentVersion(s.fake)
+	v, err := modelcmd.GetModelVersion(s.fake)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v.Compare(version.MustParse(vs)), gc.Equals, 0)
 }
