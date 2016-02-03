@@ -23,7 +23,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		statusesC,
 
 		// machine
-		cloudimagemetadataC,
 		instanceDataC,
 		machinesC,
 
@@ -73,6 +72,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// environment
 		blocksC,
 		cleanupsC,
+		cloudimagemetadataC,
 		sequenceC,
 
 		// machine
@@ -277,6 +277,17 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"MetricCredentials",
 	)
 	s.AssertExportedFields(c, serviceDoc{}, fields.Union(todo))
+}
+
+func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+
+		"RefCount",
+	)
+	s.AssertExportedFields(c, settingsRefsDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
