@@ -20,10 +20,10 @@ import (
 )
 
 type metricRegistrationPost struct {
-	EnvironmentUUID string `json:"environment-uuid"`
-	CharmURL        string `json:"charm-url"`
-	ServiceName     string `json:"service-name"`
-	PlanURL         string `json:"plan-url"`
+	ModelUUID   string `json:"env-uuid"`
+	CharmURL    string `json:"charm-url"`
+	ServiceName string `json:"service-name"`
+	PlanURL     string `json:"plan-url"`
 }
 
 // RegisterMeteredCharm implements the DeployStep interface.
@@ -209,10 +209,10 @@ func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, servic
 	}
 
 	registrationPost := metricRegistrationPost{
-		EnvironmentUUID: environmentUUID,
-		CharmURL:        charmURL,
-		ServiceName:     serviceName,
-		PlanURL:         r.Plan,
+		ModelUUID:   environmentUUID,
+		CharmURL:    charmURL,
+		ServiceName: serviceName,
+		PlanURL:     r.Plan,
 	}
 
 	buff := &bytes.Buffer{}

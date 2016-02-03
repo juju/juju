@@ -57,10 +57,10 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
-			ServiceName:     "service name",
-			PlanURL:         "someplan",
+			ModelUUID:   "model uuid",
+			CharmURL:    "cs:quantal/metered-1",
+			ServiceName: "service name",
+			PlanURL:     "someplan",
 		}},
 	}, {
 		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
@@ -107,10 +107,10 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
-			ServiceName:     "service name",
-			PlanURL:         "thisplan",
+			ModelUUID:   "model uuid",
+			CharmURL:    "cs:quantal/metered-1",
+			ServiceName: "service name",
+			PlanURL:     "thisplan",
 		}},
 	}, {
 		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
@@ -195,10 +195,10 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
-			EnvironmentUUID: "model uuid",
-			CharmURL:        "cs:quantal/metered-1",
-			ServiceName:     "service name",
-			PlanURL:         "someplan",
+			ModelUUID:   "model uuid",
+			CharmURL:    "cs:quantal/metered-1",
+			ServiceName: "service name",
+			PlanURL:     "someplan",
 		}},
 	}})
 }
