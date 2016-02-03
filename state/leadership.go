@@ -10,10 +10,6 @@ import (
 	"github.com/juju/juju/leadership"
 )
 
-func addLeadershipSettingsOp(serviceId string) txn.Op {
-	return createSettingsOp(leadershipSettingsKey(serviceId), nil)
-}
-
 func removeLeadershipSettingsOp(serviceId string) txn.Op {
 	return removeSettingsOp(leadershipSettingsKey(serviceId))
 }
