@@ -8,6 +8,8 @@ import (
 	"github.com/juju/schema"
 )
 
+// AddressArgs is an argument struct used to create a new internal address
+// type that supports the Address interface.
 type AddressArgs struct {
 	Value       string
 	Type        string
@@ -63,10 +65,8 @@ func (a *address) Origin() string {
 	return a.Origin_
 }
 
-// importAddress constructs a new Address from a map that in normal usage situations
-// will be the result of interpreting a large YAML document.
-//
-// This method is a package internal serialisation method.
+// importAddress constructs a new Address from a map representing a serialised
+// Address instance.
 func importAddress(source map[string]interface{}) (*address, error) {
 	version, err := getVersion(source)
 	if err != nil {

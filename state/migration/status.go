@@ -10,6 +10,8 @@ import (
 	"github.com/juju/schema"
 )
 
+// StatusArgs is an argument struct used to set the agent, service, or
+// workload status.
 type StatusArgs struct {
 	Value   string
 	Message string
@@ -27,7 +29,6 @@ func newStatus(args StatusArgs) *status {
 	}
 }
 
-// status represents an IP Status of some form.
 type status struct {
 	Version int `yaml:"version"`
 
@@ -57,10 +58,6 @@ func (a *status) Updated() time.Time {
 	return a.Updated_
 }
 
-// importStatus constructs a new Status from a map that in normal usage
-// situations will be the result of interpreting a large YAML document.
-//
-// This method is a package internal serialisation method.
 func importStatus(source map[string]interface{}) (*status, error) {
 	version, err := getVersion(source)
 	if err != nil {

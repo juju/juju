@@ -15,9 +15,7 @@ import (
 	"github.com/juju/juju/state/migration"
 )
 
-// Export the current environment for the State. If a different environment
-// is required, the caller is expected to use st.ForEnviron(...) and close
-// the session as required.
+// Export the current model for the State.
 func (st *State) Export() (migration.Model, error) {
 	environment, err := st.Environment()
 	if err != nil {

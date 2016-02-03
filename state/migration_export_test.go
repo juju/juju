@@ -90,7 +90,7 @@ func (s *MigrationExportSuite) TestEnvironmentUsers(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
-	// Let's add a machine with an LXC container.
+	// Add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, nil)
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
@@ -101,7 +101,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 1)
 
 	exported := machines[0]
-	c.Assert(exported.Id(), gc.Equals, machine1.MachineTag())
+	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Series(), gc.Equals, machine1.Series())
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,5 +112,5 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	containers := exported.Containers()
 	c.Assert(containers, gc.HasLen, 1)
 	container := containers[0]
-	c.Assert(container.Id(), gc.Equals, nested.MachineTag())
+	c.Assert(container.Tag(), gc.Equals, nested.MachineTag())
 }

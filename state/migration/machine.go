@@ -41,6 +41,7 @@ type machine struct {
 	Containers_ []*machine `yaml:"containers"`
 }
 
+// MachineArgs is an argument struct used to add a machine to the Model.
 type MachineArgs struct {
 	Id            names.MachineTag
 	Nonce         string
@@ -77,22 +78,32 @@ func newMachine(args MachineArgs) *machine {
 	return m
 }
 
-func (m *machine) Id() names.MachineTag {
+// Id implements Machine.Id.
+func (m *machine) Id() string {
+	return m.Id_
+}
+
+// Tag implements Machine.Tag.
+func (m *machine) Tag() names.MachineTag {
 	return names.NewMachineTag(m.Id_)
 }
 
+// Nonce implements Machine.Nonce.
 func (m *machine) Nonce() string {
 	return m.Nonce_
 }
 
+// PasswordHash implements Machine.PasswordHash.
 func (m *machine) PasswordHash() string {
 	return m.PasswordHash_
 }
 
+// Placement implements Machine.Placement.
 func (m *machine) Placement() string {
 	return m.Placement_
 }
 
+// Instance implements Machine.Instance.
 func (m *machine) Instance() CloudInstance {
 	// To avoid typed nils check nil here.
 	if m.Instance_ == nil {
@@ -101,18 +112,22 @@ func (m *machine) Instance() CloudInstance {
 	return m.Instance_
 }
 
+// SetInstance implements Machine.SetInstance.
 func (m *machine) SetInstance(args CloudInstanceArgs) {
 	m.Instance_ = newCloudInstance(args)
 }
 
+// Series implements Machine.Series.
 func (m *machine) Series() string {
 	return m.Series_
 }
 
+// ContainerType implements Machine.ContainerType.
 func (m *machine) ContainerType() string {
 	return m.ContainerType_
 }
 
+// Status implements Machine.Status.
 func (m *machine) Status() Status {
 	// To avoid typed nils check nil here.
 	if m.Status_ == nil {
@@ -121,10 +136,12 @@ func (m *machine) Status() Status {
 	return m.Status_
 }
 
+// SetStatus implements Machine.SetStatus.
 func (m *machine) SetStatus(args StatusArgs) {
 	m.Status_ = newStatus(args)
 }
 
+// ProviderAddresses implements Machine.ProviderAddresses.
 func (m *machine) ProviderAddresses() []Address {
 	var result []Address
 	for _, addr := range m.ProviderAddresses_ {
@@ -133,6 +150,7 @@ func (m *machine) ProviderAddresses() []Address {
 	return result
 }
 
+// MachineAddresses implements Machine.MachineAddresses.
 func (m *machine) MachineAddresses() []Address {
 	var result []Address
 	for _, addr := range m.MachineAddresses_ {
@@ -141,6 +159,7 @@ func (m *machine) MachineAddresses() []Address {
 	return result
 }
 
+// SetAddresses implements Machine.SetAddresses.
 func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 	m.MachineAddresses_ = nil
 	m.ProviderAddresses_ = nil
@@ -156,26 +175,25 @@ func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 	}
 }
 
+// PreferredPublicAddress implements Machine.PreferredPublicAddress.
 func (m *machine) PreferredPublicAddress() Address {
-	// If the preferred address has not been specified, we will have a nil value.
-	// However, if we naively return the *address, we end up with a typed nil,
-	// which doesn't equal 'nil', and this sucks.
+	// To avoid typed nils check nil here.
 	if m.PreferredPublicAddress_ == nil {
 		return nil
 	}
 	return m.PreferredPublicAddress_
 }
 
+// PreferredPrivateAddress implements Machine.PreferredPrivateAddress.
 func (m *machine) PreferredPrivateAddress() Address {
-	// If the preferred address has not been specified, we will have a nil value.
-	// However, if we naively return the *address, we end up with a typed nil,
-	// which doesn't equal 'nil', and this sucks.
+	// To avoid typed nils check nil here.
 	if m.PreferredPrivateAddress_ == nil {
 		return nil
 	}
 	return m.PreferredPrivateAddress_
 }
 
+// SetPreferredAddresses implements Machine.SetPreferredAddresses.
 func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs) {
 	if public.Value != "" {
 		m.PreferredPublicAddress_ = newAddress(public)
@@ -185,6 +203,7 @@ func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs)
 	}
 }
 
+// Tools implements Machine.Tools.
 func (m *machine) Tools() AgentTools {
 	// To avoid a typed nil, check before returning.
 	if m.Tools_ == nil {
@@ -193,14 +212,17 @@ func (m *machine) Tools() AgentTools {
 	return m.Tools_
 }
 
+// SetTools implements Machine.SetTools.
 func (m *machine) SetTools(args AgentToolsArgs) {
 	m.Tools_ = newAgentTools(args)
 }
 
+// Jobs implements Machine.Jobs.
 func (m *machine) Jobs() []string {
 	return m.Jobs_
 }
 
+// SupportedContainers implements Machine.SupportedContainers.
 func (m *machine) SupportedContainers() ([]string, bool) {
 	if m.SupportedContainers_ == nil {
 		return nil, false
@@ -208,6 +230,7 @@ func (m *machine) SupportedContainers() ([]string, bool) {
 	return *m.SupportedContainers_, true
 }
 
+// Containers implements Machine.Containers.
 func (m *machine) Containers() []Machine {
 	var result []Machine
 	for _, container := range m.Containers_ {
@@ -216,12 +239,14 @@ func (m *machine) Containers() []Machine {
 	return result
 }
 
+// AddContainer implements Machine.AddContainer.
 func (m *machine) AddContainer(args MachineArgs) Machine {
 	container := newMachine(args)
 	m.Containers_ = append(m.Containers_, container)
 	return container
 }
 
+// Validate implements Machine.Validate.
 func (m *machine) Validate() error {
 	if m.Id_ == "" {
 		return errors.NotValidf("missing id")
@@ -372,6 +397,8 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 
 }
 
+// CloudInstanceArgs is an argument struct used to add information about the
+// cloud instance to a Machine.
 type CloudInstanceArgs struct {
 	InstanceId       string
 	Status           string
@@ -418,49 +445,53 @@ type cloudInstance struct {
 	AvailabilityZone_ string   `yaml:"availability-zone,omitempty"`
 }
 
+// InstanceId implements CloudInstance.InstanceId.
 func (c *cloudInstance) InstanceId() string {
 	return c.InstanceId_
 }
 
+// Status implements CloudInstance.Status.
 func (c *cloudInstance) Status() string {
 	return c.Status_
 }
 
+// Architecture implements CloudInstance.Architecture.
 func (c *cloudInstance) Architecture() string {
 	return c.Architecture_
 }
 
+// Memory implements CloudInstance.Memory.
 func (c *cloudInstance) Memory() uint64 {
 	return c.Memory_
 }
 
+// RootDisk implements CloudInstance.RootDisk.
 func (c *cloudInstance) RootDisk() uint64 {
 	return c.RootDisk_
 }
 
+// CpuCores implements CloudInstance.CpuCores.
 func (c *cloudInstance) CpuCores() uint64 {
 	return c.CpuCores_
 }
 
+// CpuPower implements CloudInstance.CpuPower.
 func (c *cloudInstance) CpuPower() uint64 {
 	return c.CpuPower_
 }
 
+// Tags implements CloudInstance.Tags.
 func (c *cloudInstance) Tags() []string {
 	tags := make([]string, len(c.Tags_))
 	copy(tags, c.Tags_)
 	return tags
 }
 
+// AvailabilityZone implements CloudInstance.AvailabilityZone.
 func (c *cloudInstance) AvailabilityZone() string {
 	return c.AvailabilityZone_
 }
 
-// importCloudInstance constructs a new cloudInstance from a map that in
-// normal usage situations will be the result of interpreting a large YAML
-// document.
-//
-// This method is a package internal serialisation method.
 func importCloudInstance(source map[string]interface{}) (*cloudInstance, error) {
 	version, err := getVersion(source)
 	if err != nil {
@@ -532,6 +563,8 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 	}, nil
 }
 
+// AgentToolsArgs is an argument struct used to add information about the
+// tools the agent is using to a Machine.
 type AgentToolsArgs struct {
 	Version version.Binary
 	URL     string
@@ -560,26 +593,26 @@ type agentTools struct {
 	Size_         int64          `yaml:"size"`
 }
 
+// Version implements AgentTools.Version.
 func (a *agentTools) Version() version.Binary {
 	return a.ToolsVersion_
 }
+
+// URL implements AgentTools.URL.
 func (a *agentTools) URL() string {
 	return a.URL_
 }
 
+// SHA256 implements AgentTools.SHA256.
 func (a *agentTools) SHA256() string {
 	return a.SHA256_
 }
 
+// Size implements AgentTools.Size.
 func (a *agentTools) Size() int64 {
 	return a.Size_
 }
 
-// importAgentTools constructs a new agentTools instance from a map that in
-// normal usage situations will be the result of interpreting a large YAML
-// document.
-//
-// This method is a package internal serialisation method.
 func importAgentTools(source map[string]interface{}) (*agentTools, error) {
 	version, err := getVersion(source)
 	if err != nil {
