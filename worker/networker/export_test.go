@@ -9,6 +9,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
+var NewWorker = newWorker
+
 // NewConfigFile is a helper use to create a *configFile for testing.
 func NewConfigFile(interfaceName, fileName string, info network.InterfaceInfo, data []byte) ConfigFile {
 	return &configFile{

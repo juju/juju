@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
@@ -246,6 +247,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 		}),
+
+		networkerName: networker.Manifold(networker.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
@@ -269,4 +276,5 @@ const (
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
+	networkerName            = "networker"
 )
