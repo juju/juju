@@ -21,13 +21,11 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -349,11 +347,6 @@ func (st *state) Environment() *environment.Facade {
 	return environment.NewFacade(st)
 }
 
-// KeyUpdater returns access to the KeyUpdater API
-func (st *state) KeyUpdater() *keyupdater.State {
-	return keyupdater.NewState(st)
-}
-
 // InstancePoller returns access to the InstancePoller API
 func (st *state) InstancePoller() *instancepoller.API {
 	return instancepoller.NewAPI(st)
@@ -367,11 +360,6 @@ func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Cleaner returns a version of the state that provides access to the cleaner API
 func (st *state) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
-}
-
-// Rsyslog returns access to the Rsyslog API
-func (st *state) Rsyslog() *rsyslog.State {
-	return rsyslog.NewState(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.

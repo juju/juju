@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/util"
@@ -82,14 +81,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: util.UpgradeWaitNotRequired,
 			},
 			LogSource: config.LogSource,
-		}),
-
-		// The rsyslog config updater is a leaf worker that causes rsyslog
-		// to send messages to the state servers. We should only need one
-		// of these in a consolidated agent.
-		RsyslogConfigUpdaterName: rsyslog.Manifold(rsyslog.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -207,7 +198,6 @@ const (
 	LogSenderName            = "log-sender"
 	MachineLockName          = "machine-lock"
 	ProxyConfigUpdaterName   = "proxy-config-updater"
-	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
 	MetricSpoolName          = "metric-spool"

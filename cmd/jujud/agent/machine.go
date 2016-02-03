@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -73,7 +72,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
@@ -93,7 +91,6 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -484,6 +481,9 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:       upgrades.PreUpgradeSteps,
 			ShouldWriteProxyFiles: shouldWriteProxyFiles,
 			LogSource:             a.bufferedLogs,
+			NewDeployContext:      newDeployContext,
+			MachineID:             a.machineId,
+			BootstrapMachineID:    bootstrapMachineId,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -674,13 +674,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isEnvironManager, isUnitHoster bool
+	var isEnvironManager
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageEnviron:
 			isEnvironManager = true
-		case multiwatcher.JobHostUnits:
-			isUnitHoster = true
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -697,20 +695,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			worker.Stop(runner)
 		}
 	}()
-
-	if !featureflag.Enabled(feature.DisableRsyslog) {
-		rsyslogMode := rsyslog.RsyslogModeForwarding
-		if isEnvironManager {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
-		}
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			w, err := cmdutil.NewRsyslogConfigWorker(apiConn.Rsyslog(), agentConfig, rsyslogMode)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start rsyslog config updater worker")
-			}
-			return w, nil
-		})
-	}
 
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
@@ -736,19 +720,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return w, nil
 	})
 
-	// If not a local provider bootstrap machine, start the worker to
-	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || a.machineId != bootstrapMachineId {
-		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-			w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
-			}
-			return w, nil
-		})
-	}
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -756,18 +727,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return nil, worker.ErrTerminateAgent
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
-	}
-
-	if isUnitHoster {
-		runner.StartWorker("deployer", func() (worker.Worker, error) {
-			apiDeployer := apiConn.Deployer()
-			context := newDeployContext(apiDeployer, agentConfig)
-			w, err := deployer.NewDeployer(apiDeployer, context)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
-			}
-			return w, nil
-		})
 	}
 
 	if isEnvironManager {

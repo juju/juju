@@ -57,6 +57,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"api-address-updater",
 		"machiner",
 		"networker",
+		"deployer",
+		"authenticationworker",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }

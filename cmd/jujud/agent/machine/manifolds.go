@@ -6,13 +6,16 @@ package machine
 import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
@@ -74,6 +77,21 @@ type ManifoldsConfig struct {
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.
 	LogSource logsender.LogRecordCh
+
+	// newDeployContext gives the tests the opportunity to create a deployer.Context
+	// that can be used for testing so as to avoid (1) deploying units to the system
+	// running the tests and (2) get access to the *State used internally, so that
+	// tests can be run without waiting for the 5s watcher refresh time to which we would
+	// otherwise be restricted.
+	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
+
+	// MachineID is the id of the machine agent, used by the
+	// authenticationworker.
+	MachineID string
+
+	// BootstrapMachineID is the id of the bootstrap machine. It is used by the
+	// authenticationworker.
+	BootstrapMachineID string
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -248,10 +266,38 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		}),
 
+		// The netwoker worker that handles machine networking
+		// configuration. If there is no <configBasePath>/interfaces file, an
+		// error is returned.
 		networkerName: networker.Manifold(networker.ManifoldConfig{
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
+		// The deployer worker is responsible for deploying and recalling unit
+		// agents, according to changes in a set of state units; and for the
+		// final removal of its agents' units from state when they are no
+		// longer needed.
+		deployerName: deployer.Manifold(deployer.ManifoldConfig{
+			NewDeployContext: config.NewDeployContext,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+		}),
+
+		// The authenticationworker keeps track of
+		// the machine's authorised ssh keys and ensures the
+		// ~/.ssh/authorized_keys file is up to date.
+		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+			MachineID: config.MachineID,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
 		}),
 	}
 }
@@ -277,4 +323,6 @@ const (
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
 	networkerName            = "networker"
+	deployerName             = "deployer"
+	authenticationworkerName = "authenticationworker"
 )
