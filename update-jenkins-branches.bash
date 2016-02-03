@@ -10,7 +10,7 @@ MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     wily-slave.vapour.ws xenial-slave.vapour.ws \
     ppc64el-slave.vapour.ws i386-slave.vapour.ws kvm-slave.vapour.ws \
-    munna-slave.vapour.ws arm64-slave.vapour.ws \
+    munna.internal silcoon.internal arm64-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
     cloud-health-slave.vapour.ws certification-slave.vapour.ws \
     charm-bundle-slave.vapour.ws osx-slave.vapour.ws"
@@ -24,6 +24,8 @@ update_jenkins() {
     if [[ $hostname == $MASTER ]]; then
         # Bypass DNS which points to the apache front-end.
         host="54.86.142.177"
+    elif [[ $hostname =~ .*[.]internal$ ]]; then
+        host=$hostname # resolved by /etc/hosts
     else
         host=$(host -4 -t A $hostname 8.8.8.8 | tail -1 | cut -d ' ' -f4)
     fi
