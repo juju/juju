@@ -133,7 +133,7 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 		}
 	}
 
-	return errors.Trace(manager.client.RemoveInstances("", string(id)))
+	return errors.Trace(manager.client.RemoveInstances(manager.name, string(id)))
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
@@ -145,7 +145,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		}
 	}
 
-	lxdInstances, err := manager.client.Instances("")
+	lxdInstances, err := manager.client.Instances(manager.name)
 	if err != nil {
 		return
 	}
