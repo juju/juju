@@ -196,9 +196,9 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyStopsRetriesWithOpenErr(c *gc.C) {
 
 	s.mockBlockClient.num_retries = 0
 	s.mockBlockClient.retry_count = 0
-	s.mockBlockClient.loginError = errors.New("invalid entity name or password")
+	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
-	c.Check(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
 
 	c.Check(s.mockBlockClient.retry_count, gc.Equals, 0)
 }
