@@ -42,9 +42,6 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
-	if deployInfo.CharmURL.Schema == "local" {
-		return nil
-	}
 	charmsClient := charms.NewClient(state)
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if err != nil {
@@ -56,7 +53,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 
 	bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
 
-	if r.Plan == "" {
+	if r.Plan == "" && deployInfo.CharmURL.Schema == "cs" {
 		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
 		if err != nil {
 			if isNoDefaultPlanError(err) {
@@ -73,8 +70,11 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 
 	r.credentials, err = r.registerMetrics(deployInfo.ModelUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
-		logger.Infof("failed to obtain plan authorization: %v", err)
-		return err
+		if deployInfo.CharmURL.Schema == "cs" {
+			logger.Infof("failed to obtain plan authorization: %v", err)
+			return err
+		}
+		logger.Debugf("no plan authorization: %v", err)
 	}
 	return nil
 }
