@@ -28,7 +28,7 @@ func PostUpgradeManifoldTestConfig() util.PostUpgradeManifoldConfig {
 // required to successfully pass PostUpgradeManifold's checks and then
 // runs the manifold start func.
 //
-// An agent and apiCaller maybe optionally provided. If they are nil,
+// An agent and apiCaller may be optionally provided. If they are nil,
 // dummy barely-good-enough default will be used (these dummies are
 // fine not actually used for much).
 func RunPostUpgradeManifold(
