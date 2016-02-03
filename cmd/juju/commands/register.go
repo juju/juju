@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
@@ -41,12 +42,11 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
-func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
 	if deployInfo.CharmURL.Schema == "local" {
 		return nil
 	}
 	charmsClient := charms.NewClient(state)
-	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
@@ -77,7 +77,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		}
 	}
 
-	r.credentials, err = r.registerMetrics(deployInfo.EnvUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	r.credentials, err = r.registerMetrics(deployInfo.ModelUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
 		logger.Infof("failed to obtain plan authorization: %v", err)
 		return err
@@ -86,7 +86,10 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 }
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
-func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+	if prevErr != nil {
+		return nil
+	}
 	if r.credentials == nil {
 		return nil
 	}
