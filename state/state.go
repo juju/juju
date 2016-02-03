@@ -1350,13 +1350,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(natefinch) DEMO code, revisit after demo!
-	for _, postFunc := range AddServicePostFuncs {
-		if err := postFunc(st, args); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
 	return svc, nil
 }
 

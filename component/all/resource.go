@@ -4,7 +4,6 @@
 package all
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"reflect"
@@ -109,8 +108,6 @@ func (resources) registerState() {
 	}
 
 	corestate.SetResourcesComponent(newResources)
-
-	corestate.AddServicePostFuncs["resources"] = saveResourcesForDemo
 }
 
 // resourceState is a wrapper around state.State that supports the needs
@@ -249,30 +246,6 @@ func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client
 	// The apiCaller takes care of prepending /environment/<envUUID>.
 	cl := client.NewClient(caller, doer, apiCaller)
 	return cl, nil
-}
-
-// TODO(natefinch) DEMO CODE, revisit after demo!
-func saveResourcesForDemo(st *corestate.State, args corestate.AddServiceArgs) error {
-	resourceState, err := st.Resources()
-	if err != nil {
-		return errors.Annotate(err, "can't get resources from state")
-	}
-
-	for _, meta := range args.Charm.Meta().Resources {
-		res := charmresource.Resource{
-			Meta: meta,
-			// TODO(natefinch): how do we determine this at deploy time?
-			Origin: charmresource.OriginUpload,
-		}
-
-		// no data for you!
-		r := &bytes.Buffer{}
-
-		if _, err := resourceState.SetResource(args.Name, "", res, r); err != nil {
-			return errors.Annotatef(err, "can't add resource %q", meta.Name)
-		}
-	}
-	return nil
 }
 
 // TODO(katco): This seems to be common across components. Pop up a
