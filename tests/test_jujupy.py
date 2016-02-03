@@ -563,6 +563,28 @@ class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
         env = client._shell_environ()
         self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
+    def test_add_ssh_machines(self):
+        client = self.client_class(SimpleEnvironment('foo', {}), None, '')
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-bar'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 2)
+        self.assertEqual(cc_mock.call_count, 3)
+
+    def test_add_ssh_machines_no_retry(self):
+        client = self.client_class(SimpleEnvironment('foo', {}), None, '')
+        with patch('subprocess.check_call', autospec=True,
+                   side_effect=[subprocess.CalledProcessError(None, None),
+                                None, None, None]) as cc_mock:
+            with self.assertRaises(subprocess.CalledProcessError):
+                client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'))
+
 
 class TestTearDown(TestCase):
 
@@ -1173,6 +1195,49 @@ class TestEnvJujuClient(ClientTest):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-baz'), 2)
         self.assertEqual(cc_mock.call_count, 3)
+
+    def test_add_ssh_machines_retry(self):
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True,
+                   side_effect=[subprocess.CalledProcessError(None, None),
+                                None, None, None]) as cc_mock:
+            client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-foo'), 0)
+        self.pause_mock.assert_called_once_with(30)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-foo'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-bar'), 2)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-baz'), 3)
+        self.assertEqual(cc_mock.call_count, 4)
+
+    def test_add_ssh_machines_fail_on_second_machine(self):
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True, side_effect=[
+                None, subprocess.CalledProcessError(None, None), None, None
+                ]) as cc_mock:
+            with self.assertRaises(subprocess.CalledProcessError):
+                client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-foo'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-bar'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
+
+    def test_add_ssh_machines_fail_on_second_attempt(self):
+        client = EnvJujuClient(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True, side_effect=[
+                subprocess.CalledProcessError(None, None),
+                subprocess.CalledProcessError(None, None)]) as cc_mock:
+            with self.assertRaises(subprocess.CalledProcessError):
+                client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-foo'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-m', 'foo', 'ssh:m-foo'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')
@@ -2642,6 +2707,49 @@ class TestEnvJujuClient1X(ClientTest):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 2)
         self.assertEqual(cc_mock.call_count, 3)
+
+    def test_add_ssh_machines_retry(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True,
+                   side_effect=[subprocess.CalledProcessError(None, None),
+                                None, None, None]) as cc_mock:
+            client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
+        self.pause_mock.assert_called_once_with(30)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-bar'), 2)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-baz'), 3)
+        self.assertEqual(cc_mock.call_count, 4)
+
+    def test_add_ssh_machines_fail_on_second_machine(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True, side_effect=[
+                None, subprocess.CalledProcessError(None, None), None, None
+                ]) as cc_mock:
+            with self.assertRaises(subprocess.CalledProcessError):
+                client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-bar'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
+
+    def test_add_ssh_machines_fail_on_second_attempt(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, '')
+        with patch('subprocess.check_call', autospec=True, side_effect=[
+                subprocess.CalledProcessError(None, None),
+                subprocess.CalledProcessError(None, None)]) as cc_mock:
+            with self.assertRaises(subprocess.CalledProcessError):
+                client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')

@@ -320,8 +320,15 @@ class EnvJujuClient:
         return env
 
     def add_ssh_machines(self, machines):
-        for machine in machines:
-            self.juju('add-machine', ('ssh:' + machine,))
+        for count, machine in enumerate(machines):
+            try:
+                self.juju('add-machine', ('ssh:' + machine,))
+            except subprocess.CalledProcessError:
+                if count != 0:
+                    raise
+                logging.warning('add-machine failed.  Will retry.')
+                pause(30)
+                self.juju('add-machine', ('ssh:' + machine,))
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
@@ -1154,6 +1161,10 @@ class EnvJujuClient24(EnvJujuClient25):
     def _get_feature_flags(self):
         if self.env.config.get('type') == 'cloudsigma':
             yield 'cloudsigma'
+
+    def add_ssh_machines(self, machines):
+        for machine in machines:
+            self.juju('add-machine', ('ssh:' + machine,))
 
 
 def get_local_root(juju_home, env):
