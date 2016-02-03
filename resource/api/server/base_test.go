@@ -79,8 +79,9 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 type stubDataStore struct {
 	stub *testing.Stub
 
-	ReturnListResources resource.ServiceResources
-	ReturnGetResource   resource.Resource
+	ReturnListResources      resource.ServiceResources
+	ReturnAddPendingResource string
+	ReturnGetResource        resource.Resource
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
@@ -90,6 +91,15 @@ func (s *stubDataStore) ListResources(service string) (resource.ServiceResources
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubDataStore) AddPendingResource(service, userID string, chRes charmresource.Resource, r io.Reader) (string, error) {
+	s.stub.AddCall("AddPendingResource", service, userID, chRes, r)
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return s.ReturnAddPendingResource, nil
 }
 
 func (s *stubDataStore) GetResource(service, name string) (resource.Resource, error) {

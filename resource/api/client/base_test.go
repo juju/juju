@@ -111,6 +111,7 @@ type stubFacade struct {
 	basetesting.StubFacadeCaller
 
 	apiResults map[string]api.ResourcesResult
+	pendingIDs []string
 }
 
 func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
@@ -122,25 +123,29 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 	}
 
 	s.FacadeCallFn = func(_ string, args, response interface{}) error {
-		typedResponse, ok := response.(*api.ResourcesResults)
-		c.Assert(ok, jc.IsTrue)
+		switch typedResponse := response.(type) {
+		case *api.ResourcesResults:
+			typedArgs, ok := args.(*api.ListResourcesArgs)
+			c.Assert(ok, jc.IsTrue)
 
-		typedArgs, ok := args.(*api.ListResourcesArgs)
-		c.Assert(ok, jc.IsTrue)
+			for _, e := range typedArgs.Entities {
+				tag, err := names.ParseTag(e.Tag)
+				c.Assert(err, jc.ErrorIsNil)
+				service := tag.Id()
 
-		for _, e := range typedArgs.Entities {
-			tag, err := names.ParseTag(e.Tag)
-			c.Assert(err, jc.ErrorIsNil)
-			service := tag.Id()
-
-			apiResult, ok := s.apiResults[service]
-			if !ok {
-				apiResult.Error = &params.Error{
-					Message: fmt.Sprintf("service %q not found", service),
-					Code:    params.CodeNotFound,
+				apiResult, ok := s.apiResults[service]
+				if !ok {
+					apiResult.Error = &params.Error{
+						Message: fmt.Sprintf("service %q not found", service),
+						Code:    params.CodeNotFound,
+					}
 				}
+				typedResponse.Results = append(typedResponse.Results, apiResult)
 			}
-			typedResponse.Results = append(typedResponse.Results, apiResult)
+		case *api.AddPendingResourcesResult:
+			typedResponse.PendingIDs = s.pendingIDs
+		default:
+			c.Errorf("bad type %T", response)
 		}
 		return nil
 	}

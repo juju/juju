@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -36,6 +37,48 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 		return args, errors.Trace(err)
 	}
 	return args, nil
+}
+
+// AddPendingResourcesArgs holds the arguments to the AddPendingResources
+// API endpoint.
+type AddPendingResourcesArgs struct {
+	params.Entity
+
+	// Resources is the list of resources to add as pending.
+	Resources []CharmResource
+}
+
+// NewAddPendingResourcesArgs returns the arguments for the
+// AddPendingResources API endpoint.
+func NewAddPendingResourcesArgs(serviceID string, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
+	var args AddPendingResourcesArgs
+
+	if !names.IsValidService(serviceID) {
+		return args, errors.Errorf("invalid service %q", serviceID)
+	}
+	tag := names.NewServiceTag(serviceID).String()
+
+	var apiResources []CharmResource
+	for _, res := range resources {
+		if err := res.Validate(); err != nil {
+			return args, errors.Trace(err)
+		}
+		apiRes := CharmResource2API(res)
+		apiResources = append(apiResources, apiRes)
+	}
+	args.Tag = tag
+	args.Resources = apiResources
+	return args, nil
+}
+
+// AddPendingResourcesResult holds the result of the AddPendingResources
+// API endpoint.
+type AddPendingResourcesResult struct {
+	params.ErrorResult
+
+	// PendingIDs holds the "pending ID" for each of the requested
+	// resources.
+	PendingIDs []string
 }
 
 // ResourcesResults holds the resources that result

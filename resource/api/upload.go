@@ -30,8 +30,8 @@ type UploadRequest struct {
 	// Fingerprint is the fingerprint of the uploaded data.
 	Fingerprint charmresource.Fingerprint
 
-	//PreUpload is true is it is a pre-upload request.
-	PreUpload bool
+	// PendingID is the pending ID to associate with this upload, if any.
+	PendingID string
 }
 
 // NewUploadRequest generates a new upload request for the given resource.
@@ -70,10 +70,7 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	service, name := ExtractEndpointDetails(req.URL)
 	fingerprint := req.Header.Get("Content-Sha384") // This parallels "Content-MD5".
 	sizeRaw := req.Header.Get("Content-Length")
-	preUpload := false
-	if req.URL.Query().Get("preupload") == "true" {
-		preUpload = true
-	}
+	pendingID := req.URL.Query().Get("pendingid")
 
 	fp, err := charmresource.ParseFingerprint(fingerprint)
 	if err != nil {
@@ -90,7 +87,7 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 		Name:        name,
 		Size:        size,
 		Fingerprint: fp,
-		PreUpload:   preUpload,
+		PendingID:   pendingID,
 	}
 	return ur, nil
 }
@@ -109,9 +106,9 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	req.Header.Set("Content-Length", fmt.Sprint(ur.Size))
 	req.ContentLength = ur.Size
 
-	if ur.PreUpload {
+	if ur.PendingID != "" {
 		query := req.URL.Query()
-		query.Set("preupload", "true")
+		query.Set("pendingid", ur.PendingID)
 		req.URL.RawQuery = query.Encode()
 	}
 

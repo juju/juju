@@ -74,8 +74,8 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if uReq.PreUpload {
-		// TODO(ericsnow) finish!
+	if uReq.PendingID != "" {
+		// TODO(ericsnow) Update an existing pending resource.
 		return nil, errors.NotImplementedf("")
 	}
 

@@ -10,7 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -101,25 +103,64 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 	return nil
 }
 
-// PreUpload sends the provided resource blob up to Juju without making
-// it available yet. For example, PreUpload() is used before the service is deployed.
-func (c Client) PreUpload(service, name string, reader io.ReadSeeker) (uploadID string, err error) {
-	uReq, err := api.NewUploadRequest(service, name, reader)
+// AddPendingResources sends the provided resource info up to Juju
+// without making it available yet.
+func (c Client) AddPendingResources(serviceID string, resources []charmresource.Resource) (pendingIDs []string, err error) {
+	args, err := api.NewAddPendingResourcesArgs(serviceID, resources)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result api.AddPendingResourcesResult
+	if err := c.FacadeCall("AddPendingResources", &args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		err, _ := common.RestoreError(result.Error)
+		return nil, errors.Trace(err)
+	}
+
+	if len(result.PendingIDs) != len(resources) {
+		return nil, errors.Errorf("bad data from server: expected %d IDs from AddPendingResources, got %d", len(resources), len(result.PendingIDs))
+	}
+	for i, id := range result.PendingIDs {
+		if id == "" {
+			return nil, errors.Errorf("bad data from server: got an empty ID for resource %q", resources[i].Name)
+		}
+		// TODO(ericsnow) Do other validation?
+	}
+
+	return result.PendingIDs, nil
+}
+
+// AddPendingResource sends the provided resource blob up to Juju
+// without making it available yet. For example, AddPendingResource()
+// is used before the service is deployed.
+func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, reader io.ReadSeeker) (pendingID string, err error) {
+	ids, err := c.AddPendingResources(serviceID, []charmresource.Resource{res})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	uReq.PreUpload = true
-	req, err := uReq.HTTPRequest()
-	if err != nil {
-		return "", errors.Trace(err)
+	pendingID = ids[0]
+
+	if reader != nil {
+		uReq, err := api.NewUploadRequest(serviceID, res.Name, reader)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		uReq.PendingID = pendingID
+		req, err := uReq.HTTPRequest()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+
+		var response api.UploadResult
+		if err := c.doer.Do(req, reader, &response); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
-	var response api.UploadResult
-	if err := c.doer.Do(req, reader, &response); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return response.UploadID, nil
+	return pendingID, nil
 }
 
 func resolveErrors(errs []error) error {

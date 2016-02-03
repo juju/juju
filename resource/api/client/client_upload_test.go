@@ -81,7 +81,8 @@ func (s *UploadSuite) TestRequestFailed(c *gc.C) {
 	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
 }
 
-func (s *UploadSuite) TestPreOkay(c *gc.C) {
+func (s *UploadSuite) TestPendingOkay(c *gc.C) {
+	res, _ := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
@@ -95,51 +96,89 @@ func (s *UploadSuite) TestPreOkay(c *gc.C) {
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
 	req.ContentLength = int64(len(data))
-	req.URL.RawQuery = "preupload=true"
+	req.URL.RawQuery = "pendingid=" + expected
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader(data)
+	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	uploadID, err := cl.PreUpload("a-service", "spam", reader)
+	uploadID, err := cl.AddPendingResource("a-service", res[0].Resource, reader)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
-	s.stub.CheckCall(c, 3, "Do", req, reader, s.response)
+	s.stub.CheckCallNames(c,
+		"FacadeCall",
+		"Read",
+		"Read",
+		"Seek",
+		"Do",
+	)
+	s.stub.CheckCall(c, 4, "Do", req, reader, s.response)
 	c.Check(uploadID, gc.Equals, expected)
 }
 
-func (s *UploadSuite) TestPreBadService(c *gc.C) {
+func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
+	res, _ := newResourceResult(c, "a-service", "spam")
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := uuid.String()
+	s.response.UploadID = expected
+	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	_, err := cl.PreUpload("???", "spam", nil)
+	uploadID, err := cl.AddPendingResource("a-service", res[0].Resource, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"FacadeCall",
+	)
+	c.Check(uploadID, gc.Equals, expected)
+}
+
+func (s *UploadSuite) TestPendingBadService(c *gc.C) {
+	res, _ := newResourceResult(c, "a-service", "spam")
+	s.facade.FacadeCallFn = nil
+	cl := client.NewClient(s.facade, s, s.facade)
+
+	_, err := cl.AddPendingResource("???", res[0].Resource, nil)
 
 	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *UploadSuite) TestPreBadRequest(c *gc.C) {
+func (s *UploadSuite) TestPendingBadRequest(c *gc.C) {
+	res, _ := newResource(c, "spam", "", "")
+	chRes := res.Resource
 	reader := &stubFile{stub: s.stub}
+	s.facade.pendingIDs = []string{"some-unique-id"}
 	cl := client.NewClient(s.facade, s, s.facade)
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(failure)
+	s.stub.SetErrors(nil, failure)
 
-	_, err := cl.PreUpload("a-service", "spam", reader)
+	_, err := cl.AddPendingResource("a-service", chRes, reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "Read")
+	s.stub.CheckCallNames(c, "FacadeCall", "Read")
 }
 
-func (s *UploadSuite) TestPreRequestFailed(c *gc.C) {
+func (s *UploadSuite) TestPendingRequestFailed(c *gc.C) {
+	res, _ := newResourceResult(c, "a-service", "spam")
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader("<data>")
+	s.facade.pendingIDs = []string{"some-unique-id"}
 	cl := client.NewClient(s.facade, s, s.facade)
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(nil, nil, nil, failure)
+	s.stub.SetErrors(nil, nil, nil, nil, failure)
 
-	_, err := cl.PreUpload("a-service", "spam", reader)
+	_, err := cl.AddPendingResource("a-service", res[0].Resource, reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
+	s.stub.CheckCallNames(c,
+		"FacadeCall",
+		"Read",
+		"Read",
+		"Seek",
+		"Do",
+	)
 }
 
 type stubFile struct {
