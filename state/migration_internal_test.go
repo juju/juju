@@ -17,6 +17,8 @@ var _ = gc.Suite(&MigrationSuite{})
 func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
 		environmentsC,
+		envUsersC,
+		envUserLastConnectionC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -51,8 +53,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		blocksC,
 		cleanupsC,
 		cloudimagemetadataC,
-		envUsersC,
-		envUserLastConnectionC,
 		sequenceC,
 
 		// machine
@@ -142,10 +142,45 @@ func (s *MigrationSuite) TestEnvironmentDocFields(c *gc.C) {
 		"TimeOfDying",
 		"TimeOfDeath",
 	)
-	expected := getExportedFields(environmentDoc{})
+	s.AssertExportedFields(c, environmentDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// ID is the same as UserName (but lowercased)
+		"ID",
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+		// Tracked fields:
+		"UserName",
+		"DisplayName",
+		"CreatedBy",
+		"DateCreated",
+		"ReadOnly",
+	)
+	s.AssertExportedFields(c, envUserDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// ID is the same as UserName (but lowercased)
+		"ID",
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+		// UserName is captured in the migration.User.
+		"UserName",
+		"LastConnection",
+	)
+	s.AssertExportedFields(c, envUserLastConnectionDoc{}, fields)
+}
+
+func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
+	expected := getExportedFields(doc)
 	unknown := expected.Difference(fields)
 	// If this test fails, it means that extra fields have been added to the
-	// environmentDoc without thinking about the migration implications.
+	// doc without thinking about the migration implications.
 	c.Assert(unknown, gc.HasLen, 0)
 }
 
