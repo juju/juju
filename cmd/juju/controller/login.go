@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -24,7 +24,7 @@ import (
 
 // NewLoginCommand returns a command to allow the user to login to a controller.
 func NewLoginCommand() cmd.Command {
-	return envcmd.WrapBase(&loginCommand{})
+	return modelcmd.WrapBase(&loginCommand{})
 }
 
 // GetUserManagerFunc defines a function that takes an api connection
@@ -34,7 +34,7 @@ type GetUserManagerFunc func(conn api.Connection) (UserManager, error)
 // loginCommand logs in to a Juju controller and caches the connection
 // information.
 type loginCommand struct {
-	envcmd.JujuCommandBase
+	modelcmd.JujuCommandBase
 	loginAPIOpen   api.OpenFunc
 	GetUserManager GetUserManagerFunc
 	// TODO (thumper): when we support local cert definitions
@@ -48,7 +48,7 @@ type loginCommand struct {
 
 var loginDoc = `
 login connects to a juju controller and caches the information that juju
-needs to connect to the api server in the $(JUJU_HOME)/environments directory.
+needs to connect to the api server in the $(JUJU_HOME)/models directory.
 
 In order to login to a controller, you need to have a user already created for you
 in that controller. The way that this occurs is for an existing user on the controller
@@ -71,9 +71,9 @@ mean that you will still be able to connect to the api server from the
 computer where you ran api-info.
 
 See Also:
-    juju help list-environments
-    juju help use-environment
-    juju help create-environment
+    juju help list-models
+    juju help use-model
+    juju help create-model
     juju help add-user
     juju help switch
 `
@@ -136,7 +136,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var serverDetails envcmd.ServerFile
+	var serverDetails modelcmd.ServerFile
 	if err := goyaml.Unmarshal(serverYAML, &serverDetails); err != nil {
 		return errors.Trace(err)
 	}
@@ -200,10 +200,10 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return errors.Trace(envcmd.SetCurrentController(ctx, c.Name))
+	return errors.Trace(modelcmd.SetCurrentController(ctx, c.Name))
 }
 
-func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState api.Connection) (configstore.EnvironInfo, error) {
+func (c *loginCommand) cacheConnectionInfo(serverDetails modelcmd.ServerFile, apiState api.Connection) (configstore.EnvironInfo, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)

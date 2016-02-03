@@ -5,11 +5,12 @@ package unitassigner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
-
 	"github.com/juju/names"
+
+	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const uaFacade = "UnitAssigner"
@@ -67,7 +68,7 @@ func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(a.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(a.facade.RawAPICaller(), result)
 	return w, nil
 }
 

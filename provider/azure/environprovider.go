@@ -61,10 +61,10 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 
 // Open is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Debugf("opening environment %q", cfg.Name())
+	logger.Debugf("opening model %q", cfg.Name())
 	environ, err := newEnviron(prov, cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "opening environment")
+		return nil, errors.Annotate(err, "opening model")
 	}
 	return environ, nil
 }
@@ -89,7 +89,7 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	env, err := newEnviron(prov, cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "opening environment")
+		return nil, errors.Annotate(err, "opening model")
 	}
 	return env.initResourceGroup()
 }

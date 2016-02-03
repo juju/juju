@@ -177,7 +177,7 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	e.cfg = newEnvironConfig(cfg, cfg.UnknownAttrs())
+	e.cfg = newModelConfig(cfg, cfg.UnknownAttrs())
 	return nil
 }
 

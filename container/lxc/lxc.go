@@ -413,7 +413,7 @@ func createContainer(
 	if caCert != nil {
 		execEnv, closer, err = wgetEnvironment(caCert)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get environment for wget execution")
+			return errors.Annotatef(err, "failed to get model for wget execution")
 		}
 		defer closer()
 	}

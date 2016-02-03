@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/api/metricsdebug"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const debugMetricsDoc = `
@@ -27,7 +27,7 @@ display recently collected metrics and exit
 
 // DebugMetricsCommand retrieves metrics stored in the juju controller.
 type DebugMetricsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Json  bool
 	Tag   names.Tag
 	Count int
@@ -35,7 +35,7 @@ type DebugMetricsCommand struct {
 
 // New creates a new DebugMetricsCommand.
 func New() cmd.Command {
-	return envcmd.Wrap(&DebugMetricsCommand{})
+	return modelcmd.Wrap(&DebugMetricsCommand{})
 }
 
 // Info implements Command.Info.
@@ -68,7 +68,7 @@ func (c *DebugMetricsCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *DebugMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.Count, "n", 0, "number of metrics to retrieve")
 	f.BoolVar(&c.Json, "json", false, "output metrics as json")
 }
@@ -78,7 +78,7 @@ type GetMetricsClient interface {
 	Close() error
 }
 
-var newClient = func(env envcmd.EnvCommandBase) (GetMetricsClient, error) {
+var newClient = func(env modelcmd.ModelCommandBase) (GetMetricsClient, error) {
 	state, err := env.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -88,7 +88,7 @@ var newClient = func(env envcmd.EnvCommandBase) (GetMetricsClient, error) {
 
 // Run implements Command.Run.
 func (c *DebugMetricsCommand) Run(ctx *cmd.Context) error {
-	client, err := newClient(c.EnvCommandBase)
+	client, err := newClient(c.ModelCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -14,7 +14,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const collectMetricsDoc = `
@@ -24,14 +24,14 @@ trigger metrics collection
 
 // collectMetricsCommand retrieves metrics stored in the juju controller.
 type collectMetricsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	units    []string
 	services []string
 }
 
 // NewCollectMetricsCommand creates a new collectMetricsCommand.
 func NewCollectMetricsCommand() cmd.Command {
-	return envcmd.Wrap(&collectMetricsCommand{})
+	return modelcmd.Wrap(&collectMetricsCommand{})
 }
 
 // Info implements Command.Info.
@@ -64,7 +64,7 @@ func (c *collectMetricsCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *collectMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 }
 
 type runClient interface {
@@ -72,7 +72,7 @@ type runClient interface {
 	Close() error
 }
 
-var newRunClient = func(env envcmd.EnvCommandBase) (runClient, error) {
+var newRunClient = func(env modelcmd.ModelCommandBase) (runClient, error) {
 	return env.NewAPIClient()
 }
 
@@ -92,7 +92,7 @@ func resultError(result params.RunResult) string {
 
 // Run implements Command.Run.
 func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
-	runnerClient, err := newRunClient(c.EnvCommandBase)
+	runnerClient, err := newRunClient(c.ModelCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -42,7 +42,7 @@ var _ = gc.Suite(&SetMeterStatusSuite{})
 
 func (s *SetMeterStatusSuite) TestUnit(c *gc.C) {
 	client := MockSetMeterStatusClient{testing.Stub{}}
-	s.PatchValue(setmeterstatus.NewClient, func(_ envcmd.EnvCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
+	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "metered/0", "RED")
@@ -52,7 +52,7 @@ func (s *SetMeterStatusSuite) TestUnit(c *gc.C) {
 
 func (s *SetMeterStatusSuite) TestService(c *gc.C) {
 	client := MockSetMeterStatusClient{testing.Stub{}}
-	s.PatchValue(setmeterstatus.NewClient, func(_ envcmd.EnvCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
+	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "metered", "RED")
@@ -62,7 +62,7 @@ func (s *SetMeterStatusSuite) TestService(c *gc.C) {
 
 func (s *SetMeterStatusSuite) TestNotValidServiceOrUnit(c *gc.C) {
 	client := MockSetMeterStatusClient{testing.Stub{}}
-	s.PatchValue(setmeterstatus.NewClient, func(_ envcmd.EnvCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
+	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "!!!!!!", "RED")

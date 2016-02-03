@@ -12,7 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/metricsdebug"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const setMeterStatusDoc = `
@@ -24,7 +24,7 @@ Examples:
 
 // SetMeterStatusCommand sets the meter status on a service or unit. Useful for charm authors.
 type SetMeterStatusCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Tag        names.Tag
 	Status     string
 	StatusInfo string
@@ -32,7 +32,7 @@ type SetMeterStatusCommand struct {
 
 // New creates a new SetMeterStatusCommand.
 func New() cmd.Command {
-	return envcmd.Wrap(&SetMeterStatusCommand{})
+	return modelcmd.Wrap(&SetMeterStatusCommand{})
 }
 
 // Info implements Command.Info.
@@ -67,7 +67,7 @@ func (c *SetMeterStatusCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *SetMeterStatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.StatusInfo, "info", "", "Set the meter status info to this string")
 }
 
@@ -77,7 +77,7 @@ type SetMeterStatusClient interface {
 	Close() error
 }
 
-var newClient = func(env envcmd.EnvCommandBase) (SetMeterStatusClient, error) {
+var newClient = func(env modelcmd.ModelCommandBase) (SetMeterStatusClient, error) {
 	state, err := env.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -87,7 +87,7 @@ var newClient = func(env envcmd.EnvCommandBase) (SetMeterStatusClient, error) {
 
 // Run implements Command.Run.
 func (c *SetMeterStatusCommand) Run(ctx *cmd.Context) error {
-	client, err := newClient(c.EnvCommandBase)
+	client, err := newClient(c.ModelCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}

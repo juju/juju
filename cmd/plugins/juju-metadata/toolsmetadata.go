@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -21,12 +21,12 @@ import (
 )
 
 func newToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&toolsMetadataCommand{})
+	return modelcmd.Wrap(&toolsMetadataCommand{})
 }
 
 // toolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type toolsMetadataCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	fetch       bool
 	metadataDir string
 	stream      string

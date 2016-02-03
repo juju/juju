@@ -244,7 +244,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		PreferIPv6:        cfg.PreferIPv6,
-		Environment:       cfg.APIInfo.EnvironTag,
+		Model:             cfg.APIInfo.ModelTag,
 	}
 	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
@@ -332,8 +332,8 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.APIInfo == nil {
 		return errors.New("missing API info")
 	}
-	if cfg.APIInfo.EnvironTag.Id() == "" {
-		return errors.New("missing environment tag")
+	if cfg.APIInfo.ModelTag.Id() == "" {
+		return errors.New("missing model tag")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
@@ -343,7 +343,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.Bootstrap {
 		if cfg.Config == nil {
-			return errors.New("missing environment configuration")
+			return errors.New("missing model configuration")
 		}
 		if cfg.MongoInfo.Tag != nil {
 			return errors.New("entity tag must be nil when starting a state server")
@@ -469,7 +469,7 @@ func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, pub
 	}
 	icfg.Bootstrap = true
 	icfg.Jobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
@@ -493,7 +493,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	enableOSUpgrade bool,
 ) error {
 	if authorizedKeys == "" {
-		return fmt.Errorf("environment configuration has no authorized-keys")
+		return fmt.Errorf("model configuration has no authorized-keys")
 	}
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
@@ -557,21 +557,21 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return errors.New("environment configuration has no ca-cert")
+		return errors.New("model configuration has no ca-cert")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {
-		return errors.New("environment configuration has no admin-secret")
+		return errors.New("model configuration has no admin-secret")
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
-	envUUID, uuidSet := cfg.UUID()
+	modelUUID, uuidSet := cfg.UUID()
 	if !uuidSet {
-		return errors.New("config missing environment uuid")
+		return errors.New("config missing model uuid")
 	}
 	icfg.APIInfo = &api.Info{
-		Password:   passwordHash,
-		CACert:     caCert,
-		EnvironTag: names.NewEnvironTag(envUUID),
+		Password: passwordHash,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID),
 	}
 	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
@@ -585,7 +585,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
 	if !hasCAPrivateKey {
-		return errors.New("environment configuration has no ca-private-key")
+		return errors.New("model configuration has no ca-private-key")
 	}
 	srvInfo := params.StateServingInfo{
 		StatePort:    cfg.StatePort(),
@@ -606,7 +606,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
 	uuid, _ := cfg.UUID()
-	instanceTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	instanceTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuStateServer] = "true"
 	}
@@ -628,17 +628,17 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("environment configuration has no agent-version")
+		return nil, fmt.Errorf("model configuration has no agent-version")
 	}
 	return cfg, nil
 }
 
 // isStateInstanceConfig determines if given machine configuration
 // is for State Server by iterating over machine's jobs.
-// If JobManageEnviron is present, this is a state server.
+// If JobManageModel is present, this is a state server.
 func isStateInstanceConfig(icfg *InstanceConfig) bool {
 	for _, aJob := range icfg.Jobs {
-		if aJob == multiwatcher.JobManageEnviron {
+		if aJob == multiwatcher.JobManageModel {
 			return true
 		}
 	}

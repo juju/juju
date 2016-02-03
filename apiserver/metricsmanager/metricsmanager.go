@@ -24,7 +24,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsManager", 0, NewMetricsManagerAPI)
+	common.RegisterStandardFacade("MetricsManager", 1, NewMetricsManagerAPI)
 }
 
 // MetricsManager defines the methods on the metricsmanager API end point.
@@ -49,7 +49,7 @@ func NewMetricsManagerAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*MetricsManagerAPI, error) {
-	if !(authorizer.AuthMachineAgent() && authorizer.AuthEnvironManager()) {
+	if !(authorizer.AuthMachineAgent() && authorizer.AuthModelManager()) {
 		return nil, common.ErrPerm
 	}
 
@@ -59,7 +59,7 @@ func NewMetricsManagerAPI(
 			if tag == nil {
 				return false
 			}
-			return tag == st.EnvironTag()
+			return tag == st.ModelTag()
 		}, nil
 	}
 
@@ -85,7 +85,7 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseEnvironTag(arg.Tag)
+		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -116,7 +116,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseEnvironTag(arg.Tag)
+		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

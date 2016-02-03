@@ -4,20 +4,20 @@
 package uniter
 
 // This module implements a subset of the interface provided by
-// state.Environment, as needed by the uniter API.
+// state.Model, as needed by the uniter API.
 
-// Environment represents the state of an environment.
-type Environment struct {
+// Model represents the state of a model.
+type Model struct {
 	name string
 	uuid string
 }
 
-// UUID returns the universally unique identifier of the environment.
-func (e Environment) UUID() string {
+// UUID returns the universally unique identifier of the model.
+func (e Model) UUID() string {
 	return e.uuid
 }
 
-// Name returns the human friendly name of the environment.
-func (e Environment) Name() string {
+// Name returns the human friendly name of the model.
+func (e Model) Name() string {
 	return e.name
 }

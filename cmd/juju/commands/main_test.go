@@ -20,10 +20,10 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
@@ -38,7 +38,7 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(service.NewDeployCommand(), "juju deploy")
 }
 
 func setHelpText() string {
@@ -106,18 +106,18 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju help set shows the default help without global options",
-		args:    []string{"help", "set"},
+		summary: "juju help set-config shows the default help without global options",
+		args:    []string{"help", "set-config"},
 		code:    0,
 		out:     setHelpText(),
 	}, {
-		summary: "juju --help set shows the same help as 'help set'",
-		args:    []string{"--help", "set"},
+		summary: "juju --help set-config shows the same help as 'help set-config'",
+		args:    []string{"--help", "set-config"},
 		code:    0,
 		out:     setHelpText(),
 	}, {
-		summary: "juju set --help shows the same help as 'help set'",
-		args:    []string{"set", "--help"},
+		summary: "juju set-config --help shows the same help as 'help set-config'",
+		args:    []string{"set-config", "--help"},
 		code:    0,
 		out:     setHelpText(),
 	}, {
@@ -137,9 +137,9 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out:     "error: flag provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
-		args:    []string{"--environment", "blah", "bootstrap"},
+		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --environment\n",
+		out:     "error: flag provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-tools registered properly",
 		args:    []string{"sync-tools", "--help"},
@@ -163,7 +163,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to unblock\n",
+		out:     "error: must specify one of [destroy-model | remove-object | all-changes] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -181,9 +181,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	}
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "env"}, // global flags before
-		{"env", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "env", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "switch"}, // global flags before
+		{"switch", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "switch", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -205,6 +205,9 @@ var commandNames = []string{
 	"allocate",
 	"api-endpoints",
 	"api-info",
+	"add-space",
+	"add-storage",
+	"add-subnet",
 	"add-user",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
@@ -214,43 +217,42 @@ var commandNames = []string{
 	"cached-images",
 	"change-user-password",
 	"collect-metrics",
+	"create-backup",
 	"create-budget",
-	"create-environment",
-	"create-model", // alias for create-environment
+	"create-model",
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",
 	"deploy",
 	"destroy-controller",
-	"destroy-environment",
 	"destroy-machine",
-	"destroy-model", // alias for destroy-environment
+	"destroy-model",
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
 	"disable-user",
+	"enable-ha",
 	"enable-user",
-	"ensure-availability",
-	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
-	"get",
+	"get-config",
 	"get-constraints",
+	"get-model-config",
+	"get-model-constraints",
 	"get-user-credentials",
-	"get-env", // alias for get-environment
-	"get-environment",
-	"get-model", // alias for get-environment
 	"help",
 	"help-tool",
 	"init",
 	"kill-controller",
+	"list-actions",
 	"list-all-blocks",
 	"list-budgets",
 	"list-controllers",
-	"list-environments",
-	"list-models", // alias for list-environments
+	"list-models",
 	"list-plans",
 	"list-shares",
+	"list-spaces",
+	"list-storage",
 	"list-users",
 	"login",
 	"machine",
@@ -261,25 +263,28 @@ var commandNames = []string{
 	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
+	"restore-backup",
 	"retry-provisioning",
 	"run",
+	"run-action",
 	"scp",
 	"service",
-	"set",
 	"set-budget",
+	"set-config",
 	"set-constraints",
-	"set-env", // alias for set-environment
-	"set-environment",
 	"set-meter-status",
-	"set-model", // alias for set-environment
+	"set-model-config",
+	"set-model-constraints",
 	"set-plan",
-	"share-environment",
-	"share-model", // alias for share-environment
+	"share-model",
+	"show-action-output",
+	"show-action-status",
 	"show-budget",
+	"show-status",
+	"show-storage",
 	"show-user",
 	"space",
 	"ssh",
-	"stat", // alias for status
 	"status",
 	"status-history",
 	"storage",
@@ -287,17 +292,13 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
-	"use-environment",
-	"use-model", // alias for use-environment
+	"use-model",
 	"unblock",
 	"unexpose",
 	"update-allocation",
 	"unset",
-	"unset-env", // alias for unset-environment
-	"unset-environment",
-	"unset-model", // alias for unset-environment
-	"unshare-environment",
-	"unshare-model", // alias for unshare-environment
+	"unset-model-config",
+	"unshare-model",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
@@ -478,14 +479,14 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 	// Do nothing.
 }
 
-func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
 	registerCommands(&commands, testing.Context(c))
-	// There should not be any EnvironCommands registered.
-	// EnvironCommands must be wrapped using envcmd.Wrap.
+	// There should not be any ModelCommands registered.
+	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
-		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&bootstrapCommand{}))
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), modelcmd.ModelCommand(&bootstrapCommand{}))
 	}
 }
 

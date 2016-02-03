@@ -4,7 +4,7 @@
 package metricsdebug
 
 import (
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
@@ -15,8 +15,8 @@ var (
 // NewRunClientFnc returns a function that returns a struct that implements the
 // runClient interface. This function can be used to patch the NewRunClient
 // variable in tests.
-func NewRunClientFnc(client runClient) func(envcmd.EnvCommandBase) (runClient, error) {
-	return func(_ envcmd.EnvCommandBase) (runClient, error) {
+func NewRunClientFnc(client runClient) func(modelcmd.ModelCommandBase) (runClient, error) {
+	return func(_ modelcmd.ModelCommandBase) (runClient, error) {
 		return client, nil
 	}
 }
