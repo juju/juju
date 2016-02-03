@@ -13,6 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -406,6 +407,55 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
+}
+
+func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
+	doc1 := map[string]string{"a": "1"}
+	doc2 := map[string]string{"b": "2"}
+	expected := []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/spam#pending-some-unique-ID-001",
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service/spam",
+		Assert: txn.DocMissing,
+		Insert: &doc1,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service/spam#pending-some-unique-ID-001",
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service/spam",
+		Assert: txn.DocMissing,
+		Insert: &doc2,
+	}}
+	s.persist.ReturnNewResolvePendingResourceOps = [][]txn.Op{
+		expected[:2],
+		expected[2:],
+	}
+	serviceID := "a-service"
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	ops, err := st.NewResolvePendingResourcesOps(serviceID, map[string]string{
+		"spam": "some-unique-id",
+		"eggs": "other-unique-id",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"NewResolvePendingResourceOps",
+		"NewResolvePendingResourceOps",
+	)
+	c.Check(s.persist.CallsForNewResolvePendingResourceOps, jc.DeepEquals, map[string]string{
+		"a-service/spam": "some-unique-id",
+		"a-service/eggs": "other-unique-id",
+	})
+	c.Check(ops, jc.DeepEquals, expected)
 }
 
 func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {

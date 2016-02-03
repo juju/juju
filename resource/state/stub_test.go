@@ -43,7 +43,9 @@ type stubPersistence struct {
 	ReturnGetResource                  resource.Resource
 	ReturnGetResourcePath              string
 	ReturnStageResource                *stubStagedResource
-	ReturnNewResolvePendingResourceOps []txn.Op
+	ReturnNewResolvePendingResourceOps [][]txn.Op
+
+	CallsForNewResolvePendingResourceOps map[string]string
 }
 
 func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
@@ -100,13 +102,23 @@ func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) 
 	return nil
 }
 
-func (s *stubPersistence) NewResolvePendingResourceOps(oldID, newID, serviceID, pendingID string) ([]txn.Op, error) {
-	s.stub.AddCall("NewResolvePendingResourceOps", oldID, newID, serviceID, pendingID)
+func (s *stubPersistence) NewResolvePendingResourceOps(resID, ignored, serviceID, pendingID string) ([]txn.Op, error) {
+	s.stub.AddCall("NewResolvePendingResourceOps", resID, ignored, serviceID, pendingID)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.ReturnNewResolvePendingResourceOps, nil
+	if s.CallsForNewResolvePendingResourceOps == nil {
+		s.CallsForNewResolvePendingResourceOps = make(map[string]string)
+	}
+	s.CallsForNewResolvePendingResourceOps[resID] = pendingID
+
+	if len(s.ReturnNewResolvePendingResourceOps) == 0 {
+		return nil, nil
+	}
+	ops := s.ReturnNewResolvePendingResourceOps[0]
+	s.ReturnNewResolvePendingResourceOps = s.ReturnNewResolvePendingResourceOps[1:]
+	return ops, nil
 }
 
 type stubStagedResource struct {
