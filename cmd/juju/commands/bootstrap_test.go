@@ -76,6 +76,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+		err := s.mockBlockClient.loginError
+		if err != nil {
+			s.mockBlockClient.loginError = nil
+			return nil, err
+		}
 		return s.mockBlockClient, nil
 	})
 }
@@ -95,6 +100,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 type mockBlockClient struct {
 	retry_count int
 	num_retries int
+	loginError  error
 }
 
 func (c *mockBlockClient) List() ([]params.Block, error) {
@@ -153,6 +159,48 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		}
 		c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
 	}
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyRetriesWithOpenEOFErr(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+
+	resetJujuHome(c, "devenv")
+
+	s.mockBlockClient.num_retries = 0
+	s.mockBlockClient.retry_count = 0
+	s.mockBlockClient.loginError = errors.New("EOF")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(s.mockBlockClient.retry_count, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyStopsRetriesWithOpenErr(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+
+	resetJujuHome(c, "devenv")
+
+	s.mockBlockClient.num_retries = 0
+	s.mockBlockClient.retry_count = 0
+	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
+
+	c.Check(s.mockBlockClient.retry_count, gc.Equals, 0)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {

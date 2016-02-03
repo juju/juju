@@ -344,6 +344,17 @@ func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 	return apiblock.NewClient(root), nil
 }
 
+// tryAPI attempts to open the API and makes a trivial call
+// to check if the API is available yet.
+func (c *BootstrapCommand) tryAPI() error {
+	client, err := blockAPI(&c.EnvCommandBase)
+	if err == nil {
+		_, err = client.List()
+		client.Close()
+	}
+	return err
+}
+
 // waitForAgentInitialisation polls the bootstrapped state server with a read-only
 // command which will fail until the state server is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
@@ -352,14 +363,8 @@ func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
-	var client block.BlockListAPI
 	for attempt := attempts.Start(); attempt.Next(); {
-		client, err = blockAPI(&c.EnvCommandBase)
-		if err != nil {
-			return err
-		}
-		_, err = client.List()
-		client.Close()
+		err = c.tryAPI()
 		if err == nil {
 			ctx.Infof("Bootstrap complete")
 			return nil
