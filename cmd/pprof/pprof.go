@@ -2,6 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package pprof is a fork of net/http/pprof modified to communicate
+// over a unix socket.
+//
+// Changes from the original version
+//
+// - This fork does not automatically register itself with the default
+//   net/http ServeMux.
+// - To start the pprof handler, see the Start method in socket.go.
+// - For compatability with Go 1.2.1, support for obtaining trace data
+//   has been removed.
+//
+// ---------------------------------------------------------------
+//
 // Package pprof serves via its HTTP server runtime profiling data
 // in the format expected by the pprof visualization tool.
 // For more information about pprof, see
