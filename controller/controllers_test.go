@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"fmt"
-	"github.com/juju/juju/environmentserver/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 )
 

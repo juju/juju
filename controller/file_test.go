@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environmentserver/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
@@ -24,7 +24,7 @@ func (s *FileSuite) TestWriteFile(c *gc.C) {
 	writeTestControllersFile(c)
 	data, err := ioutil.ReadFile(osenv.JujuHomePath("controllers.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, TestControllersYAML[1:])
+	c.Assert(string(data), gc.Equals, testControllersYAML[1:])
 }
 
 func (s *FileSuite) TestReadNoFile(c *gc.C) {
@@ -43,7 +43,7 @@ func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
 }
 
 func parseControllers(c *gc.C) *controller.Controllers {
-	controllers, err := controller.ParseControllers([]byte(TestControllersYAML))
+	controllers, err := controller.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
 	return controllers
 }

@@ -13,7 +13,7 @@ func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-const TestControllersYAML = `
+const testControllersYAML = `
 controllers:
   local.aws-test:
     servers: [instance-1-2-4.useast.aws.com]
