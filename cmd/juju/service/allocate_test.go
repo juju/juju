@@ -7,6 +7,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/romulus/wireformat/budget"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,6 +88,24 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}})
 
+}
+
+func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
+	client := httpbakery.NewClient().Client
+	d := DeploymentInfo{
+		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		ServiceName: "service name",
+		ModelUUID:   "model uuid",
+	}
+	s.stub.SetErrors(nil, budget.NotAvailError{})
+	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
+	}, {
+		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
+	}})
+	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "Allocation not created - service unreachable.\n")
 }
 
 func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {

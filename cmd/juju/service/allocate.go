@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/api/budget"
+	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -63,6 +64,10 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	}
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
+		if wireformat.IsNotAvail(err) {
+			fmt.Fprintf(ctx.Stdout, "Allocation not created - %s.\n", err.Error())
+			return nil
+		}
 		return errors.Annotate(err, "could not create budget allocation")
 	}
 	a.allocated = true
