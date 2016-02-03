@@ -110,6 +110,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         AgentName,
 				APICallerName:     APICallerName,
 				UpgradeWaiterName: util.UpgradeWaitNotRequired,
 			},

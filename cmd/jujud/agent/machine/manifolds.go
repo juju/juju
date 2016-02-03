@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/terminationworker"
@@ -265,6 +266,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		}),
 
+		// The netwoker worker that handles machine networking
+		// configuration. If there is no <configBasePath>/interfaces file, an
+		// error is returned.
+		networkerName: networker.Manifold(networker.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
 		// The deployer worker is responsible for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
@@ -277,6 +287,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 		}),
+
+		// The authenticationworker keeps track of
+		// the machine's authorised ssh keys and ensures the
+		// ~/.ssh/authorized_keys file is up to date.
 		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			MachineID: config.MachineID,
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
@@ -308,6 +322,7 @@ const (
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
+	networkerName            = "networker"
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
 )

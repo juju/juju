@@ -424,9 +424,11 @@ func (s *networkerSuite) newCustomNetworker(
 	s.vlanModuleLoaded = false
 	configDir := c.MkDir()
 
-	nw, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode, configDir)
+	w, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode, configDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nw, gc.NotNil)
+	c.Assert(w, gc.NotNil)
+	nw, ok := w.(*networker.Networker)
+	c.Assert(ok, jc.IsTrue)
 
 	return nw, configDir
 }

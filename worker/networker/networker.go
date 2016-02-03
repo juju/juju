@@ -78,12 +78,12 @@ var _ worker.Worker = (*Networker)(nil)
 // NewNetworker returns a Worker that handles machine networking
 // configuration. If there is no <configBasePath>/interfaces file, an
 // error is returned.
-func NewNetworker(
+var NewNetworker = func(
 	st apinetworker.State,
 	agentConfig agent.Config,
 	intrusiveMode bool,
 	configBaseDir string,
-) (*Networker, error) {
+) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		// This should never happen, as there is a check for it in the
