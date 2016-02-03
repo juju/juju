@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/lease"
 )
 
 // These constants define the field names and type values used by documents in
@@ -45,27 +47,6 @@ func toTime(v int64) time.Time {
 	return time.Unix(0, v)
 }
 
-// For simplicity's sake, we impose the same restrictions on all strings used
-// with the lease package: they may not be empty, and none of the following
-// characters are allowed.
-//   * '.' and '$' mean things to mongodb; we don't want to risk seeing them
-//     in key names.
-//   * '#' means something to the lease package and we don't want to risk
-//     confusing ourselves.
-//   * whitespace just seems like a bad idea.
-const badCharacters = ".$# \t\r\n"
-
-// validateString returns an error if the string is not valid.
-func validateString(s string) error {
-	if s == "" {
-		return errors.New("string is empty")
-	}
-	if strings.ContainsAny(s, badCharacters) {
-		return errors.New("string contains forbidden characters")
-	}
-	return nil
-}
-
 // leaseDocId returns the _id for the document holding details of the supplied
 // namespace and lease.
 func leaseDocId(namespace, lease string) string {
@@ -84,11 +65,6 @@ type leaseDoc struct {
 	Namespace string `bson:"namespace"`
 	Name      string `bson:"name"`
 
-	// EnvUUID exists because state.multiEnvRunner can't handle structs
-	// without `bson:"env-uuid"` fields. It's not necessary for the logic
-	// in this package, though.
-	EnvUUID string `bson:"env-uuid"`
-
 	// Holder, Expiry, and Writer map directly to entry.
 	Holder string `bson:"holder"`
 	Expiry int64  `bson:"expiry"`
@@ -105,13 +81,13 @@ func (doc leaseDoc) validate() error {
 	if !strings.HasSuffix(doc.Id, leaseDocId(doc.Namespace, doc.Name)) {
 		return errors.Errorf("inconsistent _id")
 	}
-	if err := validateString(doc.Holder); err != nil {
+	if err := lease.ValidateString(doc.Holder); err != nil {
 		return errors.Annotatef(err, "invalid holder")
 	}
 	if doc.Expiry == 0 {
 		return errors.Errorf("invalid expiry")
 	}
-	if err := validateString(doc.Writer); err != nil {
+	if err := lease.ValidateString(doc.Writer); err != nil {
 		return errors.Annotatef(err, "invalid writer")
 	}
 	return nil
@@ -163,12 +139,7 @@ type clockDoc struct {
 	Type      string `bson:"type"`
 	Namespace string `bson:"namespace"`
 
-	// EnvUUID exists because state.multiEnvRunner can't handle structs
-	// without `bson:"env-uuid"` fields. It's not necessary for the logic
-	// in this package, though.
-	EnvUUID string `bson:"env-uuid"`
-
-	// Writers holds a the latest acknowledged time for every known client.
+	// Writers holds the latest acknowledged time for every known client.
 	Writers map[string]int64 `bson:"writers"`
 }
 

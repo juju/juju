@@ -6,12 +6,15 @@ package resolver
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
+
+// ErrLoopAborted is used to signal that the loop is exiting because it
+// received a value on its config's Abort chan.
+var ErrLoopAborted = errors.New("resolver loop aborted")
 
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
@@ -33,8 +36,8 @@ type LoopConfig struct {
 // be called when a change is anticipated (i.e. due to ErrWaiting).
 //
 // The resolver loop can be controlled in the following ways:
-//  - if the "dying" channel is signalled, then the loop will
-//    exit with tomb.ErrDying
+//  - if the "abort" channel is signalled, then the loop will
+//    exit with ErrLoopAborted
 //  - if the resolver returns ErrWaiting, then no operations
 //    will be executed until the remote state has changed
 //    again
@@ -92,7 +95,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 		select {
 		case <-cfg.Abort:
-			return tomb.ErrDying
+			return ErrLoopAborted
 		case <-cfg.Watcher.RemoteStateChanged():
 		}
 	}
