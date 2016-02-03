@@ -1162,6 +1162,10 @@ class EnvJujuClient24(EnvJujuClient25):
         if self.env.config.get('type') == 'cloudsigma':
             yield 'cloudsigma'
 
+    def add_ssh_machines(self, machines):
+        for machine in machines:
+            self.juju('add-machine', ('ssh:' + machine,))
+
 
 def get_local_root(juju_home, env):
     return os.path.join(juju_home, env.environment)
