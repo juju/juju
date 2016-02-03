@@ -105,7 +105,7 @@ func allCollections() collectionSchema {
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
 		// one model migration document exists per environment.
-		activeModelMigrationsC: {global: true},
+		modelMigrationsActiveC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -374,9 +374,7 @@ const (
 	cloudimagemetadataC      = "cloudimagemetadata"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
-	modelMigrationsC         = "modelmigrations"
-	modelMigrationStatusC    = "modelmigrations.status"
-	activeModelMigrationsC   = "modelmigrations.active"
+	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	instanceDataC            = "instanceData"
@@ -388,6 +386,10 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
+	modelMigrationStatusC    = "modelmigrations.status"
+	modelMigrationsActiveC   = "modelmigrations.active"
+	modelMigrationsC         = "modelmigrations"
+	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	networkInterfacesC       = "networkinterfaces"
@@ -402,23 +404,21 @@ const (
 	servicesC                = "services"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
-	controllersC             = "controllers"
+	spacesC                  = "spaces"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"
 	storageAttachmentsC      = "storageattachments"
 	storageConstraintsC      = "storageconstraints"
 	storageInstancesC        = "storageinstances"
 	subnetsC                 = "subnets"
-	spacesC                  = "spaces"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"
 	unitsC                   = "units"
 	upgradeInfoC             = "upgradeInfo"
+	userLastLoginC           = "userLastLogin"
 	usermodelnameC           = "usermodelname"
 	usersC                   = "users"
-	userLastLoginC           = "userLastLogin"
-	modelUserLastConnectionC = "modelUserLastConnection"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)

@@ -202,7 +202,7 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 		nextDoc.EndTime = now
 		update["end-time"] = now
 		ops = append(ops, txn.Op{
-			C:      activeModelMigrationsC,
+			C:      modelMigrationsActiveC,
 			Id:     mig.doc.ModelUUID,
 			Assert: txn.DocExists,
 			Remove: true,
@@ -333,7 +333,7 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 			Assert: txn.DocMissing,
 			Insert: &statusDoc,
 		}, {
-			C:      activeModelMigrationsC,
+			C:      modelMigrationsActiveC,
 			Id:     modelUUID,
 			Assert: txn.DocMissing,
 			Insert: bson.M{"id": doc.Id},
@@ -384,7 +384,7 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 // IsModelMigrationActive return true if a migration is in progress for
 // the given model.
 func IsModelMigrationActive(st *State, modelUUID string) (bool, error) {
-	active, closer := st.getCollection(activeModelMigrationsC)
+	active, closer := st.getCollection(modelMigrationsActiveC)
 	defer closer()
 	n, err := active.FindId(modelUUID).Count()
 	if err != nil {
