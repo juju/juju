@@ -80,8 +80,9 @@ func (s *MachineSerializationSuite) machineArgs(id string) MachineArgs {
 }
 
 func (s *MachineSerializationSuite) TestNewMachine(c *gc.C) {
-	m := newMachine(s.machineArgs("machine-id"))
-	c.Assert(m.Id(), gc.Equals, names.NewMachineTag("machine-id"))
+	m := newMachine(s.machineArgs("42"))
+	c.Assert(m.Id(), gc.Equals, "42")
+	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("42"))
 	c.Assert(m.Nonce(), gc.Equals, "a nonce")
 	c.Assert(m.PasswordHash(), gc.Equals, "some-hash")
 	c.Assert(m.Placement(), gc.Equals, "placement")

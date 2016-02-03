@@ -51,22 +51,27 @@ type user struct {
 	ReadOnly_       bool       `yaml:"read-only,omitempty"`
 }
 
+// Name implements User.
 func (u *user) Name() names.UserTag {
 	return names.NewUserTag(u.Name_)
 }
 
+// DisplayName implements User.
 func (u *user) DisplayName() string {
 	return u.DisplayName_
 }
 
+// CreatedBy implements User.
 func (u *user) CreatedBy() names.UserTag {
 	return names.NewUserTag(u.CreatedBy_)
 }
 
+// DateCreated implements User.
 func (u *user) DateCreated() time.Time {
 	return u.DateCreated_
 }
 
+// LastConnection implements User.
 func (u *user) LastConnection() time.Time {
 	var zero time.Time
 	if u.LastConnection_ == nil {
@@ -75,6 +80,7 @@ func (u *user) LastConnection() time.Time {
 	return *u.LastConnection_
 }
 
+// ReadOnly implements User.
 func (u *user) ReadOnly() bool {
 	return u.ReadOnly_
 }

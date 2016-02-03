@@ -8,6 +8,8 @@ import (
 	"github.com/juju/schema"
 )
 
+// AddressArgs is an argument struct used to create a new internal address
+// type that supports the Address interface.
 type AddressArgs struct {
 	Value       string
 	Type        string
@@ -38,35 +40,33 @@ type address struct {
 	Origin_      string `yaml:"origin,omitempty"`
 }
 
-// Value implements Address.Value interface method.
+// Value implements Address.
 func (a *address) Value() string {
 	return a.Value_
 }
 
-// Type implements Address.Type interface method.
+// Type implements Address.
 func (a *address) Type() string {
 	return a.Type_
 }
 
-// NetworkName implements Address.NetworkName interface method.
+// NetworkName implements Address.
 func (a *address) NetworkName() string {
 	return a.NetworkName_
 }
 
-// Scope implements Address.Scope interface method.
+// Scope implements Address.
 func (a *address) Scope() string {
 	return a.Scope_
 }
 
-// Origin implements Address.Origin interface method.
+// Origin implements Address.
 func (a *address) Origin() string {
 	return a.Origin_
 }
 
-// importAddress constructs a new Address from a map that in normal usage situations
-// will be the result of interpreting a large YAML document.
-//
-// This method is a package internal serialisation method.
+// importAddress constructs a new Address from a map representing a serialised
+// Address instance.
 func importAddress(source map[string]interface{}) (*address, error) {
 	version, err := getVersion(source)
 	if err != nil {

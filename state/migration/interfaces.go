@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package migration
@@ -30,6 +30,8 @@ type Model interface {
 	Validate() error
 }
 
+// User represents a user of the model. Users are able to connect to, and
+// depending on the read only flag, modify the model.
 type User interface {
 	Name() names.UserTag
 	DisplayName() string
@@ -57,8 +59,11 @@ type AgentTools interface {
 	Size() int64
 }
 
+// Machine represents an existing live machine or container running in the
+// model.
 type Machine interface {
-	Id() names.MachineTag
+	Id() string
+	Tag() names.MachineTag
 	Nonce() string
 	PasswordHash() string
 	Placement() string
@@ -124,6 +129,7 @@ type CloudInstance interface {
 	AvailabilityZone() string
 }
 
+// Status represents an agent, service, or workload status.
 type Status interface {
 	Value() string
 	Message() string

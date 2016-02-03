@@ -97,7 +97,7 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	c.Assert(users[0].Name(), gc.Equals, names.NewUserTag("admin@local"))
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Id().Id(), gc.Equals, "0")
+	c.Assert(machines[0].Id(), gc.Equals, "0")
 	services := model.Services()
 	c.Assert(services, gc.HasLen, 1)
 	c.Assert(services[0].Name(), gc.Equals, "ubuntu")

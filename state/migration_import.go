@@ -65,7 +65,6 @@ func (st *State) Import(model migration.Model) (_ *Environment, _ *State, err er
 		return nil, nil, errors.Trace(err)
 	}
 	if err := restore.machines(); err != nil {
-		logger.Debugf("machine error")
 		return nil, nil, errors.Trace(err)
 	}
 	if err := restore.services(); err != nil {
@@ -141,7 +140,7 @@ func (i *importer) machines() error {
 	for _, m := range i.model.Machines() {
 		if err := i.machine(m); err != nil {
 			i.logger.Errorf("error importing machine: %s", err)
-			return errors.Annotate(err, m.Id().String())
+			return errors.Annotate(err, m.Id())
 		}
 	}
 
@@ -151,10 +150,13 @@ func (i *importer) machines() error {
 
 func (i *importer) machine(m migration.Machine) error {
 	// Import this machine, then import its containers.
-	i.logger.Debugf("importing machine %s", m.Id().Id())
+	i.logger.Debugf("importing machine %s", m.Id())
 
 	// 1. construct a machineDoc
-	mdoc := i.makeMachineDoc(m)
+	mdoc, err := i.makeMachineDoc(m)
+	if err != nil {
+		return errors.Annotatef(err, "machine %s", m.Id())
+	}
 	// 2. construct enough MachineTemplate to pass into 'insertNewMachineOps'
 	//    - adds constraints doc
 	//    - adds status doc
@@ -200,9 +202,11 @@ func (i *importer) machine(m migration.Machine) error {
 		return errors.Trace(err)
 	}
 
+	// Now that this machine exists in the database, process each of the
+	// containers in this machine.
 	for _, container := range m.Containers() {
 		if err := i.machine(container); err != nil {
-			return errors.Annotate(err, container.Id().String())
+			return errors.Annotate(err, container.Id())
 		}
 	}
 	return nil
@@ -246,12 +250,16 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst migration.CloudInsta
 	}
 }
 
-func (i *importer) makeMachineDoc(m migration.Machine) *machineDoc {
-	id := m.Id().Id()
+func (i *importer) makeMachineDoc(m migration.Machine) (*machineDoc, error) {
+	id := m.Id()
 	supported, supportedSet := m.SupportedContainers()
 	supportedContainers := make([]instance.ContainerType, len(supported))
 	for j, c := range supported {
 		supportedContainers[j] = instance.ContainerType(c)
+	}
+	jobs, err := i.makeMachineJobs(m.Jobs())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
@@ -263,9 +271,9 @@ func (i *importer) makeMachineDoc(m migration.Machine) *machineDoc {
 		Principals:               nil, // TODO
 		Life:                     Alive,
 		Tools:                    i.makeTools(m.Tools()),
-		Jobs:                     i.makeMachineJobs(m.Jobs()),
-		NoVote:                   true,  // no state servers yet.
-		HasVote:                  false, // TODO - check
+		Jobs:                     jobs,
+		NoVote:                   true,  // State servers can't be migrated yet.
+		HasVote:                  false, // State servers can't be migrated yet.
 		PasswordHash:             m.PasswordHash(),
 		Clean:                    true, // check this later
 		Addresses:                i.makeAddresses(m.ProviderAddresses()),
@@ -275,13 +283,13 @@ func (i *importer) makeMachineDoc(m migration.Machine) *machineDoc {
 		SupportedContainersKnown: supportedSet,
 		SupportedContainers:      supportedContainers,
 		Placement:                m.Placement(),
-	}
+	}, nil
 }
 
-func (i *importer) makeMachineJobs(jobs []string) []MachineJob {
-	// At the time this was originally written, there are three
-	// valid jobs. If any jobs gets deprecated or changed in the future,
-	// older models that specify those jobs need to be handled here.
+func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
+	// At time of writing, there are three valid jobs. If any jobs gets
+	// deprecated or changed in the future, older models that specify those
+	// jobs need to be handled here.
 	result := make([]MachineJob, 0, len(jobs))
 	for _, job := range jobs {
 		switch job {
@@ -291,9 +299,11 @@ func (i *importer) makeMachineJobs(jobs []string) []MachineJob {
 			result = append(result, JobManageEnviron)
 		case "manage-networking":
 			result = append(result, JobManageNetworking)
+		default:
+			return nil, errors.Errorf("unknown machine job: %q", job)
 		}
 	}
-	return result
+	return result, nil
 }
 
 func (i *importer) makeTools(t migration.AgentTools) *tools.Tools {
