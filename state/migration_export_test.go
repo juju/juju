@@ -117,7 +117,15 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestServices(c *gc.C) {
-	service := s.Factory.MakeService(c, nil)
+	service := s.Factory.MakeService(c, &factory.ServiceParams{
+		Settings: map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
+		"leader": "true",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,6 +137,14 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(exported.Name(), gc.Equals, service.Name())
 	c.Assert(exported.Tag(), gc.Equals, service.ServiceTag())
 	c.Assert(exported.Series(), gc.Equals, service.Series())
+
+	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
+		"foo": "bar",
+	})
+	c.Assert(exported.SettingsRefCount(), gc.Equals, 1)
+	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
+		"leader": "true",
+	})
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
@@ -141,4 +157,11 @@ func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
 
 	services := model.Services()
 	c.Assert(services, gc.HasLen, 3)
+}
+
+type goodToken struct{}
+
+// Check implements leadership.Token
+func (*goodToken) Check(interface{}) error {
+	return nil
 }

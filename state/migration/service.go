@@ -44,6 +44,7 @@ type service struct {
 	// Status history
 }
 
+// ServiceArgs is an argument struct used to add a service to the Model.
 type ServiceArgs struct {
 	Tag                names.ServiceTag
 	Series             string
@@ -72,50 +73,62 @@ func newService(args ServiceArgs) *service {
 	}
 }
 
+// Tag impelements Service.
 func (s *service) Tag() names.ServiceTag {
 	return names.NewServiceTag(s.Name_)
 }
 
+// Name impelements Service.
 func (s *service) Name() string {
 	return s.Name_
 }
 
+// Series impelements Service.
 func (s *service) Series() string {
 	return s.Series_
 }
 
+// Subordinate impelements Service.
 func (s *service) Subordinate() bool {
 	return s.Subordinate_
 }
 
+// CharmURL impelements Service.
 func (s *service) CharmURL() string {
 	return s.CharmURL_
 }
 
+// ForceCharm impelements Service.
 func (s *service) ForceCharm() bool {
 	return s.ForceCharm_
 }
 
+// Exposed impelements Service.
 func (s *service) Exposed() bool {
 	return s.Exposed_
 }
 
+// MinUnits impelements Service.
 func (s *service) MinUnits() int {
 	return s.MinUnits_
 }
 
+// Settings impelements Service.
 func (s *service) Settings() map[string]interface{} {
 	return s.Settings_
 }
 
+// SettingsRefCount impelements Service.
 func (s *service) SettingsRefCount() int {
 	return s.SettingsRefCount_
 }
 
+// LeadershipSettings impelements Service.
 func (s *service) LeadershipSettings() map[string]interface{} {
 	return s.LeadershipSettings_
 }
 
+// Status impelements Service.
 func (s *service) Status() Status {
 	// To avoid typed nils check nil here.
 	if s.Status_ == nil {
@@ -124,10 +137,12 @@ func (s *service) Status() Status {
 	return s.Status_
 }
 
+// SetStatus impelements Service.
 func (s *service) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
 }
 
+// Validate impelements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
 		return errors.NotValidf("missing name")

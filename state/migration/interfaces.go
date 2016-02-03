@@ -137,6 +137,7 @@ type Status interface {
 	Updated() time.Time
 }
 
+// Service represents a deployed charm in a model.
 type Service interface {
 	Tag() names.ServiceTag
 	Name() string

@@ -19,9 +19,18 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		environmentsC,
 		envUsersC,
 		envUserLastConnectionC,
+		settingsC,
+		statusesC,
+
 		// machine
+		cloudimagemetadataC,
 		instanceDataC,
 		machinesC,
+
+		// service
+		servicesC,
+		// settings reference counts are only used for services
+		settingsrefsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -34,7 +43,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		userenvnameC,
 		// Metrics aren't migrated.
 		metricsC,
-		metricsManagerC,
 		// leaseC is deprecated in favour of leasesC.
 		leaseC,
 		// Backup and restore information is not migrated.
@@ -65,7 +73,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// environment
 		blocksC,
 		cleanupsC,
-		cloudimagemetadataC,
 		sequenceC,
 
 		// machine
@@ -77,7 +84,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		leasesC,
 		openedPortsC,
 		"payloads",
-		servicesC,
 		unitsC,
 
 		// relation
@@ -110,13 +116,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// done as part of machines/services/units
 		annotationsC,
 		constraintsC,
-		settingsC,
-		statusesC,
 		statusesHistoryC,
 
 		// uncategorised
-		meterStatusC,
-		settingsrefsC,
+		meterStatusC,    // red / green status for metrics / charms
+		metricsManagerC, // should really be copied across
+
 	)
 
 	envCollections := set.NewStrings()

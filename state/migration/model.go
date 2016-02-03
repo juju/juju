@@ -93,15 +93,18 @@ func (m *model) Tag() names.EnvironTag {
 	return names.NewEnvironTag(uuid)
 }
 
+// Owner implements Model.
 func (m *model) Owner() names.UserTag {
 	return names.NewUserTag(m.Owner_)
 }
 
+// Config implements Model.
 func (m *model) Config() map[string]interface{} {
 	// TODO: consider returning a deep copy.
 	return m.Config_
 }
 
+// LatestToolsVersion implements Model.
 func (m *model) LatestToolsVersion() version.Number {
 	return m.LatestToolsVersion_
 }
@@ -113,6 +116,7 @@ func (a ByName) Len() int           { return len(a) }
 func (a ByName) Less(i, j int) bool { return a[i].Name().Canonical() < a[j].Name().Canonical() }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
+// Users implements Model.
 func (m *model) Users() []User {
 	var result []User
 	for _, user := range m.Users_.Users_ {
@@ -122,6 +126,7 @@ func (m *model) Users() []User {
 	return result
 }
 
+// AddUser implements Model.
 func (m *model) AddUser(args UserArgs) {
 	m.Users_.Users_ = append(m.Users_.Users_, newUser(args))
 }
@@ -133,6 +138,7 @@ func (m *model) setUsers(userList []*user) {
 	}
 }
 
+// Machines implements Model.
 func (m *model) Machines() []Machine {
 	var result []Machine
 	for _, machine := range m.Machines_.Machines_ {
@@ -141,6 +147,7 @@ func (m *model) Machines() []Machine {
 	return result
 }
 
+// AddMachine implements Model.
 func (m *model) AddMachine(args MachineArgs) Machine {
 	machine := newMachine(args)
 	m.Machines_.Machines_ = append(m.Machines_.Machines_, machine)
@@ -154,6 +161,7 @@ func (m *model) setMachines(machineList []*machine) {
 	}
 }
 
+// Services implements Model.
 func (m *model) Services() []Service {
 	var result []Service
 	for _, service := range m.Services_.Services_ {
@@ -162,6 +170,7 @@ func (m *model) Services() []Service {
 	return result
 }
 
+// AddService implements Model.
 func (m *model) AddService(args ServiceArgs) Service {
 	service := newService(args)
 	m.Services_.Services_ = append(m.Services_.Services_, service)
@@ -175,6 +184,7 @@ func (m *model) setServices(serviceList []*service) {
 	}
 }
 
+// Validate implements Model.
 func (m *model) Validate() error {
 	for _, machine := range m.Machines_.Machines_ {
 		if err := machine.Validate(); err != nil {
