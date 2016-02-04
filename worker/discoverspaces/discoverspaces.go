@@ -83,6 +83,16 @@ func (dw *discoverspacesWorker) Wait() error {
 }
 
 func (dw *discoverspacesWorker) loop() (err error) {
+	ensureClosed := func() {
+		select {
+		case <-dw.discoveringSpaces:
+			// Already closed.
+			return
+		default:
+			close(dw.discoveringSpaces)
+		}
+	}
+	defer ensureClosed()
 	modelCfg, err := dw.api.ModelConfig()
 	if err != nil {
 		return err
@@ -96,7 +106,6 @@ func (dw *discoverspacesWorker) loop() (err error) {
 	if ok {
 		err = dw.handleSubnets(networkingModel)
 		if err != nil {
-			close(dw.discoveringSpaces)
 			return errors.Trace(err)
 		}
 	}
