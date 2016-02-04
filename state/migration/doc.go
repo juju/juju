@@ -19,3 +19,16 @@
 // contains a YAML serialised model description, version, and a collection
 // of binary files.
 package migration
+
+// NOTES:
+//
+// Prechecks:
+//
+// - no agents in an error state
+// - nothing dying or dead; machine, service, unit, relation, storage, network etc
+// - no units agent status in an error state
+//   - workload error status is probably fine
+// - all units using the same charm as the service
+//   - no units with pending charm updates
+// - all units have ResolvedNone for resolved status
+//   - no pending hook execution

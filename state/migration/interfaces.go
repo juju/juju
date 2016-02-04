@@ -157,3 +157,32 @@ type Service interface {
 
 	Validate() error
 }
+
+// Unit represents an instance of a service in a model.
+type Unit interface {
+	Tag() names.UnitTag
+	Name() string
+	Machine() names.MachineTag
+
+	PasswordHash() string
+
+	Principal() names.UnitTag
+	Subordinates() []names.UnitTag
+
+	// TODO: opened ports
+	// TODO: meter status
+	// TODO: storage
+
+	PublicAddress() Address
+	PrivateAddress() Address
+	SetAddresses(public AddressArgs, private AddressArgs)
+
+	Tools() AgentTools
+	SetTools(AgentToolsArgs)
+
+	WorkloadStatus() Status
+	SetWorkloadStatus(StatusArgs)
+
+	AgentStatus() Status
+	SetAgentStatus(StatusArgs)
+}
