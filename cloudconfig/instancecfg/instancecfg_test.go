@@ -24,8 +24,8 @@ func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	controllerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 	nonControllerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	testInstanceTags(c, cfg, controllerJobs, map[string]string{
-		"juju-model-uuid": testing.ModelTag.Id(),
-		"juju-is-state":   "true",
+		"juju-model-uuid":    testing.ModelTag.Id(),
+		"juju-is-controller": "true",
 	})
 	testInstanceTags(c, cfg, nonControllerJobs, map[string]string{
 		"juju-model-uuid": testing.ModelTag.Id(),

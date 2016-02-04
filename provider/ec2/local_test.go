@@ -1176,7 +1176,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
-		{"juju-is-state", "true"},
+		{"juju-is-controller", "true"},
 	})
 }
 

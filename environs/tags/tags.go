@@ -15,7 +15,7 @@ const (
 
 	// JujuController is the tag name used for determining
 	// whether a machine instance is a controller or not.
-	JujuController = JujuTagPrefix + "is-state"
+	JujuController = JujuTagPrefix + "is-controller"
 
 	// JujuUnitsDeployed is the tag name used for identifying
 	// the units deployed to a machine instance. The value is
