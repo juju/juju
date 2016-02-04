@@ -268,11 +268,7 @@ var commandNames = []string{
 	"run",
 	"run-action",
 	"scp",
-<<<<<<< HEAD
-=======
-	"service",
 	"set-budget",
->>>>>>> upstream/master
 	"set-config",
 	"set-configs",
 	"set-constraints",
@@ -283,12 +279,9 @@ var commandNames = []string{
 	"share-model",
 	"show-action-output",
 	"show-action-status",
-<<<<<<< HEAD
+	"show-budget",
 	"show-machine",
 	"show-machines",
-=======
-	"show-budget",
->>>>>>> upstream/master
 	"show-status",
 	"show-storage",
 	"show-user",
@@ -303,11 +296,7 @@ var commandNames = []string{
 	"use-model",
 	"unblock",
 	"unexpose",
-<<<<<<< HEAD
-=======
 	"update-allocation",
-	"unset",
->>>>>>> upstream/master
 	"unset-model-config",
 	"unshare-model",
 	"upgrade-charm",
