@@ -78,8 +78,8 @@ func (s *stubPersistence) StageResource(args resource.ModelResource) error {
 	return nil
 }
 
-func (s *stubPersistence) UnstageResource(id, serviceID string) error {
-	s.stub.AddCall("UnstageResource", id, serviceID)
+func (s *stubPersistence) UnstageResource(id string) error {
+	s.stub.AddCall("UnstageResource", id)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

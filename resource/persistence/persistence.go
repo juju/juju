@@ -162,7 +162,7 @@ func (p Persistence) StageResource(args resource.ModelResource) error {
 // UnstageResource ensures that the resource is removed
 // from the staging area. If it isn't in the staging area
 // then this is a noop.
-func (p Persistence) UnstageResource(id, serviceID string) error {
+func (p Persistence) UnstageResource(id string) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -171,7 +171,7 @@ func (p Persistence) UnstageResource(id, serviceID string) error {
 			return nil, errors.New("unstaging the resource failed")
 		}
 
-		ops := newRemoveStagedOps(id, serviceID)
+		ops := newRemoveStagedOps(id)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -231,7 +231,7 @@ func (p Persistence) SetResource(args resource.ModelResource) error {
 			return nil, errors.New("setting the resource failed")
 		}
 		// No matter what, we always remove any staging.
-		ops = append(ops, newRemoveStagedOps(args.ID, args.ServiceID)...)
+		ops = append(ops, newRemoveStagedOps(args.ID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {

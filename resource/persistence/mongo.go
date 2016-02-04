@@ -22,13 +22,28 @@ const (
 )
 
 // resourceID converts an external resource ID into an internal one.
-func resourceID(id, ownerID string) string {
-	return fmt.Sprintf("resource#%s#%s", ownerID, id)
+func resourceID(id, subType, subID string) string {
+	if subType == "" {
+		return fmt.Sprintf("resource#%s", id)
+	}
+	return fmt.Sprintf("resource#%s#%s-%s", id, subType, subID)
+}
+
+func serviceResourceID(id string) string {
+	return resourceID(id, "", "")
+}
+
+func pendingResourceID(id, pendingID string) string {
+	return resourceID(id, "pending", pendingID)
+}
+
+func unitResourceID(id, unitID string) string {
+	return resourceID(id, "unit", unitID)
 }
 
 // stagedID converts an external resource ID into an internal staged one.
-func stagedID(id, serviceID string) string {
-	return resourceID(id, serviceID) + stagedIDSuffix
+func stagedID(id string) string {
+	return serviceResourceID(id) + stagedIDSuffix
 }
 
 func newStagedResourceOps(args resource.ModelResource) []txn.Op {
@@ -53,8 +68,8 @@ func newEnsureStagedSameOps(args resource.ModelResource) []txn.Op {
 	}}
 }
 
-func newRemoveStagedOps(id, serviceID string) []txn.Op {
-	fullID := stagedID(id, serviceID)
+func newRemoveStagedOps(id string) []txn.Op {
+	fullID := stagedID(id)
 
 	// We don't assert that it exists. We want "missing" to be a noop.
 	return []txn.Op{{
@@ -112,19 +127,22 @@ func newUpdateResourceOps(args resource.ModelResource) []txn.Op {
 
 // newUnitResourceDoc generates a doc that represents the given resource.
 func newUnitResourceDoc(unitID string, args resource.ModelResource) *resourceDoc {
-	fullID := resourceID(args.ID, unitID)
+	fullID := unitResourceID(args.ID, unitID)
 	return unitResource2Doc(fullID, unitID, args)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
 func newResourceDoc(args resource.ModelResource) *resourceDoc {
-	fullID := resourceID(args.ID, args.ServiceID)
+	fullID := serviceResourceID(args.ID)
+	if args.PendingID != "" {
+		fullID = pendingResourceID(args.ID, args.PendingID)
+	}
 	return resource2doc(fullID, args)
 }
 
 // newStagedDoc generates a staging doc that represents the given resource.
 func newStagedDoc(args resource.ModelResource) *resourceDoc {
-	stagedID := stagedID(args.ID, args.ServiceID)
+	stagedID := stagedID(args.ID)
 	return resource2doc(stagedID, args)
 }
 

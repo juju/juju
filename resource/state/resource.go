@@ -43,7 +43,7 @@ type resourcePersistence interface {
 	// UnstageResource ensures that the resource is removed
 	// from the staging area. If it isn't in the staging area
 	// then this is a noop.
-	UnstageResource(id, serviceID string) error
+	UnstageResource(id string) error
 
 	// SetResource stores the resource info. If the resource
 	// is already staged then it is unstaged.
@@ -178,7 +178,7 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 
 	hash := res.Fingerprint.String()
 	if err := st.storage.PutAndCheckHash(path, r, res.Size, hash); err != nil {
-		if err := st.persist.UnstageResource(id, serviceID); err != nil {
+		if err := st.persist.UnstageResource(id); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
 		return res, errors.Trace(err)
@@ -188,7 +188,7 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 		if err := st.storage.Remove(path); err != nil {
 			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, serviceID, err)
 		}
-		if err := st.persist.UnstageResource(id, serviceID); err != nil {
+		if err := st.persist.UnstageResource(id); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
 		}
 		return res, errors.Trace(err)
@@ -203,7 +203,7 @@ func (st resourceState) setResourceInfo(args resource.ModelResource) error {
 	}
 
 	if err := st.persist.SetResource(args); err != nil {
-		if err := st.persist.UnstageResource(args.ID, args.ServiceID); err != nil {
+		if err := st.persist.UnstageResource(args.ID); err != nil {
 			logger.Errorf("could not unstage resource %q (service %q): %v", args.Resource.Name, args.ServiceID, err)
 		}
 		return errors.Trace(err)

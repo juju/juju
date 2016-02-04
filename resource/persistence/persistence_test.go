@@ -215,7 +215,7 @@ func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
@@ -234,13 +234,13 @@ func (s *PersistenceSuite) TestStageResourceExists(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Assert: &doc,
 	}})
 }
@@ -264,13 +264,13 @@ func (s *PersistenceSuite) TestUnstageResourceOkay(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
-	err := p.UnstageResource(doc.Name, "a-service")
+	err := p.UnstageResource(doc.ID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
 }
@@ -287,12 +287,12 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam",
+		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
 }
@@ -311,7 +311,7 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/0#eggs",
+		Id:     "resource#a-service/eggs#unit-a-service/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
@@ -329,27 +329,27 @@ func (s *PersistenceSuite) TestSetResourceExists(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam",
+		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service#spam",
+		Id:     "resource#a-service/spam",
 		Assert: txn.DocExists,
 		Remove: true,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service#spam",
+		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service#spam#staged",
+		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
 }
@@ -366,18 +366,18 @@ func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/0#spam",
+		Id:     "resource#a-service/spam#unit-a-service/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/0#spam",
+		Id:     "resource#a-service/spam#unit-a-service/0",
 		Assert: txn.DocExists,
 		Remove: true,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service/0#spam",
+		Id:     "resource#a-service/spam#unit-a-service/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
@@ -421,7 +421,7 @@ func newResources(c *gc.C, serviceID string, names ...string) (resource.ServiceR
 
 func newUnitResource(c *gc.C, serviceID, unitID, name string) (resource.ModelResource, resourceDoc) {
 	res, doc := newResource(c, serviceID, name)
-	doc.DocID = "resource#" + unitID + "#" + name
+	doc.DocID += "#unit-" + unitID
 	doc.UnitID = unitID
 	return res, doc
 }
@@ -448,14 +448,14 @@ func newResource(c *gc.C, serviceID, name string) (resource.ModelResource, resou
 	}
 
 	mRes := resource.ModelResource{
-		ID:          name,
+		ID:          serviceID + "/" + name,
 		ServiceID:   serviceID,
 		Resource:    res,
 		StoragePath: "service-" + serviceID + "/resources/" + name,
 	}
 
 	doc := resourceDoc{
-		DocID:     "resource#" + serviceID + "#" + name,
+		DocID:     "resource#" + mRes.ID,
 		ID:        mRes.ID,
 		ServiceID: serviceID,
 

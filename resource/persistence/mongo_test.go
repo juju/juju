@@ -28,7 +28,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -81,7 +81,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -130,7 +130,7 @@ func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -176,7 +176,7 @@ func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,7 +227,7 @@ func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -325,7 +325,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	now := time.Now().UTC()
 
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -373,7 +373,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,7 +421,7 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 
 func (s *MongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
 		ID:        "spam",
@@ -451,7 +451,7 @@ func (s *MongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 
 func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 	serviceID := "a-service"
-	id := resourceID("spam", serviceID)
+	id := serviceResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{

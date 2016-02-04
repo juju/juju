@@ -233,7 +233,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "UnstageResource", "service-a-service/"+res.Name, "a-service")
+	s.stub.CheckCall(c, 3, "UnstageResource", "service-a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
@@ -267,7 +267,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "UnstageResource", "service-a-service/"+res.Name, "a-service")
+	s.stub.CheckCall(c, 3, "UnstageResource", "service-a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
@@ -304,7 +304,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
 	s.stub.CheckCall(c, 3, "SetResource", expected)
 	s.stub.CheckCall(c, 4, "Remove", path)
-	s.stub.CheckCall(c, 5, "UnstageResource", "service-a-service/"+res.Name, "a-service")
+	s.stub.CheckCall(c, 5, "UnstageResource", "service-a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
@@ -343,7 +343,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
 	s.stub.CheckCall(c, 3, "SetResource", expected)
 	s.stub.CheckCall(c, 4, "Remove", path)
-	s.stub.CheckCall(c, 5, "UnstageResource", "service-a-service/"+res.Name, "a-service")
+	s.stub.CheckCall(c, 5, "UnstageResource", "service-a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
