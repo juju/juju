@@ -52,6 +52,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Values: []interface{}{
 			string(instance.LXC),
+			string(instance.LXD),
 			string(instance.KVM),
 		},
 	},
@@ -76,7 +77,7 @@ var (
 	configDefaults = schema.Defaults{
 		RootDirKey:       "",
 		NetworkBridgeKey: "",
-		ContainerKey:     string(instance.LXC),
+		ContainerKey:     string(instance.LXD),
 		BootstrapIpKey:   schema.Omit,
 		NamespaceKey:     "",
 	}

@@ -6,6 +6,8 @@
 package lxdclient
 
 import (
+	"path"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
@@ -19,6 +21,7 @@ type Client struct {
 	*certClient
 	*profileClient
 	*instanceClient
+	*imageClient
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -42,6 +45,7 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
+		imageClient:	    &imageClient{raw},
 	}
 	return conn, nil
 }
@@ -52,11 +56,7 @@ var lxdLoadConfig = lxd.LoadConfig
 func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	logger.Debugf("loading LXD client config from %q", configDir)
 
-	// This will go away once LoadConfig takes a dirname argument.
-	origDirname := updateLXDVars(configDir)
-	defer updateLXDVars(origDirname)
-
-	cfg, err := lxdLoadConfig()
+	cfg, err := lxdLoadConfig(path.Join(configDir, "config.yml"))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

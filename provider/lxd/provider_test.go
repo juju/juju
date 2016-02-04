@@ -89,7 +89,6 @@ lxd:
     #
     # You will also need to prepare the "ubuntu" images that Juju uses:
     #
-    #   lxc remote add images images.linuxcontainers.org
     #   lxd-images import ubuntu --alias ubuntu-wily wily
     #
     # (Also consider the --stream and --sync options.)

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/instance"
 )
 
@@ -68,6 +69,8 @@ var VerifyPrerequisites = func(containerType instance.ContainerType) error {
 	switch containerType {
 	case instance.LXC:
 		return verifyLxc()
+	case instance.LXD:
+		return verifyLxd()
 	case instance.KVM:
 		return kvm.VerifyKVMEnabled()
 	}
@@ -79,6 +82,15 @@ func verifyLxc() error {
 	if err != nil {
 		return wrapLxcNotFound(err)
 	}
+	return verifyCloudImageUtils()
+}
+
+func verifyLxd() error {
+	_, err := lxd.ConnectLocal("DUMMY")
+	if err != nil {
+		return err
+	}
+
 	return verifyCloudImageUtils()
 }
 
