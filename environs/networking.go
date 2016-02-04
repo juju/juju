@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
+var SupportsNetworking = supportsNetworking
+
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
@@ -69,7 +71,7 @@ type NetworkingEnviron interface {
 // SupportsNetworking is a convenience helper to check if an environment
 // supports networking. It returns an interface containing Environ and
 // Networking in this case.
-func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
+func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
 }

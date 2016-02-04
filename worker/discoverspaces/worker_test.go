@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	apidiscoverspaces "github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -103,17 +104,38 @@ func (s *workerSuite) assertSpacesDiscovered(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
+func (s *workerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
+	// We set SupportsSpaceDiscovery to true so that spaces *would* be
+	// discovered if networking was supported. So we know that if they're
+	// discovered it must be because networking is not supported.
+	dummy.SetSupportsSpaceDiscovery(true)
+	noNetworking := func(environs.Environ) (environs.NetworkingEnviron, bool) {
+		return nil, false
+	}
+	s.PatchValue(&environs.SupportsNetworking, noNetworking)
 	s.startWorker()
-	spaces, err := s.State.AllSpaces()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// No spaces will have been created, worker does nothing.
 	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err = s.State.AllSpaces()
-		if err != nil {
-			c.Fatalf("error fetching spaces: %v", err)
+		spaces, err := s.State.AllSpaces()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(spaces) != 0 {
+			c.Fatalf("spaces should not be created, we have %v", len(spaces))
 		}
+		if !a.HasNext() {
+			break
+		}
+	}
+	s.assertSpacesDiscovered(c)
+}
+
+func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
+	s.startWorker()
+
+	// No spaces will have been created, worker does nothing.
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		spaces, err := s.State.AllSpaces()
+		c.Assert(err, jc.ErrorIsNil)
 		if len(spaces) != 0 {
 			c.Fatalf("spaces should not be created, we have %v", len(spaces))
 		}
