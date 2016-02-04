@@ -11,6 +11,9 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// SupportsNetworking is a convenience helper to check if an environment
+// supports networking. It returns an interface containing Environ and
+// Networking in this case.
 var SupportsNetworking = supportsNetworking
 
 // Networking interface defines methods that environments
@@ -68,9 +71,6 @@ type NetworkingEnviron interface {
 	Networking
 }
 
-// SupportsNetworking is a convenience helper to check if an environment
-// supports networking. It returns an interface containing Environ and
-// Networking in this case.
 func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
