@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -266,4 +267,122 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		OwnerTag:           otherEnvOwner.UserTag().String(),
 		Life:               params.Alive,
 	}})
+}
+
+func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+	// Create two hosted models to migrate.
+	st1 := s.Factory.MakeModel(c, nil)
+	defer st1.Close()
+
+	st2 := s.Factory.MakeModel(c, nil)
+	defer st2.Close()
+
+	// Kick off the migration.
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{
+			{
+				ModelTag: st1.ModelTag(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert1",
+					EntityTag:     names.NewUserTag("admin1"),
+					Password:      "secret1",
+				},
+			}, {
+				ModelTag: st2.ModelTag(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"3.3.3.3:3333"},
+					CACert:        "cert2",
+					EntityTag:     names.NewUserTag("admin2"),
+					Password:      "secret2",
+				},
+			},
+		},
+	}
+	out, err := s.controller.InitiateModelMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 2)
+
+	states := []*state.State{st1, st2}
+	for i, spec := range args.Specs {
+		st := states[i]
+		result := out.Results[i]
+
+		c.Check(result.Error, gc.IsNil)
+		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
+		expectedId := spec.ModelTag.Id() + ":0"
+		c.Check(result.Id, gc.Equals, expectedId)
+
+		// Ensure the migration made it into the DB correctly.
+		mig, err := state.GetModelMigration(st)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(mig.Id(), gc.Equals, expectedId)
+		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
+		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
+		targetInfo, err := mig.TargetInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(targetInfo.ControllerTag, gc.Equals, spec.TargetInfo.ControllerTag)
+		c.Check(targetInfo.Addrs, jc.SameContents, spec.TargetInfo.Addrs)
+		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
+		c.Check(targetInfo.EntityTag, gc.Equals, spec.TargetInfo.EntityTag)
+		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
+	}
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
+	// Create a hosted model to migrate.
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	// Kick off the migration with missing details.
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{{
+			ModelTag: st.ModelTag(),
+			// TargetInfo missing
+		}},
+	}
+	out, err := s.controller.InitiateModelMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 1)
+	result := out.Results[0]
+	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
+	c.Check(result.Id, gc.Equals, "")
+	c.Check(result.Error, gc.ErrorMatches, ".+ not valid")
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{
+			{
+				ModelTag: st.ModelTag(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert",
+					EntityTag:     names.NewUserTag("admin"),
+					Password:      "secret",
+				},
+			}, {
+				ModelTag: randomModelTag(), // Doesn't exist.
+			},
+		},
+	}
+	out, err := s.controller.InitiateModelMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 2)
+
+	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag())
+	c.Check(out.Results[0].Error, gc.IsNil)
+
+	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
+	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func randomModelTag() names.ModelTag {
+	return names.NewModelTag(utils.MustNewUUID().String())
 }
