@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -32,16 +31,18 @@ type removeKeysCommand struct {
 	keyIds []string
 }
 
+// Info implements Command.Info.
 func (c *removeKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-ssh-key",
 		Args:    "<ssh key id> [...]",
 		Doc:     removeKeysDoc,
-		Purpose: "remove authorized ssh keys for a Juju user",
+		Purpose: "remove authorized ssh keys from a Juju model",
 		Aliases: []string{"remove-ssh-keys"},
 	}
 }
 
+// Init implements Command.Init.
 func (c *removeKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
@@ -52,10 +53,7 @@ func (c *removeKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *removeKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "admin", "the user for which to remove the keys")
-}
-
+// Run implements Command.Run.
 func (c *removeKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
@@ -63,6 +61,9 @@ func (c *removeKeysCommand) Run(context *cmd.Context) error {
 	}
 	defer client.Close()
 
+	// TODO(alexisb) - currently keys are global which is not ideal.
+	// keymanager needs to be updated to allow keys per user
+	c.user = "admin"
 	results, err := client.DeleteKeys(c.user, c.keyIds...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)

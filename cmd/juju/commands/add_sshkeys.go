@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -30,16 +29,18 @@ type addKeysCommand struct {
 	sshKeys []string
 }
 
+// Info implements Command.Info.
 func (c *addKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-ssh-key",
 		Args:    "<ssh key> [...]",
 		Doc:     addKeysDoc,
-		Purpose: "add new authorized ssh keys for a Juju user",
+		Purpose: "add new authorized ssh keys do a Juju model ",
 		Aliases: []string{"add-ssh-keys"},
 	}
 }
 
+// Init implements Command.Init.
 func (c *addKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
@@ -50,17 +51,16 @@ func (c *addKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *addKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "admin", "the user for which to add the keys")
-}
-
+// Run implements Command.Run.
 func (c *addKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-
+	// TODO(alexisb) - currently keys are global which is not ideal.
+	// keymanager needs to be updated to allow keys per user
+	c.user = "admin"
 	results, err := client.AddKeys(c.user, c.sshKeys...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)

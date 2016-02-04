@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type SSHKeysSuite struct {
@@ -100,7 +99,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys for user admin:\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(output, gc.Matches, "Keys used in model: dummymodel\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
@@ -112,20 +111,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys for user admin:\n.*user@host\n.*another@host")
-}
-
-func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorizedKeys(c, key1, key2)
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
-
-	context, err := coretesting.RunCommand(c, NewListKeysCommand(), "--user", "fred")
-	c.Assert(err, jc.ErrorIsNil)
-	output := strings.TrimSpace(coretesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys for user fred:\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(output, gc.Matches, "Keys used in model: dummymodel\n.*user@host\n.*another@host")
 }
 
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {
@@ -161,18 +147,6 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 	s.AssertBlocked(c, err, ".*TestBlockAddKey.*")
 }
 
-func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorizedKeys(c, key1)
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
-
-	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	context, err := coretesting.RunCommand(c, NewAddKeysCommand(), "--user", "fred", key2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "")
-	s.assertEnvironKeys(c, key1, key2)
-}
-
 type RemoveKeySuite struct {
 	keySuiteBase
 }
@@ -201,19 +175,6 @@ func (s *RemoveKeySuite) TestBlockRemoveKeys(c *gc.C) {
 	_, err := coretesting.RunCommand(c, NewRemoveKeysCommand(),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveKeys.*")
-}
-
-func (s *RemoveKeySuite) TestRemoveKeyNonDefaultUser(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorizedKeys(c, key1, key2)
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
-
-	context, err := coretesting.RunCommand(c, NewRemoveKeysCommand(),
-		"--user", "fred", sshtesting.ValidKeyTwo.Fingerprint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "")
-	s.assertEnvironKeys(c, key1)
 }
 
 type ImportKeySuite struct {
@@ -245,15 +206,4 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "invalid-key")
 	s.AssertBlocked(c, err, ".*TestBlockImportKeys.*")
-}
-
-func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {
-	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorizedKeys(c, key1)
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
-
-	context, err := coretesting.RunCommand(c, NewImportKeysCommand(), "--user", "fred", "lp:validuser")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "")
-	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
 }

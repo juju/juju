@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -31,16 +30,18 @@ type importKeysCommand struct {
 	sshKeyIds []string
 }
 
+// Info implements Command.Info.
 func (c *importKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "import-ssh-key",
 		Args:    "<ssh key id> [...]",
 		Doc:     importKeysDoc,
-		Purpose: "using ssh-import-id, import new authorized ssh keys for a Juju user",
+		Purpose: "using ssh-import-id, import new authorized ssh keys to a Juju model",
 		Aliases: []string{"import-ssh-keys"},
 	}
 }
 
+// Init implements Command.Init.
 func (c *importKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
@@ -51,10 +52,7 @@ func (c *importKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *importKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "admin", "the user for which to import the keys")
-}
-
+// Run implemetns Command.Run.
 func (c *importKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
@@ -62,6 +60,9 @@ func (c *importKeysCommand) Run(context *cmd.Context) error {
 	}
 	defer client.Close()
 
+	// TODO(alexisb) - currently keys are global which is not ideal.
+	// keymanager needs to be updated to allow keys per user
+	c.user = "admin"
 	results, err := client.ImportKeys(c.user, c.sshKeyIds...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)

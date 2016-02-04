@@ -32,6 +32,7 @@ type listKeysCommand struct {
 	user        string
 }
 
+// Info implements Command.Info.
 func (c *listKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-ssh-keys",
@@ -41,10 +42,12 @@ func (c *listKeysCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showFullKey, "full", false, "show full key instead of just the key fingerprint")
 }
 
+// Run implements Command.Run.
 func (c *listKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
