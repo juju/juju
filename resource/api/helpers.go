@@ -19,6 +19,9 @@ import (
 func Resource2API(res resource.Resource) Resource {
 	return Resource{
 		CharmResource: CharmResource2API(res.Resource),
+		ID:            res.ID,
+		PendingID:     res.PendingID,
+		ServiceID:     res.ServiceID,
 		Username:      res.Username,
 		Timestamp:     res.Timestamp,
 	}
@@ -76,6 +79,9 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 
 	res = resource.Resource{
 		Resource:  charmRes,
+		ID:        apiRes.ID,
+		PendingID: apiRes.PendingID,
+		ServiceID: apiRes.ServiceID,
 		Username:  apiRes.Username,
 		Timestamp: apiRes.Timestamp,
 	}

@@ -50,6 +50,9 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -68,6 +71,9 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	})
@@ -90,6 +96,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -109,6 +118,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -126,6 +138,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -141,6 +156,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -196,6 +214,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -215,6 +236,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -232,6 +256,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -247,6 +274,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
@@ -280,6 +310,8 @@ func (helpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		ServiceID: "a-service",
 	}
 	failure := errors.New("<failure>")
 
@@ -309,6 +341,8 @@ func (helpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		ServiceID: "a-service",
 	}
 
 	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
@@ -339,6 +373,9 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	})
@@ -359,6 +396,9 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: now,
 	}
