@@ -197,10 +197,10 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 	// in order to avoid some conversion problems from Mongo.
 	return &resourceDoc{
 		DocID:     id,
-		ID:        args.ID,
-		PendingID: args.PendingID,
+		ID:        res.ID,
+		PendingID: res.PendingID,
 
-		ServiceID: args.ServiceID,
+		ServiceID: res.ServiceID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),
@@ -268,6 +268,9 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 			Fingerprint: fp,
 			Size:        doc.Size,
 		},
+		ID:        doc.ID,
+		PendingID: doc.PendingID,
+		ServiceID: doc.ServiceID,
 		Username:  doc.Username,
 		Timestamp: doc.Timestamp,
 	}
