@@ -66,7 +66,7 @@ class GenerateMirrors(TestCase):
             purposeful_mirrors = data['mirrors'][product_name]
             purpose = product_name.split(':')[1]
             self.assertEqual(
-                'streams/v1/com.ubuntu.juju:%s:tools.json' % purpose,
+                'streams/v1/com.ubuntu.juju-%s-tools.json' % purpose,
                 purposeful_mirrors[0]['path'])
             self.assertEqual(
                 'https://juju-dist.s3.amazonaws.com/tools',
@@ -97,7 +97,7 @@ class GenerateMirrors(TestCase):
         purposeful_mirror = data['mirrors'][product_name]
         purpose = product_name.split(':')[1]
         self.assertEqual(
-            'streams/v1/com.ubuntu.juju:%s:tools.json' % purpose,
+            'streams/v1/com.ubuntu.juju-%s-tools.json' % purpose,
             purposeful_mirror[0]['path'])
         self.assertEqual(
             'https://juju-dist.s3.amazonaws.com/devel/tools',
