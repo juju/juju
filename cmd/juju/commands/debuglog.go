@@ -12,21 +12,19 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newDebugLogCommand() cmd.Command {
-	return envcmd.Wrap(&debugLogCommand{})
+	return modelcmd.Wrap(&debugLogCommand{})
 }
 
 type debugLogCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 
 	level  string
 	params api.DebugLogParams
 }
-
-var DefaultLogLocation = "/var/log/juju/all-machines.log"
 
 // defaultLineCount is the default number of lines to
 // display, from the end of the consolidated log.
@@ -34,7 +32,7 @@ const defaultLineCount = 10
 
 const debuglogDoc = `
 Stream the consolidated debug log file. This file contains the log messages
-from all nodes in the environment.
+from all nodes in the model.
 `
 
 func (c *debugLogCommand) Info() *cmd.Info {
@@ -60,6 +58,8 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
 	f.UintVar(&c.params.Limit, "limit", 0, "show at most this many lines")
 	f.BoolVar(&c.params.Replay, "replay", false, "start filtering from the start")
+	f.BoolVar(&c.params.NoTail, "T", false, "stop after returning existing log messages")
+	f.BoolVar(&c.params.NoTail, "no-tail", false, "")
 }
 
 func (c *debugLogCommand) Init(args []string) error {

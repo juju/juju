@@ -18,9 +18,9 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
-	env, err := utils.GetEnvironment(s.State)
+	env, err := utils.GetEnviron(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	config, err := s.State.EnvironConfig()
+	config, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.Config(), jc.DeepEquals, config)

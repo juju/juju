@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/storage"
 )
@@ -88,7 +89,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		c.Assert(args.Services[0].NumUnits, gc.Equals, 2)
 		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
 		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		c.Assert(args.Services[0].ToMachineSpec, gc.Equals, "machineSpec")
+		c.Assert(args.Services[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
 		c.Assert(args.Services[0].Networks, gc.DeepEquals, []string{"neta"})
 		c.Assert(args.Services[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 
@@ -97,7 +98,8 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		return nil
 	})
 	err := s.client.ServiceDeploy("charmURL", "serviceA", "series", 2, "configYAML", constraints.MustParse("mem=4G"),
-		"machineSpec", nil, []string{"neta"}, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+		[]*instance.Placement{{"scope", "directive"}}, []string{"neta"},
+		map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

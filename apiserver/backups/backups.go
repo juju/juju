@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Backups", 0, NewAPI)
+	common.RegisterStandardFacade("Backups", 1, NewAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.backups")
@@ -36,9 +36,9 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	// For now, backup operations are only permitted on the system environment.
-	if !st.IsStateServer() {
-		return nil, errors.New("backups are not supported for hosted environments")
+	// For now, backup operations are only permitted on the controller environment.
+	if !st.IsController() {
+		return nil, errors.New("backups are not supported for hosted models")
 	}
 
 	// Get the backup paths.
@@ -106,7 +106,7 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	}
 	result.Notes = meta.Notes
 
-	result.Environment = meta.Origin.Environment
+	result.Model = meta.Origin.Model
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
@@ -123,7 +123,7 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 	if !result.Finished.IsZero() {
 		meta.Finished = &result.Finished
 	}
-	meta.Origin.Environment = result.Environment
+	meta.Origin.Model = result.Model
 	meta.Origin.Machine = result.Machine
 	meta.Origin.Hostname = result.Hostname
 	meta.Origin.Version = result.Version

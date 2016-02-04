@@ -18,7 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/tools"
@@ -44,7 +44,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		loggo.ResetLoggers()
 	})
 	env, err := environs.PrepareFromName(
-		"erewhemos", envcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
+		"erewhemos", modelcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
@@ -66,7 +66,7 @@ var versionStrings = append([]string{
 	fmt.Sprintf("%d.12.0-precise-i386", version.Current.Major),
 	fmt.Sprintf("%d.12.0-raring-amd64", version.Current.Major),
 	fmt.Sprintf("%d.12.0-raring-i386", version.Current.Major),
-	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major),
+	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major+1),
 }, currentVersionStrings...)
 
 var expectedOutputCommon = makeExpectedOutputCommon()

@@ -273,14 +273,14 @@ func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 		Clock:    clock.WallClock,
 	})
 	if err != nil {
-		logger.Warningf("cannot delete security group %q. Used by another environment?", name)
+		logger.Warningf("cannot delete security group %q. Used by another model?", name)
 	}
 }
 
 // OpenPorts implements Firewaller interface.
 func (c *defaultFirewaller) OpenPorts(ports []network.PortRange) error {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
 			c.environ.Config().FirewallMode())
 	}
 	if err := c.openPortsInGroup(c.globalGroupName(), ports); err != nil {
@@ -293,7 +293,7 @@ func (c *defaultFirewaller) OpenPorts(ports []network.PortRange) error {
 // ClosePorts implements Firewaller interface.
 func (c *defaultFirewaller) ClosePorts(ports []network.PortRange) error {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
 			c.environ.Config().FirewallMode())
 	}
 	if err := c.closePortsInGroup(c.globalGroupName(), ports); err != nil {
@@ -306,7 +306,7 @@ func (c *defaultFirewaller) ClosePorts(ports []network.PortRange) error {
 // Ports implements Firewaller interface.
 func (c *defaultFirewaller) Ports() ([]network.PortRange, error) {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
 			c.environ.Config().FirewallMode())
 	}
 	return c.portsInGroup(c.globalGroupName())

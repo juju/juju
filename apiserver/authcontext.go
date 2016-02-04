@@ -91,9 +91,9 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 // newMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins. This is just a helper function for authCtxt.macaroonAuth.
 func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, error) {
-	envCfg, err := st.EnvironConfig()
+	envCfg, err := st.ModelConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get environment config")
+		return nil, errors.Annotate(err, "cannot get model config")
 	}
 	idURL := envCfg.IdentityURL()
 	if idURL == "" {
@@ -111,7 +111,7 @@ func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, er
 	}
 	svc, err := bakery.NewService(
 		bakery.NewServiceParams{
-			Location: "juju environment " + st.EnvironUUID(),
+			Location: "juju model " + st.ModelUUID(),
 			Locator: bakery.PublicKeyLocatorMap{
 				idURL: idPK,
 			},

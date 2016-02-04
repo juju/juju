@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -23,40 +23,39 @@ func newSwitchCommand() cmd.Command {
 
 type switchCommand struct {
 	cmd.CommandBase
-	EnvName string
-	List    bool
+	ModelName string
+	List      bool
 }
 
 var switchDoc = `
-Show or change the default juju environment or system name.
+Show or change the default juju model or controller name.
 
 If no command line parameters are passed, switch will output the current
-environment as defined by the file $JUJU_HOME/current-environment.
+model as defined by the file $JUJU_HOME/current-model.
 
 If a command line parameter is passed in, that value will is stored in the
-current environment file if it represents a valid environment name as
+current model file if it represents a valid model name as
 specified in the environments.yaml file.
 `
 
-const systemSuffix = " (system)"
+const controllerSuffix = " (controller)"
 
 func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
-		Args:    "[environment name]",
-		Purpose: "show or change the default juju environment or system name",
+		Args:    "[model name]",
+		Purpose: "show or change the default juju model or controller name",
 		Doc:     switchDoc,
-		Aliases: []string{"env"},
 	}
 }
 
 func (c *switchCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.List, "l", false, "list the environment names")
+	f.BoolVar(&c.List, "l", false, "list the model names")
 	f.BoolVar(&c.List, "list", false, "")
 }
 
 func (c *switchCommand) Init(args []string) (err error) {
-	c.EnvName, err = cmd.ZeroOrOneArgs(args)
+	c.ModelName, err = cmd.ZeroOrOneArgs(args)
 	return
 }
 
@@ -67,20 +66,20 @@ func getConfigstoreOptions() (set.Strings, set.Strings, error) {
 	}
 	environmentNames, err := store.List()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list environments in config store")
+		return nil, nil, errors.Annotate(err, "failed to list models in config store")
 	}
-	systemNames, err := store.ListSystems()
+	controllerNames, err := store.ListSystems()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list systems in config store")
+		return nil, nil, errors.Annotate(err, "failed to list controllers in config store")
 	}
-	// Also include the systems.
-	return set.NewStrings(environmentNames...), set.NewStrings(systemNames...), nil
+	// Also include the controllers.
+	return set.NewStrings(environmentNames...), set.NewStrings(controllerNames...), nil
 }
 
 func (c *switchCommand) Run(ctx *cmd.Context) error {
 	// Switch is an alternative way of dealing with environments than using
-	// the JUJU_ENV environment setting, and as such, doesn't play too well.
-	// If JUJU_ENV is set we should report that as the current environment,
+	// the JUJU_MODEL environment setting, and as such, doesn't play too well.
+	// If JUJU_MODEL is set we should report that as the current environment,
 	// and not allow switching when it is set.
 
 	// Passing through the empty string reads the default environments.yaml file.
@@ -91,7 +90,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
 		if !environs.IsNoEnv(err) {
-			return errors.Annotate(err, "couldn't read the environment")
+			return errors.Annotate(err, "couldn't read the model")
 		}
 		envFileExists = false
 	} else {
@@ -100,38 +99,38 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	configEnvirons, configSystems, err := getConfigstoreOptions()
+	configEnvirons, configControllers, err := getConfigstoreOptions()
 	if err != nil {
 		return err
 	}
 	names = names.Union(configEnvirons)
-	names = names.Union(configSystems)
+	names = names.Union(configControllers)
 
 	if c.List {
-		// List all environments and systems.
-		if c.EnvName != "" {
+		// List all environments and controllers.
+		if c.ModelName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
 		for _, name := range names.SortedValues() {
-			if configSystems.Contains(name) && !configEnvirons.Contains(name) {
-				name += systemSuffix
+			if configControllers.Contains(name) && !configEnvirons.Contains(name) {
+				name += controllerSuffix
 			}
 			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
 		return nil
 	}
 
-	jujuEnv := os.Getenv("JUJU_ENV")
+	jujuEnv := os.Getenv("JUJU_MODEL")
 	if jujuEnv != "" {
-		if c.EnvName == "" {
+		if c.ModelName == "" {
 			fmt.Fprintf(ctx.Stdout, "%s\n", jujuEnv)
 			return nil
 		} else {
-			return errors.Errorf("cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
+			return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", jujuEnv)
 		}
 	}
 
-	current, isSystem, err := envcmd.CurrentConnectionName()
+	current, isController, err := modelcmd.CurrentConnectionName()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,32 +138,32 @@ func (c *switchCommand) Run(ctx *cmd.Context) error {
 		if envFileExists {
 			current = environments.Default
 		}
-	} else if isSystem {
-		current += systemSuffix
+	} else if isController {
+		current += controllerSuffix
 	}
 
 	// Handle the different operation modes.
 	switch {
-	case c.EnvName == "" && current == "":
+	case c.ModelName == "" && current == "":
 		// Nothing specified and nothing to switch to.
-		return errors.New("no currently specified environment")
-	case c.EnvName == "":
+		return errors.New("no currently specified model")
+	case c.ModelName == "":
 		// Simply print the current environment.
 		fmt.Fprintf(ctx.Stdout, "%s\n", current)
 		return nil
 	default:
 		// Switch the environment.
-		if !names.Contains(c.EnvName) {
-			return errors.Errorf("%q is not a name of an existing defined environment or system", c.EnvName)
+		if !names.Contains(c.ModelName) {
+			return errors.Errorf("%q is not a name of an existing defined model or controller", c.ModelName)
 		}
-		// If the name is not in the environment set, but is in the system
-		// set, then write the name into the current system file.
-		logger.Debugf("systems: %v", configSystems)
-		logger.Debugf("environs: %v", configEnvirons)
-		newEnv := c.EnvName
-		if configSystems.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			return envcmd.SetCurrentSystem(ctx, newEnv)
+		// If the name is not in the environment set, but is in the controller
+		// set, then write the name into the current controller file.
+		logger.Debugf("controllers: %v", configControllers)
+		logger.Debugf("models: %v", configEnvirons)
+		newEnv := c.ModelName
+		if configControllers.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
+			return modelcmd.SetCurrentController(ctx, newEnv)
 		}
-		return envcmd.SetCurrentEnvironment(ctx, newEnv)
+		return modelcmd.SetCurrentModel(ctx, newEnv)
 	}
 }

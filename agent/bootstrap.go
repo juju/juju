@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// BootstrapNonce is used as a nonce for the state server machine.
+	// BootstrapNonce is used as a nonce for the controller machine.
 	BootstrapNonce = "user-admin:bootstrap"
 )
 
@@ -31,9 +31,11 @@ type BootstrapMachineConfig struct {
 	// Addresses holds the bootstrap machine's addresses.
 	Addresses []network.Address
 
-	// Constraints holds the bootstrap machine's constraints.
-	// This value is also used for the environment-level constraints.
-	Constraints constraints.Value
+	// BootstrapConstraints holds the bootstrap machine's constraints.
+	BootstrapConstraints constraints.Value
+
+	// ModelConstraints holds the model-level constraints.
+	ModelConstraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
 	Jobs []multiwatcher.MachineJob
@@ -52,14 +54,14 @@ type BootstrapMachineConfig struct {
 const BootstrapMachineId = "0"
 
 // InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to create the state server, dial the
-// state server, and initialize it. It also generates a new password for the
+// configuration. It uses that information to create the controller, dial the
+// controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
 //
-// The envCfg values will be stored in the state's EnvironConfig; the
+// The envCfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
-// and its constraints will be also be used for the environment-level
-// constraints. The connection to the state server will respect the
+// and its constraints will be also be used for the model-level
+// constraints. The connection to the controller will respect the
 // given timeout parameter.
 //
 // InitializeState returns the newly initialized state and bootstrap
@@ -104,7 +106,7 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 	if !isLocalEnv(envCfg) {
 		machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
 	} else {
-		logger.Debugf("local environment - not filtering addresses from %v", machineCfg.Addresses)
+		logger.Debugf("local model - not filtering addresses from %v", machineCfg.Addresses)
 	}
 
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
@@ -140,7 +142,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 }
 
 func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
+	if err := st.SetModelConstraints(cfg.ModelConstraints); err != nil {
 		return nil, errors.Errorf("cannot set initial environ constraints: %v", err)
 	}
 	m, err := initBootstrapMachine(c, st, cfg)
@@ -177,7 +179,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 		Addresses:               cfg.Addresses,
 		Series:                  series.HostSeries(),
 		Nonce:                   BootstrapNonce,
-		Constraints:             cfg.Constraints,
+		Constraints:             cfg.BootstrapConstraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,
 		Jobs: jobs,
@@ -220,13 +222,10 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	switch job {
 	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
+	case multiwatcher.JobManageModel:
+		return state.JobManageModel, nil
 	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}

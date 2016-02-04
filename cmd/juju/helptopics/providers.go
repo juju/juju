@@ -29,7 +29,7 @@ See Also:
 `
 
 const helpLocalProvider = `
-The local provider is a Linux-only Juju environment that uses LXC containers as
+The local provider is a Linux-only Juju model that uses LXC containers as
 a virtual cloud on the local machine.  Because of this, lxc and mongodb are
 required for the local provider to work. All of these dependencies are tracked
 in the 'juju-local' package. You can install that with:
@@ -51,7 +51,7 @@ The first time this runs it might take a bit, as it's doing a netinstall for
 the container, it's around a 300 megabyte download. Subsequent bootstraps
 should be much quicker. You'll be asked for your 'sudo' password, which is
 needed because only root can create LXC containers. When you need to destroy
-the environment, do 'juju destroy-environment local' and you could be asked
+the model, do 'juju destroy-model local' and you could be asked
 for your 'sudo' password again.
 
 You deploy charms from the charm store using the following commands:
@@ -118,7 +118,7 @@ Here's an example OpenStack configuration:
     # Usually set via the env variable OS_REGION_NAME, but can be specified here
     # region: <your region>
 
-If you have set the described OS_* environment variables, you only need "type:".
+If you have set the described OS_* model variables, you only need "type:".
 References:
 
   http://juju.ubuntu.com/docs/provider-configuration-openstack.html
@@ -126,7 +126,7 @@ References:
 
 Placement directives:
 
-  OpenStack environments support the following placement directives for use
+  OpenStack models support the following placement directives for use
   with "juju bootstrap" and "juju add-machine":
 
     zone=<availability-zone-name>
@@ -145,9 +145,9 @@ provider check these questions out for provider-specific information:
 `
 
 const helpEC2Provider = `
-Configuring the EC2 environment requires telling Juju about your AWS access key
+Configuring the EC2 model requires telling Juju about your AWS access key
 and secret key. To do this, you can either set the 'AWS_ACCESS_KEY_ID' and
-'AWS_SECRET_ACCESS_KEY' environment variables[1] (as usual for other EC2 tools)
+'AWS_SECRET_ACCESS_KEY' model variables[1] (as usual for other EC2 tools)
 or you can add access-key and secret-key options to your environments.yaml.
 These are already in place in the generated config, you just need to uncomment
 them out. For example:
@@ -169,7 +169,7 @@ And that's it, you're ready to go!
 
 Placement directives:
 
-  EC2 environments support the following placement directives for use with
+  EC2 models support the following placement directives for use with
   "juju bootstrap" and "juju add-machine":
 
     zone=<availability-zone-name>
@@ -193,7 +193,7 @@ More information:
 
 const helpHPCloud = `
 HP Cloud is an Openstack cloud provider.  To deploy to it, use an openstack
-environment type for Juju, which would look something like this:
+model type for Juju, which would look something like this:
 
   sample_hpcloud:
     type: openstack
@@ -210,7 +210,7 @@ See the online help for more information:
 `
 
 const helpAzureProvider = `
-A generic Windows Azure environment looks like this:
+A generic Windows Azure model looks like this:
 
   sample_azure:
     type: azure
@@ -218,17 +218,33 @@ A generic Windows Azure environment looks like this:
     # Location for instances, e.g. West US, North Europe.
     location: West US
 
-    # http://msdn.microsoft.com/en-us/library/windowsazure
-    # Windows Azure Management info.
-    management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d
-    management-certificate-path: /home/me/azure.pem
+    # application-id is the ID of an application you create in Azure Active
+    # Directory for Juju to use. For instructions on how to do this, see:
+    #   https://azure.microsoft.com/en-us/documentation/articles/resource-group-authenticate-service-principal
+    application-id: 00000000-0000-0000-0000-000000000000
 
-    # Windows Azure Storage info.
-    storage-account-name: juju0useast0
+    # application-password is the password specified when creating the
+    # application in Azure Active Directory.
+    application-password: XXX
 
-    # Override OS image selection with a fixed image for all deployments.
-    # Most useful for developers.
-    # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
+    # subscription-id defines the Azure account subscription ID to
+    # manage resources in. You can list your account subscriptions
+    # with the Azure CLI's "account list" action: "azure account list".
+    # The ID associated with each account is the subscription ID.
+    subscription-id: 00000000-0000-0000-0000-000000000000
+
+    # tenant-id is the ID of the Azure tenant, which identifies the Azure
+    # Active Directory instance. You can obtain this ID by using the Azure
+    # CLI's "account show" action. First list your accounts with
+    # "azure account list", and then feed the account ID to
+    # "azure account show" to obtain the properties of the account, including
+    # the tenant ID.
+    tenant-id: 00000000-0000-0000-0000-000000000000
+
+    # storage-account-type specifies the type of the storage account,
+    # which defines the replication strategy and support for different
+    # disk types.
+    storage-account-type: Standard_LRS
 
     # image-stream chooses a simplestreams stream from which to select
     # OS images, for example daily or released images (or any other stream
@@ -243,8 +259,8 @@ A generic Windows Azure environment looks like this:
     # agent-stream: "released"
 
 This is the environments.yaml configuration file needed to run on Windows Azure.
-You will need to set the management-subscription-id, management-certificate-
-path, and storage-account-name.
+You will need to set application-id, application-password, subscription-id,
+and tenant-id.
 
 Note: Other than location, the defaults are recommended, but can be updated to
 your preference.
@@ -255,7 +271,7 @@ See the online help for more information:
 `
 
 const helpMAASProvider = `
-A generic MAAS environment looks like this:
+A generic MAAS model looks like this:
 
   sample_maas:
     type: maas
@@ -266,7 +282,7 @@ The API key can be obtained from the preferences page in the MAAS web UI.
 
 Placement directives:
 
-  MAAS environments support the following placement directives for use with
+  MAAS models support the following placement directives for use with
   "juju bootstrap" and "juju add-machine":
 
     zone=<physical-zone-name>

@@ -67,24 +67,24 @@ func addBsonDField(d bson.D, name string, value interface{}) (bson.D, error) {
 // runForAllEnvStates will run runner function for every env passing a state
 // for that env.
 func runForAllEnvStates(st *State, runner func(st *State) error) error {
-	environments, closer := st.getCollection(environmentsC)
+	environments, closer := st.getCollection(modelsC)
 	defer closer()
 
 	var envDocs []bson.M
 	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
 	if err != nil {
-		return errors.Annotate(err, "failed to read environments")
+		return errors.Annotate(err, "failed to read models")
 	}
 
 	for _, envDoc := range envDocs {
-		envUUID := envDoc["_id"].(string)
-		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		modelUUID := envDoc["_id"].(string)
+		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
 		if err != nil {
-			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
 		defer envSt.Close()
 		if err := runner(envSt); err != nil {
-			return errors.Annotatef(err, "environment UUID %q", envUUID)
+			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
 	}
 	return nil
@@ -146,7 +146,7 @@ func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error)
 // moving non-reserved keys at the top-level into a subdoc, and introducing
 // a top-level "version" field with the initial value matching txn-revno.
 //
-// This migration takes place both before and after env-uuid migration,
+// This migration takes place both before and after model-uuid migration,
 // to get the correct txn-revno value.
 func MigrateSettingsSchema(st *State) error {
 	coll, closer := st.getRawCollection(settingsC)
@@ -168,7 +168,7 @@ func MigrateSettingsSchema(st *State) error {
 
 		// Remove reserved attributes; we'll move the remaining
 		// ones to the "settings" subdoc.
-		delete(doc, "env-uuid")
+		delete(doc, "model-uuid")
 		delete(doc, "_id")
 		delete(doc, "txn-revno")
 		delete(doc, "txn-queue")

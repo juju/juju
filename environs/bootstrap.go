@@ -9,14 +9,21 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/tools"
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// Constraints are used to choose the initial instance specification,
-	// and will be stored in the new environment's state.
-	Constraints constraints.Value
+	// EnvironConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the new
+	// environment's state.
+	EnvironConstraints constraints.Value
+
+	// BootstrapConstraints, in conjunction with EnvironConstraints,
+	// are used to choose the initial instance. BootstrapConstraints
+	// will not be stored in state for the environment.
+	BootstrapConstraints constraints.Value
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -30,6 +37,11 @@ type BootstrapParams struct {
 	// network bridge device to use for LXC and KVM containers. See
 	// also instancecfg.DefaultBridgeName.
 	ContainerBridgeName string
+
+	// ImageMetadata contains simplestreams image metadata for providers
+	// that rely on it for selecting images. This will be empty for
+	// providers that do not implements simplestreams.HasRegion.
+	ImageMetadata []*imagemetadata.ImageMetadata
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
@@ -46,7 +58,7 @@ type BootstrapResult struct {
 
 	// Finalize is a function that must be called to finalize the
 	// bootstrap process by transferring the tools and installing the
-	// initial Juju state server.
+	// initial Juju controller.
 	Finalize BootstrapFinalizer
 }
 

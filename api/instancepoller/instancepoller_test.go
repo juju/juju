@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
 type InstancePollerSuite struct {
@@ -60,7 +60,7 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
 	c.Assert(m.Id(), gc.Equals, "42")
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	// We're not testing the watcher logic here as it's already tested elsewhere.
 	var numFacadeCalls int
 	var numWatcherCalls int
@@ -76,87 +76,87 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
 	}
 	s.PatchValue(instancepoller.NewStringsWatcher, watcherFunc)
 
-	apiCaller := successAPICaller(c, "WatchEnvironMachines", nil, expectResult, &numFacadeCalls)
+	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectResult, &numFacadeCalls)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchEnvironMachines()
+	w, err := api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(numFacadeCalls, gc.Equals, 1)
 	c.Assert(numWatcherCalls, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesClientError(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesClientError(c *gc.C) {
 	var called int
-	apiCaller := clientErrorAPICaller(c, "WatchEnvironMachines", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "WatchModelMachines", nil, &called)
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchEnvironMachines()
+	w, err := api.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(w, gc.IsNil)
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesServerError(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesServerError(c *gc.C) {
 	var called int
 	expectedResults := params.StringsWatchResult{
 		Error: apiservertesting.ServerError("server boom!"),
 	}
-	apiCaller := successAPICaller(c, "WatchEnvironMachines", nil, expectedResults, &called)
+	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectedResults, &called)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchEnvironMachines()
+	w, err := api.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesClientError(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchForModelConfigChangesClientError(c *gc.C) {
 	// We're not testing the success case as we're not patching the
-	// NewNotifyWatcher call the embedded EnvironWatcher is calling.
+	// NewNotifyWatcher call the embedded ModelWatcher is calling.
 	var called int
-	apiCaller := clientErrorAPICaller(c, "WatchForEnvironConfigChanges", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "WatchForModelConfigChanges", nil, &called)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchForEnvironConfigChanges()
+	w, err := api.WatchForModelConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigSuccess(c *gc.C) {
+func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
 	var called int
-	expectedConfig := coretesting.EnvironConfig(c)
-	expectedResults := params.EnvironConfigResult{
-		Config: params.EnvironConfig(expectedConfig.AllAttrs()),
+	expectedConfig := coretesting.ModelConfig(c)
+	expectedResults := params.ModelConfigResult{
+		Config: params.ModelConfig(expectedConfig.AllAttrs()),
 	}
-	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectedResults, &called)
+	apiCaller := successAPICaller(c, "ModelConfig", nil, expectedResults, &called)
 
 	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.EnvironConfig()
+	cfg, err := api.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(cfg, jc.DeepEquals, expectedConfig)
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigClientError(c *gc.C) {
+func (s *InstancePollerSuite) TestModelConfigClientError(c *gc.C) {
 	var called int
-	apiCaller := clientErrorAPICaller(c, "EnvironConfig", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "ModelConfig", nil, &called)
 	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.EnvironConfig()
+	cfg, err := api.ModelConfig()
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(cfg, gc.IsNil)
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigServerError(c *gc.C) {
+func (s *InstancePollerSuite) TestModelConfigServerError(c *gc.C) {
 	var called int
-	expectResults := params.EnvironConfigResult{
-		Config: params.EnvironConfig{"type": "foo"},
+	expectResults := params.ModelConfigResult{
+		Config: params.ModelConfig{"type": "foo"},
 	}
-	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectResults, &called)
+	apiCaller := successAPICaller(c, "ModelConfig", nil, expectResults, &called)
 
 	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.EnvironConfig()
+	cfg, err := api.ModelConfig()
 	c.Assert(err, gc.NotNil) // the actual error doesn't matter
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(cfg, gc.IsNil)

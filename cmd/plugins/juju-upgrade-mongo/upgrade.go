@@ -19,7 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -49,7 +49,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "could not initialize juju context: %s\n", err)
 		os.Exit(2)
 	}
-	os.Exit(cmd.Main(envcmd.Wrap(&upgradeMongoCommand{}), ctx, args[1:]))
+	os.Exit(cmd.Main(modelcmd.Wrap(&upgradeMongoCommand{}), ctx, args[1:]))
 }
 
 const upgradeDoc = `This command upgrades the version of mongo used to store the Juju model from 2.4 to 3.x`
@@ -65,7 +65,7 @@ type MongoUpgradeClient interface {
 }
 
 type upgradeMongoCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Log      cmd.Log
 	local    bool
 	haClient MongoUpgradeClient

@@ -57,20 +57,20 @@ var syncToolsCommandTests = []struct {
 	public      bool
 }{
 	{
-		description: "environment as only argument",
-		args:        []string{"-e", "test-target"},
+		description: "model as only argument",
+		args:        []string{"-m", "test-target"},
 		sctx:        &sync.SyncContext{},
 	},
 	{
 		description: "specifying also the synchronization source",
-		args:        []string{"-e", "test-target", "--source", "/foo/bar"},
+		args:        []string{"-m", "test-target", "--source", "/foo/bar"},
 		sctx: &sync.SyncContext{
 			Source: "/foo/bar",
 		},
 	},
 	{
 		description: "synchronize all version including development",
-		args:        []string{"-e", "test-target", "--all", "--dev"},
+		args:        []string{"-m", "test-target", "--all", "--dev"},
 		sctx: &sync.SyncContext{
 			AllVersions: true,
 			Stream:      "testing",
@@ -78,19 +78,19 @@ var syncToolsCommandTests = []struct {
 	},
 	{
 		description: "just make a dry run",
-		args:        []string{"-e", "test-target", "--dry-run"},
+		args:        []string{"-m", "test-target", "--dry-run"},
 		sctx: &sync.SyncContext{
 			DryRun: true,
 		},
 	},
 	{
 		description: "specified public (ignored by API)",
-		args:        []string{"-e", "test-target", "--public"},
+		args:        []string{"-m", "test-target", "--public"},
 		sctx:        &sync.SyncContext{},
 	},
 	{
 		description: "specify version",
-		args:        []string{"-e", "test-target", "--version", "1.2"},
+		args:        []string{"-m", "test-target", "--version", "1.2"},
 		sctx: &sync.SyncContext{
 			MajorVersion: 1,
 			MinorVersion: 2,
@@ -146,7 +146,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir, "--stream", "proposed")
+	ctx, err := runSyncToolsCommand(c, "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -162,7 +162,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir, "--public")
+	ctx, err := runSyncToolsCommand(c, "-m", "test-target", "--local-dir", dir, "--public")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -193,7 +193,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
 	// Run sync-tools command with --destination flag.
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir, "--stream", "released")
+	ctx, err := runSyncToolsCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -273,7 +273,7 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 		// Block operation
 		return common.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
-	_, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", c.MkDir(), "--stream", "released")
+	_, err := runSyncToolsCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)

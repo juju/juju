@@ -15,12 +15,12 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("HighAvailability", 1, NewHighAvailabilityAPI)
+	common.RegisterStandardFacade("HighAvailability", 2, NewHighAvailabilityAPI)
 }
 
 // HighAvailability defines the methods on the highavailability API end point.
 type HighAvailability interface {
-	EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error)
+	EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error)
 }
 
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
@@ -36,7 +36,7 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 // NewHighAvailabilityAPI creates a new server-side highavailability API end point.
 func NewHighAvailabilityAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*HighAvailabilityAPI, error) {
 	// Only clients and environment managers can access the high availability service.
-	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &HighAvailabilityAPI{
@@ -46,10 +46,10 @@ func NewHighAvailabilityAPI(st *state.State, resources *common.Resources, author
 	}, nil
 }
 
-func (api *HighAvailabilityAPI) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
-	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
-	for i, stateServersSpec := range args.Specs {
-		result, err := EnsureAvailabilitySingle(api.state, stateServersSpec)
+func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
+	results := params.ControllersChangeResults{Results: make([]params.ControllersChangeResult, len(args.Specs))}
+	for i, controllersServersSpec := range args.Specs {
+		result, err := EnableHASingle(api.state, controllersServersSpec)
 		results.Results[i].Result = result
 		results.Results[i].Error = common.ServerError(err)
 	}
@@ -65,9 +65,9 @@ func machineIdsToTags(ids ...string) []string {
 	return result
 }
 
-// Generate a StateServersChanges structure.
-func stateServersChanges(change state.StateServersChanges) params.StateServersChanges {
-	return params.StateServersChanges{
+// Generate a ControllersChanges structure.
+func controllersChanges(change state.ControllersChanges) params.ControllersChanges {
+	return params.ControllersChanges{
 		Added:      machineIdsToTags(change.Added...),
 		Maintained: machineIdsToTags(change.Maintained...),
 		Removed:    machineIdsToTags(change.Removed...),
@@ -77,33 +77,33 @@ func stateServersChanges(change state.StateServersChanges) params.StateServersCh
 	}
 }
 
-// EnsureAvailabilitySingle applies a single StateServersSpec specification to the current environment.
+// EnableHASingle applies a single ControllersServersSpec specification to the current environment.
 // Exported so it can be called by the legacy client API in the client package.
-func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (params.StateServersChanges, error) {
-	if !st.IsStateServer() {
-		return params.StateServersChanges{}, errors.New("unsupported with hosted environments")
+func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
+	if !st.IsController() {
+		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)
 	if err := blockChecker.ChangeAllowed(); err != nil {
-		return params.StateServersChanges{}, errors.Trace(err)
+		return params.ControllersChanges{}, errors.Trace(err)
 	}
 	// Validate the environment tag if present.
-	if spec.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(spec.EnvironTag)
+	if spec.ModelTag != "" {
+		tag, err := names.ParseModelTag(spec.ModelTag)
 		if err != nil {
-			return params.StateServersChanges{}, errors.Errorf("invalid environment tag: %v", err)
+			return params.ControllersChanges{}, errors.Errorf("invalid model tag: %v", err)
 		}
 		if _, err := st.FindEntity(tag); err != nil {
-			return params.StateServersChanges{}, err
+			return params.ControllersChanges{}, err
 		}
 	}
 
 	series := spec.Series
 	if series == "" {
-		ssi, err := st.StateServerInfo()
+		ssi, err := st.ControllerInfo()
 		if err != nil {
-			return params.StateServersChanges{}, err
+			return params.ControllersChanges{}, err
 		}
 
 		// We should always have at least one voting machine
@@ -112,19 +112,19 @@ func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (pa
 		// the first one, then they'll stay in sync.
 		if len(ssi.VotingMachineIds) == 0 {
 			// Better than a panic()?
-			return params.StateServersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
+			return params.ControllersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
 		}
 		templateMachine, err := st.Machine(ssi.VotingMachineIds[0])
 		if err != nil {
-			return params.StateServersChanges{}, err
+			return params.ControllersChanges{}, err
 		}
 		series = templateMachine.Series()
 	}
-	changes, err := st.EnsureAvailability(spec.NumStateServers, spec.Constraints, series, spec.Placement)
+	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement)
 	if err != nil {
-		return params.StateServersChanges{}, err
+		return params.ControllersChanges{}, err
 	}
-	return stateServersChanges(changes), nil
+	return controllersChanges(changes), nil
 }
 
 // StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade

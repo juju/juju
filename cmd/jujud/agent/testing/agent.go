@@ -153,7 +153,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
-			Environment:       apiInfo.EnvironTag,
+			Model:             apiInfo.ModelTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
@@ -187,7 +187,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.State.EnvironTag())
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.State.ModelTag())
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }
@@ -198,7 +198,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	tag names.Tag,
 	password string,
 	vers version.Binary,
-	envTag names.EnvironTag,
+	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
 	stateInfo := s.State.MongoConnectionInfo()
 	apiPort := gitjujutesting.FindTCPPort()
@@ -213,7 +213,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
-			Environment:       envTag,
+			Model:             modelTag,
 		},
 		params.StateServingInfo{
 			Cert:         coretesting.ServerCert,
@@ -254,7 +254,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(config.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }

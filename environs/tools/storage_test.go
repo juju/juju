@@ -37,22 +37,22 @@ func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 func (s *StorageSuite) TestReadList(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
-	v001 := version.MustParseBinary("0.0.1-precise-amd64")
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v001, v100, v101, v111)
-	t001 := agentTools[0]
-	t100 := agentTools[1]
-	t101 := agentTools[2]
-	t111 := agentTools[3]
+	v201 := version.MustParseBinary("2.0.1-precise-amd64")
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v100, v101, v111, v201)
+	t100 := agentTools[0]
+	t101 := agentTools[1]
+	t111 := agentTools[2]
+	t201 := agentTools[3]
 
 	for i, t := range []struct {
 		majorVersion,
 		minorVersion int
 		list coretools.List
 	}{{
-		0, 0, coretools.List{t001},
+		-1, -1, coretools.List{t100, t101, t111, t201},
 	}, {
 		1, 0, coretools.List{t100, t101},
 	}, {
@@ -62,7 +62,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	}, {
 		1, 2, nil,
 	}, {
-		2, 0, nil,
+		3, 0, nil,
 	}} {
 		c.Logf("test %d", i)
 		list, err := envtools.ReadList(stor, "proposed", t.majorVersion, t.minorVersion)

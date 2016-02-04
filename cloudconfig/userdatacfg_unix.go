@@ -37,10 +37,6 @@ const (
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
-	// toolsDownloadAttempts is the number of attempts to make for
-	// each tools URL when downloading tools.
-	toolsDownloadAttempts = 5
-
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
 	toolsDownloadWaitTime = 15
@@ -48,15 +44,15 @@ const (
 	// toolsDownloadTemplate is a bash template that generates a
 	// bash command to cycle through a list of URLs to download tools.
 	toolsDownloadTemplate = `{{$curl := .ToolsDownloadCommand}}
-for n in $(seq {{.ToolsDownloadAttempts}}); do
+n=1
+while true; do
 {{range .URLs}}
     printf "Attempt $n to download tools from %s...\n" {{shquote .}}
     {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
 {{end}}
-    if [ $n -lt {{.ToolsDownloadAttempts}} ]; then
-        echo "Download failed..... wait {{.ToolsDownloadWaitTime}}s"
-    fi
+    echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
+    n=$((n+1))
 done`
 )
 
@@ -250,13 +246,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			urls = append(urls, w.icfg.Tools.URL)
 		} else {
 			for _, addr := range w.icfg.ApiHostAddrs() {
-				// TODO(axw) encode env UUID in URL when EnvironTag
+				// TODO(axw) encode env UUID in URL when ModelTag
 				// is guaranteed to be available in APIInfo.
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
 				urls = append(urls, url)
 			}
 
-			// Don't go through the proxy when downloading tools from the state servers
+			// Don't go through the proxy when downloading tools from the controllers
 			curlCommand += ` --noproxy "*"`
 
 			// Our API server certificates are unusable by curl (invalid subject name),
@@ -323,9 +319,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
-		cons := w.icfg.Constraints.String()
-		if cons != "" {
-			cons = " --constraints " + shquote(cons)
+		bootstrapCons := w.icfg.Constraints.String()
+		if bootstrapCons != "" {
+			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
+		}
+		environCons := w.icfg.EnvironConstraints.String()
+		if environCons != "" {
+			environCons = " --constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -340,17 +340,18 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 			loggingOption = " --debug"
 		}
-
-		// The bootstrapping is always run with debug on.
-		bootstrapCommand := w.icfg.JujuTools() + "/jujud bootstrap-state" +
-			" --data-dir " + shquote(w.icfg.DataDir) +
-			" --env-config " + shquote(base64yaml(w.icfg.Config)) +
-			" --instance-id " + shquote(string(w.icfg.InstanceId)) +
-			hardware +
-			cons +
-			metadataDir +
-			loggingOption
-		w.conf.AddScripts(bootstrapCommand)
+		w.conf.AddScripts(
+			// The bootstrapping is always run with debug on.
+			w.icfg.JujuTools() + "/jujud bootstrap-state" +
+				" --data-dir " + shquote(w.icfg.DataDir) +
+				" --model-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
+				hardware +
+				bootstrapCons +
+				environCons +
+				metadataDir +
+				loggingOption,
+		)
 	}
 
 	return w.addMachineAgentToBoot()
@@ -368,7 +369,6 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"ToolsDownloadCommand":  curlCommand,
-		"ToolsDownloadAttempts": toolsDownloadAttempts,
 		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
 		"URLs":                  urls,
 	})

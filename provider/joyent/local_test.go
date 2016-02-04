@@ -20,6 +20,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -121,7 +122,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
@@ -145,6 +146,9 @@ type localServerSuite struct {
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+
 	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
@@ -164,7 +168,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 }
 
@@ -315,8 +319,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// check that StateServerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.StateServerInstances()
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
@@ -341,7 +345,12 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 	env := s.Prepare(c)
-	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: "kvm",
+	}}
+	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G", imageMetadata)
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
 	c.Check(spec.Image.Arch, gc.Equals, "amd64")
@@ -353,7 +362,7 @@ func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
-	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
+	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 

@@ -102,8 +102,8 @@ func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
 
 // payloadDoc is the top-level document for payloads.
 type payloadDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 
 	UnitID string `bson:"unitid"`
 
@@ -207,18 +207,18 @@ func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, error) {
 
 	results := make(map[string]payloadDoc)
 	for _, doc := range docs {
-		fullID := dropEnvUUID(doc.DocID)
+		fullID := dropModelUUID(doc.DocID)
 		id := idMap[fullID]
 		results[id] = doc
 	}
 	return results, nil
 }
 
-func dropEnvUUID(id string) string {
+func dropModelUUID(id string) string {
 	fullID := id
 	parts := strings.SplitN(fullID, ":", 2)
 	if len(parts) == 2 {
-		if names.IsValidEnvironment(parts[0]) {
+		if names.IsValidModel(parts[0]) {
 			fullID = parts[1]
 		}
 	}

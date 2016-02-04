@@ -18,7 +18,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 func init() {
-	common.RegisterStandardFacade("Spaces", 1, NewAPI)
+	common.RegisterStandardFacade("Spaces", 2, NewAPI)
 }
 
 // API defines the methods the Spaces API facade implements.
@@ -30,8 +30,8 @@ type API interface {
 // Backing defines the state methods this facede needs, so they can be
 // mocked for testing.
 type Backing interface {
-	// EnvironConfig returns the configuration of the environment.
-	EnvironConfig() (*config.Config, error)
+	// ModelConfig returns the configuration of the model.
+	ModelConfig() (*config.Config, error)
 
 	// AddSpace creates a space.
 	AddSpace(name string, subnetIds []string, public bool) error
@@ -172,13 +172,13 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 // supportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
 func (api *spacesAPI) supportsSpaces() error {
-	config, err := api.backing.EnvironConfig()
+	config, err := api.backing.ModelConfig()
 	if err != nil {
-		return errors.Annotate(err, "getting environment config")
+		return errors.Annotate(err, "getting model config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return errors.Annotate(err, "validating environment config")
+		return errors.Annotate(err, "validating model config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
@@ -186,7 +186,7 @@ func (api *spacesAPI) supportsSpaces() error {
 	}
 	ok, err = netEnv.SupportsSpaces()
 	if err != nil {
-		logger.Warningf("environment does not support spaces: %v", err)
+		logger.Warningf("model does not support spaces: %v", err)
 	}
 	return err
 }

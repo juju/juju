@@ -13,8 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -22,10 +21,10 @@ import (
 )
 
 func newRestoreCommand() cmd.Command {
-	return envcmd.Wrap(&restoreCommand{})
+	return modelcmd.Wrap(&restoreCommand{})
 }
 
-// restoreCommand is a subcommand of backups that implement the restore behaior
+// restoreCommand is a subcommand of backups that implement the restore behavior
 // it is invoked with "juju backups restore".
 type restoreCommand struct {
 	CommandBase
@@ -40,11 +39,11 @@ var restoreDoc = `
 Restores a backup that was previously created with "juju backup" and
 "juju backups create".
 
-This command creates a new state server and arranges for it to replace
-the previous state server for an environment.  It does *not* restore
+This command creates a new controller and arranges for it to replace
+the previous controller for a model.  It does *not* restore
 an existing server to a previous state, but instead creates a new server
 with equivalent state.  As part of restore, all known instances are
-configured to treat the new state server as their master.
+configured to treat the new controller as their master.
 
 The given constraints will be used to choose the new instance.
 
@@ -58,7 +57,7 @@ to that effect.
 func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore",
-		Purpose: "restore from a backup archive to a new state server",
+		Purpose: "restore from a backup archive to a new controller",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
 	}
@@ -66,8 +65,9 @@ func (c *restoreCommand) Info() *cmd.Info {
 
 // SetFlags handles known option flags.
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
-		"constraints", "set environment constraints")
+		"constraints", "set model constraints")
 
 	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
@@ -96,9 +96,6 @@ func (c *restoreCommand) Init(args []string) error {
 	return nil
 }
 
-const restoreAPIIncompatibility = "server version not compatible for " +
-	"restore with client version"
-
 // runRestore will implement the actual calls to the different Client parts
 // of restore.
 func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
@@ -121,9 +118,6 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	} else {
 		target = c.backupId
 		rErr = client.Restore(c.backupId, c.newClient)
-	}
-	if params.IsCodeNotImplemented(rErr) {
-		return errors.Errorf(restoreAPIIncompatibility)
 	}
 	if rErr != nil {
 		return errors.Trace(rErr)
@@ -156,12 +150,12 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := env.ControllerInstances()
 	if err != nil {
-		return errors.Annotatef(err, "cannot determine state server instances")
+		return errors.Annotatef(err, "cannot determine controller instances")
 	}
 	if len(instanceIds) == 0 {
-		return errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
+		return errors.Errorf("no instances found; perhaps the model was not bootstrapped")
 	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
@@ -172,8 +166,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	}
 
 	cons := c.constraints
-	args := bootstrap.BootstrapParams{Constraints: cons, UploadTools: c.uploadTools}
-	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
+	args := bootstrap.BootstrapParams{EnvironConstraints: cons, UploadTools: c.uploadTools}
+	if err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return nil
@@ -193,6 +187,11 @@ func (c *restoreCommand) newClient() (*backups.Client, func() error, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	if c.bootstrap {
 		if err := c.rebootstrap(ctx); err != nil {
 			return errors.Trace(err)

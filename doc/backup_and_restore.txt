@@ -14,9 +14,9 @@ from mongo) and copying all files that are critical to juju's operation.
 All the files are bundled up into an archive file.  Effectively the
 archive represents a snapshot of juju state.
 
-That snapshot is stored by the state server in such a way that only a
+That snapshot is stored by the controller in such a way that only a
 backup ID is needed for restore (no need to upload an archive).  Note
-that if the state server is not available, restoring with just the ID is
+that if the controller is not available, restoring with just the ID is
 not an option.  While that situation will need to be addressed in the
 short-term, it should not require much additional effort.
 
@@ -28,7 +28,7 @@ regard to ensuring the consistency of the archive.
 First of all, running juju commands will fail while the DB is
 unavailable (already running services should not be affected).  While
 this period of time is rather short, we expect that it will grow over
-time.  Furthermore, the larger an environment's state, the larger the
+time.  Furthermore, the larger a model's state, the larger the
 impact of this downtime.  In the long term this makes it less than ideal
 to run backup as often as it should be.
 
@@ -43,11 +43,11 @@ started.
 Restore
 -------------------
 
-Restore involves reviving the juju state in a new environment by
+Restore involves reviving the juju state in a new model by
 reversing the steps taken by backup.  However, the process is a bit more
 complicated than just gathering files and dumping the DB.
 
-If no state-server is present restore will do the following:
+If no controller is present restore will do the following:
 
 1. bootstrap a new node in safe mode (ProvisionerSafeMode reports
    whether the provisioner should not destroy machines it does not know
@@ -66,7 +66,7 @@ If no state-server is present restore will do the following:
 As noted above, restoring via an uploaded archive (rather than by using
 an ID) will need to be addressed in the short term, since the existing
 restore functionality works this way.  However, it shouldn't involve
-more than bootstrapping a new environment, uploading the archive to it,
+more than bootstrapping a new model, uploading the archive to it,
 and then requesting restore of that backup.  The design in this document
 already accommodates doing this.
 
@@ -75,16 +75,16 @@ HA
 
 HA is a work in progress, for the moment we have a basic support which is an
 extension of the regular backup functionality.
-Read carefully before attempting backup/restore on an HA environment.
+Read carefully before attempting backup/restore on an HA model.
 
 In the case of HA, the backup process will backup files/db for machine 0,
-support for "any working state server" is plans for the near future.
+support for "any working controller" is plans for the near future.
 We assume, for now, that if you are running restore is because you have
-lost all state-server machines. Out of this restore you will get one
-functioning state-server that you can use to start you other state machines.
+lost all controller machines. Out of this restore you will get one
+functioning controller that you can use to start you other state machines.
 BEWARE, only run restore in the case where you no longer have working
-State Servers since otherwise this will take them offline and possibly
-cripple your environment
+controllers since otherwise this will take them offline and possibly
+cripple your model.
 
 Previous Implementation
 -------------------

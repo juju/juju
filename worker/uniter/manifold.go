@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -75,7 +75,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
 			uniterFacade := uniter.NewState(apiCaller, unitTag)
-			return NewUniter(&UniterParams{
+			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
@@ -85,7 +85,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
 				Clock:                clock.WallClock,
-			}), nil
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return uniter, nil
 		},
 	}
 }

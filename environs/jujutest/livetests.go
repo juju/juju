@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -49,6 +51,7 @@ type LiveTests struct {
 	gitjujutesting.CleanupSuite
 
 	envtesting.ToolsFixture
+	sstesting.TestDataSuite
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
@@ -81,7 +84,9 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
+	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
+	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -112,6 +117,7 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	t.Destroy(c)
+	t.TestDataSuite.TearDownSuite(c)
 	t.CleanupSuite.TearDownSuite(c)
 }
 
@@ -149,7 +155,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
+		BootstrapConstraints: cons,
+		EnvironConstraints:   cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -313,13 +322,13 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	// Check errors when acting on environment.
 	err = t.Env.OpenPorts([]network.PortRange{{80, 80, "tcp"}})
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on environment`)
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
 	err = t.Env.ClosePorts([]network.PortRange{{80, 80, "tcp"}})
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on environment`)
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
 	_, err = t.Env.Ports()
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ports from environment`)
+	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ports from model`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
@@ -392,7 +401,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	t.BootstrapOnce(c)
 
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
+	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
 
 	c.Logf("destroy env")
 	env := t.Env
@@ -415,7 +424,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("opening state")
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	owner := env.Owner()
 
@@ -426,14 +435,14 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, jc.IsTrue)
 	c.Check(agentVersion, gc.Equals, version.Current)
 
 	// Check that the constraints have been set in the environment.
-	cons, err := st.EnvironConstraints()
+	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons.String(), gc.Equals, "mem=2048M")
 
@@ -470,7 +479,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddService(state.AddServiceArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(st, svc, 1, "")
+	units, err := juju.AddUnits(st, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit := units[0]
 
@@ -737,11 +746,21 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
-	result, err := t.Env.StartInstance(environs.StartInstanceParams{
+	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
+		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
+	))
+	params := environs.StartInstanceParams{
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
-	})
+	}
+	err = jujutesting.SetImageMetadata(
+		t.Env,
+		possibleTools.AllSeries(),
+		possibleTools.Arches(),
+		&params.ImageMetadata,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	result, err := t.Env.StartInstance(params)
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())
 		c.Check(err, jc.ErrorIsNil)
@@ -767,8 +786,8 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	}
 
 	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
-		"state-server": false,
-		"name":         "dummy storage",
+		"controller": false,
+		"name":       "dummy storage",
 	}))
 	dummyenv, err := environs.Prepare(dummyCfg, envtesting.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)

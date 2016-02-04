@@ -48,7 +48,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
-	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	s.API = s.APIConnection.Addresser()
 
 	machineA, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -156,7 +156,7 @@ func (s *workerSuite) assertNoReleaseOp(c *gc.C) {
 
 func (s *workerSuite) makeReleaseOp(digit int) dummy.OpReleaseAddress {
 	return dummy.OpReleaseAddress{
-		Env:        "dummyenv",
+		Env:        "dummymodel",
 		InstanceId: "foo",
 		SubnetId:   "foobar",
 		Address:    network.NewAddress(fmt.Sprintf("0.1.2.%d", digit)),

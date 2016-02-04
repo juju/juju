@@ -9,15 +9,16 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const instancePollerFacade = "InstancePoller"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 
 	facade base.FacadeCaller
 }
@@ -29,8 +30,8 @@ func NewAPI(caller base.APICaller) *API {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, instancePollerFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
+		facade:       facadeCaller,
 	}
 }
 
@@ -44,13 +45,13 @@ func (api *API) Machine(tag names.MachineTag) (*Machine, error) {
 	return &Machine{api.facade, tag, life}, nil
 }
 
-var newStringsWatcher = watcher.NewStringsWatcher
+var newStringsWatcher = apiwatcher.NewStringsWatcher
 
-// WatchEnvironMachines return a StringsWatcher reporting waiting for the
-// environment configuration to change.
-func (api *API) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+// WatchModelMachines return a StringsWatcher reporting waiting for the
+// model configuration to change.
+func (api *API) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := api.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}

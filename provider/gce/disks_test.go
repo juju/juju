@@ -197,6 +197,54 @@ func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	c.Assert(call[0].ZoneName, gc.Equals, "home-zone")
 }
 
+func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
+	otherDisk := &google.Disk{
+		Id:          1234568,
+		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: "a-different-model-uuid",
+	}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
+	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
+	vols, err := s.source.ListVolumes()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+}
+
+func (s *volumeSourceSuite) TestListVolumesListsEmptyUUIDVolumes(c *gc.C) {
+	otherDisk := &google.Disk{
+		Id:          1234568,
+		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: "",
+	}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
+	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
+	vols, err := s.source.ListVolumes()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 2)
+}
+
+func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc.C) {
+	otherDisk := &google.Disk{
+		Id:          1234568,
+		Name:        "juju-566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: "",
+	}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
+	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
+	vols, err := s.source.ListVolumes()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+}
+
 func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisk = s.BaseDisk
 	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"

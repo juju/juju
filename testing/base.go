@@ -45,7 +45,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
 		osenv.JujuHomeEnvKey,
-		osenv.JujuEnvEnvKey,
+		osenv.JujuModelEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
 		osenv.JujuFeatureFlagEnvKey,
 	} {

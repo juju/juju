@@ -97,7 +97,7 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 		FuncName: "Bootstrap",
 		Args: gce.FakeCallArgs{
 			"ctx":    ctx,
-			"env":    s.Env,
+			"switch": s.Env,
 			"params": params,
 		},
 	}})
@@ -120,7 +120,7 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "Destroy",
 		Args: gce.FakeCallArgs{
-			"env": s.Env,
+			"switch": s.Env,
 		},
 	}})
 }

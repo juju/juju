@@ -14,13 +14,13 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
 const attachedVolumeId = "1"
@@ -41,81 +41,83 @@ var missingVolumeAttachmentId = params.MachineStorageId{
 	AttachmentTag: "volume-1",
 }
 
+type mockWatcher struct{}
+
+func (mockWatcher) Kill()       {}
+func (mockWatcher) Wait() error { return nil }
+
+func newMockNotifyWatcher() *mockNotifyWatcher {
+	return &mockNotifyWatcher{
+		changes: make(chan struct{}, 1),
+	}
+}
+
 type mockNotifyWatcher struct {
+	mockWatcher
 	changes chan struct{}
 }
 
-func (*mockNotifyWatcher) Stop() error {
-	return nil
-}
-
-func (*mockNotifyWatcher) Err() error {
-	return nil
-}
-
-func (w *mockNotifyWatcher) Changes() <-chan struct{} {
+func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
+}
+
+func newMockStringsWatcher() *mockStringsWatcher {
+	return &mockStringsWatcher{
+		changes: make(chan []string, 1),
+	}
 }
 
 type mockStringsWatcher struct {
+	mockWatcher
 	changes chan []string
 }
 
-func (*mockStringsWatcher) Stop() error {
-	return nil
-}
-
-func (*mockStringsWatcher) Err() error {
-	return nil
-}
-
-func (w *mockStringsWatcher) Changes() <-chan []string {
+func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
+}
+
+func newMockAttachmentsWatcher() *mockAttachmentsWatcher {
+	return &mockAttachmentsWatcher{
+		changes: make(chan []watcher.MachineStorageId, 1),
+	}
 }
 
 type mockAttachmentsWatcher struct {
-	changes chan []params.MachineStorageId
+	mockWatcher
+	changes chan []watcher.MachineStorageId
 }
 
-func (*mockAttachmentsWatcher) Stop() error {
-	return nil
-}
-
-func (*mockAttachmentsWatcher) Err() error {
-	return nil
-}
-
-func (w *mockAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
+func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.changes
 }
 
-type mockEnvironAccessor struct {
+type mockModelAccessor struct {
 	watcher *mockNotifyWatcher
 	mu      sync.Mutex
 	cfg     *config.Config
 }
 
-func (e *mockEnvironAccessor) WatchForEnvironConfigChanges() (apiwatcher.NotifyWatcher, error) {
+func (e *mockModelAccessor) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	return e.watcher, nil
 }
 
-func (e *mockEnvironAccessor) EnvironConfig() (*config.Config, error) {
+func (e *mockModelAccessor) ModelConfig() (*config.Config, error) {
 	e.mu.Lock()
 	cfg := e.cfg
 	e.mu.Unlock()
 	return cfg, nil
 }
 
-func (e *mockEnvironAccessor) setConfig(cfg *config.Config) {
+func (e *mockModelAccessor) setConfig(cfg *config.Config) {
 	e.mu.Lock()
 	e.cfg = cfg
 	e.mu.Unlock()
 }
 
-func newMockEnvironAccessor(c *gc.C) *mockEnvironAccessor {
-	return &mockEnvironAccessor{
-		watcher: &mockNotifyWatcher{make(chan struct{}, 1)},
-		cfg:     testing.EnvironConfig(c),
+func newMockModelAccessor(c *gc.C) *mockModelAccessor {
+	return &mockModelAccessor{
+		watcher: newMockNotifyWatcher(),
+		cfg:     testing.ModelConfig(c),
 	}
 }
 
@@ -143,15 +145,15 @@ func (m *mockVolumeAccessor) provisionVolume(tag names.VolumeTag) params.Volume 
 	return v
 }
 
-func (w *mockVolumeAccessor) WatchVolumes() (apiwatcher.StringsWatcher, error) {
+func (w *mockVolumeAccessor) WatchVolumes() (watcher.StringsWatcher, error) {
 	return w.volumesWatcher, nil
 }
 
-func (w *mockVolumeAccessor) WatchVolumeAttachments() (apiwatcher.MachineStorageIdsWatcher, error) {
+func (w *mockVolumeAccessor) WatchVolumeAttachments() (watcher.MachineStorageIdsWatcher, error) {
 	return w.attachmentsWatcher, nil
 }
 
-func (w *mockVolumeAccessor) WatchBlockDevices(tag names.MachineTag) (apiwatcher.NotifyWatcher, error) {
+func (w *mockVolumeAccessor) WatchBlockDevices(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	return w.blockDevicesWatcher, nil
 }
 
@@ -258,9 +260,9 @@ func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.
 
 func newMockVolumeAccessor() *mockVolumeAccessor {
 	return &mockVolumeAccessor{
-		volumesWatcher:         &mockStringsWatcher{make(chan []string, 1)},
-		attachmentsWatcher:     &mockAttachmentsWatcher{make(chan []params.MachineStorageId, 1)},
-		blockDevicesWatcher:    &mockNotifyWatcher{make(chan struct{}, 1)},
+		volumesWatcher:         newMockStringsWatcher(),
+		attachmentsWatcher:     newMockAttachmentsWatcher(),
+		blockDevicesWatcher:    newMockNotifyWatcher(),
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
@@ -290,11 +292,11 @@ func (m *mockFilesystemAccessor) provisionFilesystem(tag names.FilesystemTag) pa
 	return f
 }
 
-func (w *mockFilesystemAccessor) WatchFilesystems() (apiwatcher.StringsWatcher, error) {
+func (w *mockFilesystemAccessor) WatchFilesystems() (watcher.StringsWatcher, error) {
 	return w.filesystemsWatcher, nil
 }
 
-func (w *mockFilesystemAccessor) WatchFilesystemAttachments() (apiwatcher.MachineStorageIdsWatcher, error) {
+func (w *mockFilesystemAccessor) WatchFilesystemAttachments() (watcher.MachineStorageIdsWatcher, error) {
 	return w.attachmentsWatcher, nil
 }
 
@@ -382,8 +384,8 @@ func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachmen
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
 	return &mockFilesystemAccessor{
-		filesystemsWatcher:     &mockStringsWatcher{make(chan []string, 1)},
-		attachmentsWatcher:     &mockAttachmentsWatcher{make(chan []params.MachineStorageId, 1)},
+		filesystemsWatcher:     newMockStringsWatcher(),
+		attachmentsWatcher:     newMockAttachmentsWatcher(),
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedFilesystems: make(map[string]params.Filesystem),
 		provisionedAttachments: make(map[params.MachineStorageId]params.FilesystemAttachment),
@@ -714,7 +716,7 @@ type mockMachineAccessor struct {
 	watcher     *mockNotifyWatcher
 }
 
-func (a *mockMachineAccessor) WatchMachine(names.MachineTag) (apiwatcher.NotifyWatcher, error) {
+func (a *mockMachineAccessor) WatchMachine(names.MachineTag) (watcher.NotifyWatcher, error) {
 	return a.watcher, nil
 }
 
@@ -736,7 +738,7 @@ func (a *mockMachineAccessor) InstanceIds(tags []names.MachineTag) ([]params.Str
 func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 	return &mockMachineAccessor{
 		instanceIds: make(map[names.MachineTag]instance.Id),
-		watcher:     &mockNotifyWatcher{make(chan struct{}, 1)},
+		watcher:     newMockNotifyWatcher(),
 	}
 }
 

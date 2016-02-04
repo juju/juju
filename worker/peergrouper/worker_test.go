@@ -86,7 +86,7 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 		))
 	}
 	st.machine("10").SetHasVote(true)
-	st.setStateServers(ids...)
+	st.setControllers(ids...)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.check = checkInvariants
@@ -137,7 +137,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		// Add another machine.
 		m13 := st.addMachine("13", false)
 		m13.setStateHostPort(fmt.Sprintf(ipVersion.formatHostPort, 13, mongoPort))
-		st.setStateServers("10", "11", "12", "13")
+		st.setControllers("10", "11", "12", "13")
 
 		c.Logf("waiting for new member to be added")
 		mustNext(c, memberWatcher)
@@ -162,7 +162,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		c.Logf("removing old machine")
 		// Remove the old machine.
 		st.removeMachine("10")
-		st.setStateServers("11", "12", "13")
+		st.setControllers("11", "12", "13")
 
 		// Check that it's removed from the members.
 		c.Logf("waiting for removal")
@@ -175,7 +175,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 
-		// Simulate a state where we have four state servers,
+		// Simulate a state where we have four controllers,
 		// one has gone down, and we're replacing it:
 		// 0 - hasvote true, wantsvote false, down
 		// 1 - hasvote true, wantsvote true
@@ -305,8 +305,8 @@ var fatalErrorsTests = []struct {
 	err        error
 	expectErr  string
 }{{
-	errPattern: "State.StateServerInfo",
-	expectErr:  "cannot get state server info: sample",
+	errPattern: "State.ControllerInfo",
+	expectErr:  "cannot get controller info: sample",
 }, {
 	errPattern: "Machine.SetHasVote 11 true",
 	expectErr:  `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
@@ -382,7 +382,7 @@ func (f PublisherFunc) publishAPIServers(apiServers [][]network.HostPort, instan
 	return f(apiServers, instanceIds)
 }
 
-func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
+func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		publishCh := make(chan [][]network.HostPort)
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {

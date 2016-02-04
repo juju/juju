@@ -12,10 +12,15 @@ import (
 // Context provides the dependencies used when executing upgrade steps.
 type Context interface {
 	// APIState returns an API connection to state.
+	//
+	// TODO(mjs) - for 2.0, this should return a base.APICaller
+	// instead of api.Connection once the 1.x upgrade steps have been
+	// removed. Upgrade steps should not be able close the API
+	// connection.
 	APIState() api.Connection
 
 	// State returns a connection to state. This will be non-nil
-	// only in the context of a state server.
+	// only in the context of a controller.
 	State() *state.State
 
 	// AgentConfig returns the agent config for the machine that is being

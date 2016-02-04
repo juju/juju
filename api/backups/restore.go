@@ -151,8 +151,8 @@ func finishAttempt(client *Client, closer closerFunc) (error, error) {
 }
 
 // finishRestore since Restore call will end up with a reset
-// state server, finish restore will check that the the newly
-// placed state server has the mark of restore complete.
+// controller, finish restore will check that the the newly
+// placed controller has the mark of restore complete.
 // upstart should have restarted the api server so we reconnect.
 func finishRestore(newClient ClientConnection) error {
 	var err, remoteError error

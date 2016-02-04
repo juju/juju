@@ -48,7 +48,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			EnvironManager: true,
 		},
 	} {
-		st := newMockState(names.NewUserTag("dummy-admin"), "dummyenv", true)
+		st := newMockState(names.NewUserTag("dummy-admin"), "dummymodel", true)
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
@@ -60,7 +60,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 
 func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	st, api := s.setupStateAndAPI(c, true, "dummyenv")
+	st, api := s.setupStateAndAPI(c, true, "dummymodel")
 	for _, test := range []struct {
 		st       *mockState
 		api      *undertaker.UndertakerAPI
@@ -68,13 +68,13 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		envName  string
 	}{
 		{otherSt, hostedAPI, false, "hostedenv"},
-		{st, api, true, "dummyenv"},
+		{st, api, true, "dummymodel"},
 	} {
-		env, err := test.st.Environment()
+		env, err := test.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-		result, err := test.api.EnvironInfo()
+		result, err := test.api.ModelInfo()
 		c.Assert(err, jc.ErrorIsNil)
 
 		info := result.Result
@@ -92,11 +92,11 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 
 func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	err = hostedAPI.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 
 	err = env.Destroy()
@@ -104,54 +104,54 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	err = hostedAPI.ProcessDyingEnviron()
+	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dead)
 }
 
 func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	_, err := otherSt.Environment()
+	_, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	err = hostedAPI.RemoveModel()
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dying
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	err = hostedAPI.RemoveModel()
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 }
 
 func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	env, err := otherSt.Environment()
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set env to dead
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = hostedAPI.ProcessDyingEnviron()
+	err = hostedAPI.ProcessDyingModel()
 	c.Assert(err, gc.IsNil)
 
-	err = hostedAPI.RemoveEnviron()
+	err = hostedAPI.RemoveModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
 }
 
-func (s *undertakerSuite) TestEnvironConfig(c *gc.C) {
+func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
 
-	cfg, err := hostedAPI.EnvironConfig()
+	cfg, err := hostedAPI.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 }

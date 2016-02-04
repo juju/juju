@@ -11,9 +11,9 @@ import (
 )
 
 func upgradeProviderChanges(env environs.Environ, reader environConfigReader, ver version.Number) error {
-	cfg, err := reader.EnvironConfig()
+	cfg, err := reader.ModelConfig()
 	if err != nil {
-		return errors.Annotate(err, "reading environment config")
+		return errors.Annotate(err, "reading model config")
 	}
 
 	upgrader, ok := env.(provider.Upgradeable)

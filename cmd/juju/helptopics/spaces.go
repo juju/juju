@@ -5,7 +5,7 @@ package helptopics
 
 const Spaces = `
 Juju provides a set of features allowing the users to have better and
-finer-grained control over the networking aspects of the environment
+finer-grained control over the networking aspects of the model
 and service deployments in particular. Not all cloud providers support
 these enhanced networking features yet, in fact they are currently
 supported on AWS only. Support for MaaS and OpenStack is planed and
@@ -25,7 +25,7 @@ allows Juju to perform automatic distribution of units of a service
 across zones inside the same space. This allows for high-availability
 for services and spreading the instances evenly across subnets and zones.
 
-As an example, consider an environment divided into three segments with
+As an example, consider an model divided into three segments with
 distinct security requirements:
 
 - The "dmz" space for publicly-accessible services (e.g. HAProxy) providing
@@ -39,7 +39,7 @@ HAProxy is deployed inside the "dmz" space, it is accessible from the Internet
 and proxies HTTP requests to one or more Joomla units in the "cms" space.
 The backend MySQL for Joomla is running in the "database" space. All subnets
 within the "cms" and "database" spaces provide no access from outside the
-environment for security reasons. Using spaces for deployments like this allows
+model for security reasons. Using spaces for deployments like this allows
 Juju to have the necessary information about how to configure the firewall and
 access control rules. In this case, instances in "dmz" can only communicate
 with instances in "apps", which in turn are the only ones allowed to access
@@ -51,7 +51,7 @@ and access control in a future release.
 
 Due to the ability of spaces to span multiple zones services can be distributed
 across these zones. This allows high available setup for services within the
-environment.
+model.
 
 Spaces are created like this:
 

@@ -25,7 +25,7 @@ type minUnitsDoc struct {
 	// the referred entity type is always the Service.
 	DocID       string `bson:"_id"`
 	ServiceName string
-	EnvUUID     string `bson:"env-uuid"`
+	ModelUUID   string `bson:"model-uuid"`
 	Revno       int
 }
 
@@ -82,7 +82,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 			Assert: txn.DocMissing,
 			Insert: &minUnitsDoc{
 				ServiceName: serviceName,
-				EnvUUID:     service.st.EnvironUUID(),
+				ModelUUID:   service.st.ModelUUID(),
 			},
 		})
 	}

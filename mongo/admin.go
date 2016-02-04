@@ -57,7 +57,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 			case localIPv4Addr, localIPv6Addr:
 				continue
 			default:
-				logger.Infof("more than one state server; admin user must exist")
+				logger.Infof("more than one controller; admin user must exist")
 				return false, nil
 			}
 		}

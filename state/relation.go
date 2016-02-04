@@ -39,7 +39,7 @@ func relationKey(endpoints []Endpoint) string {
 type relationDoc struct {
 	DocID     string `bson:"_id"`
 	Key       string `bson:"key"`
-	EnvUUID   string `bson:"env-uuid"`
+	ModelUUID string `bson:"model-uuid"`
 	Id        int
 	Endpoints []Endpoint
 	Life      Life

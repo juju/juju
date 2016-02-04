@@ -15,7 +15,8 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 )
 
@@ -50,20 +51,20 @@ func IsNoAddressSetError(err error) bool {
 	return ok
 }
 
-type unknownEnvironmentError struct {
+type unknownModelError struct {
 	uuid string
 }
 
-func (e *unknownEnvironmentError) Error() string {
-	return fmt.Sprintf("unknown environment: %q", e.uuid)
+func (e *unknownModelError) Error() string {
+	return fmt.Sprintf("unknown model: %q", e.uuid)
 }
 
-func UnknownEnvironmentError(uuid string) error {
-	return &unknownEnvironmentError{uuid: uuid}
+func UnknownModelError(uuid string) error {
+	return &unknownModelError{uuid: uuid}
 }
 
-func IsUnknownEnviromentError(err error) bool {
-	_, ok := err.(*unknownEnvironmentError)
+func IsUnknownModelError(err error) bool {
+	_, ok := err.(*unknownModelError)
 	return ok
 }
 
@@ -119,6 +120,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrDead:                params.CodeDead,
 	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
 	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
 	ErrPerm:                      params.CodeUnauthorized,
@@ -212,7 +214,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
-	case IsUnknownEnviromentError(err):
+	case IsUnknownModelError(err):
 		code = params.CodeNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
@@ -277,7 +279,7 @@ func RestoreError(err error) (error, bool) {
 	case params.IsCodeUnauthorized(err):
 		return errors.NewUnauthorized(nil, msg), true
 	case params.IsCodeNotFound(err):
-		// TODO(ericsnow) unknownEnvironmentError should be handled here too.
+		// TODO(ericsnow) UnknownModelError should be handled here too.
 		// ...by parsing msg?
 		return errors.NewNotFound(nil, msg), true
 	case params.IsCodeAlreadyExists(err):

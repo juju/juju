@@ -11,37 +11,37 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
 func newAPIInfoCommand() cmd.Command {
-	return envcmd.Wrap(&apiInfoCommand{})
+	return modelcmd.Wrap(&apiInfoCommand{})
 }
 
 // apiInfoCommand returns the fields used to connect to an API server.
 type apiInfoCommand struct {
-	envcmd.EnvCommandBase
-	out      cmd.Output
-	refresh  bool
-	user     bool
-	password bool
-	cacert   bool
-	servers  bool
-	envuuid  bool
-	srvuuid  bool
-	fields   []string
+	modelcmd.ModelCommandBase
+	out       cmd.Output
+	refresh   bool
+	user      bool
+	password  bool
+	cacert    bool
+	servers   bool
+	modelUUID bool
+	srvuuid   bool
+	fields    []string
 }
 
 const apiInfoDoc = `
-Print the field values used to connect to the environment's API servers"
+Print the field values used to connect to the model's API servers"
 
 The exact fields to output can be specified on the command line.  The
 available fields are:
   user
   password
   environ-uuid
-  state-servers
+  controllers
   ca-cert
 
 If "password" is included as a field, or the --password option is given, the
@@ -52,7 +52,7 @@ Examples:
   $ juju api-info
   user: admin
   environ-uuid: 373b309b-4a86-4f13-88e2-c213d97075b8
-  state-servers:
+  controllers:
   - localhost:17070
   - 10.0.3.1:17070
   - 192.168.2.21:17070
@@ -75,7 +75,7 @@ func (c *apiInfoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-info",
 		Args:    "[field ...]",
-		Purpose: "print the field values used to connect to the environment's API servers",
+		Purpose: "print the field values used to connect to the model's API servers",
 		Doc:     apiInfoDoc,
 	}
 }
@@ -84,7 +84,7 @@ func (c *apiInfoCommand) Init(args []string) error {
 	c.fields = args
 	if len(args) == 0 {
 		c.user = true
-		c.envuuid = true
+		c.modelUUID = true
 		c.srvuuid = true
 		c.servers = true
 		c.cacert = true
@@ -99,8 +99,8 @@ func (c *apiInfoCommand) Init(args []string) error {
 		case "password":
 			c.password = true
 		case "environ-uuid":
-			c.envuuid = true
-		case "state-servers":
+			c.modelUUID = true
+		case "controllers":
 			c.servers = true
 		case "ca-cert":
 			c.cacert = true
@@ -127,11 +127,11 @@ func (c *apiInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.password, "password", false, "include the password in the output fields")
 }
 
-func connectionEndpoint(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+func connectionEndpoint(c modelcmd.ModelCommandBase, refresh bool) (configstore.APIEndpoint, error) {
 	return c.ConnectionEndpoint(refresh)
 }
 
-func connectionCredentials(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+func connectionCredentials(c modelcmd.ModelCommandBase) (configstore.APICredentials, error) {
 	return c.ConnectionCredentials()
 }
 
@@ -142,11 +142,11 @@ var (
 
 // Print out the addresses of the API server endpoints.
 func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
-	apiendpoint, err := endpoint(c.EnvCommandBase, c.refresh)
+	apiendpoint, err := endpoint(c.ModelCommandBase, c.refresh)
 	if err != nil {
 		return err
 	}
-	credentials, err := creds(c.EnvCommandBase)
+	credentials, err := creds(c.ModelCommandBase)
 	if err != nil {
 		return err
 	}
@@ -158,11 +158,11 @@ func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
 	if c.password {
 		result.Password = credentials.Password
 	}
-	if c.envuuid {
-		result.EnvironUUID = apiendpoint.EnvironUUID
+	if c.modelUUID {
+		result.ModelUUID = apiendpoint.ModelUUID
 	}
 	if c.servers {
-		result.StateServers = apiendpoint.Addresses
+		result.Controllers = apiendpoint.Addresses
 	}
 	if c.cacert {
 		result.CACert = apiendpoint.CACert
@@ -195,12 +195,12 @@ func (c *apiInfoCommand) format(value interface{}) ([]byte, error) {
 }
 
 type InfoData struct {
-	User         string   `json:"user,omitempty" yaml:",omitempty"`
-	Password     string   `json:"password,omitempty" yaml:",omitempty"`
-	EnvironUUID  string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
-	ServerUUID   string   `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
-	StateServers []string `json:"state-servers,omitempty" yaml:"state-servers,omitempty"`
-	CACert       string   `json:"ca-cert,omitempty" yaml:"ca-cert,omitempty"`
+	User        string   `json:"user,omitempty" yaml:",omitempty"`
+	Password    string   `json:"password,omitempty" yaml:",omitempty"`
+	ModelUUID   string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ServerUUID  string   `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
+	Controllers []string `json:"controllers,omitempty" yaml:"controllers,omitempty"`
+	CACert      string   `json:"ca-cert,omitempty" yaml:"ca-cert,omitempty"`
 }
 
 func (i *InfoData) field(name string) (interface{}, error) {
@@ -210,9 +210,9 @@ func (i *InfoData) field(name string) (interface{}, error) {
 	case "password":
 		return i.Password, nil
 	case "environ-uuid":
-		return i.EnvironUUID, nil
-	case "state-servers":
-		return i.StateServers, nil
+		return i.ModelUUID, nil
+	case "controllers":
+		return i.Controllers, nil
 	case "ca-cert":
 		return i.CACert, nil
 	case "server-uuid":

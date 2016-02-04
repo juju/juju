@@ -13,18 +13,18 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const listCommandDoc = `
 List all the current users in the Juju server.
 
 See Also:
-   juju help user info
+   juju help show-user
 `
 
-func newListCommand() cmd.Command {
-	return envcmd.WrapSystem(&listCommand{})
+func NewListCommand() cmd.Command {
+	return modelcmd.WrapController(&listCommand{})
 }
 
 // listCommand shows all the users in the Juju server.
@@ -36,7 +36,7 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-users",
 		Purpose: "shows all users",
 		Doc:     listCommandDoc,
 	}

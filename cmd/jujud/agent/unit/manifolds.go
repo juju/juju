@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -79,25 +79,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: APICallerName,
 		}),
 
-		// The rsyslog config updater is a leaf worker that causes rsyslog
-		// to send messages to the state servers. We should only need one
-		// of these in a consolidated agent.
-		RsyslogConfigUpdaterName: rsyslog.Manifold(rsyslog.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
-		}),
-
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender or rsyslog,
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
 		LoggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
-		// as the state server addresses change. We should only need one of
+		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
 		APIAdddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     AgentName,
@@ -179,7 +172,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
 		}),
 
-		// The metric sender worker periodically sends accumulated metrics to the state server.
+		// The metric sender worker periodically sends accumulated metrics to the controller.
 		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
 			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
@@ -196,7 +189,6 @@ const (
 	LogSenderName            = "log-sender"
 	MachineLockName          = "machine-lock"
 	ProxyConfigUpdaterName   = "proxy-config-updater"
-	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
 	MetricSpoolName          = "metric-spool"
