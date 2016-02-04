@@ -114,7 +114,7 @@ func allowedTargetVersion(
 
 func (u *Upgrader) loop() error {
 	// Start by reporting current tools (which includes arch/series, and is
-	// used by the state server in communicating the desired version below).
+	// used by the controller in communicating the desired version below).
 	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(version.Current)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}

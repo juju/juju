@@ -99,19 +99,19 @@ func (s *environInstSuite) TestBasicInstancesAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 
-func (s *environInstSuite) TestStateServerInstances(c *gc.C) {
+func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	ids, err := s.Env.StateServerInstances()
+	ids, err := s.Env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
-func (s *environInstSuite) TestStateServerInstancesAPI(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	_, err := s.Env.StateServerInstances()
+	_, err := s.Env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -120,17 +120,17 @@ func (s *environInstSuite) TestStateServerInstancesAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 
-func (s *environInstSuite) TestStateServerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.StateServerInstances()
+func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+	_, err := s.Env.ControllerInstances()
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestStateServerInstancesMixed(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := google.NewInstance(google.InstanceSummary{}, nil)
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance, *other}
 
-	ids, err := s.Env.StateServerInstances()
+	ids, err := s.Env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})

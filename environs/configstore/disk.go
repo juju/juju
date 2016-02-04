@@ -56,7 +56,7 @@ type EnvironInfoData struct {
 	Password        string
 	ModelUUID       string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
 	ServerUUID      string                 `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
-	StateServers    []string               `json:"state-servers" yaml:"state-servers"`
+	Controllers     []string               `json:"controllers" yaml:"controllers"`
 	ServerHostnames []string               `json:"server-hostnames,omitempty" yaml:"server-hostnames,omitempty"`
 	CACert          string                 `json:"ca-cert" yaml:"ca-cert"`
 	Config          map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
@@ -422,7 +422,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	info.environmentUUID = values.ModelUUID
 	info.serverUUID = values.ServerUUID
 	info.caCert = values.CACert
-	info.apiEndpoints = values.StateServers
+	info.apiEndpoints = values.Controllers
 	info.apiHostnames = values.ServerHostnames
 	info.bootstrapConfig = values.Config
 
@@ -450,7 +450,7 @@ func (info *environInfo) writeJENVFile() error {
 		Password:        info.credentials,
 		ModelUUID:       info.environmentUUID,
 		ServerUUID:      info.serverUUID,
-		StateServers:    info.apiEndpoints,
+		Controllers:     info.apiEndpoints,
 		ServerHostnames: info.apiHostnames,
 		CACert:          info.caCert,
 		Config:          info.bootstrapConfig,

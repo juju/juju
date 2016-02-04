@@ -97,7 +97,7 @@ const SingleEnvConfigNoDefault = `
 environments:
     erewhemos:
         type: dummy
-        state-server: true
+        controller: true
         authorized-keys: i-am-a-key
         admin-secret: ` + DefaultMongoPassword + `
 `
@@ -108,12 +108,12 @@ const MultipleEnvConfigNoDefault = `
 environments:
     erewhemos:
         type: dummy
-        state-server: true
+        controller: true
         authorized-keys: i-am-a-key
         admin-secret: ` + DefaultMongoPassword + `
     erewhemos-2:
         type: dummy
-        state-server: true
+        controller: true
         authorized-keys: i-am-a-key
         admin-secret: ` + DefaultMongoPassword + `
 `

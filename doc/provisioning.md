@@ -44,7 +44,7 @@ deployment decisions. The mechanism is as follows:
   * when a machine is being added in order to host a given unit, it copies
     its constraints directly from the unit.
   * when a machine is being added without a unit associated -- for example,
-    when adding additional state servers -- it copies its constraints directly
+    when adding additional controllers -- it copies its constraints directly
     from the model.
 
 In this way the following sequence of operations becomes predictable:
@@ -94,7 +94,7 @@ For Juju providers that know about Availability Zones, instances will be automat
 
 The distribution group of a nascent instance is the set of instances for which the availability zone spread will be computed. The new instance will be allocated to the zone with the fewest members of its group.
 
-Distribution groups are intentionally opaque to the providers. There are currently two types of groups: state servers and everything else. State servers are always allocated to the same distribution group; other instances are grouped according to the units assigned at provisioning time. A non-state server instance's group consists of all instances with units of the same services.
+Distribution groups are intentionally opaque to the providers. There are currently two types of groups: controllers and everything else. controllers are always allocated to the same distribution group; other instances are grouped according to the units assigned at provisioning time. A non-controller instance's group consists of all instances with units of the same services.
 
 At the time of writing, there are currently three providers providers supporting automatic availability zone spread: Microsoft Azure, AWS, and OpenStack. Azure's implementation is significantly different to the others as it contains various restrictions relating to the imposed conflation of high availability and load balancing.
 

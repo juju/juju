@@ -176,8 +176,8 @@ func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
 func (*OpenSuite) TestNew(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
+			"controller": false,
+			"name":       "erewhemos",
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,8 +188,8 @@ func (*OpenSuite) TestNew(c *gc.C) {
 
 func (*OpenSuite) TestPrepare(c *gc.C) {
 	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
-		"state-server": false,
-		"name":         "erewhemos",
+		"controller": false,
+		"name":       "erewhemos",
 	}).Delete(
 		"ca-cert",
 		"ca-private-key",
@@ -239,8 +239,8 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 
 func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
-		"state-server": false,
-		"name":         "erewhemos",
+		"controller": false,
+		"name":       "erewhemos",
 	}).Delete(
 		"admin-secret",
 	)
@@ -266,9 +266,9 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Delete("ca-cert", "ca-private-key").Merge(
 		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
-			"ca-cert":      string(testing.CACert),
+			"controller": false,
+			"name":       "erewhemos",
+			"ca-cert":    string(testing.CACert),
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
@@ -284,7 +284,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"state-server":   false,
+			"controller":     false,
 			"name":           "erewhemos",
 			"ca-cert":        string(testing.CACert),
 			"ca-private-key": string(testing.CAKey),
@@ -305,8 +305,8 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 func (*OpenSuite) TestDestroy(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
+			"controller": false,
+			"name":       "erewhemos",
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
@@ -325,7 +325,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
-	_, err = e.StateServerInstances()
+	_, err = e.ControllerInstances()
 	c.Assert(err, gc.ErrorMatches, "model has been destroyed")
 	_, err = store.ReadInfo(e.Config().Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -334,8 +334,8 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestNewFromAttrs(c *gc.C) {
 	e, err := environs.NewFromAttrs(dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"state-server": false,
-			"name":         "erewhemos",
+			"controller": false,
+			"name":       "erewhemos",
 		},
 	))
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")

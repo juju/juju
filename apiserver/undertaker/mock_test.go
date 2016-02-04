@@ -84,7 +84,7 @@ func (m *mockState) AllServices() ([]undertaker.Service, error) {
 	return m.services, nil
 }
 
-func (m *mockState) IsStateServer() bool {
+func (m *mockState) IsController() bool {
 	return m.isSystem
 }
 

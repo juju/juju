@@ -122,8 +122,8 @@ Starting instances
     Instances are deployed to the same Cloud Service as the other instances
     of its "Distribution Group" (a new Juju provisioning concept introduced
     to support azure-mode, Availability Zones, etc.), or a new Cloud Service
-    if the group is empty. For a state server, the Distribution Group is the
-    set of instances that contain other state server instances; for any other
+    if the group is empty. For a controller, the Distribution Group is the
+    set of instances that contain other controller instances; for any other
     instance, the Distribution Group is the set of instances that contain units
     of the same service that the instance is being provisioned for.  All new
     instances are added to the same Availability Set within the Cloud Service.
@@ -149,7 +149,7 @@ Exposing Services
     across each instance whose unit opens the port. Load balancing only takes
     effect when connecting to the public (Cloud Service) address.
 
-    In azure-mode, the state server and API server ports are automatically
+    In azure-mode, the controller and API server ports are automatically
     load-balanced. When HA Juju is enabled, this means that API client
     connections will be load balanced automatically by Azure.
 

@@ -41,7 +41,7 @@ available fields are:
   user
   password
   environ-uuid
-  state-servers
+  controllers
   ca-cert
 
 If "password" is included as a field, or the --password option is given, the
@@ -52,7 +52,7 @@ Examples:
   $ juju api-info
   user: admin
   environ-uuid: 373b309b-4a86-4f13-88e2-c213d97075b8
-  state-servers:
+  controllers:
   - localhost:17070
   - 10.0.3.1:17070
   - 192.168.2.21:17070
@@ -100,7 +100,7 @@ func (c *apiInfoCommand) Init(args []string) error {
 			c.password = true
 		case "environ-uuid":
 			c.modelUUID = true
-		case "state-servers":
+		case "controllers":
 			c.servers = true
 		case "ca-cert":
 			c.cacert = true
@@ -162,7 +162,7 @@ func (c *apiInfoCommand) Run(ctx *cmd.Context) error {
 		result.ModelUUID = apiendpoint.ModelUUID
 	}
 	if c.servers {
-		result.StateServers = apiendpoint.Addresses
+		result.Controllers = apiendpoint.Addresses
 	}
 	if c.cacert {
 		result.CACert = apiendpoint.CACert
@@ -195,12 +195,12 @@ func (c *apiInfoCommand) format(value interface{}) ([]byte, error) {
 }
 
 type InfoData struct {
-	User         string   `json:"user,omitempty" yaml:",omitempty"`
-	Password     string   `json:"password,omitempty" yaml:",omitempty"`
-	ModelUUID    string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
-	ServerUUID   string   `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
-	StateServers []string `json:"state-servers,omitempty" yaml:"state-servers,omitempty"`
-	CACert       string   `json:"ca-cert,omitempty" yaml:"ca-cert,omitempty"`
+	User        string   `json:"user,omitempty" yaml:",omitempty"`
+	Password    string   `json:"password,omitempty" yaml:",omitempty"`
+	ModelUUID   string   `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ServerUUID  string   `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
+	Controllers []string `json:"controllers,omitempty" yaml:"controllers,omitempty"`
+	CACert      string   `json:"ca-cert,omitempty" yaml:"ca-cert,omitempty"`
 }
 
 func (i *InfoData) field(name string) (interface{}, error) {
@@ -211,8 +211,8 @@ func (i *InfoData) field(name string) (interface{}, error) {
 		return i.Password, nil
 	case "environ-uuid":
 		return i.ModelUUID, nil
-	case "state-servers":
-		return i.StateServers, nil
+	case "controllers":
+		return i.Controllers, nil
 	case "ca-cert":
 		return i.CACert, nil
 	case "server-uuid":

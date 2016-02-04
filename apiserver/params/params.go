@@ -444,10 +444,10 @@ type ModifyUserSSHKeys struct {
 type StateServingInfo struct {
 	APIPort   int
 	StatePort int
-	// The state server cert and corresponding private key.
+	// The controller cert and corresponding private key.
 	Cert       string
 	PrivateKey string
-	// The private key for the CA cert so that a new state server
+	// The private key for the CA cert so that a new controller
 	// cert can be generated when needed.
 	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
@@ -620,43 +620,43 @@ type LoginResultV1 struct {
 	ServerVersion string `json:"server-version,omitempty"`
 }
 
-// StateServersSpec contains arguments for
+// ControllersServersSpec contains arguments for
 // the EnableHA client API call.
-type StateServersSpec struct {
-	ModelTag        string
-	NumStateServers int               `json:"num-state-servers"`
-	Constraints     constraints.Value `json:"constraints,omitempty"`
-	// Series is the series to associate with new state server machines.
+type ControllersSpec struct {
+	ModelTag       string
+	NumControllers int               `json:"num-controllers"`
+	Constraints    constraints.Value `json:"constraints,omitempty"`
+	// Series is the series to associate with new controller machines.
 	// If this is empty, then the model's default series is used.
 	Series string `json:"series,omitempty"`
-	// Placement defines specific machines to become new state server machines.
+	// Placement defines specific machines to become new controller machines.
 	Placement []string `json:"placement,omitempty"`
 }
 
-// StateServersSpecs contains all the arguments
+// ControllersServersSpecs contains all the arguments
 // for the EnableHA API call.
-type StateServersSpecs struct {
-	Specs []StateServersSpec
+type ControllersSpecs struct {
+	Specs []ControllersSpec
 }
 
-// StateServersChangeResult contains the results
+// ControllersChangeResult contains the results
 // of a single EnableHA API call or
 // an error.
-type StateServersChangeResult struct {
-	Result StateServersChanges
+type ControllersChangeResult struct {
+	Result ControllersChanges
 	Error  *Error
 }
 
-// StateServersChangeResults contains the results
+// ControllersChangeResults contains the results
 // of the EnableHA API call.
-type StateServersChangeResults struct {
-	Results []StateServersChangeResult
+type ControllersChangeResults struct {
+	Results []ControllersChangeResult
 }
 
-// StateServersChanges lists the servers
+// ControllersChanges lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an enable-ha operation.
-type StateServersChanges struct {
+type ControllersChanges struct {
 	Added      []string `json:"added,omitempty"`
 	Maintained []string `json:"maintained,omitempty"`
 	Removed    []string `json:"removed,omitempty"`

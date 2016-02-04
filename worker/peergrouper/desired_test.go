@@ -130,7 +130,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectVoting:  []bool{false, true, false},
 			expectMembers: mkMembers("1 2v 3", ipVersion),
 		}, {
-			about:         "machines removed as state server -> removed from members",
+			about:         "machines removed as controller -> removed from members",
 			machines:      mkMachines("11v", ipVersion),
 			members:       mkMembers("1v 2 3", ipVersion),
 			statuses:      mkStatuses("1p 2s 3s", ipVersion),

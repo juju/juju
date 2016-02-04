@@ -229,7 +229,7 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 		Owner:   s.otherEnvOwner,
 		Prepare: true,
 		ConfigAttrs: jujutesting.Attrs{
-			"state-server": false,
+			"controller": false,
 		},
 	})
 	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
@@ -298,7 +298,7 @@ func (s *destroyTwoModelsSuite) TestDifferentStateModel(c *gc.C) {
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
 	// NOTE: pass in the main test State instance, which is 'bound'
-	// to the state server model.
+	// to the controller model.
 	err := common.DestroyModel(s.State, s.otherState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -316,7 +316,7 @@ func (s *destroyTwoModelsSuite) TestDifferentStateModel(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
-func (s *destroyTwoModelsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
+func (s *destroyTwoModelsSuite) TestDestroyControllerAfterNonControllerIsDestroyed(c *gc.C) {
 	otherFactory := factory.NewFactory(s.otherState)
 	otherFactory.MakeMachine(c, nil)
 	m := otherFactory.MakeMachine(c, nil)
@@ -353,7 +353,7 @@ func (s *destroyTwoModelsSuite) TestDestroyStateServerAfterNonStateServerIsDestr
 	c.Assert(env.Life(), gc.Equals, state.Dead)
 }
 
-func (s *destroyTwoModelsSuite) TestDestroyStateServerAndNonStateServer(c *gc.C) {
+func (s *destroyTwoModelsSuite) TestDestroyControllerAndNonController(c *gc.C) {
 	otherFactory := factory.NewFactory(s.otherState)
 	otherFactory.MakeMachine(c, nil)
 	m := otherFactory.MakeMachine(c, nil)

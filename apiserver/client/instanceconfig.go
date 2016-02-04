@@ -16,7 +16,7 @@ import (
 )
 
 // InstanceConfig returns information from the environment config that
-// is needed for machine cloud-init (for non-state servers only). It
+// is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {

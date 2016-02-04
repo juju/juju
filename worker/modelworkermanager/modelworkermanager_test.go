@@ -83,7 +83,7 @@ func (s *suite) TestStartsWorkersForPreExistingEnvs(c *gc.C) {
 func (s *suite) TestStartsWorkersForNewEnv(c *gc.C) {
 	m := modelworkermanager.NewModelWorkerManager(s.State, s.startEnvWorker, s.dyingEnvWorker, time.Millisecond)
 	defer m.Kill()
-	s.seeRunnersStart(c, 1) // Runner for state server env
+	s.seeRunnersStart(c, 1) // Runner for controller env
 
 	// Create another environment and watch a runner be created for it.
 	st2 := s.MakeModel(c)

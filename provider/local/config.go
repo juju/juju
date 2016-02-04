@@ -141,7 +141,7 @@ func (c *environConfig) bootstrapIPAddress() string {
 	return addr
 }
 
-func (c *environConfig) stateServerAddr() string {
+func (c *environConfig) controllerAddr() string {
 	return fmt.Sprintf("localhost:%d", c.Config.APIPort())
 }
 

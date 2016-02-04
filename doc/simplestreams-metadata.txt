@@ -20,7 +20,7 @@ Basic Workflow
 Whether images or tools, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
-1. For a running model, the Juju state server database.
+1. For a running model, the Juju controller database.
 2. User supplied location (specified by agent-metadata-url or image-metadata-url config settings)
 3. Provider specific locations (eg keystone endpoint if on Openstack)
 4. A web location with metadata for supported public clouds (https://streams.canonical.com/juju)
@@ -99,7 +99,7 @@ override what is provided by the cloud.
 
 1. Bootstrap metadata
 
-The first location in the tools search path is the Juju state server database. When Juju bootstraps,
+The first location in the tools search path is the Juju controller database. When Juju bootstraps,
 it can optionally read tools and image metadata from a local directory and upload those to the database so
 that the tools are cached and available when needed.
 

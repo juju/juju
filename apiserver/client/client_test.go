@@ -473,7 +473,7 @@ func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {
 }
 
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	// Create a provisioned state server.
+	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
@@ -513,7 +513,7 @@ func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
 }
 
 func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
-	// Create a provisioned state server.
+	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)

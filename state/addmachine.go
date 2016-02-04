@@ -37,7 +37,7 @@ type MachineTemplate struct {
 	Jobs []MachineJob
 
 	// NoVote holds whether a machine running
-	// a state server should abstain from peer voting.
+	// a controller should abstain from peer voting.
 	// It is ignored if Jobs does not contain JobManageModel.
 	NoVote bool
 
@@ -182,7 +182,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
-	ssOps, err := st.maintainStateServersOps(mdocs, nil)
+	ssOps, err := st.maintainControllersOps(mdocs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -232,7 +232,7 @@ func (st *State) resolveMachineConstraints(cons constraints.Value) (constraints.
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
 // represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
+func (st *State) effectiveMachineTemplate(p MachineTemplate, allowController bool) (tmpl MachineTemplate, err error) {
 	// First check for obvious errors.
 	if p.Series == "" {
 		return tmpl, errors.New("no series specified")
@@ -261,8 +261,8 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 		jset[j] = true
 	}
 	if jset[JobManageModel] {
-		if !allowStateServer {
-			return tmpl, errStateServerNotAllowed
+		if !allowController {
+			return tmpl, errControllerNotAllowed
 		}
 	}
 	return p, nil
@@ -272,7 +272,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template, st.IsStateServer())
+	template, err := st.effectiveMachineTemplate(template, st.IsController())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -662,14 +662,14 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 	return false
 }
 
-var errStateServerNotAllowed = errors.New("state server jobs specified but not allowed")
+var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
-// maintainStateServersOps returns a set of operations that will maintain
-// the state server information when the given machine documents
+// maintainControllersOps returns a set of operations that will maintain
+// the controller information when the given machine documents
 // are added to the machines collection. If currentInfo is nil,
 // there can be only one machine document and it must have
 // id 0 (this is a special case to allow adding the bootstrap machine)
-func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *StateServerInfo) ([]txn.Op, error) {
+func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *ControllerInfo) ([]txn.Op, error) {
 	var newIds, newVotingIds []string
 	for _, doc := range mdocs {
 		if !hasJob(doc.Jobs, JobManageModel) {
@@ -686,19 +686,19 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	if currentInfo == nil {
 		// Allow bootstrap machine only.
 		if len(mdocs) != 1 || mdocs[0].Id != "0" {
-			return nil, errStateServerNotAllowed
+			return nil, errControllerNotAllowed
 		}
 		var err error
-		currentInfo, err = st.StateServerInfo()
+		currentInfo, err = st.ControllerInfo()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot get state server info")
+			return nil, errors.Annotate(err, "cannot get controller info")
 		}
 		if len(currentInfo.MachineIds) > 0 || len(currentInfo.VotingMachineIds) > 0 {
-			return nil, errors.New("state servers already exist")
+			return nil, errors.New("controllers already exist")
 		}
 	}
 	ops := []txn.Op{{
-		C:  stateServersC,
+		C:  controllersC,
 		Id: modelGlobalKey,
 		Assert: bson.D{{
 			"$and", []bson.D{
@@ -714,37 +714,37 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	return ops, nil
 }
 
-// EnableHA adds state server machines as necessary to make
-// the number of live state servers equal to numStateServers. The given
+// EnableHA adds controller machines as necessary to make
+// the number of live controllers equal to numControllers. The given
 // constraints and series will be attached to any new machines.
 // If placement is not empty, any new machines which may be required are started
 // according to the specified placement directives until the placement list is
 // exhausted; thereafter any new machines are started according to the constraints and series.
 func (st *State) EnableHA(
-	numStateServers int, cons constraints.Value, series string, placement []string,
-) (StateServersChanges, error) {
+	numControllers int, cons constraints.Value, series string, placement []string,
+) (ControllersChanges, error) {
 
-	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
-		return StateServersChanges{}, errors.New("number of state servers must be odd and non-negative")
+	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
+		return ControllersChanges{}, errors.New("number of controllers must be odd and non-negative")
 	}
-	if numStateServers > replicaset.MaxPeers {
-		return StateServersChanges{}, errors.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
+	if numControllers > replicaset.MaxPeers {
+		return ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	var change StateServersChanges
+	var change ControllersChanges
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		currentInfo, err := st.StateServerInfo()
+		currentInfo, err := st.ControllerInfo()
 		if err != nil {
 			return nil, err
 		}
-		desiredStateServerCount := numStateServers
-		if desiredStateServerCount == 0 {
-			desiredStateServerCount = len(currentInfo.VotingMachineIds)
-			if desiredStateServerCount <= 1 {
-				desiredStateServerCount = 3
+		desiredControllerCount := numControllers
+		if desiredControllerCount == 0 {
+			desiredControllerCount = len(currentInfo.VotingMachineIds)
+			if desiredControllerCount <= 1 {
+				desiredControllerCount = 3
 			}
 		}
-		if len(currentInfo.VotingMachineIds) > desiredStateServerCount {
-			return nil, errors.New("cannot reduce state server count")
+		if len(currentInfo.VotingMachineIds) > desiredControllerCount {
+			return nil, errors.New("cannot reduce controller count")
 		}
 
 		intent, err := st.enableHAIntentions(currentInfo, placement)
@@ -757,21 +757,21 @@ func (st *State) EnableHA(
 				voteCount++
 			}
 		}
-		if voteCount == desiredStateServerCount && len(intent.remove) == 0 {
+		if voteCount == desiredControllerCount && len(intent.remove) == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
-		if n := desiredStateServerCount - voteCount; n < len(intent.promote) {
+		if n := desiredControllerCount - voteCount; n < len(intent.promote) {
 			intent.promote = intent.promote[:n]
 		}
 		voteCount += len(intent.promote)
 
-		if n := desiredStateServerCount - voteCount; n < len(intent.convert) {
+		if n := desiredControllerCount - voteCount; n < len(intent.convert) {
 			intent.convert = intent.convert[:n]
 		}
 		voteCount += len(intent.convert)
 
-		intent.newCount = desiredStateServerCount - voteCount
+		intent.newCount = desiredControllerCount - voteCount
 
 		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
 
@@ -780,14 +780,14 @@ func (st *State) EnableHA(
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
-		err = errors.Annotate(err, "failed to create new state server machines")
-		return StateServersChanges{}, err
+		err = errors.Annotate(err, "failed to create new controller machines")
+		return ControllersChanges{}, err
 	}
 	return change, nil
 }
 
-// Change in state servers after the ensure availability txn has committed.
-type StateServersChanges struct {
+// Change in controllers after the ensure availability txn has committed.
+type ControllersChanges struct {
 	Added      []string
 	Removed    []string
 	Maintained []string
@@ -799,22 +799,22 @@ type StateServersChanges struct {
 // enableHAIntentionOps returns operations to fulfil the desired intent.
 func (st *State) enableHAIntentionOps(
 	intent *enableHAIntent,
-	currentInfo *StateServerInfo,
+	currentInfo *ControllerInfo,
 	cons constraints.Value,
 	series string,
-) ([]txn.Op, StateServersChanges, error) {
+) ([]txn.Op, ControllersChanges, error) {
 	var ops []txn.Op
-	var change StateServersChanges
+	var change ControllersChanges
 	for _, m := range intent.promote {
-		ops = append(ops, promoteStateServerOps(m)...)
+		ops = append(ops, promoteControllerOps(m)...)
 		change.Promoted = append(change.Promoted, m.doc.Id)
 	}
 	for _, m := range intent.demote {
-		ops = append(ops, demoteStateServerOps(m)...)
+		ops = append(ops, demoteControllerOps(m)...)
 		change.Demoted = append(change.Demoted, m.doc.Id)
 	}
 	for _, m := range intent.convert {
-		ops = append(ops, convertStateServerOps(m)...)
+		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.doc.Id)
 	}
 	// Use any placement directives that have been provided
@@ -843,7 +843,7 @@ func (st *State) enableHAIntentionOps(
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
-			return nil, StateServersChanges{}, err
+			return nil, ControllersChanges{}, err
 		}
 		mdocs[i] = mdoc
 		ops = append(ops, addOps...)
@@ -851,7 +851,7 @@ func (st *State) enableHAIntentionOps(
 
 	}
 	for _, m := range intent.remove {
-		ops = append(ops, removeStateServerOps(m)...)
+		ops = append(ops, removeControllerOps(m)...)
 		change.Removed = append(change.Removed, m.doc.Id)
 
 	}
@@ -859,26 +859,26 @@ func (st *State) enableHAIntentionOps(
 	for _, m := range intent.maintain {
 		tag, err := names.ParseTag(m.Tag().String())
 		if err != nil {
-			return nil, StateServersChanges{}, errors.Annotate(err, "could not parse machine tag")
+			return nil, ControllersChanges{}, errors.Annotate(err, "could not parse machine tag")
 		}
 		if tag.Kind() != names.MachineTagKind {
-			return nil, StateServersChanges{}, errors.Errorf("expected machine tag kind, got %s", tag.Kind())
+			return nil, ControllersChanges{}, errors.Errorf("expected machine tag kind, got %s", tag.Kind())
 		}
 		change.Maintained = append(change.Maintained, tag.Id())
 	}
-	ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
+	ssOps, err := st.maintainControllersOps(mdocs, currentInfo)
 	if err != nil {
-		return nil, StateServersChanges{}, errors.Annotate(err, "cannot prepare add-machine operations")
+		return nil, ControllersChanges{}, errors.Annotate(err, "cannot prepare machine add operations")
 	}
 	ops = append(ops, ssOps...)
 	return ops, change, nil
 }
 
-// stateServerAvailable returns true if the specified state server machine is
+// controllerAvailable returns true if the specified controller machine is
 // available.
-var stateServerAvailable = func(m *Machine) (bool, error) {
+var controllerAvailable = func(m *Machine) (bool, error) {
 	// TODO(axw) #1271504 2014-01-22
-	// Check the state server's associated mongo health;
+	// Check the controller's associated mongo health;
 	// requires coordination with worker/peergrouper.
 	return m.AgentPresence()
 }
@@ -896,7 +896,7 @@ type enableHAIntent struct {
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): unscoped placements shouldn't ever get here (though
@@ -921,7 +921,7 @@ func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (
 				return nil, errors.Annotatef(err, "can't find machine for placement directive %q", s)
 			}
 			if m.IsManager() {
-				return nil, errors.Errorf("machine for placement directive %q is already a state server", s)
+				return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
 			}
 			intent.convert = append(intent.convert, m)
 			intent.placement = append(intent.placement, s)
@@ -935,7 +935,7 @@ func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (
 		if err != nil {
 			return nil, err
 		}
-		available, err := stateServerAvailable(m)
+		available, err := controllerAvailable(m)
 		if err != nil {
 			return nil, err
 		}
@@ -952,7 +952,7 @@ func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (
 			// The machine wants to vote, so we simply set novote and allow it
 			// to run its course to have its vote removed by the worker that
 			// maintains the replicaset. We will replace it with an existing
-			// non-voting state server if there is one, starting a new one if
+			// non-voting controller if there is one, starting a new one if
 			// not.
 			intent.demote = append(intent.demote, m)
 		} else if m.HasVote() {
@@ -969,7 +969,7 @@ func (st *State) enableHAIntentions(info *StateServerInfo, placement []string) (
 	return &intent, nil
 }
 
-func convertStateServerOps(m *Machine) []txn.Op {
+func convertControllerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:  machinesC,
 		Id: m.doc.DocID,
@@ -979,7 +979,7 @@ func convertStateServerOps(m *Machine) []txn.Op {
 		},
 		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 	}, {
-		C:  stateServersC,
+		C:  controllersC,
 		Id: modelGlobalKey,
 		Update: bson.D{
 			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
@@ -988,33 +988,33 @@ func convertStateServerOps(m *Machine) []txn.Op {
 	}}
 }
 
-func promoteStateServerOps(m *Machine) []txn.Op {
+func promoteControllerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}},
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	}, {
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     modelGlobalKey,
 		Update: bson.D{{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
 
-func demoteStateServerOps(m *Machine) []txn.Op {
+func demoteControllerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", false}},
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
 	}, {
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     modelGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
 
-func removeStateServerOps(m *Machine) []txn.Op {
+func removeControllerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
@@ -1024,7 +1024,7 @@ func removeStateServerOps(m *Machine) []txn.Op {
 			{"$set", bson.D{{"novote", false}}},
 		},
 	}, {
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     modelGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}

@@ -84,7 +84,7 @@ you manage yourself; see the documentation for "sync-tools".
 
 The upgrade-juju command will abort if an upgrade is already in
 progress. It will also abort if a previous upgrade was partially
-completed - this can happen if one of the state servers in a high
+completed - this can happen if one of the controllers in a high
 availability model failed to upgrade. If a failed upgrade has
 been resolved, the --reset-previous-upgrade flag can be used to reset
 the model's upgrade tracking state, allowing further upgrades.`
@@ -435,7 +435,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 
 	var uploaded *coretools.Tools
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
-	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
+	logger.Infof("uploading tools %v (%dkB) to Juju controller", builtTools.Version, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
 		return errors.Trace(err)

@@ -56,7 +56,7 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `logged in to server, no model, "Client" not supported`)
 }
 
-func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) {
+func (s *loginV2Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 	_, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 

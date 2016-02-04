@@ -23,7 +23,7 @@ type ConnSuite struct {
 	relations    *mgo.Collection
 	services     *mgo.Collection
 	units        *mgo.Collection
-	stateServers *mgo.Collection
+	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
 	modelTag     names.ModelTag
 }
@@ -46,7 +46,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.relations = jujuDB.C("relations")
 	cs.services = jujuDB.C("services")
 	cs.units = jujuDB.C("units")
-	cs.stateServers = jujuDB.C("stateServers")
+	cs.controllers = jujuDB.C("controllers")
 
 	c.Log("SetUpTest done")
 }

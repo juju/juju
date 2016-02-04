@@ -19,15 +19,15 @@ type instancecfgSuite struct {
 
 var _ = gc.Suite(&instancecfgSuite{})
 
-func (*instancecfgSuite) TestInstanceTagsStateServer(c *gc.C) {
+func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
-	stateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
-	nonStateServerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
-	testInstanceTags(c, cfg, stateServerJobs, map[string]string{
-		"juju-model-uuid": testing.ModelTag.Id(),
-		"juju-is-state":   "true",
+	controllerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
+	nonControllerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+	testInstanceTags(c, cfg, controllerJobs, map[string]string{
+		"juju-model-uuid":    testing.ModelTag.Id(),
+		"juju-is-controller": "true",
 	})
-	testInstanceTags(c, cfg, nonStateServerJobs, map[string]string{
+	testInstanceTags(c, cfg, nonControllerJobs, map[string]string{
 		"juju-model-uuid": testing.ModelTag.Id(),
 	})
 }
