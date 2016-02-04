@@ -137,7 +137,13 @@ func (s *ModelMigrationSuite) TestSpecValidation(c *gc.C) {
 		func(spec *state.ModelMigrationSpec) {
 			spec.InitiatedBy = ""
 		},
-		"empty InitiatedBy not valid",
+		"InitiatedBy not valid",
+	}, {
+		"invalid InitiatedBy",
+		func(spec *state.ModelMigrationSpec) {
+			spec.InitiatedBy = "!"
+		},
+		"InitiatedBy not valid",
 	}, {
 		"TargetInfo is validated",
 		func(spec *state.ModelMigrationSpec) {

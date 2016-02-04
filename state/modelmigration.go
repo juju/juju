@@ -272,8 +272,8 @@ type ModelMigrationSpec struct {
 // Validate returns an error if the ModelMigrationSpec contains bad
 // data. Nil is returned otherwise.
 func (spec *ModelMigrationSpec) Validate() error {
-	if spec.InitiatedBy == "" {
-		return errors.NotValidf("empty InitiatedBy")
+	if !names.IsValidUser(spec.InitiatedBy) {
+		return errors.NotValidf("InitiatedBy")
 	}
 	return spec.TargetInfo.Validate()
 }
