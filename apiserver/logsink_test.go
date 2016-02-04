@@ -8,9 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/loggo"
@@ -185,15 +183,6 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	line0 := modelUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
 	line1 := modelUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
 	c.Assert(string(logContents), gc.Equals, line0+line1)
-
-	// Check the file mode is as expected. This doesn't work on
-	// Windows (but this code is very unlikely to run on Windows so
-	// it's ok).
-	if runtime.GOOS != "windows" {
-		info, err := os.Stat(logPath)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(info.Mode(), gc.Equals, os.FileMode(0600))
-	}
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
