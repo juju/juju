@@ -93,7 +93,7 @@ func (s *workerSuite) TestWorkerIsStringsWorker(c *gc.C) {
 	c.Assert(s.Worker, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 }
 
-func (s *workerSuite) assertSpacesDiscovered(c *gc.C) {
+func (s *workerSuite) assertSpaceDiscoveryCompleted(c *gc.C) {
 	c.Assert(s.spacesDiscovered, gc.NotNil)
 	select {
 	case <-s.spacesDiscovered:
@@ -126,7 +126,7 @@ func (s *workerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
 			break
 		}
 	}
-	s.assertSpacesDiscovered(c)
+	s.assertSpaceDiscoveryCompleted(c)
 }
 
 func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
@@ -143,7 +143,7 @@ func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
 			break
 		}
 	}
-	s.assertSpacesDiscovered(c)
+	s.assertSpaceDiscoveryCompleted(c)
 }
 
 func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
@@ -220,7 +220,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 			c.Check(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
 		}
 	}
-	s.assertSpacesDiscovered(c)
+	s.assertSpaceDiscoveryCompleted(c)
 }
 
 func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
@@ -271,7 +271,7 @@ func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
 	s.spacesDiscovered = spacesDiscovered
 	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
-	s.assertSpacesDiscovered(c)
+	s.assertSpaceDiscoveryCompleted(c)
 }
 
 func (s *workerSuite) TestSpacesBroken(c *gc.C) {
@@ -282,7 +282,7 @@ func (s *workerSuite) TestSpacesBroken(c *gc.C) {
 	s.spacesDiscovered = spacesDiscovered
 	err := worker.Stop(newWorker)
 	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
-	s.assertSpacesDiscovered(c)
+	s.assertSpaceDiscoveryCompleted(c)
 }
 
 func (s *workerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
