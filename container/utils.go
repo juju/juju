@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	runtimeGOOS      = runtime.GOOS
+	runtimeGOOS = runtime.GOOS
 )
 
 func RunningInContainer() bool {

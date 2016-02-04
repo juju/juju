@@ -41,5 +41,5 @@ func (i imageClient) EnsureImageExists(series string) error {
 
 // A common place to compute image names (alises) based on the series
 func (i imageClient) ImageNameForSeries(series string) string {
-	return "ubuntu-"+series
+	return "ubuntu-" + series
 }

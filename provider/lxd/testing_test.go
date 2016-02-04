@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools/lxdclient"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/tools/lxdclient"
 	"github.com/juju/juju/version"
 )
 

@@ -7,13 +7,13 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/tools/lxdclient"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/tools/lxdclient"
+	jc "github.com/juju/testing/checkers"
 
 	gc "gopkg.in/check.v1"
 )
@@ -25,15 +25,15 @@ func Test(t *stdtesting.T) {
 
 	/* if there's not a lxd available, don't run the tests */
 	/*
-	_, err := lxd.ConnectLocal("")
-	if err != nil {
-		t.Skip("LXD is not avalilable %s", err)
-	}
+		_, err := lxd.ConnectLocal("")
+		if err != nil {
+			t.Skip("LXD is not avalilable %s", err)
+		}
 	*/
 	gc.TestingT(t)
 }
 
-type LxdSuite struct {}
+type LxdSuite struct{}
 
 var _ = gc.Suite(&LxdSuite{})
 
@@ -54,7 +54,7 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 
 	/* create a container to make sure isn't deleted */
 	instanceSpec := lxdclient.InstanceSpec{
-		Name: "juju-lxd-tests",
+		Name:  "juju-lxd-tests",
 		Image: "ubuntu-xenial",
 	}
 

@@ -26,4 +26,3 @@ func (s *UtilsSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
 	supports := ContainersSupported()
 	c.Assert(supports, jc.IsFalse)
 }
-

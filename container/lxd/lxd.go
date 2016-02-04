@@ -18,7 +18,7 @@ import (
 )
 
 var (
-        logger = loggo.GetLogger("juju.container.lxd")
+	logger = loggo.GetLogger("juju.container.lxd")
 )
 
 const (
@@ -41,7 +41,7 @@ var _ container.Manager = (*containerManager)(nil)
 func ConnectLocal(namespace string) (*lxdclient.Client, error) {
 	cfg := lxdclient.Config{
 		Namespace: namespace,
-		Remote: lxdclient.Local,
+		Remote:    lxdclient.Local,
 	}
 
 	cfg, err := cfg.WithDefaults()
@@ -106,8 +106,8 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	spec := lxdclient.InstanceSpec{
-		Name: name,
-		Image: manager.client.ImageNameForSeries(series),
+		Name:     name,
+		Image:    manager.client.ImageNameForSeries(series),
 		Metadata: metadata,
 		Profiles: []string{
 			"default",

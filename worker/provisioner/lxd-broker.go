@@ -41,11 +41,11 @@ func NewLxdBroker(
 }
 
 type lxdBroker struct {
-	manager container.Manager
-	namespace string
-	api APICalls
+	manager     container.Manager
+	namespace   string
+	api         APICalls
 	agentConfig agent.Config
-	enableNAT bool
+	enableNAT   bool
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -133,7 +133,6 @@ func (broker *lxdBroker) StopInstances(ids ...instance.Id) error {
 func (broker *lxdBroker) AllInstances() (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
 }
-
 
 // MaintainInstance ensures the container's host has the required iptables and
 // routing rules to make the container visible to both the host and other
