@@ -71,15 +71,15 @@ func allCollections() collectionSchema {
 		// Global collections
 		// ==================
 
-		// This collection holds the details of the state servers hosting, well,
+		// This collection holds the details of the controllers hosting, well,
 		// everything in state.
-		stateServersC: {global: true},
+		controllersC: {global: true},
 
 		// This collection is used to track progress when restoring a
-		// state server from backup.
+		// controller from backup.
 		restoreInfoC: {global: true},
 
-		// This collection is used by the state servers to coordinate binary
+		// This collection is used by the controllers to coordinate binary
 		// upgrades and schema migrations.
 		upgradeInfoC: {global: true},
 
@@ -383,7 +383,7 @@ const (
 	servicesC                = "services"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
-	stateServersC            = "stateServers"
+	controllersC             = "controllers"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"
 	storageAttachmentsC      = "storageattachments"

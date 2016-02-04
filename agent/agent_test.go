@@ -109,7 +109,7 @@ var agentConfigTests = []struct {
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:8080", "bad-address"},
 	},
-	checkErr: `invalid state server address "bad-address"`,
+	checkErr: `invalid controller address "bad-address"`,
 }, {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
@@ -445,14 +445,14 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		inspectConfig func(*gc.C, agent.Config)
 	}
 	var tests = []testStruct{{
-		about:    "missing state server cert",
-		checkErr: "state server cert not found in configuration",
+		about:    "missing controller cert",
+		checkErr: "controller cert not found in configuration",
 	}, {
-		about: "missing state server key",
+		about: "missing controller key",
 		servingInfo: params.StateServingInfo{
 			Cert: "server cert",
 		},
-		checkErr: "state server key not found in configuration",
+		checkErr: "controller key not found in configuration",
 	}, {
 		about: "missing ca cert key",
 		servingInfo: params.StateServingInfo{

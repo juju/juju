@@ -149,7 +149,7 @@ type Environ interface {
 	// of its choice, constrained to those of the available tools, and
 	// returns the instance's architecture, series, and a function that
 	// must be called to finalize the bootstrap process by transferring
-	// the tools and installing the initial Juju state server.
+	// the tools and installing the initial Juju controller.
 	//
 	// It is possible to direct Bootstrap to use a specific architecture
 	// (or fail if it cannot start an instance of that architecture) by
@@ -186,12 +186,12 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
-	// StateServerInstances returns the IDs of instances corresponding
-	// to Juju state servers. If there are no state server instances,
+	// ControllerInstances returns the IDs of instances corresponding
+	// to Juju controllers. If there are no controller instances,
 	// ErrNoInstances is returned. If it can be determined that the
 	// environment has not been bootstrapped, then ErrNotBootstrapped
 	// should be returned instead.
-	StateServerInstances() ([]instance.Id, error)
+	ControllerInstances() ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,

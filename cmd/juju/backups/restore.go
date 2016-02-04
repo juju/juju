@@ -39,11 +39,11 @@ var restoreDoc = `
 Restores a backup that was previously created with "juju backup" and
 "juju backups create".
 
-This command creates a new state server and arranges for it to replace
-the previous state server for a model.  It does *not* restore
+This command creates a new controller and arranges for it to replace
+the previous controller for a model.  It does *not* restore
 an existing server to a previous state, but instead creates a new server
 with equivalent state.  As part of restore, all known instances are
-configured to treat the new state server as their master.
+configured to treat the new controller as their master.
 
 The given constraints will be used to choose the new instance.
 
@@ -57,7 +57,7 @@ to that effect.
 func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore",
-		Purpose: "restore from a backup archive to a new state server",
+		Purpose: "restore from a backup archive to a new controller",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
 	}
@@ -146,9 +146,9 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := env.ControllerInstances()
 	if err != nil {
-		return errors.Annotatef(err, "cannot determine state server instances")
+		return errors.Annotatef(err, "cannot determine controller instances")
 	}
 	if len(instanceIds) == 0 {
 		return errors.Errorf("no instances found; perhaps the model was not bootstrapped")

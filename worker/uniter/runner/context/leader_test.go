@@ -257,7 +257,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 			"nice": "data",
 		}},
 	}}, func() {
-		// Write new data to the state server...
+		// Write new data to the controller...
 		s.tracker.results = []StubTicket{true}
 		err := s.context.WriteLeaderSettings(map[string]string{
 			"some": "very",

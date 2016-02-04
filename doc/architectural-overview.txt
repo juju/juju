@@ -41,7 +41,7 @@ standpoint. We use a mongodb replicaset to support HA; we use the `mgo` package 
 log to detect changes to particular documents, and convert them into business-object-
 level events that get sent over the API to interested parties.
 
-The mongodb databases run on machines we refer to as *state servers*, and are only
+The mongodb databases run on machines we refer to as *controllers*, and are only
 accessed by agents running on those machines; it's important to keep it locked down
 (and, honestly, to lock it down further and better than we currently have).
 
@@ -112,7 +112,7 @@ All agents run workers with the following responsibilities:
     (implemented in `worker/upgrader`)
   * Watch logging config, and reconfigure the local logger (`worker/logger`; yes,
     we know; it is not the stupidest name in the codebase)
-  * Watch and store the latest known addresses for the state servers
+  * Watch and store the latest known addresses for the controllers
     (`worker/apiaddressupdater`)
 
 ### Machine Agent Workers
@@ -148,7 +148,7 @@ API server represents a layering violation that (1) confuses us and slows us
 down and (2) just encourages worse layering violations as we progress.
 
 
-### State Server Workers
+### controller Workers
 
 Machines with JobManageModel also run a number of other workers, which do
 the following.
@@ -227,7 +227,7 @@ XXXX
 
 ## The APIs
 
-State servers expose an API endpoint over a websocket connection. The methods
+controllers expose an API endpoint over a websocket connection. The methods
 available over the API are broken down by client; there's a `Client` facade that
 exposes the methods used by clients, an `Agent` facade that exposes the methods
 common to all agents, and a wide range of worker-specific *facades* that individually
@@ -277,7 +277,7 @@ in the API server.
 It's important to note that an environ Config will generally contain sensitive
 information -- a user's authentication keys for a cloud provider -- and so we
 must always be careful to avoid spreading those around further than we need to.
-Basically, if an environ config gets off a state server, we've screwed up.
+Basically, if an environ config gets off a controller, we've screwed up.
 
 
 ## Bootstrapping

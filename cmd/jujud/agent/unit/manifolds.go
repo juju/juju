@@ -90,7 +90,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
-		// as the state server addresses change. We should only need one of
+		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
 		APIAdddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     AgentName,
@@ -172,7 +172,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
 		}),
 
-		// The metric sender worker periodically sends accumulated metrics to the state server.
+		// The metric sender worker periodically sends accumulated metrics to the controller.
 		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
 			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,

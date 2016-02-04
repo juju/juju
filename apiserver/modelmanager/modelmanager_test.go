@@ -85,7 +85,7 @@ func (s *modelManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.Mode
 			"name":            "test-model",
 			"authorized-keys": "ssh-key",
 			// And to make it a valid dummy config
-			"state-server": false,
+			"controller": false,
 		},
 	}
 }
@@ -210,9 +210,9 @@ func (s *modelManagerSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgs(c, admin)
-	args.Config["state-server"] = "maybe"
+	args.Config["controller"] = "maybe"
 	_, err := s.modelmanager.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, "provider validation failed: state-server: expected bool, got string\\(\"maybe\"\\)")
+	c.Assert(err, gc.ErrorMatches, "provider validation failed: controller: expected bool, got string\\(\"maybe\"\\)")
 }
 
 func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {

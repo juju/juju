@@ -104,9 +104,9 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	info, err := s.State.StateServerInfo()
+	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{ModelTag: modelTag})
+	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag})
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {

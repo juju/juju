@@ -45,9 +45,9 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		loggo.ResetLoggers()
 	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":         "erewhemos",
-		"type":         "dummy",
-		"state-server": true,
+		"name":      "erewhemos",
+		"type":      "dummy",
+		"conroller": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(

@@ -82,7 +82,7 @@ func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 var sampleInfo = `
   user: rog
   password: guessit
-  state-servers:
+  controllers:
   - 10.0.0.1
   - 127.0.0.1
   server-hostnames:
