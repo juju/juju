@@ -144,10 +144,11 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 type resourceDoc struct {
 	DocID     string `bson:"_id"`
 	EnvUUID   string `bson:"env-uuid"`
-	ModelID   string `bson:"model-id"`
+	ID        string `bson:"resource-id"`
+	PendingID string `bson:"pending-id"`
+
 	ServiceID string `bson:"service-id"`
 	UnitID    string `bson:"unit-id"`
-	PendingID string `bson:"pending-id"`
 
 	Name    string `bson:"name"`
 	Type    string `bson:"type"`
@@ -178,9 +179,10 @@ func resource2doc(id string, args resource.ModelResource) *resourceDoc {
 	// in order to avoid some conversion problems from Mongo.
 	return &resourceDoc{
 		DocID:     id,
-		ModelID:   args.ID,
-		ServiceID: args.ServiceID,
+		ID:        args.ID,
 		PendingID: args.PendingID,
+
+		ServiceID: args.ServiceID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),
@@ -207,7 +209,7 @@ func doc2resource(doc resourceDoc) (resource.ModelResource, error) {
 	}
 
 	mRes := resource.ModelResource{
-		ID:          doc.ModelID,
+		ID:          doc.ID,
 		PendingID:   doc.PendingID,
 		ServiceID:   doc.ServiceID,
 		Resource:    res,

@@ -54,7 +54,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
 		DocID:     id,
-		ModelID:   res.Name,
+		ID:        res.Name,
 		ServiceID: serviceID,
 
 		Name:    "spam",
@@ -105,7 +105,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
 		DocID:     id,
-		ModelID:   res.Name,
+		ID:        res.Name,
 		ServiceID: serviceID,
 
 		Name: "spam",
@@ -155,7 +155,7 @@ func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
 		DocID:     id,
-		ModelID:   res.Name,
+		ID:        res.Name,
 		ServiceID: serviceID,
 		PendingID: "some-unique-ID-001",
 
@@ -184,7 +184,7 @@ func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
 
 	res, err := doc2resource(resourceDoc{
 		DocID:     id,
-		ModelID:   "service-a-service/spam-some-unique-ID-001",
+		ID:        "service-a-service/spam-some-unique-ID-001",
 		ServiceID: serviceID,
 		PendingID: "some-unique-ID-001",
 
@@ -235,7 +235,7 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
-		ModelID:   "service-a-service/spam-some-unique-ID-001",
+		ID:        "service-a-service/spam-some-unique-ID-001",
 		ServiceID: serviceID,
 		PendingID: "some-unique-ID-001",
 
@@ -284,7 +284,7 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
-		ModelID:   "spam",
+		ID:        "spam",
 		ServiceID: serviceID,
 
 		Name: "spam",
@@ -351,7 +351,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
 		DocID:     id,
-		ModelID:   res.Name,
+		ID:        res.Name,
 		ServiceID: serviceID,
 
 		Name:    "spam",
@@ -381,7 +381,7 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
-		ModelID:   "spam",
+		ID:        "spam",
 		ServiceID: serviceID,
 
 		Name:    "spam",
@@ -424,7 +424,7 @@ func (s *MongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 	id := resourceID("spam", serviceID)
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     id,
-		ModelID:   "spam",
+		ID:        "spam",
 		ServiceID: serviceID,
 
 		Name: "spam",
@@ -471,7 +471,7 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
 		DocID:     id,
-		ModelID:   res.Name,
+		ID:        res.Name,
 		ServiceID: serviceID,
 
 		Name: "spam",

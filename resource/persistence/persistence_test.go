@@ -456,7 +456,7 @@ func newResource(c *gc.C, serviceID, name string) (resource.ModelResource, resou
 
 	doc := resourceDoc{
 		DocID:     "resource#" + serviceID + "#" + name,
-		ModelID:   mRes.ID,
+		ID:        mRes.ID,
 		ServiceID: serviceID,
 
 		Name:    res.Name,
