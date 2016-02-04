@@ -121,7 +121,7 @@ func (c Client) AddPendingResources(serviceID string, resources []charmresource.
 	}
 
 	if len(result.PendingIDs) != len(resources) {
-		return nil, errors.Errorf("bad data from server: expected %d IDs from AddPendingResources, got %d", len(resources), len(result.PendingIDs))
+		return nil, errors.Errorf("bad data from server: expected %d IDs, got %d", len(resources), len(result.PendingIDs))
 	}
 	for i, id := range result.PendingIDs {
 		if id == "" {
