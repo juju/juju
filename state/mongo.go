@@ -51,7 +51,7 @@ type UpgradeMongoParams struct {
 // SetUpgradeMongoMode writes a value in the state server to be picked up
 // by api servers to know that there is an upgrade ready to happen.
 func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error) {
-	currentInfo, err := st.StateServerInfo()
+	currentInfo, err := st.ControllerInfo()
 	if err != nil {
 		return UpgradeMongoParams{}, errors.Annotate(err, "could not obtain current controller information")
 	}

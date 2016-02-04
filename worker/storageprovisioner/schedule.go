@@ -25,7 +25,7 @@ func scheduleOperations(ctx *context, ops ...scheduleOp) {
 	if len(ops) == 0 {
 		return
 	}
-	now := ctx.time.Now()
+	now := ctx.config.Clock.Now()
 	for _, op := range ops {
 		k := op.key()
 		d := op.delay()

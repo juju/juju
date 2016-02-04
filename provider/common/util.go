@@ -16,8 +16,8 @@ import (
 // benefits users by helping them quickly identify in their hosting
 // management tools which instances are juju related.
 func EnvFullName(env environs.Environ) string {
-	envUUID, _ := env.Config().UUID() // Env should have validated this.
-	return fmt.Sprintf("juju-%s", envUUID)
+	modelUUID, _ := env.Config().UUID() // Env should have validated this.
+	return fmt.Sprintf("juju-%s", modelUUID)
 }
 
 // MachineFullName returns a string based on the provided environment

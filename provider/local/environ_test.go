@@ -191,7 +191,9 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 		AvailableTools: availableTools,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, "quantal", "")
+	icfg, err := instancecfg.NewBootstrapInstanceConfig(
+		constraints.Value{}, constraints.Value{}, "quantal", "",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.Tools = availableTools[0]
 	err = result.Finalize(ctx, icfg)
@@ -221,7 +223,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(icfg.AgentEnvironment, gc.Not(gc.IsNil))
 		c.Assert(icfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
-		c.Assert(icfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
+		c.Assert(icfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 		return nil
 	}
 	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
@@ -267,9 +269,8 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 		"env",
 		"JUJU_HOME=" + osenv.JujuHome(),
 		os.Args[0],
-		"destroy-environment",
+		"kill-controller",
 		"-y",
-		"--force",
 		env.Config().Name(),
 	}
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")
@@ -402,15 +403,15 @@ func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch="+invalidArch+"\nvalid values are:.*")
 }
 
-func (s *localJujuTestSuite) TestStateServerInstances(c *gc.C) {
+func (s *localJujuTestSuite) TestControllerInstances(c *gc.C) {
 	env := s.testBootstrap(c, minimalConfig(c))
 
-	instances, err := env.StateServerInstances()
+	instances, err := env.ControllerInstances()
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 	c.Assert(instances, gc.HasLen, 0)
 
 	s.makeAgentsDir(c, env)
-	instances, err = env.StateServerInstances()
+	instances, err = env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"localhost"})
 }

@@ -78,7 +78,7 @@ func (env *localEnviron) machineAgentServiceName() string {
 
 func ensureNotRoot() error {
 	if checkIfRoot() {
-		return fmt.Errorf("bootstrapping a local environment must not be done as root")
+		return fmt.Errorf("bootstrapping a local model must not be done as root")
 	}
 	return nil
 }
@@ -128,14 +128,14 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 
 	icfg.MachineAgentServiceName = env.machineAgentServiceName()
 	icfg.AgentEnvironment = map[string]string{
 		agent.Namespace: env.config.namespace(),
 		agent.LxcBridge: env.config.networkBridge(),
 
-		// The local provider only supports a single state server,
+		// The local provider only supports a single controller,
 		// so we make the oplog size to a small value. This makes
 		// the preallocation faster with no disadvantage.
 		agent.MongoOplogSize: "1", // 1MB
@@ -173,11 +173,6 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
 	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
-	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
-	// we now provide a symlink to the written file in the local log dir.
-	// Also, we leave the old all-machines.log file in
-	// /var/log/juju-{{namespace}} until we start the environment again. So
-	// potentially remove it at the start of the cloud-init.
 	localLogDir := filepath.Join(icfg.DataDir, "log")
 	if err := os.RemoveAll(localLogDir); err != nil {
 		return errors.Trace(err)
@@ -190,7 +185,6 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", icfg.LogDir),
-		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
@@ -216,8 +210,8 @@ var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.I
 	return cmd.Run()
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (env *localEnviron) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances is specified in the Environ interface.
+func (env *localEnviron) ControllerInstances() ([]instance.Id, error) {
 	agentsDir := filepath.Join(env.config.rootDir(), "agents")
 	_, err := os.Stat(agentsDir)
 	if os.IsNotExist(err) {
@@ -273,7 +267,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 				// Explicitly call the non-named constructor so if anyone
 				// adds additional fields, this fails.
 				container.ImageURLGetterConfig{
-					ecfg.stateServerAddr(), uuid, caCert, baseUrl,
+					ecfg.controllerAddr(), uuid, caCert, baseUrl,
 					container.ImageDownloadURL,
 				})
 
@@ -367,7 +361,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 	// TODO: evaluate the impact of setting the constraints on the
-	// instanceConfig for all machines rather than just state server nodes.
+	// instanceConfig for all machines rather than just controller nodes.
 	// This limitation is why the constraints are assigned directly here.
 	args.InstanceConfig.Constraints = args.Constraints
 	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
@@ -476,7 +470,7 @@ func (env *localEnviron) Destroy() error {
 		}
 		args := []string{
 			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-			juju, "destroy-environment", "-y", "--force", env.Config().Name(),
+			juju, "kill-controller", "-y", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout

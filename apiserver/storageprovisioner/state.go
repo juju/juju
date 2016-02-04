@@ -13,18 +13,18 @@ import (
 
 type provisionerState interface {
 	state.EntityFinder
-	state.EnvironAccessor
+	state.ModelAccessor
 
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
-	WatchEnvironFilesystems() state.StringsWatcher
+	WatchModelFilesystems() state.StringsWatcher
 	WatchEnvironFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
 	WatchMachineFilesystemAttachments(names.MachineTag) state.StringsWatcher
-	WatchEnvironVolumes() state.StringsWatcher
+	WatchModelVolumes() state.StringsWatcher
 	WatchEnvironVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher

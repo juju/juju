@@ -7,43 +7,43 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const disableUserDoc = `
 Disabling a user stops that user from being able to log in. The user still
-exists and can be reenabled using the "juju enable" command.  If the user is
+exists and can be reenabled using the "juju enable-user" command.  If the user is
 already disabled, this command succeeds silently.
 
 Examples:
-  juju user disable foobar
+  juju disable-user foobar
 
 See Also:
-  juju help user enable
+  juju help enable-user
 `
 
 const enableUserDoc = `
 Enabling a user that is disabled allows that user to log in again. The user
-still exists and can be reenabled using the "juju enable" command.  If the
+still exists and can be reenabled using the "juju enable-user" command.  If the
 user is already enabled, this command succeeds silently.
 
 Examples:
-  juju user enable foobar
+  juju enable-user foobar
 
 See Also:
-  juju help user disable
+  juju help disable-user
 `
 
 // disenableUserBase common code for enable/disable user commands
 type disenableUserBase struct {
-	UserCommandBase
+	modelcmd.ControllerCommandBase
 	api  disenableUserAPI
 	User string
 }
 
-func newDisableCommand() cmd.Command {
-	return envcmd.WrapSystem(&disableCommand{})
+func NewDisableCommand() cmd.Command {
+	return modelcmd.WrapController(&disableCommand{})
 }
 
 // disableCommand disables users.
@@ -51,8 +51,8 @@ type disableCommand struct {
 	disenableUserBase
 }
 
-func newEnableCommand() cmd.Command {
-	return envcmd.WrapSystem(&enableCommand{})
+func NewEnableCommand() cmd.Command {
+	return modelcmd.WrapController(&enableCommand{})
 }
 
 // enableCommand enables users.
@@ -63,7 +63,7 @@ type enableCommand struct {
 // Info implements Command.Info.
 func (c *disableCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "disable",
+		Name:    "disable-user",
 		Args:    "<username>",
 		Purpose: "disable a user to stop the user logging in",
 		Doc:     disableUserDoc,
@@ -73,7 +73,7 @@ func (c *disableCommand) Info() *cmd.Info {
 // Info implements Command.Info.
 func (c *enableCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "enable",
+		Name:    "enable-user",
 		Args:    "<username>",
 		Purpose: "reenables a disabled user to allow the user to log in",
 		Doc:     enableUserDoc,

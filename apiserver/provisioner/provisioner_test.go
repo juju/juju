@@ -59,7 +59,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
 }
 
-func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
+func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
+	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
+		"image-stream": "daily",
+	}
 	s.JujuConnSuite.SetUpTest(c)
 	// We're testing with address allocation on by default. There are
 	// separate tests to check the behavior when the flag is not
@@ -67,12 +70,12 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 
 	// Reset previous machines (if any) and create 3 machines
-	// for the tests, plus an optional state server machine.
+	// for the tests, plus an optional controller machine.
 	s.machines = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
-	if withStateServer {
-		s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	if withController {
+		s.machines = append(s.machines, testing.AddControllerMachine(c, s.State))
 	}
 	for i := 0; i < 5; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -100,19 +103,19 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.provisioner = provisionerAPI
 }
 
-type withoutStateServerSuite struct {
+type withoutControllerSuite struct {
 	provisionerSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.ModelWatcherTest
 }
 
-var _ = gc.Suite(&withoutStateServerSuite{})
+var _ = gc.Suite(&withoutControllerSuite{})
 
-func (s *withoutStateServerSuite) SetUpTest(c *gc.C) {
+func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.provisioner, s.State, s.resources, commontesting.HasSecrets)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources, commontesting.HasSecrets)
 }
 
-func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = true
 	// Works with an environment manager, which is not a machine agent.
@@ -128,7 +131,7 @@ func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonMana
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
+func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: s.machines[0].Tag().String(), Password: "xxx0-1234567890123457890"},
@@ -166,7 +169,7 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 	}
 }
 
-func (s *withoutStateServerSuite) TestShortSetPasswords(c *gc.C) {
+func (s *withoutControllerSuite) TestShortSetPasswords(c *gc.C) {
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: s.machines[1].Tag().String(), Password: "xxx1"},
@@ -179,7 +182,7 @@ func (s *withoutStateServerSuite) TestShortSetPasswords(c *gc.C) {
 		"password is only 4 bytes long, and is not a valid Agent password")
 }
 
-func (s *withoutStateServerSuite) TestLifeAsMachineAgent(c *gc.C) {
+func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	// NOTE: This and the next call serve to test the two
 	// different authorization schemes:
 	// 1. Machine agents can access their own machine and
@@ -242,7 +245,7 @@ func (s *withoutStateServerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestLifeAsEnvironManager(c *gc.C) {
+func (s *withoutControllerSuite) TestLifeAsEnvironManager(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
@@ -291,7 +294,7 @@ func (s *withoutStateServerSuite) TestLifeAsEnvironManager(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
+func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLife(c, 0, state.Alive)
@@ -326,7 +329,7 @@ func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
 	s.assertLife(c, 2, state.Alive)
 }
 
-func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].SetStatus(state.StatusStopped, "foo", nil)
@@ -363,7 +366,7 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	s.assertStatus(c, 2, state.StatusStarted, "again", map[string]interface{}{})
 }
 
-func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].SetStatus(state.StatusError, "transient error",
@@ -391,7 +394,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
+func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
 	// Machines where there's permission issues are omitted.
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
@@ -418,7 +421,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *g
 	})
 }
 
-func (s *withoutStateServerSuite) TestEnsureDead(c *gc.C) {
+func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLife(c, 0, state.Alive)
@@ -452,13 +455,13 @@ func (s *withoutStateServerSuite) TestEnsureDead(c *gc.C) {
 	s.assertLife(c, 2, state.Dead)
 }
 
-func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
+func (s *withoutControllerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 
-func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
+func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
 	expectData map[string]interface{}) {
 
 	statusInfo, err := s.machines[index].Status()
@@ -468,7 +471,7 @@ func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus 
 	c.Assert(statusInfo.Data, gc.DeepEquals, expectData)
 }
 
-func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
@@ -505,7 +508,7 @@ func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *withoutStateServerSuite) TestWatchAllContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
@@ -542,7 +545,7 @@ func (s *withoutStateServerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
+func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	// Now test it with a non-environment manager and make sure
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
@@ -551,10 +554,10 @@ func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertEnvironConfig(c, aProvisioner, commontesting.NoSecrets)
+	s.AssertModelConfig(c, aProvisioner, commontesting.NoSecrets)
 }
 
-func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
+func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].SetStatus(state.StatusStopped, "foo", nil)
@@ -593,7 +596,7 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
+func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 	// Add a machine with different series.
 	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -620,7 +623,7 @@ func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
 		for _, m := range machines {
@@ -654,8 +657,8 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("2")
 	setProvisioned("3")
 
-	// Add a few state servers, provision two of them.
-	_, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	// Add a few controllers, provision two of them.
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -691,7 +694,7 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
@@ -716,7 +719,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.
 	})
 }
 
-func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
@@ -746,7 +749,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 	})
 }
 
-func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfo(c *gc.C) {
 	// Add a couple of spaces.
 	_, err := s.State.AddSpace("space1", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -804,7 +807,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.ModelTag.Id(),
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
@@ -814,7 +817,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.ModelTag.Id(),
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": []string{"zone1"},
@@ -826,7 +829,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+						tags.JujuModel: coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -839,7 +842,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+						tags.JujuModel: coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -863,7 +866,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *withoutStateServerSuite) TestProvisioningInfoWhenUsingUnsuitableSpaces(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoWhenUsingUnsuitableSpaces(c *gc.C) {
 	// Add an empty space.
 	_, err := s.State.AddSpace("empty", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -903,7 +906,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoWhenUsingUnsuitableSpaces(
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
+func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	registry.RegisterProvider("dynamic", &storagedummy.StorageProvider{IsDynamic: true})
 	defer registry.RegisterProvider("dynamic", nil)
 	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
@@ -938,7 +941,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.ModelTag.Id(),
 				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-1",
@@ -946,7 +949,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					Provider:   "static",
 					Attributes: nil,
 					Tags: map[string]string{
-						tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+						tags.JujuModel: coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -959,7 +962,7 @@ func (s *withoutStateServerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
@@ -985,7 +988,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
+					tags.JujuModel: coretesting.ModelTag.Id(),
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
@@ -996,7 +999,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	cons := constraints.MustParse("cpu-cores=123", "mem=8G", "networks=net3,^net4")
 	template := state.MachineTemplate{
@@ -1030,7 +1033,7 @@ func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
+func (s *withoutControllerSuite) TestRequestedNetworks(c *gc.C) {
 	// Add a machine with some requested networks.
 	template := state.MachineTemplate{
 		Series:            "quantal",
@@ -1067,53 +1070,7 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
-	// Provision machine 0 first.
-	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", &hwChars)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.SetProvisioned{Machines: []params.MachineSetProvisioned{
-		{Tag: s.machines[0].Tag().String(), InstanceId: "i-was", Nonce: "fake_nonce", Characteristics: nil},
-		{Tag: s.machines[1].Tag().String(), InstanceId: "i-will", Nonce: "fake_nonce", Characteristics: &hwChars},
-		{Tag: s.machines[2].Tag().String(), InstanceId: "i-am-too", Nonce: "fake", Characteristics: nil},
-		{Tag: "machine-42", InstanceId: "", Nonce: "", Characteristics: nil},
-		{Tag: "unit-foo-0", InstanceId: "", Nonce: "", Characteristics: nil},
-		{Tag: "service-bar", InstanceId: "", Nonce: "", Characteristics: nil},
-	}}
-	result, err := s.provisioner.SetProvisioned(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{&params.Error{
-				Message: `cannot set instance data for machine "0": already set`,
-			}},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify machine 1 and 2 were provisioned.
-	c.Assert(s.machines[1].Refresh(), gc.IsNil)
-	c.Assert(s.machines[2].Refresh(), gc.IsNil)
-
-	instanceId, err := s.machines[1].InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.Id("i-will"))
-	instanceId, err = s.machines[2].InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instanceId, gc.Equals, instance.Id("i-am-too"))
-	c.Check(s.machines[1].CheckProvisioned("fake_nonce"), jc.IsTrue)
-	c.Check(s.machines[2].CheckProvisioned("fake"), jc.IsTrue)
-	gotHardware, err := s.machines[1].HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotHardware, gc.DeepEquals, &hwChars)
-}
-
-func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
+func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
@@ -1121,7 +1078,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "static-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1322,7 +1279,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(volumeAttachments, gc.HasLen, 0)
 }
 
-func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
+func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1352,10 +1309,10 @@ func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
+func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := s.provisioner.WatchEnvironMachines()
+	got, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -1374,14 +1331,14 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	// Make sure WatchEnvironMachines fails with a machine agent login.
+	// Make sure WatchModelMachines fails with a machine agent login.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := aProvisioner.WatchEnvironMachines()
+	result, err := aProvisioner.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
@@ -1393,7 +1350,7 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 	return results.ManagerConfig
 }
 
-func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
+func (s *withoutControllerSuite) TestContainerManagerConfig(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
@@ -1404,7 +1361,7 @@ func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestContainerManagerConfigNoFeatureFlagNoIPForwarding(c *gc.C) {
+func (s *withoutControllerSuite) TestContainerManagerConfigNoFeatureFlagNoIPForwarding(c *gc.C) {
 	s.SetFeatureFlags() // clear the flags.
 
 	cfg := s.getManagerConfig(c, instance.KVM)
@@ -1414,7 +1371,7 @@ func (s *withoutStateServerSuite) TestContainerManagerConfigNoFeatureFlagNoIPFor
 	})
 }
 
-func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
+func (s *withoutControllerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.C) {
 	// Break dummy provider's SupportsAddressAllocation method to
 	// ensure ConfigIPForwarding is not set below.
 	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
@@ -1425,12 +1382,12 @@ func (s *withoutStateServerSuite) TestContainerManagerConfigNoIPForwarding(c *gc
 	})
 }
 
-func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
+func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy":            "http://proxy.example.com:9000",
 		"allow-lxc-loop-mounts": true,
 	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedProxy := proxy.Settings{
 		Http: "http://proxy.example.com:9000",
@@ -1448,7 +1405,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
-func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 	args := params.MachineContainersParams{Params: []params.MachineContainers{{
 		MachineTag:     "machine-0",
 		ContainerTypes: []instance.ContainerType{instance.LXC},
@@ -1474,7 +1431,7 @@ func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
 }
 
-func (s *withoutStateServerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
+func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
@@ -1507,7 +1464,7 @@ func (s *withoutStateServerSuite) TestSetSupportedContainersPermissions(c *gc.C)
 	})
 }
 
-func (s *withoutStateServerSuite) TestSupportsNoContainers(c *gc.C) {
+func (s *withoutControllerSuite) TestSupportsNoContainers(c *gc.C) {
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{
@@ -1526,17 +1483,17 @@ func (s *withoutStateServerSuite) TestSupportsNoContainers(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }
 
-var _ = gc.Suite(&withStateServerSuite{})
+var _ = gc.Suite(&withControllerSuite{})
 
-type withStateServerSuite struct {
+type withControllerSuite struct {
 	provisionerSuite
 }
 
-func (s *withStateServerSuite) SetUpTest(c *gc.C) {
+func (s *withControllerSuite) SetUpTest(c *gc.C) {
 	s.provisionerSuite.setUpTest(c, true)
 }
 
-func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
+func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),
 	}
@@ -1550,7 +1507,7 @@ func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
 	})
 }
 
-func (s *withStateServerSuite) TestStateAddresses(c *gc.C) {
+func (s *withControllerSuite) TestStateAddresses(c *gc.C) {
 	addresses, err := s.State.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1561,14 +1518,14 @@ func (s *withStateServerSuite) TestStateAddresses(c *gc.C) {
 	})
 }
 
-func (s *withStateServerSuite) TestCACert(c *gc.C) {
+func (s *withControllerSuite) TestCACert(c *gc.C) {
 	result := s.provisioner.CACert()
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
 		Result: []byte(s.State.CACert()),
 	})
 }
 
-func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	coretesting.SkipIfI386(c, "lp:1425569")
 
 	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
@@ -1602,7 +1559,7 @@ func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
 }
 
-func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
+func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
 	args := params.FindToolsParams{
 		MajorVersion: -1,
 		MinorVersion: -1,
@@ -1612,8 +1569,8 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.Not(gc.HasLen), 0)
 	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
+		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+			s.APIState.Addr(), coretesting.ModelTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }
@@ -1632,7 +1589,7 @@ func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
 	s.DummyConfig["lxc-default-mtu"] = 9000
 	s.provisionerSuite.SetUpTest(c)
 
-	stateConfig, err := s.State.EnvironConfig()
+	stateConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	value, ok := stateConfig.LXCDefaultMTU()
 	c.Assert(ok, jc.IsTrue)

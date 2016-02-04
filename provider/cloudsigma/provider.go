@@ -27,9 +27,9 @@ const (
 func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
-		return nil, errors.NotSupportedf("non-cloudsigma environment")
+		return nil, errors.NotSupportedf("non-cloudsigma model")
 	}
-	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames), nil
+	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
 }
 
 type environProvider struct{}
@@ -65,7 +65,7 @@ func (environProvider) BoilerplateConfig() string {
 // The configuration must have come from a previously
 // prepared environment.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
+	logger.Infof("opening model %q", cfg.Name())
 
 	cfg, err := prepareConfig(cfg)
 	if err != nil {
@@ -101,7 +101,7 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 // be saved to be used later. If the environment is already
 // prepared, this call is equivalent to Open.
 func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("preparing environment %q", cfg.Name())
+	logger.Infof("preparing model %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }
 
@@ -111,7 +111,7 @@ func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *c
 // If old is not nil, it holds the previous environment configuration
 // for consideration when validating changes.
 func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	logger.Infof("validating environment %q", cfg.Name())
+	logger.Infof("validating model %q", cfg.Name())
 
 	// You should almost certainly not change this method; if you need to change
 	// how configs are validated, you should edit validateConfig itself, to ensure
@@ -137,7 +137,7 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 // which are considered sensitive. All of the values of these secret
 // attributes need to be strings.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	logger.Infof("filtering secret attributes for environment %q", cfg.Name())
+	logger.Infof("filtering secret attributes for model %q", cfg.Name())
 
 	// If you keep configSecretFields up to date, this method should Just Work.
 	ecfg, err := validateConfig(cfg, nil)

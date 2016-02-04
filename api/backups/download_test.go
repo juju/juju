@@ -43,7 +43,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 
 func (s *downloadSuite) TestFailedRequest(c *gc.C) {
 	resultArchive, err := s.client.Download("unknown")
-	c.Assert(err, gc.ErrorMatches, `GET https://.*/environment/.*/backups: backup metadata "unknown" not found`)
+	c.Assert(err, gc.ErrorMatches, `GET https://.*/model/.*/backups: backup metadata "unknown" not found`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(resultArchive, gc.Equals, nil)
 }

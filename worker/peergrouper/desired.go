@@ -41,7 +41,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	logger.Debugf("maxId: %v", maxId)
 
 	// We may find extra peer group members if the machines
-	// have been removed or their state server status removed.
+	// have been removed or their controller status removed.
 	// This should only happen if they had been set to non-voting
 	// before removal, in which case we want to remove it
 	// from the members list. If we find a member that's still configured

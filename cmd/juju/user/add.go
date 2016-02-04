@@ -12,25 +12,25 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const useraddCommandDoc = `
-Add users to an existing environment.
+Add users to an existing model.
 
-The user information is stored within an existing environment, and will be
-lost when the environent is destroyed.  A server file will be written out in
+The user information is stored within an existing model, and will be
+lost when the model is destroyed.  A server file will be written out in
 the current directory.  You can control the name and location of this file
 using the --output option.
 
 Examples:
     # Add user "foobar" with a strong random password is generated.
-    juju user add foobar
+    juju add-user foobar
 
 
 See Also:
-    juju help user change-password
+    juju help change-user-password
 `
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
@@ -39,13 +39,13 @@ type AddUserAPI interface {
 	Close() error
 }
 
-func newAddCommand() cmd.Command {
-	return envcmd.WrapSystem(&addCommand{})
+func NewAddCommand() cmd.Command {
+	return modelcmd.WrapController(&addCommand{})
 }
 
 // addCommand adds new users into a Juju Server.
 type addCommand struct {
-	UserCommandBase
+	modelcmd.ControllerCommandBase
 	api         AddUserAPI
 	User        string
 	DisplayName string
@@ -55,7 +55,7 @@ type addCommand struct {
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-user",
 		Args:    "<username> [<display name>]",
 		Purpose: "adds a user",
 		Doc:     useraddCommandDoc,
@@ -64,7 +64,7 @@ func (c *addCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.OutPath, "o", "", "specify the environment file for new user")
+	f.StringVar(&c.OutPath, "o", "", "specify the model file for new user")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 

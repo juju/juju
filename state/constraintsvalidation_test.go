@@ -20,7 +20,7 @@ var _ = gc.Suite(&constraintsValidationSuite{})
 
 func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts(
 			[]string{constraints.InstanceType},
@@ -44,7 +44,7 @@ var setConstraintsTests = []struct {
 	consToSet    string
 	consFallback string
 
-	effectiveEnvironCons string // environment constraints after setting consFallback
+	effectiveModelCons   string // model constraints after setting consFallback
 	effectiveServiceCons string // service constraints after setting consToSet
 	effectiveUnitCons    string // unit constraints after setting consToSet on the service
 	effectiveMachineCons string // machine constraints after setting consToSet
@@ -53,7 +53,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "",
 	consFallback: "",
 
-	effectiveEnvironCons: "",
+	effectiveModelCons:   "",
 	effectiveServiceCons: "",
 	effectiveUnitCons:    "",
 	effectiveMachineCons: "",
@@ -62,7 +62,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "instance-type=foo-42 cpu-power=9001 spaces=bar networks=net1,^net2",
 	consFallback: "",
 
-	effectiveEnvironCons: "", // environment constraints are stored as empty.
+	effectiveModelCons: "", // model constraints are stored as empty.
 	// i.e. there are no fallbacks and all the following cases are the same.
 	effectiveServiceCons: "instance-type=foo-42 cpu-power=9001 spaces=bar networks=net1,^net2",
 	effectiveUnitCons:    "instance-type=foo-42 cpu-power=9001 spaces=bar networks=net1,^net2",
@@ -72,7 +72,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "",
 	consFallback: "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
 
-	effectiveEnvironCons: "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
+	effectiveModelCons:   "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
 	effectiveServiceCons: "", // set as given.
 	effectiveUnitCons:    "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
 	// set as given, then merged with fallbacks; since consToSet is
@@ -85,7 +85,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	consFallback: "",
 
-	effectiveEnvironCons: "",
+	effectiveModelCons:   "",
 	effectiveServiceCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	effectiveUnitCons:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	effectiveMachineCons: "cpu-cores= cpu-power= instance-type= root-disk= tags= spaces= networks=", // container= is dropped
@@ -94,7 +94,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "",
 	consFallback: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 
-	effectiveEnvironCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveModelCons:   "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	effectiveServiceCons: "",
 	effectiveUnitCons:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	effectiveMachineCons: "cpu-cores= cpu-power= instance-type= root-disk= tags= spaces= networks=", // container= is dropped
@@ -102,7 +102,7 @@ var setConstraintsTests = []struct {
 	about:                "(explicitly) empty constraints and fallbacks are OK and stored as given",
 	consToSet:            "arch= mem= cpu-cores= container=",
 	consFallback:         "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
-	effectiveEnvironCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveModelCons:   "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	effectiveServiceCons: "arch= mem= cpu-cores= container=",
 	effectiveUnitCons:    "arch= container= cpu-cores= cpu-power= mem= root-disk= tags= spaces= networks=",
 	effectiveMachineCons: "arch= cpu-cores= cpu-power= mem= root-disk= tags= spaces= networks=", // container= is dropped
@@ -111,7 +111,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "cpu-cores= arch= spaces= networks= cpu-power=",
 	consFallback: "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
 
-	effectiveEnvironCons: "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
+	effectiveModelCons:   "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
 	effectiveServiceCons: "cpu-cores= arch= spaces= networks= cpu-power=",
 	effectiveUnitCons:    "arch= cpu-cores= cpu-power= mem=4G tags=foo spaces= networks=",
 	effectiveMachineCons: "arch= cpu-cores= cpu-power= mem=4G tags=foo spaces= networks=",
@@ -124,7 +124,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	consFallback: "cpu-cores= arch= tags=",
 
-	effectiveEnvironCons: "cpu-cores= arch= tags=",
+	effectiveModelCons:   "cpu-cores= arch= tags=",
 	effectiveServiceCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	effectiveUnitCons:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	effectiveMachineCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
@@ -133,7 +133,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	consFallback: "cpu-cores=12 root-disk=10G arch=i386  tags=bar networks=net1,^net2",
 
-	effectiveEnvironCons: "cpu-cores=12 root-disk=10G arch=i386  tags=bar networks=net1,^net2",
+	effectiveModelCons:   "cpu-cores=12 root-disk=10G arch=i386  tags=bar networks=net1,^net2",
 	effectiveServiceCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	effectiveUnitCons:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	effectiveMachineCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
@@ -142,7 +142,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "mem=8G arch=amd64 cpu-cores=4 tags=bar",
 	consFallback: "instance-type=small cpu-power=1000", // instance-type conflicts mem, arch
 
-	effectiveEnvironCons: "instance-type=small cpu-power=1000",
+	effectiveModelCons:   "instance-type=small cpu-power=1000",
 	effectiveServiceCons: "mem=8G arch=amd64 cpu-cores=4 tags=bar",
 	// both of the following contain the explicitly set constraints after
 	// resolving any conflicts with fallbacks (by dropping them).
@@ -156,7 +156,7 @@ var setConstraintsTests = []struct {
 	// a variation of the above case showing there's no difference
 	// between deployment (service, unit) and provisioning (machine)
 	// constraints when it comes to effective values.
-	effectiveEnvironCons: "networks=net1,^net3 tags=foo cpu-power=42",
+	effectiveModelCons:   "networks=net1,^net3 tags=foo cpu-power=42",
 	effectiveServiceCons: "cpu-power= tags= spaces=bar networks=",
 	effectiveUnitCons:    "cpu-power= tags= spaces=bar networks=",
 	effectiveMachineCons: "cpu-power= tags= spaces=bar networks=",
@@ -168,9 +168,9 @@ var setConstraintsTests = []struct {
 	// service deployment constraints are transformed into machine
 	// provisioning constraints, and the container type only makes
 	// sense currently as a deployment constraint, so it's cleared
-	// when merging service/environment deployment constraints into
+	// when merging service/model deployment constraints into
 	// effective machine provisioning constraints.
-	effectiveEnvironCons: "container=lxc mem=8G",
+	effectiveModelCons:   "container=lxc mem=8G",
 	effectiveServiceCons: "container=kvm arch=amd64",
 	effectiveUnitCons:    "container=kvm mem=8G arch=amd64",
 	effectiveMachineCons: "mem=8G arch=amd64",
@@ -182,11 +182,11 @@ func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 			"test %d: %s\nconsToSet: %q\nconsFallback: %q\n",
 			i, t.about, t.consToSet, t.consFallback,
 		)
-		// Set fallbacks as environment constraints and verify them.
-		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
+		// Set fallbacks as model constraints and verify them.
+		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, jc.ErrorIsNil)
-		econs, err := s.State.EnvironConstraints()
-		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveEnvironCons))
+		econs, err := s.State.ModelConstraints()
+		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
 		// Set the machine provisioning constraints.
 		m, err := s.addOneMachine(c, constraints.MustParse(t.consToSet))
 		c.Check(err, jc.ErrorIsNil)
@@ -211,11 +211,11 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 			"test %d: %s\nconsToSet: %q\nconsFallback: %q\n",
 			i, t.about, t.consToSet, t.consFallback,
 		)
-		// Set fallbacks as environment constraints and verify them.
-		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
+		// Set fallbacks as model constraints and verify them.
+		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, jc.ErrorIsNil)
-		econs, err := s.State.EnvironConstraints()
-		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveEnvironCons))
+		econs, err := s.State.ModelConstraints()
+		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
 		// Set the service deployment constraints.
 		err = service.SetConstraints(constraints.MustParse(t.consToSet))
 		c.Check(err, jc.ErrorIsNil)

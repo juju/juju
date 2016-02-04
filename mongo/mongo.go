@@ -462,7 +462,7 @@ func EnsureServer(args EnsureServerParams) error {
 	return nil
 }
 
-// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju state server(s)
+// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
 func UpdateSSLKey(dataDir, cert, privateKey string) error {
 	certKey := cert + "\n" + privateKey
 	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)

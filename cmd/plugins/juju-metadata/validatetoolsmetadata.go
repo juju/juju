@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
@@ -22,7 +22,7 @@ import (
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&validateToolsMetadataCommand{})
+	return modelcmd.Wrap(&validateToolsMetadataCommand{})
 }
 
 // validateToolsMetadataCommand
@@ -48,35 +48,35 @@ specified cloud. If version is specified, tools matching the exact specified
 version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
-The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
+The cloud specification comes from the current Juju model, as specified in
+the usual way from either ~/.juju/environments.yaml, the -m option, or JUJU_MODEL.
 Series, Region, and Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which
 case cloud attributes like provider type, region etc are optional.
 
-The key environment attributes may be overridden using command arguments, so
+The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
 
 Examples:
 
- - validate using the current environment settings but with series raring
+ - validate using the current model settings but with series raring
   
   juju metadata validate-tools -s raring
 
- - validate using the current environment settings but with Juju version 1.11.4
+ - validate using the current model settings but with Juju version 1.11.4
   
   juju metadata validate-tools -j 1.11.4
 
- - validate using the current environment settings but with Juju major version 2
+ - validate using the current model settings but with Juju major version 2
   
   juju metadata validate-tools -m 2
 
- - validate using the current environment settings but with Juju major.minor version 2.1
+ - validate using the current model settings but with Juju major.minor version 2.1
  
   juju metadata validate-tools -m 2.1
 
- - validate using the current environment settings and list all tools found for any series
+ - validate using the current model settings and list all tools found for any series
  
   juju metadata validate-tools --series=
 
@@ -121,7 +121,6 @@ func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 	f.StringVar(&c.exactVersion, "j", "current", "the Juju version (use 'current' for current version)")
 	f.StringVar(&c.exactVersion, "juju-version", "", "")
-	f.StringVar(&c.partVersion, "m", "", "the Juju major[.minor] version")
 	f.StringVar(&c.partVersion, "majorminor-version", "", "")
 	f.StringVar(&c.stream, "stream", tools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 }
@@ -210,7 +209,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			return err
 		}
 		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
-			"local metadata directory", toolsURL, utils.VerifySSLHostnames),
+			"local metadata directory", toolsURL, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false),
 		}
 	}
 	params.Stream = c.stream

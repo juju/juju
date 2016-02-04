@@ -59,7 +59,7 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 			return
 		}
 	}
-	logger.Debugf("new environment image datasource registered: %v", id)
+	logger.Debugf("new model image datasource registered: %v", id)
 	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 
@@ -90,7 +90,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
+		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)

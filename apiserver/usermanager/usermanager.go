@@ -18,7 +18,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.usermanager")
 
 func init() {
-	common.RegisterStandardFacade("UserManager", 0, NewUserManagerAPI)
+	common.RegisterStandardFacade("UserManager", 1, NewUserManagerAPI)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -49,7 +49,7 @@ func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
 	// TODO(thumper): PERMISSIONS Change this permission check when we have
 	// real permissions. For now, only the owner of the initial environment is
 	// able to add users.
-	initialEnv, err := api.state.StateServerEnvironment()
+	initialEnv, err := api.state.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -10,7 +10,7 @@ import (
 
 // Metadata describes an image blob.
 type Metadata struct {
-	EnvUUID   string
+	ModelUUID string
 	Series    string
 	Arch      string
 	Kind      string

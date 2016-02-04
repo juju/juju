@@ -25,7 +25,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.subnets")
 
 func init() {
-	common.RegisterStandardFacade("Subnets", 1, NewAPI)
+	common.RegisterStandardFacade("Subnets", 2, NewAPI)
 }
 
 // API defines the methods the Subnets API facade implements.
@@ -99,7 +99,7 @@ func (api *subnetsAPI) AllZones() (params.ZoneResults, error) {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
 		logger.Debugf(
-			"updated the list of known zones from the environment: %s", zonesAsString(zones),
+			"updated the list of known zones from the model: %s", zonesAsString(zones),
 		)
 	} else {
 		logger.Debugf("using cached list of known zones: %s", zonesAsString(zones))
@@ -133,18 +133,18 @@ func (api *subnetsAPI) AllSpaces() (params.SpaceResults, error) {
 }
 
 // zonedEnviron returns a providercommon.ZonedEnviron instance from
-// the current environment config. If the environment does not support
+// the current model config. If the model does not support
 // zones, an error satisfying errors.IsNotSupported() will be
 // returned.
 func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
-	envConfig, err := api.backing.EnvironConfig()
+	envConfig, err := api.backing.ModelConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environment config")
+		return nil, errors.Annotate(err, "getting model config")
 	}
 
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "opening environment")
+		return nil, errors.Annotate(err, "opening model")
 	}
 	if zonedEnv, ok := env.(providercommon.ZonedEnviron); ok {
 		return zonedEnv, nil
@@ -153,23 +153,23 @@ func (api *subnetsAPI) zonedEnviron() (providercommon.ZonedEnviron, error) {
 }
 
 // networkingEnviron returns a environs.NetworkingEnviron instance
-// from the current environment config, if supported. If the
-// environment does not support environs.Networking, an error
+// from the current model config, if supported. If the
+// model does not support environs.Networking, an error
 // satisfying errors.IsNotSupported() will be returned.
 func (api *subnetsAPI) networkingEnviron() (environs.NetworkingEnviron, error) {
-	envConfig, err := api.backing.EnvironConfig()
+	envConfig, err := api.backing.ModelConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environment config")
+		return nil, errors.Annotate(err, "getting model config")
 	}
 
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "opening environment")
+		return nil, errors.Annotate(err, "opening model")
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
 		return netEnv, nil
 	}
-	return nil, errors.NotSupportedf("environment networking features") // " not supported"
+	return nil, errors.NotSupportedf("model networking features") // " not supported"
 }
 
 // updateZones attempts to retrieve all availability zones from the

@@ -41,6 +41,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -795,8 +796,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that StateServerInstances returns the ID of the bootstrap machine.
-	ids, err := env.StateServerInstances()
+	// Check that ControllerInstances returns the ID of the bootstrap machine.
+	ids, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
@@ -902,7 +903,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G")
+	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
@@ -940,17 +941,30 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := s.Open(c)
-	spec, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny",
+		imageMetadata,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := s.Open(c)
-	_, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+	_, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large",
+		imageMetadata,
+	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
 }
 
@@ -1013,7 +1027,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 
 func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 	src := func(env environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("my datasource", "bar", false), nil
+		return simplestreams.NewURLDataSource("my datasource", "bar", false, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
 	env := s.Open(c)
@@ -1309,8 +1323,8 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	// but not matching name, and ensure it isn't seen by AllInstances
 	// See bug #1257481, for how similar names were causing them to get
 	// listed (and thus destroyed) at the wrong time
-	existingEnvName := s.TestConfig["name"]
-	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingEnvName)
+	existingModelName := s.TestConfig["name"]
+	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingModelName)
 
 	// We grab the Nova client directly from the env, just to save time
 	// looking all the stuff up
@@ -1626,8 +1640,8 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		openstack.InstanceServerDetail(instances[0]).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-			"juju-is-state": "true",
+			"juju-model-uuid":    coretesting.ModelTag.Id(),
+			"juju-is-controller": "true",
 		},
 	)
 }
@@ -1646,9 +1660,9 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 			openstack.InstanceServerDetail(instances[0]).Metadata,
 			jc.DeepEquals,
 			map[string]string{
-				"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-				"juju-is-state": "true",
-				extraKey:        extraValue,
+				"juju-model-uuid":    coretesting.ModelTag.Id(),
+				"juju-is-controller": "true",
+				extraKey:             extraValue,
 			},
 		)
 	}
@@ -1687,6 +1701,9 @@ func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {

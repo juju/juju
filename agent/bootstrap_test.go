@@ -93,7 +93,7 @@ LXC_BRIDGE="ignored"`[1:])
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:           testing.ServerCert,
@@ -109,7 +109,8 @@ LXC_BRIDGE="ignored"`[1:])
 
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, jc.IsTrue)
-	expectConstraints := constraints.MustParse("mem=1024M")
+	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
+	expectModelConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	initialAddrs := network.NewAddresses(
 		"zeroonetwothree",
@@ -119,12 +120,13 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.3.3", // not a lxc bridge address
 	)
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       initialAddrs,
-		Constraints:     expectConstraints,
-		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-		InstanceId:      "i-bootstrap",
-		Characteristics: expectHW,
-		SharedSecret:    "abc123",
+		Addresses:            initialAddrs,
+		BootstrapConstraints: expectBootstrapConstraints,
+		ModelConstraints:     expectModelConstraints,
+		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		InstanceId:           "i-bootstrap",
+		Characteristics:      expectHW,
+		SharedSecret:         "abc123",
 	}
 	filteredAddrs := network.NewAddresses(
 		"zeroonetwothree",
@@ -151,33 +153,37 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has been set up.
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	uuid, ok := envCfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(env.UUID(), gc.Equals, uuid)
 
 	// Check that initial admin user has been set up correctly.
-	envTag := env.Tag().(names.EnvironTag)
-	s.assertCanLogInAsAdmin(c, envTag, pwHash)
+	modelTag := env.Tag().(names.ModelTag)
+	s.assertCanLogInAsAdmin(c, modelTag, pwHash)
 	user, err := st.User(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
-	// Check that environment configuration has been added.
-	newEnvCfg, err := st.EnvironConfig()
+	// Check that environment configuration has been added, and
+	// environment constraints set.
+	newEnvCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnvCfg.AllAttrs(), gc.DeepEquals, envCfg.AllAttrs())
+	gotModelConstraints, err := st.ModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 	c.Assert(m.Series(), gc.Equals, series.HostSeries())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
-	gotConstraints, err := m.Constraints()
+	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotConstraints, gc.DeepEquals, expectConstraints)
+	c.Assert(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
 	c.Assert(err, jc.ErrorIsNil)
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,7 +219,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st1, err := state.Open(newCfg.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
@@ -226,7 +232,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,7 +257,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,13 +269,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		SharedSecret:   "baz",
 		SystemIdentity: "qux",
 	})
-	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
-		Constraints:     expectConstraints,
-		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-		InstanceId:      "i-bootstrap",
-		Characteristics: expectHW,
+		BootstrapConstraints: constraints.MustParse("mem=1024M"),
+		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		InstanceId:           "i-bootstrap",
+		Characteristics:      expectHW,
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.String(),
@@ -299,14 +304,11 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: multiwatcher.JobManageEnviron,
-		want: state.JobManageEnviron,
+		name: multiwatcher.JobManageModel,
+		want: state.JobManageModel,
 	}, {
 		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
-	}, {
-		name: multiwatcher.JobManageStateDeprecated,
-		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",
 		want: -1,
@@ -321,7 +323,7 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, environTag names.EnvironTag, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, password string) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -330,7 +332,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, environTag names.Environ
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(environTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

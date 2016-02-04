@@ -98,44 +98,44 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigFailure(c *gc.C) {
+func (s *InstancePollerSuite) TestModelConfigFailure(c *gc.C) {
 	s.st.SetErrors(errors.New("boom"))
 
-	result, err := s.api.EnvironConfig()
+	result, err := s.api.ModelConfig()
 	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
+	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{})
 
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigSuccess(c *gc.C) {
-	envConfig := coretesting.EnvironConfig(c)
+func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
+	envConfig := coretesting.ModelConfig(c)
 	s.st.SetConfig(c, envConfig)
 
-	result, err := s.api.EnvironConfig()
+	result, err := s.api.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
+	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{
 		Config: envConfig.AllAttrs(),
 	})
 
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesFailure(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchForModelConfigChangesFailure(c *gc.C) {
 	// Force the Changes() method of the mock watcher to return a
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.New("boom"))
 
-	result, err := s.api.WatchForEnvironConfigChanges()
+	result, err := s.api.WatchForModelConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{})
 
 	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges")
+	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
 }
 
-func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesSuccess(c *gc.C) {
-	result, err := s.api.WatchForEnvironConfigChanges()
+func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
+	result, err := s.api.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
 		Error: nil, NotifyWatcherId: "1",
@@ -150,28 +150,28 @@ func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesSuccess(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.st, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
-	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges")
+	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
 
 	// Try changing the config to verify an event is reported.
-	envConfig := coretesting.EnvironConfig(c)
+	envConfig := coretesting.ModelConfig(c)
 	s.st.SetConfig(c, envConfig)
 	wc.AssertOneChange()
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesFailure(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesFailure(c *gc.C) {
 	// Force the Changes() method of the mock watcher to return a
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.Errorf("boom"))
 
-	result, err := s.api.WatchEnvironMachines()
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial environment machines: boom")
+	result, err := s.api.WatchModelMachines()
+	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines: boom")
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
 
 	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, "WatchEnvironMachines")
+	s.st.CheckCallNames(c, "WatchModelMachines")
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	// Add a couple of machines.
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
@@ -181,7 +181,7 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"1", "2"}, // initial event (sorted ids)
 	}
-	result, err := s.api.WatchEnvironMachines()
+	result, err := s.api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expectedResult)
 
@@ -198,14 +198,14 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
 	wc1 := statetesting.NewStringsWatcherC(c, s.st, resource1.(state.StringsWatcher))
 	wc1.AssertNoChange()
 
-	s.st.CheckCallNames(c, "WatchEnvironMachines")
+	s.st.CheckCallNames(c, "WatchModelMachines")
 
 	// Add another watcher to verify events coalescence.
-	result, err = s.api.WatchEnvironMachines()
+	result, err = s.api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult.StringsWatcherId = "2"
 	c.Assert(result, jc.DeepEquals, expectedResult)
-	s.st.CheckCallNames(c, "WatchEnvironMachines", "WatchEnvironMachines")
+	s.st.CheckCallNames(c, "WatchModelMachines", "WatchModelMachines")
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
 	defer statetesting.AssertStop(c, resource2)

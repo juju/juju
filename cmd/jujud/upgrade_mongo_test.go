@@ -336,7 +336,7 @@ func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
-		Environment:       testing.EnvironmentTag,
+		Model:             testing.ModelTag,
 	}
 
 	servingInfo := params.StateServingInfo{

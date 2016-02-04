@@ -36,8 +36,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
-	if envStatus := fs.EnvironmentStatus; envStatus != nil {
-		p("[Environment]")
+	if envStatus := fs.ModelStatus; envStatus != nil {
+		p("[Model]")
 		if envStatus.AvailableVersion != "" {
 			p("UPGRADE-AVAILABLE")
 			p(envStatus.AvailableVersion)
@@ -76,20 +76,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		)
 	}
 
-	// See if we have new or old data; that determines what data we can display.
-	newStatus := false
-	for _, u := range units {
-		if u.AgentStatusInfo.Current != "" {
-			newStatus = true
-			break
-		}
-	}
-	var header []string
-	if newStatus {
-		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
-	} else {
-		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
-	}
+	header := []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
 
 	p("\n[Units]")
 	p(strings.Join(header, "\t"))

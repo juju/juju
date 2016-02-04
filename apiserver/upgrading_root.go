@@ -26,7 +26,7 @@ var inUpgradeError = errors.New("upgrade in progress - Juju functionality is lim
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
 	"FullStatus",     // for "juju status"
-	"EnvironmentGet", // for "juju ssh"
+	"ModelGet",       // for "juju ssh"
 	"PrivateAddress", // for "juju ssh"
 	"PublicAddress",  // for "juju ssh"
 	"WatchDebugLog",  // for "juju debug-log"

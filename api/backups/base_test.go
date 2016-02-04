@@ -53,7 +53,7 @@ func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataR
 	c.Check(result.Stored, gc.Equals, stored)
 	c.Check(result.Notes, gc.Equals, meta.Notes)
 
-	c.Check(result.Environment, gc.Equals, meta.Origin.Environment)
+	c.Check(result.Model, gc.Equals, meta.Origin.Model)
 	c.Check(result.Machine, gc.Equals, meta.Origin.Machine)
 	c.Check(result.Hostname, gc.Equals, meta.Origin.Hostname)
 	c.Check(result.Version, gc.Equals, meta.Origin.Version)

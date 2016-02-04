@@ -21,7 +21,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		filesystemParams = append(filesystemParams, op.args)
 	}
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
-		ctx.environConfig, ctx.storageDir,
+		ctx.modelConfig, ctx.config.StorageDir,
 		filesystemParams, ctx.managedFilesystemSource,
 	)
 	if err != nil {
@@ -93,7 +93,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 	// by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing filesystems that we fail
 	// to record in state.
-	errorResults, err := ctx.filesystemAccessor.SetFilesystemInfo(filesystemsFromStorage(filesystems))
+	errorResults, err := ctx.config.Filesystems.SetFilesystemInfo(filesystemsFromStorage(filesystems))
 	if err != nil {
 		return errors.Annotate(err, "publishing filesystems to state")
 	}
@@ -118,12 +118,13 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 	for _, op := range ops {
 		args := op.args
 		if args.Path == "" {
-			args.Path = filepath.Join(ctx.storageDir, args.Filesystem.Id())
+			args.Path = filepath.Join(ctx.config.StorageDir, args.Filesystem.Id())
 		}
 		filesystemAttachmentParams = append(filesystemAttachmentParams, args)
 	}
 	paramsBySource, filesystemSources, err := filesystemAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir,
+		ctx.modelConfig,
+		ctx.config.StorageDir,
 		filesystemAttachmentParams,
 		ctx.filesystems,
 		ctx.managedFilesystemSource,
@@ -192,7 +193,7 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 		return errors.Trace(err)
 	}
 	paramsBySource, filesystemSources, err := filesystemParamsBySource(
-		ctx.environConfig, ctx.storageDir,
+		ctx.modelConfig, ctx.config.StorageDir,
 		filesystemParams, ctx.managedFilesystemSource,
 	)
 	if err != nil {
@@ -265,7 +266,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 		filesystemAttachmentParams = append(filesystemAttachmentParams, op.args)
 	}
 	paramsBySource, filesystemSources, err := filesystemAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir,
+		ctx.modelConfig, ctx.config.StorageDir,
 		filesystemAttachmentParams,
 		ctx.filesystems,
 		ctx.managedFilesystemSource,
@@ -430,7 +431,7 @@ func setFilesystemAttachmentInfo(ctx *context, filesystemAttachments []storage.F
 	// provider, by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing filesystems that we fail to
 	// record in state.
-	errorResults, err := ctx.filesystemAccessor.SetFilesystemAttachmentInfo(
+	errorResults, err := ctx.config.Filesystems.SetFilesystemAttachmentInfo(
 		filesystemAttachmentsFromStorage(filesystemAttachments),
 	)
 	if err != nil {

@@ -27,7 +27,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// List returns blocks that are switched on for current environment.
+// List returns blocks that are switched on for current model.
 func (c *Client) List() ([]params.Block, error) {
 	blocks := params.BlockResults{}
 	if err := c.facade.FacadeCall("List", nil, &blocks); err != nil {
@@ -46,7 +46,7 @@ func (c *Client) List() ([]params.Block, error) {
 	return all, allErr.Combine()
 }
 
-// SwitchBlockOn switches desired block on for the current environment.
+// SwitchBlockOn switches desired block on for the current model.
 // Valid block types are "BlockDestroy", "BlockRemove" and "BlockChange".
 func (c *Client) SwitchBlockOn(blockType, msg string) error {
 	args := params.BlockSwitchParams{
@@ -63,7 +63,7 @@ func (c *Client) SwitchBlockOn(blockType, msg string) error {
 	return nil
 }
 
-// SwitchBlockOff switches desired block off for the current environment.
+// SwitchBlockOff switches desired block off for the current model.
 // Valid block types are "BlockDestroy", "BlockRemove" and "BlockChange".
 func (c *Client) SwitchBlockOff(blockType string) error {
 	args := params.BlockSwitchParams{

@@ -62,7 +62,7 @@ type azureEnviron struct {
 	envName string
 
 	mu            sync.Mutex
-	config        *azureEnvironConfig
+	config        *azureModelConfig
 	instanceTypes map[string]instances.InstanceType
 	// azure management clients
 	compute       compute.ManagementClient
@@ -104,9 +104,9 @@ func (env *azureEnviron) Bootstrap(
 
 	result, err := common.Bootstrap(ctx, env, args)
 	if err != nil {
-		logger.Errorf("bootstrap failed, destroying environment: %v", err)
+		logger.Errorf("bootstrap failed, destroying model: %v", err)
 		if err := env.Destroy(); err != nil {
-			logger.Errorf("failed to destroy environment: %v", err)
+			logger.Errorf("failed to destroy model: %v", err)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -230,9 +230,9 @@ func createStorageAccount(
 	return "", "", errors.New("could not find available storage account name")
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
-	// State servers are tagged with tags.JujuStateServer, so just
+// ControllerInstances is specified in the Environ interface.
+func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
+	// controllers are tagged with tags.JujuController, so just
 	// list the instances in the controller resource group and pick
 	// those ones out.
 	instances, err := env.allInstances(env.controllerResourceGroup, true)
@@ -242,7 +242,7 @@ func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
 	var ids []instance.Id
 	for _, inst := range instances {
 		azureInstance := inst.(*azureInstance)
-		if toTags(azureInstance.Tags)[tags.JujuStateServer] == "true" {
+		if toTags(azureInstance.Tags)[tags.JujuController] == "true" {
 			ids = append(ids, inst.Id())
 		}
 	}
@@ -464,7 +464,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// machine with this.
 	vmTags[jujuMachineNameTag] = vmName
 
-	// If the machine will run a state server, then we need to open the
+	// If the machine will run a controller, then we need to open the
 	// API port for it.
 	var apiPortPtr *int
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
@@ -1046,7 +1046,7 @@ func (env *azureEnviron) allInstances(
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
-	logger.Debugf("destroying environment %q", env.envName)
+	logger.Debugf("destroying model %q", env.envName)
 	logger.Debugf("- deleting resource group")
 	if err := env.deleteResourceGroup(); err != nil {
 		return errors.Trace(err)
@@ -1103,10 +1103,10 @@ func resourceGroupName(cfg *config.Config) string {
 	uuid, _ := cfg.UUID()
 	// UUID is always available for azure environments, since the (new)
 	// provider was introduced after environment UUIDs.
-	envTag := names.NewEnvironTag(uuid)
+	modelTag := names.NewModelTag(uuid)
 	return fmt.Sprintf(
 		"juju-%s-%s", cfg.Name(),
-		resourceName(envTag),
+		resourceName(modelTag),
 	)
 }
 

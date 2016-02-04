@@ -27,7 +27,7 @@ const (
 	SharedSecretFile = "shared-secret"
 
 	// ReplicaSetName is the name of the replica set that juju uses for its
-	// state servers.
+	// controllers.
 	ReplicaSetName = "juju"
 )
 

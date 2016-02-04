@@ -31,9 +31,9 @@ type Authorizer interface {
 	// as the given entity.
 	AuthOwner(tag names.Tag) bool
 
-	// AuthEnvironManager returns whether the authenticated entity is
+	// AuthModelManager returns whether the authenticated entity is
 	// a machine running the environment manager job.
-	AuthEnvironManager() bool
+	AuthModelManager() bool
 
 	// AuthClient returns whether the authenticated entity
 	// is a client user.

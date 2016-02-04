@@ -32,7 +32,7 @@ func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.Bootst
 	return bootstrap(ctx, e, params)
 }
 
-func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
+func isController(mcfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
@@ -66,7 +66,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		}
 		client := newInstanceConfigurator(addr)
 		apiPort := 0
-		if isStateServer(args.InstanceConfig) {
+		if isController(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
 		err = client.DropAllPorts([]int{apiPort, 22}, addr)
