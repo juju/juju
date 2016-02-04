@@ -104,6 +104,6 @@ func (c *listMachinesCommand) Run(ctx *cmd.Context) error {
 	}
 
 	formatter := status.NewStatusFormatter(fullStatus, c.isoTime)
-	formatted := formatter.Machineformat(nil)
+	formatted := formatter.MachineFormat(nil)
 	return c.out.Write(ctx, formatted)
 }

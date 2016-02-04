@@ -15,6 +15,8 @@ type statusFormatter struct {
 	isoTime   bool
 }
 
+// NewStatusFormatter takes stored model information (params.FullStatus) and populates
+// the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
@@ -57,8 +59,8 @@ func (sf *statusFormatter) format() formattedStatus {
 	return out
 }
 
-// Machineformat takes stored model information (params.FullStatus) and formats machine status info.
-func (sf *statusFormatter) Machineformat(machineId []string) formattedMachineStatus {
+// MachineFormat takes stored model information (params.FullStatus) and formats machine status info.
+func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineStatus {
 	if sf.status == nil {
 		return formattedMachineStatus{}
 	}

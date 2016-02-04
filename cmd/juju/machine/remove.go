@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// NewRemoveCommand returns a command used to remove a specified machine.
 func NewRemoveCommand() cmd.Command {
 	return modelcmd.Wrap(&removeCommand{})
 }
@@ -40,6 +41,7 @@ Examples:
 	$ juju remove-machine 6 --force
 `
 
+// Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-machine",
@@ -50,6 +52,7 @@ func (c *removeCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
@@ -80,6 +83,7 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	return c.NewAPIClient()
 }
 
+// Run implements Command.Run.
 func (c *removeCommand) Run(_ *cmd.Context) error {
 	client, err := c.getRemoveMachineAPI()
 	if err != nil {

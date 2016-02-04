@@ -50,6 +50,7 @@ line and in configuration files.
 
 const maxValueSize = 5242880
 
+// Info implements Command.Info.
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-config",
@@ -60,11 +61,13 @@ func (c *setCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
 	f.BoolVar(&c.SetDefault, "to-default", false, "set service option values to default")
 }
 
+// Init implements Command.Init.
 func (c *setCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
