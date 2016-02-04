@@ -105,7 +105,7 @@ func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
-	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "Allocation not created - service unreachable.\n")
+	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "WARNING: Allocation not created - service unreachable.\n")
 }
 
 func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {

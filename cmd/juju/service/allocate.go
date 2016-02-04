@@ -65,7 +65,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
 		if wireformat.IsNotAvail(err) {
-			fmt.Fprintf(ctx.Stdout, "Allocation not created - %s.\n", err.Error())
+			fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not created - %s.\n", err.Error())
 			return nil
 		}
 		return errors.Annotate(err, "could not create budget allocation")
