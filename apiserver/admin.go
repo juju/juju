@@ -104,25 +104,25 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			return fail, MaintenanceNoLoginError
 		}
 		// Here we have a special case.  The machine agents that manage
-		// environments in the state server environment need to be able to
+		// environments in the controller environment need to be able to
 		// open API connections to other environments.  In those cases, we
-		// need to look in the state server database to check the creds
+		// need to look in the controller database to check the creds
 		// against the machine if and only if the entity tag is a machine tag,
-		// and the machine exists in the state server environment, and the
+		// and the machine exists in the controller environment, and the
 		// machine has the manage state job.  If all those parts are valid, we
-		// can then check the credentials against the state server environment
+		// can then check the credentials against the controller environment
 		// machine.
 		if kind != names.MachineTagKind {
 			return fail, errors.Trace(err)
 		}
-		entity, err = a.checkCredsOfStateServerMachine(req)
+		entity, err = a.checkCredsOfControllerMachine(req)
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
-		// If we are here, then the entity will refer to a state server
-		// machine in the state server environment, and we don't need a pinger
+		// If we are here, then the entity will refer to a controller
+		// machine in the controller environment, and we don't need a pinger
 		// for it as we already have one running in the machine agent api
-		// worker for the state server environment.
+		// worker for the controller environment.
 		agentPingerNeeded = false
 	}
 	a.root.entity = entity
@@ -172,7 +172,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	// For sufficiently modern login versions, stop serving the
-	// state server environment at the root of the API.
+	// controller environment at the root of the API.
 	if serverOnlyLogin {
 		authedApi = newRestrictedRoot(authedApi)
 		// Remove the ModelTag from the response as there is no
@@ -193,11 +193,11 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	return loginResult, nil
 }
 
-// checkCredsOfStateServerMachine checks the special case of a state server
+// checkCredsOfControllerMachine checks the special case of a controller
 // machine creating an API connection for a different environment so it can
 // run API workers for that environment to do things like provisioning
 // machines.
-func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
+func (a *admin) checkCredsOfControllerMachine(req params.LoginRequest) (state.Entity, error) {
 	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -211,7 +211,7 @@ func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.E
 			return entity, nil
 		}
 	}
-	// The machine does exist in the state server environment, but it
+	// The machine does exist in the controller environment, but it
 	// doesn't manage environments, so reject it.
 	return nil, errors.Trace(common.ErrBadCreds)
 }

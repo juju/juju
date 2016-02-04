@@ -407,15 +407,15 @@ func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch="+invalidArch+"\nvalid values are:.*")
 }
 
-func (s *localJujuTestSuite) TestStateServerInstances(c *gc.C) {
+func (s *localJujuTestSuite) TestControllerInstances(c *gc.C) {
 	env := s.testBootstrap(c, minimalConfig(c))
 
-	instances, err := env.StateServerInstances()
+	instances, err := env.ControllerInstances()
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 	c.Assert(instances, gc.HasLen, 0)
 
 	s.makeAgentsDir(c, env)
-	instances, err = env.StateServerInstances()
+	instances, err = env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"localhost"})
 }

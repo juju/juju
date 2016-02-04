@@ -51,7 +51,7 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 		UUID:        env.UUID(),
 		GlobalName:  env.Owner().String() + "/" + env.Name(),
 		Name:        env.Name(),
-		IsSystem:    u.st.IsStateServer(),
+		IsSystem:    u.st.IsController(),
 		Life:        params.Life(env.Life().String()),
 		TimeOfDeath: &tod,
 	}

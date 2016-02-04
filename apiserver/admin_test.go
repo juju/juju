@@ -863,7 +863,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	envState := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: envOwner.UserTag(),
 		ConfigAttrs: map[string]interface{}{
-			"state-server": false,
+			"controller": false,
 		},
 		Prepare: true,
 	})
@@ -883,7 +883,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
+func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -902,7 +902,7 @@ func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
+func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 

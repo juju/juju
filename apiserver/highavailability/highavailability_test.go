@@ -95,20 +95,20 @@ func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 }
 
 func (s *clientSuite) enableHA(
-	c *gc.C, numStateServers int, cons constraints.Value, series string, placement []string,
-) (params.StateServersChanges, error) {
-	return enableHA(c, s.haServer, numStateServers, cons, series, placement)
+	c *gc.C, numControllers int, cons constraints.Value, series string, placement []string,
+) (params.ControllersChanges, error) {
+	return enableHA(c, s.haServer, numControllers, cons, series, placement)
 }
 
 func enableHA(
-	c *gc.C, haServer *highavailability.HighAvailabilityAPI, numStateServers int, cons constraints.Value, series string, placement []string,
-) (params.StateServersChanges, error) {
-	arg := params.StateServersSpecs{
-		Specs: []params.StateServersSpec{{
-			NumStateServers: numStateServers,
-			Constraints:     cons,
-			Series:          series,
-			Placement:       placement,
+	c *gc.C, haServer *highavailability.HighAvailabilityAPI, numControllers int, cons constraints.Value, series string, placement []string,
+) (params.ControllersChanges, error) {
+	arg := params.ControllersSpecs{
+		Specs: []params.ControllersSpec{{
+			NumControllers: numControllers,
+			Constraints:    cons,
+			Series:         series,
+			Placement:      placement,
 		}}}
 	results, err := haServer.EnableHA(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,7 +328,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 	enableHAResult, err := s.enableHA(c, -1, emptyCons, defaultSeries, nil)
-	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
+	c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
 
 	enableHAResult, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,11 +338,11 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
 	_, err = s.enableHA(c, 1, emptyCons, defaultSeries, nil)
-	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new controller machines: cannot reduce controller count")
 }
 
 func (s *clientSuite) TestEnableHAHostedEnvErrors(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"state-server": false}})
+	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
 	haServer, err := highavailability.NewHighAvailabilityAPI(st2, s.resources, s.authoriser)

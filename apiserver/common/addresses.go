@@ -11,7 +11,7 @@ import (
 )
 
 // AddressAndCertGetter can be used to find out
-// state server addresses and the CA public certificate.
+// controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)

@@ -240,7 +240,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		bootstrapConfig: map[string]interface{}{
 			"type":                      "dummy",
 			"name":                      "myenv",
-			"state-server":              true,
+			"controller":                true,
 			"authorized-keys":           "i-am-a-key",
 			"default-series":            config.LatestLtsSeries(),
 			"firewall-mode":             config.FwInstance,

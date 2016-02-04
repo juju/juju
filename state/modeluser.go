@@ -301,11 +301,11 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 }
 
 // IsControllerAdministrator returns true if the user specified has access to the
-// state server model (the system model).
+// controller model (the system model).
 func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
-	ssinfo, err := st.StateServerInfo()
+	ssinfo, err := st.ControllerInfo()
 	if err != nil {
-		return false, errors.Annotate(err, "could not get state server info")
+		return false, errors.Annotate(err, "could not get controller info")
 	}
 
 	serverUUID := ssinfo.ModelTag.Id()

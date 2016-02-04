@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
-func isStateServer(icfg *instancecfg.InstanceConfig) bool {
+func isController(icfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(icfg.Jobs...)
 }
 
@@ -77,7 +77,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	}
 
 	// TODO: evaluate the impact of setting the constraints on the
-	// instanceConfig for all machines rather than just state server nodes.
+	// instanceConfig for all machines rather than just controller nodes.
 	// This limitation is why the constraints are assigned directly here.
 	args.InstanceConfig.Constraints = args.Constraints
 
@@ -158,7 +158,7 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 		// for the instance.
 		metadataKeyCloudInit: userdata,
 	}
-	if isStateServer(args.InstanceConfig) {
+	if isController(args.InstanceConfig) {
 		metadata[metadataKeyIsState] = metadataValueTrue
 	}
 

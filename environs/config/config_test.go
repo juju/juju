@@ -1877,7 +1877,7 @@ func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
 	c.Assert(schema, gc.IsNil)
 }
 
-func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
+func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 	// Add a cert.
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
 
@@ -1916,7 +1916,7 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	}} {
 		cfg, err := config.New(config.UseDefaults, test.configValues)
 		c.Assert(err, jc.ErrorIsNil)
-		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey(test.sanValues)
+		certPEM, keyPEM, err := cfg.GenerateControllerCertAndKey(test.sanValues)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 

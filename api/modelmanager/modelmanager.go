@@ -67,7 +67,7 @@ func (c *Client) CreateModel(owner string, account, config map[string]interface{
 }
 
 // ListModels returns the models that the specified user
-// has access to in the current server.  Only that state server owner
+// has access to in the current server.  Only that controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
 func (c *Client) ListModels(user string) ([]base.UserModel, error) {

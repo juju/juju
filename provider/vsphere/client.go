@@ -100,7 +100,7 @@ func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.Vi
 	// We assign public ip address for all instances.
 	// We can't assign public ip only when OpenPort is called, as assigning
 	// an ip address via reconfiguring the VM makes it inaccessible to the
-	// state server.
+	// controller.
 	if ecfg.externalNetwork() != "" {
 		ip, err := vm.WaitForIP(context.TODO())
 		if err != nil {

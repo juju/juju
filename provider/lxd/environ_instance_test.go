@@ -93,26 +93,26 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestStateServerInstancesOkay(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
 
-	ids, err := s.Env.StateServerInstances()
+	ids, err := s.Env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
 }
 
-func (s *environInstSuite) TestStateServerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.StateServerInstances()
+func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+	_, err := s.Env.ControllerInstances()
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestStateServerInstancesMixed(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := lxdclient.NewInstance(lxdclient.InstanceSummary{}, nil)
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance, *other}
 
-	ids, err := s.Env.StateServerInstances()
+	ids, err := s.Env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})

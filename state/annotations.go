@@ -122,7 +122,7 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 			return ops, nil
 		}
 	}
-	// If the entity is not the state server model, add a DocExists check on the
+	// If the entity is not the controller model, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
 	coll, id, err := st.tagToCollectionAndId(tag)

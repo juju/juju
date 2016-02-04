@@ -174,7 +174,7 @@ func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
-func (s *ModelSuite) TestConfigForStateServerEnv(c *gc.C) {
+func (s *ModelSuite) TestConfigForControllerEnv(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
 	defer otherState.Close()
 
@@ -266,7 +266,7 @@ func (s *ModelSuite) TestDestroyControllerModelFails(c *gc.C) {
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 }
 
-func (s *ModelSuite) TestDestroyStateServerAndHostedModels(c *gc.C) {
+func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 
@@ -295,7 +295,7 @@ func (s *ModelSuite) TestDestroyStateServerAndHostedModels(c *gc.C) {
 	c.Assert(env2.Life(), gc.Equals, state.Dead)
 }
 
-func (s *ModelSuite) TestDestroyStateServerAndHostedModelsWithResources(c *gc.C) {
+func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) {
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 
@@ -368,7 +368,7 @@ func (s *ModelSuite) TestDestroyControllerModelRace(c *gc.C) {
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 }
 
-func (s *ModelSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
+func (s *ModelSuite) TestDestroyControllerAlreadyDyingRaceNoOp(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -381,7 +381,7 @@ func (s *ModelSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
-func (s *ModelSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
+func (s *ModelSuite) TestDestroyControllerAlreadyDyingNoOp(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

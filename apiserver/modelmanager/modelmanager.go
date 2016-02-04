@@ -94,7 +94,7 @@ type ConfigSource interface {
 	Config() (*config.Config, error)
 }
 
-var configValuesFromStateServer = []string{
+var configValuesFromController = []string{
 	"type",
 	"ca-cert",
 	"state-port",
@@ -114,12 +114,12 @@ func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (
 		return result, errors.NotValidf("region value %q", args.Region)
 	}
 
-	stateServerEnv, err := em.state.ControllerModel()
+	controllerEnv, err := em.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	config, err := em.configSkeleton(stateServerEnv)
+	config, err := em.configSkeleton(controllerEnv)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -135,7 +135,7 @@ func (em *ModelManagerAPI) restrictedProviderFields(providerType string) ([]stri
 	}
 
 	var fields []string
-	fields = append(fields, configValuesFromStateServer...)
+	fields = append(fields, configValuesFromController...)
 	fields = append(fields, provider.RestrictedConfigAttributes()...)
 	return fields, nil
 }
@@ -271,8 +271,8 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 		return nil, errors.Trace(err)
 	}
 	attrs := cfg.AllAttrs()
-	// Any values that would normally be copied from the state server
-	// config can also be defined, but if they differ from the state server
+	// Any values that would normally be copied from the controller
+	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
 	for _, field := range fields {
 		if value, found := attrs[field]; found {
@@ -291,9 +291,9 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 // model config specified in the args.
 func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model, error) {
 	result := params.Model{}
-	// Get the state server model first. We need it both for the state
+	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
-	stateServerEnv, err := em.state.ControllerModel()
+	controllerEnv, err := em.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -311,7 +311,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := em.newModelConfig(args, stateServerEnv)
+	newConfig, err := em.newModelConfig(args, controllerEnv)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -332,7 +332,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 }
 
 // ListModels returns the models that the specified user
-// has access to in the current server.  Only that state server owner
+// has access to in the current server.  Only that controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
 func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {

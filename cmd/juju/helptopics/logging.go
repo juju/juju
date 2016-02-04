@@ -25,7 +25,7 @@ Examples:
       dns-name: localhost
       instance-id: localhost
       series: vivid
-      state-server-member-status: has-vote
+      controller-member-status: has-vote
     "1":
       agent-state: started
       agent-version: 1.26-alpha2.1
@@ -52,7 +52,7 @@ Examples:
       dns-name: localhost
       instance-id: localhost
       series: vivid
-      state-server-member-status: has-vote
+      controller-member-status: has-vote
     "1":
       agent-state: started
       agent-version: 1.26-alpha2.1

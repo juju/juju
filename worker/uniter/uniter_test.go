@@ -1696,7 +1696,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		charmDirGuard:          &mockCharmDirGuard{},
 	}
 
-	addStateServerMachine(c, ctx.st)
+	addControllerMachine(c, ctx.st)
 
 	// Create the subordinate service.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")

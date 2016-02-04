@@ -177,7 +177,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	ctx.Infof("Starting new instance for initial state server")
+	ctx.Infof("Starting new instance for initial controller")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		EnvironConstraints:   args.EnvironConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,

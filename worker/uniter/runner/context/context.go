@@ -509,7 +509,7 @@ func (ctx *HookContext) SetActionFailed() error {
 }
 
 // UpdateActionResults inserts new values for use with action-set and
-// action-fail.  The results struct will be delivered to the state server
+// action-fail.  The results struct will be delivered to the controller
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
