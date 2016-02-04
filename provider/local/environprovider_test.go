@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	coretesting "github.com/juju/juju/testing"
@@ -32,6 +33,7 @@ type baseProviderSuite struct {
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
+	s.PatchEnvironment(osenv.XDGDataHome, "")
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
@@ -46,13 +48,13 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 }
 
 type prepareSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&prepareSuite{})
 
 func (s *prepareSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.PatchEnvironment("http_proxy", "")
 	s.PatchEnvironment("HTTP_PROXY", "")

@@ -14,7 +14,7 @@ import (
 )
 
 type ControllerCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&ControllerCommandSuite{})

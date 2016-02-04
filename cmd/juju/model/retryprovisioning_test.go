@@ -20,7 +20,7 @@ import (
 )
 
 type retryProvisioningSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeRetryProvisioningClient
 }
 
@@ -76,7 +76,7 @@ func (f *fakeRetryProvisioningClient) RetryProvisioning(machines ...names.Machin
 }
 
 func (s *retryProvisioningSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	// For all tests, create machine 0 (broken) and
 	// machine 1 (not broken).

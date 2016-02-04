@@ -233,7 +233,7 @@ func CredentialByName(
 // JujuCredentials is the location where credentials are
 // expected to be found. Requires JUJU_HOME to be set.
 func JujuCredentials() string {
-	return osenv.JujuHomePath("credentials.yaml")
+	return osenv.JujuXDGDataHomePath("credentials.yaml")
 }
 
 // ParseCredentials parses the given yaml bytes into Credentials, but does

@@ -175,7 +175,9 @@ image metadata search path. There are 2 options:
 1. Use the --metadata-source parameter when bootstrapping:
    juju bootstrap --metadata-source %s
 
-2. Use image-metadata-url in $JUJU_HOME/environments.yaml
+2. Use image-metadata-url in $JUJU_DATA/environments.yaml
+(if $JUJU_DATA is not set it will try $XDG_DATA_HOME/juju and
+if not set either default to ~/.local/share/juju)
 Configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.

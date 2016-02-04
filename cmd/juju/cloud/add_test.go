@@ -22,8 +22,8 @@ type addSuite struct {
 var _ = gc.Suite(&addSuite{})
 
 func (s *addSuite) SetUpTest(c *gc.C) {
-	origHome := osenv.SetJujuHome(c.MkDir())
-	s.AddCleanup(func(*gc.C) { osenv.SetJujuHome(origHome) })
+	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
+	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
 }
 
 func (s *addSuite) TestAddBadArgs(c *gc.C) {
@@ -45,7 +45,7 @@ clouds:
       london:
         endpoint: http://london/1.0
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuHomePath("clouds.yaml"), []byte(current), 0600)
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(current), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sourceDir := c.MkDir()
@@ -94,7 +94,7 @@ func (s *addSuite) TestAddExistingReplace(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "homestack", sourceFile, "--replace")
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(osenv.JujuHomePath("clouds.yaml"))
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
 	c.Assert(string(data), gc.Equals, `
 clouds:
   homestack:
@@ -113,7 +113,7 @@ func (s *addSuite) TestAddNew(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "garage-maas", sourceFile)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(osenv.JujuHomePath("clouds.yaml"))
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
 	c.Assert(string(data), gc.Equals, `
 clouds:
   garage-maas:

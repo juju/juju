@@ -20,7 +20,7 @@ type listSuite struct{}
 var _ = gc.Suite(&listSuite{})
 
 func (s *listSuite) TestListPublic(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
@@ -30,8 +30,8 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
-	jujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(jujuHome))
+	jujuXDGDataHome := c.MkDir()
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(jujuXDGDataHome))
 	data := `
 clouds:
   homestack:
@@ -42,7 +42,7 @@ clouds:
       london:
         endpoint: http://london/1.0
 `[1:]
-	err := ioutil.WriteFile(osenv.JujuHomePath("clouds.yaml"), []byte(data), 0600)
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand())
@@ -55,7 +55,7 @@ clouds:
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
@@ -65,7 +65,7 @@ func (s *listSuite) TestListYAML(c *gc.C) {
 }
 
 func (s *listSuite) TestListJSON(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)

@@ -17,13 +17,13 @@ type showSuite struct{}
 var _ = gc.Suite(&showSuite{})
 
 func (s *showSuite) TestShowBadArgs(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	_, err := testing.RunCommand(c, cloud.NewShowCloudCommand())
 	c.Assert(err, gc.ErrorMatches, "no cloud specified")
 }
 
 func (s *showSuite) TestShow(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "aws-china")
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)

@@ -19,7 +19,7 @@ import (
 // JujuPersonalCloudsPath is the location where personal cloud information is
 // expected to be found. Requires JUJU_HOME to be set.
 func JujuPersonalCloudsPath() string {
-	return osenv.JujuHomePath("clouds.yaml")
+	return osenv.JujuXDGDataHomePath("clouds.yaml")
 }
 
 // PersonalCloudMetadata loads any personal cloud metadata defined

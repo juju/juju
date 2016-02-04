@@ -49,7 +49,7 @@ import (
 )
 
 type BootstrapSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
@@ -64,13 +64,13 @@ func init() {
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -96,13 +96,13 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	dummy.Reset()
 }
 
@@ -147,7 +147,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		{6, "upgrade in progress"}, // agent ready after 6 polls but that's too long
 		{-1, "other error"},        // another error is returned
 	} {
-		resetJujuHome(c)
+		resetJujuXDGDataHome(c)
 		dummy.Reset()
 
 		s.mockBlockClient.num_retries = t.num_retries
@@ -199,7 +199,7 @@ type bootstrapTest struct {
 }
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 	s.PatchValue(&series.HostSeries, func() string { return hostSeries })
 	s.patchVersion(c)
 }
@@ -216,7 +216,7 @@ func (s *BootstrapSuite) patchVersion(c *gc.C) {
 func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 	dummy.Reset()
 
 	// Although we're testing PrepareEndpointsForCaching interactions
@@ -464,7 +464,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	environmentsDir := testing.HomePath(".juju", "models")
+	environmentsDir := testing.JujuXDGDataHomePath("models")
 	err := os.MkdirAll(environmentsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	jenvFile := filepath.Join(environmentsDir, envName+".jenv")
@@ -522,7 +522,7 @@ func (s *BootstrapSuite) TestBootstrapJenvExists(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
@@ -559,7 +559,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 
 func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -577,7 +577,7 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 }
 
 func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string) {
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -608,7 +608,7 @@ func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -625,7 +625,7 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
@@ -664,7 +664,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
@@ -737,7 +737,7 @@ Building tools to upload (1.7.3.1-raring-%s)
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
 	opc, errc := cmdtesting.RunCommand(
@@ -766,7 +766,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
-	resetJujuHome(c)
+	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(),
@@ -839,9 +839,9 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 	return source
 }
 
-// resetJujuHome restores an new, clean Juju home environment without tools.
-func resetJujuHome(c *gc.C) {
-	jenvDir := testing.HomePath(".juju", "models")
+// resetJujuXDGDataHome restores an new, clean Juju home environment without tools.
+func resetJujuXDGDataHome(c *gc.C) {
+	jenvDir := testing.JujuXDGDataHomePath("models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -27,11 +27,11 @@ import (
 )
 
 type ModelCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 }
 
@@ -137,7 +137,7 @@ func testEnsureModelName(c *gc.C, expect string, args ...string) {
 }
 
 type ConnectionEndpointSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	store    configstore.Storage
 	endpoint configstore.APIEndpoint
 }

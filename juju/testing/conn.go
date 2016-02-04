@@ -55,7 +55,7 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.juju/models/cache.yaml
+//     RootDir/home/ubuntu/.local/share/juju/models/cache.yaml
 //         The dummy cache.yaml file, holding a default
 //         controller and environment named "dummymodel"
 //         which uses the "dummy" provider.
@@ -69,46 +69,46 @@ type JujuConnSuite struct {
 	// added to the suite's environment configuration.
 	ConfigAttrs map[string]interface{}
 
-	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
+	// TODO: JujuConnSuite should not be concerned both with JUJU_DATA and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
 	gitjujutesting.MgoSuite
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
-	State        *state.State
-	Environ      environs.Environ
-	APIState     api.Connection
-	apiStates    []api.Connection // additional api.Connections to close on teardown
-	ConfigStore  configstore.Storage
-	BackingState *state.State // The State being used by the API server
-	RootDir      string       // The faked-up root directory.
-	LogDir       string
-	oldHome      string
-	oldJujuHome  string
-	DummyConfig  testing.Attrs
-	Factory      *factory.Factory
+	State              *state.State
+	Environ            environs.Environ
+	APIState           api.Connection
+	apiStates          []api.Connection // additional api.Connections to close on teardown
+	ConfigStore        configstore.Storage
+	BackingState       *state.State // The State being used by the API server
+	RootDir            string       // The faked-up root directory.
+	LogDir             string
+	oldHome            string
+	oldJujuXDGDataHome string
+	DummyConfig        testing.Attrs
+	Factory            *factory.Factory
 }
 
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
@@ -118,7 +118,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 
@@ -217,8 +217,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	utils.SetHome(home)
-	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".juju"))
-	err = os.Mkdir(osenv.JujuHome(), 0777)
+
+	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(filepath.Join(home, ".local", "share", "juju"))
+	err = os.MkdirAll(osenv.JujuXDGDataHome(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.MkdirAll(s.DataDir(), 0777)
@@ -556,7 +560,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 
 	dummy.Reset()
 	utils.SetHome(s.oldHome)
-	osenv.SetJujuHome(s.oldJujuHome)
+	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }

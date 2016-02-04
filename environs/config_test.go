@@ -15,14 +15,14 @@ import (
 )
 
 type suite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&suite{})
 
 func (s *suite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 // dummySampleConfig returns the dummy sample config without
