@@ -47,18 +47,18 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 
 		// Add the environment uuid to agent config if not present.
 		currentConfig := a.CurrentConfig()
-		if currentConfig.Environment().Id() == "" {
+		if currentConfig.Model().Id() == "" {
 			err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-				environTag, err := conn.EnvironTag()
+				modelTag, err := conn.ModelTag()
 				if err != nil {
-					return errors.Annotate(err, "no environment uuid set on api")
+					return errors.Annotate(err, "no model uuid set on api")
 				}
 				return setter.Migrate(agent.MigrateParams{
-					Environment: environTag,
+					Model: modelTag,
 				})
 			})
 			if err != nil {
-				logger.Warningf("unable to save environment uuid: %v", err)
+				logger.Warningf("unable to save model uuid: %v", err)
 				// Not really fatal, just annoying.
 			}
 		}

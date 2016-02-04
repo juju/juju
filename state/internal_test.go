@@ -51,7 +51,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	dialopts := mongo.DialOpts{
 		Timeout: testing.LongWait,
 	}
-	st, err := Initialize(s.owner, info, testing.EnvironConfig(c), dialopts, nil)
+	st, err := Initialize(s.owner, info, testing.ModelConfig(c), dialopts, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	s.AddCleanup(func(*gc.C) { s.state.Close() })

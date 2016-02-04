@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
@@ -38,7 +39,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return nil, errors.New("unable to obtain api.Connection")
 		}
 
-		envConfig, err := apiConn.Environment().EnvironConfig()
+		envConfig, err := apiConn.Agent().ModelConfig()
 		if err != nil {
 			return nil, errors.Errorf("cannot read environment config: %v", err)
 		}
@@ -52,13 +53,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		if ignoreMachineAddresses {
 			logger.Infof("machine addresses not used, only addresses from provider")
 		}
-		accessor := APIMachineAccessor{apiConn.Machiner()}
+		accessor := APIMachineAccessor{apimachiner.NewState(apiCaller)}
 		w, err := NewMachiner(Config{
 			MachineAccessor: accessor,
 			Tag:             tag.(names.MachineTag),
 			ClearMachineAddressesOnStart: ignoreMachineAddresses,
 			NotifyMachineDead: func() error {
-
 				return config.WriteUninstallFile()
 			},
 		})

@@ -9,29 +9,29 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewListBlocksCommand returns a command to list the blocks in a controller.
 func NewListBlocksCommand() cmd.Command {
-	return envcmd.WrapController(&listBlocksCommand{})
+	return modelcmd.WrapController(&listBlocksCommand{})
 }
 
 // listBlocksCommand lists all blocks for environments within the controller.
 type listBlocksCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	out    cmd.Output
 	api    listBlocksAPI
 	apierr error
 }
 
-var listBlocksDoc = `List all blocks for environments within the specified controller`
+var listBlocksDoc = `List all blocks for models within the specified controller`
 
 // listBlocksAPI defines the methods on the controller API endpoint
 // that the list-blocks command calls.
 type listBlocksAPI interface {
 	Close() error
-	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
+	ListBlockedModels() ([]params.ModelBlockInfo, error)
 }
 
 // Info implements Command.Info.
@@ -67,9 +67,9 @@ func (c *listBlocksCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	envs, err := api.ListBlockedEnvironments()
+	envs, err := api.ListBlockedModels()
 	if err != nil {
-		logger.Errorf("Unable to list blocked environments: %s", err)
+		logger.Errorf("Unable to list blocked models: %s", err)
 		return err
 	}
 	return c.out.Write(ctx, envs)

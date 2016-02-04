@@ -223,7 +223,7 @@ func (s *stateServerInstancesSuite) TestStateServerInstances(c *gc.C) {
 		output: "",
 	}, {
 		output:      "no-agent-dir",
-		expectedErr: "environment is not bootstrapped",
+		expectedErr: "model is not bootstrapped",
 	}, {
 		output:      "woo",
 		expectedErr: `unexpected output: "woo"`,

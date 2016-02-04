@@ -60,7 +60,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            coretesting.CACert,
 		Password:          "fake",
-		Environment:       s.State.EnvironTag(),
+		Model:             s.State.ModelTag(),
 	}
 	s.st, _ = s.OpenAPIAsNewMachine(c)
 

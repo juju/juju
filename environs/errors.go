@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	ErrNotBootstrapped     = errors.New("environment is not bootstrapped")
-	ErrAlreadyBootstrapped = errors.New("environment is already bootstrapped")
+	ErrNotBootstrapped     = errors.New("model is not bootstrapped")
+	ErrAlreadyBootstrapped = errors.New("model is already bootstrapped")
 	ErrNoInstances         = errors.NotFoundf("instances")
 	ErrPartialInstances    = errors.New("only some instances were found")
 

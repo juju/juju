@@ -39,11 +39,11 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// EnvironUUID returns the environment UUID to connect to the environment
+// ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
-func (a *APIAddresser) EnvironUUID() (string, error) {
+func (a *APIAddresser) ModelUUID() (string, error) {
 	var result params.StringResult
-	err := a.facade.FacadeCall("EnvironUUID", nil, &result)
+	err := a.facade.FacadeCall("ModelUUID", nil, &result)
 	if err != nil {
 		return "", err
 	}

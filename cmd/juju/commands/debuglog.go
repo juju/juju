@@ -12,15 +12,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newDebugLogCommand() cmd.Command {
-	return envcmd.Wrap(&debugLogCommand{})
+	return modelcmd.Wrap(&debugLogCommand{})
 }
 
 type debugLogCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 
 	level  string
 	params api.DebugLogParams
@@ -32,7 +32,7 @@ const defaultLineCount = 10
 
 const debuglogDoc = `
 Stream the consolidated debug log file. This file contains the log messages
-from all nodes in the environment.
+from all nodes in the model.
 `
 
 func (c *debugLogCommand) Info() *cmd.Info {

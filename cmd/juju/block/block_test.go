@@ -86,7 +86,7 @@ func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType 
 
 func (s *BlockCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
 	s.processErrorTest(c, common.OperationBlockedError("operations that remove"), block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
-	s.processErrorTest(c, common.OperationBlockedError("destroy-environment operation has been blocked"), block.BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
+	s.processErrorTest(c, common.OperationBlockedError("destroy-model operation has been blocked"), block.BlockDestroy, cmd.ErrSilent, ".*destroy-model operation has been blocked.*")
 }
 
 func (s *BlockCommandSuite) TestProcessErrNil(c *gc.C) {

@@ -19,11 +19,11 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.undertaker")
 
-// ripTime is the time to wait after an environment has been set to
-// dead, before removing all environment docs.
+// ripTime is the time to wait after an model has been set to
+// dead, before removing all model docs.
 const ripTime = 24 * time.Hour
 
-// NewUndertaker returns a worker which processes a dying environment.
+// NewUndertaker returns a worker which processes a dying model.
 func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) (worker.Worker, error) {
 	u := &undertaker{
 		client: client,
@@ -46,50 +46,50 @@ type undertaker struct {
 }
 
 func (u *undertaker) run() error {
-	result, err := u.client.EnvironInfo()
+	result, err := u.client.ModelInfo()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {
 		return errors.Trace(result.Error)
 	}
-	envInfo := result.Result
+	modelInfo := result.Result
 
-	if envInfo.Life == params.Alive {
-		return errors.Errorf("undertaker worker should not be started for an alive environment: %q", envInfo.GlobalName)
+	if modelInfo.Life == params.Alive {
+		return errors.Errorf("undertaker worker should not be started for an alive model: %q", modelInfo.GlobalName)
 	}
 
-	if envInfo.Life == params.Dying {
-		// Process the dying environment. This blocks until the environment
+	if modelInfo.Life == params.Dying {
+		// Process the dying model. This blocks until the model
 		// is dead.
-		u.processDyingEnv()
+		u.processDyingModel()
 	}
 
-	// If environ is not alive or dying, it must be dead.
+	// If model is not alive or dying, it must be dead.
 
-	if envInfo.IsSystem {
-		// Nothing to do. We don't remove environment docs for a state server
-		// environment.
+	if modelInfo.IsSystem {
+		// Nothing to do. We don't remove model docs for a state server
+		// model.
 		return nil
 	}
 
-	err = u.destroyProviderEnv()
+	err = u.destroyProviderModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	tod := u.clock.Now()
-	if envInfo.TimeOfDeath != nil {
-		// If TimeOfDeath is not nil, the environment was already dead
+	if modelInfo.TimeOfDeath != nil {
+		// If TimeOfDeath is not nil, the model was already dead
 		// before the worker was started. So we use the recorded time of
 		// death. This may happen if the system is rebooted after an
-		// environment is set to dead, but before the environ docs are
+		// model is set to dead, but before the model docs are
 		// removed.
-		tod = *envInfo.TimeOfDeath
+		tod = *modelInfo.TimeOfDeath
 	}
 
-	// Process the dead environment
-	return u.processDeadEnv(tod)
+	// Process the dead model
+	return u.processDeadModel(tod)
 }
 
 // Kill is part of the worker.Worker interface.
@@ -102,15 +102,15 @@ func (u *undertaker) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *undertaker) processDyingEnv() error {
-	// ProcessDyingEnviron will fail quite a few times before it succeeds as
+func (u *undertaker) processDyingModel() error {
+	// ProcessDyingModel will fail quite a few times before it succeeds as
 	// it is being woken up as every machine or service changes. We ignore the
-	// error here and rely on the logging inside the ProcessDyingEnviron.
-	if err := u.client.ProcessDyingEnviron(); err == nil {
+	// error here and rely on the logging inside the ProcessDyingModel.
+	if err := u.client.ProcessDyingModel(); err == nil {
 		return nil
 	}
 
-	watcher, err := u.client.WatchEnvironResources()
+	watcher, err := u.client.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -125,11 +125,11 @@ func (u *undertaker) processDyingEnv() error {
 			return u.catacomb.ErrDying()
 		case _, ok := <-watcher.Changes():
 			if !ok {
-				return errors.New("environ resources watcher failed")
+				return errors.New("model resources watcher failed")
 			}
-			err := u.client.ProcessDyingEnviron()
+			err := u.client.ProcessDyingModel()
 			if err == nil {
-				// ProcessDyingEnviron succeeded. We're done.
+				// ProcessDyingModel succeeded. We're done.
 				return nil
 			}
 			// Yes, we ignore the error. See comment above.
@@ -137,8 +137,8 @@ func (u *undertaker) processDyingEnv() error {
 	}
 }
 
-func (u *undertaker) destroyProviderEnv() error {
-	cfg, err := u.client.EnvironConfig()
+func (u *undertaker) destroyProviderModel() error {
+	cfg, err := u.client.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -150,7 +150,7 @@ func (u *undertaker) destroyProviderEnv() error {
 	return errors.Trace(err)
 }
 
-func (u *undertaker) processDeadEnv(timeOfDeath time.Time) error {
+func (u *undertaker) processDeadModel(timeOfDeath time.Time) error {
 	timeDead := u.clock.Now().Sub(timeOfDeath)
 	wait := ripTime - timeDead
 	if wait < 0 {
@@ -161,7 +161,7 @@ func (u *undertaker) processDeadEnv(timeOfDeath time.Time) error {
 	case <-u.catacomb.Dying():
 		return u.catacomb.ErrDying()
 	case <-u.clock.After(wait):
-		err := u.client.RemoveEnviron()
-		return errors.Annotate(err, "could not remove all docs for dead environment")
+		err := u.client.RemoveModel()
+		return errors.Annotate(err, "could not remove all docs for dead model")
 	}
 }

@@ -12,22 +12,22 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-// ConfigGetter exposes an environment configuration to its clients.
+// ConfigGetter exposes a model configuration to its clients.
 type ConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+	ModelConfig() (*config.Config, error)
 }
 
-// ConfigObserver exposes an environment configuration and a watch constructor
+// ConfigObserver exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
 type ConfigObserver interface {
 	ConfigGetter
-	WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error)
+	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 }
 
 // Config describes the dependencies of a Tracker.
 //
 // It's arguable that it should be called TrackerConfig, because of the heavy
-// use of environ config in this package.
+// use of model config in this package.
 type Config struct {
 	Observer ConfigObserver
 }
@@ -58,11 +58,11 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	environConfig, err := config.Observer.EnvironConfig()
+	modelConfig, err := config.Observer.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read environ config")
 	}
-	environ, err := environs.New(environConfig)
+	environ, err := environs.New(modelConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create environ")
 	}
@@ -88,7 +88,7 @@ func (t *Tracker) Environ() environs.Environ {
 }
 
 func (t *Tracker) loop() error {
-	environWatcher, err := t.config.Observer.WatchForEnvironConfigChanges()
+	environWatcher, err := t.config.Observer.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "cannot watch environ config")
 	}
@@ -106,11 +106,11 @@ func (t *Tracker) loop() error {
 			}
 		}
 		logger.Debugf("reloading environ config")
-		environConfig, err := t.config.Observer.EnvironConfig()
+		modelConfig, err := t.config.Observer.ModelConfig()
 		if err != nil {
 			return errors.Annotate(err, "cannot read environ config")
 		}
-		if err = t.environ.SetConfig(environConfig); err != nil {
+		if err = t.environ.SetConfig(modelConfig); err != nil {
 			return errors.Annotate(err, "cannot update environ config")
 		}
 	}

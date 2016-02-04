@@ -16,16 +16,16 @@ import (
 
 func init() {
 	// Version 0 is no longer supported.
-	common.RegisterStandardFacade("Firewaller", 1, NewFirewallerAPI)
+	common.RegisterStandardFacade("Firewaller", 2, NewFirewallerAPI)
 }
 
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 
 	st            *state.State
@@ -43,12 +43,12 @@ func NewFirewallerAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*FirewallerAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthModelManager() {
 		// Firewaller must run as environment manager.
 		return nil, common.ErrPerm
 	}
 	// Set up the various authorization checkers.
-	accessEnviron := common.AuthFuncForTagKind(names.EnvironTagKind)
+	accessEnviron := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
 	accessService := common.AuthFuncForTagKind(names.ServiceTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
@@ -60,9 +60,9 @@ func NewFirewallerAPI(
 		st,
 		accessUnitServiceOrMachine,
 	)
-	// EnvironConfig() and WatchForEnvironConfigChanges() are allowed
+	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.
-	environWatcher := common.NewEnvironWatcher(
+	modelWatcher := common.NewModelWatcher(
 		st,
 		resources,
 		authorizer,
@@ -78,8 +78,8 @@ func NewFirewallerAPI(
 		resources,
 		accessMachine,
 	)
-	// WatchEnvironMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewEnvironMachinesWatcher(
+	// WatchModelMachines() is allowed with unrestricted access.
+	machinesWatcher := common.NewModelMachinesWatcher(
 		st,
 		resources,
 		authorizer,
@@ -91,19 +91,19 @@ func NewFirewallerAPI(
 	)
 
 	return &FirewallerAPI{
-		LifeGetter:             lifeGetter,
-		EnvironWatcher:         environWatcher,
-		AgentEntityWatcher:     entityWatcher,
-		UnitsWatcher:           unitsWatcher,
-		EnvironMachinesWatcher: machinesWatcher,
-		InstanceIdGetter:       instanceIdGetter,
-		st:                     st,
-		resources:              resources,
-		authorizer:             authorizer,
-		accessUnit:             accessUnit,
-		accessService:          accessService,
-		accessMachine:          accessMachine,
-		accessEnviron:          accessEnviron,
+		LifeGetter:           lifeGetter,
+		ModelWatcher:         modelWatcher,
+		AgentEntityWatcher:   entityWatcher,
+		UnitsWatcher:         unitsWatcher,
+		ModelMachinesWatcher: machinesWatcher,
+		InstanceIdGetter:     instanceIdGetter,
+		st:                   st,
+		resources:            resources,
+		authorizer:           authorizer,
+		accessUnit:           accessUnit,
+		accessService:        accessService,
+		accessMachine:        accessMachine,
+		accessEnviron:        accessEnviron,
 	}, nil
 }
 

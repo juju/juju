@@ -194,7 +194,7 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 		return errors.Errorf("SHA-256 hash mismatch (%v/%v)", sha256, tools.SHA256)
 	}
 	sizeInKB := (size + 512) / 1024
-	logger.Infof("uploading %v (%dkB) to environment", toolsName, sizeInKB)
+	logger.Infof("uploading %v (%dkB) to model", toolsName, sizeInKB)
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
 }
 

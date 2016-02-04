@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -138,9 +138,9 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		errors.Errorf("expacted names.MachineTag, got %T", tag)
 	}
 
-	envCfg, err := p.st.EnvironConfig()
+	envCfg, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve the environment config.")
+		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
 	secureServerConnection := false
@@ -191,17 +191,17 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) (
 }
 
 func (p *environProvisioner) loop() error {
-	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	var modelConfigChanges <-chan struct{}
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
-	if err := p.catacomb.Add(environWatcher); err != nil {
+	if err := p.catacomb.Add(modelWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	environConfigChanges = environWatcher.Changes()
+	modelConfigChanges = modelWatcher.Changes()
 
-	p.environ, err = environ.WaitForEnviron(environWatcher, p.st, p.catacomb.Dying())
+	p.environ, err = environ.WaitForEnviron(modelWatcher, p.st, p.catacomb.Dying())
 	if err != nil {
 		if err == environ.ErrWaitAborted {
 			return p.catacomb.ErrDying()
@@ -223,16 +223,16 @@ func (p *environProvisioner) loop() error {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-		case _, ok := <-environConfigChanges:
+		case _, ok := <-modelConfigChanges:
 			if !ok {
-				return errors.New("environment configuration watcher closed")
+				return errors.New("model configuration watcher closed")
 			}
-			environConfig, err := p.st.EnvironConfig()
+			environConfig, err := p.st.ModelConfig()
 			if err != nil {
-				return errors.Annotate(err, "cannot load environment configuration")
+				return errors.Annotate(err, "cannot load model configuration")
 			}
 			if err := p.setConfig(environConfig); err != nil {
-				return errors.Annotate(err, "loaded invalid environment configuration")
+				return errors.Annotate(err, "loaded invalid model configuration")
 			}
 			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
 		}
@@ -240,7 +240,7 @@ func (p *environProvisioner) loop() error {
 }
 
 func (p *environProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
-	return p.st.WatchEnvironMachines()
+	return p.st.WatchModelMachines()
 }
 
 func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
@@ -291,15 +291,15 @@ func NewContainerProvisioner(
 }
 
 func (p *containerProvisioner) loop() error {
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.catacomb.Add(environWatcher); err != nil {
+	if err := p.catacomb.Add(modelWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -317,16 +317,16 @@ func (p *containerProvisioner) loop() error {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
-		case _, ok := <-environWatcher.Changes():
+		case _, ok := <-modelWatcher.Changes():
 			if !ok {
-				return errors.New("environment configuratioon watch closed")
+				return errors.New("model configuratioon watch closed")
 			}
-			environConfig, err := p.st.EnvironConfig()
+			modelConfig, err := p.st.ModelConfig()
 			if err != nil {
-				return errors.Annotate(err, "cannot load environment configuration")
+				return errors.Annotate(err, "cannot load model configuration")
 			}
-			p.configObserver.notify(environConfig)
-			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
+			p.configObserver.notify(modelConfig)
+			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
 		}
 	}
 }

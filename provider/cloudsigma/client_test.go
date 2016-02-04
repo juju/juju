@@ -72,7 +72,7 @@ func addTestClientServer(c *gc.C, instance, env string) string {
 	if instance != "" {
 		json += fmt.Sprintf(`"juju-instance": "%s"`, instance)
 		if env != "" {
-			json += fmt.Sprintf(`, "juju-environment": "%s"`, env)
+			json += fmt.Sprintf(`, "juju-model": "%s"`, env)
 		}
 	}
 	json += `}, "status": "running"}`

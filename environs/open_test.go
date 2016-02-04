@@ -71,7 +71,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.NotNil)
 	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
-	c.Assert(info.APIEndpoint().EnvironUUID, gc.Not(gc.Equals), "")
+	c.Assert(info.APIEndpoint().ModelUUID, gc.Not(gc.Equals), "")
 	c.Assert(info.APICredentials().Password, gc.Not(gc.Equals), "")
 	c.Assert(info.APICredentials().User, gc.Equals, "admin")
 }
@@ -110,11 +110,11 @@ func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	e, err := environs.NewFromName("erewhemos", store)
-	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
+	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	c.Assert(e, gc.IsNil)
 }
 
-func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
+func (*OpenSuite) TestNewFromNameWithInvalidModelConfig(c *gc.C) {
 	store := configstore.NewMem()
 
 	e, err := environs.NewFromName("erewhemos", store)
@@ -138,7 +138,7 @@ func (*OpenSuite) TestConfigForName(c *gc.C) {
 
 func (*OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
 	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
-	c.Assert(err, gc.ErrorMatches, "no default environment found")
+	c.Assert(err, gc.ErrorMatches, "no default model found")
 	c.Assert(cfg, gc.IsNil)
 	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
 }
@@ -182,7 +182,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	e, err := environs.New(cfg)
-	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
+	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	c.Assert(e, gc.IsNil)
 }
 
@@ -224,7 +224,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	// Check the common name of the generated cert
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
+	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for model "`+testing.SampleModelName+`"`)
 
 	// Check that a uuid was chosen.
 	uuid, exists := env.Config().UUID()
@@ -274,7 +274,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	store := configstore.NewMem()
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), store)
-	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
+	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: model configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
 	// Ensure that the config storage info is cleaned up.
 	_, err = store.ReadInfo(cfg.Name())
@@ -326,7 +326,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
 	_, err = e.StateServerInstances()
-	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
+	c.Assert(err, gc.ErrorMatches, "model has been destroyed")
 	_, err = store.ReadInfo(e.Config().Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -338,6 +338,6 @@ func (*OpenSuite) TestNewFromAttrs(c *gc.C) {
 			"name":         "erewhemos",
 		},
 	))
-	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
+	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	c.Assert(e, gc.IsNil)
 }

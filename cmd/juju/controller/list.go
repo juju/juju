@@ -10,19 +10,19 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
 // NewListCommand returns a command to list the controllers the user knows about.
 func NewListCommand() cmd.Command {
-	return envcmd.WrapBase(&listCommand{})
+	return modelcmd.WrapBase(&listCommand{})
 }
 
 // listCommand returns the list of all controllers the user is
 // currently logged in to on the current machine.
 type listCommand struct {
-	envcmd.JujuCommandBase
+	modelcmd.JujuCommandBase
 	cfgStore configstore.Storage
 }
 
@@ -31,13 +31,13 @@ List all the Juju controllers logged in to on the current machine.
 
 A controller refers to a Juju Controller that runs and manages the Juju API
 server and the underlying database used by Juju. A controller may host
-multiple environments.
+multiple models.
 
 See Also:
     juju help controllers
-    juju help list-environments
-    juju help create-environment
-    juju help use-environment
+    juju help list-models
+    juju help create-model
+    juju help use-model
 `
 
 // Info implements Command.Info

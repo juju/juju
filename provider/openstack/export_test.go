@@ -81,8 +81,8 @@ func NewCinderProvider(s OpenstackStorage) storage.Provider {
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
-	envUUID := testing.EnvironmentTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, envUUID}
+	modelUUID := testing.ModelTag.Id()
+	return &cinderVolumeSource{openstackStorage(s), envName, modelUUID}
 }
 
 var indexData = `

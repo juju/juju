@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // VolumeListAPI defines the API methods that the volume list command use.
@@ -20,11 +20,11 @@ type VolumeListAPI interface {
 }
 
 const volumeListCommandDoc = `
-List volumes (disks) in the environment.
+List volumes (disks) in the model.
 
 options:
--e, --environment (= "")
-    juju environment to operate in
+-m, --model (= "")
+    juju model to operate in
 -o, --output (= "")
     specify an output file
 [machine]
@@ -37,7 +37,7 @@ func newVolumeListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (VolumeListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // volumeListCommand lists storage volumes.

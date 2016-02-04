@@ -131,7 +131,7 @@ func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
 	cmdInfo := s.superCmd.Info()
 	var expected string
 	if s.command != nil {
-		// Subcommands embed EnvCommandBase
+		// Subcommands embed ModelCommandBase
 		cmdInfo = s.command.Info()
 		expected = "(?sm).*^usage: juju space " +
 			regexp.QuoteMeta(cmdInfo.Name) +

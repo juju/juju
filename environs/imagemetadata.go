@@ -59,7 +59,7 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 			return
 		}
 	}
-	logger.Debugf("new environment image datasource registered: %v", id)
+	logger.Debugf("new model image datasource registered: %v", id)
 	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 

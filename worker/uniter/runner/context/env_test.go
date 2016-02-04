@@ -46,10 +46,10 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 }
 
 func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) {
-	return context.NewEnvironmentHookContext(
+	return context.NewModelHookContext(
 			"some-context-id",
-			"env-uuid-deadbeef",
-			"some-env-name",
+			"model-uuid-deadbeef",
+			"some-model-name",
 			"this-unit/123",
 			"PURPLE",
 			"proceed with care",
@@ -64,8 +64,8 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			names.NewMachineTag("42"),
 		), []string{
 			"JUJU_CONTEXT_ID=some-context-id",
-			"JUJU_ENV_UUID=env-uuid-deadbeef",
-			"JUJU_ENV_NAME=some-env-name",
+			"JUJU_MODEL_UUID=model-uuid-deadbeef",
+			"JUJU_MODEL_NAME=some-model-name",
 			"JUJU_UNIT_NAME=this-unit/123",
 			"JUJU_METER_STATUS=PURPLE",
 			"JUJU_METER_INFO=proceed with care",
