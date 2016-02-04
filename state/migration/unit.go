@@ -89,7 +89,7 @@ func (u *unit) PasswordHash() string {
 
 // Principal implements Unit.
 func (u *unit) Principal() names.UnitTag {
-	return u.Principal_
+	return names.NewUnitTag(u.Principal_)
 }
 
 // Subordinates implements Unit.
@@ -139,7 +139,7 @@ func (u *unit) Tools() AgentTools {
 }
 
 // SetTools implements Unit.
-func (u *unit) SetTools(AgentToolsArgs) {
+func (u *unit) SetTools(args AgentToolsArgs) {
 	u.Tools_ = newAgentTools(args)
 }
 
@@ -153,7 +153,7 @@ func (u *unit) WorkloadStatus() Status {
 }
 
 // SetWorkloadStatus implements Unit.
-func (u *unit) SetWorkloadStatus(StatusArgs) {
+func (u *unit) SetWorkloadStatus(args StatusArgs) {
 	u.WorkloadStatus_ = newStatus(args)
 }
 
@@ -167,7 +167,7 @@ func (u *unit) AgentStatus() Status {
 }
 
 // SetAgentStatus implements Unit.
-func (u *unit) SetAgentStatus(StatusArgs) {
+func (u *unit) SetAgentStatus(args StatusArgs) {
 	u.AgentStatus_ = newStatus(args)
 }
 

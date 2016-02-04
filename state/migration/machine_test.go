@@ -181,6 +181,19 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	m.SetTools(minimalAgentToolsArgs())
 	m.SetStatus(minimalStatusArgs())
 	m.SetInstance(minimalCloudInstanceArgs())
+	// Just use one set of address args for both machine and provider.
+	addrArgs := []AddressArgs{
+		{
+			Value: "10.0.0.10",
+			Type:  "special",
+		}, {
+			Value: "10.1.2.3",
+			Type:  "other",
+		},
+	}
+	m.SetAddresses(addrArgs, addrArgs)
+	m.SetPreferredAddresses(addrArgs[0], addrArgs[1])
+
 	// Make sure the machine is valid.
 	c.Assert(m.Validate(), jc.ErrorIsNil)
 

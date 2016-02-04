@@ -326,14 +326,24 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"supported-containers": schema.List(schema.String()),
 		"tools":                schema.StringMap(schema.Any()),
 		"containers":           schema.List(schema.StringMap(schema.Any())),
+
+		"provider-addresses":        schema.List(schema.StringMap(schema.Any())),
+		"machine-addresses":         schema.List(schema.StringMap(schema.Any())),
+		"preferred-public-address":  schema.StringMap(schema.Any()),
+		"preferred-private-address": schema.StringMap(schema.Any()),
 	}
+
 	defaults := schema.Defaults{
 		"placement":      "",
 		"container-type": "",
 		// Even though we are expecting instance data for every machine,
 		// it isn't strictly necessary, so we allow it to not exist here.
-		"instance":             schema.Omit,
-		"supported-containers": schema.Omit,
+		"instance":                  schema.Omit,
+		"supported-containers":      schema.Omit,
+		"provider-addresses":        schema.Omit,
+		"machine-addresses":         schema.Omit,
+		"preferred-public-address":  schema.Omit,
+		"preferred-private-address": schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -385,6 +395,38 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		return nil, errors.Trace(err)
 	}
 	result.Status_ = status
+
+	if addresses, ok := valid["provider-addresses"]; ok {
+		providerAddresses, err := importAddresses(addresses.([]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.ProviderAddresses_ = providerAddresses
+	}
+
+	if addresses, ok := valid["machine-addresses"]; ok {
+		machineAddresses, err := importAddresses(addresses.([]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.MachineAddresses_ = machineAddresses
+	}
+
+	if address, ok := valid["preferred-public-address"]; ok {
+		publicAddress, err := importAddress(address.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.PreferredPublicAddress_ = publicAddress
+	}
+
+	if address, ok := valid["preferred-private-address"]; ok {
+		privateAddress, err := importAddress(address.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.PreferredPrivateAddress_ = privateAddress
+	}
 
 	machineList := valid["containers"].([]interface{})
 	machines, err := importMachineList(machineList, importMachineV1)
