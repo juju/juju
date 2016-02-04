@@ -9,7 +9,7 @@ import (
 )
 
 type SSHKeysBase struct {
-	modelcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewKeyManagerClient returns a keymanager client for the root api endpoint

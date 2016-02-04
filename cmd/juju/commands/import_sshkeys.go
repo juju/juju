@@ -37,7 +37,7 @@ func (c *importKeysCommand) Info() *cmd.Info {
 		Args:    "<ssh key id> [...]",
 		Doc:     importKeysDoc,
 		Purpose: "using ssh-import-id, import new authorized ssh keys for a Juju user",
-		Aliases: []string {"import-ssh-keys"},
+		Aliases: []string{"import-ssh-keys"},
 	}
 }
 

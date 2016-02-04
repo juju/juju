@@ -38,7 +38,7 @@ func (c *removeKeysCommand) Info() *cmd.Info {
 		Args:    "<ssh key id> [...]",
 		Doc:     removeKeysDoc,
 		Purpose: "remove authorized ssh keys for a Juju user",
-		Aliases: []string {"remove-ssh-keys"},
+		Aliases: []string{"remove-ssh-keys"},
 	}
 }
 

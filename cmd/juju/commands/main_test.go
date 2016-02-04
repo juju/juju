@@ -260,7 +260,7 @@ var commandNames = []string{
 	"remove-service",  // alias for destroy-service
 	"remove-ssh-key",
 	"remove-ssh-keys",
-	"remove-unit",     // alias for destroy-unit
+	"remove-unit", // alias for destroy-unit
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",

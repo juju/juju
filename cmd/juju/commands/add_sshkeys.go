@@ -36,7 +36,7 @@ func (c *addKeysCommand) Info() *cmd.Info {
 		Args:    "<ssh key> [...]",
 		Doc:     addKeysDoc,
 		Purpose: "add new authorized ssh keys for a Juju user",
-		Aliases: []string {"add-ssh-keys"},
+		Aliases: []string{"add-ssh-keys"},
 	}
 }
 
