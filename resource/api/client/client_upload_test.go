@@ -26,8 +26,8 @@ type UploadSuite struct {
 }
 
 func (s *UploadSuite) TestOkay(c *gc.C) {
-	s.response.UploadID = "a-service/spam"
 	data := "<data>"
+	_, s.response.Resource = newResource(c, "spam", "a-user", data)
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	req, err := http.NewRequest("PUT", "/services/a-service/resources/spam", nil)
@@ -82,11 +82,11 @@ func (s *UploadSuite) TestRequestFailed(c *gc.C) {
 }
 
 func (s *UploadSuite) TestPendingOkay(c *gc.C) {
-	res, _ := newResourceResult(c, "a-service", "spam")
+	res, apiResult := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
-	s.response.UploadID = expected
+	s.response.Resource = apiResult.Resources[0]
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,11 +117,11 @@ func (s *UploadSuite) TestPendingOkay(c *gc.C) {
 }
 
 func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
-	res, _ := newResourceResult(c, "a-service", "spam")
+	res, apiResult := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
-	s.response.UploadID = expected
+	s.response.Resource = apiResult.Resources[0]
 	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 

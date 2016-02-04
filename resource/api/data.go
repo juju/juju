@@ -111,10 +111,10 @@ type UnitResources struct {
 
 // UploadResult is the response from an upload request.
 type UploadResult struct {
-	// UploadID uniquely identifies the uploaded resource. For a
-	// "pre-upload" request this is a unique UUID. Otherwise it is the
-	// normal service/resource pair.
-	UploadID string
+	params.ErrorResult
+
+	// Resource describes the resource that was stored in the model.
+	Resource Resource
 }
 
 // Resource contains info about a Resource.

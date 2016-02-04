@@ -51,20 +51,21 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	res, _ := newResource(c, "spam", "a-user", content)
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
+	s.data.ReturnSetResource = res
 	uh := server.UploadHandler{
 		Username: "a-user",
 		Store:    s.data,
 	}
 	req, body := newUploadRequest(c, "spam", "a-service", content)
 
-	uploadID, err := uh.HandleRequest(req)
+	result, err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetResource", "SetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
 	s.stub.CheckCall(c, 1, "SetResource", "a-service", "a-user", res.Resource, ioutil.NopCloser(body))
-	c.Check(uploadID, jc.DeepEquals, &api.UploadResult{
-		UploadID: "a-service/spam",
+	c.Check(result, jc.DeepEquals, &api.UploadResult{
+		Resource: api.Resource2API(res),
 	})
 }
 

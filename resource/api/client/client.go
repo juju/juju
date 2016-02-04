@@ -154,7 +154,7 @@ func (c Client) AddPendingResource(serviceID string, res charmresource.Resource,
 			return "", errors.Trace(err)
 		}
 
-		var response api.UploadResult
+		var response api.UploadResult // ignored
 		if err := c.doer.Do(req, reader, &response); err != nil {
 			return "", errors.Trace(err)
 		}

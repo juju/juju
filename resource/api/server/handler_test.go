@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -130,7 +131,9 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
-	s.result.UploadID = "a-service/spam"
+	s.result.Resource.Name = "spam"
+	expected, err := json.Marshal(s.result)
+	c.Assert(err, jc.ErrorIsNil)
 	s.username = "youknowwho"
 	handler := server.LegacyHTTPHandler{
 		Connect:      s.connect,
@@ -153,11 +156,11 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	s.stub.CheckCall(c, 0, "Connect", req)
 	s.stub.CheckCall(c, 1, "HandleUpload", "youknowwho", s.data, req)
 	s.stub.CheckCall(c, 4, "WriteHeader", http.StatusOK)
-	s.stub.CheckCall(c, 5, "Write", `{"UploadID":"a-service/spam"}`)
+	s.stub.CheckCall(c, 5, "Write", string(expected))
 	c.Check(req, jc.DeepEquals, s.req) // did not change
 	c.Check(s.header, jc.DeepEquals, http.Header{
 		"Content-Type":   []string{"application/json"},
-		"Content-Length": []string{"29"},
+		"Content-Length": []string{fmt.Sprint(len(expected))},
 	})
 }
 

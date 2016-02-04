@@ -60,13 +60,13 @@ func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, err
 		return nil, errors.Trace(err)
 	}
 
-	uploadID := uploaded.Service + "/" + uploaded.Resource.Name // TODO(ericsnow) Get this from state.
-	if _, err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data); err != nil {
+	stored, err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	result := &api.UploadResult{
-		UploadID: uploadID,
+		Resource: api.Resource2API(stored),
 	}
 	return result, nil
 }
