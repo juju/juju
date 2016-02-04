@@ -85,10 +85,12 @@ func (dw *discoverspacesWorker) Wait() error {
 func (dw *discoverspacesWorker) loop() (err error) {
 	modelCfg, err := dw.api.ModelConfig()
 	if err != nil {
+		close(dw.discoveringSpaces)
 		return err
 	}
 	model, err := environs.New(modelCfg)
 	if err != nil {
+		close(dw.discoveringSpaces)
 		return err
 	}
 	networkingModel, ok := environs.SupportsNetworking(model)
