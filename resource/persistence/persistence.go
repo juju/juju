@@ -40,8 +40,8 @@ func NewPersistence(base PersistenceBase) *Persistence {
 	}
 }
 
-// ListResources returns the resource data for the given service ID.
-// None of the resources will be pending.
+// ListResources returns the info for each non-pending resource of the
+// identified service.
 func (p Persistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
@@ -80,8 +80,8 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 	return results, nil
 }
 
-// ListModelResources returns the resource data for the given service
-// ID. None of the resources will be pending.
+// ListModelResources returns the extended, model-related info for each
+// non-pending resource of the identified service.
 func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResource, error) {
 	docs, err := p.resources(serviceID)
 	if err != nil {
@@ -106,8 +106,8 @@ func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResou
 	return resources, nil
 }
 
-// ListPendingResources returns the resource data for the given service
-// ID. None of the resources will be pending.
+// ListPendingResources returns the extended, model-related info for
+// each pending resource of the identifies service.
 func (p Persistence) ListPendingResources(serviceID string) ([]resource.ModelResource, error) {
 	docs, err := p.resources(serviceID)
 	if err != nil {
@@ -129,9 +129,6 @@ func (p Persistence) ListPendingResources(serviceID string) ([]resource.ModelRes
 	}
 	return resources, nil
 }
-
-// TODO(ericsnow) Add ListPendingResources() or allow in
-// ListModelResources()?
 
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
