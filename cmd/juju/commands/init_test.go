@@ -63,7 +63,7 @@ const existingEnv = `
 environments:
     test:
         type: dummy
-        state-server: false
+        controller: false
         authorized-keys: i-am-a-key
 `
 

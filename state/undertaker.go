@@ -23,7 +23,7 @@ func (st *State) ProcessDyingModel() (err error) {
 			return nil, errors.Trace(ErrModelNotDying)
 		}
 
-		if st.IsStateServer() {
+		if st.IsController() {
 			envs, err := st.AllModels()
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -73,8 +73,8 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	newEnv, err := modelManager.CreateModel(owner, nil, map[string]interface{}{
 		"name":            "new-model",
 		"authorized-keys": "ssh-key",
-		// dummy needs state-server
-		"state-server": false,
+		// dummy needs controller
+		"controller": false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnv.Name, gc.Equals, "new-model")

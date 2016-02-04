@@ -177,7 +177,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	ctx.Infof("Starting new instance for initial state server")
+	ctx.Infof("Starting new instance for initial controller")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		EnvironConstraints:   args.EnvironConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
@@ -444,8 +444,8 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 // bootstrapped, and an error if it is or if the function was not able
 // to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := env.StateServerInstances()
-	// If there is no error determining state server instaces,
+	_, err := env.ControllerInstances()
+	// If there is no error determining controller instaces,
 	// then we are bootstrapped.
 	switch errors.Cause(err) {
 	case nil:
@@ -454,7 +454,7 @@ func EnsureNotBootstrapped(env environs.Environ) error {
 		// TODO(axw) 2015-02-03 #1417526
 		// We should not be relying on this result,
 		// as it is possible for there to be no
-		// state servers despite the environment
+		// controllers despite the environment
 		// being bootstrapped.
 		fallthrough
 	case environs.ErrNotBootstrapped:

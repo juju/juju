@@ -127,7 +127,7 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 	cfg.setMachineID(defaultMachineID)
 	cfg.setSeries(series)
 	if bootstrap {
-		return cfg.setStateServer()
+		return cfg.setController()
 	}
 	return cfg
 }
@@ -186,9 +186,9 @@ func (cfg *testInstanceConfig) setSeries(series string) *testInstanceConfig {
 	return cfg
 }
 
-// setStateServer updates the config to be suitable for bootstrapping
-// a state server instance.
-func (cfg *testInstanceConfig) setStateServer() *testInstanceConfig {
+// setController updates the config to be suitable for bootstrapping
+// a controller instance.
+func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	cfg.setMachineID("0")
 	cfg.Constraints = bootstrapConstraints
 	cfg.EnvironConstraints = envConstraints
@@ -278,7 +278,7 @@ var cloudinitTests = []cloudinitTest{
 		setEnvConfig:  true,
 	},
 
-	// precise state server
+	// precise controller
 	{
 		cfg:          makeBootstrapConfig("precise"),
 		setEnvConfig: true,
@@ -317,7 +317,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 `,
 	},
 
-	// raring state server - we just test the raring-specific parts of the output.
+	// raring controller - we just test the raring-specific parts of the output.
 	{
 		cfg:          makeBootstrapConfig("raring"),
 		setEnvConfig: true,
@@ -334,7 +334,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 `,
 	},
 
-	// quantal non state server.
+	// quantal non controller.
 	{
 		cfg: makeNormalConfig("quantal"),
 		expectScripts: `
@@ -368,7 +368,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 `,
 	},
 
-	// non state server with systemd (vivid)
+	// non controller with systemd (vivid)
 	{
 		cfg:          makeNormalConfig("vivid"),
 		inexactMatch: true,
@@ -383,7 +383,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 `,
 	},
 
-	// CentOS non state server with systemd
+	// CentOS non controller with systemd
 	{
 		cfg:          makeNormalConfig("centos7"),
 		inexactMatch: true,
@@ -857,12 +857,12 @@ var verifyTests = []struct {
 			},
 		}
 	}},
-	{"missing state server certificate", func(cfg *instancecfg.InstanceConfig) {
+	{"missing controller certificate", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.Cert = ""
 		cfg.StateServingInfo = &info
 	}},
-	{"missing state server private key", func(cfg *instancecfg.InstanceConfig) {
+	{"missing controller private key", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.StateServingInfo
 		info.PrivateKey = ""
 		cfg.StateServingInfo = &info
@@ -921,12 +921,12 @@ var verifyTests = []struct {
 		info.Tag = nil
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must be nil when starting a state server", func(cfg *instancecfg.InstanceConfig) {
+	{"entity tag must be nil when starting a controller", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.MongoInfo = &info
 	}},
-	{"entity tag must be nil when starting a state server", func(cfg *instancecfg.InstanceConfig) {
+	{"entity tag must be nil when starting a controller", func(cfg *instancecfg.InstanceConfig) {
 		info := *cfg.APIInfo
 		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info

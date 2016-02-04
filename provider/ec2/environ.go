@@ -210,7 +210,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(e, e.Storage())
 }
 

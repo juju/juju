@@ -277,20 +277,20 @@ type ensureStateWorker struct{}
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
-		addStateServerMachine(c, ctx.st)
+		addControllerMachine(c, ctx.st)
 	}
 	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
 
-func addStateServerMachine(c *gc.C, st *state.State) {
-	// The AddStateServerMachine call will update the API host ports
+func addControllerMachine(c *gc.C, st *state.State) {
+	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
 	// can download charms from the API server.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	testing.AddStateServerMachine(c, st)
+	testing.AddControllerMachine(c, st)
 	err = st.SetAPIHostPorts(apiHostPorts)
 	c.Assert(err, gc.IsNil)
 }

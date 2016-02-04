@@ -203,7 +203,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("show-action-output", "action", "fetch", nil)
 	r.RegisterSuperAlias("show-action-status", "action", "status", nil)
 
-	// Manage state server availability
+	// Manage controller availability
 	r.Register(newEnableHACommand())
 
 	// Manage and control services

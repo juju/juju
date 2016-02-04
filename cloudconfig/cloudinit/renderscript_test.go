@@ -41,7 +41,7 @@ func init() {
 	environs.RegisterProvider("sshinit_test", &testProvider{})
 }
 
-func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
+func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
@@ -53,10 +53,10 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 	return testConfig
 }
 
-func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) cloudinit.CloudConfig {
+func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
-	if stateServer {
+	if controller {
 		icfg, err = instancecfg.NewBootstrapInstanceConfig(
 			constraints.Value{}, constraints.Value{},
 			vers.Series, "",
@@ -73,7 +73,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		Version: vers,
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
-	environConfig := testConfig(c, stateServer, vers)
+	environConfig := testConfig(c, controller, vers)
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := cloudinit.New(icfg.Series)

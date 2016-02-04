@@ -197,7 +197,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	defer st.Close()
 
 	// Now close the proxy so that any attempts to use the
-	// state server will fail.
+	// controller will fail.
 	proxy.Close()
 
 	// Creating the server should succeed because it doesn't

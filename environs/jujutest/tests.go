@@ -125,9 +125,9 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	stateServerInstances, err := e.StateServerInstances()
+	controllerInstances, err := e.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServerInstances, gc.Not(gc.HasLen), 0)
+	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
 	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
@@ -136,10 +136,10 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
 
-	stateServerInstances2, err := e2.StateServerInstances()
+	controllerInstances2, err := e2.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServerInstances2, gc.Not(gc.HasLen), 0)
-	c.Assert(stateServerInstances2, jc.SameContents, stateServerInstances)
+	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
+	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
 	err = environs.Destroy(e2, t.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)

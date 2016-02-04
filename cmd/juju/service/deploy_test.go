@@ -444,7 +444,7 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
-	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local model and cannot host units")
+	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
 }
 
 func (s *DeploySuite) TestCharmSeries(c *gc.C) {

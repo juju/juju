@@ -180,7 +180,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Generate a private SSH key for the state servers, and add
+	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.
 	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
@@ -439,7 +439,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata reads the custom image metadata from disk,
-// and saves it in state server.
+// and saves it in controller.
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))

@@ -182,12 +182,12 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 
-	stateServerEnv, err := s.state.ControllerModel()
+	controllerEnv, err := s.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	config, err := stateServerEnv.Config()
+	config, err := controllerEnv.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

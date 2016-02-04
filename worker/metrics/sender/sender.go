@@ -19,7 +19,7 @@ type sender struct {
 }
 
 // Do sends metrics from the metric spool to the
-// state server via an api call.
+// controller via an api call.
 func (s *sender) Do(stop <-chan struct{}) error {
 	reader, err := s.factory.Reader()
 	if err != nil {
@@ -43,7 +43,7 @@ func (s *sender) Do(stop <-chan struct{}) error {
 	for batchUUID, resultErr := range results {
 		// if we fail to send any metric batch we log a warning with the assumption that
 		// the unsent metric batches remain in the spool directory and will be sent to the
-		// state server when the network partition is restored.
+		// controller when the network partition is restored.
 		if _, ok := resultErr.(*params.Error); ok || params.IsCodeAlreadyExists(resultErr) {
 			err = reader.Remove(batchUUID)
 			if err != nil {
