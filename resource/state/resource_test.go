@@ -384,7 +384,7 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	data := "some data"
-	opened := resourcetesting.NewResource(c, s.stub, "spam", data)
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", data)
 	s.persist.ReturnListModelResources = []resource.ModelResource{{
 		ID:          "a-service/spam",
 		ServiceID:   "a-service",
@@ -420,7 +420,7 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
-	res := resourcetesting.NewPlaceholderResource(c, "spam")
+	res := resourcetesting.NewPlaceholderResource(c, "spam", "a-service")
 	s.persist.ReturnListModelResources = []resource.ModelResource{{
 		ID:          "a-service/spam",
 		ServiceID:   "a-service",
@@ -437,7 +437,7 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
 	s.persist.ReturnListModelResources = []resource.ModelResource{{
 		ID:          "a-service/spam",
 		ServiceID:   "a-service",

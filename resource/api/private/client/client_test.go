@@ -48,7 +48,7 @@ func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 }
 
 func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
 	s.api.setResource(opened.Resource, opened)
 	cl := client.NewUnitFacadeClient(s.api, s.api)
 
