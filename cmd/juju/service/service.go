@@ -7,4 +7,5 @@ import (
 	"github.com/juju/loggo"
 )
 
+// Logger for all commands in the service package
 var logger = loggo.GetLogger("juju.cmd.juju.service")
