@@ -50,6 +50,10 @@ AWS_MIRROR = OrderedDict([
             "region": "ap-northeast-1"
         },
         {
+            "endpoint": "https://ec2.ap-northeast-2.amazonaws.com",
+            "region": "ap-northeast-2"
+        },
+        {
             "endpoint": "https://ec2.sa-east-1.amazonaws.com",
             "region": "sa-east-1"
         },
