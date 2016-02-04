@@ -493,7 +493,7 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 
 // environManagerInstances returns all environ manager instances.
 func environManagerInstances(st *state.State) ([]instance.Id, error) {
-	info, err := st.StateServerInfo()
+	info, err := st.ControllerInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -1526,11 +1526,11 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 	// Look for image metadata in state.
 	stateMetadata, err := p.imageMetadataFromState(imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
-		// look into simple stream if for some reason can't get from state server,
+		// look into simple stream if for some reason can't get from controller,
 		// so do not exit on error.
-		logger.Infof("could not get image metadata from state server: %v", err)
+		logger.Infof("could not get image metadata from controller: %v", err)
 	}
-	logger.Debugf("got from state server %d metadata", len(stateMetadata))
+	logger.Debugf("got from controller %d metadata", len(stateMetadata))
 	// No need to look in data sources if found in state.
 	if len(stateMetadata) != 0 {
 		return stateMetadata, nil
@@ -1675,11 +1675,11 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		}
 	}
 
-	// Since we've fallen through to data sources search and have saved all needed images into state server,
-	// let's try to get them from state server to avoid duplication of conversion logic here.
+	// Since we've fallen through to data sources search and have saved all needed images into controller,
+	// let's try to get them from controller to avoid duplication of conversion logic here.
 	all, err := p.imageMetadataFromState(constraint)
 	if err != nil {
-		return nil, errors.Annotate(err, "could not read metadata from state server after saving it there from data sources")
+		return nil, errors.Annotate(err, "could not read metadata from controller after saving it there from data sources")
 	}
 
 	if len(all) == 0 {

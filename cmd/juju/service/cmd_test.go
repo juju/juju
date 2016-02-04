@@ -28,23 +28,23 @@ default:
 environments:
     peckham:
         type: dummy
-        state-server: false
+        controller: false
         admin-secret: arble
         authorized-keys: i-am-a-key
         default-series: raring
     walthamstow:
         type: dummy
-        state-server: false
+        controller: false
         authorized-keys: i-am-a-key
     brokenenv:
         type: dummy
         broken: Bootstrap Destroy
-        state-server: false
+        controller: false
         authorized-keys: i-am-a-key
         agent-stream: proposed
     devenv:
         type: dummy
-        state-server: false
+        controller: false
         admin-secret: arble
         authorized-keys: i-am-a-key
         default-series: raring

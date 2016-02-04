@@ -72,7 +72,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 			cacert:  true,
 		}, {
 			message: "just show the servers field",
-			args:    []string{"state-servers"},
+			args:    []string{"controllers"},
 			servers: true,
 		}, {
 			message:   "just show the modelUUID field",
@@ -142,7 +142,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 				"user: tester\n" +
 				"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
 				"server-uuid: bad0f00d-dead-beef-0000-01234567899a\n" +
-				"state-servers:\n" +
+				"controllers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n" +
 				"ca-cert: this is the cacert\n",
@@ -153,7 +153,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 				"password: sekrit\n" +
 				"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
 				"server-uuid: bad0f00d-dead-beef-0000-01234567899a\n" +
-				"state-servers:\n" +
+				"controllers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n" +
 				"ca-cert: this is the cacert\n",
@@ -163,7 +163,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 				"user: tester\n" +
 				"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
 				"server-uuid: bad0f00d-dead-beef-0000-01234567899a\n" +
-				"state-servers:\n" +
+				"controllers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n" +
 				"ca-cert: this is the cacert\n",
@@ -172,7 +172,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			output: `{"user":"tester",` +
 				`"environ-uuid":"deadbeef-dead-beef-dead-deaddeaddead",` +
 				`"server-uuid":"bad0f00d-dead-beef-0000-01234567899a",` +
-				`"state-servers":["localhost:12345","10.0.3.1:12345"],` +
+				`"controllers":["localhost:12345","10.0.3.1:12345"],` +
 				`"ca-cert":"this is the cacert"}` + "\n",
 		}, {
 			args:   []string{"user"},
@@ -183,7 +183,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 				"user: tester\n" +
 				"password: sekrit\n",
 		}, {
-			args: []string{"state-servers"},
+			args: []string{"controllers"},
 			output: "" +
 				"localhost:12345\n" +
 				"10.0.3.1:12345\n",
@@ -196,9 +196,9 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 				"user: tester\n" +
 				"password: sekrit\n",
 		}, {
-			args: []string{"--format=yaml", "state-servers"},
+			args: []string{"--format=yaml", "controllers"},
 			output: "" +
-				"state-servers:\n" +
+				"controllers:\n" +
 				"- localhost:12345\n" +
 				"- 10.0.3.1:12345\n",
 		}, {
@@ -208,8 +208,8 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 			args:   []string{"--format=json", "user", "password"},
 			output: `{"user":"tester","password":"sekrit"}` + "\n",
 		}, {
-			args:   []string{"--format=json", "state-servers"},
-			output: `{"state-servers":["localhost:12345","10.0.3.1:12345"]}` + "\n",
+			args:   []string{"--format=json", "controllers"},
+			output: `{"controllers":["localhost:12345","10.0.3.1:12345"]}` + "\n",
 		},
 	} {
 		c.Logf("test %v: %v", i, test.args)
@@ -242,7 +242,7 @@ func (s *APIInfoSuite) TestOutputNoServerUUID(c *gc.C) {
 	expected := "" +
 		"user: tester\n" +
 		"environ-uuid: deadbeef-dead-beef-dead-deaddeaddead\n" +
-		"state-servers:\n" +
+		"controllers:\n" +
 		"- localhost:12345\n" +
 		"- 10.0.3.1:12345\n" +
 		"ca-cert: this is the cacert\n"

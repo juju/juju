@@ -796,8 +796,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that StateServerInstances returns the ID of the bootstrap machine.
-	ids, err := env.StateServerInstances()
+	// Check that ControllerInstances returns the ID of the bootstrap machine.
+	ids, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
@@ -1640,8 +1640,8 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		openstack.InstanceServerDetail(instances[0]).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"juju-model-uuid": coretesting.ModelTag.Id(),
-			"juju-is-state":   "true",
+			"juju-model-uuid":    coretesting.ModelTag.Id(),
+			"juju-is-controller": "true",
 		},
 	)
 }
@@ -1660,9 +1660,9 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 			openstack.InstanceServerDetail(instances[0]).Metadata,
 			jc.DeepEquals,
 			map[string]string{
-				"juju-model-uuid": coretesting.ModelTag.Id(),
-				"juju-is-state":   "true",
-				extraKey:          extraValue,
+				"juju-model-uuid":    coretesting.ModelTag.Id(),
+				"juju-is-controller": "true",
+				extraKey:             extraValue,
 			},
 		)
 	}

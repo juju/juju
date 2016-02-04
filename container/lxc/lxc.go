@@ -454,7 +454,7 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	}
 
 	// Write the wget script.  Don't use a proxy when getting
-	// the image as it's going through the state server.
+	// the image as it's going through the controller.
 	wgetTmpl := `#!/bin/bash
 /usr/bin/wget --no-proxy --ca-certificate=%s $*
 `

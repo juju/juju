@@ -123,7 +123,7 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	assertNoMoreCalls(c, client)
 }
 
-func (s *undertakerSuite) TestRemoveModelDocsNotCalledForStateServer(c *gc.C) {
+func (s *undertakerSuite) TestRemoveModelDocsNotCalledForController(c *gc.C) {
 	mockWatcher := &mockModelResourceWatcher{
 		events: make(chan struct{}, 1),
 	}

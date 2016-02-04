@@ -252,7 +252,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 				urls = append(urls, url)
 			}
 
-			// Don't go through the proxy when downloading tools from the state servers
+			// Don't go through the proxy when downloading tools from the controllers
 			curlCommand += ` --noproxy "*"`
 
 			// Our API server certificates are unusable by curl (invalid subject name),

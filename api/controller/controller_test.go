@@ -82,8 +82,8 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
-	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for state server")
-	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for state server")
+	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
+	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	sysManager := s.OpenAPI(c)

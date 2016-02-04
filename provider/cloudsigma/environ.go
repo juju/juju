@@ -97,8 +97,8 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	return common.Bootstrap(ctx, env, params)
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
-	return e.client.getStateServerIds()
+func (e *environ) ControllerInstances() ([]instance.Id, error) {
+	return e.client.getControllerIds()
 }
 
 // Destroy shuts down all known machines and destroys the

@@ -77,7 +77,7 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 
 	if !usedOldPassword {
 		// Call set password with the current password.  If we've recently
-		// become a state server, this will fix up our credentials in mongo.
+		// become a controller, this will fix up our credentials in mongo.
 		if err := entity.SetPassword(info.Password); err != nil {
 			return nil, errors.Annotate(err, "can't reset agent password")
 		}

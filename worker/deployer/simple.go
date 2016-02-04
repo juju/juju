@@ -33,7 +33,7 @@ type APICalls interface {
 // SimpleContext is a Context that manages unit deployments on the local system.
 type SimpleContext struct {
 
-	// api is used to get the current state server addresses at the time the
+	// api is used to get the current controller addresses at the time the
 	// given unit is deployed.
 	api APICalls
 

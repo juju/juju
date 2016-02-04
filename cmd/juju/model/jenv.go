@@ -140,7 +140,7 @@ func updateEnvironmentInfo(info configstore.EnvironInfo, data []byte) error {
 		Password: values.Password,
 	})
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses: values.StateServers,
+		Addresses: values.Controllers,
 		Hostnames: values.ServerHostnames,
 		CACert:    values.CACert,
 		ModelUUID: values.ModelUUID,
@@ -162,8 +162,8 @@ func getMissingEnvironmentInfoFields(values configstore.EnvironInfoData) (missin
 	if values.ModelUUID == "" {
 		missing = append(missing, "ModelUUID")
 	}
-	if len(values.StateServers) == 0 {
-		missing = append(missing, "StateServers")
+	if len(values.Controllers) == 0 {
+		missing = append(missing, "Controllers")
 	}
 	if values.CACert == "" {
 		missing = append(missing, "CACert")

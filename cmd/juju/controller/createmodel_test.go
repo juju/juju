@@ -419,8 +419,8 @@ func (*fakeCreateClient) Close() error {
 
 func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
 	return params.ModelConfig{
-		"type":         "dummy",
-		"state-server": false,
+		"type":       "dummy",
+		"controller": false,
 	}, nil
 }
 func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {

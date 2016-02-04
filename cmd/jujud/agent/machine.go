@@ -371,7 +371,7 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
-// upgradeCertificateDNSNames ensure that the state server certificate
+// upgradeCertificateDNSNames ensure that the controller certificate
 // recorded in the agent config and also mongo server.pem contains the
 // DNSNames entires required by Juju/
 func (a *MachineAgent) upgradeCertificateDNSNames() error {
@@ -427,7 +427,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 
 	// Before doing anything else, we need to make sure the certificate generated for
-	// use by mongo to validate state server connections is correct. This needs to be done
+	// use by mongo to validate controller connections is correct. This needs to be done
 	// before any possible restart of the mongo service.
 	// See bug http://pad.lv/1434680
 	if err := a.upgradeCertificateDNSNames(); err != nil {
@@ -632,7 +632,7 @@ func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
 // stateStarter watches for changes to the agent configuration, and
 // starts or stops the state worker as appropriate. We watch the agent
 // configuration because the agent configuration has all the details
-// that we need to start a state server, whether they have been cached
+// that we need to start a controller, whether they have been cached
 // or read from the state.
 //
 // It will stop working as soon as stopch is closed.
@@ -885,7 +885,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 				Handler: handler,
 			})
 			if err != nil {
-				return nil, errors.Annotate(err, "cannot start state server promoter worker")
+				return nil, errors.Annotate(err, "cannot start controller promoter worker")
 			}
 			return w, nil
 		})
@@ -1096,7 +1096,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
-			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
+			// Each time aipserver worker is restarted, we need a fresh copy of state due
+			// to the fact that state holds lease managers which are killed and need to be reset.
+			stateOpener := func() (*state.State, error) {
+				logger.Debugf("opening state for apistate worker")
+				st, _, err := openState(agentConfig, stateWorkerDialOpts)
+				return st, err
+			}
+			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -1138,7 +1145,7 @@ func (s stateWorkerCloser) Close() error {
 	return s.stateCloser.Close()
 }
 
-// startEnvWorkers starts state server workers that need to run per
+// startEnvWorkers starts controller workers that need to run per
 // environment.
 func (a *MachineAgent) startEnvWorkers(
 	ssSt modelworkermanager.InitialState,
@@ -1416,8 +1423,16 @@ func _getFirewallMode(apiSt api.Connection) (string, error) {
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
 
-func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged chan params.StateServingInfo) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) { return a.newApiserverWorker(st, certChanged) }
+func (a *MachineAgent) apiserverWorkerStarter(
+	stateOpener func() (*state.State, error), certChanged chan params.StateServingInfo,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		st, err := stateOpener()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return a.newApiserverWorker(st, certChanged)
+	}
 }
 
 func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
@@ -1434,7 +1449,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	key := []byte(info.PrivateKey)
 
 	if len(cert) == 0 || len(key) == 0 {
-		return nil, &cmdutil.FatalError{"configuration does not have state server cert/key"}
+		return nil, &cmdutil.FatalError{"configuration does not have controller cert/key"}
 	}
 	tag := agentConfig.Tag()
 	dataDir := agentConfig.DataDir()
@@ -1541,7 +1556,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	// Many of the steps here, such as adding the state server to the
+	// Many of the steps here, such as adding the controller to the
 	// admin DB and initiating the replicaset, are once-only actions,
 	// required when upgrading from a pre-HA-capable
 	// environment. These calls won't do anything if the thing they
@@ -1630,7 +1645,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, err
 	}
 	if len(dialInfo.Addrs) > 1 {
-		logger.Infof("more than one state server; admin user must exist")
+		logger.Infof("more than one controller; admin user must exist")
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
