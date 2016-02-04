@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -192,6 +193,11 @@ func (s *NewAPIClientSuite) TestNewAPIClientFromName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	assertEnvironmentName(c, apiclient, "only") // name from sample config
+
+	controllers, err := controller.ControllerMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllers, gc.HasLen, 1)
+
 }
 
 func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {

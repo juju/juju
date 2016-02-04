@@ -15,6 +15,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -369,7 +370,28 @@ func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.
 		User:     tag.Id(),
 		Password: apiInfo.Password,
 	})
+
+	if err := updateControllerInfo(info.APIEndpoint(), endpoint); err != nil {
+		return errors.Annotate(err, "could not update controller details")
+	}
+
 	return info.Write()
+}
+
+func updateControllerInfo(existing, new configstore.APIEndpoint) error {
+	// TODO (anastasiamac 2016-02-04) how do I know name of the current controller here, at api layer?
+	// How do I know that this is not just any model but a controller?
+	// Also does it have to be written at every call or only if addrs changed?
+	newControllerInfo := controller.ControllerInfo{
+		controller.Controller{
+			new.Hostnames,
+			existing.ServerUUID,
+			new.Addresses,
+			new.CACert,
+		},
+		"controller name",
+	}
+	return newControllerInfo.Write()
 }
 
 var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {
@@ -504,6 +526,11 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 	if err := info.Write(); err != nil {
 		return err
 	}
+
+	if err := updateControllerInfo(info.APIEndpoint(), endpoint); err != nil {
+		return errors.Trace(err)
+	}
+
 	logger.Infof("updated API connection settings cache - endpoints %v", endpoint.Addresses)
 	return nil
 }

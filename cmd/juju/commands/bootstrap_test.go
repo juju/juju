@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -302,6 +303,18 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(hasKey, jc.IsTrue)
 	c.Assert(prepareCalled, jc.IsTrue)
 	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{addrConnectedTo})
+
+	// Check controllers.yaml has controller
+	//
+	// (anastasiamac 2016-02-04) has to be done for controller only... So,
+	// How do I know that this is not just any model but a controller?
+	endpoint := info.APIEndpoint()
+	controller, err := controller.ControllerByName("peckham-controller")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controller.CACert, gc.Equals, endpoint.CACert)
+	c.Assert(controller.Servers, gc.DeepEquals, endpoint.Hostnames)
+	c.Assert(controller.APIEndpoints, gc.DeepEquals, endpoint.Addresses)
+	c.Assert(controller.ControllerUUID, gc.Equals, endpoint.ServerUUID)
 	return restore
 }
 

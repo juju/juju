@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
@@ -149,13 +150,16 @@ func (s *SwitchSimpleSuite) addTestController(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	info := store.CreateInfo("a-controller")
-	info.SetAPIEndpoint(configstore.APIEndpoint{
+
+	endpoint := configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
 		ServerUUID: "server-uuid",
-	})
+	}
+	info.SetAPIEndpoint(endpoint)
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
+	s.updateControllersFile(c, "a-controller", endpoint)
 }
 
 func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
@@ -169,4 +173,12 @@ func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
 	})
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SwitchSimpleSuite) updateControllersFile(c *gc.C, name string, endpoint configstore.APIEndpoint) {
+	newControllerInfo := controller.ControllerInfo{
+		controller.Controller{[]string{"test.host.name"}, endpoint.ServerUUID, endpoint.Addresses, endpoint.CACert},
+		name,
+	}
+	c.Assert(newControllerInfo.Write(), jc.ErrorIsNil)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -613,5 +614,21 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	if err != nil {
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
 	}
+
+	// (anastasiamac 2016-02-04) has to be done for controller only... So,
+	// How do I know that this is not just any model but a controller?
+	controllerInfo := controller.ControllerInfo{
+		controller.Controller{
+			hosts,
+			endpoint.ServerUUID,
+			addrs,
+			endpoint.CACert,
+		},
+		c.ControllerName,
+	}
+	if err := controllerInfo.Write(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
