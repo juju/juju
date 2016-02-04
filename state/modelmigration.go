@@ -282,7 +282,7 @@ func (spec *ModelMigrationSpec) Validate() error {
 // migration. It will return an error if there is already a
 // model migration in progress.
 func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, error) {
-	if st.IsStateServer() {
+	if st.IsController() {
 		return nil, errors.New("controllers can't be migrated")
 	}
 	if err := spec.Validate(); err != nil {
