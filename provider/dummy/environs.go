@@ -455,10 +455,10 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"broken":       "",
-	"secret":       "pork",
-	"state-id":     schema.Omit,
-	"state-server": false,
+	"broken":     "",
+	"secret":     "pork",
+	"state-id":   schema.Omit,
+	"controller": false,
 }
 
 type environConfig struct {
