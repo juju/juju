@@ -649,9 +649,7 @@ sign_metadata() {
         signed_file=$(echo "$meta_file" | sed -e $pattern)
         echo "Creating $signed_file"
         echo "gpg $gpg_options --clearsign $key_option > $signed_file"
-        sed -e $pattern \
-            -e 's/juju:devel:tools.sjson/juju:devel:tools.json/' \
-            $meta_file |
+        sed -e $pattern $meta_file |
             gpg $gpg_options --clearsign $key_option > $signed_file
         echo "gpg $gpg_options --detach-sign $key_option > $meta_file.gpg"
         cat $meta_file |
@@ -670,9 +668,7 @@ sign_metadata() {
         signed_file=$(echo "$meta_file" | sed -e $pattern)
         echo "Creating $signed_file"
         #echo "gpg $gpg_options --clearsign $key_option > $signed_file"
-        sed -e $pattern \
-            -e 's/juju:devel:tools.sjson/juju:devel:tools.json/' \
-            $meta_file |
+        sed -e $pattern $meta_file |
             gpg $gpg_options --clearsign $key_option > $signed_file
         #echo "gpg $gpg_options --detach-sign $key_option > $meta_file.gpg"
         cat $meta_file |
