@@ -5,6 +5,11 @@ package sender_test
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"net"
+	"path"
+	"runtime"
 	"time"
 
 	"github.com/juju/testing"
@@ -21,11 +26,13 @@ var _ = gc.Suite(&senderSuite{})
 
 type senderSuite struct {
 	spoolDir      string
+	socketDir     string
 	metricfactory spool.MetricFactory
 }
 
 func (s *senderSuite) SetUpTest(c *gc.C) {
 	s.spoolDir = c.MkDir()
+	s.socketDir = c.MkDir()
 
 	s.metricfactory = &stubMetricFactory{
 		&testing.Stub{},
@@ -50,14 +57,53 @@ func (s *senderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 
+	testing.PatchValue(sender.SocketName, func(_, _ string) string {
+		return sockPath(c)
+	})
+}
+
+func (s *senderSuite) TestHandler(c *gc.C) {
+	apiSender := newTestAPIMetricSender()
+	tmpDir := c.MkDir()
+	metricFactory := &stubMetricFactory{
+		&testing.Stub{},
+		tmpDir,
+	}
+
+	declaredMetrics := map[string]corecharm.Metric{
+		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+	}
+	recorder, err := metricFactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = recorder.AddMetric("pings", "50", time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = recorder.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	conn := &mockConnection{data: []byte(fmt.Sprintf("%v\n", tmpDir))}
+	err = metricSender.Handle(conn)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(apiSender.batches, gc.HasLen, 1)
+	c.Assert(apiSender.batches[0].Tag, gc.Equals, "testcharm/0")
+	c.Assert(apiSender.batches[0].Batch.CharmURL, gc.Equals, "local:trusty/testcharm")
+	c.Assert(apiSender.batches[0].Batch.Metrics, gc.HasLen, 1)
+	c.Assert(apiSender.batches[0].Batch.Metrics[0].Key, gc.Equals, "pings")
+	c.Assert(apiSender.batches[0].Batch.Metrics[0].Value, gc.Equals, "50")
 }
 
 func (s *senderSuite) TestMetricSendingSuccess(c *gc.C) {
 	apiSender := newTestAPIMetricSender()
 
-	metricSender := sender.NewSender(apiSender, s.metricfactory)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
+	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
-	err := metricSender.Do(stopCh)
+	err = metricSender.Do(stopCh)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
@@ -79,9 +125,10 @@ func (s *senderSuite) TestSendingGetDuplicate(c *gc.C) {
 		c.Fatalf("blocked error channel")
 	}
 
-	metricSender := sender.NewSender(apiSender, s.metricfactory)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
+	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
-	err := metricSender.Do(stopCh)
+	err = metricSender.Do(stopCh)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
@@ -102,9 +149,10 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 		c.Fatalf("blocked error channel")
 	}
 
-	metricSender := sender.NewSender(apiSender, s.metricfactory)
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
+	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
-	err := metricSender.Do(stopCh)
+	err = metricSender.Do(stopCh)
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
@@ -124,9 +172,10 @@ func (s *senderSuite) TestNoSpoolDirectory(c *gc.C) {
 		"/some/random/spool/dir",
 	}
 
-	metricSender := sender.NewSender(apiSender, metricfactory)
+	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir, "")
+	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
-	err := metricSender.Do(stopCh)
+	err = metricSender.Do(stopCh)
 	c.Assert(err, gc.ErrorMatches, `failed to open spool directory "/some/random/spool/dir": .*`)
 
 	c.Assert(apiSender.batches, gc.HasLen, 0)
@@ -141,9 +190,10 @@ func (s *senderSuite) TestNoMetricsToSend(c *gc.C) {
 		newTmpSpoolDir,
 	}
 
-	metricSender := sender.NewSender(apiSender, metricfactory)
+	metricSender, err := sender.NewSender(apiSender, metricfactory, s.socketDir, "test-unit-0")
+	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
-	err := metricSender.Do(stopCh)
+	err = metricSender.Do(stopCh)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(apiSender.batches, gc.HasLen, 0)
@@ -206,4 +256,64 @@ func (s *stubMetricFactory) Reader() (spool.MetricReader, error) {
 	s.MethodCall(s, "Reader")
 	return spool.NewJSONMetricReader(s.spoolDir)
 
+}
+
+type mockConnection struct {
+	net.Conn
+	testing.Stub
+	data []byte
+}
+
+// SetDeadline implements the net.Conn interface.
+func (c *mockConnection) SetDeadline(t time.Time) error {
+	c.AddCall("SetDeadline", t)
+	return nil
+}
+
+// Write implements the net.Conn interface.
+func (c *mockConnection) Write(data []byte) (int, error) {
+	c.AddCall("Write", data)
+	c.data = data
+	return len(data), nil
+}
+
+// Close implements the net.Conn interface.
+func (c *mockConnection) Close() error {
+	c.AddCall("Close")
+	return nil
+}
+
+func (c mockConnection) eof() bool {
+	return len(c.data) == 0
+}
+
+func (c *mockConnection) readByte() byte {
+	b := c.data[0]
+	c.data = c.data[1:]
+	return b
+}
+
+func (c *mockConnection) Read(p []byte) (n int, err error) {
+	if c.eof() {
+		err = io.EOF
+		return
+	}
+	if cp := cap(p); cp > 0 {
+		for n < cp {
+			p[n] = c.readByte()
+			n++
+			if c.eof() {
+				break
+			}
+		}
+	}
+	return
+}
+
+func sockPath(c *gc.C) string {
+	sockPath := path.Join(c.MkDir(), "test.listener")
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe` + sockPath[2:]
+	}
+	return sockPath
 }
