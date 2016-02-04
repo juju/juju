@@ -780,3 +780,15 @@ type ModelInfo struct {
 	// matching serialization directives for the benefit of being explicit.
 	ControllerUUID string `json:"ServerUUID"`
 }
+
+// MeterStatusParam holds meter status information to be set for the specified tag.
+type MeterStatusParam struct {
+	Tag  string `json:"tag"`
+	Code string `json:"code"`
+	Info string `json:"info, omitempty"`
+}
+
+// MeterStatusParams holds parameters for making SetMeterStatus calls.
+type MeterStatusParams struct {
+	Statuses []MeterStatusParam `json:"statues"`
+}

@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -18,8 +19,10 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -245,6 +248,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewUseModelCommand())
 
+	// Debug Metrics
+	r.Register(metricsdebug.New())
+	r.Register(metricsdebug.NewCollectMetricsCommand())
+	r.Register(setmeterstatus.New())
+
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
 		command := newCommand()
@@ -254,6 +262,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		command := newCommand()
 		r.Register(modelcmd.Wrap(command))
 	}
+	rcmd.RegisterAll(r)
 }
 
 func main() {
