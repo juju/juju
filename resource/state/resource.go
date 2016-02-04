@@ -152,7 +152,7 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 		return res, errors.Annotate(err, "bad resource metadata")
 	}
 
-	id := newResourceID(pendingID, serviceID, res)
+	id := newResourceID(serviceID, res)
 
 	args := resource.ModelResource{
 		ID:        id,
@@ -237,7 +237,7 @@ func (st resourceState) SetUnitResource(unit resource.Unit, res resource.Resourc
 
 	pendingID := ""
 	serviceID := unit.ServiceName()
-	id := newResourceID(pendingID, serviceID, res)
+	id := newResourceID(serviceID, res)
 	args := resource.ModelResource{
 		ID:          id,
 		ServiceID:   serviceID,
@@ -275,16 +275,11 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
-	id := newResourceID(modelResource.PendingID, serviceID, resourceInfo)
 	resourceReader = unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
 		unit:       unit,
-		args: resource.ModelResource{
-			ID:        id,
-			ServiceID: serviceID,
-			Resource:  resourceInfo,
-		},
+		args:       modelResource,
 	}
 
 	return resourceInfo, resourceReader, nil
@@ -303,12 +298,8 @@ func newPendingID() (string, error) {
 }
 
 // newResourceID produces a new ID to use for the resource in the model.
-func newResourceID(pendingID, serviceID string, res resource.Resource) string {
-	id := res.Name
-	if pendingID != "" {
-		id += "-" + pendingID
-	}
-	return fmt.Sprintf("service-%s/%s", serviceID, id)
+func newResourceID(serviceID string, res resource.Resource) string {
+	return fmt.Sprintf("%s/%s", serviceID, res.Name)
 }
 
 // storagePath returns the path used as the location where the resource

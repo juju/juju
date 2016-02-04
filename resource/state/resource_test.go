@@ -104,13 +104,13 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 	resources := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListPendingResources = []resource.ModelResource{{
-		ID:          "service-a-service/spam-some-unique-id",
+		ID:          "a-service/spam-some-unique-id",
 		PendingID:   "some-unique-id",
 		ServiceID:   "a-service",
 		Resource:    resources[0],
 		StoragePath: "service-a-service/resources/spam-some-unique-id",
 	}, {
-		ID:          "service-a-service/eggs-other-unique-id",
+		ID:          "a-service/eggs-other-unique-id",
 		PendingID:   "other-unique-id",
 		ServiceID:   "a-service",
 		Resource:    resources[1],
@@ -132,7 +132,7 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	chRes := res.Resource
 	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: path,
@@ -182,7 +182,7 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: path,
@@ -207,7 +207,7 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: path,
@@ -233,14 +233,14 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "UnstageResource", "service-a-service/"+res.Name)
+	s.stub.CheckCall(c, 3, "UnstageResource", "a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: path,
@@ -267,14 +267,14 @@ func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "UnstageResource", "service-a-service/"+res.Name)
+	s.stub.CheckCall(c, 3, "UnstageResource", "a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: path,
@@ -304,14 +304,14 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
 	s.stub.CheckCall(c, 3, "SetResource", expected)
 	s.stub.CheckCall(c, 4, "Remove", path)
-	s.stub.CheckCall(c, 5, "UnstageResource", "service-a-service/"+res.Name)
+	s.stub.CheckCall(c, 5, "UnstageResource", "a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	path := "service-a-service/resources/spam"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: path,
@@ -343,7 +343,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
 	s.stub.CheckCall(c, 3, "SetResource", expected)
 	s.stub.CheckCall(c, 4, "Remove", path)
-	s.stub.CheckCall(c, 5, "UnstageResource", "service-a-service/"+res.Name)
+	s.stub.CheckCall(c, 5, "UnstageResource", "a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
@@ -352,7 +352,7 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 	s.pendingID = "some-unique-ID-001"
 	path := "service-a-service/resources/spam-some-unique-ID-001"
 	expected := resource.ModelResource{
-		ID:          "service-a-service/spam-some-unique-ID-001",
+		ID:          "a-service/spam",
 		PendingID:   s.pendingID,
 		ServiceID:   "a-service",
 		Resource:    res,
@@ -386,7 +386,7 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	data := "some data"
 	opened := resourcetesting.NewResource(c, s.stub, "spam", data)
 	s.persist.ReturnListModelResources = []resource.ModelResource{{
-		ID:          "service-a-service/spam",
+		ID:          "a-service/spam",
 		ServiceID:   "a-service",
 		Resource:    opened.Resource,
 		StoragePath: "service-a-service/resources/spam",
@@ -422,7 +422,7 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam")
 	s.persist.ReturnListModelResources = []resource.ModelResource{{
-		ID:          "service-a-service/spam",
+		ID:          "a-service/spam",
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: "service-a-service/resources/spam",
@@ -439,7 +439,7 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
 	s.persist.ReturnListModelResources = []resource.ModelResource{{
-		ID:          "service-a-service/spam",
+		ID:          "a-service/spam",
 		ServiceID:   "a-service",
 		Resource:    opened.Resource,
 		StoragePath: "service-a-service/resources/spam",
@@ -467,7 +467,7 @@ func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "SetUnitResource")
 	s.stub.CheckCall(c, 0, "SetUnitResource", "a-service/0", resource.ModelResource{
-		ID:          "service-a-service/" + res.Name,
+		ID:          "a-service/" + res.Name,
 		ServiceID:   "a-service",
 		Resource:    res,
 		StoragePath: "service-a-service/resources/spam",
