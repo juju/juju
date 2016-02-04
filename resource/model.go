@@ -8,10 +8,14 @@ package resource
 // ModelResource represents the full information about a resource
 // in a Juju model.
 type ModelResource struct {
-	// ID is the model-defined ID for the resource.
+	// ID uniquely identifies a resource-service pair within the model.
+	// Note that the model ignores pending resources (those with a
+	// pending ID) except for in a few clearly pending-related places.
 	ID string
 
-	// PendingID is the token for a pending resource, if any.
+	// PendingID identifies that this resource is pending and
+	// distinguishes it from other pending resources with the same model
+	// ID (and from the active resource).
 	PendingID string
 
 	// ServiceID identifies the service for the resource.
