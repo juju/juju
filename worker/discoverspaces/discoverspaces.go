@@ -83,7 +83,7 @@ func (dw *discoverspacesWorker) Wait() error {
 }
 
 func (dw *discoverspacesWorker) loop() (err error) {
-	maybeClose := func() {
+	ensureClosed := func() {
 		select {
 		case <-dw.discoveringSpaces:
 			// Already closed.
@@ -92,7 +92,7 @@ func (dw *discoverspacesWorker) loop() (err error) {
 			close(dw.discoveringSpaces)
 		}
 	}
-	defer maybeClose()
+	defer ensureClosed()
 	modelCfg, err := dw.api.ModelConfig()
 	if err != nil {
 		return err
