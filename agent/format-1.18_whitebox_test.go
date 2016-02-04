@@ -13,10 +13,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -27,36 +25,6 @@ type format_1_18Suite struct {
 }
 
 var _ = gc.Suite(&format_1_18Suite{})
-
-var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWithoutNewAttributes
-
-func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
-	logDir, err := paths.LogDir(series.HostSeries())
-	c.Assert(err, jc.ErrorIsNil)
-	realDataDir, err := paths.DataDir(series.HostSeries())
-	c.Assert(err, jc.ErrorIsNil)
-
-	realDataDir = filepath.FromSlash(realDataDir)
-	logPath := filepath.Join(logDir, "juju")
-	logPath = filepath.FromSlash(logPath)
-
-	dataDir := c.MkDir()
-	configPath := filepath.Join(dataDir, agentConfigFilename)
-	err = utils.AtomicWriteFile(configPath, []byte(configData1_18WithoutUpgradedToVersion), 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
-	configLogDir := filepath.FromSlash(readConfig.LogDir())
-	configDataDir := filepath.FromSlash(readConfig.DataDir())
-	c.Assert(configLogDir, gc.Equals, logPath)
-	c.Assert(configDataDir, gc.Equals, realDataDir)
-	c.Assert(readConfig.PreferIPv6(), jc.IsFalse)
-	// The api info doesn't have the model tag set.
-	apiInfo, ok := readConfig.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo.ModelTag.Id(), gc.Equals, "")
-}
 
 func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	dataDir := c.MkDir()
