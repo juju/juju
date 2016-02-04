@@ -41,6 +41,24 @@ import (
 type Resource struct {
 	resource.Resource
 
+	// ID uniquely identifies a resource-service pair within the model.
+	// Note that the model ignores pending resources (those with a
+	// pending ID) except for in a few clearly pending-related places.
+	ID string
+
+	// PendingID identifies that this resource is pending and
+	// distinguishes it from other pending resources with the same model
+	// ID (and from the active resource). The active resource for the
+	// services will not have PendingID set.
+	PendingID string
+
+	// TODO(ericsnow) Use names.ServiceTag for ServiceID?
+
+	// ServiceID identifies the service for the resource.
+	ServiceID string
+
+	// TODO(ericsnow) Use names.UserTag for Username?
+
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
 	Username string
@@ -51,6 +69,8 @@ type Resource struct {
 
 // Validate ensures that the spec is valid.
 func (res Resource) Validate() error {
+	// TODO(ericsnow) Ensure that ID and ServiceID are set.
+
 	// TODO(ericsnow) Ensure that the "placeholder" fields are not set
 	// if IsLocalPlaceholder() returns true (and that they *are* set
 	// otherwise)? Also ensure an "upload" origin in the "placeholder"
