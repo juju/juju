@@ -249,18 +249,16 @@ func saveResourcesForDemo(st *corestate.State, args corestate.AddServiceArgs) er
 	}
 
 	for _, meta := range args.Charm.Meta().Resources {
-		res := resource.Resource{
-			Resource: charmresource.Resource{
-				Meta: meta,
-				// TODO(natefinch): how do we determine this at deploy time?
-				Origin: charmresource.OriginUpload,
-			},
+		res := charmresource.Resource{
+			Meta: meta,
+			// TODO(natefinch): how do we determine this at deploy time?
+			Origin: charmresource.OriginUpload,
 		}
 
 		// no data for you!
 		r := &bytes.Buffer{}
 
-		if err := resourceState.SetResource(args.Name, res, r); err != nil {
+		if _, err := resourceState.SetResource(args.Name, "", res, r); err != nil {
 			return errors.Annotatef(err, "can't add resource %q", meta.Name)
 		}
 	}

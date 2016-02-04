@@ -39,12 +39,13 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	res := newResource(c, "spam", data)
 	file := bytes.NewBufferString(data)
 
-	err = st.SetResource("a-service", res, file)
+	_, err = st.SetResource("a-service", "a-user", res.Resource, file)
 	c.Assert(err, jc.ErrorIsNil)
 
 	resources, err = st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
+	res.Timestamp = resources.Resources[0].Timestamp
 	c.Check(resources, jc.DeepEquals, resource.ServiceResources{Resources: []resource.Resource{
 		res,
 	}})

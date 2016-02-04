@@ -24,7 +24,7 @@ type UploadDataStore interface {
 	GetPendingResource(serviceID, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) error
+	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
 
 // TODO(ericsnow) Replace UploadedResource with resource.Opened.
@@ -61,7 +61,7 @@ func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, err
 	}
 
 	uploadID := uploaded.Service + "/" + uploaded.Resource.Name // TODO(ericsnow) Get this from state.
-	if err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data); err != nil {
+	if _, err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data); err != nil {
 		return nil, errors.Trace(err)
 	}
 
