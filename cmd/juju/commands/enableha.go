@@ -31,8 +31,8 @@ type enableHACommand struct {
 	out      cmd.Output
 	haClient MakeHAClient
 
-	// NumStateServers specifies the number of state servers to make available.
-	NumStateServers int
+	// NumControllers specifies the number of controllers to make available.
+	NumControllers int
 	// Series is used for newly created machines, if specified.
 	// Otherwise,  the environment's default-series is used.
 	Series string
@@ -40,7 +40,7 @@ type enableHACommand struct {
 	// in the environment when creating new machines.
 	Constraints constraints.Value
 	// Placement specifies specific machine(s) which will be used to host
-	// new state servers. If there are more state servers required than
+	// new controllers. If there are more controllers required than
 	// machines specified, new machines will be created.
 	// Placement is passed verbatim to the API, to be evaluated and used server-side.
 	Placement []string
@@ -51,26 +51,26 @@ type enableHACommand struct {
 const enableHADoc = `
 To ensure availability of deployed services, the Juju infrastructure
 must itself be highly available.  enable-ha must be called
-to ensure that the specified number of state servers are made available.
+to ensure that the specified number of controllers are made available.
 
-An odd number of state servers is required.
+An odd number of controllers is required.
 
 Examples:
  juju enable-ha
      Ensure that the controller is still in highly available mode. If
-     there is only 1 state server running, this will ensure there
+     there is only 1 controller running, this will ensure there
      are 3 running. If you have previously requested more than 3,
      then that number will be ensured.
  juju enable-ha -n 5 --series=trusty
-     Ensure that 5 state servers are available, with newly created
-     state server machines having the "trusty" series.
+     Ensure that 5 controllers are available, with newly created
+     controller machines having the "trusty" series.
  juju enable-ha -n 7 --constraints mem=8G
-     Ensure that 7 state servers are available, with newly created
-     state server machines having the default series, and at least
+     Ensure that 7 controllers are available, with newly created
+     controller machines having the default series, and at least
      8GB RAM.
  juju enable-ha -n 7 --to server1,server2 --constraints mem=8G
-     Ensure that 7 state servers are available, with machines server1 and
-     server2 used first, and if necessary, newly created state server
+     Ensure that 7 controllers are available, with machines server1 and
+     server2 used first, and if necessary, newly created controller
      machines having the default series, and at least 8GB RAM.
 `
 
@@ -127,15 +127,15 @@ func formatSimple(value interface{}) ([]byte, error) {
 func (c *enableHACommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "enable-ha",
-		Purpose: "ensure that sufficient state servers exist to provide redundancy",
+		Purpose: "ensure that sufficient controllers exist to provide redundancy",
 		Doc:     enableHADoc,
 	}
 }
 
 func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
-	f.IntVar(&c.NumStateServers, "n", 0, "number of state servers to make available")
+	f.IntVar(&c.NumControllers, "n", 0, "number of controllers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.StringVar(&c.PlacementSpec, "to", "", "the machine(s) to become state servers, bypasses constraints")
+	f.StringVar(&c.PlacementSpec, "to", "", "the machine(s) to become controllers, bypasses constraints")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 	c.out.AddFlags(f, "simple", map[string]cmd.Formatter{
 		"yaml":   cmd.FormatYaml,
@@ -146,8 +146,8 @@ func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *enableHACommand) Init(args []string) error {
-	if c.NumStateServers < 0 || (c.NumStateServers%2 != 1 && c.NumStateServers != 0) {
-		return fmt.Errorf("must specify a number of state servers odd and non-negative")
+	if c.NumControllers < 0 || (c.NumControllers%2 != 1 && c.NumControllers != 0) {
+		return fmt.Errorf("must specify a number of controllers odd and non-negative")
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
@@ -186,8 +186,8 @@ type availabilityInfo struct {
 type MakeHAClient interface {
 	Close() error
 	EnableHA(
-		numStateServers int, cons constraints.Value, series string,
-		placement []string) (params.StateServersChanges, error)
+		numControllers int, cons constraints.Value, series string,
+		placement []string) (params.ControllersChanges, error)
 }
 
 func (c *enableHACommand) getHAClient() (MakeHAClient, error) {
@@ -214,7 +214,7 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 
 	defer haClient.Close()
 	enableHAResult, err := haClient.EnableHA(
-		c.NumStateServers,
+		c.NumControllers,
 		c.Constraints,
 		c.Series,
 		c.Placement,

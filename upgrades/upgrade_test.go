@@ -212,23 +212,23 @@ func stateUpgradeOperations() []upgrades.Operation {
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.11.0"),
 			steps: []upgrades.Step{
-				newUpgradeStep("state step 1 - 1.11.0", upgrades.StateServer),
-				newUpgradeStep("state step 2 error", upgrades.StateServer),
-				newUpgradeStep("state step 3 - 1.11.0", upgrades.StateServer),
+				newUpgradeStep("state step 1 - 1.11.0", upgrades.Controller),
+				newUpgradeStep("state step 2 error", upgrades.Controller),
+				newUpgradeStep("state step 3 - 1.11.0", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.21.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("state step 1 - 1.21.0", upgrades.DatabaseMaster),
-				newUpgradeStep("state step 2 - 1.21.0", upgrades.StateServer),
+				newUpgradeStep("state step 2 - 1.21.0", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.22.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("state step 1 - 1.22.0", upgrades.DatabaseMaster),
-				newUpgradeStep("state step 2 - 1.22.0", upgrades.StateServer),
+				newUpgradeStep("state step 2 - 1.22.0", upgrades.Controller),
 			},
 		},
 	}
@@ -250,7 +250,7 @@ func upgradeOperations() []upgrades.Operation {
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.16.0", upgrades.HostMachine),
 				newUpgradeStep("step 2 - 1.16.0", upgrades.HostMachine),
-				newUpgradeStep("step 3 - 1.16.0", upgrades.StateServer),
+				newUpgradeStep("step 3 - 1.16.0", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
@@ -263,14 +263,14 @@ func upgradeOperations() []upgrades.Operation {
 			targetVersion: version.MustParse("1.17.1"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.17.1", upgrades.HostMachine),
-				newUpgradeStep("step 2 - 1.17.1", upgrades.StateServer),
+				newUpgradeStep("step 2 - 1.17.1", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.18.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.18.0", upgrades.HostMachine),
-				newUpgradeStep("step 2 - 1.18.0", upgrades.StateServer),
+				newUpgradeStep("step 2 - 1.18.0", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
@@ -278,7 +278,7 @@ func upgradeOperations() []upgrades.Operation {
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.20.0", upgrades.AllMachines),
 				newUpgradeStep("step 2 - 1.20.0", upgrades.HostMachine),
-				newUpgradeStep("step 3 - 1.20.0", upgrades.StateServer),
+				newUpgradeStep("step 3 - 1.20.0", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
@@ -291,7 +291,7 @@ func upgradeOperations() []upgrades.Operation {
 			targetVersion: version.MustParse("1.22.0"),
 			steps: []upgrades.Step{
 				// Separate targets used intentionally
-				newUpgradeStep("step 1 - 1.22.0", upgrades.StateServer, upgrades.HostMachine),
+				newUpgradeStep("step 1 - 1.22.0", upgrades.Controller, upgrades.HostMachine),
 				newUpgradeStep("step 2 - 1.22.0", upgrades.AllMachines),
 			},
 		},
@@ -403,7 +403,7 @@ var upgradeTests = []upgradeTest{
 	{
 		about:         "incompatible targets excluded",
 		fromVersion:   "1.17.1",
-		targets:       targets(upgrades.StateServer),
+		targets:       targets(upgrades.Controller),
 		expectedSteps: []string{"step 2 - 1.18.0"},
 	},
 	{
@@ -417,13 +417,13 @@ var upgradeTests = []upgradeTest{
 		about:         "allMachines matches everything",
 		fromVersion:   "1.18.1",
 		toVersion:     "1.20.0",
-		targets:       targets(upgrades.StateServer),
+		targets:       targets(upgrades.Controller),
 		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
 		about:         "state step error aborts, subsequent state steps not run",
 		fromVersion:   "1.10.0",
-		targets:       targets(upgrades.StateServer),
+		targets:       targets(upgrades.Controller),
 		expectedSteps: []string{"state step 1 - 1.11.0"},
 		err:           "state step 2 error: upgrade error occurred",
 	},
@@ -437,14 +437,14 @@ var upgradeTests = []upgradeTest{
 	{
 		about:         "default from version is 1.16",
 		fromVersion:   "",
-		targets:       targets(upgrades.StateServer),
+		targets:       targets(upgrades.Controller),
 		expectedSteps: []string{"step 2 - 1.17.1", "step 2 - 1.18.0"},
 	},
 	{
-		about:         "state servers don't get database master",
+		about:         "controllers don't get database master",
 		fromVersion:   "1.20.0",
 		toVersion:     "1.21.0",
-		targets:       targets(upgrades.StateServer),
+		targets:       targets(upgrades.Controller),
 		expectedSteps: []string{"state step 2 - 1.21.0", "step 1 - 1.21.0"},
 	},
 	{
@@ -458,7 +458,7 @@ var upgradeTests = []upgradeTest{
 		about:       "all state steps are run first",
 		fromVersion: "1.20.0",
 		toVersion:   "1.22.0",
-		targets:     targets(upgrades.DatabaseMaster, upgrades.StateServer),
+		targets:     targets(upgrades.DatabaseMaster, upgrades.Controller),
 		expectedSteps: []string{
 			"state step 1 - 1.21.0", "state step 2 - 1.21.0",
 			"state step 1 - 1.22.0", "state step 2 - 1.22.0",
@@ -470,7 +470,7 @@ var upgradeTests = []upgradeTest{
 		about:         "machine with multiple targets - each step only run once",
 		fromVersion:   "1.20.0",
 		toVersion:     "1.21.0",
-		targets:       targets(upgrades.HostMachine, upgrades.StateServer),
+		targets:       targets(upgrades.HostMachine, upgrades.Controller),
 		expectedSteps: []string{"state step 2 - 1.21.0", "step 1 - 1.21.0"},
 	},
 	{
@@ -484,7 +484,7 @@ var upgradeTests = []upgradeTest{
 		about:         "machine and step with multiple targets - each step only run once",
 		fromVersion:   "1.21.0",
 		toVersion:     "1.22.0",
-		targets:       targets(upgrades.HostMachine, upgrades.StateServer),
+		targets:       targets(upgrades.HostMachine, upgrades.Controller),
 		expectedSteps: []string{"state step 2 - 1.22.0", "step 1 - 1.22.0", "step 2 - 1.22.0"},
 	},
 	{
@@ -568,7 +568,7 @@ func (s *contextStep) Description() string {
 }
 
 func (s *contextStep) Targets() []upgrades.Target {
-	return []upgrades.Target{upgrades.StateServer}
+	return []upgrades.Target{upgrades.Controller}
 }
 
 func (s *contextStep) Run(context upgrades.Context) error {
@@ -617,7 +617,7 @@ func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
 	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
 	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, new(state.State))
 	c.Assert(
-		func() { upgrades.PerformUpgrade(fromVersion, targets(upgrades.StateServer), ctx) },
+		func() { upgrades.PerformUpgrade(fromVersion, targets(upgrades.Controller), ctx) },
 		gc.PanicMatches, expectedPanic,
 	)
 }
@@ -648,7 +648,7 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 		c.Assert(apiCount, gc.Equals, 1)
 	}
 
-	check(upgrades.StateServer, 1)
+	check(upgrades.Controller, 1)
 	check(upgrades.DatabaseMaster, 1)
 	check(upgrades.AllMachines, 0)
 	check(upgrades.HostMachine, 0)

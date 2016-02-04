@@ -93,7 +93,7 @@ var jenvFileContentErrorsTests = []struct {
 	err      string
 }{{
 	about: "empty",
-	err:   "invalid jenv file .*: missing required fields in jenv data: User, Password, ModelUUID, StateServers, CACert",
+	err:   "invalid jenv file .*: missing required fields in jenv data: User, Password, ModelUUID, Controllers, CACert",
 }, {
 	about:    "invalid YAML",
 	contents: []byte(":"),
@@ -306,13 +306,13 @@ func openJenvFile(c *gc.C, contents []byte) *os.File {
 }
 
 // makeJenvContents returns a YAML encoded environment info data.
-func makeJenvContents(user, password, modelUUID, caCert string, stateServers ...string) []byte {
+func makeJenvContents(user, password, modelUUID, caCert string, controllers ...string) []byte {
 	b, err := yaml.Marshal(configstore.EnvironInfoData{
-		User:         user,
-		Password:     password,
-		ModelUUID:    modelUUID,
-		CACert:       caCert,
-		StateServers: stateServers,
+		User:        user,
+		Password:    password,
+		ModelUUID:   modelUUID,
+		CACert:      caCert,
+		Controllers: controllers,
 	})
 	if err != nil {
 		panic(err)

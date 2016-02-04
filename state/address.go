@@ -15,17 +15,17 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// stateServerAddresses returns the list of internal addresses of the state
+// controllerAddresses returns the list of internal addresses of the state
 // server machines.
-func (st *State) stateServerAddresses() ([]string, error) {
+func (st *State) controllerAddresses() ([]string, error) {
 	ssState := st
 	model, err := st.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if st.ModelTag() != model.ModelTag() {
-		// We are not using the state server model, so get one.
-		logger.Debugf("getting a state server state connection, current env: %s", st.ModelTag())
+		// We are not using the controller model, so get one.
+		logger.Debugf("getting a controller state connection, current env: %s", st.ModelTag())
 		ssState, err = st.ForModel(model.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -46,7 +46,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 		return nil, err
 	}
 	if len(allAddresses) == 0 {
-		return nil, errors.New("no state server machines found")
+		return nil, errors.New("no controller machines found")
 	}
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
@@ -57,7 +57,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 		}
 	}
 	if len(apiAddrs) == 0 {
-		return nil, errors.New("no state server machines with addresses found")
+		return nil, errors.New("no controller machines with addresses found")
 	}
 	return apiAddrs, nil
 }
@@ -73,7 +73,7 @@ func appendPort(addrs []string, port int) []string {
 // Addresses returns the list of cloud-internal addresses that
 // can be used to connect to the state.
 func (st *State) Addresses() ([]string, error) {
-	addrs, err := st.stateServerAddresses()
+	addrs, err := st.controllerAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,7 +89,7 @@ func (st *State) Addresses() ([]string, error) {
 // This method will be deprecated when API addresses are
 // stored independently in their own document.
 func (st *State) APIAddressesFromMachines() ([]string, error) {
-	addrs, err := st.stateServerAddresses()
+	addrs, err := st.controllerAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,7 +118,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 			return nil, err
 		}
 		op := txn.Op{
-			C:  stateServersC,
+			C:  controllersC,
 			Id: apiHostPortsKey,
 			Assert: bson.D{{
 				"apihostports", fromNetworkHostsPorts(existing),
@@ -141,9 +141,9 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	stateServers, closer := st.getCollection(stateServersC)
+	controllers, closer := st.getCollection(controllersC)
 	defer closer()
-	err := stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ type DeployerConnectionValues struct {
 // DeployerConnectionInfo returns the address information necessary for the deployer.
 // The function does the expensive operations (getting stuff from mongo) just once.
 func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
-	addrs, err := st.stateServerAddresses()
+	addrs, err := st.controllerAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

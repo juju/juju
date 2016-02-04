@@ -32,13 +32,13 @@ var logger = loggo.GetLogger("juju.worker.upgradesteps")
 var (
 	PerformUpgrade = upgrades.PerformUpgrade // Allow patching
 
-	// The maximum time a master state server will wait for other
-	// state servers to come up and indicate they are ready to begin
+	// The maximum time a master controller will wait for other
+	// controllers to come up and indicate they are ready to begin
 	// running upgrade steps.
 	UpgradeStartTimeoutMaster = time.Minute * 15
 
-	// The maximum time a secondary state server will wait for other
-	// state servers to come up and indicate they are ready to begin
+	// The maximum time a secondary controller will wait for other
+	// controllers to come up and indicate they are ready to begin
 	// running upgrade steps. This is effectively "forever" because we
 	// don't really want secondaries to ever give up once they've
 	// indicated that they're ready to upgrade. It's up to the master
@@ -98,7 +98,7 @@ func NewWorker(
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
 	openState func() (*state.State, func(), error),
-	preUpgradeSteps func(st *state.State, agentConf agent.Config, isStateServer, isMasterServer bool) error,
+	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMasterServer bool) error,
 	machine StatusSetter,
 ) (worker.Worker, error) {
 	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
@@ -129,15 +129,15 @@ type upgradesteps struct {
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, func(), error)
-	preUpgradeSteps func(st *state.State, agentConf agent.Config, isStateServer, isMaster bool) error
+	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
 	machine         StatusSetter
 
-	fromVersion   version.Number
-	toVersion     version.Number
-	tag           names.MachineTag
-	isMaster      bool
-	isStateServer bool
-	st            *state.State
+	fromVersion  version.Number
+	toVersion    version.Number
+	tag          names.MachineTag
+	isMaster     bool
+	isController bool
+	st           *state.State
 }
 
 // Kill is part of the worker.Worker interface.
@@ -182,18 +182,18 @@ func (w *upgradesteps) run() error {
 		return nil
 	}
 
-	// If the machine agent is a state server, flag that state
+	// If the machine agent is a controller, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range w.jobs {
 		if job == multiwatcher.JobManageModel {
-			w.isStateServer = true
+			w.isController = true
 		}
 	}
 
 	// We need a *state.State for upgrades. We open it independently
 	// of StateWorker, because we have no guarantees about when
 	// and how often StateWorker might run.
-	if w.isStateServer {
+	if w.isController {
 		var closer func()
 		var err error
 		if w.st, closer, err = w.openState(); err != nil {
@@ -257,25 +257,25 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
-	if !w.isStateServer {
+	if !w.isController {
 		return nil, nil
 	}
 
-	logger.Infof("signalling that this state server is ready for upgrade")
+	logger.Infof("signalling that this controller is ready for upgrade")
 	info, err := w.st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// State servers need to wait for other state servers to be ready
+	// controllers need to wait for other controllers to be ready
 	// to run the upgrade steps.
-	logger.Infof("waiting for other state servers to be ready for upgrade")
-	if err := w.waitForOtherStateServers(info); err != nil {
+	logger.Infof("waiting for other controllers to be ready for upgrade")
+	if err := w.waitForOtherControllers(info); err != nil {
 		if err == tomb.ErrDying {
-			logger.Warningf(`stopped waiting for other state servers: %v`, err)
+			logger.Warningf(`stopped waiting for other controllers: %v`, err)
 			return nil, err
 		}
-		logger.Errorf(`aborted wait for other state servers: %v`, err)
+		logger.Errorf(`aborted wait for other controllers: %v`, err)
 		// If master, trigger a rollback to the previous agent version.
 		if w.isMaster {
 			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
@@ -285,17 +285,17 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}
 		}
-		return nil, errors.Annotate(err, "aborted wait for other state servers")
+		return nil, errors.Annotate(err, "aborted wait for other controllers")
 	}
 	if w.isMaster {
-		logger.Infof("finished waiting - all state servers are ready to run upgrade steps")
+		logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
 	} else {
 		logger.Infof("finished waiting - the master has completed its upgrade steps")
 	}
 	return info, nil
 }
 
-func (w *upgradesteps) waitForOtherStateServers(info *state.UpgradeInfo) error {
+func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
 	defer watcher.Stop()
 
@@ -308,10 +308,10 @@ func (w *upgradesteps) waitForOtherStateServers(info *state.UpgradeInfo) error {
 				return errors.Trace(err)
 			}
 			if w.isMaster {
-				if ready, err := info.AllProvisionedStateServersReady(); err != nil {
+				if ready, err := info.AllProvisionedControllersReady(); err != nil {
 					return errors.Trace(err)
 				} else if ready {
-					// All state servers ready to start upgrade
+					// All controllers ready to start upgrade
 					err := info.SetStatus(state.UpgradeRunning)
 					return errors.Trace(err)
 				}
@@ -382,19 +382,19 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 }
 
 func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
-	if !w.isStateServer {
+	if !w.isController {
 		return nil
 	}
 
 	if w.isMaster {
-		// Tell other state servers that the master has completed its
+		// Tell other controllers that the master has completed its
 		// upgrade steps.
 		if err := info.SetStatus(state.UpgradeFinishing); err != nil {
 			return errors.Annotate(err, "upgrade done but")
 		}
 	}
 
-	if err := info.SetStateServerDone(w.tag.Id()); err != nil {
+	if err := info.SetControllerDone(w.tag.Id()); err != nil {
 		return errors.Annotate(err, "upgrade done but failed to synchronise")
 	}
 
@@ -453,7 +453,7 @@ func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upg
 	for _, job := range jobs {
 		switch job {
 		case multiwatcher.JobManageModel:
-			targets = append(targets, upgrades.StateServer)
+			targets = append(targets, upgrades.Controller)
 			if isMaster {
 				targets = append(targets, upgrades.DatabaseMaster)
 			}

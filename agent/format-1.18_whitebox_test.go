@@ -136,7 +136,7 @@ values:
   PROVIDER_TYPE: local
   STORAGE_ADDR: 10.0.3.1:8040
   STORAGE_DIR: /home/user/.juju/local/storage
-stateservercert: '-----BEGIN CERTIFICATE-----
+controllercert: '-----BEGIN CERTIFICATE-----
 
   MIICNzCCAaKgAwIBAgIBADALBgkqhkiG9w0BAQUwQzENMAsGA1UEChMEanVqdTEy
 
@@ -165,7 +165,7 @@ stateservercert: '-----BEGIN CERTIFICATE-----
   -----END CERTIFICATE-----
 
 '
-stateserverkey: '-----BEGIN RSA PRIVATE KEY-----
+controllerkey: '-----BEGIN RSA PRIVATE KEY-----
 
   MIICXAIBAAKBgQDJnbuNL3m/oY7Er2lEF6ye1SodepvpI0CLCdLwrYP52cRxbVzo
 

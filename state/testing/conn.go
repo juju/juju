@@ -31,7 +31,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 }
 
 // NewMongoInfo returns information suitable for
-// connecting to the testing state server's mongo database.
+// connecting to the testing controller's mongo database.
 func NewMongoInfo() *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -42,7 +42,7 @@ func NewMongoInfo() *mongo.MongoInfo {
 }
 
 // NewDialOpts returns configuration parameters for
-// connecting to the testing state server.
+// connecting to the testing controller.
 func NewDialOpts() mongo.DialOpts {
 	return mongo.DialOpts{
 		Timeout: testing.LongWait,

@@ -41,10 +41,10 @@ type format_1_16Serialization struct {
 	OldPassword string
 	Values      map[string]string
 
-	// Only state server machines have these next three items
-	StateServerCert string `yaml:",omitempty"`
-	StateServerKey  string `yaml:",omitempty"`
-	APIPort         int    `yaml:",omitempty"`
+	// Only controller machines have these next three items
+	ControllerCert string `yaml:",omitempty"`
+	ControllerKey  string `yaml:",omitempty"`
+	APIPort        int    `yaml:",omitempty"`
 }
 
 func init() {
@@ -78,11 +78,11 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
-	stateServerCert, err := decode64(format.StateServerCert)
+	controllerCert, err := decode64(format.ControllerCert)
 	if err != nil {
 		return nil, err
 	}
-	stateServerKey, err := decode64(format.StateServerKey)
+	controllerKey, err := decode64(format.ControllerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +111,10 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 
-	if len(stateServerKey) != 0 {
+	if len(controllerKey) != 0 {
 		config.servingInfo = &params.StateServingInfo{
-			Cert:       string(stateServerCert),
-			PrivateKey: string(stateServerKey),
+			Cert:       string(controllerCert),
+			PrivateKey: string(controllerKey),
 			APIPort:    format.APIPort,
 		}
 		// There's a private key, then we need the state

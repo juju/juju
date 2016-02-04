@@ -161,7 +161,7 @@ const (
 	AgentServiceName       = "AGENT_SERVICE_NAME"
 	MongoOplogSize         = "MONGO_OPLOG_SIZE"
 	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
-	AllowsSecureConnection = "SECURE_STATESERVER_CONNECTION"
+	AllowsSecureConnection = "SECURE_CONTROLLER_CONNECTION"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -214,7 +214,7 @@ type Config interface {
 	WriteCommands(renderer shell.Renderer) ([]string, error)
 
 	// StateServingInfo returns the details needed to run
-	// a state server and reports whether those details
+	// a controller and reports whether those details
 	// are available
 	StateServingInfo() (params.StateServingInfo, bool)
 
@@ -222,7 +222,7 @@ type Config interface {
 	// reports whether the details are available.
 	APIInfo() (*api.Info, bool)
 
-	// MongoInfo returns details for connecting to the state server's mongo
+	// MongoInfo returns details for connecting to the controller's mongo
 	// database and reports whether those details are available
 	MongoInfo() (*mongo.MongoInfo, bool)
 
@@ -292,7 +292,7 @@ type configSetterOnly interface {
 	Migrate(MigrateParams) error
 
 	// SetStateServingInfo sets the information needed
-	// to run a state server
+	// to run a controller
 	SetStateServingInfo(info params.StateServingInfo)
 }
 
@@ -443,13 +443,13 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 }
 
 // NewStateMachineConfig returns a configuration suitable for
-// a machine running the state server.
+// a machine running the controller.
 func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
-		return nil, errors.Trace(requiredError("state server cert"))
+		return nil, errors.Trace(requiredError("controller cert"))
 	}
 	if serverInfo.PrivateKey == "" {
-		return nil, errors.Trace(requiredError("state server key"))
+		return nil, errors.Trace(requiredError("controller key"))
 	}
 	if serverInfo.CAPrivateKey == "" {
 		return nil, errors.Trace(requiredError("ca cert key"))
@@ -720,7 +720,7 @@ func (c *configInternal) check() error {
 		return errors.Trace(requiredError("state or API addresses"))
 	}
 	if c.stateDetails != nil {
-		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
+		if err := checkAddrs(c.stateDetails.addresses, "controller address"); err != nil {
 			return err
 		}
 	}
@@ -775,9 +775,9 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	if c.apiDetails == nil || c.apiDetails.addresses == nil {
 		return nil, false
 	}
-	servingInfo, isStateServer := c.StateServingInfo()
+	servingInfo, isController := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
-	if isStateServer {
+	if isController {
 		port := servingInfo.APIPort
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
 		if c.preferIPv6 {

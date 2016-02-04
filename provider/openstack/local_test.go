@@ -796,8 +796,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that StateServerInstances returns the ID of the bootstrap machine.
-	ids, err := env.StateServerInstances()
+	// Check that ControllerInstances returns the ID of the bootstrap machine.
+	ids, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 

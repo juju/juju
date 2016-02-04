@@ -31,7 +31,7 @@ type ServerUser struct {
 }
 
 // ServerData holds the end point details for the API servers running
-// in the state server environment.
+// in the controller environment.
 type ServerData struct {
 	APIEndpoints    []string `yaml:"api-endpoints"`
 	ServerHostnames []string `yaml:"server-hostnames,omitempty"`

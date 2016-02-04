@@ -32,7 +32,7 @@ Remove service units from the model.
 If this is the only unit running, the machine on which
 the unit is hosted will also be destroyed, if possible.
 The machine will be destroyed if:
-- it is not a state server
+- it is not a controller
 - it is not hosting any Juju managed containers
 `
 
