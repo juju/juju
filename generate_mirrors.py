@@ -225,7 +225,7 @@ def generate_cpc_mirrors_file(updated, streams_path,
         purposes = PURPOSES
     for purpose in purposes:
         product_name = "com.ubuntu.juju:%s:tools" % purpose
-        product_path = "streams/v1/%s.json" % product_name
+        product_path = "streams/v1/%s.json" % product_name.replace(":", "-")
         if verbose:
             print("Adding %s to cpc-mirrors.json" % product_path)
         mirrors['mirrors'][product_name] = []
