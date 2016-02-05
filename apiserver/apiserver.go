@@ -400,6 +400,11 @@ func (srv *Server) run(lis net.Listener) {
 			ctxt: httpCtxt,
 		},
 	)
+	handleAll(mux, "/register",
+		&registerUserHandler{
+			ctxt: httpCtxt,
+		},
+	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {

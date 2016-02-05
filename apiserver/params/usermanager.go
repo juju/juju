@@ -44,7 +44,17 @@ type AddUsers struct {
 type AddUser struct {
 	Username    string `json:"username"`
 	DisplayName string `json:"display-name"`
-	Password    string `json:"password"`
+
+	// Password is optional. If it is empty, then
+	// a secret key will be generated for the user
+	// and returned in AddUserResult. It will not
+	// be possible to login with a password until
+	// registration with the secret key is completed.
+	Password string `json:"password,omitempty"`
+
+	// Disable controls whether or not the user should
+	// be disabled at creation time.
+	Disable bool `json:"disable,omitempty"`
 }
 
 // AddUserResults holds the results of the bulk AddUser API call.
@@ -52,8 +62,11 @@ type AddUserResults struct {
 	Results []AddUserResult `json:"results"`
 }
 
-// AddUserResult returns the tag of the newly created user, or an error.
+// AddUserResult returns the tag of the newly created user
+// and the secret key required to complete registration,
+// or an error.
 type AddUserResult struct {
-	Tag   string `json:"tag,omitempty"`
-	Error *Error `json:"error,omitempty"`
+	Tag       string `json:"tag,omitempty"`
+	SecretKey []byte `json:"secret-key,omitempty"`
+	Error     *Error `json:"error,omitempty"`
 }
