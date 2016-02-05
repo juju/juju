@@ -585,7 +585,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		}
 		args.placement[i] = p
 	}
-	return serviceClient.ServiceDeploy(
+	return serviceClient.Deploy(
 		args.charmURL,
 		args.serviceName,
 		args.series,

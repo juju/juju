@@ -203,7 +203,7 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	// Add the charm, so the url will exist and a new revision will be
-	// picked in ServiceDeploy.
+	// picked in service Deploy.
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	dirPath := testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")

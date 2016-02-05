@@ -38,7 +38,7 @@ func (f *fakeServiceAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeServiceAddUnitAPI) AddServiceUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+func (f *fakeServiceAddUnitAPI) AddUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

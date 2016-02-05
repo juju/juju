@@ -75,5 +75,5 @@ func (c *removeUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.DestroyServiceUnits(c.UnitNames...), block.BlockRemove)
+	return block.ProcessBlockedError(client.DestroyUnits(c.UnitNames...), block.BlockRemove)
 }
