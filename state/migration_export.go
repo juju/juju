@@ -30,12 +30,11 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.readAllStatuses(); err != nil {
 		return nil, errors.Annotate(err, "reading statuses")
 	}
-	settings, err := export.readAllSettings()
-	if err != nil {
+	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	envConfig, found := settings[environGlobalKey]
+	envConfig, found := export.settings[environGlobalKey]
 	if !found {
 		return nil, errors.New("missing environ config")
 	}
@@ -52,6 +51,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.services(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -65,6 +67,7 @@ type exporter struct {
 	environment *Environment
 	model       migration.Model
 	logger      loggo.Logger
+	settings    map[string]settingsDoc
 	status      map[string]bson.M
 }
 
@@ -257,6 +260,65 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) migration.CloudInstan
 	return inst
 }
 
+func (e *exporter) services() error {
+	services, err := e.st.AllServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("found %d services", len(services))
+
+	refcounts, err := e.readAllSettingsRefCounts()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, service := range services {
+		if err := e.addService(service, refcounts); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (e *exporter) addService(service *Service, refcounts map[string]int) error {
+	settingsKey := service.settingsKey()
+	leadershipKey := leadershipSettingsKey(service.Name())
+
+	serviceSettingsDoc, found := e.settings[settingsKey]
+	if !found {
+		return errors.Errorf("missing settings for service %q", service.Name())
+	}
+	refCount, found := refcounts[settingsKey]
+	if !found {
+		return errors.Errorf("missing settings refcount for service %q", service.Name())
+	}
+	leadershipSettingsDoc, found := e.settings[leadershipKey]
+	if !found {
+		return errors.Errorf("missing leadership settings for service %q", service.Name())
+	}
+
+	args := migration.ServiceArgs{
+		Tag:                service.ServiceTag(),
+		Series:             service.doc.Series,
+		Subordinate:        service.doc.Subordinate,
+		CharmURL:           service.doc.CharmURL.String(),
+		ForceCharm:         service.doc.ForceCharm,
+		Exposed:            service.doc.Exposed,
+		MinUnits:           service.doc.MinUnits,
+		Settings:           serviceSettingsDoc.Settings,
+		SettingsRefCount:   refCount,
+		LeadershipSettings: leadershipSettingsDoc.Settings,
+	}
+	exService := e.model.AddService(args)
+	// Find the current service status.
+	statusArgs, err := e.statusArgs(service.globalKey())
+	if err != nil {
+		return errors.Annotatef(err, "status for service %s", service.Name())
+	}
+	exService.SetStatus(statusArgs)
+	return nil
+}
+
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
 	defer closer()
@@ -273,21 +335,21 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 	return result, nil
 }
 
-func (e *exporter) readAllSettings() (map[string]settingsDoc, error) {
+func (e *exporter) readAllSettings() error {
 	settings, closer := e.st.getCollection(settingsC)
 	defer closer()
 
 	var docs []settingsDoc
 	if err := settings.Find(nil).All(&docs); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	result := make(map[string]settingsDoc)
+	e.settings = make(map[string]settingsDoc)
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
-		result[key] = doc
+		e.settings[key] = doc
 	}
-	return result, nil
+	return nil
 }
 
 func (e *exporter) readAllStatuses() error {
@@ -345,5 +407,33 @@ func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 	result.Message = info
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
+	return result, nil
+}
+
+func (e *exporter) readAllSettingsRefCounts() (map[string]int, error) {
+	refCounts, closer := e.st.getCollection(settingsrefsC)
+	defer closer()
+
+	var docs []bson.M
+	err := refCounts.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read settings refcount collection")
+	}
+
+	e.logger.Debugf("read %d settings refcount documents", len(docs))
+	result := make(map[string]int)
+	for _, doc := range docs {
+		docId, ok := doc["_id"].(string)
+		if !ok {
+			return nil, errors.Errorf("expected string, got %s (%T)", doc["_id"], doc["_id"])
+		}
+		id := e.st.localID(docId)
+		count, ok := doc["refcount"].(int)
+		if !ok {
+			return nil, errors.Errorf("expected int, got %s (%T)", doc["refcount"], doc["refcount"])
+		}
+		result[id] = count
+	}
+
 	return result, nil
 }

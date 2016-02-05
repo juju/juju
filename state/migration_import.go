@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
@@ -61,13 +62,14 @@ func (st *State) Import(model migration.Model) (_ *Environment, _ *State, err er
 		logger:      logger,
 	}
 	if err := restore.environmentUsers(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "environmentUsers")
 	}
 	if err := restore.machines(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "machines")
 	}
-
-	// Add machine docs...
+	if err := restore.services(); err != nil {
+		return nil, nil, errors.Annotate(err, "services")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -334,4 +336,86 @@ func (i *importer) makeAddresses(addrs []migration.Address) []address {
 		result[j] = i.makeAddress(addr)
 	}
 	return result
+}
+
+func (i *importer) services() error {
+	i.logger.Debugf("importing services")
+	for _, s := range i.model.Services() {
+		if err := i.service(s); err != nil {
+			i.logger.Errorf("error importing service %s: %s", s.Name(), err)
+			return errors.Annotate(err, s.Name())
+		}
+	}
+
+	i.logger.Debugf("importing services succeeded")
+	return nil
+}
+
+// makeStatusDoc assumes status is non-nil.
+func (i *importer) makeStatusDoc(status migration.Status) statusDoc {
+	return statusDoc{
+		Status:     Status(status.Value()),
+		StatusInfo: status.Message(),
+		StatusData: status.Data(),
+		Updated:    status.Updated().UnixNano(),
+	}
+}
+
+func (i *importer) service(s migration.Service) error {
+	// Import this service, then soon, its units.
+	i.logger.Debugf("importing service %s", s.Name())
+
+	// 1. construct a serviceDoc
+	sdoc, err := i.makeServiceDoc(s)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// 2. construct a statusDoc
+	status := s.Status()
+	if status == nil {
+		return errors.NotValidf("missing status")
+	}
+	statusDoc := i.makeStatusDoc(status)
+	// TODO: update never set malarky... maybe...
+
+	ops := addServiceOps(i.st, addServiceOpsArgs{
+		serviceDoc: sdoc,
+		statusDoc:  statusDoc,
+		// constraints:     TODO,
+		// networks         TODO,
+		// storage          TODO,
+		settings:           s.Settings(),
+		settingsRefCount:   s.SettingsRefCount(),
+		leadershipSettings: s.LeadershipSettings(),
+	})
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO: units here.
+
+	return nil
+}
+
+func (i *importer) makeServiceDoc(s migration.Service) (*serviceDoc, error) {
+	charmUrl, err := charm.ParseURL(s.CharmURL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &serviceDoc{
+		Name:        s.Name(),
+		Series:      s.Series(),
+		Subordinate: s.Subordinate(),
+		CharmURL:    charmUrl,
+		ForceCharm:  s.ForceCharm(),
+		Life:        Alive,
+		// UnitCount:    TODO,
+		// RelationCount:  TODO,
+		Exposed:  s.Exposed(),
+		MinUnits: s.MinUnits(),
+		// MetricCredentials: TODO,
+	}, nil
 }

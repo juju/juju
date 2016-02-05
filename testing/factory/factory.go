@@ -83,10 +83,11 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name    string
-	Charm   *state.Charm
-	Creator names.Tag
-	Status  *state.StatusInfo
+	Name     string
+	Charm    *state.Charm
+	Creator  names.Tag
+	Status   *state.StatusInfo
+	Settings map[string]interface{}
 }
 
 // UnitParams are used to create units.
@@ -367,7 +368,12 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(state.AddServiceArgs{Name: params.Name, Owner: params.Creator.String(), Charm: params.Charm})
+	service, err := factory.st.AddService(state.AddServiceArgs{
+		Name:     params.Name,
+		Owner:    params.Creator.String(),
+		Charm:    params.Charm,
+		Settings: charm.Settings(params.Settings),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
