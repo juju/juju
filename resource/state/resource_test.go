@@ -7,14 +7,12 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -158,6 +156,8 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	s.stub.CheckCall(c, 3, "SetResource", expected)
 	c.Check(res, jc.DeepEquals, resource.Resource{
 		Resource:  chRes,
+		ID:        "a-service/" + res.Name,
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: s.timestamp,
 	})
@@ -358,6 +358,7 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 		Resource:    res,
 		StoragePath: path,
 	}
+	expected.Resource.PendingID = s.pendingID
 	expected.Resource.Timestamp = s.timestamp
 	hash := chRes.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
@@ -493,7 +494,7 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"unit/0", "some-service"},
 		args: resource.ModelResource{
-			ID:          "res",
+			ID:          "some-service/res",
 			ServiceID:   "some-service",
 			Resource:    newUploadResource(c, "res", "res"),
 			StoragePath: "service-some-service/resources/res",
@@ -515,7 +516,7 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"unit/0", "some-service"},
 		args: resource.ModelResource{
-			ID:          "res",
+			ID:          "some-service/res",
 			ServiceID:   "some-service",
 			Resource:    newUploadResource(c, "res", "res"),
 			StoragePath: "service-some-service/resources/res",
@@ -538,7 +539,7 @@ func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"some-service/0", "some-service"},
 		args: resource.ModelResource{
-			ID:          "res",
+			ID:          "some-service/res",
 			ServiceID:   "some-service",
 			Resource:    newUploadResource(c, "res", "res"),
 			StoragePath: "service-some-service/resources/res",
@@ -564,7 +565,7 @@ func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"foo/0", "some-service"},
 		args: resource.ModelResource{
-			ID:          "res",
+			ID:          "some-service/res",
 			ServiceID:   "some-service",
 			Resource:    newUploadResource(c, "res", "res"),
 			StoragePath: "service-some-service/resources/res",
@@ -592,29 +593,8 @@ func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 }
 
 func newUploadResource(c *gc.C, name, data string) resource.Resource {
-	reader := strings.NewReader(data)
-	fp, err := charmresource.GenerateFingerprint(reader)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: name,
-				Type: charmresource.TypeFile,
-				Path: name + ".tgz",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    0,
-			Fingerprint: fp,
-			Size:        int64(len(data)),
-		},
-		Username:  "a-user",
-		Timestamp: time.Now().UTC(),
-	}
-	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-
-	return res
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	return opened.Resource
 }
 
 type fakeUnit struct {

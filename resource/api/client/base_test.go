@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,12 +14,12 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 type BaseSuite struct {
@@ -68,40 +67,28 @@ func newResourceResult(c *gc.C, serviceID string, names ...string) ([]resource.R
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
-	var now time.Time
-	if username != "" {
-		now = time.Now()
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	res := opened.Resource
+	res.Revision = 1
+	res.Username = username
+	if username == "" {
+		res.Timestamp = time.Time{}
 	}
-	res := resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: name,
-				Type: charmresource.TypeFile,
-				Path: name + ".tgz",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    1,
-			Fingerprint: fp,
-		},
-		Username:  username,
-		Timestamp: now,
-	}
-	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
 
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        name,
 			Type:        "file",
-			Path:        name + ".tgz",
+			Path:        res.Path,
 			Origin:      "upload",
 			Revision:    1,
-			Fingerprint: fp.Bytes(),
+			Fingerprint: res.Fingerprint.Bytes(),
+			Size:        res.Size,
 		},
+		ID:        res.ID,
+		ServiceID: res.ServiceID,
 		Username:  username,
-		Timestamp: now,
+		Timestamp: res.Timestamp,
 	}
 
 	return res, apiRes

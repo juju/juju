@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/testing/filetesting"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context/internal"
@@ -176,18 +175,4 @@ func (s *internalStub) Join(pth ...string) string {
 	s.Stub.NextErr() // Pop one off.
 
 	return path.Join(pth...)
-}
-
-type stubReadCloser struct {
-	io.Reader
-	io.Closer
-}
-
-func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
-	return &stubReadCloser{
-		Reader: filetesting.NewStubReader(stub, content),
-		Closer: &filetesting.StubCloser{
-			Stub: stub,
-		},
-	}
 }

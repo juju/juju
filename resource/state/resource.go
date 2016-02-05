@@ -139,8 +139,13 @@ func (st resourceState) SetResource(serviceID, userID string, chRes charmresourc
 }
 
 func (st resourceState) setResource(pendingID, serviceID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	id := newResourceID(serviceID, resource.Resource{Resource: chRes})
+
 	res := resource.Resource{
-		Resource: chRes,
+		Resource:  chRes,
+		ID:        id,
+		PendingID: pendingID,
+		ServiceID: serviceID,
 	}
 	if r != nil {
 		// TODO(ericsnow) Validate the user ID (or use a tag).
@@ -151,8 +156,6 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 	if err := res.Validate(); err != nil {
 		return res, errors.Annotate(err, "bad resource metadata")
 	}
-
-	id := newResourceID(serviceID, res)
 
 	args := resource.ModelResource{
 		ID:        id,

@@ -4,7 +4,6 @@
 package persistence
 
 import (
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -12,11 +11,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 var _ = gc.Suite(&PersistenceSuite{})
@@ -186,6 +185,7 @@ func (s *PersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
 	}
 	expected = expected[1:]
 	expected[0].PendingID = "some-unique-ID-001"
+	expected[0].Resource.PendingID = "some-unique-ID-001"
 	docs[1].PendingID = "some-unique-ID-001"
 	s.base.docs = docs
 	p := NewPersistence(s.base)
@@ -427,37 +427,21 @@ func newUnitResource(c *gc.C, serviceID, unitID, name string) (resource.ModelRes
 }
 
 func newResource(c *gc.C, serviceID, name string) (resource.ModelResource, resourceDoc) {
-	reader := strings.NewReader(name)
-	fp, err := charmresource.GenerateFingerprint(reader)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    name,
-				Type:    charmresource.TypeFile,
-				Path:    name + ".tgz",
-				Comment: "you need it",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    1,
-			Fingerprint: fp,
-		},
-		Username:  "a-user",
-		Timestamp: time.Now().UTC(),
-	}
+	content := name
+	opened := resourcetesting.NewResource(c, nil, name, serviceID, content)
+	res := opened.Resource
 
 	mRes := resource.ModelResource{
-		ID:          serviceID + "/" + name,
-		ServiceID:   serviceID,
+		ID:          res.ID,
+		ServiceID:   res.ServiceID,
 		Resource:    res,
 		StoragePath: "service-" + serviceID + "/resources/" + name,
 	}
 
 	doc := resourceDoc{
-		DocID:     "resource#" + mRes.ID,
-		ID:        mRes.ID,
-		ServiceID: serviceID,
+		DocID:     "resource#" + res.ID,
+		ID:        res.ID,
+		ServiceID: res.ServiceID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),
@@ -467,6 +451,7 @@ func newResource(c *gc.C, serviceID, name string) (resource.ModelResource, resou
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,
 		Fingerprint: res.Fingerprint.Bytes(),
+		Size:        res.Size,
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
