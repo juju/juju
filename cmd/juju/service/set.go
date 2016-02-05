@@ -76,7 +76,7 @@ func (c *setCommand) Init(args []string) error {
 		return errors.New("cannot specify --config when using key=value arguments")
 	}
 	c.ServiceName = args[0]
-	if c.SetDefault == true {
+	if c.SetDefault {
 		c.Options = args[1:]
 		if len(c.Options) == 0 {
 			return errors.New("no configuration options specified")
@@ -129,7 +129,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 			ServiceName:  c.ServiceName,
 			SettingsYAML: string(b),
 		}), block.BlockChange)
-	} else if c.SetDefault == true {
+	} else if c.SetDefault {
 		return block.ProcessBlockedError(apiclient.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
 	} else if len(c.SettingsStrings) == 0 {
 		return nil

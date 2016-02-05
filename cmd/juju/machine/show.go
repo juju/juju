@@ -17,7 +17,7 @@ import (
 const showMachineCommandDoc = `
 Show a specified machine on a model:
 
-juju show-machine <machineID[s]>
+juju show-machine <machineID> ...
 
 For example:
 
@@ -51,7 +51,7 @@ type showMachineCommand struct {
 func (c *showMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-machine",
-		Args:    "<machineID[s]> ...",
+		Args:    "<machineID> ...",
 		Purpose: "show a machines status",
 		Doc:     showMachineCommandDoc,
 		Aliases: []string{"show-machines"},
