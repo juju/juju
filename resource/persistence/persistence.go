@@ -258,9 +258,6 @@ func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]tx
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if pending.PendingID != pendingID {
-		return nil, errors.Errorf("mismatched pending ID; have %q, expected %q", pending.PendingID, pendingID)
-	}
 	ops := newResolvePendingResourceOps(pending)
 	return ops, nil
 }
