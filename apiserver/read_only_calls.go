@@ -64,5 +64,9 @@ var readOnlyCalls = set.NewStrings(
 // is known to not alter the database.
 func isCallReadOnly(facade, method string) bool {
 	key := facade + "." + method
+	// NOTE: maybe useful in the future to be able to specify entire facades
+	// as read only, in which case specifying something like "Facade.*" would
+	// be useful. Not sure we'll ever need this, but something to think about
+	// perhaps.
 	return readOnlyCalls.Contains(key)
 }

@@ -49,9 +49,9 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 // isCallAllowableByReadOnlyUser returns whether or not the method on the facade
 // can be called by a read only user.
 func isCallAllowableByReadOnlyUser(facade, _ /*method*/ string) bool {
-	// At this stage, any facade that is part of the restricted root
-	// (those that are accessable outside of environments) are OK
-	// because the user would have access to those facades if the went
-	// through the controller API endpoint rather than an environme
+	// At this stage, any facade that is part of the restricted root (those
+	// that are accessable outside of models) are OK because the user would
+	// have access to those facades if they went through the controller API
+	// endpoint rather than a model oriented one.
 	return restrictedRootNames.Contains(facade)
 }
