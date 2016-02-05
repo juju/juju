@@ -126,61 +126,33 @@ func (p Persistence) GetResource(id string) (res resource.Resource, storagePath 
 
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
-// errors.AlreadyExists is returned.
-func (p Persistence) StageResource(res resource.Resource, storagePath string) error {
+// errors.AlreadyExists is returned. A wrapper around the staged
+// resource is returned which supports both finalizing and removing
+// the staged resource.
+func (p Persistence) StageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
 	stored, err := p.getStored(res, storagePath)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
+	// Validate first?
 	if err := res.Validate(); err != nil {
-		return errors.Annotate(err, "bad resource")
+		return nil, errors.Annotate(err, "bad resource")
 	}
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
-		switch attempt {
-		case 0:
-			ops = newStagedResourceOps(stored)
-		case 1:
-			ops = newEnsureStagedSameOps(stored)
-		default:
-			return nil, errors.NewAlreadyExists(nil, "already staged")
-		}
-
-		return ops, nil
+	staged := &StagedResource{
+		base:   p.base,
+		id:     res.ID,
+		stored: stored,
 	}
-	if err := p.base.Run(buildTxn); err != nil {
-		return errors.Trace(err)
+	if err := staged.stage(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil
+	return staged, nil
 }
 
-// UnstageResource ensures that the resource is removed
-// from the staging area. If it isn't in the staging area
-// then this is a noop.
-func (p Persistence) UnstageResource(id string) error {
-	// TODO(ericsnow) Ensure that the service is still there?
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// The op has no assert so we should not get here.
-			return nil, errors.New("unstaging the resource failed")
-		}
-
-		ops := newRemoveStagedOps(id)
-		return ops, nil
-	}
-	if err := p.base.Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// SetUnitResource stores the resource info for a particular unit. This is an
-// "upsert".
+// SetUnitResource stores the resource info for a particular unit. The
+// resource must already be set for the service.
 func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error {
 	storagePath := "" // unknown
 	stored, err := p.getStored(res, storagePath)
@@ -214,43 +186,6 @@ func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error
 	return nil
 }
 
-// SetResource stores the resource info. This is an "upsert". If the
-// resource is already staged then it is unstaged. The caller is
-// responsible for getting the staging right.
-func (p Persistence) SetResource(res resource.Resource, storagePath string) error {
-	stored, err := p.getStored(res, storagePath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(ericsnow) Ensure that the service is still there?
-
-	if err := res.Validate(); err != nil {
-		return errors.Annotate(err, "bad resource")
-	}
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// This is an "upsert".
-		var ops []txn.Op
-		switch attempt {
-		case 0:
-			ops = newInsertResourceOps(stored)
-		case 1:
-			ops = newUpdateResourceOps(stored)
-		default:
-			// Either insert or update will work so we should not get here.
-			return nil, errors.New("setting the resource failed")
-		}
-		// No matter what, we always remove any staging.
-		ops = append(ops, newRemoveStagedOps(res.ID)...)
-		return ops, nil
-	}
-	if err := p.base.Run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (p Persistence) getStored(res resource.Resource, storagePath string) (storedResource, error) {
 	if storagePath != "" {
 		stored := storedResource{
@@ -264,6 +199,9 @@ func (p Persistence) getStored(res resource.Resource, storagePath string) (store
 	if err != nil {
 		return storedResource{}, errors.Trace(err)
 	}
+
+	// TODO(ericsnow) Ensure that doc matches res?
+
 	stored := storedResource{
 		Resource:    res,
 		storagePath: doc.StoragePath,
