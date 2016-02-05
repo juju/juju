@@ -1249,6 +1249,24 @@ func (s *serviceSuite) TestServiceUpdateSetSettingsYAML(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
+func (s *serviceSuite) TestClientServiceUpdateSetSettingsGetYAML(c *gc.C) {
+	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	// Update settings for the service.
+	args := params.ServiceUpdate{
+		ServiceName:  "dummy",
+		SettingsYAML: "charm: dummy\nservice: dummy\nsettings:\n  title:\n    value: y-title\n    type: string\n  username:\n    value: y-user\n  ignore:\n    blah: true",
+	}
+	err := s.serviceApi.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "y-title", "username": "y-user"}
+	obtained, err := service.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
 func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
 	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
