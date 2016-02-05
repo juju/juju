@@ -17,8 +17,8 @@ var _ = gc.Suite(&MigrationSuite{})
 func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
 		modelsC,
-		envUsersC,
-		envUserLastConnectionC,
+		modelUsersC,
+		modelUserLastConnectionC,
 		// machine
 		instanceDataC,
 		machinesC,
@@ -26,12 +26,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	ignoredCollections := set.NewStrings(
 		// We don't export the controller model at this stage.
-		stateServersC,
+		controllersC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
 		// userenvnameC is just to provide a unique key constraint.
-		userenvnameC,
+		usermodelnameC,
 		// Metrics aren't migrated.
 		metricsC,
 		metricsManagerC,
@@ -164,7 +164,7 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 		"DateCreated",
 		"ReadOnly",
 	)
-	s.AssertExportedFields(c, envUserDoc{}, fields)
+	s.AssertExportedFields(c, modelUserDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
@@ -178,7 +178,7 @@ func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
 		"UserName",
 		"LastConnection",
 	)
-	s.AssertExportedFields(c, envUserLastConnectionDoc{}, fields)
+	s.AssertExportedFields(c, modelUserLastConnectionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
