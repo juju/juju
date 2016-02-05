@@ -82,9 +82,9 @@ func (api *API) SetMetricCredentials(args params.ServiceMetricCredentials) (para
 	return result, nil
 }
 
-// ServicesDeploy fetches the charms from the charm store and deploys them
+// Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
-func (api *API) ServicesDeploy(args params.ServicesDeploy) (params.ErrorResults, error) {
+func (api *API) Deploy(args params.ServicesDeploy) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Services)),
 	}
@@ -232,10 +232,10 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 	return changes, nil
 }
 
-// ServiceUpdate updates the service attributes, including charm URL,
+// Update updates the service attributes, including charm URL,
 // minimum number of units, settings and constraints.
 // All parameters in params.ServiceUpdate except the service name are optional.
-func (api *API) ServiceUpdate(args params.ServiceUpdate) error {
+func (api *API) Update(args params.ServiceUpdate) error {
 	if !args.ForceCharmUrl {
 		if err := api.check.ChangeAllowed(); err != nil {
 			return errors.Trace(err)
@@ -274,8 +274,8 @@ func (api *API) ServiceUpdate(args params.ServiceUpdate) error {
 	return nil
 }
 
-// ServiceSetCharm sets the charm for a given service.
-func (api *API) ServiceSetCharm(args params.ServiceSetCharm) error {
+// SetCharm sets the charm for a given service.
+func (api *API) SetCharm(args params.ServiceSetCharm) error {
 	// when forced units in error, don't block
 	if !args.ForceUnits {
 		if err := api.check.ChangeAllowed(); err != nil {
@@ -316,9 +316,9 @@ func serviceSetSettingsYAML(service *state.Service, settings string) error {
 	return service.UpdateConfigSettings(changes)
 }
 
-// ServiceGetCharmURL returns the charm URL the given service is
+// GetCharmURL returns the charm URL the given service is
 // running at present.
-func (api *API) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error) {
+func (api *API) GetCharmURL(args params.ServiceGet) (params.StringResult, error) {
 	service, err := api.state.Service(args.ServiceName)
 	if err != nil {
 		return params.StringResult{}, err
@@ -327,10 +327,10 @@ func (api *API) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult,
 	return params.StringResult{Result: charmURL.String()}, nil
 }
 
-// ServiceSet implements the server side of Client.ServiceSet.
-// It does not unset values that are set to an empty string.\
-// ServiceUnset should be used for that.
-func (api *API) ServiceSet(p params.ServiceSet) error {
+// Set implements the server side of Service.Set.
+// It does not unset values that are set to an empty string.
+// Unset should be used for that.
+func (api *API) Set(p params.ServiceSet) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -352,8 +352,8 @@ func (api *API) ServiceSet(p params.ServiceSet) error {
 
 }
 
-// ServiceUnset implements the server side of Client.ServiceUnset.
-func (api *API) ServiceUnset(p params.ServiceUnset) error {
+// Unset implements the server side of Client.Unset.
+func (api *API) Unset(p params.ServiceUnset) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -368,8 +368,8 @@ func (api *API) ServiceUnset(p params.ServiceUnset) error {
 	return svc.UpdateConfigSettings(settings)
 }
 
-// ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
-func (api *API) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
+// CharmRelations implements the server side of Service.CharmRelations.
+func (api *API) CharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
 	var results params.ServiceCharmRelationsResults
 	service, err := api.state.Service(p.ServiceName)
 	if err != nil {
@@ -386,9 +386,9 @@ func (api *API) ServiceCharmRelations(p params.ServiceCharmRelations) (params.Se
 	return results, nil
 }
 
-// ServiceExpose changes the juju-managed firewall to expose any ports that
+// Expose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func (api *API) ServiceExpose(args params.ServiceExpose) error {
+func (api *API) Expose(args params.ServiceExpose) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -399,9 +399,9 @@ func (api *API) ServiceExpose(args params.ServiceExpose) error {
 	return svc.SetExposed()
 }
 
-// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (api *API) ServiceUnexpose(args params.ServiceUnexpose) error {
+func (api *API) Unexpose(args params.ServiceUnexpose) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -410,28 +410,6 @@ func (api *API) ServiceUnexpose(args params.ServiceUnexpose) error {
 		return err
 	}
 	return svc.ClearExposed()
-}
-
-// ServiceDeploy fetches the charm from the charm store and deploys it.
-// AddCharm or AddLocalCharm should be called to add the charm
-// before calling ServiceDeploy, although for backward compatibility
-// this is not necessary until 1.16 support is removed.
-func (api *API) ServiceDeploy(args params.ServiceDeploy) error {
-	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	return deployService(api.state, api.authorizer.GetAuthTag().String(), args)
-}
-
-// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows specifying networks to include or exclude on the machine
-// where the charm gets deployed (either with args.Network or with
-// constraints).
-//
-// TODO(dimitern): Drop the special handling of networks in favor of
-// spaces constraints, once possible.
-func (api *API) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
-	return api.ServiceDeploy(args)
 }
 
 // addServiceUnits adds a given number of units to a service.
@@ -446,8 +424,8 @@ func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Uni
 	return jjj.AddUnits(st, service, args.NumUnits, args.Placement)
 }
 
-// AddServiceUnits adds a given number of units to a service.
-func (api *API) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+// AddUnits adds a given number of units to a service.
+func (api *API) AddUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddServiceUnitsResults{}, errors.Trace(err)
 	}
@@ -462,8 +440,8 @@ func (api *API) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceU
 	return params.AddServiceUnitsResults{Units: unitNames}, nil
 }
 
-// DestroyServiceUnits removes a given set of service units.
-func (api *API) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+// DestroyUnits removes a given set of service units.
+func (api *API) DestroyUnits(args params.DestroyServiceUnits) error {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -488,8 +466,8 @@ func (api *API) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	return common.DestroyErr("units", args.UnitNames, errs)
 }
 
-// ServiceDestroy destroys a given service.
-func (api *API) ServiceDestroy(args params.ServiceDestroy) error {
+// Destroy destroys a given service.
+func (api *API) Destroy(args params.ServiceDestroy) error {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -500,8 +478,8 @@ func (api *API) ServiceDestroy(args params.ServiceDestroy) error {
 	return svc.Destroy()
 }
 
-// GetServiceConstraints returns the constraints for a given service.
-func (api *API) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
+// GetConstraints returns the constraints for a given service.
+func (api *API) GetConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
 	svc, err := api.state.Service(args.ServiceName)
 	if err != nil {
 		return params.GetConstraintsResults{}, err
@@ -510,8 +488,8 @@ func (api *API) GetServiceConstraints(args params.GetServiceConstraints) (params
 	return params.GetConstraintsResults{cons}, err
 }
 
-// SetServiceConstraints sets the constraints for a given service.
-func (api *API) SetServiceConstraints(args params.SetConstraints) error {
+// SetConstraints sets the constraints for a given service.
+func (api *API) SetConstraints(args params.SetConstraints) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
