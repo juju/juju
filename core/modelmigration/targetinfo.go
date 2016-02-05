@@ -18,7 +18,7 @@ import (
 // to be done right now.
 type TargetInfo struct {
 	// ControllerTag holds tag for the target controller.
-	ControllerTag names.EnvironTag
+	ControllerTag names.ModelTag
 
 	// Addrs holds the addresses and ports of the target controller's
 	// API servers.
@@ -39,7 +39,7 @@ type TargetInfo struct {
 // Validate returns an error if the TargetInfo contains bad data. Nil
 // is returned otherwise.
 func (info *TargetInfo) Validate() error {
-	if !names.IsValidEnvironment(info.ControllerTag.Id()) {
+	if !names.IsValidModel(info.ControllerTag.Id()) {
 		return errors.NotValidf("ControllerTag")
 	}
 

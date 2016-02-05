@@ -160,7 +160,7 @@ func (mig *ModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	return &migration.TargetInfo{
-		ControllerTag: names.NewEnvironTag(mig.doc.TargetController),
+		ControllerTag: names.NewModelTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
 		EntityTag:     entityTag,

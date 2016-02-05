@@ -28,13 +28,13 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 	}{{
 		"empty ControllerTag",
 		func(info *migration.TargetInfo) {
-			info.ControllerTag = names.NewEnvironTag("fooo")
+			info.ControllerTag = names.NewModelTag("fooo")
 		},
 		"ControllerTag not valid",
 	}, {
 		"invalid ControllerTag",
 		func(info *migration.TargetInfo) {
-			info.ControllerTag = names.NewEnvironTag("")
+			info.ControllerTag = names.NewModelTag("")
 		},
 		"ControllerTag not valid",
 	}, {
@@ -73,12 +73,12 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		"",
 	}}
 
-	envTag := names.NewEnvironTag(utils.MustNewUUID().String())
+	modelTag := names.NewModelTag(utils.MustNewUUID().String())
 	for _, test := range tests {
 		c.Logf("---- %s -----------", test.label)
 
 		info := migration.TargetInfo{
-			ControllerTag: envTag,
+			ControllerTag: modelTag,
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			EntityTag:     names.NewUserTag("user"),
