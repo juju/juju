@@ -380,7 +380,6 @@ var topicNames = []string{
 	"glossary",
 	"hpcloud-provider",
 	"juju",
-	"local-provider",
 	"logging",
 	"maas-provider",
 	"openstack-provider",

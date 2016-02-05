@@ -86,8 +86,6 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		UserAliasesFilename: osenv.JujuHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
-	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
-		helptopics.LocalProvider)
 	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
 		helptopics.OpenstackProvider, "openstack")
 	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
