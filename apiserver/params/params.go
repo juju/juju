@@ -205,7 +205,7 @@ type ServiceDeploy struct {
 	Storage     map[string]storage.Constraints
 }
 
-// ServiceUpdate holds the parameters for making the service update call.
+// ServiceUpdate holds the parameters for making the service Update call.
 type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
