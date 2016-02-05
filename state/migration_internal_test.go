@@ -19,9 +19,17 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelsC,
 		modelUsersC,
 		modelUserLastConnectionC,
+		settingsC,
+		statusesC,
+
 		// machine
 		instanceDataC,
 		machinesC,
+
+		// service
+		servicesC,
+		// settings reference counts are only used for services
+		settingsrefsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -34,7 +42,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		usermodelnameC,
 		// Metrics aren't migrated.
 		metricsC,
-		metricsManagerC,
 		// leaseC is deprecated in favour of leasesC.
 		leaseC,
 		// Backup and restore information is not migrated.
@@ -53,6 +60,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// of a particular machine's containers. The migration format
 		// uses object containment for this purpose.
 		containerRefsC,
+		// The min units collection is only used to trigger a watcher
+		// in order to have the service add or remove units if the minimum
+		// number of units is changed. The Service doc has all we need
+		// for migratino.
+		minUnitsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -70,10 +82,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		assignUnitC,
 		charmsC,
 		leasesC,
-		minUnitsC,
 		openedPortsC,
 		"payloads",
-		servicesC,
 		unitsC,
 
 		// relation
@@ -106,13 +116,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// done as part of machines/services/units
 		annotationsC,
 		constraintsC,
-		settingsC,
-		statusesC,
 		statusesHistoryC,
 
 		// uncategorised
-		meterStatusC,
-		settingsrefsC,
+		meterStatusC,    // red / green status for metrics / charms
+		metricsManagerC, // should really be copied across
+
 	)
 
 	envCollections := set.NewStrings()
@@ -238,6 +247,47 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"AvailZone",
 	)
 	s.AssertExportedFields(c, instanceData{}, fields)
+}
+
+func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID is the env + name
+		"DocID",
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+		// Always alive, not explicitly exported.
+		"Life",
+		// OwnerTag is deprecated and should be deleted.
+		"OwnerTag",
+		// TxnRevno is mgo internals and should not be migrated.
+		"TxnRevno",
+
+		"Name",
+		"Series",
+		"Subordinate",
+		"CharmURL",
+		"ForceCharm",
+		"Exposed",
+		"MinUnits",
+	)
+	todo := set.NewStrings(
+		"UnitCount",
+		"RelationCount",
+		"MetricCredentials",
+	)
+	s.AssertExportedFields(c, serviceDoc{}, fields.Union(todo))
+}
+
+func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// EnvUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"EnvUUID",
+
+		"RefCount",
+	)
+	s.AssertExportedFields(c, settingsRefsDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

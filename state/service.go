@@ -67,6 +67,12 @@ func (s *Service) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (s *Service) Tag() names.Tag {
+	return s.ServiceTag()
+}
+
+// ServiceTag returns the more specific ServiceTag rather than the generic
+// Tag.
+func (s *Service) ServiceTag() names.ServiceTag {
 	return names.NewServiceTag(s.Name())
 }
 
@@ -89,6 +95,11 @@ func serviceSettingsKey(serviceName string, curl *charm.URL) string {
 // key for the service.
 func (s *Service) settingsKey() string {
 	return serviceSettingsKey(s.doc.Name, s.doc.CharmURL)
+}
+
+// Series returns the specified series for this charm.
+func (s *Service) Series() string {
+	return s.doc.Series
 }
 
 // Life returns whether the service is Alive, Dying or Dead.
@@ -1418,4 +1429,55 @@ var statusServerities = map[Status]int{
 	StatusTerminated:  60,
 	StatusActive:      50,
 	StatusUnknown:     40,
+}
+
+type addServiceOpsArgs struct {
+	serviceDoc       *serviceDoc
+	statusDoc        statusDoc
+	constraints      constraints.Value
+	networks         []string
+	storage          map[string]StorageConstraints
+	settings         map[string]interface{}
+	settingsRefCount int
+	// These are nil when adding a new service, and most likely
+	// non-nil when migrating.
+	leadershipSettings map[string]interface{}
+}
+
+// addServiceOps returns the operations required to add a service to the
+// services collection, along with all the associated expected other service
+// entries. This method is used by both the *State.AddService method and the
+// migration import code.
+func addServiceOps(st *State, args addServiceOpsArgs) []txn.Op {
+	svc := newService(st, args.serviceDoc)
+
+	globalKey := svc.globalKey()
+	settingsKey := svc.settingsKey()
+	leadershipKey := leadershipSettingsKey(svc.Name())
+
+	return []txn.Op{
+		createConstraintsOp(st, globalKey, args.constraints),
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
+		createRequestedNetworksOp(st, globalKey, args.networks),
+		createStorageConstraintsOp(globalKey, args.storage),
+		createSettingsOp(settingsKey, args.settings),
+		createSettingsOp(leadershipKey, args.leadershipSettings),
+		createStatusOp(st, globalKey, args.statusDoc),
+		{
+			C:      settingsrefsC,
+			Id:     settingsKey,
+			Assert: txn.DocMissing,
+			Insert: settingsRefsDoc{
+				RefCount: args.settingsRefCount,
+			},
+		}, {
+			C:      servicesC,
+			Id:     svc.Name(),
+			Assert: txn.DocMissing,
+			Insert: args.serviceDoc,
+		},
+	}
 }

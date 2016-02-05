@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/migration"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -200,6 +201,58 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	parentId, isContainer := container.ParentId()
 	c.Assert(parentId, gc.Equals, parent.Id())
 	c.Assert(isContainer, jc.IsTrue)
+}
+
+func (s *MigrationImportSuite) TestServices(c *gc.C) {
+	// Add a service with both settings and leadership settings.
+	service := s.Factory.MakeService(c, &factory.ServiceParams{
+		Settings: map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
+		"leader": "true",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Expose the service.
+	c.Assert(service.SetExposed(), jc.ErrorIsNil)
+
+	allServices, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allServices, gc.HasLen, 1)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+
+	importedServices, err := newSt.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedServices, gc.HasLen, 1)
+
+	exported := allServices[0]
+	imported := importedServices[0]
+
+	c.Assert(imported.ServiceTag(), gc.Equals, exported.ServiceTag())
+	c.Assert(imported.Series(), gc.Equals, exported.Series())
+	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
+
+	exportedConfig, err := exported.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	importedConfig, err := imported.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
+
+	exportedLeaderSettings, err := exported.LeaderSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	importedLeaderSettings, err := imported.LeaderSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

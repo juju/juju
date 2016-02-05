@@ -1286,32 +1286,19 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		NeverSet: true,
 	}
 
-	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
-		createStorageConstraintsOp(svc.globalKey(), args.Storage),
-		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
-		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOp(st, svc.globalKey(), statusDoc),
-		{
-			C:      settingsrefsC,
-			Id:     st.docID(svc.settingsKey()),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount:  1,
-				ModelUUID: st.ModelUUID()},
-		}, {
-			C:      servicesC,
-			Id:     serviceID,
-			Assert: txn.DocMissing,
-			Insert: svcDoc,
-		},
-	}
+	// The addServiceOps does not include the environment alive assertion,
+	// so we add it here.
+	ops := append(
+		[]txn.Op{env.assertAliveOp()},
+		addServiceOps(st, addServiceOpsArgs{
+			serviceDoc:       svcDoc,
+			statusDoc:        statusDoc,
+			constraints:      args.Constraints,
+			networks:         args.Networks,
+			storage:          args.Storage,
+			settings:         map[string]interface{}(args.Settings),
+			settingsRefCount: 1,
+		})...)
 
 	// Collect peer relation addition operations.
 	peerOps, err := st.addPeerRelationsOps(args.Name, peers)

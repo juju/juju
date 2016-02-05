@@ -17,11 +17,15 @@ type Model interface {
 	Owner() names.UserTag
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
-	Users() []User
-	Machines() []Machine
 
+	Users() []User
 	AddUser(UserArgs)
+
+	Machines() []Machine
 	AddMachine(MachineArgs) Machine
+
+	Services() []Service
+	AddService(ServiceArgs) Service
 
 	Validate() error
 }
@@ -131,4 +135,25 @@ type Status interface {
 	Message() string
 	Data() map[string]interface{}
 	Updated() time.Time
+}
+
+// Service represents a deployed charm in a model.
+type Service interface {
+	Tag() names.ServiceTag
+	Name() string
+	Series() string
+	Subordinate() bool
+	CharmURL() string
+	ForceCharm() bool
+	Exposed() bool
+	MinUnits() int
+
+	Settings() map[string]interface{}
+	SettingsRefCount() int
+	LeadershipSettings() map[string]interface{}
+
+	Status() Status
+	SetStatus(StatusArgs)
+
+	Validate() error
 }
