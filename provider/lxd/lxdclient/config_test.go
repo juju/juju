@@ -7,7 +7,6 @@ package lxdclient_test
 
 import (
 	"io/ioutil"
-	"path"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -65,8 +64,6 @@ func (s *configSuite) TestWithDefaultsMissingDirname(c *gc.C) {
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Logf("path.Clean of dirname is %s (dirname is %s)", path.Clean(updated.Dirname), updated.Dirname)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
 		Namespace: "my-ns",
@@ -175,6 +172,11 @@ func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 
 	s.client = newLocalClient(c)
 
+	origConfigDir := lxd.ConfigDir
+	s.AddCleanup(func(c *gc.C) {
+		lxd.ConfigDir = origConfigDir
+	})
+
 	if s.client != nil {
 		origCerts, err := s.client.ListCerts()
 		c.Assert(err, jc.ErrorIsNil)
@@ -234,6 +236,11 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 }
 
 func newLocalClient(c *gc.C) *lxdclient.Client {
+	origConfigDir := lxd.ConfigDir
+	defer func() {
+		lxd.ConfigDir = origConfigDir
+	}()
+
 	client, err := lxdclient.Connect(lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   c.MkDir(),
