@@ -6,6 +6,9 @@ package apiserver
 // This file imports all of the facades so they get registered at runtime.
 // When adding a new facade implementation, import it here so that its init()
 // function will get called to register it.
+//
+// TODO(fwereade): this is silly. We should be declaring our full API in *one*
+// place, not scattering it across packages and depending on magic import lists.
 import (
 	_ "github.com/juju/juju/apiserver/action"
 	_ "github.com/juju/juju/apiserver/addresser"

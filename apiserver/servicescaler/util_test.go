@@ -91,7 +91,7 @@ func (rescaleBackend) RescaleService(name string) error {
 	}
 }
 
-// watchFixture collects components needed to test the Rescale method.
+// rescaleFixture collects components needed to test the Rescale method.
 type rescaleFixture struct {
 	Facade *servicescaler.Facade
 }
