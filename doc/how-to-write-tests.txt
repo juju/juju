@@ -161,7 +161,7 @@ All test suites should embedd BaseSuite. Those that need the extra functionality
 can instead embedd one of the fake home suites:
 
 * FakeHomeSuite: creates a fake home directory with ~/.ssh and fake ssh keys.
-* FakeJujuHomeSuite: as above but also sets up a ~/.juju with a fake model.
+* FakeJujuHomeSuite: as above but also sets up a ~/.config/juju with a fake model.
 
 The JujuConnSuite does this and more. It also sets up a controller and api
 server.  This is one problem with the JujuConnSuite, it almost always does a

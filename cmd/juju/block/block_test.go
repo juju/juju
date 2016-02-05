@@ -22,7 +22,7 @@ type BlockCommandSuite struct {
 }
 
 func (s *BlockCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
 	s.PatchValue(block.BlockClient, func(p *block.BaseBlockCommand) (block.BlockClientAPI, error) {
 		return s.mockClient, nil

@@ -136,6 +136,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.Env = &environ{
 		name: "lxd",
 	}
+	fakeHome := c.MkDir()
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
 }
