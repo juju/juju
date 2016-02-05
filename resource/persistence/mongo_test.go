@@ -48,11 +48,9 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(docID, resource.ModelResource{
-		ID:          res.Name,
-		ServiceID:   serviceID,
+	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
+		storagePath: "service-a-service/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -102,11 +100,9 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(docID, resource.ModelResource{
-		ID:          res.ID,
-		ServiceID:   serviceID,
+	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
+		storagePath: "service-a-service/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -154,12 +150,9 @@ func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(docID, resource.ModelResource{
-		ID:          res.ID,
-		PendingID:   "some-unique-ID-001",
-		ServiceID:   serviceID,
+	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
+		storagePath: "service-a-service/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -212,10 +205,7 @@ func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, resource.ModelResource{
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID-001",
-		ServiceID: "a-service",
+	c.Check(res, jc.DeepEquals, storedResource{
 		Resource: resource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
@@ -233,7 +223,7 @@ func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
 			Username:  "a-user",
 			Timestamp: now,
 		},
-		StoragePath: "service-a-service/resources/spam-some-unique-ID-001",
+		storagePath: "service-a-service/resources/spam-some-unique-ID-001",
 	})
 }
 
@@ -362,12 +352,9 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 	}
-	doc := resource2doc(docID, resource.ModelResource{
-		ID:          res.ID,
-		PendingID:   "some-unique-ID",
-		ServiceID:   serviceID,
+	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
+		storagePath: "service-a-service/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -494,11 +481,9 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 		ID:        "a-service/spam",
 		ServiceID: serviceID,
 	}
-	doc := resource2doc(docID, resource.ModelResource{
-		ID:          res.ID,
-		ServiceID:   serviceID,
+	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
+		storagePath: "service-a-service/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{

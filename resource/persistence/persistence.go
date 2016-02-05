@@ -101,7 +101,7 @@ func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResou
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		resources = append(resources, res)
+		resources = append(resources, stored2ModelResource(res))
 	}
 	return resources, nil
 }
@@ -125,7 +125,7 @@ func (p Persistence) ListPendingResources(serviceID string) ([]resource.ModelRes
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		resources = append(resources, res)
+		resources = append(resources, stored2ModelResource(res))
 	}
 	return resources, nil
 }
@@ -144,9 +144,9 @@ func (p Persistence) StageResource(args resource.ModelResource) error {
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newStagedResourceOps(args)
+			ops = newStagedResourceOps(modelResource2stored(args))
 		case 1:
-			ops = newEnsureStagedSameOps(args)
+			ops = newEnsureStagedSameOps(modelResource2stored(args))
 		default:
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
@@ -193,9 +193,9 @@ func (p Persistence) SetUnitResource(unitID string, args resource.ModelResource)
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(unitID, args)
+			ops = newInsertUnitResourceOps(unitID, modelResource2stored(args))
 		case 1:
-			ops = newUpdateUnitResourceOps(unitID, args)
+			ops = newUpdateUnitResourceOps(unitID, modelResource2stored(args))
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
@@ -223,9 +223,9 @@ func (p Persistence) SetResource(args resource.ModelResource) error {
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(args)
+			ops = newInsertResourceOps(modelResource2stored(args))
 		case 1:
-			ops = newUpdateResourceOps(args)
+			ops = newUpdateResourceOps(modelResource2stored(args))
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
@@ -238,4 +238,21 @@ func (p Persistence) SetResource(args resource.ModelResource) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func modelResource2stored(res resource.ModelResource) storedResource {
+	return storedResource{
+		Resource:    res.Resource,
+		storagePath: res.StoragePath,
+	}
+}
+
+func stored2ModelResource(stored storedResource) resource.ModelResource {
+	return resource.ModelResource{
+		ID:          stored.ID,
+		PendingID:   stored.PendingID,
+		ServiceID:   stored.ServiceID,
+		Resource:    stored.Resource,
+		StoragePath: stored.storagePath,
+	}
 }
