@@ -49,12 +49,12 @@ const (
 var (
 	jobNames = map[MachineJob]multiwatcher.MachineJob{
 		JobHostUnits:        multiwatcher.JobHostUnits,
-		JobManageEnviron:    multiwatcher.JobManageEnviron,
+		JobManageModel:      multiwatcher.JobManageModel,
 		JobManageNetworking: multiwatcher.JobManageNetworking,
 	}
 	jobMigrationValue = map[MachineJob]string{
 		JobHostUnits:        "host-units",
-		JobManageEnviron:    "api-server",
+		JobManageModel:      "api-server",
 		JobManageNetworking: "manage-networking",
 	}
 )

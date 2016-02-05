@@ -128,7 +128,7 @@ func (e *ModelUser) UpdateLastConnection() error {
 }
 
 func (e *ModelUser) updateLastConnection(when time.Time) error {
-	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
+	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
