@@ -62,9 +62,15 @@ func (s *registrationSuite) registrationURL(c *gc.C) string {
 }
 
 func (s *registrationSuite) TestRegister(c *gc.C) {
+	// Ensure we cannot log in with the password yet.
+	const password = "hunter2"
+	c.Assert(s.bob.PasswordValid(password), jc.IsFalse)
+
 	validNonce := []byte(strings.Repeat("X", 24))
 	secretKey := s.bob.SecretKey()
-	ciphertext := s.sealBox(c, validNonce, secretKey, `{"password": "hunter2"}`)
+	ciphertext := s.sealBox(
+		c, validNonce, secretKey, fmt.Sprintf(`{"password": "%s"}`, password),
+	)
 	resp := httptesting.Do(c, httptesting.DoRequestParams{
 		Do:     utils.GetNonValidatingHTTPClient().Do,
 		URL:    s.registrationURL(c),
@@ -83,7 +89,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	// secret key any longer.
 	err := s.bob.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.bob.PasswordValid("hunter2"), jc.IsTrue)
+	c.Assert(s.bob.PasswordValid(password), jc.IsTrue)
 	c.Assert(s.bob.SecretKey(), gc.IsNil)
 
 	var response params.SecretKeyLoginResponse
