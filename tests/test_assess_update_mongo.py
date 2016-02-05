@@ -1,11 +1,11 @@
-"""Tests for assess_update-mongo module."""
+"""Tests for assess_update_mongo module."""
 
 import logging
 from mock import Mock, patch
 import StringIO
 
-from assess_update-mongo import (
-    assess_update-mongo,
+from assess_update_mongo import (
+    assess_update_mongo,
     parse_args,
     main,
 )
@@ -40,15 +40,15 @@ class TestMain(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_update-mongo.configure_logging",
+        with patch("assess_update_mongo.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_update-mongo.BootstrapManager.booted_context",
+            with patch("assess_update_mongo.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
                 with patch("jujupy.SimpleEnvironment.from_config",
                            return_value=env) as mock_e:
                     with patch("jujupy.EnvJujuClient.by_version",
                                return_value=client) as mock_c:
-                        with patch("assess_update-mongo.assess_update-mongo",
+                        with patch("assess_update_mongo.assess_update_mongo",
                                    autospec=True) as mock_assess:
                             main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
@@ -60,9 +60,9 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    def test_update-mongo(self):
+    def test_update_mongo(self):
         mock_client = Mock(spec=["juju", "wait_for_started"])
-        assess_update-mongo(mock_client)
+        assess_update_mongo(mock_client)
         mock_client.juju.assert_called_once_with(
             'deploy', ('local:trusty/my-charm',))
         mock_client.wait_for_started.assert_called_once_with()

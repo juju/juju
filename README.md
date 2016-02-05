@@ -35,7 +35,7 @@ They provide the infrastructure to setup and tear down a test. Your script
 can focus on the unique aspects of your test. Start by making a copy of
 template_assess.py.tmpl, and don't forget unit tests!
 
-    make new-assess name=my-function
+    make new-assess name=my_function
 
 Run make lint early and often. (You may need to do sudo apt-get install python-
 flake8). If you forget, you can run autopep8 to fix certain issues. Please use
