@@ -1022,7 +1022,11 @@ func (s *MachineSuite) TestManageModelBlocksAPIUntilSpacesDiscovered(c *gc.C) {
 			c.Fatalf("discoverspaces worker not created")
 		}
 	}
+	s.assertDiscoveryBlocksAPIUntilChannelClosed(c, spacesDiscovered, conf)
 
+}
+
+func (s *MachineSuite) assertDiscoveryBlocksAPIUntilChannelClosed(c *gc.C, spacesChan chan struct{}, conf agent.ConfigSetterWriter) {
 	info, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	info.Tag = s.AdminUserTag(c)
@@ -1037,7 +1041,7 @@ func (s *MachineSuite) TestManageModelBlocksAPIUntilSpacesDiscovered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	close(spacesDiscovered)
+	close(spacesChan)
 
 	// Now the user can log in
 	info.Tag = s.AdminUserTag(c)
@@ -1082,21 +1086,7 @@ func (s *MachineSuite) TestSpaceDiscoveryErrorDoesntBlockAPI(c *gc.C) {
 			c.Fatalf("second discoverspaces worker not created")
 		}
 	}
-
-	info, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	info.Tag = s.AdminUserTag(c)
-	// User can't log in
-	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
-
-	close(spacesDiscovered)
-
-	// Now the user can log in
-	info.Tag = s.AdminUserTag(c)
-	info.Password = "dummy-secret"
-	_, err = api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertDiscoveryBlocksAPIUntilChannelClosed(c, spacesDiscovered, conf)
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
