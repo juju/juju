@@ -5,15 +5,14 @@ package state_test
 
 import (
 	"bytes"
-	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 func init() {
@@ -39,7 +38,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	res := newResource(c, "spam", data)
 	file := bytes.NewBufferString(data)
 
-	_, err = st.SetResource("a-service", "a-user", res.Resource, file)
+	_, err = st.SetResource("a-service", res.Username, res.Resource, file)
 	c.Assert(err, jc.ErrorIsNil)
 
 	resources, err = st.ListResources("a-service")
@@ -54,26 +53,8 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 }
 
 func newResource(c *gc.C, name, data string) resource.Resource {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name:    name,
-				Type:    charmresource.TypeFile,
-				Path:    name + ".tgz",
-				Comment: "you need it",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    1,
-			Fingerprint: fp,
-			Size:        int64(len(data)),
-		},
-		Username:  "a-user",
-		Timestamp: time.Unix(time.Now().UTC().Unix(), 0),
-	}
-	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	res := opened.Resource
+	res.Timestamp = time.Unix(res.Timestamp.Unix(), 0)
 	return res
 }
