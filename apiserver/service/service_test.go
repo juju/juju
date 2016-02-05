@@ -386,7 +386,7 @@ func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBin
 		EndpointBindings: endpointBindings,
 	}
 
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
