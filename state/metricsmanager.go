@@ -29,7 +29,7 @@ type MetricsManager struct {
 
 type metricsManagerDoc struct {
 	DocID              string        `bson:"_id"`
-	EnvUUID            string        `bson:"env-uuid"`
+	ModelUUID          string        `bson:"model-uuid"`
 	LastSuccessfulSend time.Time     `bson:"lastsuccessfulsend"`
 	ConsecutiveErrors  int           `bson:"consecutiveerrors"`
 	GracePeriod        time.Duration `bson:"graceperiod"`
@@ -40,9 +40,9 @@ func (m *MetricsManager) DocID() string {
 	return m.doc.DocID
 }
 
-// EnvUUID returns the environment UUID of the Metrics Manager.
-func (m *MetricsManager) EnvUUID() string {
-	return m.doc.EnvUUID
+// ModelUUID returns the model UUID of the Metrics Manager.
+func (m *MetricsManager) ModelUUID() string {
+	return m.doc.ModelUUID
 }
 
 // LastSuccessfulSend returns the time of the last successful send.
@@ -76,7 +76,7 @@ func (st *State) newMetricsManager() (*MetricsManager, error) {
 		st: st,
 		doc: metricsManagerDoc{
 			DocID:              st.docID(metricsManagerKey),
-			EnvUUID:            st.EnvironUUID(),
+			ModelUUID:          st.ModelUUID(),
 			LastSuccessfulSend: time.Time{},
 			ConsecutiveErrors:  0,
 			GracePeriod:        defaultGracePeriod,

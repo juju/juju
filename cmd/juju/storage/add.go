@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -21,7 +21,7 @@ func newAddCommand() cmd.Command {
 	cmd.newAPIFunc = func() (StorageAddAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const (
@@ -50,7 +50,7 @@ sequence of: POOL, COUNT, and SIZE, where
     powers of 1024.
 
 Storage constraints can be optionally ommitted.
-Environment default values will be used for all ommitted constraint values.
+Model default values will be used for all ommitted constraint values.
 There is no need to comma-separate ommitted constraints. 
 
 Example:
@@ -64,7 +64,7 @@ Example:
     
     
     Add 1 storage instances for "data" storage to unit u/0 
-    using default environment provider pool: 
+    using default model provider pool:
 
       juju storage add u/0 data=1 
     or

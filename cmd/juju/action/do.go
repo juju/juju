@@ -15,14 +15,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 
 func newDoCommand() cmd.Command {
-	return envcmd.Wrap(&doCommand{})
+	return modelcmd.Wrap(&doCommand{})
 }
 
 // doCommand enqueues an Action for running on the given unit with given

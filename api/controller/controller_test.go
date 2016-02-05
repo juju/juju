@@ -42,15 +42,15 @@ func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
 	return controller.NewClient(conn)
 }
 
-func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
+func (s *controllerSuite) TestAllModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner}).Close()
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: owner}).Close()
 
 	sysManager := s.OpenAPI(c)
-	envs, err := sysManager.AllEnvironments()
+	envs, err := sysManager.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envs, gc.HasLen, 3)
 
@@ -59,40 +59,40 @@ func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"dummy-admin@local/dummyenv",
+		"dummy-admin@local/dummymodel",
 		"user@remote/first",
 		"user@remote/second",
 	}
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
+func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
-	env, err := sysManager.EnvironmentConfig()
+	env, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["name"], gc.Equals, "dummyenv")
+	c.Assert(env["name"], gc.Equals, "dummymodel")
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"}).Close()
+	s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"}).Close()
 
 	sysManager := s.OpenAPI(c)
 	err := sysManager.DestroyController(false)
-	c.Assert(err, gc.ErrorMatches, "controller environment cannot be destroyed before all other environments are destroyed")
+	c.Assert(err, gc.ErrorMatches, "controller model cannot be destroyed before all other models are destroyed")
 }
 
-func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
-	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for state server")
-	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for state server")
+func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
+	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
+	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	sysManager := s.OpenAPI(c)
-	results, err := sysManager.ListBlockedEnvironments()
+	results, err := sysManager.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.EnvironmentBlockInfo{
-		params.EnvironmentBlockInfo{
-			Name:     "dummyenv",
-			UUID:     s.State.EnvironUUID(),
+	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
+		params.ModelBlockInfo{
+			Name:     "dummymodel",
+			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
 				"BlockChange",
@@ -103,7 +103,7 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	sysManager := s.OpenAPI(c)
@@ -115,12 +115,12 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
-	// The WatchAllEnvs infrastructure is comprehensively tested
+func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
+	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
 	sysManager := s.OpenAPI(c)
 
-	w, err := sysManager.WatchAllEnvs()
+	w, err := sysManager.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := w.Stop()
@@ -137,28 +137,28 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	select {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
+		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
 
-		env, err := s.State.Environment()
+		env, err := s.State.Model()
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Assert(envInfo.EnvUUID, gc.Equals, env.UUID())
-		c.Assert(envInfo.Name, gc.Equals, env.Name())
-		c.Assert(envInfo.Life, gc.Equals, multiwatcher.Life("alive"))
-		c.Assert(envInfo.Owner, gc.Equals, env.Owner().Id())
-		c.Assert(envInfo.ServerUUID, gc.Equals, env.ControllerUUID())
+		c.Assert(modelInfo.ModelUUID, gc.Equals, env.UUID())
+		c.Assert(modelInfo.Name, gc.Equals, env.Name())
+		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
+		c.Assert(modelInfo.Owner, gc.Equals, env.Owner().Id())
+		c.Assert(modelInfo.ServerUUID, gc.Equals, env.ControllerUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 }
 
-func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
+func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	controller := s.OpenAPI(c)
-	envTag := s.State.EnvironTag()
-	results, err := controller.EnvironmentStatus(envTag)
+	modelTag := s.State.ModelTag()
+	results, err := controller.ModelStatus(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.EnvironmentStatus{{
-		UUID:               envTag.Id(),
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
+		UUID:               modelTag.Id(),
 		HostedMachineCount: 0,
 		ServiceCount:       0,
 		Owner:              "dummy-admin@local",

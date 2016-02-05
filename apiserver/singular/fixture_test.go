@@ -20,8 +20,8 @@ type mockAuth struct {
 	nonManager bool
 }
 
-// AuthEnvironManager is part of the common.Authorizer interface.
-func (mock mockAuth) AuthEnvironManager() bool {
+// AuthModelManager is part of the common.Authorizer interface.
+func (mock mockAuth) AuthModelManager() bool {
 	return !mock.nonManager
 }
 
@@ -35,9 +35,9 @@ type mockBackend struct {
 	stub testing.Stub
 }
 
-// EnvironTag is part of the singular.Backend interface.
-func (mock *mockBackend) EnvironTag() names.EnvironTag {
-	return coretesting.EnvironmentTag
+// ModelTag is part of the singular.Backend interface.
+func (mock *mockBackend) ModelTag() names.ModelTag {
+	return coretesting.ModelTag
 }
 
 // SingularClaimer is part of the singular.Backend interface.

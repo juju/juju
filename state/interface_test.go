@@ -12,7 +12,7 @@ var (
 	_ Entity = (*Unit)(nil)
 	_ Entity = (*UnitAgent)(nil)
 	_ Entity = (*Service)(nil)
-	_ Entity = (*Environment)(nil)
+	_ Entity = (*Model)(nil)
 	_ Entity = (*User)(nil)
 	_ Entity = (*Action)(nil)
 	_ Entity = (*IPAddress)(nil)
@@ -37,17 +37,17 @@ var (
 	_ NotifyWatcherFactory = (*Machine)(nil)
 	_ NotifyWatcherFactory = (*Unit)(nil)
 	_ NotifyWatcherFactory = (*Service)(nil)
-	_ NotifyWatcherFactory = (*Environment)(nil)
+	_ NotifyWatcherFactory = (*Model)(nil)
 
 	_ AgentEntity = (*Machine)(nil)
 	_ AgentEntity = (*Unit)(nil)
 
-	_ EnvironAccessor = (*State)(nil)
+	_ ModelAccessor = (*State)(nil)
 
 	_ UnitsWatcher = (*Machine)(nil)
 	_ UnitsWatcher = (*Service)(nil)
 
-	_ EnvironMachinesWatcher = (*State)(nil)
+	_ ModelMachinesWatcher = (*State)(nil)
 
 	_ InstanceIdGetter = (*Machine)(nil)
 
@@ -63,5 +63,5 @@ var (
 	_ GlobalEntity = (*Unit)(nil)
 	_ GlobalEntity = (*Service)(nil)
 	_ GlobalEntity = (*Charm)(nil)
-	_ GlobalEntity = (*Environment)(nil)
+	_ GlobalEntity = (*Model)(nil)
 )

@@ -59,7 +59,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
@@ -68,69 +68,69 @@ func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
+func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, expected *state.Model) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
 	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
-func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
+func (s *controllerSuite) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "owned", Owner: admin.UserTag()}).Close()
 	remoteUserTag := names.NewUserTag("user@remote")
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-	st.AddEnvironmentUser(state.EnvUserSpec{
+	st.AddModelUser(state.ModelUserSpec{
 		User:        admin.UserTag(),
 		CreatedBy:   remoteUserTag,
 		DisplayName: "Foo Bar"})
 
-	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
 
-	response, err := s.controller.AllEnvironments()
+	response, err := s.controller.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
-	expected := []string{"dummyenv", "no-access", "owned", "user"}
+	expected := []string{"dummymodel", "no-access", "owned", "user"}
 	var obtained []string
-	for _, env := range response.UserEnvironments {
+	for _, env := range response.UserModels {
 		obtained = append(obtained, env.Name)
-		stateEnv, err := s.State.GetEnvironment(names.NewEnvironTag(env.UUID))
+		stateEnv, err := s.State.GetModel(names.NewModelTag(env.UUID))
 		c.Assert(err, jc.ErrorIsNil)
-		s.checkEnvironmentMatches(c, env.Environment, stateEnv)
+		s.checkEnvironmentMatches(c, env.Model, stateEnv)
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
 
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	list, err := s.controller.ListBlockedEnvironments()
+	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(list.Environments, jc.DeepEquals, []params.EnvironmentBlockInfo{
-		params.EnvironmentBlockInfo{
-			Name:     "dummyenv",
-			UUID:     s.State.EnvironUUID(),
+	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
+		params.ModelBlockInfo{
+			Name:     "dummymodel",
+			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
 			},
 		},
-		params.EnvironmentBlockInfo{
+		params.ModelBlockInfo{
 			Name:     "test",
-			UUID:     st.EnvironUUID(),
+			UUID:     st.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
 				"BlockDestroy",
@@ -141,39 +141,39 @@ func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 
 }
 
-func (s *controllerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
-	list, err := s.controller.ListBlockedEnvironments()
+func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
+	list, err := s.controller.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(list.Environments, gc.HasLen, 0)
+	c.Assert(list.Models, gc.HasLen, 0)
 }
 
-func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
-	env, err := s.controller.EnvironmentConfig()
+func (s *controllerSuite) TestModelConfig(c *gc.C) {
+	env, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
 
-func (s *controllerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
 	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := controller.EnvironmentConfig()
+	env, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
+	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
 
-	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})
@@ -189,8 +189,8 @@ func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
-func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
-	watcherId, err := s.controller.WatchAllEnvs()
+func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
+	watcherId, err := s.controller.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
@@ -213,26 +213,26 @@ func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 		// Expect to see the initial environment be reported.
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
-		c.Assert(envInfo.EnvUUID, gc.Equals, s.State.EnvironUUID())
+		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
+		c.Assert(envInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 }
 
-func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
-	otherEnvOwner := s.Factory.MakeEnvUser(c, nil)
-	otherSt := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+func (s *controllerSuite) TestModelStatus(c *gc.C) {
+	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
+	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:    "dummytoo",
 		Owner:   otherEnvOwner.UserTag(),
 		Prepare: true,
 		ConfigAttrs: testing.Attrs{
-			"state-server": false,
+			"controller": false,
 		},
 	})
 	defer otherSt.Close()
 
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageEnviron}})
+	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
 	s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm: s.Factory.MakeCharm(c, nil),
@@ -245,22 +245,22 @@ func (s *controllerSuite) TestEnvironmentStatus(c *gc.C) {
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
 
-	controllerEnvTag := s.State.EnvironTag().String()
-	hostedEnvTag := otherSt.EnvironTag().String()
+	controllerEnvTag := s.State.ModelTag().String()
+	hostedEnvTag := otherSt.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},
 	}
-	results, err := s.controller.EnvironmentStatus(req)
+	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.EnvironmentStatus{{
-		EnvironTag:         controllerEnvTag,
+	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
+		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ServiceCount:       1,
 		OwnerTag:           "user-dummy-admin@local",
 		Life:               params.Alive,
 	}, {
-		EnvironTag:         hostedEnvTag,
+		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ServiceCount:       1,
 		OwnerTag:           otherEnvOwner.UserTag().String(),

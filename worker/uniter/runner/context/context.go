@@ -509,7 +509,7 @@ func (ctx *HookContext) SetActionFailed() error {
 }
 
 // UpdateActionResults inserts new values for use with action-set and
-// action-fail.  The results struct will be delivered to the state server
+// action-fail.  The results struct will be delivered to the controller
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
@@ -573,8 +573,8 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_CONTEXT_ID="+context.id,
 		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
 		"JUJU_UNIT_NAME="+context.unitName,
-		"JUJU_ENV_UUID="+context.uuid,
-		"JUJU_ENV_NAME="+context.envName,
+		"JUJU_MODEL_UUID="+context.uuid,
+		"JUJU_MODEL_NAME="+context.envName,
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,

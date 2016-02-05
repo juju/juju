@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -34,10 +34,10 @@ func NewDestroyCommand() cmd.Command {
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
-	return envcmd.Wrap(
+	return modelcmd.Wrap(
 		&destroyCommand{},
-		envcmd.EnvSkipFlags,
-		envcmd.EnvSkipDefault,
+		modelcmd.ModelSkipFlags,
+		modelcmd.ModelSkipDefault,
 	)
 }
 
@@ -58,19 +58,19 @@ Continue [y/N]? `[1:]
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	EnvironmentConfig() (map[string]interface{}, error)
+	ModelConfig() (map[string]interface{}, error)
 	DestroyController(destroyEnvs bool) error
-	ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error)
-	EnvironmentStatus(envs ...names.EnvironTag) ([]base.EnvironmentStatus, error)
-	AllEnvironments() ([]base.UserEnvironment, error)
+	ListBlockedModels() ([]params.ModelBlockInfo, error)
+	ModelStatus(envs ...names.ModelTag) ([]base.ModelStatus, error)
+	AllModels() ([]base.UserModel, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
 // destroy command might call.
 type destroyClientAPI interface {
 	Close() error
-	EnvironmentGet() (map[string]interface{}, error)
-	DestroyEnvironment() error
+	ModelGet() (map[string]interface{}, error)
+	DestroyModel() error
 }
 
 // Info implements Command.Info.
@@ -85,7 +85,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyEnvs, "destroy-all-environments", false, "destroy all hosted environments in the controller")
+	f.BoolVar(&c.destroyEnvs, "destroy-all-models", false, "destroy all hosted models in the controller")
 	c.destroyCommandBase.SetFlags(f)
 }
 
@@ -96,19 +96,19 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.EnvName())
+	cfgInfo, err := store.ReadInfo(c.ModelName())
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
 
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.EnvName())
+	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ModelName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.EnvName()); err != nil {
+		if err = confirmDestruction(ctx, c.ModelName()); err != nil {
 			return err
 		}
 	}
@@ -129,20 +129,15 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to destroy the controller.
 	err = api.DestroyController(c.destroyEnvs)
-	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to destroy the controller,
-		// sending the info we were already able to collect.
-		return c.destroyControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
-	}
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
 	}
 
-	ctx.Infof("Destroying controller %q", c.EnvName())
+	ctx.Infof("Destroying controller %q", c.ModelName())
 	if c.destroyEnvs {
-		ctx.Infof("Waiting for hosted environment resources to be reclaimed.")
+		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
 
-		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.EnvironUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
 		for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 			ctx.Infof(fmtCtrStatus(ctrStatus))
 			for _, envStatus := range envsStatus {
@@ -150,7 +145,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		ctx.Infof("All hosted environments reclaimed, cleaning up controller machines")
+		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 	}
 	return environs.Destroy(controllerEnviron, store)
 }
@@ -164,7 +159,7 @@ func (c *destroyCommand) destroyControllerViaClient(ctx *cmd.Context, info confi
 	}
 	defer api.Close()
 
-	err = api.DestroyEnvironment()
+	err = api.DestroyModel()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, nil)
 	}
@@ -186,21 +181,21 @@ To remove all blocks in the controller, please run:
 
 `)
 		if api != nil {
-			envs, err := api.ListBlockedEnvironments()
+			envs, err := api.ListBlockedModels()
 			var bytes []byte
 			if err == nil {
 				bytes, err = formatTabularBlockedEnvironments(envs)
 			}
 
 			if err != nil {
-				logger.Errorf("Unable to list blocked environments: %s", err)
+				logger.Errorf("Unable to list blocked models: %s", err)
 				return cmd.ErrSilent
 			}
 			ctx.Infof(string(bytes))
 		}
 		return cmd.ErrSilent
 	}
-	logger.Errorf(stdFailureMsg, c.EnvName())
+	logger.Errorf(stdFailureMsg, c.ModelName())
 	return destroyErr
 }
 
@@ -211,12 +206,12 @@ If the controller is unusable, then you may run
     juju kill-controller
 
 to forcibly destroy the controller. Upon doing so, review
-your environment provider console for any resources that need
+your model provider console for any resources that need
 to be cleaned up.
 `
 
 func formatTabularBlockedEnvironments(value interface{}) ([]byte, error) {
-	envs, ok := value.([]params.EnvironmentBlockInfo)
+	envs, ok := value.([]params.ModelBlockInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
 	}
@@ -231,7 +226,7 @@ func formatTabularBlockedEnvironments(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME\tENVIRONMENT UUID\tOWNER\tBLOCKS\n")
+	fmt.Fprintf(tw, "NAME\tMODEL UUID\tOWNER\tBLOCKS\n")
 	for _, env := range envs {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", env.Name, env.UUID, env.OwnerTag, blocksToStr(env.Blocks))
 	}
@@ -253,7 +248,7 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	assumeYes bool
 
 	// The following fields are for mocking out
@@ -297,7 +292,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		c.SetEnvName(args[0])
+		c.SetModelName(args[0])
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -313,20 +308,8 @@ func (c *destroyCommandBase) getControllerEnviron(info configstore.EnvironInfo, 
 		if sysAPI == nil {
 			return nil, errors.New("unable to get bootstrap information from API")
 		}
-		bootstrapCfg, err = sysAPI.EnvironmentConfig()
-		if params.IsCodeNotImplemented(err) {
-			// Fallback to the client API. Better to encapsulate the logic for
-			// old servers than worry about connecting twice.
-			client, err := c.getClientAPI()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			defer client.Close()
-			bootstrapCfg, err = client.EnvironmentGet()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		} else if err != nil {
+		bootstrapCfg, err = sysAPI.ModelConfig()
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

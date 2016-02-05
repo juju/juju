@@ -16,7 +16,7 @@ type Config struct {
 	Volumes     VolumeAccessor
 	Filesystems FilesystemAccessor
 	Life        LifecycleManager
-	Environ     EnvironAccessor
+	Environ     ModelAccessor
 	Machines    MachineAccessor
 	Status      StatusSetter
 	Clock       clock.Clock
@@ -27,7 +27,7 @@ func (config Config) Validate() error {
 	switch config.Scope.(type) {
 	case nil:
 		return errors.NotValidf("nil Scope")
-	case names.EnvironTag:
+	case names.ModelTag:
 		if config.StorageDir != "" {
 			return errors.NotValidf("environ Scope with non-empty StorageDir")
 		}

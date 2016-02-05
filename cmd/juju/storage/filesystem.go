@@ -15,7 +15,7 @@ import (
 
 const filesystemCmdDoc = `
 "juju storage filesystem" is used to manage storage filesystems in
- the Juju environment.
+ the Juju model.
 `
 
 const filesystemCmdPurpose = "manage storage filesystems"

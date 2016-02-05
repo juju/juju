@@ -22,12 +22,12 @@ import (
 type uniterSuite struct {
 	testing.JujuConnSuite
 
-	st                 api.Connection
-	stateServerMachine *state.Machine
-	wordpressMachine   *state.Machine
-	wordpressService   *state.Service
-	wordpressCharm     *state.Charm
-	wordpressUnit      *state.Unit
+	st                api.Connection
+	controllerMachine *state.Machine
+	wordpressMachine  *state.Machine
+	wordpressService  *state.Service
+	wordpressCharm    *state.Charm
+	wordpressUnit     *state.Unit
 
 	uniter *uniter.State
 }
@@ -38,11 +38,11 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, true)
 }
 
-func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
+func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	if addStateServer {
-		s.stateServerMachine = testing.AddStateServerMachine(c, s.State)
+	if addController {
+		s.controllerMachine = testing.AddControllerMachine(c, s.State)
 	}
 
 	// Create a machine, a service and add a unit so we can log in as

@@ -35,8 +35,8 @@ func (s *provisionerSuite) TestNewStateMachineScope(c *gc.C) {
 	c.Check(st, gc.NotNil)
 }
 
-func (s *provisionerSuite) TestNewStateEnvironScope(c *gc.C) {
-	st, err := storageprovisioner.NewState(nullAPICaller, names.NewEnvironTag("87927ace-9e41-4fd5-8103-1a6fb5ff7eb4"))
+func (s *provisionerSuite) TestNewStateModelScope(c *gc.C) {
+	st, err := storageprovisioner.NewState(nullAPICaller, names.NewModelTag("87927ace-9e41-4fd5-8103-1a6fb5ff7eb4"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(st, gc.NotNil)
 }
@@ -44,7 +44,7 @@ func (s *provisionerSuite) TestNewStateEnvironScope(c *gc.C) {
 func (s *provisionerSuite) TestNewStateBadScope(c *gc.C) {
 	st, err := storageprovisioner.NewState(nullAPICaller, names.NewUnitTag("mysql/0"))
 	c.Check(st, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "expected EnvironTag or MachineTag, got names.UnitTag")
+	c.Check(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UnitTag")
 }
 
 func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
@@ -915,12 +915,12 @@ func (s *provisionerSuite) TestLifeServerError(c *gc.C) {
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
 }
 
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
+func (s *provisionerSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "StorageProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchForEnvironConfigChanges")
+		c.Check(request, gc.Equals, "WatchForModelConfigChanges")
 		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
 			NotifyWatcherId: "abc",
@@ -929,26 +929,26 @@ func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchForEnvironConfigChanges()
+	_, err = st.WatchForModelConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	inputCfg := coretesting.EnvironConfig(c)
+func (s *provisionerSuite) TestModelConfig(c *gc.C) {
+	inputCfg := coretesting.ModelConfig(c)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "StorageProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "EnvironConfig")
-		c.Assert(result, gc.FitsTypeOf, &params.EnvironConfigResult{})
-		*(result.(*params.EnvironConfigResult)) = params.EnvironConfigResult{
+		c.Check(request, gc.Equals, "ModelConfig")
+		c.Assert(result, gc.FitsTypeOf, &params.ModelConfigResult{})
+		*(result.(*params.ModelConfigResult)) = params.ModelConfigResult{
 			Config: inputCfg.AllAttrs(),
 		}
 		return nil
 	})
 	st, err := storageprovisioner.NewState(apiCaller, names.NewMachineTag("123"))
 	c.Assert(err, jc.ErrorIsNil)
-	outputCfg, err := st.EnvironConfig()
+	outputCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outputCfg.AllAttrs(), jc.DeepEquals, inputCfg.AllAttrs())
 }

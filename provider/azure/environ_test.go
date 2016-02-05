@@ -124,7 +124,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	s.subnet = &network.Subnet{
 		ID:   to.StringPtr("subnet-id"),
-		Name: to.StringPtr("juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
+		Name: to.StringPtr("juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
 		Properties: &network.SubnetPropertiesFormat{
 			AddressPrefix: to.StringPtr("10.0.0.0/16"),
 		},
@@ -176,7 +176,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	// is created when the environment is created.
 	nsgID := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups", "juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+		"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
 		"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
 	)
 
@@ -280,7 +280,7 @@ func openEnviron(
 ) environs.Environ {
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
-	cfg := makeTestEnvironConfig(c, attrs...)
+	cfg := makeTestModelConfig(c, attrs...)
 	env, err := provider.Open(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -301,7 +301,7 @@ func prepareForBootstrap(
 ) environs.Environ {
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
-	cfg := makeTestEnvironConfig(c, attrs...)
+	cfg := makeTestModelConfig(c, attrs...)
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
@@ -321,7 +321,7 @@ func tokenRefreshSender() *azuretesting.MockSender {
 }
 
 func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
-	resourceGroupName := "juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d"
+	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	return azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/"+resourceGroupName, &resources.Group{}),
 		s.makeSender(".*/virtualnetworks/juju-internal", s.vnet),
@@ -336,7 +336,7 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
-		s.makeSender(".*/subnets/juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d", s.subnet),
+		s.makeSender(".*/subnets/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d", s.subnet),
 		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
 		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
@@ -390,11 +390,11 @@ func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParam
 		Tag:      machineTag,
 	}
 	apiInfo := &api.Info{
-		Addrs:      []string{"localhost:246"},
-		CACert:     testing.CACert,
-		Password:   "admin",
-		Tag:        machineTag,
-		EnvironTag: testing.EnvironmentTag,
+		Addrs:    []string{"localhost:246"},
+		CACert:   testing.CACert,
+		Password: "admin",
+		Tag:      machineTag,
+		ModelTag: testing.ModelTag,
 	}
 
 	const secureServerConnections = true
@@ -438,7 +438,7 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 }
 
 func (s *environSuite) TestOpen(c *gc.C) {
-	cfg := makeTestEnvironConfig(c)
+	cfg := makeTestModelConfig(c)
 	env, err := s.provider.Open(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
@@ -529,7 +529,7 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C) startInstanceRequest
 	// Validate HTTP request bodies.
 	c.Assert(s.requests, gc.HasLen, 8)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET") // vmSizes
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // juju-testenv-environment-deadbeef-0bad-400d-8000-4b1d0d06f00d
+	c.Assert(s.requests[1].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 	c.Assert(s.requests[2].Method, gc.Equals, "GET") // skus
 	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
 	assertRequestBody(c, s.requests[3], s.publicIPAddress)

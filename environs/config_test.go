@@ -35,12 +35,12 @@ func (s *suite) TearDownTest(c *gc.C) {
 }
 
 // dummySampleConfig returns the dummy sample config without
-// the state server configured.
+// the controller configured.
 // This function also exists in cloudconfig/userdata_test
 // Maybe place it in dummy and export it?
 func dummySampleConfig() testing.Attrs {
 	return dummy.SampleConfig().Merge(testing.Attrs{
-		"state-server": false,
+		"controller": false,
 	})
 }
 
@@ -54,7 +54,7 @@ default: unknown
 environments:
     only:
         type: unknown
-`, `default environment .* does not exist`,
+`, `default model .* does not exist`,
 	},
 }
 
@@ -75,18 +75,18 @@ var invalidEnvTests = []struct {
 environments:
     only:
         foo: bar
-`, "", `environment "only" has no type`,
+`, "", `model "only" has no type`,
 	}, {`
 environments:
     only:
         foo: bar
-`, "only", `environment "only" has no type`,
+`, "only", `model "only" has no type`,
 	}, {`
 environments:
     only:
         foo: bar
         type: crazy
-`, "only", `environment "only" has an unknown provider type "crazy"`,
+`, "only", `model "only" has an unknown provider type "crazy"`,
 	},
 }
 
@@ -111,10 +111,10 @@ func (*suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
 environments:
     valid:
         type: dummy
-        state-server: false
+        controller: false
     deprecated:
         type: dummy
-        state-server: false
+        controller: false
         tools-metadata-url: aknowndeprecatedfield
         lxc-use-clone: true
 `
@@ -172,7 +172,7 @@ var configTests = []struct {
 environments:
     only:
         type: dummy
-        state-server: false
+        controller: false
 `, func(c *gc.C, envs *environs.Environs) {
 		cfg, err := envs.Config("")
 		c.Assert(err, jc.ErrorIsNil)
@@ -183,12 +183,12 @@ default:
 environments:
     valid:
         type: dummy
-        state-server: false
+        controller: false
     invalid:
         type: crazy
 `, func(c *gc.C, envs *environs.Environs) {
 		cfg, err := envs.Config("")
-		c.Assert(err, gc.ErrorMatches, `environment "invalid" has an unknown provider type "crazy"`)
+		c.Assert(err, gc.ErrorMatches, `model "invalid" has an unknown provider type "crazy"`)
 		c.Assert(cfg, gc.IsNil)
 		cfg, err = envs.Config("valid")
 		c.Assert(err, jc.ErrorIsNil)
@@ -197,13 +197,13 @@ environments:
 environments:
     one:
         type: dummy
-        state-server: false
+        controller: false
     two:
         type: dummy
-        state-server: false
+        controller: false
 `, func(c *gc.C, envs *environs.Environs) {
 		cfg, err := envs.Config("")
-		c.Assert(err, gc.ErrorMatches, `no default environment found`)
+		c.Assert(err, gc.ErrorMatches, `no default model found`)
 		c.Assert(cfg, gc.IsNil)
 	}},
 }
@@ -222,7 +222,7 @@ func (*suite) TestDefaultConfigFile(c *gc.C) {
 environments:
     only:
         type: dummy
-        state-server: false
+        controller: false
         authorized-keys: i-am-a-key
 `
 	outfile, err := environs.WriteEnvirons("", env)
@@ -248,7 +248,7 @@ func (s *suite) TestConfigPerm(c *gc.C) {
 environments:
     only:
         type: dummy
-        state-server: false
+        controller: false
         authorized-keys: i-am-a-key
 `
 	outfile, err := environs.WriteEnvirons("", env)
@@ -276,7 +276,7 @@ func (*suite) TestNamedConfigFile(c *gc.C) {
 environments:
     only:
         type: dummy
-        state-server: false
+        controller: false
         authorized-keys: i-am-a-key
 `
 	path := filepath.Join(c.MkDir(), "a-file")
@@ -322,7 +322,7 @@ func (s *suite) TestDisallowedInBootstrap(c *gc.C) {
 environments:
     dummy:
         type: dummy
-        state-server: false
+        controller: false
 `
 	for key, value := range map[string]interface{}{
 		"storage-default-block-source": "loop",
@@ -445,7 +445,7 @@ func (s *ConfigDeprecationSuite) checkDeprecationWarning(c *gc.C, attrs testing.
 environments:
     deprecated:
         type: dummy
-        state-server: false
+        controller: false
 `
 	restore := s.setupLogger(c)
 	defer restore()
@@ -508,7 +508,7 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 
 func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 	attrs := testing.Attrs{"type": "null"}
-	expected := `Provider type "null" has been renamed to "manual".Please update your environment configuration.`
+	expected := `Provider type "null" has been renamed to "manual".Please update your model configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -538,7 +538,7 @@ func (s *ConfigDeprecationSuite) TestDeprecatedBlockWarning(c *gc.C) {
 		attrs := testing.Attrs{tst: true}
 		s.checkDeprecationWarning(c, attrs, ".*is deprecated and will be ignored since.*")
 	}
-	assertBlockWarning("block-destroy-environment")
+	assertBlockWarning("block-destroy-model")
 	assertBlockWarning("block-remove-object")
 	assertBlockWarning("block-all-changes")
 }

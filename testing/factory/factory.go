@@ -48,12 +48,12 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     names.Tag
-	NoEnvUser   bool
+	NoModelUser bool
 	Disabled    bool
 }
 
-// EnvUserParams defines the parameters for creating an environment user.
-type EnvUserParams struct {
+// ModelUserParams defines the parameters for creating an environment user.
+type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
@@ -111,7 +111,7 @@ type MetricParams struct {
 	DeleteTime *time.Time
 }
 
-type EnvParams struct {
+type ModelParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
@@ -142,8 +142,8 @@ func uniqueString(prefix string) string {
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used.
-// If params.NoEnvUser is false, the user will also be created
-// in the current environment.
+// If params.NoModelUser is false, the user will also be created
+// in the current model.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
 		params = &UserParams{}
@@ -158,7 +158,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Password = "password"
 	}
 	if params.Creator == nil {
-		env, err := factory.st.Environment()
+		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
@@ -166,8 +166,8 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	if !params.NoEnvUser {
-		_, err := factory.st.AddEnvironmentUser(state.EnvUserSpec{
+	if !params.NoModelUser {
+		_, err := factory.st.AddModelUser(state.ModelUserSpec{
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
@@ -181,35 +181,35 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	return user
 }
 
-// MakeEnvUser will create a envUser with values defined by the params. For
-// attributes of EnvUserParams that are the default empty values, some
+// MakeModelUser will create a modelUser with values defined by the params. For
+// attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.EnvironmentUser {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.ModelUser {
 	if params == nil {
-		params = &EnvUserParams{}
+		params = &ModelUserParams{}
 	}
 	if params.User == "" {
-		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
+		user := factory.MakeUser(c, &UserParams{NoModelUser: true})
 		params.User = user.UserTag().Canonical()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
 	if params.CreatedBy == nil {
-		env, err := factory.st.Environment()
+		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddEnvironmentUser(state.EnvUserSpec{
+	modelUser, err := factory.st.AddModelUser(state.ModelUserSpec{
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
 		ReadOnly:    params.ReadOnly,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return envUser
+	return modelUser
 }
 
 func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {
@@ -500,39 +500,39 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 	return relation
 }
 
-// MakeEnvironment creates an environment with specified params,
+// MakeModel creates an model with specified params,
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
 //
-// By default the new enviroment shares the same owner as the calling
-// Factory's environment.
-func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State {
+// By default the new model shares the same owner as the calling
+// Factory's model.
+func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
-		params = new(EnvParams)
+		params = new(ModelParams)
 	}
 	if params.Name == "" {
 		params.Name = uniqueString("testenv")
 	}
 	if params.Owner == nil {
-		origEnv, err := factory.st.Environment()
+		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
-	// It only makes sense to make an environment with the same provider
-	// as the initial environment, or things will break elsewhere.
-	currentCfg, err := factory.st.EnvironConfig()
+	// It only makes sense to make an model with the same provider
+	// as the initial model, or things will break elsewhere.
+	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name":       params.Name,
 		"uuid":       uuid.String(),
 		"type":       currentCfg.Type(),
 		"state-port": currentCfg.StatePort(),
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
+	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Prepare {
 		// Prepare the environment.
@@ -541,7 +541,7 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
-		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
+		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return st

@@ -42,11 +42,8 @@ type MachineJob int
 const (
 	_ MachineJob = iota
 	JobHostUnits
-	JobManageEnviron
+	JobManageModel
 	JobManageNetworking
-
-	// Deprecated in 1.18.
-	JobManageStateDeprecated
 )
 
 var (
@@ -54,9 +51,6 @@ var (
 		JobHostUnits:        multiwatcher.JobHostUnits,
 		JobManageEnviron:    multiwatcher.JobManageEnviron,
 		JobManageNetworking: multiwatcher.JobManageNetworking,
-
-		// Deprecated in 1.18.
-		JobManageStateDeprecated: multiwatcher.JobManageStateDeprecated,
 	}
 	jobMigrationValue = map[MachineJob]string{
 		JobHostUnits:        "host-units",
@@ -69,7 +63,7 @@ var (
 func AllJobs() []MachineJob {
 	return []MachineJob{
 		JobHostUnits,
-		JobManageEnviron,
+		JobManageModel,
 		JobManageNetworking,
 	}
 }
@@ -113,7 +107,7 @@ const manualMachinePrefix = "manual:"
 type machineDoc struct {
 	DocID         string `bson:"_id"`
 	Id            string `bson:"machineid"`
-	EnvUUID       string `bson:"env-uuid"`
+	ModelUUID     string `bson:"model-uuid"`
 	Nonce         string
 	Series        string
 	ContainerType string
@@ -169,7 +163,7 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 }
 
 func wantsVote(jobs []MachineJob, noVote bool) bool {
-	return hasJob(jobs, JobManageEnviron) && !noVote
+	return hasJob(jobs, JobManageModel) && !noVote
 }
 
 // Id returns the machine id.
@@ -207,7 +201,7 @@ type instanceData struct {
 	DocID      string      `bson:"_id"`
 	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
-	EnvUUID    string      `bson:"env-uuid"`
+	ModelUUID  string      `bson:"model-uuid"`
 	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
@@ -278,7 +272,7 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// WantsVote reports whether the machine is a state server
+// WantsVote reports whether the machine is a controller
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
 	return wantsVote(m.doc.Jobs, m.doc.NoVote)
@@ -307,9 +301,9 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 	return nil
 }
 
-// IsManager returns true if the machine has JobManageEnviron.
+// IsManager returns true if the machine has JobManageModel.
 func (m *Machine) IsManager() bool {
-	return hasJob(m.doc.Jobs, JobManageEnviron)
+	return hasJob(m.doc.Jobs, JobManageModel)
 }
 
 // IsManual returns true if the machine was manually provisioned.
@@ -324,7 +318,7 @@ func (m *Machine) IsManual() (bool, error) {
 	// case we need to check if its provider type is "manual".
 	// We also check for "null", which is an alias for manual.
 	if m.doc.Id == "0" {
-		cfg, err := m.st.EnvironConfig()
+		cfg, err := m.st.ModelConfig()
 		if err != nil {
 			return false, err
 		}
@@ -379,11 +373,11 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 }
 
 // SetMongoPassword sets the password the agent responsible for the machine
-// should use to communicate with the state servers.  Previous passwords
+// should use to communicate with the controllers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
 	if !m.IsManager() {
-		return errors.NotSupportedf("setting mongo password for non-state server machine %v", m)
+		return errors.NotSupportedf("setting mongo password for non-controller machine %v", m)
 	}
 	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
@@ -447,7 +441,7 @@ func (m *Machine) PasswordValid(password string) bool {
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
 // nothing otherwise. Destroy will fail if the machine has principal
-// units assigned, or if the machine has JobManageEnviron.
+// units assigned, or if the machine has JobManageModel.
 // If the machine has assigned units, Destroy will return
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
@@ -467,7 +461,7 @@ func (m *Machine) ForceDestroy() error {
 	return nil
 }
 
-var managerMachineError = errors.New("machine is required by the environment")
+var managerMachineError = errors.New("machine is required by the model")
 
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	if m.IsManager() {
@@ -477,13 +471,13 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 	}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. EnsureDead will fail if the machine has
-// principal units assigned, or if the machine has JobManageEnviron.
+// principal units assigned, or if the machine has JobManageModel.
 // If the machine has assigned units, EnsureDead will return
 // a HasAssignedUnitsError.
 func (m *Machine) EnsureDead() error {
@@ -620,7 +614,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		advanceAsserts := bson.D{
-			{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
+			{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
 			{"hasvote", bson.D{{"$ne", true}}},
 		}
 		// Grab a fresh copy of the machine data.
@@ -652,11 +646,11 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		if hasJob(m.doc.Jobs, JobManageEnviron) {
-			// (NOTE: When we enable multiple JobManageEnviron machines,
+		if hasJob(m.doc.Jobs, JobManageModel) {
+			// (NOTE: When we enable multiple JobManageModel machines,
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)
-			return nil, fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is required by the model", m.doc.Id)
 		}
 		if m.doc.HasVote {
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
@@ -953,7 +947,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresence()
-	p := presence.NewPinger(presenceCollection, m.st.environTag, m.globalKey())
+	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -961,10 +955,10 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	// We preform a manual sync here so that the
 	// presence pinger has the most up-to-date information when it
 	// starts. This ensures that commands run immediately after bootstrap
-	// like status or ensure-availability will have an accurate values
+	// like status or enable-ha will have an accurate values
 	// for agent-state.
 	//
-	// TODO: Does not work for multiple state servers. Trigger a sync across all state servers.
+	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
 	if m.IsManager() {
 		m.st.pwatcher.Sync()
 	}
@@ -1082,7 +1076,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		DocID:      m.doc.DocID,
 		MachineId:  m.doc.Id,
 		InstanceId: id,
-		EnvUUID:    m.doc.EnvUUID,
+		ModelUUID:  m.doc.ModelUUID,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
 		RootDisk:   characteristics.RootDisk,
@@ -1412,7 +1406,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	}
 
 	// Update addresses now.
-	envConfig, err := m.st.EnvironConfig()
+	envConfig, err := m.st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -1547,9 +1541,9 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
+	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.ModelUUID(), args)
 	ops := []txn.Op{
-		assertEnvAliveOp(m.st.EnvironUUID()),
+		assertModelAliveOp(m.st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     m.st.docID(args.NetworkName),

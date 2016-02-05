@@ -72,7 +72,7 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
-		FuncName: "GetInstances", Args: gce.FakeCallArgs{"env": s.Env},
+		FuncName: "GetInstances", Args: gce.FakeCallArgs{"switch": s.Env},
 	}})
 }
 
@@ -106,8 +106,8 @@ func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "AvailabilityZoneAllocations",
 		Args: gce.FakeCallArgs{
-			"env":   s.Env,
-			"group": ids,
+			"switch": s.Env,
+			"group":  ids,
 		},
 	}})
 }

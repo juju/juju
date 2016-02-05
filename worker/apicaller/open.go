@@ -27,12 +27,12 @@ var (
 
 // openAPIForAgent exists to handle the edge case that exists
 // when an environment is jumping several versions and doesn't
-// yet have the environment UUID cached in the agent config.
+// yet have the model UUID cached in the agent config.
 // This happens only the first time an agent tries to connect
 // after an upgrade.  If there is no environment UUID set, then
 // use login version 1.
 func openAPIForAgent(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if info.EnvironTag.Id() == "" {
+	if info.ModelTag.Id() == "" {
 		return api.OpenWithVersion(info, opts, 1)
 	}
 	return api.Open(info, opts)
@@ -77,7 +77,7 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 
 	if !usedOldPassword {
 		// Call set password with the current password.  If we've recently
-		// become a state server, this will fix up our credentials in mongo.
+		// become a controller, this will fix up our credentials in mongo.
 		if err := entity.SetPassword(info.Password); err != nil {
 			return nil, errors.Annotate(err, "can't reset agent password")
 		}

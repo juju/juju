@@ -15,7 +15,7 @@ import (
 // the metric collector
 type MetricBatch struct {
 	UUID        string    `json:"uuid"`
-	EnvUUID     string    `json:"env-uuid"`
+	ModelUUID   string    `json:"env-uuid"`
 	UnitName    string    `json:"unit-name"`
 	CharmUrl    string    `json:"charm-url"`
 	Created     time.Time `json:"created"`
@@ -43,7 +43,7 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 	}
 	return &MetricBatch{
 		UUID:        mb.UUID(),
-		EnvUUID:     mb.EnvUUID(),
+		ModelUUID:   mb.ModelUUID(),
 		UnitName:    mb.Unit(),
 		CharmUrl:    mb.CharmURL(),
 		Created:     mb.Created().UTC(),
@@ -63,20 +63,20 @@ type EnvironmentResponses map[string]EnvResponse
 
 // Ack adds the specified the batch UUID to the list of acknowledged batches
 // for the specified environment.
-func (e EnvironmentResponses) Ack(envUUID, batchUUID string) {
-	env := e[envUUID]
+func (e EnvironmentResponses) Ack(modelUUID, batchUUID string) {
+	env := e[modelUUID]
 
 	env.AcknowledgedBatches = append(env.AcknowledgedBatches, batchUUID)
-	e[envUUID] = env
+	e[modelUUID] = env
 }
 
-func (e EnvironmentResponses) SetStatus(envUUID, unitName, status, info string) {
+func (e EnvironmentResponses) SetStatus(modelUUID, unitName, status, info string) {
 	s := UnitStatus{
 		Status: status,
 		Info:   info,
 	}
 
-	env := e[envUUID]
+	env := e[modelUUID]
 
 	if env.UnitStatuses == nil {
 		env.UnitStatuses = map[string]UnitStatus{
@@ -85,7 +85,7 @@ func (e EnvironmentResponses) SetStatus(envUUID, unitName, status, info string) 
 	} else {
 		env.UnitStatuses[unitName] = s
 	}
-	e[envUUID] = env
+	e[modelUUID] = env
 
 }
 

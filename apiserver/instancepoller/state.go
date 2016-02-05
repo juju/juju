@@ -26,8 +26,8 @@ type StateMachine interface {
 }
 
 type StateInterface interface {
-	state.EnvironAccessor
-	state.EnvironMachinesWatcher
+	state.ModelAccessor
+	state.ModelMachinesWatcher
 	state.EntityFinder
 
 	Machine(id string) (StateMachine, error)

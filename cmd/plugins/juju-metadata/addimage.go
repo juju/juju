@@ -10,15 +10,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newAddImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&addImageMetadataCommand{})
+	return modelcmd.Wrap(&addImageMetadataCommand{})
 }
 
 const addImageCommandDoc = `
-Add image metadata to Juju environment.
+Add image metadata to Juju model.
 
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
@@ -30,8 +30,8 @@ image-id
    image identifier
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 --region
    cloud region (= region of current model)
 --series (= current model preferred series)
@@ -79,7 +79,7 @@ func (c *addImageMetadataCommand) Init(args []string) (err error) {
 func (c *addImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-image",
-		Purpose: "adds image metadata to environment",
+		Purpose: "adds image metadata to model",
 		Doc:     addImageCommandDoc,
 	}
 }

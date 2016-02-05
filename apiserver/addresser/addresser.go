@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Addresser", 1, NewAddresserAPI)
+	common.RegisterStandardFacade("Addresser", 2, NewAddresserAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.addresser")
@@ -35,9 +35,9 @@ func NewAddresserAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*AddresserAPI, error) {
-	isEnvironManager := authorizer.AuthEnvironManager()
-	if !isEnvironManager {
-		// Addresser must run as environment manager.
+	isModelManager := authorizer.AuthModelManager()
+	if !isModelManager {
+		// Addresser must run as model manager.
 		return nil, common.ErrPerm
 	}
 	sti := getState(st)
@@ -51,13 +51,13 @@ func NewAddresserAPI(
 // getNetworkingEnviron checks if the environment implements NetworkingEnviron
 // and also if it supports IP address allocation.
 func (api *AddresserAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
-	config, err := api.st.EnvironConfig()
+	config, err := api.st.ModelConfig()
 	if err != nil {
-		return nil, false, errors.Annotate(err, "getting environment config")
+		return nil, false, errors.Annotate(err, "getting model config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return nil, false, errors.Annotate(err, "validating environment config")
+		return nil, false, errors.Annotate(err, "validating model config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {

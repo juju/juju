@@ -13,19 +13,19 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
 // NewStatusHistoryCommand returns a command that reports the history
 // of status changes for the specified unit.
 func NewStatusHistoryCommand() cmd.Command {
-	return envcmd.Wrap(&statusHistoryCommand{})
+	return modelcmd.Wrap(&statusHistoryCommand{})
 }
 
 type statusHistoryCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out           cmd.Output
 	outputContent string
 	backlogSize   int

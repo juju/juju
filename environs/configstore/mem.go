@@ -63,7 +63,7 @@ func (m *memStore) List() ([]string, error) {
 	defer m.mu.Unlock()
 	for name, env := range m.envs {
 		api := env.APIEndpoint()
-		if api.ServerUUID == "" || api.EnvironUUID != "" {
+		if api.ServerUUID == "" || api.ModelUUID != "" {
 			envs = append(envs, name)
 		}
 	}
@@ -78,8 +78,8 @@ func (m *memStore) ListSystems() ([]string, error) {
 	for name, env := range m.envs {
 		api := env.APIEndpoint()
 		if api.ServerUUID == "" ||
-			api.ServerUUID == api.EnvironUUID ||
-			api.EnvironUUID == "" {
+			api.ServerUUID == api.ModelUUID ||
+			api.ModelUUID == "" {
 			servers = append(servers, name)
 		}
 	}
@@ -94,7 +94,7 @@ func (m *memStore) ReadInfo(envName string) (EnvironInfo, error) {
 	if info != nil {
 		return info.clone(), nil
 	}
-	return nil, errors.NotFoundf("environment %q", envName)
+	return nil, errors.NotFoundf("model %q", envName)
 }
 
 // Location implements EnvironInfo.Location.
@@ -124,7 +124,7 @@ func (info *memInfo) Destroy() error {
 	defer m.mu.Unlock()
 	if info.initialized() {
 		if m.envs[info.name] == nil {
-			return fmt.Errorf("environment info has already been removed")
+			return fmt.Errorf("model info has already been removed")
 		}
 		delete(m.envs, info.name)
 	}

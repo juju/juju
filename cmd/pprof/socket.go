@@ -37,9 +37,7 @@ func Start() func() error {
 		Handler: mux,
 	}
 
-	name := filepath.Base(os.Args[0])
-	path := fmt.Sprintf("/tmp/pprof.%s.%d", name, os.Getpid())
-
+	path := socketpath()
 	addr, err := net.ResolveUnixAddr("unix", path)
 	if err != nil {
 		logger.Errorf("unable to resolve unix socket: %v", err)
@@ -63,4 +61,12 @@ func Start() func() error {
 	}()
 
 	return l.Close
+}
+
+// socketpath returns the path for this processes' pprof socket.
+func socketpath() string {
+	cmd := filepath.Base(os.Args[0])
+	name := fmt.Sprintf("pprof.%s.%d", cmd, os.Getpid())
+	path := filepath.Join(os.TempDir(), name)
+	return path
 }

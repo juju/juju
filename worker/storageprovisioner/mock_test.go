@@ -91,33 +91,33 @@ func (w *mockAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.changes
 }
 
-type mockEnvironAccessor struct {
+type mockModelAccessor struct {
 	watcher *mockNotifyWatcher
 	mu      sync.Mutex
 	cfg     *config.Config
 }
 
-func (e *mockEnvironAccessor) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
+func (e *mockModelAccessor) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	return e.watcher, nil
 }
 
-func (e *mockEnvironAccessor) EnvironConfig() (*config.Config, error) {
+func (e *mockModelAccessor) ModelConfig() (*config.Config, error) {
 	e.mu.Lock()
 	cfg := e.cfg
 	e.mu.Unlock()
 	return cfg, nil
 }
 
-func (e *mockEnvironAccessor) setConfig(cfg *config.Config) {
+func (e *mockModelAccessor) setConfig(cfg *config.Config) {
 	e.mu.Lock()
 	e.cfg = cfg
 	e.mu.Unlock()
 }
 
-func newMockEnvironAccessor(c *gc.C) *mockEnvironAccessor {
-	return &mockEnvironAccessor{
+func newMockModelAccessor(c *gc.C) *mockModelAccessor {
+	return &mockModelAccessor{
 		watcher: newMockNotifyWatcher(),
-		cfg:     testing.EnvironConfig(c),
+		cfg:     testing.ModelConfig(c),
 	}
 }
 

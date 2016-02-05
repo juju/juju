@@ -28,7 +28,7 @@ func NewUndertakerAPI(st *state.State, resources *common.Resources, authorizer c
 }
 
 func newUndertakerAPI(st State, resources *common.Resources, authorizer common.Authorizer) (*UndertakerAPI, error) {
-	if !authorizer.AuthMachineAgent() || !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() || !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &UndertakerAPI{
@@ -37,21 +37,21 @@ func newUndertakerAPI(st State, resources *common.Resources, authorizer common.A
 	}, nil
 }
 
-// EnvironInfo returns information on the environment needed by the undertaker worker.
-func (u *UndertakerAPI) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	result := params.UndertakerEnvironInfoResult{}
-	env, err := u.st.Environment()
+// ModelInfo returns information on the model needed by the undertaker worker.
+func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
+	result := params.UndertakerModelInfoResult{}
+	env, err := u.st.Model()
 
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	tod := env.TimeOfDeath()
 
-	result.Result = params.UndertakerEnvironInfo{
+	result.Result = params.UndertakerModelInfo{
 		UUID:        env.UUID(),
 		GlobalName:  env.Owner().String() + "/" + env.Name(),
 		Name:        env.Name(),
-		IsSystem:    u.st.IsStateServer(),
+		IsSystem:    u.st.IsController(),
 		Life:        params.Life(env.Life().String()),
 		TimeOfDeath: &tod,
 	}
@@ -62,20 +62,20 @@ func (u *UndertakerAPI) EnvironInfo() (params.UndertakerEnvironInfoResult, error
 	return result, nil
 }
 
-// ProcessDyingEnviron checks if a dying environment has any machines or services.
+// ProcessDyingModel checks if a dying environment has any machines or services.
 // If there are none, the environment's life is changed from dying to dead.
-func (u *UndertakerAPI) ProcessDyingEnviron() error {
-	return u.st.ProcessDyingEnviron()
+func (u *UndertakerAPI) ProcessDyingModel() error {
+	return u.st.ProcessDyingModel()
 }
 
-// RemoveEnviron removes any records of this environment from Juju.
-func (u *UndertakerAPI) RemoveEnviron() error {
-	err := u.st.RemoveAllEnvironDocs()
+// RemoveModel removes any records of this model from Juju.
+func (u *UndertakerAPI) RemoveModel() error {
+	err := u.st.RemoveAllModelDocs()
 	if err != nil {
 		// TODO(waigani) Return a human friendly error for now. The proper fix
-		// is to run a buildTxn within state.RemoveAllEnvironDocs, so we
+		// is to run a buildTxn within state.RemoveAllModelDocs, so we
 		// can return better errors than "transaction aborted".
-		return errors.New("an error occurred, unable to remove environment")
+		return errors.New("an error occurred, unable to remove model")
 	}
 	return nil
 }
@@ -111,9 +111,9 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 	return nothing
 }
 
-// WatchEnvironResources creates watchers for changes to the lifecycle of an
-// environment's machines and services.
-func (u *UndertakerAPI) WatchEnvironResources() params.NotifyWatchResults {
+// WatchModelResources creates watchers for changes to the lifecycle of an
+// model's machines and services.
+func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			u.environResourceWatcher(),
@@ -121,11 +121,11 @@ func (u *UndertakerAPI) WatchEnvironResources() params.NotifyWatchResults {
 	}
 }
 
-// EnvironConfig returns the environment's configuration.
-func (u *UndertakerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
-	result := params.EnvironConfigResult{}
+// ModelConfig returns the model's configuration.
+func (u *UndertakerAPI) ModelConfig() (params.ModelConfigResult, error) {
+	result := params.ModelConfigResult{}
 
-	config, err := u.st.EnvironConfig()
+	config, err := u.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}

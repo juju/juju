@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const ShowUserCommandDoc = `
@@ -57,7 +57,7 @@ type UserInfoAPI interface {
 
 // infoCommandBase is a common base for 'juju show-user' and 'juju list-user'.
 type infoCommandBase struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	api       UserInfoAPI
 	exactTime bool
 	out       cmd.Output
@@ -68,7 +68,7 @@ func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func NewShowUserCommand() cmd.Command {
-	return envcmd.WrapController(&infoCommand{})
+	return modelcmd.WrapController(&infoCommand{})
 }
 
 // infoCommand retrieves information about a single user.

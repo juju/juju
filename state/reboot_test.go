@@ -39,7 +39,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	// Add machine
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add first container
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{

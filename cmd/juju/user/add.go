@@ -12,15 +12,15 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const useraddCommandDoc = `
-Add users to an existing environment.
+Add users to an existing model.
 
-The user information is stored within an existing environment, and will be
-lost when the environent is destroyed.  A server file will be written out in
+The user information is stored within an existing model, and will be
+lost when the model is destroyed.  A server file will be written out in
 the current directory.  You can control the name and location of this file
 using the --output option.
 
@@ -40,12 +40,12 @@ type AddUserAPI interface {
 }
 
 func NewAddCommand() cmd.Command {
-	return envcmd.WrapController(&addCommand{})
+	return modelcmd.WrapController(&addCommand{})
 }
 
 // addCommand adds new users into a Juju Server.
 type addCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	api         AddUserAPI
 	User        string
 	DisplayName string
@@ -64,7 +64,7 @@ func (c *addCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.OutPath, "o", "", "specify the environment file for new user")
+	f.StringVar(&c.OutPath, "o", "", "specify the model file for new user")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 

@@ -59,13 +59,13 @@ type BackupsMetadataResult struct {
 	Size           int64
 	Stored         time.Time // May be zero...
 
-	Started     time.Time
-	Finished    time.Time // May be zero...
-	Notes       string
-	Environment string
-	Machine     string
-	Hostname    string
-	Version     version.Number
+	Started  time.Time
+	Finished time.Time // May be zero...
+	Notes    string
+	Model    string
+	Machine  string
+	Hostname string
+	Version  version.Number
 }
 
 // RestoreArgs Holds the backup file or id

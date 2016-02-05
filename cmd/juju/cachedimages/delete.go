@@ -8,11 +8,11 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const deleteCommandDoc = `
-Delete cached os images in the Juju environment.
+Delete cached os images in the Juju model.
 
 Images are identified by:
   Kind         eg "lxc"
@@ -26,7 +26,7 @@ Examples:
 `
 
 func newDeleteCommand() cmd.Command {
-	return envcmd.Wrap(&deleteCommand{})
+	return modelcmd.Wrap(&deleteCommand{})
 }
 
 // deleteCommand shows the images in the Juju server.

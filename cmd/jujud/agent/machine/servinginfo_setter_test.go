@@ -112,7 +112,7 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 				}}
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
@@ -139,15 +139,15 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 
 func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
 	// State serving info should not be set for JobHostUnits.
-	s.checkNotStateServer(c, multiwatcher.JobHostUnits)
+	s.checkNotController(c, multiwatcher.JobHostUnits)
 }
 
 func (s *ServingInfoSetterSuite) TestJobManageNetworking(c *gc.C) {
 	// State serving info should NOT be set for JobManageNetworking.
-	s.checkNotStateServer(c, multiwatcher.JobManageNetworking)
+	s.checkNotController(c, multiwatcher.JobManageNetworking)
 }
 
-func (s *ServingInfoSetterSuite) checkNotStateServer(c *gc.C, job multiwatcher.MachineJob) {
+func (s *ServingInfoSetterSuite) checkNotController(c *gc.C, job multiwatcher.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
