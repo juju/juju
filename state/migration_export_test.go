@@ -17,9 +17,9 @@ type MigrationSuite struct {
 }
 
 func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
-	env, err := s.State.Model()
+	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(latestTools)
+	err = dbModel.UpdateLatestToolsVersion(latestTools)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -35,11 +35,11 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Model()
+	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Tag(), gc.Equals, env.EnvironTag())
-	c.Assert(model.Owner(), gc.Equals, env.Owner())
-	config, err := env.Config()
+	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
+	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
+	config, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
@@ -51,17 +51,17 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	lastConnection := state.NowToTheSecond()
 	owner, err := s.State.ModelUser(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateEnvUserLastConnection(owner, lastConnection)
+	err = state.UpdateModelUserLastConnection(owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(state.EnvUserSpec{
+	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		ReadOnly:  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateEnvUserLastConnection(bob, lastConnection)
+	err = state.UpdateModelUserLastConnection(bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()

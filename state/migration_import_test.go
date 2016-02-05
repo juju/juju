@@ -68,15 +68,15 @@ func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	c.Assert(newAttrs, jc.DeepEquals, originalAttrs)
 }
 
-func (s *MigrationImportSuite) newEnvUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
-	user, err := s.State.AddModelUser(state.EnvUserSpec{
+func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
+	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
 		ReadOnly:  readOnly,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if !lastConnection.IsZero() {
-		err = state.UpdateEnvUserLastConnection(user, lastConnection)
+		err = state.UpdateModelUserLastConnection(user, lastConnection)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
@@ -110,9 +110,9 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 
 	lastConnection := state.NowToTheSecond()
 
-	bravo := s.newEnvUser(c, "bravo@external", false, lastConnection)
-	charlie := s.newEnvUser(c, "charlie@external", true, lastConnection)
-	delta := s.newEnvUser(c, "delta@external", true, time.Time{})
+	bravo := s.newModelUser(c, "bravo@external", false, lastConnection)
+	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
+	delta := s.newModelUser(c, "delta@external", true, time.Time{})
 
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,8 +215,8 @@ type mockModel struct {
 	name string
 }
 
-func (m *mockModel) Tag() names.EnvironTag {
-	return names.NewEnvironTag(m.uuid)
+func (m *mockModel) Tag() names.ModelTag {
+	return names.NewModelTag(m.uuid)
 }
 
 func (m *mockModel) Config() map[string]interface{} {
