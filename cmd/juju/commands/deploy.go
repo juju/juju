@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
+	resourcecmd "github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -249,16 +250,6 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 
-	for name, path := range c.Resources {
-		_, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			return errors.Annotatef(err, "file for resource %q", name)
-		}
-		if err != nil {
-			return errors.Annotatef(err, "can't read file for resource %q", name)
-		}
-	}
-
 	return c.UnitCommandBase.Init(args)
 }
 
@@ -268,6 +259,19 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	return apiservice.NewClient(root), nil
+}
+
+func (c *DeployCommand) checkResources() error {
+	for name, path := range c.Resources {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return errors.Annotatef(err, "file for resource %q", name)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "can't read file for resource %q", name)
+		}
+	}
+	return nil
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
@@ -289,6 +293,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		// Charm may have been supplied via a path reference.
 		ch, curl, charmErr := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
 		if charmErr == nil {
+			if err := c.checkResources(); err != nil {
+				return err
+			}
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
@@ -372,6 +379,11 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 
 	// Handle a charm.
+
+	if err := c.checkResources(); err != nil {
+		return err
+	}
+
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -510,23 +522,30 @@ func (c *DeployCommand) deployCharm(
 		}
 	}
 
-	resources, err := c.uploadResources()
-	if err != nil {
-		return errors.Trace(err)
+	var ids map[string]string
+	if len(c.Resources) > 0 || len(charmInfo.Meta.Resources) > 0 {
+		api, err := c.NewAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ids, err = resourcecmd.Upload(serviceName, c.Resources, charmInfo.Meta.Resources, api)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	params := serviceDeployParams{
-		curl.String(),
-		serviceName,
-		series,
-		numUnits,
-		string(configYAML),
-		c.Constraints,
-		c.PlacementSpec,
-		c.Placement,
-		c.Networks,
-		c.Storage,
-		resources,
+		charmURL:      curl.String(),
+		serviceName:   serviceName,
+		series:        series,
+		numUnits:      numUnits,
+		configYAML:    string(configYAML),
+		constraints:   c.Constraints,
+		placementSpec: c.PlacementSpec,
+		placement:     c.Placement,
+		networks:      c.Networks,
+		storage:       c.Storage,
+		resources:     ids,
 	}
 	if err := deployer.serviceDeploy(params); err != nil {
 		return err
@@ -549,13 +568,6 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	return err
-}
-
-// uploadResources uploads the bytes and most metadata for resources, returning
-// a map of resource name to uniqueIds, to be passed along with the
-// ServiceDeploy API command.
-func (c *DeployCommand) uploadResources() (map[string]string, error) {
-	return nil, nil
 }
 
 type serviceDeployParams struct {

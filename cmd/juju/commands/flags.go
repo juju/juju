@@ -80,6 +80,8 @@ func (m stringMap) Set(s string) error {
 	if *m.mapping == nil {
 		*m.mapping = map[string]string{}
 	}
+	// make a copy so the following code is less ugly with dereferencing.
+	mapping := *m.mapping
 	pairs := strings.Split(s, ";")
 	for _, pair := range pairs {
 		vals := strings.SplitN(pair, "=", 2)
@@ -87,10 +89,10 @@ func (m stringMap) Set(s string) error {
 			return errors.NewNotValid(nil, "badly formatted name value pair: "+pair)
 		}
 		name, value := vals[0], vals[1]
-		if _, ok := (*m.mapping)[name]; ok {
+		if _, ok := mapping[name]; ok {
 			return errors.Errorf("duplicate name specified: %q", name)
 		}
-		(*m.mapping)[name] = value
+		mapping[name] = value
 	}
 	return nil
 }

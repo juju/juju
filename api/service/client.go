@@ -55,19 +55,31 @@ func (c *Client) EnvironmentUUID() string {
 	return tag.Id()
 }
 
-// ServiceDelpoyArgs holds the arguments to be sent to Client.ServiceDeploy.
+// ServiceDeployArgs holds the arguments to be sent to Client.ServiceDeploy.
 type ServiceDeployArgs struct {
-	CharmURL      string
-	ServiceName   string
-	Series        string
-	NumUnits      int
-	ConfigYAML    string
-	Cons          constraints.Value
+	// Url of the charm to deploy.
+	CharmURL string
+	// Name to give the service.
+	ServiceName string
+	// Series to be used for the machine.
+	Series string
+	// Number of units to deploy.
+	NumUnits int
+	// A YAML string that overrides the default config.yml.
+	ConfigYAML string
+	// Constraints on where units of this service may be placed.
+	Cons constraints.Value
+	// Specification of a specific machine to deploy to.
 	ToMachineSpec string
-	Placement     []*instance.Placement
-	Networks      []string
-	Storage       map[string]storage.Constraints
-	Resources     map[string]string
+	// Placement directives on where the machines for the unit must be created.
+	Placement []*instance.Placement
+	// Names of networks to deploy on.
+	Networks []string
+	// Constraints specifying how storage should be handled.
+	Storage map[string]storage.Constraints
+	// Collection of resource names for the service, with the value being the
+	// unique ID of a pre-uploaded resources in storage.
+	Resources map[string]string
 }
 
 // ServiceDeploy obtains the charm, either locally or from
