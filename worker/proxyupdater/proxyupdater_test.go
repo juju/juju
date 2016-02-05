@@ -154,7 +154,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.New(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -169,7 +169,7 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.New(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
@@ -194,7 +194,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 
 	proxySettings, _ := s.updateConfig(c)
 
-	updater, err := proxyupdater.New(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)

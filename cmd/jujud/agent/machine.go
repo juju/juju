@@ -709,7 +709,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	// Start this worker first to try and get proxy settings in place
 	// before we do anything else.
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn), writeSystemFiles)
+		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn))
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
 		}
