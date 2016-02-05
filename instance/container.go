@@ -12,6 +12,7 @@ type ContainerType string
 const (
 	NONE = ContainerType("none")
 	LXC  = ContainerType("lxc")
+	LXD  = ContainerType("lxd")
 	KVM  = ContainerType("kvm")
 )
 
@@ -19,6 +20,7 @@ const (
 var ContainerTypes []ContainerType = []ContainerType{
 	LXC,
 	// LXD is also added under Go 1.3+.
+	LXD,
 	KVM,
 }
 

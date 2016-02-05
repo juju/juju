@@ -45,7 +45,6 @@ type rawServerMethods interface {
 	WaitForSuccess(waitURL string) error
 
 	// auth
-	UserAuthServerCert(name string, acceptCert bool) error
 	AmTrusted() bool
 }
 
