@@ -3029,6 +3029,15 @@ logging                true    cs:quantal/logging-1
 mysql      maintenance true    cs:quantal/mysql-1     
 wordpress  active      true    cs:quantal/wordpress-3 
 
+[Relations] 
+SERVICE1    SERVICE2  RELATION          TYPE        
+logging     mysql     juju-info         regular     
+logging     wordpress logging-dir       regular     
+mysql       logging   info              subordinate 
+mysql       wordpress db                regular     
+mysql       wordpress db                regular     
+wordpress   logging   logging-directory subordinate 
+
 [Units]     
 ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS   MESSAGE                        
 mysql/0     maintenance    idle        1.2.3   2             dummymodel-2.dns installing all the things      
