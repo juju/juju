@@ -327,7 +327,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	if err != nil {
 		return err
 	}
-	
+
 	httpClient, err := c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
