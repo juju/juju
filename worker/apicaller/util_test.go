@@ -18,7 +18,7 @@ import (
 type mockAgent struct {
 	agent.Agent
 	stub *testing.Stub
-	env  names.EnvironTag
+	env  names.ModelTag
 }
 
 func (mock *mockAgent) CurrentConfig() agent.Config {
@@ -32,10 +32,10 @@ func (mock *mockAgent) ChangeConfig(mutator agent.ConfigMutator) error {
 
 type dummyConfig struct {
 	agent.Config
-	env names.EnvironTag
+	env names.ModelTag
 }
 
-func (dummy dummyConfig) Environment() names.EnvironTag {
+func (dummy dummyConfig) Model() names.ModelTag {
 	return dummy.env
 }
 
@@ -55,12 +55,12 @@ type mockConn struct {
 	broken chan struct{}
 }
 
-func (mock *mockConn) EnvironTag() (names.EnvironTag, error) {
-	mock.stub.AddCall("EnvironTag")
+func (mock *mockConn) ModelTag() (names.ModelTag, error) {
+	mock.stub.AddCall("ModelTag")
 	if err := mock.stub.NextErr(); err != nil {
-		return names.EnvironTag{}, err
+		return names.ModelTag{}, err
 	}
-	return coretesting.EnvironmentTag, nil
+	return coretesting.ModelTag, nil
 }
 
 func (mock *mockConn) Broken() <-chan struct{} {

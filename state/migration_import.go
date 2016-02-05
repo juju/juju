@@ -18,51 +18,51 @@ import (
 )
 
 // Import the database agnostic model representation into the database.
-func (st *State) Import(model migration.Model) (_ *Environment, _ *State, err error) {
+func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", model.Tag().Id())
 	// At this stage, attempting to import a model with the same
 	// UUID as an existing model will error.
-	envTag := model.Tag()
-	_, err = st.GetEnvironment(envTag)
+	tag := model.Tag()
+	_, err = st.GetModel(tag)
 	if err == nil {
-		// We have an existing matching environment (model).
-		return nil, nil, errors.AlreadyExistsf("model with UUID %s", envTag.Id())
+		// We have an existing matching model.
+		return nil, nil, errors.AlreadyExistsf("model with UUID %s", tag.Id())
 	} else if !errors.IsNotFound(err) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the environment.
+	// Create the model.
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	env, envSt, err := st.NewEnvironment(cfg, model.Owner())
+	dbModel, newSt, err := st.NewModel(cfg, model.Owner())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	logger.Debugf("model created %s/%s", env.Owner().Canonical(), env.Name())
+	logger.Debugf("model created %s/%s", dbModel.Owner().Canonical(), dbModel.Name())
 	defer func() {
 		if err != nil {
-			envSt.Close()
+			newSt.Close()
 		}
 	}()
 
 	if latest := model.LatestToolsVersion(); latest != version.Zero {
-		if err := env.UpdateLatestToolsVersion(latest); err != nil {
+		if err := dbModel.UpdateLatestToolsVersion(latest); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
 	}
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:          envSt,
-		environment: env,
-		model:       model,
-		logger:      logger,
+		st:      newSt,
+		dbModel: dbModel,
+		model:   model,
+		logger:  logger,
 	}
-	if err := restore.environmentUsers(); err != nil {
-		return nil, nil, errors.Annotate(err, "environmentUsers")
+	if err := restore.modelUsers(); err != nil {
+		return nil, nil, errors.Annotate(err, "modelUsers")
 	}
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
@@ -73,39 +73,39 @@ func (st *State) Import(model migration.Model) (_ *Environment, _ *State, err er
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
-	// we don't start environment workers for it before the migration process
+	// we don't start model workers for it before the migration process
 	// is complete.
 
 	// Update the sequences to match that the source.
 
 	logger.Debugf("import success")
-	return env, envSt, nil
+	return dbModel, newSt, nil
 }
 
 type importer struct {
-	st          *State
-	environment *Environment
-	model       migration.Model
-	logger      loggo.Logger
+	st      *State
+	dbModel *Model
+	model   migration.Model
+	logger  loggo.Logger
 }
 
-func (i *importer) environmentUsers() error {
+func (i *importer) modelUsers() error {
 	i.logger.Debugf("importing users")
 
-	// The user that was auto-added when we created the environment will have
+	// The user that was auto-added when we created the model will have
 	// the wrong DateCreated, so we remove it, and add in all the users we
-	// know about. It is also possible that the owner of the environment no
-	// longer has access to the environment due to changes over time.
-	if err := i.st.RemoveEnvironmentUser(i.model.Owner()); err != nil {
+	// know about. It is also possible that the owner of the model no
+	// longer has access to the model due to changes over time.
+	if err := i.st.RemoveModelUser(i.dbModel.Owner()); err != nil {
 		return errors.Trace(err)
 	}
 
 	users := i.model.Users()
-	envuuid := i.environment.UUID()
+	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		ops = append(ops, createEnvUserOp(
-			envuuid,
+		ops = append(ops, createModelUserOp(
+			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
@@ -122,7 +122,7 @@ func (i *importer) environmentUsers() error {
 		if lastConnection.IsZero() {
 			continue
 		}
-		envUser, err := i.st.EnvironmentUser(user.Name())
+		envUser, err := i.st.ModelUser(user.Name())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -170,7 +170,7 @@ func (i *importer) machine(m migration.Machine) error {
 		return errors.NotValidf("missing status")
 	}
 	statusDoc := statusDoc{
-		EnvUUID:    i.st.EnvironUUID(),
+		ModelUUID:  i.st.ModelUUID(),
 		Status:     Status(status.Value()),
 		StatusInfo: status.Message(),
 		StatusData: status.Data(),
@@ -216,7 +216,7 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst migration.CloudInsta
 		DocID:      mdoc.DocID,
 		MachineId:  mdoc.Id,
 		InstanceId: instance.Id(inst.InstanceId()),
-		EnvUUID:    mdoc.EnvUUID,
+		ModelUUID:  mdoc.ModelUUID,
 	}
 
 	if arch := inst.Architecture(); arch != "" {
@@ -263,7 +263,7 @@ func (i *importer) makeMachineDoc(m migration.Machine) (*machineDoc, error) {
 	return &machineDoc{
 		DocID:                    i.st.docID(id),
 		Id:                       id,
-		EnvUUID:                  i.st.EnvironUUID(),
+		ModelUUID:                i.st.ModelUUID(),
 		Nonce:                    m.Nonce(),
 		Series:                   m.Series(),
 		ContainerType:            m.ContainerType(),
@@ -295,7 +295,7 @@ func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
 		case "host-units":
 			result = append(result, JobHostUnits)
 		case "api-server":
-			result = append(result, JobManageEnviron)
+			result = append(result, JobManageModel)
 		case "manage-networking":
 			result = append(result, JobManageNetworking)
 		default:

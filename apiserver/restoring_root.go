@@ -57,7 +57,7 @@ func (r *aboutToRestoreRoot) FindMethod(rootName string, version int, methodName
 
 var allowedMethodsAboutToRestore = set.NewStrings(
 	"Client.FullStatus",     // for "juju status"
-	"Client.EnvironmentGet", // for "juju ssh"
+	"Client.ModelGet",       // for "juju ssh"
 	"Client.PrivateAddress", // for "juju ssh"
 	"Client.PublicAddress",  // for "juju ssh"
 	"Client.WatchDebugLog",  // for "juju debug-log"

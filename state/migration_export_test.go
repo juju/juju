@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -18,9 +18,9 @@ type MigrationSuite struct {
 }
 
 func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
-	env, err := s.State.Environment()
+	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(latestTools)
+	err = dbModel.UpdateLatestToolsVersion(latestTools)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -30,39 +30,39 @@ type MigrationExportSuite struct {
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
-func (s *MigrationExportSuite) TestEnvironmentInfo(c *gc.C) {
+func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Environment()
+	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Tag(), gc.Equals, env.EnvironTag())
-	c.Assert(model.Owner(), gc.Equals, env.Owner())
-	config, err := env.Config()
+	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
+	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
+	config, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 }
 
-func (s *MigrationExportSuite) TestEnvironmentUsers(c *gc.C) {
+func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond()
-	owner, err := s.State.EnvironmentUser(s.Owner)
+	owner, err := s.State.ModelUser(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateEnvUserLastConnection(owner, lastConnection)
+	err = state.UpdateModelUserLastConnection(owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		ReadOnly:  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.UpdateEnvUserLastConnection(bob, lastConnection)
+	err = state.UpdateModelUserLastConnection(bob, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()

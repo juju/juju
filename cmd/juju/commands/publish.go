@@ -15,15 +15,15 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newPublishCommand() cmd.Command {
-	return envcmd.Wrap(&publishCommand{})
+	return modelcmd.Wrap(&publishCommand{})
 }
 
 type publishCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	URL       string
 	CharmPath string
 

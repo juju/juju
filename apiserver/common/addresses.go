@@ -11,12 +11,12 @@ import (
 )
 
 // AddressAndCertGetter can be used to find out
-// state server addresses and the CA public certificate.
+// controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
 	CACert() string
-	EnvironUUID() string
+	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
@@ -83,10 +83,10 @@ func (a *APIAddresser) CACert() params.BytesResult {
 	}
 }
 
-// EnvironUUID returns the environment UUID to connect to the environment
+// ModelUUID returns the model UUID to connect to the environment
 // that the current connection is for.
-func (a *APIAddresser) EnvironUUID() params.StringResult {
-	return params.StringResult{Result: a.getter.EnvironUUID()}
+func (a *APIAddresser) ModelUUID() params.StringResult {
+	return params.StringResult{Result: a.getter.ModelUUID()}
 }
 
 // StateAddresser implements a common set of methods for getting state

@@ -30,8 +30,8 @@ func (APICallerFunc) BestFacadeVersion(facade string) int {
 	return 0
 }
 
-func (APICallerFunc) EnvironTag() (names.EnvironTag, error) {
-	return coretesting.EnvironmentTag, nil
+func (APICallerFunc) ModelTag() (names.ModelTag, error) {
+	return coretesting.ModelTag, nil
 }
 
 func (APICallerFunc) Close() error {

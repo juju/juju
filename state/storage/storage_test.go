@@ -7,11 +7,11 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/blobstore.v2"
 
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testing"
@@ -54,7 +54,7 @@ func (s *StorageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *StorageSuite) TestStorageGet(c *gc.C) {
-	err := s.managedStorage.PutForEnvironment(testUUID, "abc", strings.NewReader("abc"), 3)
+	err := s.managedStorage.PutForBucket(testUUID, "abc", strings.NewReader("abc"), 3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	r, length, err := s.storage.Get("abc")
@@ -71,7 +71,7 @@ func (s *StorageSuite) TestStoragePut(c *gc.C) {
 	err := s.storage.Put("path", strings.NewReader("abcdef"), 3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	r, length, err := s.managedStorage.GetForEnvironment(testUUID, "path")
+	r, length, err := s.managedStorage.GetForBucket(testUUID, "path")
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()
 

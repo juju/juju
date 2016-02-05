@@ -13,8 +13,8 @@ import (
 
 type environSuite struct {
 	uniterSuite
-	apiEnviron   *uniter.Environment
-	stateEnviron *state.Environment
+	apiEnviron   *uniter.Model
+	stateEnviron *state.Model
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -22,9 +22,9 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	var err error
-	s.apiEnviron, err = s.uniter.Environment()
+	s.apiEnviron, err = s.uniter.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.stateEnviron, err = s.State.Environment()
+	s.stateEnviron, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 }
 

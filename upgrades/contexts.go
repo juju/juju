@@ -20,7 +20,7 @@ type Context interface {
 	APIState() api.Connection
 
 	// State returns a connection to state. This will be non-nil
-	// only in the context of a state server.
+	// only in the context of a controller.
 	State() *state.State
 
 	// AgentConfig returns the agent config for the machine that is being

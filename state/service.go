@@ -35,7 +35,7 @@ type Service struct {
 type serviceDoc struct {
 	DocID             string     `bson:"_id"`
 	Name              string     `bson:"name"`
-	EnvUUID           string     `bson:"env-uuid"`
+	ModelUUID         string     `bson:"model-uuid"`
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
@@ -792,7 +792,7 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
-		EnvUUID:                s.doc.EnvUUID,
+		ModelUUID:              s.doc.ModelUUID,
 		Service:                s.doc.Name,
 		Series:                 s.doc.Series,
 		Life:                   Alive,
@@ -801,16 +801,16 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	}
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:  StatusAllocating,
-		Updated: now.UnixNano(),
-		EnvUUID: s.st.EnvironUUID(),
+		Status:    StatusAllocating,
+		Updated:   now.UnixNano(),
+		ModelUUID: s.st.ModelUUID(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
-		EnvUUID:    s.st.EnvironUUID(),
+		ModelUUID:  s.st.ModelUUID(),
 	}
 
 	ops := []txn.Op{
@@ -1263,8 +1263,8 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 			Id:     st.docID(key),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
-				RefCount: 1,
-				EnvUUID:  st.EnvironUUID()},
+				RefCount:  1,
+				ModelUUID: st.ModelUUID()},
 		}, nil
 	}
 	return txn.Op{
@@ -1327,8 +1327,8 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // There is an implicit _id field here, which mongo creates, which is
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
-	RefCount int
-	EnvUUID  string `bson:"env-uuid"`
+	RefCount  int
+	ModelUUID string `bson:"model-uuid"`
 }
 
 // Status returns the status of the service.

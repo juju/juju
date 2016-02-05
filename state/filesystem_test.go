@@ -43,7 +43,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefaultWithUnits(c *gc.C) {
 func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
 	// no pool specified, default block configured: use default
 	// block with managed fs on top.
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+	err := s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "machinescoped",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,7 +309,7 @@ func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("0"))
 }
 
-func (s *FilesystemStateSuite) TestWatchEnvironFilesystems(c *gc.C) {
+func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "filesystem")
 	addUnit := func() {
 		u, err := service.AddUnit()
@@ -319,7 +319,7 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystems(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironFilesystems()
+	w := s.State.WatchModelFilesystems()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0") // initial

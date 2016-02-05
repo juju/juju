@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Annotations", 1, NewAPI)
+	common.RegisterStandardFacade("Annotations", 2, NewAPI)
 }
 
 var getState = func(st *state.State) annotationAccess {

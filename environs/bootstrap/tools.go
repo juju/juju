@@ -46,7 +46,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string)
 	supportedArchitectures, err := env.SupportedArchitectures()
 	if err != nil {
 		return fmt.Errorf(
-			"no packaged tools available and cannot determine environment's supported architectures: %v", err)
+			"no packaged tools available and cannot determine model's supported architectures: %v", err)
 	}
 	archSupported := false
 	for _, arch := range supportedArchitectures {
@@ -57,7 +57,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string)
 	}
 	if !archSupported {
 		envType := env.Config().Type()
-		return errors.Errorf("environment %q of type %s does not support instances running on %q", env.Config().Name(), envType, hostArch)
+		return errors.Errorf("model %q of type %s does not support instances running on %q", env.Config().Name(), envType, hostArch)
 	}
 	return nil
 }

@@ -80,7 +80,7 @@ type MetricBatch struct {
 }
 
 // APIMetricBatch converts the specified MetricBatch to a params.MetricBatch,
-// which can then be sent to the state server.
+// which can then be sent to the controller.
 func APIMetricBatch(batch MetricBatch) params.MetricBatchParam {
 	metrics := make([]params.Metric, len(batch.Metrics))
 	for i, metric := range batch.Metrics {

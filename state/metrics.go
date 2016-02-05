@@ -34,7 +34,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID        string    `bson:"_id"`
-	EnvUUID     string    `bson:"env-uuid"`
+	ModelUUID   string    `bson:"model-uuid"`
 	Unit        string    `bson:"unit"`
 	CharmUrl    string    `bson:"charmurl"`
 	Sent        bool      `bson:"sent"`
@@ -106,7 +106,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		st: st,
 		doc: metricBatchDoc{
 			UUID:        batch.UUID,
-			EnvUUID:     st.EnvironUUID(),
+			ModelUUID:   st.ModelUUID(),
 			Unit:        batch.Unit.Id(),
 			CharmUrl:    charmURL.String(),
 			Sent:        false,
@@ -152,11 +152,11 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	return metric, nil
 }
 
-// MetricBatches returns all metric batches currently stored in state.
+// AllMetricBatches returns all metric batches currently stored in state.
 // TODO (tasdomas): this method is currently only used in the uniter worker test -
 //                  it needs to be modified to restrict the scope of the values it
 //                  returns if it is to be used outside of tests.
-func (st *State) MetricBatches() ([]MetricBatch, error) {
+func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
@@ -169,6 +169,47 @@ func (st *State) MetricBatches() ([]MetricBatch, error) {
 		results[i] = MetricBatch{st: st, doc: doc}
 	}
 	return results, nil
+}
+
+func (st *State) queryLocalMetricBatches(query bson.M) ([]MetricBatch, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	docs := []metricBatchDoc{}
+	if query == nil {
+		query = bson.M{}
+	}
+	query["charmurl"] = bson.M{"$regex": "^local:"}
+	err := c.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]MetricBatch, len(docs))
+	for i, doc := range docs {
+		results[i] = MetricBatch{st: st, doc: doc}
+	}
+	return results, nil
+}
+
+// MetricBatchesUnit returns metric batches for the given unit.
+func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+	return st.queryLocalMetricBatches(bson.M{"unit": unit})
+}
+
+// MetricBatchesUnit returns metric batches for the given service.
+func (st *State) MetricBatchesForService(service string) ([]MetricBatch, error) {
+	svc, err := st.Service(service)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := svc.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitNames := make([]bson.M, len(units))
+	for i, u := range units {
+		unitNames[i] = bson.M{"unit": u.Name()}
+	}
+	return st.queryLocalMetricBatches(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.
@@ -261,9 +302,9 @@ func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
 }
 
-// EnvUUID returns the environment UUID this metric applies to.
-func (m *MetricBatch) EnvUUID() string {
-	return m.doc.EnvUUID
+// ModelUUID returns the model UUID this metric applies to.
+func (m *MetricBatch) ModelUUID() string {
+	return m.doc.ModelUUID
 }
 
 // Unit returns the name of the unit this metric was generated in.

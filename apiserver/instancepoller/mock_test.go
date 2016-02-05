@@ -58,24 +58,24 @@ func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []ne
 	m.CheckCall(c, index, "SetProviderAddresses", args...)
 }
 
-// WatchForEnvironConfigChanges implements StateInterface.
-func (m *mockState) WatchForEnvironConfigChanges() state.NotifyWatcher {
+// WatchForModelConfigChanges implements StateInterface.
+func (m *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "WatchForEnvironConfigChanges")
+	m.MethodCall(m, "WatchForModelConfigChanges")
 
 	w := NewMockConfigWatcher(m.NextErr())
 	m.configWatchers = append(m.configWatchers, w)
 	return w
 }
 
-// EnvironConfig implements StateInterface.
-func (m *mockState) EnvironConfig() (*config.Config, error) {
+// ModelConfig implements StateInterface.
+func (m *mockState) ModelConfig() (*config.Config, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "EnvironConfig")
+	m.MethodCall(m, "ModelConfig")
 
 	if err := m.NextErr(); err != nil {
 		return nil, err
@@ -97,12 +97,12 @@ func (m *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
 	}
 }
 
-// WatchEnvironMachines implements StateInterface.
-func (m *mockState) WatchEnvironMachines() state.StringsWatcher {
+// WatchModelMachines implements StateInterface.
+func (m *mockState) WatchModelMachines() state.StringsWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "WatchEnvironMachines")
+	m.MethodCall(m, "WatchModelMachines")
 
 	ids := make([]string, 0, len(m.machines))
 	// Initial event - all machine ids, sorted.

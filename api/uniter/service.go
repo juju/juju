@@ -118,10 +118,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 
 // OwnerTag returns the service's owner user tag.
 func (s *Service) OwnerTag() (names.UserTag, error) {
-	if s.st.BestAPIVersion() > 0 {
-		return s.serviceOwnerTag()
-	}
-	return s.ownerTag()
+	return s.serviceOwnerTag()
 }
 
 func (s *Service) serviceOwnerTag() (names.UserTag, error) {
@@ -144,29 +141,9 @@ func (s *Service) serviceOwnerTag() (names.UserTag, error) {
 	return names.ParseUserTag(result.Result)
 }
 
-func (s *Service) ownerTag() (names.UserTag, error) {
-	var invalidTag names.UserTag
-	var result params.StringResult
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag.String()}},
-	}
-	err := s.st.facade.FacadeCall("GetOwnerTag", args, &result)
-	if err != nil {
-		return invalidTag, err
-	}
-	if result.Error != nil {
-		return invalidTag, result.Error
-	}
-	return names.ParseUserTag(result.Result)
-}
-
 // SetStatus sets the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Service) SetStatus(unitName string, status params.Status, info string, data map[string]interface{}) error {
-	//TODO(perrito666) bump api version for this?
-	if s.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("SetStatus")
-	}
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
@@ -181,15 +158,12 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	}
 	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.NotImplementedf("SetServiceStatus")
-		}
 		return errors.Trace(err)
 	}
 	return result.OneError()
 }
 
-// ServiceStatus returns the status of the service if the passed unitName,
+// Status returns the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	tag := names.NewUnitTag(unitName)
@@ -203,9 +177,6 @@ func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	}
 	err := s.st.facade.FacadeCall("ServiceStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.ServiceStatusResult{}, errors.NotImplementedf("ServiceStatus")
-		}
 		return params.ServiceStatusResult{}, errors.Trace(err)
 	}
 	result := results.Results[0]

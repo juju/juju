@@ -58,10 +58,10 @@ class JujuMan(object):
 
 
 ENVIRONMENT = (
-    ('JUJU_ENV', textwrap.dedent("""\
+    ('JUJU_MODEL', textwrap.dedent("""\
         Provides a way for the shell environment to specify the current Juju
-        environment to use.  If the environment is specified explicitly using
-        -e ENV, this takes precedence.
+        model to use.  If the model is specified explicitly using
+        -m MODEL, this takes precedence.
         """)),
     ('JUJU_HOME', textwrap.dedent("""\
         Overrides the default Juju configuration directory of ~/.juju.
@@ -146,7 +146,7 @@ man_foot = """\
 .TP
 .I "~/.juju/environments.yaml"
 This is the Juju config file, which you can use to specify multiple
-environments in which to deploy.
+models in which to deploy.
 
 A config file can be created using
 .B juju init

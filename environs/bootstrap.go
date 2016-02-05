@@ -58,7 +58,7 @@ type BootstrapResult struct {
 
 	// Finalize is a function that must be called to finalize the
 	// bootstrap process by transferring the tools and installing the
-	// initial Juju state server.
+	// initial Juju controller.
 	Finalize BootstrapFinalizer
 }
 

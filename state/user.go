@@ -170,8 +170,8 @@ type userDoc struct {
 }
 
 type userLastLoginDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 	// LastLogin is updated by the apiserver whenever the user
 	// connects over the API. This update is not done using mgo.txn
 	// so this value could well change underneath a normal transaction
@@ -281,7 +281,7 @@ func (u *User) UpdateLastLogin() (err error) {
 
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
-		EnvUUID:   u.st.EnvironUUID(),
+		ModelUUID: u.st.ModelUUID(),
 		LastLogin: nowToTheSecond(),
 	}
 
@@ -356,12 +356,12 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
-	environment, err := u.st.ControllerEnvironment()
+	environment, err := u.st.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if u.doc.Name == environment.Owner().Name() {
-		return errors.Unauthorizedf("cannot disable state server environment owner")
+		return errors.Unauthorizedf("cannot disable controller model owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
 }

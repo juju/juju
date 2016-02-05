@@ -142,7 +142,7 @@ func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C)
 	// Fail to Write the new jenv file
 	s.mockEnvironInfo.failMessage = "failed to write"
 	_, err := s.run(c, "--generate")
-	c.Assert(err, gc.ErrorMatches, "failed to write new password to environments file: failed to write")
+	c.Assert(err, gc.ErrorMatches, "failed to write new password to models file: failed to write")
 	// Last api call was to set the password back to the original.
 	c.Assert(s.mockAPI.password, gc.Equals, "password")
 }

@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -17,15 +17,15 @@ import (
 
 // Export the current model for the State.
 func (st *State) Export() (migration.Model, error) {
-	environment, err := st.Environment()
+	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	export := exporter{
-		st:          st,
-		environment: environment,
-		logger:      loggo.GetLogger("juju.state.export-model"),
+		st:      st,
+		dbModel: dbModel,
+		logger:  loggo.GetLogger("juju.state.export-model"),
 	}
 	if err := export.readAllStatuses(); err != nil {
 		return nil, errors.Annotate(err, "reading statuses")
@@ -34,18 +34,18 @@ func (st *State) Export() (migration.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	envConfig, found := export.settings[environGlobalKey]
+	envConfig, found := export.settings[modelGlobalKey]
 	if !found {
 		return nil, errors.New("missing environ config")
 	}
 
 	args := migration.ModelArgs{
-		Owner:              environment.Owner(),
+		Owner:              dbModel.Owner(),
 		Config:             envConfig.Settings,
-		LatestToolsVersion: environment.LatestToolsVersion(),
+		LatestToolsVersion: dbModel.LatestToolsVersion(),
 	}
 	export.model = migration.NewModel(args)
-	if err := export.environmentUsers(); err != nil {
+	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.machines(); err != nil {
@@ -63,16 +63,16 @@ func (st *State) Export() (migration.Model, error) {
 }
 
 type exporter struct {
-	st          *State
-	environment *Environment
-	model       migration.Model
-	logger      loggo.Logger
-	settings    map[string]settingsDoc
-	status      map[string]bson.M
+	st       *State
+	dbModel  *Model
+	model    migration.Model
+	logger   loggo.Logger
+	settings map[string]settingsDoc
+	status   map[string]bson.M
 }
 
-func (e *exporter) environmentUsers() error {
-	users, err := e.environment.Users()
+func (e *exporter) modelUsers() error {
+	users, err := e.dbModel.Users()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -320,10 +320,10 @@ func (e *exporter) addService(service *Service, refcounts map[string]int) error 
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
+	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
 	defer closer()
 
-	var docs []envUserLastConnectionDoc
+	var docs []modelUserLastConnectionDoc
 	if err := lastConnections.Find(nil).All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
