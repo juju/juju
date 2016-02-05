@@ -21,36 +21,39 @@ type resourcePersistence interface {
 	// None of the resources will be pending.
 	ListResources(serviceID string) (resource.ServiceResources, error)
 
-	// ListModelResources returns the resource data for the given
-	// service ID. None of the resources will be pending.
-	ListModelResources(serviceID string) ([]resource.ModelResource, error)
-
 	// ListPendingResources returns the resource data for the given
 	// service ID.
-	ListPendingResources(serviceID string) ([]resource.ModelResource, error)
+	ListPendingResources(serviceID string) ([]resource.Resource, error)
+
+	// GetResource returns the extended, model-related info for the
+	// non-pending resource.
+	GetResource(id string) (res resource.Resource, storagePath string, _ error)
 
 	// StageResource adds the resource in a separate staging area
 	// if the resource isn't already staged. If the resource already
 	// exists then it is treated as unavailable as long as the new one
 	// is staged.
-	//
-	// A separate staging area is necessary because we are dealing with
-	// the DB and storage at the same time for the same resource in some
-	// operations (e.g. SetResource).  Resources are staged in the DB,
-	// added to storage, and then finalized in the DB.
-	StageResource(resource.ModelResource) error
-
-	// UnstageResource ensures that the resource is removed
-	// from the staging area. If it isn't in the staging area
-	// then this is a noop.
-	UnstageResource(id string) error
-
-	// SetResource stores the resource info. If the resource
-	// is already staged then it is unstaged.
-	SetResource(resource.ModelResource) error
+	StageResource(res resource.Resource, storagePath string) (StagedResource, error)
 
 	// SetUnitResource stores the resource info for a unit.
-	SetUnitResource(unitID string, args resource.ModelResource) error
+	SetUnitResource(unitID string, args resource.Resource) error
+}
+
+// StagedResource represents resource info that has been added to the
+// "staging" area of the persistence layer.
+//
+// A separate staging area is necessary because we are dealing with
+// the DB and storage at the same time for the same resource in some
+// operations (e.g. SetResource).  Resources are staged in the DB,
+// added to storage, and then finalized in the DB.
+type StagedResource interface {
+	// Unstage ensures that the resource is removed
+	// from the staging area. If it isn't in the staging area
+	// then this is a noop.
+	Unstage() error
+
+	// Activate makes the staged resource the active resource.
+	Activate() error
 }
 
 type resourceStorage interface {
@@ -85,27 +88,12 @@ func (st resourceState) ListResources(serviceID string) (resource.ServiceResourc
 
 // GetResource returns the resource data for the identified resource.
 func (st resourceState) GetResource(serviceID, name string) (resource.Resource, error) {
-	res, err := st.getResource(serviceID, name)
-	if err != nil {
-		return res.Resource, errors.Trace(err)
-	}
-	return res.Resource, nil
-}
-
-func (st resourceState) getResource(serviceID, name string) (resource.ModelResource, error) {
-	var res resource.ModelResource
-
-	resources, err := st.persist.ListModelResources(serviceID)
+	id := newResourceID(serviceID, name)
+	res, _, err := st.persist.GetResource(id)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
-
-	for _, res := range resources {
-		if res.Resource.Name == name {
-			return res, nil
-		}
-	}
-	return res, errors.NotFoundf("resource %q", name)
+	return res, nil
 }
 
 // GetPendingResource returns the resource data for the identified resource.
@@ -119,7 +107,7 @@ func (st resourceState) GetPendingResource(serviceID, pendingID string) (resourc
 
 	for _, res := range resources {
 		if res.PendingID == pendingID {
-			return res.Resource, nil
+			return res, nil
 		}
 	}
 	return res, errors.NotFoundf("pending resource %q", pendingID)
@@ -139,7 +127,7 @@ func (st resourceState) SetResource(serviceID, userID string, chRes charmresourc
 }
 
 func (st resourceState) setResource(pendingID, serviceID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	id := newResourceID(serviceID, resource.Resource{Resource: chRes})
+	id := newResourceID(serviceID, chRes.Name)
 
 	res := resource.Resource{
 		Resource:  chRes,
@@ -157,57 +145,60 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 		return res, errors.Annotate(err, "bad resource metadata")
 	}
 
-	args := resource.ModelResource{
-		ID:        id,
-		PendingID: pendingID,
-		ServiceID: serviceID,
-		Resource:  res,
-	}
 	if r == nil {
-		err := st.setResourceInfo(args)
+		err := st.setResourceInfo(res)
 		return res, errors.Trace(err)
 	}
 
-	// We use a staging approach for adding the resource metadata
-	// to the model. This is necessary because the resource data
-	// is stored separately and adding to both should be an atomic
-	// operation.
-
-	path := storagePath(res.Name, serviceID, pendingID)
-	args.StoragePath = path
-	if err := st.persist.StageResource(args); err != nil {
-		return res, errors.Trace(err)
-	}
-
-	hash := res.Fingerprint.String()
-	if err := st.storage.PutAndCheckHash(path, r, res.Size, hash); err != nil {
-		if err := st.persist.UnstageResource(id); err != nil {
-			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
-		}
-		return res, errors.Trace(err)
-	}
-
-	if err := st.persist.SetResource(args); err != nil {
-		if err := st.storage.Remove(path); err != nil {
-			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, serviceID, err)
-		}
-		if err := st.persist.UnstageResource(id); err != nil {
-			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, serviceID, err)
-		}
+	if err := st.storeResource(res, r); err != nil {
 		return res, errors.Trace(err)
 	}
 
 	return res, nil
 }
 
-func (st resourceState) setResourceInfo(args resource.ModelResource) error {
-	if err := st.persist.StageResource(args); err != nil {
+func (st resourceState) storeResource(res resource.Resource, r io.Reader) error {
+	// We use a staging approach for adding the resource metadata
+	// to the model. This is necessary because the resource data
+	// is stored separately and adding to both should be an atomic
+	// operation.
+
+	storagePath := storagePath(res.Name, res.ServiceID, res.PendingID)
+	staged, err := st.persist.StageResource(res, storagePath)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := st.persist.SetResource(args); err != nil {
-		if err := st.persist.UnstageResource(args.ID); err != nil {
-			logger.Errorf("could not unstage resource %q (service %q): %v", args.Resource.Name, args.ServiceID, err)
+	hash := res.Fingerprint.String()
+	if err := st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+		if err := staged.Unstage(); err != nil {
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
+		}
+		return errors.Trace(err)
+	}
+
+	if err := staged.Activate(); err != nil {
+		if err := st.storage.Remove(storagePath); err != nil {
+			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, res.ServiceID, err)
+		}
+		if err := staged.Unstage(); err != nil {
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
+		}
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (st resourceState) setResourceInfo(res resource.Resource) error {
+	staged, err := st.persist.StageResource(res, "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := staged.Activate(); err != nil {
+		if err := staged.Unstage(); err != nil {
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
 		}
 		return errors.Trace(err)
 	}
@@ -231,45 +222,21 @@ func (st resourceState) AddPendingResource(serviceID, userID string, chRes charm
 
 // TODO(ericsnow) Add ResolvePendingResource().
 
-// SetUnitResource records the resource being used by a unit in the Juju model.
-func (st resourceState) SetUnitResource(unit resource.Unit, res resource.Resource) error {
-	logger.Tracef("adding resource %q for unit %q", res.Name, unit.Name())
-	if err := res.Validate(); err != nil {
-		return errors.Annotate(err, "bad resource metadata")
-	}
-
-	pendingID := ""
-	serviceID := unit.ServiceName()
-	id := newResourceID(serviceID, res)
-	args := resource.ModelResource{
-		ID:          id,
-		ServiceID:   serviceID,
-		Resource:    res,
-		StoragePath: storagePath(res.Name, serviceID, pendingID),
-	}
-	err := st.persist.SetUnitResource(unit.Name(), args)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
 func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
 	serviceID := unit.ServiceName()
 
-	modelResource, err := st.getResource(serviceID, name)
+	id := newResourceID(serviceID, name)
+	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
-	resourceInfo := modelResource.Resource
 	if resourceInfo.IsPlaceholder() {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	path := modelResource.StoragePath
-	resourceReader, resSize, err := st.storage.Get(path)
+	resourceReader, resSize, err := st.storage.Get(storagePath)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -282,7 +249,7 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		ReadCloser: resourceReader,
 		persist:    st.persist,
 		unit:       unit,
-		args:       modelResource,
+		resource:   resourceInfo,
 	}
 
 	return resourceInfo, resourceReader, nil
@@ -301,8 +268,8 @@ func newPendingID() (string, error) {
 }
 
 // newResourceID produces a new ID to use for the resource in the model.
-func newResourceID(serviceID string, res resource.Resource) string {
-	return fmt.Sprintf("%s/%s", serviceID, res.Name)
+func newResourceID(serviceID, name string) string {
+	return fmt.Sprintf("%s/%s", serviceID, name)
 }
 
 // storagePath returns the path used as the location where the resource
@@ -324,9 +291,9 @@ func storagePath(name, serviceID, pendingID string) string {
 // reader has been fully read.
 type unitSetter struct {
 	io.ReadCloser
-	persist resourcePersistence
-	unit    resource.Unit
-	args    resource.ModelResource
+	persist  resourcePersistence
+	unit     resource.Unit
+	resource resource.Resource
 }
 
 // Read implements io.Reader.
@@ -334,9 +301,9 @@ func (u unitSetter) Read(p []byte) (n int, err error) {
 	n, err = u.ReadCloser.Read(p)
 	if err == io.EOF {
 		// record that the unit is now using this version of the resource
-		if err := u.persist.SetUnitResource(u.unit.Name(), u.args); err != nil {
+		if err := u.persist.SetUnitResource(u.unit.Name(), u.resource); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"
-			logger.Errorf(msg, u.unit.Name(), u.args.Resource.Name, u.args.Resource.RevisionString())
+			logger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
 		}
 	}
 	return n, err

@@ -37,6 +37,7 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.raw = &stubRawState{stub: s.stub}
 	s.persist = &stubPersistence{stub: s.stub}
+	s.persist.ReturnStageResource = &stubStagedResource{stub: s.stub}
 	s.storage = &stubStorage{stub: s.stub}
 	s.raw.ReturnPersistence = s.persist
 	s.raw.ReturnStorage = s.storage
@@ -101,19 +102,9 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 	resources := newUploadResources(c, "spam", "eggs")
-	s.persist.ReturnListPendingResources = []resource.ModelResource{{
-		ID:          "a-service/spam-some-unique-id",
-		PendingID:   "some-unique-id",
-		ServiceID:   "a-service",
-		Resource:    resources[0],
-		StoragePath: "service-a-service/resources/spam-some-unique-id",
-	}, {
-		ID:          "a-service/eggs-other-unique-id",
-		PendingID:   "other-unique-id",
-		ServiceID:   "a-service",
-		Resource:    resources[1],
-		StoragePath: "service-a-service/resources/eggs-other-unique-id",
-	}}
+	resources[0].PendingID = "some-unique-id"
+	resources[1].PendingID = "other-unique-id"
+	s.persist.ReturnListPendingResources = resources
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -126,17 +117,11 @@ func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
-	chRes := res.Resource
-	path := "service-a-service/resources/spam"
-	expected := resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.Timestamp = s.timestamp
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	chRes := expected.Resource
 	hash := chRes.Fingerprint.String()
+	path := "service-a-service/resources/spam"
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -149,11 +134,10 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
-		"SetResource",
+		"Activate",
 	)
-	s.stub.CheckCall(c, 1, "StageResource", expected)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "SetResource", expected)
 	c.Check(res, jc.DeepEquals, resource.Resource{
 		Resource:  chRes,
 		ID:        "a-service/" + res.Name,
@@ -179,15 +163,9 @@ func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
 	path := "service-a-service/resources/spam"
-	expected := resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.Timestamp = s.timestamp
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -196,24 +174,18 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, failure, nil, nil, ignoredErr)
 
-	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
+	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "currentTimestamp", "StageResource")
-	s.stub.CheckCall(c, 1, "StageResource", expected)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 }
 
 func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	hash := expected.Fingerprint.String()
 	path := "service-a-service/resources/spam"
-	expected := resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.Timestamp = s.timestamp
-	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -222,31 +194,24 @@ func (s *ResourceSuite) TestSetResourcePutFailureBasic(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, failure, nil, ignoredErr)
 
-	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
+	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c,
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
-		"UnstageResource",
+		"Unstage",
 	)
-	s.stub.CheckCall(c, 1, "StageResource", expected)
-	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "UnstageResource", "a-service/"+res.Name)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
 }
 
 func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	hash := expected.Fingerprint.String()
 	path := "service-a-service/resources/spam"
-	expected := resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.Timestamp = s.timestamp
-	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -256,31 +221,24 @@ func (s *ResourceSuite) TestSetResourcePutFailureExtra(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, failure, extraErr, ignoredErr)
 
-	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
+	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c,
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
-		"UnstageResource",
+		"Unstage",
 	)
-	s.stub.CheckCall(c, 1, "StageResource", expected)
-	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "UnstageResource", "a-service/"+res.Name)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	hash := expected.Fingerprint.String()
 	path := "service-a-service/resources/spam"
-	expected := resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.Timestamp = s.timestamp
-	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -289,35 +247,27 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, failure, nil, nil, ignoredErr)
 
-	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
+	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c,
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
-		"SetResource",
+		"Activate",
 		"Remove",
-		"UnstageResource",
+		"Unstage",
 	)
-	s.stub.CheckCall(c, 1, "StageResource", expected)
-	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "SetResource", expected)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
 	s.stub.CheckCall(c, 4, "Remove", path)
-	s.stub.CheckCall(c, 5, "UnstageResource", "a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = s.timestamp
+	hash := expected.Fingerprint.String()
 	path := "service-a-service/resources/spam"
-	expected := resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.Timestamp = s.timestamp
-	hash := res.Fingerprint.String()
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -328,39 +278,30 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, failure, extraErr1, extraErr2, ignoredErr)
 
-	_, err := st.SetResource("a-service", "a-user", res.Resource, file)
+	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c,
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
-		"SetResource",
+		"Activate",
 		"Remove",
-		"UnstageResource",
+		"Unstage",
 	)
-	s.stub.CheckCall(c, 1, "StageResource", expected)
-	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 3, "SetResource", expected)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
 	s.stub.CheckCall(c, 4, "Remove", path)
-	s.stub.CheckCall(c, 5, "UnstageResource", "a-service/"+res.Name)
 }
 
 func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
-	chRes := res.Resource
 	s.pendingID = "some-unique-ID-001"
-	path := "service-a-service/resources/spam-some-unique-ID-001"
-	expected := resource.ModelResource{
-		ID:          "a-service/spam",
-		PendingID:   s.pendingID,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: path,
-	}
-	expected.Resource.PendingID = s.pendingID
-	expected.Resource.Timestamp = s.timestamp
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.PendingID = s.pendingID
+	expected.Timestamp = s.timestamp
+	chRes := expected.Resource
 	hash := chRes.Fingerprint.String()
+	path := "service-a-service/resources/spam-some-unique-ID-001"
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -375,23 +316,18 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
-		"SetResource",
+		"Activate",
 	)
-	s.stub.CheckCall(c, 2, "StageResource", expected)
-	s.stub.CheckCall(c, 3, "PutAndCheckHash", path, file, res.Size, hash)
-	s.stub.CheckCall(c, 4, "SetResource", expected)
+	s.stub.CheckCall(c, 2, "StageResource", expected, path)
+	s.stub.CheckCall(c, 3, "PutAndCheckHash", path, file, expected.Size, hash)
 	c.Check(pendingID, gc.Equals, s.pendingID)
 }
 
 func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	data := "some data"
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", data)
-	s.persist.ReturnListModelResources = []resource.ModelResource{{
-		ID:          "a-service/spam",
-		ServiceID:   "a-service",
-		Resource:    opened.Resource,
-		StoragePath: "service-a-service/resources/spam",
-	}}
+	s.persist.ReturnGetResource = opened.Resource
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
 	s.storage.ReturnGet = opened.Content()
 	unit := &fakeUnit{"foo/0", "a-service"}
 	st := NewState(s.raw)
@@ -400,7 +336,7 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	info, reader, err := st.OpenResource(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListModelResources", "Get")
+	s.stub.CheckCallNames(c, "GetResource", "Get")
 	s.stub.CheckCall(c, 1, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 
@@ -416,35 +352,27 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 
 	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
-	s.stub.CheckCallNames(c, "ListModelResources")
+	s.stub.CheckCallNames(c, "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam", "a-service")
-	s.persist.ReturnListModelResources = []resource.ModelResource{{
-		ID:          "a-service/spam",
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
-	}}
+	s.persist.ReturnGetResource = res
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
 	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
-	s.stub.CheckCallNames(c, "ListModelResources")
+	s.stub.CheckCallNames(c, "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
-	s.persist.ReturnListModelResources = []resource.ModelResource{{
-		ID:          "a-service/spam",
-		ServiceID:   "a-service",
-		Resource:    opened.Resource,
-		StoragePath: "service-a-service/resources/spam",
-	}}
+	s.persist.ReturnGetResource = opened.Resource
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
 	content := opened.Content()
 	content.Size += 1
 	s.storage.ReturnGet = content
@@ -453,39 +381,8 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 
 	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
 
-	s.stub.CheckCallNames(c, "ListModelResources", "Get")
+	s.stub.CheckCallNames(c, "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
-}
-
-func (s *ResourceSuite) TestSetUnitResourceOkay(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
-	st := NewState(s.raw)
-	s.stub.ResetCalls()
-
-	unit := fakeUnit{"a-service/0", "a-service"}
-	err := st.SetUnitResource(unit, res)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "SetUnitResource")
-	s.stub.CheckCall(c, 0, "SetUnitResource", "a-service/0", resource.ModelResource{
-		ID:          "a-service/" + res.Name,
-		ServiceID:   "a-service",
-		Resource:    res,
-		StoragePath: "service-a-service/resources/spam",
-	})
-}
-
-func (s *ResourceSuite) TestSetUnitResourceBadResource(c *gc.C) {
-	res := newUploadResource(c, "spam", "spamspamspam")
-	res.Timestamp = time.Time{}
-	st := NewState(s.raw)
-	s.stub.ResetCalls()
-
-	err := st.SetUnitResource(fakeUnit{"some-unit", "a-service"}, res)
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `bad resource metadata.*`)
-	s.stub.CheckNoCalls(c)
 }
 
 func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
@@ -493,12 +390,7 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 		ReadCloser: ioutil.NopCloser(&bytes.Buffer{}),
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"unit/0", "some-service"},
-		args: resource.ModelResource{
-			ID:          "some-service/res",
-			ServiceID:   "some-service",
-			Resource:    newUploadResource(c, "res", "res"),
-			StoragePath: "service-some-service/resources/res",
-		},
+		resource:   newUploadResource(c, "res", "res"),
 	}
 	// have to try to read non-zero data, or bytes.buffer will happily return
 	// nil.
@@ -507,7 +399,7 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 	c.Assert(n, gc.Equals, 0)
 	c.Assert(err, gc.Equals, io.EOF)
 
-	s.stub.CheckCall(c, 0, "SetUnitResource", "unit/0", r.args)
+	s.stub.CheckCall(c, 0, "SetUnitResource", "unit/0", r.resource)
 }
 
 func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
@@ -515,12 +407,7 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 		ReadCloser: ioutil.NopCloser(bytes.NewBufferString("foobar")),
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"unit/0", "some-service"},
-		args: resource.ModelResource{
-			ID:          "some-service/res",
-			ServiceID:   "some-service",
-			Resource:    newUploadResource(c, "res", "res"),
-			StoragePath: "service-some-service/resources/res",
-		},
+		resource:   newUploadResource(c, "res", "res"),
 	}
 	// read less than the full buffer
 	p := make([]byte, 3)
@@ -538,12 +425,7 @@ func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 		ReadCloser: ioutil.NopCloser(&bytes.Buffer{}),
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"some-service/0", "some-service"},
-		args: resource.ModelResource{
-			ID:          "some-service/res",
-			ServiceID:   "some-service",
-			Resource:    newUploadResource(c, "res", "res"),
-			StoragePath: "service-some-service/resources/res",
-		},
+		resource:   newUploadResource(c, "res", "res"),
 	}
 
 	s.stub.SetErrors(errors.Errorf("oops!"))
@@ -556,7 +438,7 @@ func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 	// ensure that we return the EOF from bytes.buffer and not the error from SetUnitResource.
 	c.Assert(err, gc.Equals, io.EOF)
 
-	s.stub.CheckCall(c, 0, "SetUnitResource", "some-service/0", r.args)
+	s.stub.CheckCall(c, 0, "SetUnitResource", "some-service/0", r.resource)
 }
 
 func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
@@ -564,12 +446,7 @@ func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
 		ReadCloser: ioutil.NopCloser(&stubReader{stub: s.stub}),
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       fakeUnit{"foo/0", "some-service"},
-		args: resource.ModelResource{
-			ID:          "some-service/res",
-			ServiceID:   "some-service",
-			Resource:    newUploadResource(c, "res", "res"),
-			StoragePath: "service-some-service/resources/res",
-		},
+		resource:   newUploadResource(c, "res", "res"),
 	}
 	expected := errors.Errorf("some-err")
 	s.stub.SetErrors(expected)
