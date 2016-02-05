@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewImportKeysCommand is used to add new authorized ssh keys for a user.
+// NewImportKeysCommand is used to add new authorized ssh keys to a model.
 func NewImportKeysCommand() cmd.Command {
 	return modelcmd.Wrap(&importKeysCommand{})
 }
@@ -23,7 +23,7 @@ Import new authorised ssh keys to allow the holder of those keys to log on to Ju
 The keys are imported using ssh-import-id.
 `
 
-// importKeysCommand is used to add new authorized ssh keys for a user.
+// importKeysCommand is used to import authorized ssh keys to a model.
 type importKeysCommand struct {
 	SSHKeysBase
 	user      string
@@ -34,7 +34,7 @@ type importKeysCommand struct {
 func (c *importKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "import-ssh-key",
-		Args:    "<ssh key id> [...]",
+		Args:    "<ssh key id> ...",
 		Doc:     importKeysDoc,
 		Purpose: "using ssh-import-id, import new authorized ssh keys to a Juju model",
 		Aliases: []string{"import-ssh-keys"},

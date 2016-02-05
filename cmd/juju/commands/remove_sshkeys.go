@@ -21,7 +21,7 @@ func NewRemoveKeysCommand() cmd.Command {
 var removeKeysDoc = `
 Remove existing authorized ssh keys to remove ssh access for the holder of those keys.
 The keys to delete are found by specifying either the "comment" portion of the ssh key,
-typically something like "user@host", or the key fingerprint found by using ssh-keygen.
+typically something like "user@host", or the key fingerprint.
 `
 
 // removeKeysCommand is used to delete authorised ssh keys for a user.
@@ -35,7 +35,7 @@ type removeKeysCommand struct {
 func (c *removeKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-ssh-key",
-		Args:    "<ssh key id> [...]",
+		Args:    "<ssh key id> ...",
 		Doc:     removeKeysDoc,
 		Purpose: "remove authorized ssh keys from a Juju model",
 		Aliases: []string{"remove-ssh-keys"},

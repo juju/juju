@@ -13,13 +13,13 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewAddKeysCommand is used to add a new ssh key for a user.
+// NewAddKeysCommand is used to add a new ssh key to a model.
 func NewAddKeysCommand() cmd.Command {
 	return modelcmd.Wrap(&addKeysCommand{})
 }
 
 var addKeysDoc = `
-Add new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
+Add new authorized ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
 `
 
 // addKeysCommand is used to add a new authorized ssh key for a user.
@@ -33,9 +33,9 @@ type addKeysCommand struct {
 func (c *addKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-ssh-key",
-		Args:    "<ssh key> [...]",
+		Args:    "<ssh key> ...",
 		Doc:     addKeysDoc,
-		Purpose: "add new authorized ssh keys do a Juju model ",
+		Purpose: "add new authorized ssh key to a Juju model",
 		Aliases: []string{"add-ssh-keys"},
 	}
 }
