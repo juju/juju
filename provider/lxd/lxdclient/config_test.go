@@ -7,7 +7,6 @@ package lxdclient_test
 
 import (
 	"io/ioutil"
-	"os"
 	"path"
 	"path/filepath"
 
@@ -68,12 +67,11 @@ func (s *configSuite) TestWithDefaultsMissingDirname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("path.Clean of dirname is %s (dirname is %s)", path.Clean(updated.Dirname), updated.Dirname)
-	temporaryHome := os.Getenv("HOME") // We set this on test setup
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
 		Namespace: "my-ns",
 		// TODO(ericsnow)  This will change on Windows once the LXD
 		// code is cross-platform.
-		Dirname: path.Join(temporaryHome, ".config/lxc"),
+		Dirname: "/.config/lxc",
 		Remote:  s.remote,
 	})
 }
@@ -176,6 +174,11 @@ func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 
 	s.client = newLocalClient(c)
 
+	origConfigDir := lxd.ConfigDir
+	s.AddCleanup(func(c *gc.C) {
+		lxd.ConfigDir = origConfigDir
+	})
+
 	if s.client != nil {
 		origCerts, err := s.client.ListCerts()
 		c.Assert(err, jc.ErrorIsNil)
@@ -235,6 +238,11 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 }
 
 func newLocalClient(c *gc.C) *lxdclient.Client {
+	origConfigDir := lxd.ConfigDir
+	defer func() {
+		lxd.ConfigDir = origConfigDir
+	}()
+
 	client, err := lxdclient.Connect(lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   c.MkDir(),
