@@ -33,6 +33,7 @@ import (
 	_ "github.com/juju/juju/apiserver/machinemanager"
 	_ "github.com/juju/juju/apiserver/meterstatus"
 	_ "github.com/juju/juju/apiserver/metricsadder"
+	_ "github.com/juju/juju/apiserver/metricsdebug"
 	_ "github.com/juju/juju/apiserver/metricsmanager"
 	_ "github.com/juju/juju/apiserver/modelmanager"
 	_ "github.com/juju/juju/apiserver/networker"

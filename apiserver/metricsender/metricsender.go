@@ -25,7 +25,7 @@ type MetricSender interface {
 
 var (
 	defaultMaxBatchesPerSend              = 10
-	defaultSender            MetricSender = &NopSender{}
+	defaultSender            MetricSender = &HttpSender{}
 )
 
 func handleResponse(mm *state.MetricsManager, st *state.State, response wireformat.Response) {

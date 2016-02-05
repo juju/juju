@@ -30,7 +30,7 @@ func (r *restoreRootSuite) TestFindAllowedMethodWhenPreparing(c *gc.C) {
 func (r *restoreRootSuite) TestNothingAllowedMethodWhenPreparing(c *gc.C) {
 	root := apiserver.TestingRestoreInProgressRoot(nil)
 
-	caller, err := root.FindMethod("Service", 3, "ServiceDeploy")
+	caller, err := root.FindMethod("Service", 3, "Deploy")
 
 	c.Assert(err, gc.ErrorMatches, "juju restore is in progress - Juju api is off to prevent data loss")
 	c.Assert(caller, gc.IsNil)
@@ -39,7 +39,7 @@ func (r *restoreRootSuite) TestNothingAllowedMethodWhenPreparing(c *gc.C) {
 func (r *restoreRootSuite) TestFindDisallowedMethodWhenPreparing(c *gc.C) {
 	root := apiserver.TestingAboutToRestoreRoot(nil)
 
-	caller, err := root.FindMethod("Service", 3, "ServiceDeploy")
+	caller, err := root.FindMethod("Service", 3, "Deploy")
 
 	c.Assert(err, gc.ErrorMatches, "juju restore is in progress - Juju functionality is limited to avoid data loss")
 	c.Assert(caller, gc.IsNil)
@@ -48,7 +48,7 @@ func (r *restoreRootSuite) TestFindDisallowedMethodWhenPreparing(c *gc.C) {
 func (r *restoreRootSuite) TestFindDisallowedMethodWhenRestoring(c *gc.C) {
 	root := apiserver.TestingRestoreInProgressRoot(nil)
 
-	caller, err := root.FindMethod("Service", 3, "ServiceDeploy")
+	caller, err := root.FindMethod("Service", 3, "Deploy")
 
 	c.Assert(err, gc.ErrorMatches, "juju restore is in progress - Juju api is off to prevent data loss")
 	c.Assert(caller, gc.IsNil)
