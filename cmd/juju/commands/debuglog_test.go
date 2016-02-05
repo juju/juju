@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -80,6 +80,12 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Replay:  true,
 			},
 		}, {
+			args: []string{"--no-tail"},
+			expected: api.DebugLogParams{
+				Backlog: 10,
+				NoTail:  true,
+			},
+		}, {
 			args: []string{"--limit", "100"},
 			expected: api.DebugLogParams{
 				Backlog: 10,
@@ -89,7 +95,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 	} {
 		c.Logf("test %v", i)
 		command := &debugLogCommand{}
-		err := testing.InitCommand(envcmd.Wrap(command), test.args)
+		err := testing.InitCommand(modelcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.params, jc.DeepEquals, test.expected)
@@ -109,6 +115,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--include-module=juju.provisioner",
 		"--lines=500",
 		"--level=WARNING",
+		"--no-tail",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fake.params, gc.DeepEquals, api.DebugLogParams{
@@ -117,6 +124,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		ExcludeEntity: []string{"machine-1-lxc-1"},
 		Backlog:       500,
 		Level:         loggo.WARNING,
+		NoTail:        true,
 	})
 }
 

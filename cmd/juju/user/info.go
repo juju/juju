@@ -13,36 +13,36 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const infoCommandDoc = `
+const ShowUserCommandDoc = `
 Display infomation on a user.
 
 Examples:
   	# Show information on the current user
-  	$ juju user info  
+	$ juju show-user
   	user-name: foobar
   	display-name: Foo Bar
   	date-created : 1981-02-27 16:10:05 +0000 UTC
 	last-connection: 2014-01-01 00:00:00 +0000 UTC
 
   	# Show information on a user with the given username
-  	$ juju user info jsmith
+	$ juju show-user jsmith
   	user-name: jsmith
   	display-name: John Smith
   	date-created : 1981-02-27 16:10:05 +0000 UTC
 	last-connection: 2014-01-01 00:00:00 +0000 UTC
 
   	# Show information on the current user in JSON format
-  	$ juju user info --format json
+ 	$ juju show-user --format json
   	{"user-name":"foobar",
   	"display-name":"Foo Bar",
 	"date-created": "1981-02-27 16:10:05 +0000 UTC",
 	"last-connection": "2014-01-01 00:00:00 +0000 UTC"}
 
   	# Show information on the current user in YAML format
-  	$ juju user info --format yaml
+ 	$ juju show-user --format yaml
  	user-name: foobar
  	display-name: Foo Bar
  	date-created : 1981-02-27 16:10:05 +0000 UTC
@@ -55,9 +55,9 @@ type UserInfoAPI interface {
 	Close() error
 }
 
-// infoCommandBase is a common base for 'juju user info' and 'juju user list'.
+// infoCommandBase is a common base for 'juju show-user' and 'juju list-user'.
 type infoCommandBase struct {
-	UserCommandBase
+	modelcmd.ControllerCommandBase
 	api       UserInfoAPI
 	exactTime bool
 	out       cmd.Output
@@ -67,8 +67,8 @@ func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
 }
 
-func newInfoCommand() cmd.Command {
-	return envcmd.WrapSystem(&infoCommand{})
+func NewShowUserCommand() cmd.Command {
+	return modelcmd.WrapController(&infoCommand{})
 }
 
 // infoCommand retrieves information about a single user.
@@ -89,10 +89,10 @@ type UserInfo struct {
 // Info implements Command.Info.
 func (c *infoCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "info",
+		Name:    "show-user",
 		Args:    "<username>",
 		Purpose: "shows information on a user",
-		Doc:     infoCommandDoc,
+		Doc:     ShowUserCommandDoc,
 	}
 }
 

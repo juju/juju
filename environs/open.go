@@ -9,17 +9,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 )
 
 var (
 	InvalidEnvironmentError = fmt.Errorf(
-		"environment is not a juju-core environment")
+		"model is not a juju-core model")
 )
 
 // ConfigSource represents where some configuration data
@@ -65,13 +63,13 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	info, err := store.ReadInfo(name)
 	if err == nil {
 		if len(info.BootstrapConfig()) == 0 {
-			return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("environment has no bootstrap configuration data")}
+			return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("model has no bootstrap configuration data")}
 		}
 		logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
 		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 		return cfg, ConfigFromInfo, err
 	} else if !errors.IsNotFound(err) {
-		return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
+		return nil, ConfigFromInfo, fmt.Errorf("cannot read model info for %q: %v", name, err)
 	}
 
 	cfg, err := envs.Config(name)
@@ -162,20 +160,20 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 			return env, decorateAndWriteInfo(info, env.Config())
 		} else {
 			if err := info.Destroy(); err != nil {
-				logger.Warningf("cannot destroy newly created environment info: %v", err)
+				logger.Warningf("cannot destroy newly created model info: %v", err)
 			}
 			return nil, errors.Trace(err)
 		}
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
+		return nil, errors.Annotatef(err, "error reading model info %q", cfg.Name())
 	} else if !info.Initialized() {
 		return nil,
 			errors.Errorf(
-				"found uninitialized environment info for %q; environment preparation probably in progress or interrupted",
+				"found uninitialized model info for %q; model preparation probably in progress or interrupted",
 				cfg.Name(),
 			)
 	} else if len(info.BootstrapConfig()) == 0 {
-		return nil, errors.New("found environment info but no bootstrap config")
+		return nil, errors.New("found model info but no bootstrap config")
 	} else {
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 		if err != nil {
@@ -199,8 +197,8 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 		return errors.Errorf("admin-secret is not set")
 	} else {
 		endpoint = configstore.APIEndpoint{
-			CACert:      cert,
-			EnvironUUID: uuid,
+			CACert:    cert,
+			ModelUUID: uuid,
 		}
 	}
 
@@ -208,15 +206,13 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 		User:     configstore.DefaultAdminUsername,
 		Password: cfg.AdminSecret(),
 	}
-	if featureflag.Enabled(feature.JES) {
-		endpoint.ServerUUID = endpoint.EnvironUUID
-	}
+	endpoint.ServerUUID = endpoint.ModelUUID
 	info.SetAPICredentials(creds)
 	info.SetAPIEndpoint(endpoint)
 	info.SetBootstrapConfig(cfg.AllAttrs())
 
 	if err := info.Write(); err != nil {
-		return errors.Annotatef(err, "cannot create environment info %q", cfg.Name())
+		return errors.Annotatef(err, "cannot create model info %q", cfg.Name())
 	}
 
 	return nil
@@ -259,7 +255,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, error) {
 		return cfg, nil
 	}
 	if hasCACert && !hasCAKey {
-		return nil, fmt.Errorf("environment configuration with a certificate but no CA private key")
+		return nil, fmt.Errorf("model configuration with a certificate but no CA private key")
 	}
 
 	caCert, caKey, err := cert.NewCA(cfg.Name(), time.Now().UTC().AddDate(10, 0, 0))
@@ -310,7 +306,7 @@ func DestroyInfo(envName string, store configstore.Storage) error {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
-		return errors.Annotate(err, "cannot destroy environment configuration information")
+		return errors.Annotate(err, "cannot destroy model configuration information")
 	}
 	return nil
 }

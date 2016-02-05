@@ -4,7 +4,6 @@
 package watcher_test
 
 import (
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -15,17 +14,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	corewatcher "github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type watcherSuite struct {
 	testing.JujuConnSuite
@@ -41,7 +37,7 @@ var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
+	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
@@ -79,12 +75,10 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
-	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
@@ -96,13 +90,10 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
-	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
+	// params.NotifyWatcher conforms to the watcher.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-
-	// Now, without reading any changes try stopping the watcher.
-	statetesting.AssertCanStopWhenSending(c, w)
-	wc.AssertClosed()
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc.AssertStops()
 }
 
 func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
@@ -136,7 +127,9 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	wc.AssertChange("mysql/0", "logging/0")
 	wc.AssertNoChange()
 
@@ -157,9 +150,6 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	wc.AssertChange("logging/0")
 	wc.AssertChange("mysql/0")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
@@ -174,7 +164,8 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Create a service, deploy a unit of it on the machine.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -182,14 +173,9 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = principal.AssignToMachine(s.rawMachine)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the initial event is delivered. Then test the watcher
-	// can be stopped cleanly without reading the pending change.
-	s.BackingState.StartSync()
-	statetesting.AssertCanStopWhenSending(c, w)
-	wc.AssertClosed()
 }
 
+// TODO(fwereade): 2015-11-18 lp:1517391
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	registry.RegisterProvider(
 		"envscoped",
@@ -212,7 +198,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{Entities: []params.Entity{{
-		Tag: s.State.EnvironTag().String(),
+		Tag: s.State.ModelTag().String(),
 	}}}
 	err := s.stateAPI.APICall(
 		"StorageProvisioner",
@@ -224,27 +210,49 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	w := watcher.NewVolumeAttachmentsWatcher(s.stateAPI, result)
+	defer func() {
+
+		// Check we can stop the watcher...
+		w.Kill()
+		wait := make(chan error)
+		go func() {
+			wait <- w.Wait()
+		}()
+		select {
+		case err := <-wait:
+			c.Assert(err, jc.ErrorIsNil)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher never stopped")
+		}
+
+		// ...and that its channel hasn't been closed.
+		s.BackingState.StartSync()
+		select {
+		case change, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
+		default:
+		}
+
+	}()
+
+	// Check initial event;
+	s.BackingState.StartSync()
 	select {
 	case changes, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(changes, jc.SameContents, []params.MachineStorageId{{
+		c.Assert(changes, jc.SameContents, []corewatcher.MachineStorageId{{
 			MachineTag:    "machine-1",
 			AttachmentTag: "volume-0",
 		}})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
+
+	// check no subsequent event.
+	s.BackingState.StartSync()
 	select {
 	case <-w.Changes():
 		c.Fatalf("received unexpected change")
 	case <-time.After(coretesting.ShortWait):
-	}
-
-	statetesting.AssertStop(c, w)
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for watcher channel to be closed")
 	}
 }

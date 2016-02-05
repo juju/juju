@@ -11,23 +11,22 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/osenv"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 func newToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&toolsMetadataCommand{})
+	return modelcmd.Wrap(&toolsMetadataCommand{})
 }
 
 // toolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type toolsMetadataCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	fetch       bool
 	metadataDir string
 	stream      string
@@ -116,8 +115,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		toolsDir = envtools.LegacyReleaseDirectory
 	}
 	fmt.Fprintf(context.Stdout, "Finding tools in %s for stream %s.\n", c.metadataDir, c.stream)
-	const minorVersion = -1
-	toolsList, err := envtools.ReadList(sourceStorage, toolsDir, version.Current.Major, minorVersion)
+	toolsList, err := envtools.ReadList(sourceStorage, toolsDir, -1, -1)
 	if err == envtools.ErrNoTools {
 		var source string
 		source, err = envtools.ToolsURL(envtools.DefaultBaseURL)
@@ -126,8 +124,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 		toolsList, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream,
-			version.Current.Major, minorVersion, coretools.Filter{})
+			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return err

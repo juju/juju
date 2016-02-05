@@ -43,7 +43,7 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	changePasswordCommand, _ := user.NewChangePasswordCommand(s.mockAPI, s.mockEnvironInfo)
+	changePasswordCommand, _ := user.NewChangePasswordCommandForTest(s.mockAPI, s.mockEnvironInfo)
 	return testing.RunCommand(c, changePasswordCommand, args...)
 }
 
@@ -87,7 +87,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewChangePasswordCommand(nil, nil)
+		wrappedCommand, command := user.NewChangePasswordCommandForTest(nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)
@@ -142,7 +142,7 @@ func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C)
 	// Fail to Write the new jenv file
 	s.mockEnvironInfo.failMessage = "failed to write"
 	_, err := s.run(c, "--generate")
-	c.Assert(err, gc.ErrorMatches, "failed to write new password to environments file: failed to write")
+	c.Assert(err, gc.ErrorMatches, "failed to write new password to models file: failed to write")
 	// Last api call was to set the password back to the original.
 	c.Assert(s.mockAPI.password, gc.Equals, "password")
 }

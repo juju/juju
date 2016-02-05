@@ -21,8 +21,8 @@ functions to which you pass a state value. Those are kept to a minimum.
 Note that state (and juju as a whole) currently does not have a
 persistence layer abstraction to facilitate separating different
 persistence needs and implementations. As a consequence, state's
-data, whether about how an environment should look or about existing
-resources within an environment, is dumped essentially straight into
+data, whether about how an model should look or about existing
+resources within an model, is dumped essentially straight into
 State's mongo connection. The code in the state package does not
 make any distinction between the two (nor does the package clearly
 distinguish between state-related abstractions and state-related
@@ -174,7 +174,7 @@ func (b *backups) Add(archive io.Reader, meta *Metadata) (string, error) {
 	return meta.ID(), nil
 }
 
-// Get retrieves the associated metadata and archive file from environment storage.
+// Get retrieves the associated metadata and archive file from model storage.
 func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
 	rawmeta, archiveFile, err := b.storage.Get(id)
 	if err != nil {

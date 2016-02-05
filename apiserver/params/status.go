@@ -22,9 +22,9 @@ type StatusParams struct {
 
 // TODO(ericsnow) Add FullStatusResult.
 
-// FullStatus holds information about the status of a juju environment.
+// FullStatus holds information about the status of a juju model.
 type FullStatus struct {
-	EnvironmentName  string
+	ModelName        string
 	AvailableVersion string
 	Machines         map[string]MachineStatus
 	Services         map[string]ServiceStatus
@@ -35,16 +35,6 @@ type FullStatus struct {
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
 	Agent AgentStatus
-
-	// The following fields mirror fields in AgentStatus (introduced
-	// in 1.19.x). The old fields below are being kept for
-	// compatibility with old clients.
-	// They can be removed once API versioning lands.
-	AgentState     Status
-	AgentStateInfo string
-	AgentVersion   string
-	Life           string
-	Err            error
 
 	DNSName       string
 	InstanceId    instance.Id
@@ -155,7 +145,7 @@ type AgentStatus struct {
 	Err     error
 }
 
-// LegacyStatus holds minimal information on the status of a juju environment.
+// LegacyStatus holds minimal information on the status of a juju model.
 type LegacyStatus struct {
 	Machines map[string]LegacyMachineStatus
 }
@@ -260,7 +250,7 @@ const (
 	StatusError Status = "error"
 
 	// StatusStarted is set when:
-	// The entity is actively participating in the environment.
+	// The entity is actively participating in the model.
 	// For unit agents, this is a state we preserve for backwards
 	// compatibility with scripts during the life of Juju 1.x.
 	// In Juju 2.x, the agent-state will remain “active” and scripts
@@ -272,7 +262,7 @@ const (
 	// Status values specific to machine agents.
 
 	// StatusPending is set when:
-	// The machine is not yet participating in the environment.
+	// The machine is not yet participating in the model.
 	StatusPending Status = "pending"
 
 	// StatusStopped is set when:
@@ -320,17 +310,6 @@ const (
 	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
 	// the unit agent ought to be signalling activity, but none has been detected.
 	StatusLost Status = "lost"
-
-	// ---- Outdated ----
-
-	// StatusInstalling is set when:
-	// The unit agent is downloading the charm and running the install hook.
-	StatusInstalling Status = "installing"
-
-	// StatusStopping is set when:
-	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
-	// In Juju 2.x this will describe the state of the agent rather than a unit.
-	StatusStopping Status = "stopping"
 )
 
 const (

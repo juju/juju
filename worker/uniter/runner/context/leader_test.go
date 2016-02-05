@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -257,7 +257,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 			"nice": "data",
 		}},
 	}}, func() {
-		// Write new data to the state server...
+		// Write new data to the controller...
 		s.tracker.results = []StubTicket{true}
 		err := s.context.WriteLeaderSettings(map[string]string{
 			"some": "very",

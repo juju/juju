@@ -73,26 +73,26 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
-	env, err := s.State.Environment()
+func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	// We haven't called Login yet, so the EnvironTag shouldn't be set.
-	envTag, err := apistate.EnvironTag()
+	// We haven't called Login yet, so the ModelTag shouldn't be set.
+	modelTag, err := apistate.ModelTag()
 	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
-	c.Check(envTag, gc.Equals, names.EnvironTag{})
+	c.Check(modelTag, gc.Equals, names.ModelTag{})
 	err = apistate.Login(tag, password, "")
 	c.Assert(err, jc.ErrorIsNil)
-	// Now that we've logged in, EnvironTag should be updated correctly.
-	envTag, err = apistate.EnvironTag()
+	// Now that we've logged in, ModelTag should be updated correctly.
+	modelTag, err = apistate.ModelTag()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(envTag, gc.Equals, env.EnvironTag())
-	// The controller tag is also set, and since the environment is the
-	// controller environment, the uuid is the same.
+	c.Check(modelTag, gc.Equals, env.ModelTag())
+	// The controller tag is also set, and since the model is the
+	// controller model, the uuid is the same.
 	controllerTag, err := apistate.ControllerTag()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(controllerTag, gc.Equals, env.EnvironTag())
+	c.Check(controllerTag, gc.Equals, env.ModelTag())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
@@ -107,7 +107,7 @@ func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	c.Check(allVersions, gc.Not(gc.HasLen), 0)
 	// For sanity checking, ensure that we have a v2 of the Client facade
 	c.Assert(allVersions["Client"], gc.Not(gc.HasLen), 0)
-	c.Check(allVersions["Client"][0], gc.Equals, 0)
+	c.Check(allVersions["Client"][0], gc.Equals, 1)
 }
 
 func (s *stateSuite) TestAllFacadeVersionsSafeFromMutation(c *gc.C) {
@@ -124,7 +124,7 @@ func (s *stateSuite) TestAllFacadeVersionsSafeFromMutation(c *gc.C) {
 }
 
 func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
-	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 0)
+	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 1)
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {

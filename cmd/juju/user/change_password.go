@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/readpass"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -26,23 +26,23 @@ or as an admin, change the password for another user.
 
 Examples:
   # You will be prompted to enter a password.
-  juju user change-password
+  juju change-user-password
 
   # Change the password to a random strong password.
-  juju user change-password --generate
+  juju change-user-password --generate
 
   # Change the password for bob, this always uses a random password
-  juju user change-password bob
+  juju change-user-password bob
 
 `
 
-func newChangePasswordCommand() cmd.Command {
-	return envcmd.WrapSystem(&changePasswordCommand{})
+func NewChangePasswordCommand() cmd.Command {
+	return modelcmd.WrapController(&changePasswordCommand{})
 }
 
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
-	UserCommandBase
+	modelcmd.ControllerCommandBase
 	api      ChangePasswordAPI
 	writer   EnvironInfoCredsWriter
 	Generate bool
@@ -53,7 +53,7 @@ type changePasswordCommand struct {
 // Info implements Command.Info.
 func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "change-password",
+		Name:    "change-user-password",
 		Args:    "[username]",
 		Purpose: "changes the password for a user",
 		Doc:     userChangePasswordDoc,
@@ -63,7 +63,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
-	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user environment file")
+	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user model file")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
@@ -151,10 +151,10 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		logger.Errorf("updating the cached credentials failed, reverting to original password")
 		setErr := c.api.SetPassword(creds.User, oldPassword)
 		if setErr != nil {
-			logger.Errorf("failed to set password back, you will need to edit your environments file by hand to specify the password: %q", password)
+			logger.Errorf("failed to set password back, you will need to edit your models file by hand to specify the password: %q", password)
 			return errors.Annotate(setErr, "failed to set password back")
 		}
-		return errors.Annotate(err, "failed to write new password to environments file")
+		return errors.Annotate(err, "failed to write new password to models file")
 	}
 	ctx.Infof("Your password has been updated.")
 	return nil

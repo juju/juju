@@ -36,10 +36,10 @@ type charmsCommonSuite struct {
 
 func (s *charmsCommonSuite) charmsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	if s.envUUID == "" {
+	if s.modelUUID == "" {
 		uri.Path = "/charms"
 	} else {
-		uri.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+		uri.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	}
 	uri.RawQuery = query
 	return uri
@@ -222,7 +222,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -242,33 +242,33 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
-func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
-	// Check that we can upload charms to https://host:port/ENVUUID/charms
+func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
+	// Check that we can upload charms to https://host:port/ModelUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
-func (s *charmsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
-	// Check that we can upload charms to https://host:port/ENVUUID/charms
+func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
+	envState := s.setupOtherModel(c)
+	// Check that we can upload charms to https://host:port/ModelUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
-func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
+func (s *charmsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
+	// Check that we cannot upload charms to https://host:port/BADModelUUID/charms
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = "/environment/dead-beef-123456/charms"
+	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
@@ -304,7 +304,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -425,31 +425,31 @@ func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
+	envState := s.setupOtherModel(c)
 
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestGetRejectsWrongModelUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = "/environment/dead-beef-123456/charms"
+	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
@@ -491,7 +491,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	// Ensure the cached contents are properly retrieved.
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
-	s.assertGetFileResponse(c, resp, contents, "application/javascript")
+	s.assertGetFileResponse(c, resp, contents, params.ContentTypeJS)
 }
 
 type charmsWithMacaroonsSuite struct {

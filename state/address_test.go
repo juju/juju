@@ -38,17 +38,17 @@ func (s *AddressSuite) TestHostPortConversion(c *gc.C) {
 	state.AssertHostPortConversion(c, netHostPort)
 }
 
-type StateServerAddressesSuite struct {
+type ControllerAddressesSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&StateServerAddressesSuite{})
+var _ = gc.Suite(&ControllerAddressesSuite{})
 
-func (s *StateServerAddressesSuite) SetUpTest(c *gc.C) {
+func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Make sure there is a machine with manage state in existence.
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron, state.JobHostUnits},
+		Jobs: []state.MachineJob{state.JobManageModel, state.JobHostUnits},
 		Addresses: []network.Address{
 			{Value: "192.168.2.144", Type: network.IPv4Address},
 			{Value: "10.0.1.2", Type: network.IPv4Address},
@@ -57,14 +57,14 @@ func (s *StateServerAddressesSuite) SetUpTest(c *gc.C) {
 	c.Logf("machine addresses: %#v", machine.Addresses())
 }
 
-func (s *StateServerAddressesSuite) TestStateServerEnv(c *gc.C) {
+func (s *ControllerAddressesSuite) TestControllerEnv(c *gc.C) {
 	addresses, err := s.State.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.SameContents, []string{"10.0.1.2:1234"})
 }
 
-func (s *StateServerAddressesSuite) TestOtherEnv(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *ControllerAddressesSuite) TestOtherEnv(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	addresses, err := st.Addresses()
 	c.Assert(err, jc.ErrorIsNil)

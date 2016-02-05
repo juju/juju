@@ -11,7 +11,7 @@ import (
 // absense of any explicit username being defined in the config store.
 var DefaultAdminUsername = "admin"
 
-var ErrEnvironInfoAlreadyExists = errors.New("environment info already exists")
+var ErrEnvironInfoAlreadyExists = errors.New("model info already exists")
 
 // APIEndpoint holds information about an API endpoint.
 type APIEndpoint struct {
@@ -31,9 +31,9 @@ type APIEndpoint struct {
 	// signed the API server's key.
 	CACert string
 
-	// EnvironUUID holds the UUID for the environment we are connecting to.
+	// ModelUUID holds the UUID for the environment we are connecting to.
 	// This may be empty if the environment has not been bootstrapped.
-	EnvironUUID string
+	ModelUUID string
 
 	// ServerUUID holds the UUID for the server environment. This may be empty
 	// if the server is old and not sending the server uuid in the login

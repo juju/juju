@@ -24,7 +24,7 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 	var envResponses = make(wireformat.EnvironmentResponses)
 
 	for _, batch := range d {
-		envResponses.Ack(batch.EnvUUID, batch.UUID)
+		envResponses.Ack(batch.ModelUUID, batch.UUID)
 	}
 	return &wireformat.Response{
 		UUID:         respUUID.String(),

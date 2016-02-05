@@ -26,9 +26,9 @@ func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
 // of the API server. Any facade added here needs to work across environment
 // boundaries.
 var restrictedRootNames = set.NewStrings(
-	"AllEnvWatcher",
-	"EnvironmentManager",
-	"SystemManager",
+	"AllModelWatcher",
+	"Controller",
+	"ModelManager",
 	"UserManager",
 )
 
@@ -36,14 +36,15 @@ var restrictedRootNames = set.NewStrings(
 // of the facades available at the server root when there is no active
 // environment.
 func (r *restrictedRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	// The lookup of the name is done first to return a not found error if the
-	// user is looking for a method that we just don't have.
+	// We restrict what facades are advertised at login, filtered on the restricted root names.
+	// Therefore we can't accurately know if a method is not found unless it resides on one
+	// of the restricted facades.
+	if !restrictedRootNames.Contains(rootName) {
+		return nil, errors.NotSupportedf("logged in to server, no model, %q", rootName)
+	}
 	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
-	}
-	if !restrictedRootNames.Contains(rootName) {
-		return nil, errors.NotSupportedf("logged in to server, no environment, %q", rootName)
 	}
 	return caller, nil
 }

@@ -74,7 +74,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// formatted simple error.
 			h.sendError(socket, req, nil)
 
-			filePrefix := st.EnvironUUID() + " " + tag.String() + ":"
+			filePrefix := st.ModelUUID() + " " + tag.String() + ":"
 			dbLogger := state.NewDbLogger(st, tag)
 			defer dbLogger.Close()
 			m := new(params.LogRecord)

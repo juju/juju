@@ -87,7 +87,7 @@ type actionHookContext interface {
 	ActionParams() (map[string]interface{}, error)
 
 	// UpdateActionResults inserts new values for use with action-set.
-	// The results struct will be delivered to the state server upon
+	// The results struct will be delivered to the controller upon
 	// completion of the Action.
 	UpdateActionResults(keys []string, value string) error
 

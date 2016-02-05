@@ -216,8 +216,8 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
-	// Check that StateServerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.StateServerInstances()
+	// Check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -664,9 +664,9 @@ func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
-func (suite *environSuite) TestStateServerInstances(c *gc.C) {
+func (suite *environSuite) TestControllerInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	_, err := env.StateServerInstances()
+	_, err := env.ControllerInstances()
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
 	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
@@ -675,15 +675,15 @@ func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 			StateInstances: expected,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		stateServerInstances, err := env.StateServerInstances()
+		controllerInstances, err := env.ControllerInstances()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(stateServerInstances, jc.SameContents, expected)
+		c.Assert(controllerInstances, jc.SameContents, expected)
 	}
 }
 
-func (suite *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
+func (suite *environSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	_, err := env.StateServerInstances()
+	_, err := env.ControllerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -764,7 +764,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

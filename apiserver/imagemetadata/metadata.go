@@ -24,7 +24,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
 
 func init() {
-	common.RegisterStandardFacade("ImageMetadata", 1, NewAPI)
+	common.RegisterStandardFacade("ImageMetadata", 2, NewAPI)
 }
 
 // API is the concrete implementation of the api end point
@@ -40,7 +40,7 @@ func createAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 
@@ -94,7 +94,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 // It supports bulk calls.
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
-	envCfg, err := api.metadata.EnvironConfig()
+	envCfg, err := api.metadata.ModelConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Annotatef(err, "getting environ config")
 	}
@@ -110,6 +110,17 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 		}
 		err = api.metadata.SaveMetadata(md)
 		all[i] = params.ErrorResult{Error: common.ServerError(err)}
+	}
+	return params.ErrorResults{Results: all}, nil
+}
+
+// Delete deletes cloud image metadata for given image ids.
+// It supports bulk calls.
+func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, error) {
+	all := make([]params.ErrorResult, len(images.Ids))
+	for i, imageId := range images.Ids {
+		err := api.metadata.DeleteMetadata(imageId)
+		all[i] = params.ErrorResult{common.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
 }
@@ -195,7 +206,10 @@ func (api *API) UpdateFromPublishedImages() error {
 }
 
 func (api *API) retrievePublished() error {
-	envCfg, err := api.metadata.EnvironConfig()
+	envCfg, err := api.metadata.ModelConfig()
+	if err != nil {
+		return errors.Annotatef(err, "getting environ config")
+	}
 	env, err := environs.New(envCfg)
 	if err != nil {
 		return errors.Annotatef(err, "getting environ")
@@ -203,18 +217,20 @@ func (api *API) retrievePublished() error {
 
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return errors.Annotatef(err, "getting environment image metadata sources")
+		return errors.Annotatef(err, "getting cloud specific image metadata sources")
 	}
 
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return errors.Errorf("environment cloud specification cannot be determined")
+		// Published image metadata for some providers are in simple streams.
+		// Providers that do not rely on simplestreams, don't need to do anything here.
+		return nil
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.
 		cloud, err := inst.Region()
 		if err != nil {
-			return errors.Annotatef(err, "getting provider region information (cloud spec)")
+			return errors.Annotatef(err, "getting cloud specific region information")
 		}
 		cons.CloudSpec = cloud
 	}
@@ -251,7 +267,7 @@ func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published
 	return processErrors(append(errs.Results, parseErrs...))
 }
 
-// convertToParams converts environment-specific images metadata to structured metadata format.
+// convertToParams converts model-specific images metadata to structured metadata format.
 var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) (params.MetadataSaveParams, []params.ErrorResult) {
 	metadata := []params.CloudImageMetadataList{{}}
 	errs := []params.ErrorResult{}

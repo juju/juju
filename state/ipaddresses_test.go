@@ -39,7 +39,7 @@ func (s *IPAddressSuite) assertAddress(
 	c.Assert(ipAddr.State(), gc.Equals, ipState)
 	c.Assert(ipAddr.Address(), jc.DeepEquals, addr)
 	c.Assert(ipAddr.String(), gc.Equals, addr.String())
-	c.Assert(ipAddr.Id(), gc.Equals, s.State.EnvironUUID()+":"+addr.Value)
+	c.Assert(ipAddr.Id(), gc.Equals, s.State.ModelUUID()+":"+addr.Value)
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.UnknownId)
 	c.Assert(ipAddr.MACAddress(), gc.Equals, "")
 }

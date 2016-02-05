@@ -19,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type storage struct {
-	envuuid    string
+	modelUUID  string
 	collection string
 	store      DataStore
 }
@@ -28,8 +28,8 @@ var _ Storage = (*storage)(nil)
 
 // NewStorage constructs a new Storage that stores image metadata
 // in the provided data store.
-func NewStorage(envuuid, collectionName string, store DataStore) Storage {
-	return &storage{envuuid, collectionName, store}
+func NewStorage(modelUUID, collectionName string, store DataStore) Storage {
+	return &storage{modelUUID, collectionName, store}
 }
 
 var emptyMetadata = Metadata{}
@@ -88,13 +88,68 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 	return nil
 }
 
+// DeleteMetadata implements Storage.DeleteMetadata.
+func (s *storage) DeleteMetadata(imageId string) error {
+	deleteOperation := func(docId string) txn.Op {
+		logger.Debugf("deleting metadata (ID=%v) for image (ID=%v)", docId, imageId)
+		return txn.Op{
+			C:      s.collection,
+			Id:     docId,
+			Assert: txn.DocExists,
+			Remove: true,
+		}
+	}
+
+	noOp := func() ([]txn.Op, error) {
+		logger.Debugf("no metadata for image ID %v to delete", imageId)
+		return nil, jujutxn.ErrNoOperations
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// find all metadata docs with given image id
+		imageMetadata, err := s.metadataForImageId(imageId)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				return noOp()
+			}
+			return nil, err
+		}
+		if len(imageMetadata) == 0 {
+			return noOp()
+		}
+
+		allTxn := make([]txn.Op, len(imageMetadata))
+		for i, doc := range imageMetadata {
+			allTxn[i] = deleteOperation(doc.Id)
+		}
+		return allTxn, nil
+	}
+
+	err := s.store.RunTransaction(buildTxn)
+	if err != nil {
+		return errors.Annotatef(err, "cannot delete metadata for cloud image %v", imageId)
+	}
+	return nil
+}
+
+func (s *storage) metadataForImageId(imageId string) ([]imagesMetadataDoc, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	var docs []imagesMetadataDoc
+	query := bson.D{{"image_id", imageId}}
+	if err := coll.Find(query).All(&docs); err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
 func (s *storage) getMetadata(id string) (Metadata, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
 	var old imagesMetadataDoc
-	err := coll.Find(bson.D{{"_id", id}}).One(&old)
-	if err != nil {
+	if err := coll.Find(bson.D{{"_id", id}}).One(&old); err != nil {
 		if err == mgo.ErrNotFound {
 			return Metadata{}, errors.NotFoundf("image metadata with ID %q", id)
 		}
@@ -106,8 +161,8 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
-	// EnvUUID is the environment identifier.
-	EnvUUID string `bson:"env-uuid"`
+	// ModelUUID is the model identifier.
+	ModelUUID string `bson:"model-uuid"`
 
 	// Id contains unique key for cloud image metadata.
 	// This is an amalgamation of all deterministic metadata attributes to ensure
@@ -177,7 +232,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	r := imagesMetadataDoc{
-		EnvUUID:         s.envuuid,
+		ModelUUID:       s.modelUUID,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,

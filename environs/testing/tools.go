@@ -400,7 +400,7 @@ type BootstrapToolsTest struct {
 	Err           string
 }
 
-var noToolsMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
+var noToolsMessage = "Juju cannot bootstrap because no tools are available for your model.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{
@@ -561,6 +561,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
+	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

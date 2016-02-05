@@ -30,8 +30,11 @@ const (
 	ubuntuPublisher = "Canonical"
 	ubuntuOffering  = "UbuntuServer"
 
-	windowsPublisher = "MicrosoftWindowsServer"
-	windowsOffering  = "WindowsServer"
+	windowsServerPublisher = "MicrosoftWindowsServer"
+	windowsServerOffering  = "WindowsServer"
+
+	windowsPublisher = "MicrosoftVisualStudio"
+	windowsOffering  = "Windows"
 
 	dailyStream = "daily"
 )
@@ -62,12 +65,22 @@ func SeriesImage(
 		}
 
 	case os.Windows:
-		publisher = windowsPublisher
-		offering = windowsOffering
 		switch series {
+		case "win81":
+			publisher = windowsPublisher
+			offering = windowsOffering
+			sku = "8.1-Enterprise-N"
+		case "win10":
+			publisher = windowsPublisher
+			offering = windowsOffering
+			sku = "10-Enterprise"
 		case "win2012":
+			publisher = windowsServerPublisher
+			offering = windowsServerOffering
 			sku = "2012-Datacenter"
 		case "win2012r2":
+			publisher = windowsServerPublisher
+			offering = windowsServerOffering
 			sku = "2012-R2-Datacenter"
 		default:
 			return nil, errors.NotSupportedf("deploying %s", series)

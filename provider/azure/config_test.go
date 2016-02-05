@@ -71,32 +71,32 @@ func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
 }
 
 func (s *configSuite) TestValidateStorageAccountCantChange(c *gc.C) {
-	cfgOld := makeTestEnvironConfig(c, testing.Attrs{"storage-account": "abc"})
+	cfgOld := makeTestModelConfig(c, testing.Attrs{"storage-account": "abc"})
 	_, err := s.provider.Validate(cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfgNew := makeTestEnvironConfig(c) // no storage-account attribute
+	cfgNew := makeTestModelConfig(c) // no storage-account attribute
 	_, err = s.provider.Validate(cfgNew, cfgOld)
 	c.Assert(err, gc.ErrorMatches, `cannot remove immutable "storage-account" config`)
 
-	cfgNew = makeTestEnvironConfig(c, testing.Attrs{"storage-account": "def"})
+	cfgNew = makeTestModelConfig(c, testing.Attrs{"storage-account": "def"})
 	_, err = s.provider.Validate(cfgNew, cfgOld)
 	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account" config \(abc -> def\)`)
 }
 
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
-	cfg := makeTestEnvironConfig(c, attrs)
+	cfg := makeTestModelConfig(c, attrs)
 	_, err := s.provider.Validate(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configSuite) assertConfigInvalid(c *gc.C, attrs testing.Attrs, expect string) {
-	cfg := makeTestEnvironConfig(c, attrs)
+	cfg := makeTestModelConfig(c, attrs)
 	_, err := s.provider.Validate(cfg, nil)
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
-func makeTestEnvironConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
+func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
 		"type":                      "azure",
 		"application-id":            fakeApplicationId,

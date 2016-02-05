@@ -26,10 +26,10 @@ var _ = gc.Suite(&metadataSuite{}) // Register the suite.
 func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	meta := backups.NewMetadata()
 	meta.Origin = backups.Origin{
-		Environment: "asdf-zxcv-qwe",
-		Machine:     "0",
-		Hostname:    "myhost",
-		Version:     version.MustParse("1.21-alpha3"),
+		Model:    "asdf-zxcv-qwe",
+		Machine:  "0",
+		Hostname: "myhost",
+		Version:  version.MustParse("1.21-alpha3"),
 	}
 	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
 
@@ -85,7 +85,7 @@ func (s *metadataSuite) TestNewMetadataJSONReader(c *gc.C) {
 	c.Check(meta.Started.Unix(), gc.Equals, int64(1410263974))
 	c.Check(meta.Finished.Unix(), gc.Equals, int64(1410264034))
 	c.Check(meta.Notes, gc.Equals, "")
-	c.Check(meta.Origin.Environment, gc.Equals, "asdf-zxcv-qwe")
+	c.Check(meta.Origin.Model, gc.Equals, "asdf-zxcv-qwe")
 	c.Check(meta.Origin.Machine, gc.Equals, "0")
 	c.Check(meta.Origin.Hostname, gc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), gc.Equals, "1.21-alpha3")
@@ -112,7 +112,7 @@ func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
 	c.Check(meta.Started.Unix(), gc.Equals, int64(time.Time{}.Unix()))
 	c.Check(meta.Finished.Unix(), gc.Equals, finished)
 	c.Check(meta.Notes, gc.Equals, "")
-	c.Check(meta.Origin.Environment, gc.Equals, backups.UnknownString)
+	c.Check(meta.Origin.Model, gc.Equals, backups.UnknownString)
 	c.Check(meta.Origin.Machine, gc.Equals, backups.UnknownString)
 	c.Check(meta.Origin.Hostname, gc.Equals, backups.UnknownString)
 	c.Check(meta.Origin.Version.String(), gc.Equals, backups.UnknownVersion.String())

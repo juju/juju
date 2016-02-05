@@ -52,6 +52,12 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// Use longAttempt to poll for short-term events or for retrying API calls.
+var longAttempt = utils.AttemptStrategy{
+	Total: 60 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -204,7 +210,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(e, e.Storage())
 }
 
@@ -636,7 +642,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
 		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
@@ -1145,6 +1151,15 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
+func getTagByKey(key string, ec2Tags []ec2.Tag) (string, bool) {
+	for _, tag := range ec2Tags {
+		if tag.Key == key {
+			return tag.Value, true
+		}
+	}
+	return "", false
+}
+
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
@@ -1159,10 +1174,23 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	eUUID, ok := e.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("enviroment UUID in configuration")
+	}
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
+			tagUUID, ok := getTagByKey(tags.JujuModel, inst.Tags)
+			// tagless instances will always be included to avoid
+			// breakage of old environments, if one of these exists it might
+			// hinder the ability to deploy a second environment of the same
+			// name.
+			if ok && tagUUID != eUUID {
+				continue
+			}
+
 			// TODO(wallyworld): lookup the details to fill in the instance type data
 			insts = append(insts, &ec2Instance{e: e, Instance: &inst})
 		}
@@ -1173,6 +1201,9 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
+	}
+	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
+		logger.Warningf("cannot delete default security group: %v", err)
 	}
 	return e.Storage().RemoveAll()
 }
@@ -1190,12 +1221,17 @@ func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
+func (e *environ) openPortsInGroup(name, legacyName string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
 	g, err := e.groupByName(name)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(legacyName)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -1223,7 +1259,7 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
+func (e *environ) closePortsInGroup(name, legacyName string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1231,6 +1267,10 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
 	g, err := e.groupByName(name)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(legacyName)
+	}
 	if err != nil {
 		return err
 	}
@@ -1263,10 +1303,10 @@ func (e *environ) portsInGroup(name string) (ports []network.PortRange, err erro
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
 			e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.openPortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in global group: %v", ports)
@@ -1275,10 +1315,10 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
 			e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.closePortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in global group: %v", ports)
@@ -1287,7 +1327,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())
@@ -1297,12 +1337,78 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
+func (e *environ) instanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
+	ec2inst := e.ec2()
+	strInstID := make([]string, len(instIDs))
+	for i := range instIDs {
+		strInstID[i] = string(instIDs[i])
+	}
+	resp, err := ec2inst.Instances(strInstID, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
+	}
+
+	securityGroups := []ec2.SecurityGroup{}
+	for _, res := range resp.Reservations {
+		for _, inst := range res.Instances {
+			securityGroups = append(securityGroups, inst.SecurityGroups...)
+		}
+	}
+	return securityGroups, nil
+}
+
+func (e *environ) cleanEnvironmentSecurityGroup() error {
+	ec2inst := e.ec2()
+	var err error
+	jujuGroup := e.jujuGroupName()
+	g, err := e.groupByName(jujuGroup)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(e.legacyJujuGroupName())
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
+	}
+	for a := longAttempt.Start(); a.Next(); {
+		_, err = ec2inst.DeleteSecurityGroup(g)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.Annotate(err, "cannot delete default security group")
+}
+
 func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	var err error
+	securityGroups, err := e.instanceSecurityGroups(ids)
+	if err != nil {
+		// We should not stop termination because of this.
+		logger.Warningf("cannot determine security groups to delete: %v", err)
+	}
 	ec2inst := e.ec2()
+	defer func() {
+		// TODO(perrito666) we need to tag global security groups to be able
+		// to tell them appart from future groups that are neither machine
+		// nor environment group.
+		// https://bugs.launchpad.net/juju-core/+bug/1534289
+		jujuGroup := e.jujuGroupName()
+		legacyJujuGroup := e.legacyJujuGroupName()
+		for _, deletable := range securityGroups {
+			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
+				for a := longAttempt.Start(); a.Next(); {
+					_, err := ec2inst.DeleteSecurityGroup(deletable)
+					if err != nil {
+						logger.Warningf("could not delete security group %q: %v", deletable.Name, err)
+					} else {
+						break
+					}
+				}
+			}
+		}
+	}()
+
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
@@ -1332,6 +1438,13 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	return firstErr
 }
 
+func (e *environ) uuid() string {
+	// the bool component of uuid is for legacy compatibility
+	// and does not apply in this context.
+	eUUID, _ := e.Config().UUID()
+	return eUUID
+}
+
 func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
@@ -1341,7 +1454,22 @@ func (e *environ) machineGroupName(machineId string) string {
 }
 
 func (e *environ) jujuGroupName() string {
-	return "juju-" + e.name
+	return "juju-" + e.uuid()
+}
+
+// Legacy naming for groups, before multi environments with the same
+// name where supported.
+
+func (e *environ) legacyGlobalGroupName() string {
+	return fmt.Sprintf("%s-global", e.legacyJujuGroupName())
+}
+
+func (e *environ) legacyMachineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.legacyJujuGroupName(), machineId)
+}
+
+func (e *environ) legacyJujuGroupName() string {
+	return "juju-" + e.uuid()
 }
 
 // setUpGroups creates the security groups for the new machine, and

@@ -441,14 +441,6 @@ func (s *workersSuite) newWorkerFunc(id string) func() (worker.Worker, error) {
 	}
 }
 
-func (*workersSuite) TestNewWorkers(c *gc.C) {
-	workers := worker.NewWorkers()
-	ids, funcs := worker.ExtractWorkers(workers)
-
-	c.Check(ids, gc.HasLen, 0)
-	c.Check(funcs, gc.HasLen, 0)
-}
-
 func (*workersSuite) TestIDsOkay(c *gc.C) {
 	newWorker := func() (worker.Worker, error) { return nil, nil }
 
@@ -467,25 +459,6 @@ func (*workersSuite) TestIDsEmpty(c *gc.C) {
 	ids := workers.IDs()
 
 	c.Check(ids, gc.HasLen, 0)
-}
-
-func (s *workersSuite) TestAddOkay(c *gc.C) {
-	workers := worker.NewWorkers()
-	expected := []string{"spam", "eggs"}
-	for _, id := range expected {
-		err := workers.Add(id, s.newWorkerFunc(id))
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	ids, funcs := worker.ExtractWorkers(workers)
-
-	c.Check(ids, jc.DeepEquals, expected)
-	// We can't compare functions so we work around it.
-	for _, newWorker := range funcs {
-		newWorker()
-	}
-	sort.Strings(s.calls)
-	sort.Strings(expected)
-	c.Check(s.calls, jc.DeepEquals, expected)
 }
 
 func (*workersSuite) TestAddAlreadyRegistered(c *gc.C) {

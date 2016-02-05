@@ -12,7 +12,7 @@ import (
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyIsState = tags.JujuEnv
+	metadataKeyIsState = tags.JujuModel
 	// This is defined by the cloud-init code:
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
 	// http://cloudinit.readthedocs.org/en/latest/

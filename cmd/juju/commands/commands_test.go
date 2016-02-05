@@ -9,7 +9,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var _ = gc.Suite(&commandsSuite{})
@@ -42,7 +42,7 @@ func (s *commandsSuite) TestRegisterCommand(c *gc.C) {
 }
 
 func (s *commandsSuite) TestRegisterEnvCommand(c *gc.C) {
-	RegisterEnvCommand(func() envcmd.EnvironCommand {
+	RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return s.command
 	})
 
@@ -54,7 +54,7 @@ func (s *commandsSuite) TestRegisterEnvCommand(c *gc.C) {
 }
 
 type stubCommand struct {
-	envcmd.JujuCommandBase
+	modelcmd.ModelCommandBase
 	stub    *testing.Stub
 	info    *cmd.Info
 	envName string
@@ -81,15 +81,15 @@ func (c *stubCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *stubCommand) SetEnvName(name string) {
-	c.stub.AddCall("SetEnvName", name)
+func (c *stubCommand) SetModelName(name string) {
+	c.stub.AddCall("SetModelName", name)
 	c.stub.NextErr() // pop one off
 
 	c.envName = name
 }
 
-func (c *stubCommand) EnvName() string {
-	c.stub.AddCall("EnvName")
+func (c *stubCommand) ModelName() string {
+	c.stub.AddCall("ModelName")
 	c.stub.NextErr() // pop one off
 
 	return c.envName

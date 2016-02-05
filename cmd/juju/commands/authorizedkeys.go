@@ -8,12 +8,12 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/keymanager"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var authKeysDoc = `
 "juju authorized-keys" is used to manage the ssh keys allowed to log on to
-nodes in the Juju environment.
+nodes in the Juju model.
 
 `
 
@@ -22,7 +22,7 @@ type AuthorizedKeysCommand struct {
 }
 
 type AuthorizedKeysBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewKeyManagerClient returns a keymanager client for the root api endpoint

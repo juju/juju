@@ -18,19 +18,15 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/diskmanager"
-	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -115,7 +111,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	}
 
 	servers := params.NetworkHostsPorts(result.Servers)
-	err = st.setLoginResult(tag, result.EnvironTag, result.ControllerTag, servers, result.Facades)
+	err = st.setLoginResult(tag, result.ModelTag, result.ControllerTag, servers, result.Facades)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -152,37 +148,37 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
 	// server.  The JSON field names between the structures are disjoint, so only
-	// one should have an environ tag set.
+	// one should have an model tag set.
 
-	var environTag string
+	var modelTag string
 	var controllerTag string
 	var servers [][]network.HostPort
 	var facades []params.FacadeVersions
 	// For quite old servers, it is possible that they don't send down
-	// the environTag.
-	if result.LoginResult.EnvironTag != "" {
-		environTag = result.LoginResult.EnvironTag
+	// the modelTag.
+	if result.LoginResult.ModelTag != "" {
+		modelTag = result.LoginResult.ModelTag
 		// If the server doesn't support login v1, it doesn't support
-		// multiple environments, so don't store a server tag.
+		// multiple models, so don't store a server tag.
 		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
 		facades = result.LoginResult.Facades
-	} else if result.LoginResultV1.EnvironTag != "" {
-		environTag = result.LoginResultV1.EnvironTag
+	} else if result.LoginResultV1.ModelTag != "" {
+		modelTag = result.LoginResultV1.ModelTag
 		controllerTag = result.LoginResultV1.ControllerTag
 		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, controllerTag, servers, facades)
+	err = st.setLoginResult(tag, modelTag, controllerTag, servers, facades)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
-	st.environTag = environTag
+	st.modelTag = modelTag
 	st.controllerTag = controllerTag
 
 	hostPorts, err := addAddress(servers, st.addr)
@@ -215,7 +211,7 @@ func (st *state) loginV0(tag names.Tag, password, nonce string) error {
 	}
 	servers := params.NetworkHostsPorts(result.Servers)
 	// Don't set a server tag.
-	if err = st.setLoginResult(tag, result.EnvironTag, "", servers, result.Facades); err != nil {
+	if err = st.setLoginResult(tag, result.ModelTag, "", servers, result.Facades); err != nil {
 		return err
 	}
 	return nil
@@ -320,16 +316,6 @@ func (st *state) DiskManager() (*diskmanager.State, error) {
 	return diskmanager.NewState(st, machineTag), nil
 }
 
-// StorageProvisioner returns a version of the state that provides
-// functionality required by the storageprovisioner worker.
-// The scope tag defines the type of storage that is provisioned, either
-// either attached directly to a specified machine (machine scoped),
-// or provisioned on the underlying cloud for use by any machine in a
-// specified environment (environ scoped).
-func (st *state) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
-	return storageprovisioner.NewState(st, scope)
-}
-
 // Firewaller returns a version of the state that provides functionality
 // required by the firewaller worker.
 func (st *state) Firewaller() *firewaller.State {
@@ -348,7 +334,7 @@ func (st *state) Upgrader() *upgrader.State {
 }
 
 // Reboot returns access to the Reboot API
-func (st *state) Reboot() (*reboot.State, error) {
+func (st *state) Reboot() (reboot.State, error) {
 	switch tag := st.authTag.(type) {
 	case names.MachineTag:
 		return reboot.NewState(st, tag), nil
@@ -365,16 +351,6 @@ func (st *state) Deployer() *deployer.State {
 // Addresser returns access to the Addresser API.
 func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
-}
-
-// Environment returns access to the Environment API
-func (st *state) Environment() *environment.Facade {
-	return environment.NewFacade(st)
-}
-
-// Logger returns access to the Logger API
-func (st *state) Logger() *apilogger.State {
-	return apilogger.NewState(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API
@@ -395,11 +371,6 @@ func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Cleaner returns a version of the state that provides access to the cleaner API
 func (st *state) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
-}
-
-// Rsyslog returns access to the Rsyslog API
-func (st *state) Rsyslog() *rsyslog.State {
-	return rsyslog.NewState(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.

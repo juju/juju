@@ -33,7 +33,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
-	registry.RegisterEnvironStorageProviders("dummyenv", ec2.EBS_ProviderType)
+	registry.RegisterEnvironStorageProviders("dummymodel", ec2.EBS_ProviderType)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -298,7 +298,7 @@ loop:
 }
 
 func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders(cfg.Name(), provider.TmpfsProviderType)
 }

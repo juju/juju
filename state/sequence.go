@@ -11,10 +11,10 @@ import (
 )
 
 type sequenceDoc struct {
-	DocID   string `bson:"_id"`
-	Name    string `bson:"name"`
-	EnvUUID string `bson:"env-uuid"`
-	Counter int
+	DocID     string `bson:"_id"`
+	Name      string `bson:"name"`
+	ModelUUID string `bson:"model-uuid"`
+	Counter   int
 }
 
 func (s *State) sequence(name string) (int, error) {
@@ -24,8 +24,8 @@ func (s *State) sequence(name string) (int, error) {
 	inc := mgo.Change{
 		Update: bson.M{
 			"$set": bson.M{
-				"name":     name,
-				"env-uuid": s.EnvironUUID(),
+				"name":       name,
+				"model-uuid": s.ModelUUID(),
 			},
 			"$inc": bson.M{"counter": 1},
 		},

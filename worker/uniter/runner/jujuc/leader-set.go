@@ -24,7 +24,7 @@ func NewLeaderSetCommand(ctx Context) (cmd.Command, error) {
 // Info is part of the cmd.Command interface.
 func (c *leaderSetCommand) Info() *cmd.Info {
 	doc := `
-leader-set immediate writes the supplied key/value pairs to the state server,
+leader-set immediate writes the supplied key/value pairs to the controller,
 which will then inform non-leader units of the change. It will fail if called
 without arguments, or if called by a unit that is not currently service leader.
 `

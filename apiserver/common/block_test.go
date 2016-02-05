@@ -23,13 +23,13 @@ type mockBlock struct {
 
 func (m mockBlock) Id() string { return "" }
 
-func (m mockBlock) Tag() (names.Tag, error) { return names.NewEnvironTag("mocktesting"), nil }
+func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
 
 func (m mockBlock) Type() state.BlockType { return m.t }
 
 func (m mockBlock) Message() string { return m.m }
 
-func (m mockBlock) EnvUUID() string { return "" }
+func (m mockBlock) ModelUUID() string { return "" }
 
 type blockCheckerSuite struct {
 	testing.FakeJujuHomeSuite

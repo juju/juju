@@ -140,11 +140,11 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsTrue)
 }
 
-func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
+func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 
 	// This test checks that the master triggers a downgrade if one of
-	// the other state server fails to signal it is ready for upgrade.
+	// the other controller fails to signal it is ready for upgrade.
 	//
 	// This test is functional, ensuring that the upgrader worker
 	// terminates the machine agent with the UpgradeReadyError which
@@ -157,19 +157,19 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
 
-	// Create 3 state servers
+	// Create 3 controllers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)
 	s.configureMachine(c, changes.Added[1], s.oldVersion)
 
-	// One of the other state servers is ready for upgrade (but machine C isn't).
+	// One of the other controllers is ready for upgrade (but machine C isn't).
 	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, version.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Ensure the agent will think it's the master state server.
+	// Ensure the agent will think it's the master controller.
 	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
 		return true, nil
 	}
@@ -218,7 +218,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) makeStateAgentVersion(c *gc.C, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	_, config, _ := s.configureMachine(c, machine.Id(), vers)
@@ -318,11 +318,11 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 
 	// this call should always work
 	var result params.FullStatus
-	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
+	err = apiState.APICall("Client", 1, "", "FullStatus", nil, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// this call should only work if API is not restricted
-	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
+	return apiState.APICall("Client", 1, "", "WatchAll", nil, nil)
 }
 
 var upgradeTestDialOpts = api.DialOpts{

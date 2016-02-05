@@ -5,8 +5,6 @@ package metricsender
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"net/http"
 
@@ -16,8 +14,7 @@ import (
 )
 
 var (
-	metricsCertsPool *x509.CertPool
-	metricsHost      string
+	metricsHost string = "https://api.jujucharms.com/omnibus/v2/metrics"
 )
 
 // HttpSender is the default used for sending
@@ -32,8 +29,7 @@ func (s *HttpSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Respon
 		return nil, errors.Trace(err)
 	}
 	r := bytes.NewBuffer(b)
-	t := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: metricsCertsPool}}
-	client := &http.Client{Transport: t}
+	client := &http.Client{}
 	resp, err := client.Post(metricsHost, "application/json", r)
 	if err != nil {
 		return nil, errors.Trace(err)

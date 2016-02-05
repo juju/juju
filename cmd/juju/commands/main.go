@@ -8,26 +8,27 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/environment"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/metricsdebug"
+	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
-	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
@@ -103,7 +104,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
 	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
-	jcmd.AddHelpTopic("juju-systems", "About Juju Environment Systems (JES)", helptopics.JujuSystems)
+	jcmd.AddHelpTopic("controllers", "About Juju Controllers", helptopics.JujuControllers)
 	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
@@ -124,14 +125,12 @@ type commandRegistry interface {
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Creation commands.
 	r.Register(newBootstrapCommand())
-	r.Register(newDeployCommand())
-	r.Register(newAddRelationCommand())
+	r.Register(service.NewAddRelationCommand())
 
 	// Destruction commands.
-	r.Register(newRemoveRelationCommand())
-	r.Register(newRemoveServiceCommand())
-	r.Register(newRemoveUnitCommand())
-	r.Register(newDestroyEnvironmentCommand())
+	r.Register(service.NewRemoveRelationCommand())
+	r.Register(service.NewRemoveServiceCommand())
+	r.Register(service.NewRemoveUnitCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -150,13 +149,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(newInitCommand())
-	r.Register(common.NewGetConstraintsCommand())
-	r.Register(common.NewSetConstraintsCommand())
-	r.Register(newExposeCommand())
+	r.Register(model.NewModelGetConstraintsCommand())
+	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
-	r.Register(newUnexposeCommand())
-	r.Register(newUpgradeJujuCommand())
-	r.Register(newUpgradeCharmCommand())
+	r.Register(newUpgradeJujuCommand(nil))
+	r.Register(service.NewUpgradeCharmCommand())
 
 	// Charm publishing commands.
 	r.Register(newPublishCommand())
@@ -166,12 +163,20 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())
+	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
+	r.RegisterSuperAlias("restore-backup", "backups", "restore", nil)
 
 	// Manage authorized ssh keys.
 	r.Register(newAuthorizedKeysCommand())
 
 	// Manage users and access
-	r.Register(user.NewSuperCommand())
+	r.Register(user.NewAddCommand())
+	r.Register(user.NewChangePasswordCommand())
+	r.Register(user.NewCredentialsCommand())
+	r.Register(user.NewShowUserCommand())
+	r.Register(user.NewListCommand())
+	r.Register(user.NewEnableCommand())
+	r.Register(user.NewDisableCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())
@@ -183,27 +188,37 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("destroy-machine", "machine", "remove", nil)
 	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
 
-	// Mangage environment
-	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("get-environment", "environment", "get", nil)
-	r.RegisterSuperAlias("get-env", "environment", "get", nil)
-	r.RegisterSuperAlias("set-environment", "environment", "set", nil)
-	r.RegisterSuperAlias("set-env", "environment", "set", nil)
-	r.RegisterSuperAlias("unset-environment", "environment", "unset", nil)
-	r.RegisterSuperAlias("unset-env", "environment", "unset", nil)
-	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", nil)
+	// Manage model
+	r.Register(model.NewGetCommand())
+	r.Register(model.NewSetCommand())
+	r.Register(model.NewUnsetCommand())
+	r.Register(model.NewRetryProvisioningCommand())
+	r.Register(model.NewDestroyCommand())
+
+	r.Register(model.NewShareCommand())
+	r.Register(model.NewUnshareCommand())
+	r.Register(model.NewUsersCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
+	r.RegisterSuperAlias("run-action", "action", "do", nil)
+	r.RegisterSuperAlias("list-actions", "action", "defined", nil)
+	r.RegisterSuperAlias("show-action-output", "action", "fetch", nil)
+	r.RegisterSuperAlias("show-action-status", "action", "status", nil)
 
-	// Manage state server availability
-	r.Register(newEnsureAvailabilityCommand())
+	// Manage controller availability
+	r.Register(newEnableHACommand())
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
+	r.Register(service.NewDeployCommand())
+	r.Register(service.NewExposeCommand())
+	r.Register(service.NewUnexposeCommand())
 	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
-	r.RegisterSuperAlias("get", "service", "get", nil)
-	r.RegisterSuperAlias("set", "service", "set", nil)
+	r.RegisterSuperAlias("get-config", "service", "get", nil)
+	r.RegisterSuperAlias("set-config", "service", "set", nil)
+	r.RegisterSuperAlias("get-constraints", "service", "get-constraints", nil)
+	r.RegisterSuperAlias("set-constraints", "service", "set-constraints", nil)
 	r.RegisterSuperAlias("unset", "service", "unset", nil)
 
 	// Operation protection commands
@@ -212,24 +227,34 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewSuperCommand())
+	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
+	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
+	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
+	r.RegisterSuperAlias("add-space", "space", "create", nil)
+	r.RegisterSuperAlias("list-spaces", "space", "list", nil)
 
 	// Manage subnets
 	r.Register(subnet.NewSuperCommand())
+	r.RegisterSuperAlias("add-subnet", "subnet", "add", nil)
 
-	// Manage systems
-	if featureflag.Enabled(feature.JES) {
-		r.Register(system.NewSuperCommand())
-		r.RegisterSuperAlias("systems", "system", "list", nil)
+	// Manage controllers
+	r.Register(controller.NewCreateModelCommand())
+	r.Register(controller.NewDestroyCommand())
+	r.Register(controller.NewModelsCommand())
+	r.Register(controller.NewKillCommand())
+	r.Register(controller.NewListCommand())
+	r.Register(controller.NewListBlocksCommand())
+	r.Register(controller.NewLoginCommand())
+	r.Register(controller.NewRemoveBlocksCommand())
+	r.Register(controller.NewUseModelCommand())
 
-		// Add top level aliases of the same name as the subcommands.
-		r.RegisterSuperAlias("environments", "system", "environments", nil)
-		r.RegisterSuperAlias("login", "system", "login", nil)
-		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
-		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
-	}
+	// Debug Metrics
+	r.Register(metricsdebug.New())
+	r.Register(metricsdebug.NewCollectMetricsCommand())
+	r.Register(setmeterstatus.New())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
@@ -238,8 +263,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 	for _, newCommand := range registeredEnvCommands {
 		command := newCommand()
-		r.Register(envcmd.Wrap(command))
+		r.Register(modelcmd.Wrap(command))
 	}
+	rcmd.RegisterAll(r)
 }
 
 func main() {

@@ -4,6 +4,8 @@
 package api_test
 
 import (
+	"net/url"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +24,7 @@ const testUserName = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	s.AddEnvUser(c, testUserName)
+	s.AddModelUser(c, testUserName)
 	info := s.APIInfo(c)
 	// Don't log in.
 	info.UseMacaroons = false
@@ -72,7 +74,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 	connectURL := connectURLFromReader(c, conn)
-	c.Assert(connectURL.Path, gc.Equals, "/environment/"+s.State.EnvironTag().Id()+"/path")
+	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.State.ModelTag().Id()+"/path")
 	c.Assert(dischargeCount, gc.Equals, 1)
 }
 
@@ -105,18 +107,19 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	// Ensure that the discharger won't discharge and try
 	// logging in again. We should succeed in getting past
 	// authorization because we have the cookies (but
-	// the actual debug-log endpoint will return an error
-	// because there's no all-machines.log file).
+	// the actual debug-log endpoint will return an error).
 	dischargeError = true
-	conn, err := client.ConnectStream("/log", nil)
-	c.Assert(err, gc.ErrorMatches, "cannot open log file: .*")
-	c.Assert(conn, gc.Equals, nil)
+	logArgs := url.Values{"noTail": []string{"true"}}
+	conn, err := client.ConnectStream("/log", logArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	conn.Close()
 
 	// Then delete all the cookies by deleting the cookie jar
 	// and try again. The login should fail.
 	jar.Clear()
 
-	conn, err = client.ConnectStream("/log", nil)
+	conn, err = client.ConnectStream("/log", logArgs)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(conn, gc.Equals, nil)
+	c.Assert(conn, gc.IsNil)
 }

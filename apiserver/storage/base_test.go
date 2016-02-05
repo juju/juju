@@ -217,7 +217,7 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.calls = append(s.calls, allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
-		envName: "storagetest",
+		modelName: "storagetest",
 		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
 			s.calls = append(s.calls, addStorageForUnitCall)
 			return nil

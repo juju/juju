@@ -1089,7 +1089,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
 	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
-	c.Assert(state.GetUnitEnvUUID(unitZero), gc.Equals, s.State.EnvironUUID())
+	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, s.State.ModelUUID())
 
 	unitOne, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
