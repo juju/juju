@@ -112,12 +112,3 @@ func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.
 
 	return s.ReturnSetResource, nil
 }
-
-func (s *stubDataStore) SetUnitResource(id, unitID, serviceID string, res resource.Resource) error {
-	s.stub.AddCall("SetUnitResource", id, unitID, serviceID, res)
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
