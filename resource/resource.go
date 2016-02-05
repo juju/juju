@@ -44,6 +44,7 @@ type Resource struct {
 	// ID uniquely identifies a resource-service pair within the model.
 	// Note that the model ignores pending resources (those with a
 	// pending ID) except for in a few clearly pending-related places.
+	// ID may be empty if the ID (assigned by the model) is not known.
 	ID string
 
 	// PendingID identifies that this resource is pending and
@@ -69,8 +70,6 @@ type Resource struct {
 
 // Validate ensures that the spec is valid.
 func (res Resource) Validate() error {
-	// TODO(ericsnow) Ensure that ID and ServiceID are set.
-
 	// TODO(ericsnow) Ensure that the "placeholder" fields are not set
 	// if IsLocalPlaceholder() returns true (and that they *are* set
 	// otherwise)? Also ensure an "upload" origin in the "placeholder"
@@ -78,6 +77,10 @@ func (res Resource) Validate() error {
 
 	if err := res.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad info")
+	}
+
+	if res.ServiceID == "" {
+		return errors.NewNotValid(nil, "missing service ID")
 	}
 
 	// TODO(ericsnow) Require that Username be set if timestamp is?

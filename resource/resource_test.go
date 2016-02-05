@@ -24,6 +24,8 @@ var _ = gc.Suite(&ResourceSuite{})
 func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
+		ID:        "a-service/spam",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -35,7 +37,24 @@ func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 
 func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
 	res := resource.Resource{
-		Resource: newFullCharmResource(c, "spam"),
+		Resource:  newFullCharmResource(c, "spam"),
+		ID:        "a-service/spam",
+		ServiceID: "a-service",
+	}
+
+	err := res.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
+	res := resource.Resource{
+		Resource:  newFullCharmResource(c, "spam"),
+		ID:        "a-service/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-service",
+		Username:  "a-user",
+		Timestamp: time.Now(),
 	}
 
 	err := res.Validate()
@@ -66,9 +85,38 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
+func (ResourceSuite) TestValidateMissingID(c *gc.C) {
+	res := resource.Resource{
+		Resource:  newFullCharmResource(c, "spam"),
+		ServiceID: "a-service",
+		Username:  "a-user",
+		Timestamp: time.Now(),
+	}
+
+	err := res.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (ResourceSuite) TestValidateMissingServiceID(c *gc.C) {
+	res := resource.Resource{
+		Resource:  newFullCharmResource(c, "spam"),
+		ID:        "a-service/spam",
+		Username:  "a-user",
+		Timestamp: time.Now(),
+	}
+
+	err := res.Validate()
+
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `.*missing service ID.*`)
+}
+
 func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
+		ID:        "a-service/spam",
+		ServiceID: "a-service",
 		Username:  "",
 		Timestamp: time.Now(),
 	}
@@ -81,6 +129,8 @@ func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
+		ID:        "a-service/spam",
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: time.Time{},
 	}
