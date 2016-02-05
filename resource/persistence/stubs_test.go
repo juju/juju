@@ -13,7 +13,19 @@ import (
 type stubStatePersistence struct {
 	stub *testing.Stub
 
-	docs []resourceDoc
+	docs      []resourceDoc
+	ReturnOne resourceDoc
+}
+
+func (s stubStatePersistence) One(collName, id string, doc interface{}) error {
+	s.stub.AddCall("One", collName, id, doc)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	actual := doc.(*resourceDoc)
+	*actual = s.ReturnOne
+	return nil
 }
 
 func (s stubStatePersistence) All(collName string, query, docs interface{}) error {

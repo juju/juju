@@ -166,6 +166,17 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 	return docs, nil
 }
 
+// getOne returns the resource that matches the provided model ID.
+func (p Persistence) getOne(resID string) (resourceDoc, error) {
+	logger.Tracef("querying db for resource %q", resID)
+	id := serviceResourceID(resID)
+	var doc resourceDoc
+	if err := p.base.One(resourcesC, id, &doc); err != nil {
+		return doc, errors.Trace(err)
+	}
+	return doc, nil
+}
+
 // resourceDoc is the top-level document for resources.
 type resourceDoc struct {
 	DocID     string `bson:"_id"`
