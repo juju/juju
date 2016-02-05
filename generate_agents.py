@@ -29,7 +29,6 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
     # Retrieve the packages that contain a jujud for this version.
     print("Retrieving juju-core packages from archives")
     print(datetime.now().replace(microsecond=0).isoformat())
-    os.chdir(dest_debs)
     for archive in archives:
         scheme, netloc, path, query, fragment = urlsplit(archive)
         # Strip username / password
@@ -39,12 +38,12 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
         subprocess.check_call([
             'lftp', '-c', 'mirror', '-I',
             "juju-core_{}*.{}~juj*.deb".format(release, upatch),
-            archive])
+            archive], cwd=dest_debs)
     juju_core_dir = os.path.join(dest_debs, 'juju-core')
     if os.path.isdir(juju_core_dir):
         debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
         for deb in debs:
-            shutil.move(deb, './')
+            shutil.move(deb, dest_debs)
         shutil.rmtree(juju_core_dir)
     if os.path.exists(s3_config):
         print(
@@ -84,7 +83,7 @@ def list_ppas(juju_home):
 
 def main():
     args = parse_args()
-    dest_debs = os.path.join(args.destination, 'debs')
+    dest_debs = os.path.abspath(os.path.join(args.destination, 'debs'))
     juju_dir = os.environ.get(
         'JUJU_HOME', os.path.join(os.environ.get('HOME'), '.juju'))
     s3_config = os.path.join(juju_dir, 'juju-qa.s3cfg')
