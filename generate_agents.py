@@ -75,7 +75,7 @@ def list_ppas(juju_home):
     if not os.path.exists(config):
         return None
     listing = subprocess.check_output(
-        ['/bin/bash', '-c', 'source {}; echo '
+        ['/bin/bash', '-c', 'source {}; set -u; echo '
          '"$BUILD_STABLE_ARCH\n'
          '$BUILD_DEVEL_ARCH\n'
          '$BUILD_SUPPORTED_ARCH"'.format(config)])
