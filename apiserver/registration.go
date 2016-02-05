@@ -10,10 +10,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"golang.org/x/crypto/nacl/secretbox"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"golang.org/x/crypto/nacl/secretbox"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

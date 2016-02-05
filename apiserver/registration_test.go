@@ -11,11 +11,10 @@ import (
 	"net/http"
 	"strings"
 
-	"golang.org/x/crypto/nacl/secretbox"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"github.com/juju/utils"
+	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"

@@ -51,10 +51,6 @@ type AddUser struct {
 	// be possible to login with a password until
 	// registration with the secret key is completed.
 	Password string `json:"password,omitempty"`
-
-	// Disable controls whether or not the user should
-	// be disabled at creation time.
-	Disable bool `json:"disable,omitempty"`
 }
 
 // AddUserResults holds the results of the bulk AddUser API call.
