@@ -19,7 +19,7 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
-	serviceName    = "juju-db"
+	ServiceName    = "juju-db"
 	serviceTimeout = 300 // 5 minutes
 
 	// SharedSecretFile is the name of the Mongo shared secret file
@@ -71,8 +71,8 @@ var discoverService = func(name string) (mongoService, error) {
 // configuration is present.
 var IsServiceInstalled = isServiceInstalled
 
-func isServiceInstalled(namespace string) (bool, error) {
-	svc, err := discoverService(ServiceName(namespace))
+func isServiceInstalled() (bool, error) {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -80,8 +80,8 @@ func isServiceInstalled(namespace string) (bool, error) {
 }
 
 // RemoveService removes the mongoDB init service from this machine.
-func RemoveService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func RemoveService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,18 +94,9 @@ func RemoveService(namespace string) error {
 	return nil
 }
 
-// ServiceName returns the name of the init service config for mongo using
-// the given namespace.
-func ServiceName(namespace string) string {
-	if namespace != "" {
-		return fmt.Sprintf("%s-%s", serviceName, namespace)
-	}
-	return serviceName
-}
-
 // StopService will stop mongodb service.
-func StopService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func StopService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -113,8 +104,8 @@ func StopService(namespace string) error {
 }
 
 // StartService will start mongodb service.
-func StartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func StartService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -122,8 +113,8 @@ func StartService(namespace string) error {
 }
 
 // ReStartService will stop and then start mongodb service.
-func ReStartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func ReStartService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}

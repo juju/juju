@@ -6,4 +6,5 @@ package sender
 var (
 	NewSender            = newSender
 	NewMetricAdderClient = newMetricAdderClient
+	SocketName           = &socketName
 )

@@ -40,7 +40,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	results, err := s.serviceApi.ServiceGet(params.ServiceGet{"wordpress"})
+	results, err := s.serviceApi.Get(params.ServiceGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ServiceGetResults{
 		Service: "wordpress",
@@ -57,7 +57,7 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 }
 
 func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
-	_, err := s.serviceApi.ServiceGet(params.ServiceGet{"unknown"})
+	_, err := s.serviceApi.Get(params.ServiceGet{"unknown"})
 	c.Assert(err, gc.ErrorMatches, `service "unknown" not found`)
 }
 
@@ -176,15 +176,15 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		expect.Service = svc.Name()
 		expect.Charm = ch.Meta().Name
 		client := apiservice.NewClient(s.APIState)
-		got, err := client.ServiceGet(svc.Name())
+		got, err := client.Get(svc.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, gc.DeepEquals, expect)
 	}
 }
 
-func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
+func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	// See the bug http://pad.lv/1217742
-	// ServiceGet ends up pushing a map[string]interface{} which containts
+	// Get ends up pushing a map[string]interface{} which containts
 	// an int64 through a JSON Marshal & Unmarshal which ends up changing
 	// the int64 into a float64. We will fix it if we find it is actually a
 	// problem.
@@ -199,7 +199,7 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 	err := svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiservice.NewClient(s.APIState)
-	got, err := client.ServiceGet(svc.Name())
+	got, err := client.Get(svc.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Config["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",

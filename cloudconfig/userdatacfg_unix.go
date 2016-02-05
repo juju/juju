@@ -192,7 +192,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
 		// the manual provider may have had it already. The ubuntu
-		// user may not exist (local provider only).
+		// user may not exist.
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
 	if (w.icfg.ProxySettings != proxy.Settings{}) {

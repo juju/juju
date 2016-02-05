@@ -23,9 +23,7 @@ type MachineSuite struct {
 
 var _ = gc.Suite(&MachineSuite{})
 
-func (s *MachineSuite) RunMachineCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
-	args := []string{"machine"}
-	args = append(args, commands...)
+func (s *MachineSuite) RunCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	context := testing.Context(c)
 	juju := NewJujuCommand(context)
 	if err := testing.InitCommand(juju, args); err != nil {
@@ -39,7 +37,7 @@ func (s *MachineSuite) TestMachineAdd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	count := len(machines)
 
-	ctx, err := s.RunMachineCommand(c, "add")
+	ctx, err := s.RunCommand(c, "add-machine")
 	c.Assert(testing.Stderr(ctx), jc.Contains, `created machine`)
 
 	machines, err = s.State.AllMachines()
@@ -50,7 +48,7 @@ func (s *MachineSuite) TestMachineAdd(c *gc.C) {
 func (s *MachineSuite) TestMachineRemove(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 
-	ctx, err := s.RunMachineCommand(c, "remove", machine.Id())
+	ctx, err := s.RunCommand(c, "remove-machine", machine.Id())
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 
 	err = machine.Refresh()
