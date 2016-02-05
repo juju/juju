@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/constraints"
 )
 
-// ServiceGet returns the configuration for a service.
-func (api *API) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
+// Get returns the configuration for a service.
+func (api *API) Get(args params.ServiceGet) (params.ServiceGetResults, error) {
 	service, err := api.state.Service(args.ServiceName)
 	if err != nil {
 		return params.ServiceGetResults{}, err
