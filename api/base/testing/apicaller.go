@@ -27,6 +27,8 @@ func (f APICallerFunc) APICall(objType string, version int, id, request string, 
 }
 
 func (APICallerFunc) BestFacadeVersion(facade string) int {
+	// TODO(fwereade): this should return something arbitrary (e.g. 37)
+	// so that it can't be confused with mere uninitialized data.
 	return 0
 }
 
