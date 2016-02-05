@@ -51,7 +51,7 @@ func (*readOnlyCallsSuite) TestReadOnlyCall(c *gc.C) {
 		{"Action", "Actions"},
 		{"Client", "FullStatus"},
 		{"Service", "ServiceGet"},
-		{"Storage", "List"},
+		{"Storage", "ListStorageDetails"},
 	} {
 		c.Logf("check %s.%s", test.facade, test.method)
 		c.Check(isCallReadOnly(test.facade, test.method), jc.IsTrue)
