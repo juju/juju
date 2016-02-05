@@ -37,11 +37,11 @@ type Info struct {
 
 	// This block of fields is sufficient to connect:
 
-	// Addrs holds the addresses of the state servers.
+	// Addrs holds the addresses of the controllers.
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
+	// to validate the controller's certificate, in PEM format.
 	CACert string
 
 	// ModelTag holds the model tag for the model we are
@@ -70,14 +70,14 @@ type Info struct {
 }
 
 // DialOpts holds configuration parameters that control the
-// Dialing behavior when connecting to a state server.
+// Dialing behavior when connecting to a controller.
 type DialOpts struct {
 	// DialAddressInterval is the amount of time to wait
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
 
 	// Timeout is the amount of time to wait contacting
-	// a state server.
+	// a controller.
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
@@ -93,7 +93,7 @@ type DialOpts struct {
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
-// parameters for contacting a state server.
+// parameters for contacting a controller.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		DialAddressInterval: 50 * time.Millisecond,

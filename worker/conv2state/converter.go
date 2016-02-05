@@ -17,7 +17,7 @@ import (
 var logger = loggo.GetLogger("juju.worker.conv2state")
 
 // New returns a new notify watch handler that will convert the given machine &
-// agent to a state server.
+// agent to a controller.
 func New(m *apimachiner.State, agent Agent) watcher.NotifyHandler {
 	return &converter{machiner: wrapper{m}, agent: agent}
 }

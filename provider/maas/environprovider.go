@@ -103,7 +103,7 @@ maas:
     # maas-server bootstrap ssh connection options
     #
 
-    # bootstrap-timeout time to wait contacting a state server, in seconds.
+    # bootstrap-timeout time to wait contacting a controller, in seconds.
     bootstrap-timeout: 1800
 
     # Whether or not to refresh the list of available updates for an

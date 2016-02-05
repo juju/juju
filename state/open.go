@@ -39,7 +39,7 @@ func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
 	}
 
-	// State should only be Opened on behalf of a state server environ; all
+	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForEnviron.
 	if err := st.start(tag); err != nil {
 		return nil, errors.Trace(err)
@@ -69,7 +69,7 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 	// the the UUID might not be known.
 	if tag.Id() == "" {
 		logger.Warningf("creating state without model tag; inferring bootstrap model")
-		ssInfo, err := readRawStateServerInfo(session)
+		ssInfo, err := readRawControllerInfo(session)
 		if err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
@@ -101,7 +101,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 }
 
 // Initialize sets up an initial empty state and returns it.
-// This needs to be performed only once for the initial state server model.
+// This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid, ok := cfg.UUID()
@@ -130,8 +130,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the state server model, the new model
-	// UUID is also used as the state server UUID.
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
 	logger.Infof("initializing controller model %s", uuid)
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
@@ -140,27 +140,27 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	ops = append(ops,
 		createInitialUserOp(st, owner, info.Password),
 		txn.Op{
-			C:      stateServersC,
+			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
-			Insert: &stateServersDoc{
+			Insert: &controllersDoc{
 				ModelUUID: st.ModelUUID(),
 			},
 		},
 		txn.Op{
-			C:      stateServersC,
+			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
 		txn.Op{
-			C:      stateServersC,
+			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
 		txn.Op{
-			C:      stateServersC,
+			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
@@ -181,8 +181,8 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the state server model, the new model
-	// UUID is also used as the state server UUID.
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}

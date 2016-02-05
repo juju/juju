@@ -256,7 +256,7 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// WantsVote reports whether the machine is a state server
+// WantsVote reports whether the machine is a controller
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
 	return wantsVote(m.doc.Jobs, m.doc.NoVote)
@@ -357,11 +357,11 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 }
 
 // SetMongoPassword sets the password the agent responsible for the machine
-// should use to communicate with the state servers.  Previous passwords
+// should use to communicate with the controllers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
 	if !m.IsManager() {
-		return errors.NotSupportedf("setting mongo password for non-state server machine %v", m)
+		return errors.NotSupportedf("setting mongo password for non-controller machine %v", m)
 	}
 	return mongo.SetAdminMongoPassword(m.st.session, m.Tag().String(), password)
 }
@@ -942,7 +942,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	// like status or enable-ha will have an accurate values
 	// for agent-state.
 	//
-	// TODO: Does not work for multiple state servers. Trigger a sync across all state servers.
+	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
 	if m.IsManager() {
 		m.st.pwatcher.Sync()
 	}

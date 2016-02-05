@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// BootstrapNonce is used as a nonce for the state server machine.
+	// BootstrapNonce is used as a nonce for the controller machine.
 	BootstrapNonce = "user-admin:bootstrap"
 )
 
@@ -54,14 +54,14 @@ type BootstrapMachineConfig struct {
 const BootstrapMachineId = "0"
 
 // InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to create the state server, dial the
-// state server, and initialize it. It also generates a new password for the
+// configuration. It uses that information to create the controller, dial the
+// controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
 //
 // The envCfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
 // and its constraints will be also be used for the model-level
-// constraints. The connection to the state server will respect the
+// constraints. The connection to the controller will respect the
 // given timeout parameter.
 //
 // InitializeState returns the newly initialized state and bootstrap

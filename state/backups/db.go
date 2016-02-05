@@ -218,8 +218,8 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 
 // mongoRestoreArgsForVersion returns a string slice containing the args to be used
 // to call mongo restore since these can change depending on the backup method.
-// Version 0: a dump made with --db, stopping the state server.
-// Version 1: a dump made with --oplog with a running state server.
+// Version 0: a dump made with --db, stopping the controller.
+// Version 1: a dump made with --oplog with a running controller.
 // TODO (perrito666) change versions to use metadata version
 func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
 	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")

@@ -46,14 +46,14 @@ const (
 	// instance security groups.
 	FwNone = "none"
 
-	// DefaultStatePort is the default port the state server is listening on.
+	// DefaultStatePort is the default port the controller is listening on.
 	DefaultStatePort int = 37017
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
-	// contacting a state server, in seconds.
+	// contacting a controller, in seconds.
 	DefaultBootstrapSSHTimeout int = 600
 
 	// DefaultBootstrapSSHRetryDelay is the amount of time between
@@ -800,7 +800,7 @@ func (c *Config) DefaultSeries() (string, bool) {
 	return "", false
 }
 
-// StatePort returns the state server port for the environment.
+// StatePort returns the controller port for the environment.
 func (c *Config) StatePort() int {
 	return c.mustInt("state-port")
 }
@@ -959,7 +959,7 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 	return opts
 }
 
-// CACert returns the certificate of the CA that signed the state server
+// CACert returns the certificate of the CA that signed the controller
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() (string, bool) {
 	if s, ok := c.defined["ca-cert"]; ok {
@@ -1454,9 +1454,9 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	return result, nil
 }
 
-// GenerateStateServerCertAndKey makes sure that the config has a CACert and
+// GenerateControllerCertAndKey makes sure that the config has a CACert and
 // CAPrivateKey, generates and returns new certificate and key.
-func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string, string, error) {
+func (cfg *Config) GenerateControllerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
 		return "", "", fmt.Errorf("model configuration has no ca-cert")
@@ -1645,13 +1645,13 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	"bootstrap-timeout": {
-		Description: "The amount of time to wait contacting a state server in seconds",
+		Description: "The amount of time to wait contacting a controller in seconds",
 		Type:        environschema.Tint,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	"ca-cert": {
-		Description: `The certificate of the CA that signed the state server certificate, in PEM format`,
+		Description: `The certificate of the CA that signed the controller certificate, in PEM format`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1660,7 +1660,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"ca-private-key": {
-		Description: `The private key of the CA that signed the state server certificate, in PEM format`,
+		Description: `The private key of the CA that signed the controller certificate, in PEM format`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1827,7 +1827,7 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	SetNumaControlPolicyKey: {
-		Description: "Tune Juju state-server to work with NUMA if present (default false)",
+		Description: "Tune Juju controller to work with NUMA if present (default false)",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},

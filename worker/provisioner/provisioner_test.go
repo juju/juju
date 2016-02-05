@@ -248,7 +248,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
-				c.Assert(o.AgentEnvironment["SECURE_STATESERVER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
+				c.Assert(o.AgentEnvironment["SECURE_CONTROLLER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
 
 				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {

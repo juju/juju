@@ -114,7 +114,7 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 	return result.Results[0], nil
 }
 
-// getOneAction retrieves a single Action from the state server.
+// getOneAction retrieves a single Action from the controller.
 func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
 	nothing := params.ActionsQueryResult{}
 

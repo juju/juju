@@ -21,8 +21,8 @@ import (
 
 type stateInterface interface {
 	Machine(id string) (stateMachine, error)
-	WatchStateServerInfo() state.NotifyWatcher
-	StateServerInfo() (*state.StateServerInfo, error)
+	WatchControllerInfo() state.NotifyWatcher
+	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
 }
 
@@ -45,7 +45,7 @@ type mongoSession interface {
 }
 
 type publisherInterface interface {
-	// publish publishes information about the given state servers
+	// publish publishes information about the given controllers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
 	publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
@@ -101,7 +101,7 @@ type pgWorker struct {
 	notifyCh chan notifyFunc
 
 	// machines holds the set of machines we are currently
-	// watching (all the state server machines). Each one has an
+	// watching (all the controller machines). Each one has an
 	// associated goroutine that
 	// watches attributes of that machine.
 	machines map[string]*machine
@@ -156,7 +156,7 @@ func (w *pgWorker) Wait() error {
 }
 
 func (w *pgWorker) loop() error {
-	infow := w.watchStateServerInfo()
+	infow := w.watchControllerInfo()
 	defer infow.stop()
 
 	var updateChan <-chan time.Time
@@ -363,17 +363,17 @@ func setHasVote(ms []*machine, hasVote bool) error {
 	return nil
 }
 
-// serverInfoWatcher watches the state server info and
+// serverInfoWatcher watches the controller info and
 // notifies the worker when it changes.
 type serverInfoWatcher struct {
 	worker  *pgWorker
 	watcher state.NotifyWatcher
 }
 
-func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
+func (w *pgWorker) watchControllerInfo() *serverInfoWatcher {
 	infow := &serverInfoWatcher{
 		worker:  w,
-		watcher: w.st.WatchStateServerInfo(),
+		watcher: w.st.WatchControllerInfo(),
 	}
 	w.start(infow.loop)
 	return infow
@@ -398,14 +398,14 @@ func (infow *serverInfoWatcher) stop() {
 }
 
 // updateMachines is a notifyFunc that updates the current
-// machines when the state server info has changed.
+// machines when the controller info has changed.
 func (infow *serverInfoWatcher) updateMachines() (bool, error) {
-	info, err := infow.worker.st.StateServerInfo()
+	info, err := infow.worker.st.ControllerInfo()
 	if err != nil {
-		return false, fmt.Errorf("cannot get state server info: %v", err)
+		return false, fmt.Errorf("cannot get controller info: %v", err)
 	}
 	changed := false
-	// Stop machine goroutines that no longer correspond to state server
+	// Stop machine goroutines that no longer correspond to controller
 	// machines.
 	for _, m := range infow.worker.machines {
 		if !inStrings(m.id, info.MachineIds) {
@@ -425,9 +425,9 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 			if errors.IsNotFound(err) {
 				// If the machine isn't found, it must have been
 				// removed and will soon enough be removed
-				// from the state server list. This will probably
+				// from the controller list. This will probably
 				// never happen, but we'll code defensively anyway.
-				logger.Warningf("machine %q from state server list not found", id)
+				logger.Warningf("machine %q from controller list not found", id)
 				continue
 			}
 			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
@@ -499,7 +499,7 @@ func (m *machine) refresh() (bool, error) {
 		if errors.IsNotFound(err) {
 			// We want to be robust when the machine
 			// state is out of date with respect to the
-			// state server info, so if the machine
+			// controller info, so if the machine
 			// has been removed, just assume that
 			// no change has happened - the machine
 			// loop will be stopped very soon anyway.

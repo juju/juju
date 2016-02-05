@@ -88,9 +88,9 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	c.Check(instances, gc.HasLen, 0)
 
 	uuid0 := addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
-	uuid1 := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	uuid1 := addTestClientServer(c, jujuMetaInstanceController, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 	addTestClientServer(c, jujuMetaInstanceServer, "other-model")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "other-model")
+	addTestClientServer(c, jujuMetaInstanceController, "other-model")
 
 	instances, err = env.AllInstances()
 	c.Assert(instances, gc.NotNil)

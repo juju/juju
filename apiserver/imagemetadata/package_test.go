@@ -119,9 +119,9 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 
 func testConfig(c *gc.C) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":         "mock",
-		"state-server": true,
-		"state-id":     "1",
+		"type":       "mock",
+		"controller": true,
+		"state-id":   "1",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

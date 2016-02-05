@@ -22,7 +22,7 @@ type ImageURLGetter interface {
 	// specified kind, series, and arch.
 	ImageURL(kind instance.ContainerType, series, arch string) (string, error)
 
-	// CACert returns the ca certificate used to validate the state server
+	// CACert returns the ca certificate used to validate the controller
 	// certificate when using wget.
 	CACert() []byte
 }

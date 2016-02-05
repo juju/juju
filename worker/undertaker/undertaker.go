@@ -68,7 +68,7 @@ func (u *undertaker) run() error {
 	// If model is not alive or dying, it must be dead.
 
 	if modelInfo.IsSystem {
-		// Nothing to do. We don't remove model docs for a state server
+		// Nothing to do. We don't remove model docs for a controller
 		// model.
 		return nil
 	}

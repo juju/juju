@@ -11,7 +11,7 @@ import (
 )
 
 // NewStatePool returns a new StatePool instance. It takes a State
-// connected to the system (state server model).
+// connected to the system (controller model).
 func NewStatePool(systemState *State) *StatePool {
 	return &StatePool{
 		systemState: systemState,

@@ -55,11 +55,11 @@ func (s *statePoolSuite) TestGet(c *gc.C) {
 	c.Assert(st2_, gc.Equals, st2)
 }
 
-func (s *statePoolSuite) TestGetWithStateServerEnv(c *gc.C) {
+func (s *statePoolSuite) TestGetWithControllerEnv(c *gc.C) {
 	p := state.NewStatePool(s.State)
 	defer p.Close()
 
-	// When a State for the state server env is requested, the same
+	// When a State for the controller env is requested, the same
 	// State that was original passed in should be returned.
 	st0, err := p.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,7 +89,7 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	err = p.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Confirm that state server State isn't closed.
+	// Confirm that controller State isn't closed.
 	_, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

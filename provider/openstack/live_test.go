@@ -185,7 +185,7 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	// all ports to other machines inside the same group
 	// TODO(jam): 2013-09-18 http://pad.lv/1227142
 	// We shouldn't be exposing the API port on all the machines
-	// that *aren't* hosting the state server.
+	// that *aren't* hosting the controller.
 	stringRules := make([]string, 0, len(group.Rules))
 	for _, rule := range group.Rules {
 		ruleStr := fmt.Sprintf("%s %d %d %q %q",

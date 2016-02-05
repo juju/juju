@@ -389,7 +389,7 @@ local:
     #
     # network-bridge: lxcbr0
 
-    # The default series to deploy the state-server and charms on.
+    # The default series to deploy the controller and charms on.
     # Make sure to uncomment the following option and set the value to
     # precise or trusty as desired.
     #

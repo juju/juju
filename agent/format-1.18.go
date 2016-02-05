@@ -49,14 +49,14 @@ type format_1_18Serialization struct {
 
 	PreferIPv6 bool `yaml:"prefer-ipv6,omitempty"`
 
-	// Only state server machines have these next items set.
-	StateServerCert string `yaml:",omitempty"`
-	StateServerKey  string `yaml:",omitempty"`
-	CAPrivateKey    string `yaml:",omitempty"`
-	APIPort         int    `yaml:",omitempty"`
-	StatePort       int    `yaml:",omitempty"`
-	SharedSecret    string `yaml:",omitempty"`
-	SystemIdentity  string `yaml:",omitempty"`
+	// Only controller machines have these next items set.
+	ControllerCert string `yaml:",omitempty"`
+	ControllerKey  string `yaml:",omitempty"`
+	CAPrivateKey   string `yaml:",omitempty"`
+	APIPort        int    `yaml:",omitempty"`
+	StatePort      int    `yaml:",omitempty"`
+	SharedSecret   string `yaml:",omitempty"`
+	SystemIdentity string `yaml:",omitempty"`
 }
 
 func init() {
@@ -118,10 +118,10 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			format.APIPassword,
 		}
 	}
-	if len(format.StateServerKey) != 0 {
+	if len(format.ControllerKey) != 0 {
 		config.servingInfo = &params.StateServingInfo{
-			Cert:           format.StateServerCert,
-			PrivateKey:     format.StateServerKey,
+			Cert:           format.ControllerCert,
+			PrivateKey:     format.ControllerKey,
 			CAPrivateKey:   format.CAPrivateKey,
 			APIPort:        format.APIPort,
 			StatePort:      format.StatePort,
@@ -171,8 +171,8 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		PreferIPv6:        config.preferIPv6,
 	}
 	if config.servingInfo != nil {
-		format.StateServerCert = config.servingInfo.Cert
-		format.StateServerKey = config.servingInfo.PrivateKey
+		format.ControllerCert = config.servingInfo.Cert
+		format.ControllerKey = config.servingInfo.PrivateKey
 		format.CAPrivateKey = config.servingInfo.CAPrivateKey
 		format.APIPort = config.servingInfo.APIPort
 		format.StatePort = config.servingInfo.StatePort

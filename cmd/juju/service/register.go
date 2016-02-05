@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
@@ -20,7 +21,7 @@ import (
 )
 
 type metricRegistrationPost struct {
-	ModelUUID   string `json:"model-uuid"`
+	ModelUUID   string `json:"env-uuid"`
 	CharmURL    string `json:"charm-url"`
 	ServiceName string `json:"service-name"`
 	PlanURL     string `json:"plan-url"`
@@ -40,9 +41,8 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
-func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
 	charmsClient := charms.NewClient(state)
-	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 
 	bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
 
-	if r.Plan == "" {
+	if r.Plan == "" && deployInfo.CharmURL.Schema == "cs" {
 		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
 		if err != nil {
 			if isNoDefaultPlanError(err) {
@@ -70,14 +70,20 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 
 	r.credentials, err = r.registerMetrics(deployInfo.ModelUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
 	if err != nil {
-		logger.Infof("failed to obtain plan authorization: %v", err)
-		return err
+		if deployInfo.CharmURL.Schema == "cs" {
+			logger.Infof("failed to obtain plan authorization: %v", err)
+			return err
+		}
+		logger.Debugf("no plan authorization: %v", err)
 	}
 	return nil
 }
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
-func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, deployInfo DeploymentInfo) error {
+func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+	if prevErr != nil {
+		return nil
+	}
 	if r.credentials == nil {
 		return nil
 	}

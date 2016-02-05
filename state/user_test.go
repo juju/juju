@@ -241,7 +241,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "erica"})
-	// There is the existing state server owner called "test-admin"
+	// There is the existing controller owner called "test-admin"
 
 	includeDeactivated := false
 	users, err := s.State.AllUsers(includeDeactivated)

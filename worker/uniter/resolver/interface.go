@@ -85,6 +85,6 @@ type LocalState struct {
 
 	// CompletedActions is the set of actions that have been completed.
 	// This is used to prevent us re running actions requested by the
-	// state server.
+	// controller.
 	CompletedActions map[string]struct{}
 }

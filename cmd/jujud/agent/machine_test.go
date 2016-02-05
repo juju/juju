@@ -548,7 +548,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		done <- a.Run(nil)
 	}()
 
-	// See state server runners start
+	// See controller runners start
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "txnpruner")
 
@@ -1185,7 +1185,7 @@ func (s *MachineSuite) runOpenAPIStateTest(c *gc.C, machine *state.Machine, conf
 	// Set a failing password...
 	confW, err := agent.ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
-	confW.SetPassword("not-set-on-state-server")
+	confW.SetPassword("not-set-on-controller")
 
 	// ...and also make sure the api info points to the testing api
 	// server (and not, as for JobManageModel machines, to the port
@@ -1515,7 +1515,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(c *gc.C) {
 	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
@@ -1533,7 +1533,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 	started.assertTriggered(c, "certificate to be updated")
 }
 
-func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonController(c *gc.C) {
 	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
@@ -1896,7 +1896,7 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 	// Create a new environment, tests can now watch if workers start for it.
 	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: map[string]interface{}{
-			"state-server": false,
+			"controller": false,
 		},
 		Prepare: true,
 	})
@@ -1934,7 +1934,7 @@ func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer fun
 
 func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("state servers on windows aren't supported")
+		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ReplicasetInitiated = false
@@ -1952,7 +1952,7 @@ func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
 
 func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("state servers on windows aren't supported")
+		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ReplicasetInitiated = true
@@ -1968,9 +1968,9 @@ func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
-func (s *MachineSuite) TestReplicasetInitForNewStateServer(c *gc.C) {
+func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("state servers on windows aren't supported")
+		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ServiceInstalled = false
@@ -2004,7 +2004,7 @@ func (s *MachineSuite) TestManageEnvironRunsUndertaker(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// state server workers.
+	// controller workers.
 	_ = s.singularRecord.nextRunner(c)
 	// new environ workers.
 	_ = s.singularRecord.nextRunner(c)
@@ -2013,7 +2013,7 @@ func (s *MachineSuite) TestManageEnvironRunsUndertaker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-	// state server workers.
+	// controller workers.
 	_ = s.singularRecord.nextRunner(c)
 	// new environ workers.
 	r := s.singularRecord.nextRunner(c)

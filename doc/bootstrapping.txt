@@ -59,7 +59,7 @@ The common finalizer function does the following:
    * checks for admin-secret
    * creates a password hash using the utils.CompatSalt
    * uses this password hash for both the APIInfo and MongoInfo passwords.
-   * creates the state server cert and key
+   * creates the controller cert and key
    * strips the admin-secret and server ca-private-key from the config
      * this step is probably not needed any more
  * calls common.FinishBootstrap
