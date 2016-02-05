@@ -11,7 +11,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a command for listing storage instances.
+func NewListCommand() cmd.Command {
 	cmd := &listCommand{}
 	cmd.newAPIFunc = func() (StorageListAPI, error) {
 		return cmd.NewStorageAPI()
@@ -35,6 +36,8 @@ options:
 type listCommand struct {
 	StorageCommandBase
 	out        cmd.Output
+	filesystem bool
+	volume	   bool
 	newAPIFunc func() (StorageListAPI, error)
 }
 
@@ -46,9 +49,10 @@ func (c *listCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-storage",
 		Purpose: "lists storage",
 		Doc:     listCommandDoc,
+		Aliases: []string {"list-storages", "storage", "storages"}
 	}
 }
 
@@ -60,6 +64,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatListTabular,
 	})
+	f.BoolVar(&c.filesystem, "filesystem", false, "list filesystem storage")
+	f.BoolVar(&c.volume, "volume", false, "list volume storage")
 }
 
 // Run implements Command.Run.

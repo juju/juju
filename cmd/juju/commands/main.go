@@ -227,9 +227,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewSuperCommand())
+	r.Register(storage.NewAddCommand())
 	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
 	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
-	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())

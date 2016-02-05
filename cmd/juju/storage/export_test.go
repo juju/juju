@@ -52,7 +52,7 @@ func NewListCommand(api StorageListAPI) cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
-func NewAddCommand(api StorageAddAPI) cmd.Command {
+func NewAddCommandForTest(api StorageAddAPI) cmd.Command {
 	cmd := &addCommand{newAPIFunc: func() (StorageAddAPI, error) {
 		return api, nil
 	}}

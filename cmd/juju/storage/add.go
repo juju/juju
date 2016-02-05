@@ -16,7 +16,8 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-func newAddCommand() cmd.Command {
+// NewAddCommand returns a command used to add unit storage.
+func NewAddCommand() cmd.Command {
 	cmd := &addCommand{}
 	cmd.newAPIFunc = func() (StorageAddAPI, error) {
 		return cmd.NewStorageAPI()
@@ -56,19 +57,19 @@ There is no need to comma-separate ommitted constraints.
 Example:
     Add 3 ebs storage instances for "data" storage to unit u/0:     
 
-      juju storage add u/0 data=ebs,1024,3 
+      juju add-storage u/0 data=ebs,1024,3 
     or
-      juju storage add u/0 data=ebs,3
+      juju add-storage u/0 data=ebs,3
     or
-      juju storage add u/0 data=ebs,,3 
+      juju add-storage u/0 data=ebs,,3 
     
     
     Add 1 storage instances for "data" storage to unit u/0 
     using default model provider pool:
 
-      juju storage add u/0 data=1 
+      juju add-storage u/0 data=1 
     or
-      juju storage add u/0 data 
+      juju add-storage u/0 data 
 `
 	addCommandAgs = `
 <unit name> <storage directive> ...
@@ -109,10 +110,11 @@ func (c *addCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-storage",
 		Purpose: "adds unit storage dynamically",
 		Doc:     addCommandDoc,
 		Args:    addCommandAgs,
+		Aliases: []string{"add-storages"},
 	}
 }
 
