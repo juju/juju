@@ -253,9 +253,9 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// DocID is the env + name
 		"DocID",
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 		// Always alive, not explicitly exported.
 		"Life",
 		// OwnerTag is deprecated and should be deleted.
@@ -281,9 +281,9 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
 	fields := set.NewStrings(
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 
 		"RefCount",
 	)
