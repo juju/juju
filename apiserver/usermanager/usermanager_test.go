@@ -79,6 +79,37 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
 }
 
+func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
+	args := params.AddUsers{
+		Users: []params.AddUser{{
+			Username:    "foobar",
+			DisplayName: "Foo Bar",
+			Password:    "", // assign secret key
+		}}}
+
+	result, err := s.usermanager.AddUser(args)
+	// Check that the call is succesful
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	foobarTag := names.NewLocalUserTag("foobar")
+
+	// Check that the call results in a new user being created
+	user, err := s.State.User(foobarTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user, gc.NotNil)
+	c.Assert(user.Name(), gc.Equals, "foobar")
+	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
+	c.Assert(user.SecretKey(), gc.NotNil)
+	c.Assert(user.PasswordValid(""), jc.IsFalse)
+
+	// Check that the secret key returned by the API matches what
+	// is in state.
+	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
+		Tag:       foobarTag.String(),
+		SecretKey: user.SecretKey(),
+	})
+}
+
 func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 	args := params.AddUsers{
 		Users: []params.AddUser{{
