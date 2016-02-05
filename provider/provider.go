@@ -9,7 +9,6 @@ package provider
 
 const (
 	Joyent = "joyent"
-	Local  = "local"
 	MAAS   = "maas"
 	EC2    = "ec2"
 )

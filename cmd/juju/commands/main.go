@@ -86,8 +86,6 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		UserAliasesFilename: osenv.JujuHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
-	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
-		helptopics.LocalProvider)
 	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
 		helptopics.OpenstackProvider, "openstack")
 	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
@@ -167,7 +165,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("restore-backup", "backups", "restore", nil)
 
 	// Manage authorized ssh keys.
-	r.Register(newAuthorizedKeysCommand())
+	r.Register(NewAddKeysCommand())
+	r.Register(NewRemoveKeysCommand())
+	r.Register(NewImportKeysCommand())
+	r.Register(NewListKeysCommand())
 
 	// Manage users and access
 	r.Register(user.NewAddCommand())
@@ -182,11 +183,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cachedimages.NewSuperCommand())
 
 	// Manage machines
-	r.Register(machine.NewSuperCommand())
-	r.RegisterSuperAlias("add-machine", "machine", "add", nil)
-	r.RegisterSuperAlias("remove-machine", "machine", "remove", nil)
-	r.RegisterSuperAlias("destroy-machine", "machine", "remove", nil)
-	r.RegisterSuperAlias("terminate-machine", "machine", "remove", nil)
+	r.Register(machine.NewAddCommand())
+	r.Register(machine.NewRemoveCommand())
+	r.Register(machine.NewListMachinesCommand())
+	r.Register(machine.NewShowMachineCommand())
 
 	// Manage model
 	r.Register(model.NewGetCommand())
@@ -210,16 +210,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newEnableHACommand())
 
 	// Manage and control services
-	r.Register(service.NewSuperCommand())
+	r.Register(service.NewAddUnitCommand())
+	r.Register(service.NewGetCommand())
+	r.Register(service.NewSetCommand())
 	r.Register(service.NewDeployCommand())
 	r.Register(service.NewExposeCommand())
 	r.Register(service.NewUnexposeCommand())
-	r.RegisterSuperAlias("add-unit", "service", "add-unit", nil)
-	r.RegisterSuperAlias("get-config", "service", "get", nil)
-	r.RegisterSuperAlias("set-config", "service", "set", nil)
-	r.RegisterSuperAlias("get-constraints", "service", "get-constraints", nil)
-	r.RegisterSuperAlias("set-constraints", "service", "set-constraints", nil)
-	r.RegisterSuperAlias("unset", "service", "unset", nil)
+	r.Register(service.NewServiceGetConstraintsCommand())
+	r.Register(service.NewServiceSetConstraintsCommand())
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

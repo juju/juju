@@ -74,7 +74,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&proxyupdater.NewWorker, func(*apiproxyupdater.Facade, bool) (worker.Worker, error) {
+	s.PatchValue(&proxyupdater.NewWorker, func(*apiproxyupdater.Facade) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
