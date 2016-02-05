@@ -79,8 +79,11 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 type stubDataStore struct {
 	stub *testing.Stub
 
-	ReturnListResources resource.ServiceResources
-	ReturnGetResource   resource.Resource
+	ReturnListResources      resource.ServiceResources
+	ReturnAddPendingResource string
+	ReturnGetResource        resource.Resource
+	ReturnGetPendingResource resource.Resource
+	ReturnSetResource        resource.Resource
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
@@ -92,6 +95,15 @@ func (s *stubDataStore) ListResources(service string) (resource.ServiceResources
 	return s.ReturnListResources, nil
 }
 
+func (s *stubDataStore) AddPendingResource(service, userID string, chRes charmresource.Resource, r io.Reader) (string, error) {
+	s.stub.AddCall("AddPendingResource", service, userID, chRes, r)
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return s.ReturnAddPendingResource, nil
+}
+
 func (s *stubDataStore) GetResource(service, name string) (resource.Resource, error) {
 	s.stub.AddCall("GetResource", service, name)
 	if err := s.stub.NextErr(); err != nil {
@@ -101,13 +113,22 @@ func (s *stubDataStore) GetResource(service, name string) (resource.Resource, er
 	return s.ReturnGetResource, nil
 }
 
-func (s *stubDataStore) SetResource(serviceID string, res resource.Resource, r io.Reader) error {
-	s.stub.AddCall("SetResource", serviceID, res, r)
+func (s *stubDataStore) GetPendingResource(service, pendingID string) (resource.Resource, error) {
+	s.stub.AddCall("GetPendingResource", service, pendingID)
 	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
+		return resource.Resource{}, errors.Trace(err)
 	}
 
-	return nil
+	return s.ReturnGetPendingResource, nil
+}
+
+func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	s.stub.AddCall("SetResource", serviceID, userID, res, r)
+	if err := s.stub.NextErr(); err != nil {
+		return resource.Resource{}, errors.Trace(err)
+	}
+
+	return s.ReturnSetResource, nil
 }
 
 func (s *stubDataStore) SetUnitResource(id, unitID, serviceID string, res resource.Resource) error {

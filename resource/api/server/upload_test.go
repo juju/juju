@@ -9,20 +9,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
 )
 
 type UploadSuite struct {
 	BaseSuite
-
-	timestamp time.Time
 
 	req    *http.Request
 	header http.Header
@@ -33,8 +31,6 @@ var _ = gc.Suite(&UploadSuite{})
 
 func (s *UploadSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.timestamp = time.Now()
 
 	method := "..."
 	urlStr := "..."
@@ -50,85 +46,98 @@ func (s *UploadSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *UploadSuite) now() time.Time {
-	s.stub.AddCall("CurrentTimestamp")
-	s.stub.NextErr() // Pop one off.
-
-	return s.timestamp
-}
-
 func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	content := "<some data>"
 	res, _ := newResource(c, "spam", "a-user", content)
-	res.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
+	s.data.ReturnSetResource = res
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, body := newUploadRequest(c, "spam", "a-service", content)
 
-	err := uh.HandleRequest(req)
+	result, err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
+	s.stub.CheckCallNames(c, "GetResource", "SetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
-	s.stub.CheckCall(c, 2, "SetResource", "a-service", res, ioutil.NopCloser(body))
+	s.stub.CheckCall(c, 1, "SetResource", "a-service", "a-user", res.Resource, ioutil.NopCloser(body))
+	c.Check(result, jc.DeepEquals, &api.UploadResult{
+		Resource: api.Resource2API(res),
+	})
 }
 
 func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 	content := "<some data>"
-	res, _ := newResource(c, "spam", "a-user", content)
-	res.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", content)
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(nil, nil, failure)
+	s.stub.SetErrors(nil, failure)
 
-	err := uh.HandleRequest(req)
+	_, err := uh.HandleRequest(req)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp", "SetResource")
+	s.stub.CheckCallNames(c, "GetResource", "SetResource")
 }
 
 func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
 	content := "<some data>"
 	expected, _ := newResource(c, "spam", "a-user", content)
-	expected.Timestamp = s.timestamp.UTC()
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, body := newUploadRequest(c, "spam", "a-service", content)
 
 	uploaded, err := uh.ReadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "GetResource", "CurrentTimestamp")
+	s.stub.CheckCallNames(c, "GetResource")
 	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
 	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
 		Service:  "a-service",
-		Resource: expected,
+		Resource: expected.Resource,
+		Data:     ioutil.NopCloser(body),
+	})
+}
+
+func (s *UploadSuite) TestReadResourcePending(c *gc.C) {
+	content := "<some data>"
+	expected, _ := newResource(c, "spam", "a-user", content)
+	stored, _ := newResource(c, "spam", "", "")
+	s.data.ReturnGetPendingResource = stored
+	uh := server.UploadHandler{
+		Username: "a-user",
+		Store:    s.data,
+	}
+	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req.URL.RawQuery += "&pendingid=some-unique-id"
+
+	uploaded, err := uh.ReadResource(req)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "GetPendingResource")
+	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "some-unique-id")
+	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
+		Service:  "a-service",
+		Resource: expected.Resource,
 		Data:     ioutil.NopCloser(body),
 	})
 }
 
 func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	req.Header.Set("Content-Type", "text/plain")
@@ -141,9 +150,8 @@ func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 
 func (s *UploadSuite) TestReadResourceGetResourceFailure(c *gc.C) {
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	failure := errors.New("<failure>")
@@ -159,9 +167,8 @@ func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	req.Header.Set("Content-SHA384", "bogus")
@@ -176,9 +183,8 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 	stored, _ := newResource(c, "spam", "", "")
 	s.data.ReturnGetResource = stored
 	uh := server.UploadHandler{
-		Username:         "a-user",
-		Store:            s.data,
-		CurrentTimestamp: s.now,
+		Username: "a-user",
+		Store:    s.data,
 	}
 	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
 	req.Header.Set("Content-Length", "should-be-an-int")

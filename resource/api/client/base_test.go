@@ -28,7 +28,7 @@ type BaseSuite struct {
 
 	stub     *testing.Stub
 	facade   *stubFacade
-	response string
+	response *api.UploadResult
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -36,7 +36,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.facade = newStubFacade(c, s.stub)
-	s.response = ""
+	s.response = &api.UploadResult{}
 }
 
 func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) error {
@@ -45,13 +45,13 @@ func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) 
 		return errors.Trace(err)
 	}
 
-	result, ok := resp.(*string)
+	result, ok := resp.(*api.UploadResult)
 	if !ok {
-		msg := fmt.Sprintf("bad response type %T, expected string", resp)
+		msg := fmt.Sprintf("bad response type %T, expected api.UploadResult", resp)
 		return errors.NewNotValid(nil, msg)
 	}
 
-	*result = s.response
+	*result = *s.response
 	return nil
 }
 
@@ -111,6 +111,7 @@ type stubFacade struct {
 	basetesting.StubFacadeCaller
 
 	apiResults map[string]api.ResourcesResult
+	pendingIDs []string
 }
 
 func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
@@ -122,25 +123,29 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 	}
 
 	s.FacadeCallFn = func(_ string, args, response interface{}) error {
-		typedResponse, ok := response.(*api.ResourcesResults)
-		c.Assert(ok, jc.IsTrue)
+		switch typedResponse := response.(type) {
+		case *api.ResourcesResults:
+			typedArgs, ok := args.(*api.ListResourcesArgs)
+			c.Assert(ok, jc.IsTrue)
 
-		typedArgs, ok := args.(*api.ListResourcesArgs)
-		c.Assert(ok, jc.IsTrue)
+			for _, e := range typedArgs.Entities {
+				tag, err := names.ParseTag(e.Tag)
+				c.Assert(err, jc.ErrorIsNil)
+				service := tag.Id()
 
-		for _, e := range typedArgs.Entities {
-			tag, err := names.ParseTag(e.Tag)
-			c.Assert(err, jc.ErrorIsNil)
-			service := tag.Id()
-
-			apiResult, ok := s.apiResults[service]
-			if !ok {
-				apiResult.Error = &params.Error{
-					Message: fmt.Sprintf("service %q not found", service),
-					Code:    params.CodeNotFound,
+				apiResult, ok := s.apiResults[service]
+				if !ok {
+					apiResult.Error = &params.Error{
+						Message: fmt.Sprintf("service %q not found", service),
+						Code:    params.CodeNotFound,
+					}
 				}
+				typedResponse.Results = append(typedResponse.Results, apiResult)
 			}
-			typedResponse.Results = append(typedResponse.Results, apiResult)
+		case *api.AddPendingResourcesResult:
+			typedResponse.PendingIDs = s.pendingIDs
+		default:
+			c.Errorf("bad type %T", response)
 		}
 		return nil
 	}

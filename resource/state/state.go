@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/loggo"
 )
 
@@ -43,8 +45,12 @@ func NewState(raw RawState) *State {
 
 	st := &State{
 		resourceState: &resourceState{
-			persist,
-			storage,
+			persist:      persist,
+			storage:      storage,
+			newPendingID: newPendingID,
+			currentTimestamp: func() time.Time {
+				return time.Now().UTC()
+			},
 		},
 	}
 	return st

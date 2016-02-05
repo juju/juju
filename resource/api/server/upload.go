@@ -6,7 +6,6 @@ package server
 import (
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -21,9 +20,14 @@ type UploadDataStore interface {
 	// GetResource returns the identified resource.
 	GetResource(serviceID, name string) (resource.Resource, error)
 
+	// GetPendingResource returns the identified resource.
+	GetPendingResource(serviceID, pendingID string) (resource.Resource, error)
+
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(serviceID string, res resource.Resource, r io.Reader) error
+	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
+
+// TODO(ericsnow) Replace UploadedResource with resource.Opened.
 
 // UploadedResource holds both the information about an uploaded
 // resource and the reader containing its data.
@@ -32,7 +36,7 @@ type UploadedResource struct {
 	Service string
 
 	// Resource is the information about the resource.
-	Resource resource.Resource
+	Resource charmresource.Resource
 
 	// Data holds the resource blob.
 	Data io.ReadCloser
@@ -45,47 +49,55 @@ type UploadHandler struct {
 
 	// Store is the data store into which the resource will be stored.
 	Store UploadDataStore
-
-	// CurrentTimestamp is the function that provides the current timestamp.
-	CurrentTimestamp func() time.Time
 }
 
 // HandleRequest handles a resource upload request.
-func (uh UploadHandler) HandleRequest(req *http.Request) error {
+func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, error) {
 	defer req.Body.Close()
 
 	uploaded, err := uh.ReadResource(req)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	if err := uh.Store.SetResource(uploaded.Service, uploaded.Resource, uploaded.Data); err != nil {
-		return errors.Trace(err)
+	stored, err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return nil
+	result := &api.UploadResult{
+		Resource: api.Resource2API(stored),
+	}
+	return result, nil
 }
 
 // ReadResource extracts the relevant info from the request.
 func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, error) {
-	service, name, size, fp, err := api.ExtractUploadRequest(req)
+	uReq, err := api.ExtractUploadRequest(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	res, err := uh.Store.GetResource(service, name)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var res resource.Resource
+	if uReq.PendingID != "" {
+		res, err = uh.Store.GetPendingResource(uReq.Service, uReq.PendingID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		res, err = uh.Store.GetResource(uReq.Service, uReq.Name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
-	res, err = uh.updateResource(res, fp, size)
+	chRes, err := uh.updateResource(res.Resource, uReq.Fingerprint, uReq.Size)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	uploaded := &UploadedResource{
-		Service:  service,
-		Resource: res,
+		Service:  uReq.Service,
+		Resource: chRes,
 		Data:     req.Body,
 	}
 	return uploaded, nil
@@ -93,13 +105,11 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 
 // updateResource returns a copy of the provided resource, updated with
 // the given information.
-func (uh UploadHandler) updateResource(res resource.Resource, fp charmresource.Fingerprint, size int64) (resource.Resource, error) {
+func (uh UploadHandler) updateResource(res charmresource.Resource, fp charmresource.Fingerprint, size int64) (charmresource.Resource, error) {
 	res.Origin = charmresource.OriginUpload
 	res.Revision = 0
 	res.Fingerprint = fp
 	res.Size = size
-	res.Username = uh.Username
-	res.Timestamp = uh.CurrentTimestamp().UTC()
 
 	if err := res.Validate(); err != nil {
 		return res, errors.Trace(err)

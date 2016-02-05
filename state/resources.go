@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -16,10 +17,20 @@ type Resources interface {
 	// ListResources returns the list of resources for the given service.
 	ListResources(serviceID string) (resource.ServiceResources, error)
 
+	// AddPendingResource adds the resource to the data store in a
+	// "pending" state. It will stay pending (and unavailable) until
+	// it is resolved. The returned ID is used to identify the pending
+	// resources when resolving it.
+	AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+
 	// GetResource returns the identified resource.
 	GetResource(serviceID, name string) (resource.Resource, error)
-	// SetResource stores the resource in the Juju model.
-	SetResource(serviceID string, res resource.Resource, r io.Reader) error
+
+	// GetPendingResource returns the identified resource.
+	GetPendingResource(serviceID, pendingID string) (resource.Resource, error)
+
+	// SetResource adds the resource to blob storage and updates the metadata.
+	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
 	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)

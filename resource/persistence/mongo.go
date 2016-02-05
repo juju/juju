@@ -22,17 +22,32 @@ const (
 )
 
 // resourceID converts an external resource ID into an internal one.
-func resourceID(id, ownerID string) string {
-	return fmt.Sprintf("resource#%s#%s", ownerID, id)
+func resourceID(id, subType, subID string) string {
+	if subType == "" {
+		return fmt.Sprintf("resource#%s", id)
+	}
+	return fmt.Sprintf("resource#%s#%s-%s", id, subType, subID)
+}
+
+func serviceResourceID(id string) string {
+	return resourceID(id, "", "")
+}
+
+func pendingResourceID(id, pendingID string) string {
+	return resourceID(id, "pending", pendingID)
+}
+
+func unitResourceID(id, unitID string) string {
+	return resourceID(id, "unit", unitID)
 }
 
 // stagedID converts an external resource ID into an internal staged one.
-func stagedID(id, serviceID string) string {
-	return resourceID(id, serviceID) + stagedIDSuffix
+func stagedID(id string) string {
+	return serviceResourceID(id) + stagedIDSuffix
 }
 
-func newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newStagedDoc(id, serviceID, res)
+func newStagedResourceOps(args resource.ModelResource) []txn.Op {
+	doc := newStagedDoc(args)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -42,8 +57,8 @@ func newStagedResourceOps(id, serviceID string, res resource.Resource) []txn.Op 
 	}}
 }
 
-func newEnsureStagedSameOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newStagedDoc(id, serviceID, res)
+func newEnsureStagedSameOps(args resource.ModelResource) []txn.Op {
+	doc := newStagedDoc(args)
 
 	// Other than cause the txn to abort, we don't do anything here.
 	return []txn.Op{{
@@ -53,8 +68,8 @@ func newEnsureStagedSameOps(id, serviceID string, res resource.Resource) []txn.O
 	}}
 }
 
-func newRemoveStagedOps(id, serviceID string) []txn.Op {
-	fullID := stagedID(id, serviceID)
+func newRemoveStagedOps(id string) []txn.Op {
+	fullID := stagedID(id)
 
 	// We don't assert that it exists. We want "missing" to be a noop.
 	return []txn.Op{{
@@ -64,8 +79,8 @@ func newRemoveStagedOps(id, serviceID string) []txn.Op {
 	}}
 }
 
-func newInsertUnitResourceOps(id, unitID, serviceID string, res resource.Resource) []txn.Op {
-	doc := newUnitResourceDoc(id, unitID, serviceID, res)
+func newInsertUnitResourceOps(unitID string, args resource.ModelResource) []txn.Op {
+	doc := newUnitResourceDoc(unitID, args)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -75,8 +90,8 @@ func newInsertUnitResourceOps(id, unitID, serviceID string, res resource.Resourc
 	}}
 }
 
-func newInsertResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, serviceID, res)
+func newInsertResourceOps(args resource.ModelResource) []txn.Op {
+	doc := newResourceDoc(args)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -86,8 +101,8 @@ func newInsertResourceOps(id, serviceID string, res resource.Resource) []txn.Op 
 	}}
 }
 
-func newUpdateUnitResourceOps(id, unitID, serviceID string, res resource.Resource) []txn.Op {
-	doc := newUnitResourceDoc(id, unitID, serviceID, res)
+func newUpdateUnitResourceOps(unitID string, args resource.ModelResource) []txn.Op {
+	doc := newUnitResourceDoc(unitID, args)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -95,11 +110,11 @@ func newUpdateUnitResourceOps(id, unitID, serviceID string, res resource.Resourc
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertUnitResourceOps(id, unitID, serviceID, res)...)
+	}}, newInsertUnitResourceOps(unitID, args)...)
 }
 
-func newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op {
-	doc := newResourceDoc(id, serviceID, res)
+func newUpdateResourceOps(args resource.ModelResource) []txn.Op {
+	doc := newResourceDoc(args)
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -107,25 +122,28 @@ func newUpdateResourceOps(id, serviceID string, res resource.Resource) []txn.Op 
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertResourceOps(id, serviceID, res)...)
+	}}, newInsertResourceOps(args)...)
 }
 
 // newUnitResourceDoc generates a doc that represents the given resource.
-func newUnitResourceDoc(id, unitID, serviceID string, res resource.Resource) *resourceDoc {
-	fullID := resourceID(id, unitID)
-	return unitResource2Doc(fullID, unitID, serviceID, res)
+func newUnitResourceDoc(unitID string, args resource.ModelResource) *resourceDoc {
+	fullID := unitResourceID(args.ID, unitID)
+	return unitResource2Doc(fullID, unitID, args)
 }
 
 // newResourceDoc generates a doc that represents the given resource.
-func newResourceDoc(id, serviceID string, res resource.Resource) *resourceDoc {
-	fullID := resourceID(id, serviceID)
-	return resource2doc(fullID, serviceID, res)
+func newResourceDoc(args resource.ModelResource) *resourceDoc {
+	fullID := serviceResourceID(args.ID)
+	if args.PendingID != "" {
+		fullID = pendingResourceID(args.ID, args.PendingID)
+	}
+	return resource2doc(fullID, args)
 }
 
 // newStagedDoc generates a staging doc that represents the given resource.
-func newStagedDoc(id, serviceID string, res resource.Resource) *resourceDoc {
-	stagedID := stagedID(id, serviceID)
-	return resource2doc(stagedID, serviceID, res)
+func newStagedDoc(args resource.ModelResource) *resourceDoc {
+	stagedID := stagedID(args.ID)
+	return resource2doc(stagedID, args)
 }
 
 // resources returns the resource docs for the given service.
@@ -144,6 +162,9 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 type resourceDoc struct {
 	DocID     string `bson:"_id"`
 	EnvUUID   string `bson:"env-uuid"`
+	ID        string `bson:"resource-id"`
+	PendingID string `bson:"pending-id"`
+
 	ServiceID string `bson:"service-id"`
 	UnitID    string `bson:"unit-id"`
 
@@ -159,21 +180,27 @@ type resourceDoc struct {
 
 	Username  string    `bson:"username"`
 	Timestamp time.Time `bson:"timestamp-when-added"`
+
+	StoragePath string `bson:"storage-path"`
 }
 
-func unitResource2Doc(id, unitID, serviceID string, res resource.Resource) *resourceDoc {
-	doc := resource2doc(id, serviceID, res)
+func unitResource2Doc(id, unitID string, args resource.ModelResource) *resourceDoc {
+	doc := resource2doc(id, args)
 	doc.UnitID = unitID
 	return doc
 }
 
 // resource2doc converts the resource into a DB doc.
-func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
+func resource2doc(id string, args resource.ModelResource) *resourceDoc {
+	res := args.Resource
 	// TODO(ericsnow) We may need to limit the resolution of timestamps
 	// in order to avoid some conversion problems from Mongo.
 	return &resourceDoc{
 		DocID:     id,
-		ServiceID: serviceID,
+		ID:        args.ID,
+		PendingID: args.PendingID,
+
+		ServiceID: args.ServiceID,
 
 		Name:    res.Name,
 		Type:    res.Type.String(),
@@ -187,11 +214,30 @@ func resource2doc(id, serviceID string, res resource.Resource) *resourceDoc {
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
+
+		StoragePath: args.StoragePath,
 	}
 }
 
-// doc2resource returns the resource.Resource represented by the doc.
-func doc2resource(doc resourceDoc) (resource.Resource, error) {
+// doc2resource returns the resource info represented by the doc.
+func doc2resource(doc resourceDoc) (resource.ModelResource, error) {
+	res, err := doc2basicResource(doc)
+	if err != nil {
+		return resource.ModelResource{}, errors.Trace(err)
+	}
+
+	mRes := resource.ModelResource{
+		ID:          doc.ID,
+		PendingID:   doc.PendingID,
+		ServiceID:   doc.ServiceID,
+		Resource:    res,
+		StoragePath: doc.StoragePath,
+	}
+	return mRes, nil
+}
+
+// doc2basicResource returns the resource info represented by the doc.
+func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 	var res resource.Resource
 
 	resType, err := charmresource.ParseType(doc.Type)

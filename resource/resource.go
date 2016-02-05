@@ -78,15 +78,6 @@ func (res Resource) RevisionString() string {
 	return fmt.Sprintf("%d", res.Revision)
 }
 
-// Unit represents a Juju unit.
-type Unit interface {
-	// Name is the name of the Unit.
-	Name() string
-
-	// ServiceName is the name of the service to which the unit belongs.
-	ServiceName() string
-}
-
 // ServiceResources contains the list of resources for the service and all its
 // units.
 type ServiceResources struct {
