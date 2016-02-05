@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var (
@@ -1035,6 +1036,59 @@ func (s *MachineSuite) TestManageModelBlocksAPIUntilSpacesDiscovered(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+
+	close(spacesDiscovered)
+
+	// Now the user can log in
+	info.Tag = s.AdminUserTag(c)
+	info.Password = "dummy-secret"
+	_, err = api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestSpaceDiscoveryErrorDoesntBlockAPI(c *gc.C) {
+	var calls int
+	spacesDiscovered := make(chan struct{})
+	w := workertest.NewErrorWorker(errors.New("boom"))
+	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan struct{}) {
+		calls += 1
+		if calls == 1 {
+			return w, spacesDiscovered
+		}
+		return newDummyWorker(), make(chan struct{})
+	}
+	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
+	m, conf, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	_ = s.singularRecord.nextRunner(c)
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "discoverspaces")
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if calls == 1 {
+			break
+		}
+		if !attempt.HasNext() {
+			c.Fatalf("discoverspaces worker not created")
+		}
+	}
+	w.Kill()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if calls == 2 {
+			break
+		}
+		if !attempt.HasNext() {
+			c.Fatalf("second discoverspaces worker not created")
+		}
+	}
+
+	info, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	info.Tag = s.AdminUserTag(c)
+	// User can't log in
+	_, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
 
 	close(spacesDiscovered)
 
