@@ -181,14 +181,5 @@ func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// We need to add the is-entity first party caveat to the
-	// delegatable macaroon in case we're talking to the old
-	// version of the charmstore.
-	// TODO (ashipika) - remove this once the new charmstore
-	// is deployed.
-	if err := m.AddFirstPartyCaveat("is-entity " + curl.String()); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return m, nil
 }

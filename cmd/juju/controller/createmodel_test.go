@@ -5,8 +5,6 @@ package controller_test
 
 import (
 	"io/ioutil"
-	"os"
-	"os/user"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -259,103 +257,6 @@ func (s *createSuite) TestConfigValuePrecedence(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "special")
 }
 
-var setConfigSpecialCaseDefaultsTests = []struct {
-	about        string
-	userEnvVar   string
-	userCurrent  func() (*user.User, error)
-	config       map[string]interface{}
-	expectConfig map[string]interface{}
-	expectError  string
-}{{
-	about:      "use env var if available",
-	userEnvVar: "bob",
-	config: map[string]interface{}{
-		"name": "envname",
-		"type": "local",
-	},
-	expectConfig: map[string]interface{}{
-		"name":      "envname",
-		"type":      "local",
-		"namespace": "bob-envname",
-	},
-}, {
-	about: "fall back to user.Current",
-	userCurrent: func() (*user.User, error) {
-		return &user.User{Username: "bob"}, nil
-	},
-	config: map[string]interface{}{
-		"name": "envname",
-		"type": "local",
-	},
-	expectConfig: map[string]interface{}{
-		"name":      "envname",
-		"type":      "local",
-		"namespace": "bob-envname",
-	},
-}, {
-	about:      "other provider types unaffected",
-	userEnvVar: "bob",
-	config: map[string]interface{}{
-		"name": "envname",
-		"type": "dummy",
-	},
-	expectConfig: map[string]interface{}{
-		"name": "envname",
-		"type": "dummy",
-	},
-}, {
-	about: "explicit namespace takes precedence",
-	userCurrent: func() (*user.User, error) {
-		return &user.User{Username: "bob"}, nil
-	},
-	config: map[string]interface{}{
-		"name":      "envname",
-		"namespace": "something",
-		"type":      "local",
-	},
-	expectConfig: map[string]interface{}{
-		"name":      "envname",
-		"namespace": "something",
-		"type":      "local",
-	},
-}, {
-	about: "user.Current returns error",
-	userCurrent: func() (*user.User, error) {
-		return nil, errors.New("an error")
-	},
-	config: map[string]interface{}{
-		"name": "envname",
-		"type": "local",
-	},
-	expectError: "failed to determine username for namespace: an error",
-}}
-
-func (s *createSuite) TestSetConfigSpecialCaseDefaults(c *gc.C) {
-	noUserCurrent := func() (*user.User, error) {
-		panic("should not be called")
-	}
-	s.PatchValue(controller.UserCurrent, noUserCurrent)
-	// We test setConfigSpecialCaseDefaults independently
-	// because we can't use the local provider in the tests.
-	for i, test := range setConfigSpecialCaseDefaultsTests {
-		c.Logf("test %d: %s", i, test.about)
-		os.Setenv("USER", test.userEnvVar)
-		if test.userCurrent != nil {
-			*controller.UserCurrent = test.userCurrent
-		} else {
-			*controller.UserCurrent = noUserCurrent
-		}
-		err := controller.SetConfigSpecialCaseDefaults(test.config["name"].(string), test.config)
-		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
-		} else {
-			c.Assert(err, gc.IsNil)
-			c.Assert(test.config, jc.DeepEquals, test.expectConfig)
-		}
-	}
-
-}
-
 func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 	s.fake.err = errors.New("bah humbug")
 
@@ -419,8 +320,8 @@ func (*fakeCreateClient) Close() error {
 
 func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
 	return params.ModelConfig{
-		"type":         "dummy",
-		"state-server": false,
+		"type":       "dummy",
+		"controller": false,
 	}, nil
 }
 func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {

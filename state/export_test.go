@@ -44,7 +44,7 @@ var (
 	ToolstorageNewStorage  = &toolstorageNewStorage
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
-	StateServerAvailable   = &stateServerAvailable
+	ControllerAvailable    = &controllerAvailable
 	GetOrCreatePorts       = getOrCreatePorts
 	GetPorts               = getPorts
 	PortsGlobalKey         = portsGlobalKey

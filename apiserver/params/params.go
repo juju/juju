@@ -191,7 +191,7 @@ type ServicesDeploy struct {
 	Services []ServiceDeploy
 }
 
-// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+// ServiceDeploy holds the parameters for making the service Deploy call.
 type ServiceDeploy struct {
 	ServiceName      string
 	Series           string
@@ -206,7 +206,7 @@ type ServiceDeploy struct {
 	EndpointBindings map[string]string
 }
 
-// ServiceUpdate holds the parameters for making the ServiceUpdate call.
+// ServiceUpdate holds the parameters for making the service Update call.
 type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
@@ -226,19 +226,19 @@ type ServiceSetCharm struct {
 	ForceSeries bool   `json:"forceseries"`
 }
 
-// ServiceExpose holds the parameters for making the ServiceExpose call.
+// ServiceExpose holds the parameters for making the service Expose call.
 type ServiceExpose struct {
 	ServiceName string
 }
 
-// ServiceSet holds the parameters for a ServiceSet
+// ServiceSet holds the parameters for a service Set
 // command. Options contains the configuration data.
 type ServiceSet struct {
 	ServiceName string
 	Options     map[string]string
 }
 
-// ServiceUnset holds the parameters for a ServiceUnset
+// ServiceUnset holds the parameters for a service Unset
 // command. Options contains the option attribute names
 // to unset.
 type ServiceUnset struct {
@@ -246,13 +246,13 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet or
-// ServiceGetCharmURL calls.
+// ServiceGet holds parameters for making the Get or
+// GetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
 
-// ServiceGetResults holds results of the ServiceGet call.
+// ServiceGetResults holds results of the service Get call.
 type ServiceGetResults struct {
 	Service     string
 	Charm       string
@@ -260,17 +260,17 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
-// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+// ServiceCharmRelations holds parameters for making the service CharmRelations call.
 type ServiceCharmRelations struct {
 	ServiceName string
 }
 
-// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+// ServiceCharmRelationsResults holds the results of the service CharmRelations call.
 type ServiceCharmRelationsResults struct {
 	CharmRelations []string
 }
 
-// ServiceUnexpose holds parameters for the ServiceUnexpose call.
+// ServiceUnexpose holds parameters for the service Unexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
 }
@@ -320,7 +320,7 @@ type ResolvedResults struct {
 }
 
 // AddServiceUnitsResults holds the names of the units added by the
-// AddServiceUnits call.
+// AddUnits call.
 type AddServiceUnitsResults struct {
 	Units []string
 }
@@ -337,7 +337,7 @@ type DestroyServiceUnits struct {
 	UnitNames []string
 }
 
-// ServiceDestroy holds the parameters for making the ServiceDestroy call.
+// ServiceDestroy holds the parameters for making the service Destroy call.
 type ServiceDestroy struct {
 	ServiceName string
 }
@@ -445,10 +445,10 @@ type ModifyUserSSHKeys struct {
 type StateServingInfo struct {
 	APIPort   int
 	StatePort int
-	// The state server cert and corresponding private key.
+	// The controller cert and corresponding private key.
 	Cert       string
 	PrivateKey string
-	// The private key for the CA cert so that a new state server
+	// The private key for the CA cert so that a new controller
 	// cert can be generated when needed.
 	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
@@ -621,43 +621,43 @@ type LoginResultV1 struct {
 	ServerVersion string `json:"server-version,omitempty"`
 }
 
-// StateServersSpec contains arguments for
+// ControllersServersSpec contains arguments for
 // the EnableHA client API call.
-type StateServersSpec struct {
-	ModelTag        string
-	NumStateServers int               `json:"num-state-servers"`
-	Constraints     constraints.Value `json:"constraints,omitempty"`
-	// Series is the series to associate with new state server machines.
+type ControllersSpec struct {
+	ModelTag       string
+	NumControllers int               `json:"num-controllers"`
+	Constraints    constraints.Value `json:"constraints,omitempty"`
+	// Series is the series to associate with new controller machines.
 	// If this is empty, then the model's default series is used.
 	Series string `json:"series,omitempty"`
-	// Placement defines specific machines to become new state server machines.
+	// Placement defines specific machines to become new controller machines.
 	Placement []string `json:"placement,omitempty"`
 }
 
-// StateServersSpecs contains all the arguments
+// ControllersServersSpecs contains all the arguments
 // for the EnableHA API call.
-type StateServersSpecs struct {
-	Specs []StateServersSpec
+type ControllersSpecs struct {
+	Specs []ControllersSpec
 }
 
-// StateServersChangeResult contains the results
+// ControllersChangeResult contains the results
 // of a single EnableHA API call or
 // an error.
-type StateServersChangeResult struct {
-	Result StateServersChanges
+type ControllersChangeResult struct {
+	Result ControllersChanges
 	Error  *Error
 }
 
-// StateServersChangeResults contains the results
+// ControllersChangeResults contains the results
 // of the EnableHA API call.
-type StateServersChangeResults struct {
-	Results []StateServersChangeResult
+type ControllersChangeResults struct {
+	Results []ControllersChangeResult
 }
 
-// StateServersChanges lists the servers
+// ControllersChanges lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an enable-ha operation.
-type StateServersChanges struct {
+type ControllersChanges struct {
 	Added      []string `json:"added,omitempty"`
 	Maintained []string `json:"maintained,omitempty"`
 	Removed    []string `json:"removed,omitempty"`
@@ -780,4 +780,16 @@ type ModelInfo struct {
 	// for backward compatability. The other fields also have explicit
 	// matching serialization directives for the benefit of being explicit.
 	ControllerUUID string `json:"ServerUUID"`
+}
+
+// MeterStatusParam holds meter status information to be set for the specified tag.
+type MeterStatusParam struct {
+	Tag  string `json:"tag"`
+	Code string `json:"code"`
+	Info string `json:"info, omitempty"`
+}
+
+// MeterStatusParams holds parameters for making SetMeterStatus calls.
+type MeterStatusParams struct {
+	Statuses []MeterStatusParam `json:"statues"`
 }

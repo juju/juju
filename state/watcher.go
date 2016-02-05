@@ -1395,9 +1395,9 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
-// WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
-func (st *State) WatchStateServerInfo() NotifyWatcher {
-	return newEntityWatcher(st, stateServersC, modelGlobalKey)
+// WatchControllerInfo returns a NotifyWatcher for the controllers collection
+func (st *State) WatchControllerInfo() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, modelGlobalKey)
 }
 
 // Watch returns a watcher for observing changes to a machine.
@@ -1455,7 +1455,7 @@ func (st *State) WatchForUnitAssignment() StringsWatcher {
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {
-	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
+	return newEntityWatcher(st, controllersC, apiHostPortsKey)
 }
 
 // WatchStorageAttachment returns a watcher for observing changes

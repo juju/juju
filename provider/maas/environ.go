@@ -248,8 +248,8 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return bsResult, nil
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (env *maasEnviron) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances is specified in the Environ interface.
+func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
 }
 

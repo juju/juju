@@ -16,11 +16,11 @@ import (
 
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.
-func PreUpgradeSteps(st *state.State, agentConf agent.Config, isStateServer, isMaster bool) error {
+func PreUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMaster bool) error {
 	if err := checkDiskSpace(agentConf.DataDir()); err != nil {
 		return err
 	}
-	if isStateServer {
+	if isController {
 		// Update distro info in case the new Juju controller version
 		// is aware of new supported series. We'll keep going if this
 		// fails, and the user can manually update it if they need to.

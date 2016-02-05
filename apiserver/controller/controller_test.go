@@ -153,7 +153,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
 }
 
-func (s *controllerSuite) TestModelConfigFromNonStateServer(c *gc.C) {
+func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer st.Close()
@@ -227,7 +227,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		Owner:   otherEnvOwner.UserTag(),
 		Prepare: true,
 		ConfigAttrs: testing.Attrs{
-			"state-server": false,
+			"controller": false,
 		},
 	})
 	defer otherSt.Close()

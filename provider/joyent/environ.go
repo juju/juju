@@ -147,7 +147,7 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) StateServerInstances() ([]instance.Id, error) {
+func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
 }
 

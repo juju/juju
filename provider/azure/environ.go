@@ -230,9 +230,9 @@ func createStorageAccount(
 	return "", "", errors.New("could not find available storage account name")
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
-	// State servers are tagged with tags.JujuStateServer, so just
+// ControllerInstances is specified in the Environ interface.
+func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
+	// controllers are tagged with tags.JujuController, so just
 	// list the instances in the controller resource group and pick
 	// those ones out.
 	instances, err := env.allInstances(env.controllerResourceGroup, true)
@@ -242,7 +242,7 @@ func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
 	var ids []instance.Id
 	for _, inst := range instances {
 		azureInstance := inst.(*azureInstance)
-		if toTags(azureInstance.Tags)[tags.JujuStateServer] == "true" {
+		if toTags(azureInstance.Tags)[tags.JujuController] == "true" {
 			ids = append(ids, inst.Id())
 		}
 	}
@@ -464,7 +464,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// machine with this.
 	vmTags[jujuMachineNameTag] = vmName
 
-	// If the machine will run a state server, then we need to open the
+	// If the machine will run a controller, then we need to open the
 	// API port for it.
 	var apiPortPtr *int
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {

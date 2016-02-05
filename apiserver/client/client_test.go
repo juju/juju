@@ -473,7 +473,7 @@ func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {
 }
 
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	// Create a provisioned state server.
+	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
@@ -513,7 +513,7 @@ func (s *serverSuite) assertAbortCurrentUpgrade(c *gc.C) {
 }
 
 func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
-	// Create a provisioned state server.
+	// Create a provisioned controller.
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
@@ -1338,7 +1338,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
-	// This will cause a machine add to fail due to an unsupported container.
+	// This will cause a add-machine to fail due to an unsupported container.
 	apiParams[2].ContainerType = instance.KVM
 	apiParams[2].ParentId = host.Id()
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1366,7 +1366,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			Addrs: params.FromNetworkAddresses(addrs),
 		}
 	}
-	// This will cause the last machine add to fail.
+	// This will cause the last add-machine to fail.
 	apiParams[2].Nonce = ""
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)

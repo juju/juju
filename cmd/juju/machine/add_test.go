@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -95,7 +96,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, addCmd := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
+		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeMachineManager)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -114,7 +115,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	add, _ := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
+	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeMachineManager)
 	return testing.RunCommand(c, add, args...)
 }
 

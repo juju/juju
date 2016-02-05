@@ -74,7 +74,7 @@ type StartInstanceResult struct {
 	Instance instance.Instance
 
 	// Config holds the environment config to be used for any further
-	// operations, if the instance is for a state server.
+	// operations, if the instance is for a controller.
 	Config *config.Config
 
 	// HardwareCharacteristics represents the hardware characteristics

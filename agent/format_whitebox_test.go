@@ -81,7 +81,7 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	configPath := ConfigPath(config.DataDir(), config.Tag())
-	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
+	formatPath := filepath.Join(config.Dir(), "format")
 	assertFileExists(c, configPath)
 	assertFileNotExist(c, formatPath)
 }

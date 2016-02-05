@@ -60,7 +60,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 		Owner:   s.otherEnvOwner,
 		Prepare: true,
 		ConfigAttrs: testing.Attrs{
-			"state-server": false,
+			"controller": false,
 		},
 	})
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })

@@ -37,7 +37,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	}
 
 	// For now, backup operations are only permitted on the controller environment.
-	if !st.IsStateServer() {
+	if !st.IsController() {
 		return nil, errors.New("backups are not supported for hosted models")
 	}
 

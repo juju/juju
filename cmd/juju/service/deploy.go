@@ -28,9 +28,17 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+var planURL = "https://api.jujucharms.com/omnibus/v2"
+
 // NewDeployCommand returns a command to deploy services.
 func NewDeployCommand() cmd.Command {
-	return modelcmd.Wrap(&DeployCommand{})
+	return modelcmd.Wrap(&DeployCommand{
+		Steps: []DeployStep{
+			&RegisterMeteredCharm{
+				RegisterURL: planURL + "/plan/authorize",
+				QueryURL:    planURL + "/charm",
+			},
+			&AllocateBudget{}}})
 }
 
 type DeployCommand struct {
@@ -83,7 +91,7 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-
+  
 The current series for charms is determined first by the default-series model
 setting, followed by the preferred series for the charm in the charm store.
 
@@ -181,9 +189,10 @@ type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(api.Connection, *http.Client, DeploymentInfo) error
+	RunPre(api.Connection, *http.Client, *cmd.Context, DeploymentInfo) error
 	// RunPost runs after the call is made to add the charm to the environment.
-	RunPost(api.Connection, *http.Client, DeploymentInfo) error
+	// The error parameter is used to notify the step of a previously occurred error.
+	RunPost(api.Connection, *http.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -456,7 +465,7 @@ func charmSeries(
 func (c *DeployCommand) deployCharm(
 	curl *charm.URL, series string, ctx *cmd.Context,
 	client *api.Client, deployer *serviceDeployer,
-) error {
+) (rErr error) {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
@@ -506,11 +515,20 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	for _, step := range c.Steps {
-		err = step.RunPre(state, httpClient, deployInfo)
+		err = step.RunPre(state, httpClient, ctx, deployInfo)
 		if err != nil {
 			return err
 		}
 	}
+
+	defer func() {
+		for _, step := range c.Steps {
+			err = step.RunPost(state, httpClient, ctx, deployInfo, rErr)
+			if err != nil {
+				rErr = err
+			}
+		}
+	}()
 
 	if err := deployer.serviceDeploy(serviceDeployParams{
 		curl.String(),
@@ -534,13 +552,6 @@ func (c *DeployCommand) deployCharm(
 	httpClient, err = c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	for _, step := range c.Steps {
-		err = step.RunPost(state, httpClient, deployInfo)
-		if err != nil {
-			return err
-		}
 	}
 
 	return err
@@ -627,7 +638,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		}
 		args.placement[i] = p
 	}
-	return serviceClient.ServiceDeploy(
+	return serviceClient.Deploy(
 		args.charmURL,
 		args.serviceName,
 		args.series,

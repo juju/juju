@@ -95,7 +95,7 @@ type State struct {
 	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
-// StateServingInfo holds information needed by a state server.
+// StateServingInfo holds information needed by a controller.
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
 type StateServingInfo struct {
@@ -109,9 +109,9 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
-// IsStateServer returns true if this state instance has the bootstrap
+// IsController returns true if this state instance has the bootstrap
 // model UUID.
-func (st *State) IsStateServer() bool {
+func (st *State) IsController() bool {
 	return st.modelTag == st.controllerTag
 }
 
@@ -465,9 +465,9 @@ func IsUpgradeInProgressError(err error) bool {
 // SetModelAgentVersion changes the agent version for the model to the
 // given version, only if the model is in a stable state (all agents are
 // running the current version). If this is a hosted model, newVersion
-// cannot be higher than the state server version.
+// cannot be higher than the controller version.
 func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
+	if newVersion.Compare(version.Current) > 0 && !st.IsController() {
 		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
 			version.Current,
@@ -2202,55 +2202,55 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-type stateServersDoc struct {
+type controllersDoc struct {
 	Id               string `bson:"_id"`
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
 }
 
-// StateServerInfo holds information about currently
-// configured state server machines.
-type StateServerInfo struct {
+// ControllerInfo holds information about currently
+// configured controller machines.
+type ControllerInfo struct {
 	// ModelTag identifies the initial model. Only the initial
 	// model is able to have machines that manage state. The initial
 	// model is the model that is created when bootstrapping.
 	ModelTag names.ModelTag
 
 	// MachineIds holds the ids of all machines configured
-	// to run a state server. It includes all the machine
+	// to run a controller. It includes all the machine
 	// ids in VotingMachineIds.
 	MachineIds []string
 
 	// VotingMachineIds holds the ids of all machines
-	// configured to run a state server and to have a vote
+	// configured to run a controller and to have a vote
 	// in peer election.
 	VotingMachineIds []string
 }
 
-// StateServerInfo returns information about
-// the currently configured state server machines.
-func (st *State) StateServerInfo() (*StateServerInfo, error) {
+// ControllerInfo returns information about
+// the currently configured controller machines.
+func (st *State) ControllerInfo() (*ControllerInfo, error) {
 	session := st.session.Copy()
 	defer session.Close()
-	return readRawStateServerInfo(st.session)
+	return readRawControllerInfo(st.session)
 }
 
-// readRawStateServerInfo reads StateServerInfo direct from the supplied session,
+// readRawControllerInfo reads ControllerInfo direct from the supplied session,
 // falling back to the bootstrap model document to extract the UUID when
 // required.
-func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
+func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 	db := session.DB(jujuDB)
-	stateServers := db.C(stateServersC)
+	controllers := db.C(controllersC)
 
-	var doc stateServersDoc
-	err := stateServers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	var doc controllersDoc
+	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get state servers document")
+		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
 
 	if doc.ModelUUID == "" {
-		logger.Warningf("state servers info has no model UUID so retrieving it from model")
+		logger.Warningf("controllers info has no model UUID so retrieving it from model")
 
 		// This only happens when migrating from 1.20 to 1.21 before
 		// upgrade steps have been run. Without this hack modelTag
@@ -2273,7 +2273,7 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 		doc.ModelUUID = envDoc.UUID
 	}
 
-	return &StateServerInfo{
+	return &ControllerInfo{
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
@@ -2282,13 +2282,13 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 
 const stateServingInfoKey = "stateServingInfo"
 
-// StateServingInfo returns information for running a state server machine
+// StateServingInfo returns information for running a controller machine
 func (st *State) StateServingInfo() (StateServingInfo, error) {
-	stateServers, closer := st.getCollection(stateServersC)
+	controllers, closer := st.getCollection(controllersC)
 	defer closer()
 
 	var info StateServingInfo
-	err := stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
@@ -2298,14 +2298,14 @@ func (st *State) StateServingInfo() (StateServingInfo, error) {
 	return info, nil
 }
 
-// SetStateServingInfo stores information needed for running a state server
+// SetStateServingInfo stores information needed for running a controller
 func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
 	if info.CAPrivateKey == "" {
-		// No CA certificate key means we can't generate new state server
+		// No CA certificate key means we can't generate new controller
 		// certificates when needed to add to the certificate SANs.
 		// Older Juju deployments discard the key because no one realised
 		// the certificate was flawed, so at best we can log a warning
@@ -2313,7 +2313,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 		logger.Warningf("state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
@@ -2327,7 +2327,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 // if and only iff it is empty.
 func SetSystemIdentity(st *State, identity string) error {
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     stateServingInfoKey,
 		Assert: bson.D{{"systemidentity", ""}},
 		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},

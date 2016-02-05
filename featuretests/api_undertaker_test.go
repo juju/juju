@@ -179,7 +179,7 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 		Nonce:    "fake_nonce",
 	})
 
-	// Connect to hosted environ from state server.
+	// Connect to hosted environ from controller.
 	info := s.APIInfo(c)
 	info.Tag = machine.Tag()
 	info.Password = password

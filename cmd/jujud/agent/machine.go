@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -374,7 +373,7 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
-// upgradeCertificateDNSNames ensure that the state server certificate
+// upgradeCertificateDNSNames ensure that the controller certificate
 // recorded in the agent config and also mongo server.pem contains the
 // DNSNames entires required by Juju/
 func (a *MachineAgent) upgradeCertificateDNSNames() error {
@@ -430,7 +429,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 
 	// Before doing anything else, we need to make sure the certificate generated for
-	// use by mongo to validate state server connections is correct. This needs to be done
+	// use by mongo to validate controller connections is correct. This needs to be done
 	// before any possible restart of the mongo service.
 	// See bug http://pad.lv/1434680
 	if err := a.upgradeCertificateDNSNames(); err != nil {
@@ -635,7 +634,7 @@ func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
 // stateStarter watches for changes to the agent configuration, and
 // starts or stops the state worker as appropriate. We watch the agent
 // configuration because the agent configuration has all the details
-// that we need to start a state server, whether they have been cached
+// that we need to start a controller, whether they have been cached
 // or read from the state.
 //
 // It will stop working as soon as stopch is closed.
@@ -710,9 +709,8 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	// it's confined to jujud rather than extending into the worker itself.
 	// Start this worker first to try and get proxy settings in place
 	// before we do anything else.
-	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn), writeSystemFiles)
+		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn))
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
 		}
@@ -792,18 +790,14 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 	})
 
-	// If not a local provider bootstrap machine, start the worker to
-	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || a.machineId != bootstrapMachineId {
-		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-			w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
-			}
-			return w, nil
-		})
-	}
+	// Start the worker to manage SSH keys.
+	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+		w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
+		}
+		return w, nil
+	})
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
@@ -870,7 +864,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 				Handler: handler,
 			})
 			if err != nil {
-				return nil, errors.Annotate(err, "cannot start state server promoter worker")
+				return nil, errors.Annotate(err, "cannot start controller promoter worker")
 			}
 			return w, nil
 		})
@@ -915,15 +909,6 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 		st.Close()
 	}
 	return st, closer, nil
-}
-
-// shouldWriteProxyFiles returns true, unless the supplied conf identifies the
-// machine agent running directly on the host system in a local environment.
-var shouldWriteProxyFiles = func(conf agent.Config) bool {
-	if conf.Value(agent.ProviderType) != provider.Local {
-		return true
-	}
-	return conf.Tag() != names.NewMachineTag(bootstrapMachineId)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -1081,7 +1066,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
-			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
+			// Each time aipserver worker is restarted, we need a fresh copy of state due
+			// to the fact that state holds lease managers which are killed and need to be reset.
+			stateOpener := func() (*state.State, error) {
+				logger.Debugf("opening state for apistate worker")
+				st, _, err := openState(agentConfig, stateWorkerDialOpts)
+				return st, err
+			}
+			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -1123,7 +1115,7 @@ func (s stateWorkerCloser) Close() error {
 	return s.stateCloser.Close()
 }
 
-// startEnvWorkers starts state server workers that need to run per
+// startEnvWorkers starts controller workers that need to run per
 // environment.
 func (a *MachineAgent) startEnvWorkers(
 	ssSt modelworkermanager.InitialState,
@@ -1406,8 +1398,16 @@ func _getFirewallMode(apiSt api.Connection) (string, error) {
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
 
-func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged chan params.StateServingInfo) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) { return a.newApiserverWorker(st, certChanged) }
+func (a *MachineAgent) apiserverWorkerStarter(
+	stateOpener func() (*state.State, error), certChanged chan params.StateServingInfo,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		st, err := stateOpener()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return a.newApiserverWorker(st, certChanged)
+	}
 }
 
 func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
@@ -1424,7 +1424,7 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	key := []byte(info.PrivateKey)
 
 	if len(cert) == 0 || len(key) == 0 {
-		return nil, &cmdutil.FatalError{"configuration does not have state server cert/key"}
+		return nil, &cmdutil.FatalError{"configuration does not have controller cert/key"}
 	}
 	tag := agentConfig.Tag()
 	dataDir := agentConfig.DataDir()
@@ -1566,7 +1566,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	// Many of the steps here, such as adding the state server to the
+	// Many of the steps here, such as adding the controller to the
 	// admin DB and initiating the replicaset, are once-only actions,
 	// required when upgrading from a pre-HA-capable
 	// environment. These calls won't do anything if the thing they
@@ -1574,7 +1574,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	var needReplicasetInit = false
 	var machineAddrs []network.Address
 
-	mongoInstalled, err := mongo.IsServiceInstalled(agentConfig.Value(agent.Namespace))
+	mongoInstalled, err := mongo.IsServiceInstalled()
 	if err != nil {
 		return errors.Annotate(err, "error while checking if mongodb service is installed")
 	}
@@ -1655,16 +1655,15 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, err
 	}
 	if len(dialInfo.Addrs) > 1 {
-		logger.Infof("more than one state server; admin user must exist")
+		logger.Infof("more than one controller; admin user must exist")
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo:  dialInfo,
-		Namespace: agentConfig.Value(agent.Namespace),
-		DataDir:   agentConfig.DataDir(),
-		Port:      servingInfo.StatePort,
-		User:      mongoInfo.Tag.String(),
-		Password:  mongoInfo.Password,
+		DialInfo: dialInfo,
+		DataDir:  agentConfig.DataDir(),
+		Port:     servingInfo.StatePort,
+		User:     mongoInfo.Tag.String(),
+		Password: mongoInfo.Password,
 	})
 }
 
@@ -1935,7 +1934,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	}
 	logger.Infof("%q found, uninstalling agent", uninstallFile)
 
-	var errors []error
+	var errs []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
@@ -1945,17 +1944,17 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	if agentServiceName != "" {
 		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
 		if err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		} else if err := svc.Remove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
 
-	errors = append(errors, a.removeJujudSymlinks()...)
+	errs = append(errs, a.removeJujudSymlinks()...)
 
 	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	} else if insideLXC {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
@@ -1965,21 +1964,20 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		// to see if the loop device is attached to the container; that
 		// will fail if the data-dir is removed first.
 		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
-			errors = append(errors, err)
+			errs = append(errs, err)
 		}
 	}
 
-	namespace := agentConfig.Value(agent.Namespace)
-	if err := mongo.RemoveService(namespace); err != nil {
-		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
+	if err := mongo.RemoveService(); err != nil {
+		errs = append(errs, errors.Annotate(err, "cannot stop/remove mongo service"))
 	}
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
-	if len(errors) == 0 {
+	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errors)
+	return fmt.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {

@@ -20,9 +20,9 @@ type State interface {
 	// Model returns the model entity.
 	Model() (Model, error)
 
-	// IsStateServer returns true if this state instance has the bootstrap
+	// IsController returns true if this state instance has the bootstrap
 	// model UUID.
-	IsStateServer() bool
+	IsController() bool
 
 	// ProcessDyingModel checks if there are any machines or services left in
 	// state. If there are none, the model's life is changed from dying to dead.
