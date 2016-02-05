@@ -195,6 +195,8 @@ var commandNames = []string{
 	"add-machine",
 	"add-machines",
 	"add-relation",
+	"add-ssh-key",
+	"add-ssh-keys",
 	"add-unit",
 	"add-units",
 	"agree",
@@ -205,8 +207,6 @@ var commandNames = []string{
 	"add-storage",
 	"add-subnet",
 	"add-user",
-	"authorised-keys", // alias for authorized-keys
-	"authorized-keys",
 	"backups",
 	"block",
 	"bootstrap",
@@ -238,6 +238,8 @@ var commandNames = []string{
 	"get-user-credentials",
 	"help",
 	"help-tool",
+	"import-ssh-key",
+	"import-ssh-keys",
 	"init",
 	"kill-controller",
 	"list-actions",
@@ -249,6 +251,8 @@ var commandNames = []string{
 	"list-models",
 	"list-plans",
 	"list-shares",
+	"list-ssh-key",
+	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
 	"list-users",
@@ -261,7 +265,9 @@ var commandNames = []string{
 	"remove-machines",
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
-	"remove-unit",     // alias for destroy-unit
+	"remove-ssh-key",
+	"remove-ssh-keys",
+	"remove-unit", // alias for destroy-unit
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",
@@ -277,6 +283,8 @@ var commandNames = []string{
 	"set-model-constraints",
 	"set-plan",
 	"share-model",
+	"ssh-key",
+	"ssh-keys",
 	"show-action-output",
 	"show-action-status",
 	"show-budget",
