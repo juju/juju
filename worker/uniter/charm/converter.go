@@ -58,7 +58,7 @@ func fixDeployer(deployer *Deployer) error {
 	// Ensure that the staged charm matches the deployed charm: it's possible
 	// that the uniter was stopped after staging, but before deploying, a new
 	// bundle.
-	deployedURL, err := ReadCharmURL(manifestDeployer.CharmPath(charmURLPath))
+	deployedURL, err := ReadCharmURL(manifestDeployer.CharmPath(CharmURLPath))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -138,7 +138,7 @@ func gitManifest(linkPath string) (set.Strings, error) {
 			return err
 		}
 		switch relPath {
-		case ".", charmURLPath:
+		case ".", CharmURLPath:
 			return nil
 		case ".git":
 			err = filepath.SkipDir

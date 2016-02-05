@@ -141,7 +141,7 @@ func (env *environ) Config() *config.Config {
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial juju state server.
+// the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// TODO(ericsnow) Ensure currently not the root user
 	// if remote is local host?

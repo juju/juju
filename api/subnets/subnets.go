@@ -35,7 +35,7 @@ func NewAPI(caller base.APICallCloser) *API {
 	}
 }
 
-// AddSubnet adds an existing subnet to the environment.
+// AddSubnet adds an existing subnet to the model.
 func (api *API) AddSubnet(subnet names.SubnetTag, providerId network.Id, space names.SpaceTag, zones []string) error {
 	var response params.ErrorResults
 	// Prefer ProviderId when set over CIDR.
@@ -77,7 +77,7 @@ func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones
 	return response.OneError()
 }
 
-// ListSubnets fetches all the subnets known by the environment.
+// ListSubnets fetches all the subnets known by the model.
 func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Subnet, error) {
 	var response params.ListSubnetsResults
 	var space string

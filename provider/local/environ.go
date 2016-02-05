@@ -78,7 +78,7 @@ func (env *localEnviron) machineAgentServiceName() string {
 
 func ensureNotRoot() error {
 	if checkIfRoot() {
-		return fmt.Errorf("bootstrapping a local environment must not be done as root")
+		return fmt.Errorf("bootstrapping a local model must not be done as root")
 	}
 	return nil
 }
@@ -128,14 +128,14 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, icfg *in
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
+	icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 
 	icfg.MachineAgentServiceName = env.machineAgentServiceName()
 	icfg.AgentEnvironment = map[string]string{
 		agent.Namespace: env.config.namespace(),
 		agent.LxcBridge: env.config.networkBridge(),
 
-		// The local provider only supports a single state server,
+		// The local provider only supports a single controller,
 		// so we make the oplog size to a small value. This makes
 		// the preallocation faster with no disadvantage.
 		agent.MongoOplogSize: "1", // 1MB
@@ -210,8 +210,8 @@ var executeCloudConfig = func(ctx environs.BootstrapContext, icfg *instancecfg.I
 	return cmd.Run()
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (env *localEnviron) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances is specified in the Environ interface.
+func (env *localEnviron) ControllerInstances() ([]instance.Id, error) {
 	agentsDir := filepath.Join(env.config.rootDir(), "agents")
 	_, err := os.Stat(agentsDir)
 	if os.IsNotExist(err) {
@@ -267,7 +267,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 				// Explicitly call the non-named constructor so if anyone
 				// adds additional fields, this fails.
 				container.ImageURLGetterConfig{
-					ecfg.stateServerAddr(), uuid, caCert, baseUrl,
+					ecfg.controllerAddr(), uuid, caCert, baseUrl,
 					container.ImageDownloadURL,
 				})
 
@@ -361,7 +361,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 	// TODO: evaluate the impact of setting the constraints on the
-	// instanceConfig for all machines rather than just state server nodes.
+	// instanceConfig for all machines rather than just controller nodes.
 	// This limitation is why the constraints are assigned directly here.
 	args.InstanceConfig.Constraints = args.Constraints
 	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()

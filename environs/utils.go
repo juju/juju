@@ -64,11 +64,11 @@ func waitAnyInstanceAddresses(
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
 func APIInfo(env Environ) (*api.Info, error) {
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := env.ControllerInstances()
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("StateServerInstances returned: %v", instanceIds)
+	logger.Debugf("ControllerInstances returned: %v", instanceIds)
 	addrs, err := waitAnyInstanceAddresses(env, instanceIds)
 	if err != nil {
 		return nil, err
@@ -86,8 +86,8 @@ func APIInfo(env Environ) (*api.Info, error) {
 	if !uuidSet {
 		return nil, errors.New("config has no UUID")
 	}
-	envTag := names.NewEnvironTag(uuid)
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
+	modelTag := names.NewModelTag(uuid)
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, ModelTag: modelTag}
 	return apiInfo, nil
 }
 

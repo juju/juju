@@ -76,15 +76,15 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	}
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
+	c.Assert(err, gc.ErrorMatches, "model configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
+	c.Assert(err, gc.ErrorMatches, "model configuration has no ca-cert")
 
 	fixEnv("ca-cert", coretesting.CACert)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
+	c.Assert(err, gc.ErrorMatches, "model configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
@@ -36,11 +36,11 @@ where storage can be requested (e.g. EBS in amazon).
 Creating pools there maps provider specific settings
 into named resources that can be used during deployment.
 
-Pools defined at the environment level are easily reused across services.
+Pools defined at the model level are easily reused across services.
 
 options:
-    -e, --environment (= "")
-        juju environment to operate in
+    -m, --model (= "")
+        juju model to operate in
     -o, --output (= "")
         specify an output file
     <name>
@@ -57,7 +57,7 @@ func newPoolCreateCommand() cmd.Command {
 	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // poolCreateCommand lists storage pools.

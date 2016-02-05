@@ -151,7 +151,7 @@ type maasEnviron struct {
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
-	ecfgUnlocked       *maasEnvironConfig
+	ecfgUnlocked       *maasModelConfig
 	maasClientUnlocked *gomaasapi.MAASObject
 	storageUnlocked    storage.Storage
 
@@ -191,7 +191,7 @@ Using MAAS version older than 1.8.2: devices API support not detected!
 
 Juju cannot guarantee resources allocated to containers, like DHCP
 leases or static IP addresses will be properly cleaned up when the
-container, its host, or the environment is destroyed.
+container, its host, or the model is destroyed.
 
 Juju recommends upgrading MAAS to version 1.8.2 or later.
 `[1:]
@@ -246,14 +246,14 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return bsResult, nil
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (env *maasEnviron) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances is specified in the Environ interface.
+func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
 }
 
-// ecfg returns the environment's maasEnvironConfig, and protects it with a
+// ecfg returns the environment's maasModelConfig, and protects it with a
 // mutex.
-func (env *maasEnviron) ecfg() *maasEnvironConfig {
+func (env *maasEnviron) ecfg() *maasModelConfig {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 	return env.ecfgUnlocked

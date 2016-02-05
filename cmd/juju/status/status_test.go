@@ -19,7 +19,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -141,38 +141,38 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 // shortcuts for expected output.
 var (
 	machine0 = M{
-		"agent-state":                "started",
-		"dns-name":                   "dummyenv-0.dns",
-		"instance-id":                "dummyenv-0",
-		"series":                     "quantal",
-		"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
-		"state-server-member-status": "adding-vote",
+		"agent-state":              "started",
+		"dns-name":                 "dummymodel-0.dns",
+		"instance-id":              "dummymodel-0",
+		"series":                   "quantal",
+		"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"controller-member-status": "adding-vote",
 	}
 	machine1 = M{
 		"agent-state": "started",
-		"dns-name":    "dummyenv-1.dns",
-		"instance-id": "dummyenv-1",
+		"dns-name":    "dummymodel-1.dns",
+		"instance-id": "dummymodel-1",
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
 		"agent-state": "started",
-		"dns-name":    "dummyenv-2.dns",
-		"instance-id": "dummyenv-2",
+		"dns-name":    "dummymodel-2.dns",
+		"instance-id": "dummymodel-2",
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
 		"agent-state": "started",
-		"dns-name":    "dummyenv-3.dns",
-		"instance-id": "dummyenv-3",
+		"dns-name":    "dummymodel-3.dns",
+		"instance-id": "dummymodel-3",
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
 		"agent-state": "started",
-		"dns-name":    "dummyenv-4.dns",
-		"instance-id": "dummyenv-4",
+		"dns-name":    "dummymodel-4.dns",
+		"instance-id": "dummymodel-4",
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
@@ -184,13 +184,13 @@ var (
 				"containers": M{
 					"1/lxc/0/lxc/0": M{
 						"agent-state": "started",
-						"dns-name":    "dummyenv-3.dns",
-						"instance-id": "dummyenv-3",
+						"dns-name":    "dummymodel-3.dns",
+						"instance-id": "dummymodel-3",
 						"series":      "quantal",
 					},
 				},
-				"dns-name":    "dummyenv-2.dns",
-				"instance-id": "dummyenv-2",
+				"dns-name":    "dummymodel-2.dns",
+				"instance-id": "dummymodel-2",
 				"series":      "quantal",
 			},
 			"1/lxc/1": M{
@@ -199,8 +199,8 @@ var (
 				"series":      "quantal",
 			},
 		},
-		"dns-name":    "dummyenv-1.dns",
-		"instance-id": "dummyenv-1",
+		"dns-name":    "dummymodel-1.dns",
+		"instance-id": "dummymodel-1",
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
@@ -209,13 +209,13 @@ var (
 		"containers": M{
 			"1/lxc/0": M{
 				"agent-state": "started",
-				"dns-name":    "dummyenv-2.dns",
-				"instance-id": "dummyenv-2",
+				"dns-name":    "dummymodel-2.dns",
+				"instance-id": "dummymodel-2",
 				"series":      "quantal",
 			},
 		},
-		"dns-name":    "dummyenv-1.dns",
-		"instance-id": "dummyenv-1",
+		"dns-name":    "dummymodel-1.dns",
+		"instance-id": "dummymodel-1",
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
@@ -259,17 +259,17 @@ var statusTests = []testCase{
 	test( // 0
 		"bootstrap and starting a single instance",
 
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"agent-state":                "pending",
-						"instance-id":                "pending",
-						"series":                     "quantal",
-						"state-server-member-status": "adding-vote",
+						"agent-state":              "pending",
+						"instance-id":              "pending",
+						"series":                   "quantal",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -279,20 +279,20 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
 			network.NewAddress("10.0.0.1"),
-			network.NewScopedAddress("dummyenv-0.dns", network.ScopePublic),
+			network.NewScopedAddress("dummymodel-0.dns", network.ScopePublic),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"agent-state":                "pending",
-						"dns-name":                   "dummyenv-0.dns",
-						"instance-id":                "dummyenv-0",
-						"series":                     "quantal",
-						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
-						"state-server-member-status": "adding-vote",
+						"agent-state":              "pending",
+						"dns-name":                 "dummymodel-0.dns",
+						"instance-id":              "dummymodel-0",
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -303,7 +303,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 				},
@@ -315,16 +315,16 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"dns-name":                   "dummyenv-0.dns",
-						"instance-id":                "dummyenv-0",
-						"agent-version":              "1.2.3",
-						"agent-state":                "started",
-						"series":                     "quantal",
-						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
-						"state-server-member-status": "adding-vote",
+						"dns-name":                 "dummymodel-0.dns",
+						"instance-id":              "dummymodel-0",
+						"agent-version":            "1.2.3",
+						"agent-state":              "started",
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -333,25 +333,25 @@ var statusTests = []testCase{
 	),
 	test( // 1
 		"instance with different hardware characteristics",
-		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
 			network.NewAddress("10.0.0.1"),
-			network.NewScopedAddress("dummyenv-0.dns", network.ScopePublic),
+			network.NewScopedAddress("dummymodel-0.dns", network.ScopePublic),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"agent-state":                "started",
-						"dns-name":                   "dummyenv-0.dns",
-						"instance-id":                "dummyenv-0",
-						"series":                     "quantal",
-						"hardware":                   "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
-						"state-server-member-status": "adding-vote",
+						"agent-state":              "started",
+						"dns-name":                 "dummymodel-0.dns",
+						"instance-id":              "dummymodel-0",
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -360,20 +360,20 @@ var statusTests = []testCase{
 	),
 	test( // 2
 		"instance without addresses",
-		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		expect{
 			"machine 0 has no dns-name",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"agent-state":                "started",
-						"instance-id":                "dummyenv-0",
-						"series":                     "quantal",
-						"hardware":                   "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
-						"state-server-member-status": "adding-vote",
+						"agent-state":              "started",
+						"instance-id":              "dummymodel-0",
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -382,17 +382,17 @@ var statusTests = []testCase{
 	),
 	test( // 3
 		"test pending and missing machines",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		expect{
 			"machine 0 reports pending",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"agent-state":                "pending",
-						"instance-id":                "pending",
-						"series":                     "quantal",
-						"state-server-member-status": "adding-vote",
+						"agent-state":              "pending",
+						"instance-id":              "pending",
+						"series":                   "quantal",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -403,15 +403,15 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
-						"instance-state":             "missing",
-						"instance-id":                "i-missing",
-						"agent-state":                "pending",
-						"series":                     "quantal",
-						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
-						"state-server-member-status": "adding-vote",
+						"instance-state":           "missing",
+						"instance-id":              "i-missing",
+						"agent-state":              "pending",
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"controller-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -421,8 +421,8 @@ var statusTests = []testCase{
 	test( // 4
 		"add two services and expose one, then add 2 more machines and some units",
 		// step 0
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"dummy"},
@@ -431,7 +431,7 @@ var statusTests = []testCase{
 		expect{
 			"no services exposed yet",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 				},
@@ -447,7 +447,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed service",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 				},
@@ -460,17 +460,17 @@ var statusTests = []testCase{
 
 		// step 10
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		expect{
 			"two more machines added",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -502,7 +502,7 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -532,7 +532,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -554,7 +554,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -566,10 +566,10 @@ var statusTests = []testCase{
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
-		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
+		setAddresses{"3", network.NewAddresses("dummymodel-3.dns")},
 		setMachineStatus{"3", state.StatusStopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
+		setAddresses{"4", network.NewAddresses("dummymodel-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", state.StatusError, "Beware the red toys"},
 		ensureDyingUnit{"dummy-service/0"},
@@ -578,22 +578,22 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 					"3": M{
-						"dns-name":         "dummyenv-3.dns",
-						"instance-id":      "dummyenv-3",
+						"dns-name":         "dummymodel-3.dns",
+						"instance-id":      "dummymodel-3",
 						"agent-state":      "stopped",
 						"agent-state-info": "Really?",
 						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
-						"dns-name":         "dummyenv-4.dns",
-						"instance-id":      "dummyenv-4",
+						"dns-name":         "dummymodel-4.dns",
+						"instance-id":      "dummymodel-4",
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
 						"series":           "quantal",
@@ -630,7 +630,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -652,7 +652,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -665,7 +665,7 @@ var statusTests = []testCase{
 			"scope status on dummy-service/0 unit",
 			[]string{"dummy-service/0"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"1": machine1,
 				},
@@ -688,7 +688,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -699,7 +699,7 @@ var statusTests = []testCase{
 			"scope status on exposed-service service",
 			[]string{"exposed-service"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"2": machine2,
 				},
@@ -727,7 +727,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -738,7 +738,7 @@ var statusTests = []testCase{
 			"scope status on service pattern",
 			[]string{"d*-service"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"1": machine1,
 				},
@@ -761,7 +761,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -772,7 +772,7 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-service/*"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"2": machine2,
 				},
@@ -800,7 +800,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -811,7 +811,7 @@ var statusTests = []testCase{
 			"scope status on combination of service and unit patterns",
 			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -835,7 +835,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -862,7 +862,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -872,13 +872,13 @@ var statusTests = []testCase{
 	),
 	test( // 5
 		"a unit with a hook relation error",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 
@@ -899,7 +899,7 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -928,7 +928,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -955,7 +955,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -965,13 +965,13 @@ var statusTests = []testCase{
 	),
 	test( // 6
 		"a unit with a hook relation error when the agent is down",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 
@@ -992,7 +992,7 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error when the agent is down",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1021,7 +1021,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -1048,7 +1048,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -1066,7 +1066,7 @@ var statusTests = []testCase{
 		expect{
 			"service shows life==dying",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
 						"agent-state": "pending",
@@ -1116,11 +1116,11 @@ var statusTests = []testCase{
 		expect{
 			"unit shows that agent is lost",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": M{
 						"agent-state": "started",
-						"instance-id": "dummyenv-0",
+						"instance-id": "dummymodel-0",
 						"series":      "quantal",
 						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
@@ -1157,8 +1157,8 @@ var statusTests = []testCase{
 	// Relation tests
 	test( // 9
 		"complex scenario with multiple related services",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -1168,7 +1168,7 @@ var statusTests = []testCase{
 		addService{name: "project", charm: "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
@@ -1178,7 +1178,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1188,7 +1188,7 @@ var statusTests = []testCase{
 		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
+		setAddresses{"3", network.NewAddresses("dummymodel-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
 		addAliveUnit{"varnish", "3"},
@@ -1196,7 +1196,7 @@ var statusTests = []testCase{
 		addService{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
+		setAddresses{"4", network.NewAddresses("dummymodel-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", state.StatusStarted, ""},
 		addAliveUnit{"private", "4"},
@@ -1208,7 +1208,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1235,7 +1235,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 						"relations": M{
@@ -1261,7 +1261,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 						"relations": M{
@@ -1288,7 +1288,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-3.dns",
+								"public-address": "dummymodel-3.dns",
 							},
 						},
 						"relations": M{
@@ -1315,7 +1315,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-4.dns",
+								"public-address": "dummymodel-4.dns",
 							},
 						},
 						"relations": M{
@@ -1328,8 +1328,8 @@ var statusTests = []testCase{
 	),
 	test( // 10
 		"simple peer scenario",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"riak"},
@@ -1338,21 +1338,21 @@ var statusTests = []testCase{
 		addService{name: "riak", charm: "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
 		setAgentStatus{"riak/0", state.StatusIdle, "", nil},
 		setUnitStatus{"riak/0", state.StatusActive, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
 		setAgentStatus{"riak/1", state.StatusIdle, "", nil},
 		setUnitStatus{"riak/1", state.StatusActive, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
+		setAddresses{"3", network.NewAddresses("dummymodel-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
@@ -1362,7 +1362,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1388,7 +1388,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 							"riak/1": M{
 								"machine": "2",
@@ -1400,7 +1400,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 							"riak/2": M{
 								"machine": "3",
@@ -1412,7 +1412,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-3.dns",
+								"public-address": "dummymodel-3.dns",
 							},
 						},
 						"relations": M{
@@ -1427,8 +1427,8 @@ var statusTests = []testCase{
 	// Subordinate tests
 	test( // 11
 		"one service with one subordinate service",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -1438,7 +1438,7 @@ var statusTests = []testCase{
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -1448,7 +1448,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1473,7 +1473,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1508,10 +1508,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "dummyenv-1.dns",
+										"public-address": "dummymodel-1.dns",
 									},
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 						"relations": M{
@@ -1548,10 +1548,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "dummyenv-2.dns",
+										"public-address": "dummymodel-2.dns",
 									},
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 						"relations": M{
@@ -1578,7 +1578,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1612,10 +1612,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "dummyenv-1.dns",
+										"public-address": "dummymodel-1.dns",
 									},
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 						"relations": M{
@@ -1652,10 +1652,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "dummyenv-2.dns",
+										"public-address": "dummymodel-2.dns",
 									},
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 						"relations": M{
@@ -1682,7 +1682,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"1": machine1,
 				},
@@ -1715,10 +1715,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "dummyenv-1.dns",
+										"public-address": "dummymodel-1.dns",
 									},
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 						"relations": M{
@@ -1743,8 +1743,8 @@ var statusTests = []testCase{
 	test( // 12
 		"machines with containers",
 		// step 0
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1753,7 +1753,7 @@ var statusTests = []testCase{
 
 		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "1"},
@@ -1762,7 +1762,7 @@ var statusTests = []testCase{
 
 		// step 14: A container on machine 1.
 		addContainer{"1", "1/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"1/lxc/0", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"1/lxc/0"},
 		setMachineStatus{"1/lxc/0", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "1/lxc/0"},
@@ -1772,14 +1772,14 @@ var statusTests = []testCase{
 
 		// step 22: A nested container.
 		addContainer{"1/lxc/0", "1/lxc/0/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0/lxc/0", network.NewAddresses("dummyenv-3.dns")},
+		setAddresses{"1/lxc/0/lxc/0", network.NewAddresses("dummymodel-3.dns")},
 		startAliveMachine{"1/lxc/0/lxc/0"},
 		setMachineStatus{"1/lxc/0/lxc/0", state.StatusStarted, ""},
 
 		expect{
 			"machines with nested containers",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -1803,7 +1803,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 							"mysql/1": M{
 								"machine": "1/lxc/0",
@@ -1815,7 +1815,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -1828,20 +1828,20 @@ var statusTests = []testCase{
 			"machines with nested containers",
 			[]string{"mysql/1"},
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"1": M{
 						"agent-state": "started",
 						"containers": M{
 							"1/lxc/0": M{
 								"agent-state": "started",
-								"dns-name":    "dummyenv-2.dns",
-								"instance-id": "dummyenv-2",
+								"dns-name":    "dummymodel-2.dns",
+								"instance-id": "dummymodel-2",
 								"series":      "quantal",
 							},
 						},
-						"dns-name":    "dummyenv-1.dns",
-						"instance-id": "dummyenv-1",
+						"dns-name":    "dummymodel-1.dns",
+						"instance-id": "dummymodel-1",
 						"series":      "quantal",
 						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
@@ -1865,7 +1865,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 						},
 					},
@@ -1875,12 +1875,12 @@ var statusTests = []testCase{
 	),
 	test( // 13
 		"service with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1892,7 +1892,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1919,7 +1919,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -1929,12 +1929,12 @@ var statusTests = []testCase{
 	),
 	test( // 14
 		"unit with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1948,7 +1948,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1973,7 +1973,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -1983,12 +1983,12 @@ var statusTests = []testCase{
 	),
 	test( // 15
 		"service and unit with out of date charms",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -2003,7 +2003,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2029,7 +2029,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -2039,12 +2039,12 @@ var statusTests = []testCase{
 	),
 	test( // 16
 		"service with local charm not shown as out of date",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -2059,7 +2059,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2084,7 +2084,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -2094,28 +2094,28 @@ var statusTests = []testCase{
 	),
 	test( // 17
 		"deploy two services; set meter statuses on one",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
+		setAddresses{"3", network.NewAddresses("dummymodel-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", state.StatusStarted, ""},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
+		setAddresses{"4", network.NewAddresses("dummymodel-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", state.StatusStarted, ""},
 
@@ -2147,7 +2147,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"environment": "dummyenv",
+				"model": "dummymodel",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2174,7 +2174,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-1.dns",
+								"public-address": "dummymodel-1.dns",
 							},
 						},
 					},
@@ -2197,7 +2197,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "dummyenv-2.dns",
+								"public-address": "dummymodel-2.dns",
 							},
 							"servicewithmeterstatus/1": M{
 								"machine": "3",
@@ -2213,7 +2213,7 @@ var statusTests = []testCase{
 									"color":   "green",
 									"message": "test green status",
 								},
-								"public-address": "dummyenv-3.dns",
+								"public-address": "dummymodel-3.dns",
 							},
 							"servicewithmeterstatus/2": M{
 								"machine": "4",
@@ -2229,7 +2229,7 @@ var statusTests = []testCase{
 									"color":   "red",
 									"message": "test red status",
 								},
-								"public-address": "dummyenv-4.dns",
+								"public-address": "dummymodel-4.dns",
 							},
 						},
 					},
@@ -2241,10 +2241,10 @@ var statusTests = []testCase{
 		"upgrade available",
 		setToolsUpgradeAvailable{},
 		expect{
-			"upgrade availability should be shown in environment-status",
+			"upgrade availability should be shown in model-status",
 			M{
-				"environment": "dummyenv",
-				"environment-status": M{
+				"model": "dummymodel",
+				"model-status": M{
 					"upgrade-available": nextVersion().String(),
 				},
 				"machines": M{},
@@ -2774,7 +2774,7 @@ func (e expect) step(c *gc.C, ctx *context) {
 type setToolsUpgradeAvailable struct{}
 
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
-	env, err := ctx.st.Environment()
+	env, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.UpdateLatestToolsVersion(nextVersion())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2818,7 +2818,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("localhost")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
@@ -2882,8 +2882,8 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -2893,7 +2893,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -2903,7 +2903,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -2929,10 +2929,10 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx.run(c, steps)
 
 	const expected = `
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:error)
-- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
-  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:error)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	assertOneLineStatus(c, expected)
 }
@@ -2960,8 +2960,8 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	ctx := s.newContext(c)
 	steps := []stepper{
 		setToolsUpgradeAvailable{},
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -2970,7 +2970,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -2980,7 +2980,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3019,7 +3019,7 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	const expected = `
-[Environment]     
+[Model]           
 UPGRADE-AVAILABLE 
 %s
 
@@ -3030,17 +3030,17 @@ mysql      maintenance true    cs:quantal/mysql-1
 wordpress  active      true    cs:quantal/wordpress-3 
 
 [Units]     
-ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        
-mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      
-  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs 
-wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                
-  logging/0 active         idle                              dummyenv-1.dns                                
+ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS   MESSAGE                        
+mysql/0     maintenance    idle        1.2.3   2             dummymodel-2.dns installing all the things      
+  logging/1 error          idle                              dummymodel-2.dns somehow lost in all those logs 
+wordpress/0 active         idle        1.2.3   1             dummymodel-1.dns                                
+  logging/0 active         idle                              dummymodel-1.dns                                
 
 [Machines] 
-ID         STATE   DNS            INS-ID     SERIES  AZ         
-0          started dummyenv-0.dns dummyenv-0 quantal us-east-1a 
-1          started dummyenv-1.dns dummyenv-1 quantal            
-2          started dummyenv-2.dns dummyenv-2 quantal            
+ID         STATE   DNS              INS-ID       SERIES  AZ         
+0          started dummymodel-0.dns dummymodel-0 quantal us-east-1a 
+1          started dummymodel-1.dns dummymodel-1 quantal            
+2          started dummymodel-2.dns dummymodel-2 quantal            
 
 `
 	nextVersionStr := nextVersion().String()
@@ -3102,8 +3102,8 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
 	}
@@ -3137,11 +3137,11 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// Given a machine is started
 		// And the machine's ID is "0"
 		// And the machine's job is to manage the environment
-		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageModel},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", state.StatusStarted, ""},
-		// And the machine's address is "dummyenv-0.dns"
-		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		// And the machine's address is "dummymodel-0.dns"
+		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
 		addService{name: "wordpress", charm: "wordpress"},
@@ -3156,8 +3156,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", state.StatusStarted, ""},
-		// And the machine's address is "dummyenv-1.dns"
-		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		// And the machine's address is "dummymodel-1.dns"
+		setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
@@ -3170,8 +3170,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", state.StatusStarted, ""},
-		// And the machine's address is "dummyenv-2.dns"
-		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		// And the machine's address is "dummymodel-2.dns"
+		setAddresses{"2", network.NewAddresses("dummymodel-2.dns")},
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
@@ -3217,8 +3217,8 @@ func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
-  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3236,8 +3236,8 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:error)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:error)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3253,8 +3253,8 @@ func (s *StatusSuite) TestFilterToService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3277,8 +3277,8 @@ func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3295,8 +3295,8 @@ func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
-  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3355,10 +3355,10 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:active)
-- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
-  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3376,8 +3376,8 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3391,10 +3391,10 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:active)
-- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
-  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3408,10 +3408,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
-  - logging/1: dummyenv-2.dns (agent:idle, workload:active)
-- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
-  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- mysql/0: dummymodel-2.dns (agent:idle, workload:active)
+  - logging/1: dummymodel-2.dns (agent:idle, workload:active)
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3425,7 +3425,7 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
 	com := &statusCommand{}
-	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
+	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 var statusInitTests = []struct {
@@ -3466,8 +3466,8 @@ func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
 
 var statusTimeTest = test(
 	"status generates timestamps as UTC in ISO format",
-	addMachine{machineId: "0", job: state.JobManageEnviron},
-	setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+	addMachine{machineId: "0", job: state.JobManageModel},
+	setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
 	startAliveMachine{"0"},
 	setMachineStatus{"0", state.StatusStarted, ""},
 	addCharm{"dummy"},
@@ -3475,14 +3475,14 @@ var statusTimeTest = test(
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},
-	setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+	setAddresses{"1", network.NewAddresses("dummymodel-1.dns")},
 	setMachineStatus{"1", state.StatusStarted, ""},
 
 	addAliveUnit{"dummy-service", "1"},
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
-			"environment": "dummyenv",
+			"model": "dummymodel",
 			"machines": M{
 				"0": machine0,
 				"1": machine1,
@@ -3508,7 +3508,7 @@ var statusTimeTest = test(
 								"current": "allocating",
 								"since":   "01 Apr 15 01:23+10:00",
 							},
-							"public-address": "dummyenv-1.dns",
+							"public-address": "dummymodel-1.dns",
 						},
 					},
 				},
@@ -3543,7 +3543,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			},
 		},
 	}
-	formatter := newStatusFormatter(status, true)
+	formatter := NewStatusFormatter(status, true)
 	formatted := formatter.format()
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{

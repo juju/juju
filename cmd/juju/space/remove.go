@@ -10,11 +10,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 // removeCommand calls the API to remove an existing network space.

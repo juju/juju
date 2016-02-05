@@ -160,8 +160,8 @@ func (e *fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) 
 	return []instance.Instance{&fakeInstance{}}, nil
 }
 
-func (e *fakeEnviron) StateServerInstances() ([]instance.Id, error) {
-	e.Push("StateServerInstances")
+func (e *fakeEnviron) ControllerInstances() ([]instance.Id, error) {
+	e.Push("ControllerInstances")
 	return nil, nil
 }
 

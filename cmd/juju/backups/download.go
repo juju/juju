@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -24,7 +24,7 @@ location and the filename is printed to stdout.
 `
 
 func newDownloadCommand() cmd.Command {
-	return envcmd.Wrap(&downloadCommand{})
+	return modelcmd.Wrap(&downloadCommand{})
 }
 
 // downloadCommand is the sub-command for downloading a backup archive.
@@ -48,6 +48,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.Filename, "filename", "", "download target")
 }
 
@@ -66,6 +67,11 @@ func (c *downloadCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *downloadCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)

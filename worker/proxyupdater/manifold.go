@@ -1,15 +1,15 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package proxyupdater
 
 import (
 	"github.com/juju/errors"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
@@ -25,7 +25,7 @@ type ManifoldConfig struct {
 // using the api connection resource named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 
-	// newWorker is not currently tested; it should eventually replace New as the
+	// newWorker is not currently tested; it should eventually replace NewWorker as the
 	// package's exposed factory func, and then all tests should pass through it.
 	// It is covered by functional tests under machine agent.
 	var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
@@ -40,7 +40,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return nil, errors.Errorf("unknown agent type: %T", tag)
 		}
 
-		return New(environment.NewFacade(apiCaller), writeSystemFiles)
+		return NewWorker(apiproxyupdater.NewFacade(apiCaller), writeSystemFiles)
 	}
 
 	return util.PostUpgradeManifold(config.PostUpgradeManifoldConfig, newWorker)

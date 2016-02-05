@@ -15,7 +15,7 @@ import (
 
 const volumeCmdDoc = `
 "juju storage volume" is used to manage storage volumes in
- the Juju environment.
+ the Juju model.
 `
 
 const volumeCmdPurpose = "manage storage volumes"

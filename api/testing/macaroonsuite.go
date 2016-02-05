@@ -63,14 +63,14 @@ func (s *MacaroonSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-// AddEnvUser is a convenience function that adds an external
-// user to the current environment. It will panic
+// AddModelUser is a convenience function that adds an external
+// user to the current model. It will panic
 // if the user name is local.
-func (s *MacaroonSuite) AddEnvUser(c *gc.C, username string) {
+func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	if names.NewUserTag(username).IsLocal() {
-		panic("cannot use MacaroonSuite.AddEnvUser to add a local name")
+		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User: username,
 	})
 }

@@ -87,7 +87,7 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
+func newModelConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	return &environConfig{
 		Config: config,
 		attrs:  attrs,
@@ -141,7 +141,7 @@ func (c *environConfig) bootstrapIPAddress() string {
 	return addr
 }
 
-func (c *environConfig) stateServerAddr() string {
+func (c *environConfig) controllerAddr() string {
 	return fmt.Sprintf("localhost:%d", c.Config.APIPort())
 }
 

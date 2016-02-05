@@ -40,7 +40,7 @@ var userCurrent = user.Current
 
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
+	logger.Infof("opening model %q", cfg.Name())
 	// Do the initial validation on the config.
 	localConfig, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -301,7 +301,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to validate unknown attrs")
 	}
-	localConfig := newEnvironConfig(cfg, validated)
+	localConfig := newModelConfig(cfg, validated)
 	// Set correct default network bridge if needed
 	// fix for http://pad.lv/1394450
 	localConfig.setDefaultNetworkBridge()
@@ -389,7 +389,7 @@ local:
     #
     # network-bridge: lxcbr0
 
-    # The default series to deploy the state-server and charms on.
+    # The default series to deploy the controller and charms on.
     # Make sure to uncomment the following option and set the value to
     # precise or trusty as desired.
     #
@@ -423,5 +423,5 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newEnvironConfig(valid, valid.UnknownAttrs()), nil
+	return newModelConfig(valid, valid.UnknownAttrs()), nil
 }

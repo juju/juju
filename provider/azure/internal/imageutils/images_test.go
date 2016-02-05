@@ -61,6 +61,8 @@ func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageWindows(c *gc.C) {
 	s.assertImageId(c, "win2012r2", "daily", "MicrosoftWindowsServer:WindowsServer:2012-R2-Datacenter:latest")
 	s.assertImageId(c, "win2012", "daily", "MicrosoftWindowsServer:WindowsServer:2012-Datacenter:latest")
+	s.assertImageId(c, "win81", "daily", "MicrosoftVisualStudio:Windows:8.1-Enterprise-N:latest")
+	s.assertImageId(c, "win10", "daily", "MicrosoftVisualStudio:Windows:10-Enterprise:latest")
 }
 
 func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {

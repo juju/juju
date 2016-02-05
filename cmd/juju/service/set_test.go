@@ -23,7 +23,6 @@ import (
 type SetSuite struct {
 	coretesting.FakeJujuHomeSuite
 	dir            string
-	fakeClientAPI  *fakeClientAPI
 	fakeServiceAPI *fakeServiceAPI
 }
 
@@ -37,7 +36,6 @@ var (
 
 func (s *SetSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.fakeClientAPI = &fakeClientAPI{servName: "dummy-service", values: make(map[string]interface{})}
 	s.fakeServiceAPI = &fakeServiceAPI{serviceName: "dummy-service"}
 
 	s.dir = c.MkDir()
@@ -51,20 +49,25 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 
 func (s *SetSuite) TestSetCommandInit(c *gc.C) {
 	// missing args
-	err := coretesting.InitCommand(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), []string{})
+	err := coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 
 	// missing service name
-	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), []string{"name=foo"})
+	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"name=foo"})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 
 	// --config path, but no service
-	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), []string{"--config", "testconfig.yaml"})
+	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"--config", "testconfig.yaml"})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 
 	// --config and options specified
-	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), []string{"service", "--config", "testconfig.yaml", "bees="})
+	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"service", "--config", "testconfig.yaml", "bees="})
 	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
+
+	// --to-default and no config name provided
+	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"service", "--to-default"})
+	c.Assert(err, gc.ErrorMatches, "no configuration options specified")
+
 }
 
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
@@ -133,7 +136,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 	}, "error.* "+utils.NoSuchFileErrRegexp+"\n")
 
 	ctx := coretesting.ContextForDir(c, s.dir)
-	code := cmd.Main(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), ctx, []string{
+	code := cmd.Main(service.NewSetCommandForTest(s.fakeServiceAPI), ctx, []string{
 		"dummy-service",
 		"--config",
 		"testconfig.yaml"})
@@ -142,11 +145,21 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 	c.Check(s.fakeServiceAPI.config, gc.Equals, yamlConfigValue)
 }
 
+func (s *SetSuite) TestSetConfigToDefault(c *gc.C) {
+	s.fakeServiceAPI = &fakeServiceAPI{serviceName: "dummy-service", values: map[string]interface{}{
+		"username": "hello",
+	}}
+	s.assertSetSuccess(c, s.dir, []string{
+		"--to-default",
+		"username",
+	}, make(map[string]interface{}))
+}
+
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
 	s.fakeServiceAPI.err = common.OperationBlockedError("TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
-	code := cmd.Main(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), ctx, []string{
+	code := cmd.Main(service.NewSetCommandForTest(s.fakeServiceAPI), ctx, []string{
 		"dummy-service",
 		"--config",
 		"testconfig.yaml"})
@@ -159,22 +172,21 @@ func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 // assertSetSuccess sets configuration options and checks the expected settings.
 func (s *SetSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), ctx, append([]string{"dummy-service"}, args...))
-	c.Check(code, gc.Equals, 0)
-	c.Assert(s.fakeClientAPI.values, gc.DeepEquals, expect)
+	code := cmd.Main(service.NewSetCommandForTest(s.fakeServiceAPI), ctx, append([]string{"dummy-service"}, args...))
+	c.Assert(code, gc.Equals, 0)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
 func (s *SetSuite) assertSetFail(c *gc.C, dir string, args []string, err string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewSetCommandForTest(s.fakeServiceAPI), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
 }
 
 func (s *SetSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(service.NewSetCommandWithAPI(s.fakeClientAPI, s.fakeServiceAPI), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewSetCommandForTest(s.fakeServiceAPI), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 
 	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")

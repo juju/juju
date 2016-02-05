@@ -89,7 +89,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
-			Environment:       coretesting.EnvironmentTag,
+			Model:             coretesting.ModelTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()

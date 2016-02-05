@@ -49,7 +49,7 @@ func addUUIDToSecurityGroupNames(e *Environ) error {
 	eName := cfg.Name()
 	eUUID, ok := cfg.UUID()
 	if !ok {
-		return errors.NotFoundf("environment uuid for environment %q", eName)
+		return errors.NotFoundf("model uuid for model %q", eName)
 	}
 	for _, group := range groups {
 		newName, ok, err := replaceNameWithID(group.Name, eName, eUUID)
@@ -87,7 +87,7 @@ func addUUIDToMachineNames(e *Environ) error {
 	eName := cfg.Name()
 	eUUID, ok := cfg.UUID()
 	if !ok {
-		return errors.NotFoundf("environment uuid for environment %q", eName)
+		return errors.NotFoundf("model uuid for model %q", eName)
 	}
 	for _, server := range servers {
 		newName, ok, err := replaceNameWithID(server.Name, eName, eUUID)

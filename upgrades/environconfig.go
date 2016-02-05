@@ -14,34 +14,34 @@ import (
 // environConfigUpdater is an interface used atomically write environment
 // config changes to the global state.
 type environConfigUpdater interface {
-	// UpdateEnvironConfig atomically updates and removes environment
+	// UpdateModelConfig atomically updates and removes environment
 	// config attributes to the global state.
-	UpdateEnvironConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
+	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 }
 
 // environConfigReader is an interface used to read the current environment
 // config from global state.
 type environConfigReader interface {
-	// EnvironConfig reads the current environment config from global
+	// ModelConfig reads the current environment config from global
 	// state.
-	EnvironConfig() (*config.Config, error)
+	ModelConfig() (*config.Config, error)
 }
 
-func upgradeEnvironConfig(
+func upgradeModelConfig(
 	reader environConfigReader,
 	updater environConfigUpdater,
 	registry environs.ProviderRegistry,
 ) error {
-	cfg, err := reader.EnvironConfig()
+	cfg, err := reader.ModelConfig()
 	if err != nil {
-		return errors.Annotate(err, "reading environment config")
+		return errors.Annotate(err, "reading model config")
 	}
 	provider, err := registry.Provider(cfg.Type())
 	if err != nil {
 		return errors.Annotate(err, "getting provider")
 	}
 
-	upgrader, ok := provider.(environs.EnvironConfigUpgrader)
+	upgrader, ok := provider.(environs.ModelConfigUpgrader)
 	if !ok {
 		logger.Debugf("provider %q has no upgrades", cfg.Type())
 		return nil
@@ -58,7 +58,7 @@ func upgradeEnvironConfig(
 			removedAttrs = append(removedAttrs, key)
 		}
 	}
-	if err := updater.UpdateEnvironConfig(newAttrs, removedAttrs, nil); err != nil {
+	if err := updater.UpdateModelConfig(newAttrs, removedAttrs, nil); err != nil {
 		return errors.Annotate(err, "updating config in state")
 	}
 	return nil

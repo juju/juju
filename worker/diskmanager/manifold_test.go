@@ -55,7 +55,7 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *gc.C) {
 	a := &dummyAgent{
 		tag: names.NewMachineTag("1"),
 		jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
+			multiwatcher.JobManageModel,
 		},
 	}
 
