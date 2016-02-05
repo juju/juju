@@ -62,14 +62,13 @@ func (st *State) Import(model migration.Model) (_ *Environment, _ *State, err er
 		logger:      logger,
 	}
 	if err := restore.environmentUsers(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "environmentUsers")
 	}
 	if err := restore.machines(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "machines")
 	}
 	if err := restore.services(); err != nil {
-		logger.Debugf("services error")
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotate(err, "services")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -343,7 +342,7 @@ func (i *importer) services() error {
 	i.logger.Debugf("importing services")
 	for _, s := range i.model.Services() {
 		if err := i.service(s); err != nil {
-			i.logger.Errorf("error importing service: %s", err)
+			i.logger.Errorf("error importing service %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}
 	}

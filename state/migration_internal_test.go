@@ -260,7 +260,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"Life",
 		// OwnerTag is deprecated and should be deleted.
 		"OwnerTag",
-		// TxnRevno is mgo internals and no idea why this is read.
+		// TxnRevno is mgo internals and should not be migrated.
 		"TxnRevno",
 
 		"Name",

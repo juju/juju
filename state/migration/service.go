@@ -19,7 +19,7 @@ type service struct {
 	Series_      string `yaml:"series"`
 	Subordinate_ bool   `yaml:"subordinate,omitempty"`
 	CharmURL_    string `yaml:"charm-url"`
-	// ForceCharm is trie if an upgrade charm is forced.
+	// ForceCharm is true if an upgrade charm is forced.
 	// It means upgrade even if the charm is in an error state.
 	ForceCharm_ bool    `yaml:"force-charm,omitempty"`
 	Exposed_    bool    `yaml:"exposed,omitempty"`

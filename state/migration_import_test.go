@@ -229,7 +229,6 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 
 	_, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%#v", newSt)
 	defer newSt.Close()
 
 	importedServices, err := newSt.AllServices()
