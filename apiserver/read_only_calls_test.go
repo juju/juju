@@ -20,7 +20,7 @@ func (*readOnlyCallsSuite) TestReadOnlyCall(c *gc.C) {
 	}{
 		{"Action", "Actions"},
 		{"Client", "FullStatus"},
-		{"Client", "ServiceGet"},
+		{"Service", "ServiceGet"},
 		{"Storage", "List"},
 	} {
 		c.Logf("check %s.%s", test.facade, test.method)
@@ -33,8 +33,8 @@ func (*readOnlyCallsSuite) TestWritableCalls(c *gc.C) {
 		facade string
 		method string
 	}{
-		{"Client", "ServiceDeploy"},
 		{"Client", "UnknownMethod"},
+		{"Service", "ServiceDeploy"},
 		{"UnknownFacade", "List"},
 	} {
 		c.Logf("check %s.%s", test.facade, test.method)

@@ -26,28 +26,28 @@ var readOnlyCalls = set.NewStrings(
 	"Client.AgentVersion",
 	"Client.APIHostPorts",
 	"Client.CharmInfo",
-	"Client.EnvironmentGet",
-	"Client.EnvironmentInfo",
-	"Client.EnvUserInfo",
+	"Client.ModelGet",
+	"Client.ModelInfo",
+	"Client.ModelUserInfo",
 	"Client.FullStatus",
 	// FindTools, while being technically read only, isn't a useful
 	// command for a read only user to run.
 	// While GetBundleChanges is technically read only, it is a precursor
 	// to deploying the bundle or changes. But... let's leave it here anyway.
 	"Client.GetBundleChanges",
-	"Client.GetEnvironmentConstraints",
-	"Client.GetServiceConstraints",
+	"Client.GetModelConstraints",
 	"Client.PrivateAddress",
 	"Client.PublicAddress",
 	// ResolveCharms, while being technically read only, isn't a useful
 	// command for a read only user to run.
-	"Client.ServiceCharmRelations",
-	"Client.ServiceGet",
 	// Status is so old it shouldn't be used.
 	"Client.UnitStatusHistory",
 	"Client.WatchAll",
 	// TODO: add controller work.
 	"KeyManager.ListKeys",
+	"Service.GetServiceConstraints",
+	"Service.ServiceCharmRelations",
+	"Service.ServiceGet",
 	"Spaces.ListSpaces",
 	"Storage.List",
 	"Storage.ListFilesystems",
