@@ -49,14 +49,14 @@ type modelDoc struct {
 }
 
 // ControllerModel returns the model that was bootstrapped.
-// This is the only model that can have state server machines.
+// This is the only model that can have controller machines.
 // The owner of this model is also considered "special", in that
 // they are the only user that is able to create other users (until we
 // have more fine grained permissions), and they cannot be disabled.
 func (st *State) ControllerModel() (*Model, error) {
-	ssinfo, err := st.StateServerInfo()
+	ssinfo, err := st.ControllerInfo()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not get state server info")
+		return nil, errors.Annotate(err, "could not get controller info")
 	}
 
 	models, closer := st.getCollection(modelsC)
@@ -118,7 +118,7 @@ func (st *State) AllModels() ([]*Model, error) {
 // prepares it for use. Model and State instances for the new
 // model are returned.
 //
-// The state server model's UUID is attached to the new
+// The controller model's UUID is attached to the new
 // model's document. Having the server UUIDs stored with each
 // model document means that we have a way to represent external
 // models, perhaps for future use around cross model
@@ -544,7 +544,7 @@ type hostedModelCountDoc struct {
 
 func assertNoHostedModelsOp() txn.Op {
 	return txn.Op{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     hostedModelCountKey,
 		Assert: bson.D{{"refcount", 0}},
 	}
@@ -560,7 +560,7 @@ func decHostedModelCountOp() txn.Op {
 
 func HostedModelCountOp(amount int) txn.Op {
 	return txn.Op{
-		C:  stateServersC,
+		C:  controllersC,
 		Id: hostedModelCountKey,
 		Update: bson.M{
 			"$inc": bson.M{"refcount": amount},
@@ -570,10 +570,10 @@ func HostedModelCountOp(amount int) txn.Op {
 
 func hostedModelCount(st *State) (int, error) {
 	var doc hostedModelCountDoc
-	stateServers, closer := st.getCollection(stateServersC)
+	controllers, closer := st.getCollection(controllersC)
 	defer closer()
 
-	if err := stateServers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {
+	if err := controllers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {
 		return 0, errors.Trace(err)
 	}
 	return doc.RefCount, nil

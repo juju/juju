@@ -37,12 +37,12 @@ import (
 )
 
 // dummySampleConfig returns the dummy sample config without
-// the state server configured.
+// the controller configured.
 // This function also exists in environs/config_test
 // Maybe place it in dummy and export it?
 func dummySampleConfig() testing.Attrs {
 	return dummy.SampleConfig().Merge(testing.Attrs{
-		"state-server": false,
+		"controller": false,
 	})
 }
 
@@ -140,7 +140,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 		"authorized-keys": "we-are-the-keys",
 		"admin-secret":    "lisboan-pork",
 		"agent-version":   "1.2.3",
-		"state-server":    false,
+		"controller":      false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,11 +184,11 @@ func (s *CloudInitSuite) TestUserData(c *gc.C) {
 	s.testUserData(c, "quantal", false)
 }
 
-func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
+func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
 	s.testUserData(c, "quantal", true)
 }
 
-func (s *CloudInitSuite) TestStateServerUserDataPrecise(c *gc.C) {
+func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
 	s.testUserData(c, "precise", true)
 }
 

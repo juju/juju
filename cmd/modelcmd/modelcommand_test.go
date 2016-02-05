@@ -327,10 +327,10 @@ var _ = gc.Suite(&EnvConfigSuite{})
 
 func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	bootstrapCfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":         "dummy",
-		"name":         name,
-		"state-server": "true",
-		"state-id":     "1",
+		"type":       "dummy",
+		"name":       name,
+		"controller": "true",
+		"state-id":   "1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return bootstrapCfg.AllAttrs()

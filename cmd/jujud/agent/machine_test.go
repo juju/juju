@@ -549,7 +549,7 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		done <- a.Run(nil)
 	}()
 
-	// See state server runners start
+	// See controller runners start
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "txnpruner")
 
@@ -1276,7 +1276,7 @@ func (s *MachineSuite) runOpenAPIStateTest(c *gc.C, machine *state.Machine, conf
 	// Set a failing password...
 	confW, err := agent.ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
-	confW.SetPassword("not-set-on-state-server")
+	confW.SetPassword("not-set-on-controller")
 
 	// ...and also make sure the api info points to the testing api
 	// server (and not, as for JobManageModel machines, to the port
@@ -1375,21 +1375,6 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 }
 
 func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
-	s.assertProxyUpdater(c, true)
-}
-
-func (s *MachineSuite) TestProxyUpdaterNoSystemFileUpdate(c *gc.C) {
-	s.assertProxyUpdater(c, false)
-}
-
-func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) {
-	// Patch out the func that decides whether we should write system files.
-	var gotConf agent.Config
-	s.AgentSuite.PatchValue(&shouldWriteProxyFiles, func(conf agent.Config) bool {
-		gotConf = conf
-		return expectWriteSystemFiles
-	})
-
 	// Make sure there are some proxy settings to write.
 	expectSettings := proxy.Settings{
 		Http:  "http proxy",
@@ -1402,9 +1387,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 
 	// Patch out the actual worker func.
 	started := newSignal()
-	mockNew := func(api *apiproxyupdater.Facade, writeSystemFiles bool) (worker.Worker, error) {
-		// Direct check of the behaviour flag.
-		c.Check(writeSystemFiles, gc.Equals, expectWriteSystemFiles)
+	mockNew := func(api *apiproxyupdater.Facade) (worker.Worker, error) {
 		// Indirect check that we get a functional API.
 		conf, err := api.ModelConfig()
 		if c.Check(err, jc.ErrorIsNil) {
@@ -1427,7 +1410,6 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for proxy updater to start")
 	case <-started.triggered():
-		c.Assert(gotConf, jc.DeepEquals, a.CurrentConfig())
 	}
 }
 
@@ -1606,7 +1588,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(c *gc.C) {
 	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
@@ -1624,7 +1606,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 	started.assertTriggered(c, "certificate to be updated")
 }
 
-func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonController(c *gc.C) {
 	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
@@ -1915,7 +1897,7 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 	// Create a new environment, tests can now watch if workers start for it.
 	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: map[string]interface{}{
-			"state-server": false,
+			"controller": false,
 		},
 		Prepare: true,
 	})
@@ -1953,7 +1935,7 @@ func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer fun
 
 func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("state servers on windows aren't supported")
+		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ReplicasetInitiated = false
@@ -1971,7 +1953,7 @@ func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
 
 func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("state servers on windows aren't supported")
+		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ReplicasetInitiated = true
@@ -1987,9 +1969,9 @@ func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
-func (s *MachineSuite) TestReplicasetInitForNewStateServer(c *gc.C) {
+func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("state servers on windows aren't supported")
+		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ServiceInstalled = false
@@ -2023,7 +2005,7 @@ func (s *MachineSuite) TestManageModelRunsUndertaker(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// state server workers.
+	// controller workers.
 	_ = s.singularRecord.nextRunner(c)
 	// new environ workers.
 	_ = s.singularRecord.nextRunner(c)
@@ -2032,7 +2014,7 @@ func (s *MachineSuite) TestManageModelRunsUndertaker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-	// state server workers.
+	// controller workers.
 	_ = s.singularRecord.nextRunner(c)
 	// new environ workers.
 	r := s.singularRecord.nextRunner(c)
@@ -2142,59 +2124,6 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 	c.Assert(safe, gc.NotNil)
 	c.Assert(safe.WMode, gc.Equals, expectedWMode)
 	c.Assert(safe.J, jc.IsTrue) // always enabled
-}
-
-type shouldWriteProxyFilesSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&shouldWriteProxyFilesSuite{})
-
-func (s *shouldWriteProxyFilesSuite) TestAll(c *gc.C) {
-	tests := []struct {
-		description  string
-		providerType string
-		machineId    string
-		expect       bool
-	}{{
-		description:  "local provider machine 0 must not write",
-		providerType: "local",
-		machineId:    "0",
-		expect:       false,
-	}, {
-		description:  "local provider other machine must write 1",
-		providerType: "local",
-		machineId:    "0/kvm/0",
-		expect:       true,
-	}, {
-		description:  "local provider other machine must write 2",
-		providerType: "local",
-		machineId:    "123",
-		expect:       true,
-	}, {
-		description:  "other provider machine 0 must write",
-		providerType: "anything",
-		machineId:    "0",
-		expect:       true,
-	}, {
-		description:  "other provider other machine must write 1",
-		providerType: "dummy",
-		machineId:    "0/kvm/0",
-		expect:       true,
-	}, {
-		description:  "other provider other machine must write 2",
-		providerType: "blahblahblah",
-		machineId:    "123",
-		expect:       true,
-	}}
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.description)
-		mockConf := &mockAgentConfig{
-			providerType: test.providerType,
-			tag:          names.NewMachineTag(test.machineId),
-		}
-		c.Check(shouldWriteProxyFiles(mockConf), gc.Equals, test.expect)
-	}
 }
 
 type mockAgentConfig struct {

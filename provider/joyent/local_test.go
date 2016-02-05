@@ -319,8 +319,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// check that StateServerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.StateServerInstances()
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 

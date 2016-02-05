@@ -52,7 +52,7 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	_, err = modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
 		"authorized-keys": "ssh-key",
-		"state-server":    isServer,
+		"controller":      isServer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -104,8 +104,8 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
-	// a config value for 'state-server'.
-	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "state-server=false")
+	// a config value for 'controller'.
+	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "controller=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
 created model "new-model"
@@ -122,7 +122,7 @@ dummymodel (controller) -> new-model
 func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
-		ConfigAttrs: testing.Attrs{"state-server": true},
+		ConfigAttrs: testing.Attrs{"controller": true},
 	})
 	defer st.Close()
 

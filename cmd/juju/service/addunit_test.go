@@ -38,7 +38,7 @@ func (f *fakeServiceAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeServiceAddUnitAPI) AddServiceUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+func (f *fakeServiceAddUnitAPI) AddUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -89,13 +89,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := testing.InitCommand(service.NewAddUnitCommand(s.fake), t.args)
+		err := testing.InitCommand(service.NewAddUnitCommandForTest(s.fake), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, service.NewAddUnitCommand(s.fake), args...)
+	_, err := testing.RunCommand(c, service.NewAddUnitCommandForTest(s.fake), args...)
 	return err
 }
 

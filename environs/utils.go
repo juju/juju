@@ -64,11 +64,11 @@ func waitAnyInstanceAddresses(
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
 func APIInfo(env Environ) (*api.Info, error) {
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := env.ControllerInstances()
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("StateServerInstances returned: %v", instanceIds)
+	logger.Debugf("ControllerInstances returned: %v", instanceIds)
 	addrs, err := waitAnyInstanceAddresses(env, instanceIds)
 	if err != nil {
 		return nil, err

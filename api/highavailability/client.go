@@ -15,7 +15,7 @@ import (
 
 var logger = loggo.GetLogger("juju.api.highavailability")
 
-// Client provides access to the high availability service, used to manage state servers.
+// Client provides access to the high availability service, used to manage controllers.
 type Client struct {
 	base.ClientFacade
 	facade   base.FacadeCaller
@@ -32,31 +32,31 @@ func NewClient(caller base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend, modelTag: modelTag}
 }
 
-// EnableHA ensures the availability of Juju state servers.
+// EnableHA ensures the availability of Juju controllers.
 func (c *Client) EnableHA(
-	numStateServers int, cons constraints.Value, series string, placement []string,
-) (params.StateServersChanges, error) {
+	numControllers int, cons constraints.Value, series string, placement []string,
+) (params.ControllersChanges, error) {
 
-	var results params.StateServersChangeResults
-	arg := params.StateServersSpecs{
-		Specs: []params.StateServersSpec{{
-			ModelTag:        c.modelTag.String(),
-			NumStateServers: numStateServers,
-			Constraints:     cons,
-			Series:          series,
-			Placement:       placement,
+	var results params.ControllersChangeResults
+	arg := params.ControllersSpecs{
+		Specs: []params.ControllersSpec{{
+			ModelTag:       c.modelTag.String(),
+			NumControllers: numControllers,
+			Constraints:    cons,
+			Series:         series,
+			Placement:      placement,
 		}}}
 
 	err := c.facade.FacadeCall("EnableHA", arg, &results)
 	if err != nil {
-		return params.StateServersChanges{}, err
+		return params.ControllersChanges{}, err
 	}
 	if len(results.Results) != 1 {
-		return params.StateServersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+		return params.ControllersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return params.StateServersChanges{}, result.Error
+		return params.ControllersChanges{}, result.Error
 	}
 	return result.Result, nil
 }

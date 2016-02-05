@@ -15,13 +15,12 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
 const (
-	// BootstrapNonce is used as a nonce for the state server machine.
+	// BootstrapNonce is used as a nonce for the controller machine.
 	BootstrapNonce = "user-admin:bootstrap"
 )
 
@@ -54,14 +53,14 @@ type BootstrapMachineConfig struct {
 const BootstrapMachineId = "0"
 
 // InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to create the state server, dial the
-// state server, and initialize it. It also generates a new password for the
+// configuration. It uses that information to create the controller, dial the
+// controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
 //
 // The envCfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
 // and its constraints will be also be used for the model-level
-// constraints. The connection to the state server will respect the
+// constraints. The connection to the controller will respect the
 // given timeout parameter.
 //
 // InitializeState returns the newly initialized state and bootstrap
@@ -101,13 +100,8 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 	servingInfo.SharedSecret = machineCfg.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
-	// Filter out any LXC bridge addresses from the machine addresses,
-	// except for local environments. See LP bug #1416928.
-	if !isLocalEnv(envCfg) {
-		machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
-	} else {
-		logger.Debugf("local model - not filtering addresses from %v", machineCfg.Addresses)
-	}
+	// Filter out any LXC bridge addresses from the machine addresses.
+	machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
 
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
@@ -121,12 +115,6 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 		return nil, nil, err
 	}
 	return st, m, nil
-}
-
-// isLocalEnv returns true if the given config is for a local
-// environment. Defined like this for testing.
-var isLocalEnv = func(cfg *config.Config) bool {
-	return cfg.Type() == provider.Local
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {

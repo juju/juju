@@ -5,8 +5,8 @@
 // purposes, registered with environs under the name "dummy".
 //
 // The configuration YAML for the testing environment
-// must specify a "state-server" property with a boolean
-// value. If this is true, a state server will be started
+// must specify a "controller" property with a boolean
+// value. If this is true, a controller will be started
 // when the environment is bootstrapped.
 //
 // The configuration data also accepts a "broken" property
@@ -88,9 +88,9 @@ func SampleConfig() testing.Attrs {
 		"api-port":                  4321,
 		"default-series":            config.LatestLtsSeries(),
 
-		"secret":       "pork",
-		"state-server": true,
-		"prefer-ipv6":  true,
+		"secret":      "pork",
+		"controller":  true,
+		"prefer-ipv6": true,
 	}
 }
 
@@ -388,7 +388,7 @@ func (s *environState) listenAPI() int {
 }
 
 // SetStatePolicy sets the state.Policy to use when a
-// state server is initialised by dummy.
+// controller is initialised by dummy.
 func SetStatePolicy(policy state.Policy) {
 	p := &providerInstance
 	p.mu.Lock()
@@ -439,8 +439,8 @@ func Listen(c chan<- Operation) {
 }
 
 var configSchema = environschema.Fields{
-	"state-server": {
-		Description: "Whether the model should start a state server",
+	"controller": {
+		Description: "Whether the model should start a controller",
 		Type:        environschema.Tbool,
 	},
 	"broken": {
@@ -452,7 +452,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"state-id": {
-		Description: "Id of state server",
+		Description: "Id of controller",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 	},
@@ -477,8 +477,8 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *environConfig) stateServer() bool {
-	return c.attrs["state-server"].(bool)
+func (c *environConfig) controller() bool {
+	return c.attrs["controller"].(bool)
 }
 
 func (c *environConfig) broken() string {
@@ -600,7 +600,7 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	if ecfg.stateId() != noStateId {
 		return cfg, nil
 	}
-	if ecfg.stateServer() && len(p.state) != 0 {
+	if ecfg.controller() && len(p.state) != 0 {
 		for _, old := range p.state {
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
 		}
@@ -613,7 +613,7 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	p.state[state.id] = state
 
 	attrs := map[string]interface{}{"state-id": fmt.Sprint(state.id)}
-	if ecfg.stateServer() {
+	if ecfg.controller() {
 		attrs["api-port"] = state.listenAPI()
 	}
 	return cfg.Apply(attrs)
@@ -721,11 +721,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
-		stateServer:  true,
+		controller:   true,
 	}
 	estate.insts[i.id] = i
 
-	if e.ecfg().stateServer() {
+	if e.ecfg().controller() {
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
 		// so that we can call it here.
 
@@ -790,26 +790,26 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances() ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	if err := e.checkBroken("StateServerInstances"); err != nil {
+	if err := e.checkBroken("ControllerInstances"); err != nil {
 		return nil, err
 	}
 	if !estate.bootstrapped {
 		return nil, environs.ErrNotBootstrapped
 	}
-	var stateServerInstances []instance.Id
+	var controllerInstances []instance.Id
 	for _, v := range estate.insts {
-		if v.stateServer {
-			stateServerInstances = append(stateServerInstances, v.Id())
+		if v.controller {
+			controllerInstances = append(controllerInstances, v.Id())
 		}
 	}
-	return stateServerInstances, nil
+	return controllerInstances, nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -1514,7 +1514,7 @@ type dummyInstance struct {
 	machineId    string
 	series       string
 	firewallMode string
-	stateServer  bool
+	controller   bool
 
 	mu        sync.Mutex
 	addresses []network.Address

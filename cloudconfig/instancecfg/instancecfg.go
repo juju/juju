@@ -51,22 +51,22 @@ type InstanceConfig struct {
 
 	// StateServingInfo holds the information for serving the state.
 	// This must only be set if the Bootstrap field is true
-	// (state servers started subsequently will acquire their serving info
+	// (controllers started subsequently will acquire their serving info
 	// from another server)
 	StateServingInfo *params.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
-	// juju state database. Unless the new instance is running a state server
-	// (StateServer is set), there must be at least one state server address supplied.
+	// juju state database. Unless the new instance is running a controller
+	// (Controller is set), there must be at least one controller address supplied.
 	// The entity name must match that of the instance being started,
-	// or be empty when starting a state server.
+	// or be empty when starting a controller.
 	MongoInfo *mongo.MongoInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
-	// juju state API. Unless the new instance is running a state server (StateServer is
-	// set), there must be at least one state server address supplied.
+	// juju state API. Unless the new instance is running a controller (Controller is
+	// set), there must be at least one controller address supplied.
 	// The entity name must match that of the instance being started,
-	// or be empty when starting a state server.
+	// or be empty when starting a controller.
 	APIInfo *api.Info
 
 	// InstanceId is the instance ID of the instance being initialised.
@@ -133,7 +133,7 @@ type InstanceConfig struct {
 	AgentEnvironment map[string]string
 
 	// WARNING: this is only set if the instance being configured is
-	// a state server node.
+	// a controller node.
 	//
 	// Config holds the initial environment configuration.
 	Config *config.Config
@@ -220,7 +220,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
-	// if the instance is a stateServer then to use localhost.  This may be
+	// if the instance is a controller then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
 	var password string
 	if cfg.MongoInfo == nil {
@@ -346,19 +346,19 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 			return errors.New("missing model configuration")
 		}
 		if cfg.MongoInfo.Tag != nil {
-			return errors.New("entity tag must be nil when starting a state server")
+			return errors.New("entity tag must be nil when starting a controller")
 		}
 		if cfg.APIInfo.Tag != nil {
-			return errors.New("entity tag must be nil when starting a state server")
+			return errors.New("entity tag must be nil when starting a controller")
 		}
 		if cfg.StateServingInfo == nil {
 			return errors.New("missing state serving info")
 		}
 		if len(cfg.StateServingInfo.Cert) == 0 {
-			return errors.New("missing state server certificate")
+			return errors.New("missing controller certificate")
 		}
 		if len(cfg.StateServingInfo.PrivateKey) == 0 {
-			return errors.New("missing state server private key")
+			return errors.New("missing controller private key")
 		}
 		if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
 			return errors.New("missing ca cert private key")
@@ -545,13 +545,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 	if isStateInstanceConfig(icfg) {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
-		// Only makes sense for state server
+		// Only makes sense for controller
 		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
 		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
 	}
 	// The following settings are only appropriate at bootstrap time. At the
-	// moment, the only state server is the bootstrap node, but this
+	// moment, the only controller is the bootstrap node, but this
 	// will probably change.
 	if !icfg.Bootstrap {
 		return nil
@@ -579,13 +579,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
-	// These really are directly relevant to running a state server.
-	// Initially, generate a state server certificate with no host IP
-	// addresses in the SAN field. Once the state server is up and the
+	// These really are directly relevant to running a controller.
+	// Initially, generate a controller certificate with no host IP
+	// addresses in the SAN field. Once the controller is up and the
 	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := cfg.GenerateStateServerCertAndKey(nil)
+	cert, key, err := cfg.GenerateControllerCertAndKey(nil)
 	if err != nil {
-		return errors.Annotate(err, "cannot generate state server certificate")
+		return errors.Annotate(err, "cannot generate controller certificate")
 	}
 	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
 	if !hasCAPrivateKey {
@@ -612,7 +612,7 @@ func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string
 	uuid, _ := cfg.UUID()
 	instanceTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
-		instanceTags[tags.JujuStateServer] = "true"
+		instanceTags[tags.JujuController] = "true"
 	}
 	return instanceTags
 }
@@ -638,8 +638,8 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 }
 
 // isStateInstanceConfig determines if given machine configuration
-// is for State Server by iterating over machine's jobs.
-// If JobManageModel is present, this is a state server.
+// is for controller by iterating over machine's jobs.
+// If JobManageModel is present, this is a controller.
 func isStateInstanceConfig(icfg *InstanceConfig) bool {
 	for _, aJob := range icfg.Jobs {
 		if aJob == multiwatcher.JobManageModel {

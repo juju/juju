@@ -27,12 +27,12 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu           sync.Mutex
-	errors       errorPatterns
-	machines     map[string]*fakeMachine
-	stateServers voyeur.Value // of *state.StateServerInfo
-	session      *fakeMongoSession
-	check        func(st *fakeState) error
+	mu          sync.Mutex
+	errors      errorPatterns
+	machines    map[string]*fakeMachine
+	controllers voyeur.Value // of *state.ControllerInfo
+	session     *fakeMongoSession
+	check       func(st *fakeState) error
 }
 
 var (
@@ -104,7 +104,7 @@ func NewFakeState() *fakeState {
 		machines: make(map[string]*fakeMachine),
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
-	st.stateServers.Set(&state.StateServerInfo{})
+	st.controllers.Set(&state.ControllerInfo{})
 	return st
 }
 
@@ -208,21 +208,21 @@ func (st *fakeState) removeMachine(id string) {
 	delete(st.machines, id)
 }
 
-func (st *fakeState) setStateServers(ids ...string) {
-	st.stateServers.Set(&state.StateServerInfo{
+func (st *fakeState) setControllers(ids ...string) {
+	st.controllers.Set(&state.ControllerInfo{
 		MachineIds: ids,
 	})
 }
 
-func (st *fakeState) StateServerInfo() (*state.StateServerInfo, error) {
-	if err := st.errors.errorFor("State.StateServerInfo"); err != nil {
+func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
+	if err := st.errors.errorFor("State.ControllerInfo"); err != nil {
 		return nil, err
 	}
-	return deepCopy(st.stateServers.Get()).(*state.StateServerInfo), nil
+	return deepCopy(st.controllers.Get()).(*state.ControllerInfo), nil
 }
 
-func (st *fakeState) WatchStateServerInfo() state.NotifyWatcher {
-	return WatchValue(&st.stateServers)
+func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
+	return WatchValue(&st.controllers)
 }
 
 type fakeMachine struct {

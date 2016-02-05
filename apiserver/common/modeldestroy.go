@@ -87,7 +87,7 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 	}
 
 	// Return to the caller. If it's the CLI, it will finish up by calling the
-	// provider's Destroy method, which will destroy the state servers, any
+	// provider's Destroy method, which will destroy the controllers, any
 	// straggler instances, and other provider-specific resources. Once all
 	// resources are torn down, the Undertaker worker handles the removal of
 	// the environment.

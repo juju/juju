@@ -212,7 +212,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 		Constraints: cons,
 		Storage:     storageConstraints,
 	}
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,7 +255,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 		Constraints: cons,
 		Storage:     storageConstraints,
 	}
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,7 +286,7 @@ func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 		Constraints: cons,
 		Storage:     storageConstraints,
 	}
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +305,7 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 		NumUnits:    1,
 		Constraints: cons,
 	}
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,7 +338,7 @@ func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
 			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
 		},
 	}
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,7 +365,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "invalid"},
 		},
 	}
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,7 +386,7 @@ func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBin
 		EndpointBindings: endpointBindings,
 	}
 
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -594,7 +594,7 @@ func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	result, err := s.serviceApi.ServiceGetCharmURL(params.ServiceGet{"wordpress"})
+	result, err := s.serviceApi.GetCharmURL(params.ServiceGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
@@ -604,7 +604,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -616,7 +616,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 	})
@@ -635,7 +635,7 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -650,7 +650,7 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 }
 
 func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
-	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err := s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    "cs:~who/precise/wordpress-3",
 		ForceUnits:  forceUnits,
@@ -665,7 +665,7 @@ func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
 }
 
 func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
-	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err := s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    "cs:~who/precise/wordpress-3",
 	})
@@ -694,7 +694,7 @@ func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -706,7 +706,7 @@ func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
 	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 		ForceUnits:  true,
@@ -734,7 +734,7 @@ func (s *serviceSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 }
 
 func (s *serviceSuite) TestServiceSetCharmInvalidService(c *gc.C) {
-	err := s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err := s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "badservice",
 		CharmUrl:    "cs:precise/wordpress-3",
 		ForceSeries: true,
@@ -762,7 +762,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -776,7 +776,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 
 	// Even with forceSeries = true, we can't change a charm where
 	// the series is sepcified in the URL.
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 		ForceSeries: true,
@@ -788,7 +788,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -801,7 +801,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 	})
@@ -812,7 +812,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -825,7 +825,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 		ForceSeries: true,
@@ -842,7 +842,7 @@ func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -855,7 +855,7 @@ func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 		ForceSeries: true,
@@ -885,11 +885,11 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the store's test mode is enabled when calling ServiceDeploy.
+	// Check that the store's test mode is enabled when calling service Deploy.
 	curl, _ := s.UploadCharm(c, "trusty/dummy-1", "dummy")
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -900,9 +900,9 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 
-	// Check that the store's test mode is enabled when calling ServiceSetCharm.
+	// Check that the store's test mode is enabled when calling SetCharm.
 	curl, _ = s.UploadCharm(c, "trusty/wordpress-2", "wordpress")
-	err = s.serviceApi.ServiceSetCharm(params.ServiceSetCharm{
+	err = s.serviceApi.SetCharm(params.ServiceSetCharm{
 		ServiceName: "service",
 		CharmUrl:    curl.String(),
 	})
@@ -924,7 +924,7 @@ func (s *serviceSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, cha
 }
 
 func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -938,7 +938,7 @@ func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch
 }
 
 func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
-	_, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	_, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -970,7 +970,7 @@ func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
 	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -997,7 +997,7 @@ func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -1021,7 +1021,7 @@ func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -1042,7 +1042,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service-name",
@@ -1076,7 +1076,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 }
 
 func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    "cs:precise/service-name-1",
 			ServiceName: "service-name",
@@ -1096,7 +1096,7 @@ func (s *serviceSuite) TestServiceDeployServiceOwner(c *gc.C) {
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -1115,7 +1115,7 @@ func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
 			CharmUrl:    curl.String(),
 			ServiceName: "service",
@@ -1138,7 +1138,7 @@ func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl b
 		CharmUrl:      curl.String(),
 		ForceCharmUrl: forceCharmUrl,
 	}
-	err = s.serviceApi.ServiceUpdate(args)
+	err = s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the charm has been updated and and the force flag correctly set.
@@ -1181,7 +1181,7 @@ func (s *serviceSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 		CharmUrl:      curl,
 		ForceCharmUrl: false,
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
 }
 
@@ -1203,7 +1203,7 @@ func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
 		CharmUrl:      curl,
 		ForceCharmUrl: true,
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the charm has been updated and and the force flag correctly set.
@@ -1221,7 +1221,7 @@ func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
 		ServiceName: "wordpress",
 		CharmUrl:    "cs:precise/wordpress-999999",
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
 }
 
@@ -1234,7 +1234,7 @@ func (s *serviceSuite) TestServiceUpdateSetMinUnits(c *gc.C) {
 		ServiceName: "dummy",
 		MinUnits:    &minUnits,
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the minimum number of units has been set.
@@ -1251,7 +1251,7 @@ func (s *serviceSuite) TestServiceUpdateSetMinUnitsError(c *gc.C) {
 		ServiceName: "dummy",
 		MinUnits:    &minUnits,
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot set minimum units for service "dummy": cannot set a negative minimum number of units`)
 
@@ -1268,7 +1268,7 @@ func (s *serviceSuite) TestServiceUpdateSetSettingsStrings(c *gc.C) {
 		ServiceName:     "dummy",
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1286,7 +1286,7 @@ func (s *serviceSuite) TestServiceUpdateSetSettingsYAML(c *gc.C) {
 		ServiceName:  "dummy",
 		SettingsYAML: "dummy:\n  title: y-title\n  username: y-user",
 	}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1306,7 +1306,7 @@ func (s *serviceSuite) TestServiceUpdateSetConstraints(c *gc.C) {
 		ServiceName: "dummy",
 		Constraints: &cons,
 	}
-	err = s.serviceApi.ServiceUpdate(args)
+	err = s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -1334,7 +1334,7 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 		SettingsYAML:    "service:\n  blog-title: yaml-title\n",
 		Constraints:     &cons,
 	}
-	err = s.serviceApi.ServiceUpdate(args)
+	err = s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the service has been correctly updated.
@@ -1366,20 +1366,20 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 func (s *serviceSuite) TestServiceUpdateNoParams(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	// Calling ServiceUpdate with no parameters set is a no-op.
+	// Calling Update with no parameters set is a no-op.
 	args := params.ServiceUpdate{ServiceName: "wordpress"}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestServiceUpdateNoService(c *gc.C) {
-	err := s.serviceApi.ServiceUpdate(params.ServiceUpdate{})
+	err := s.serviceApi.Update(params.ServiceUpdate{})
 	c.Assert(err, gc.ErrorMatches, `"" is not a valid service name`)
 }
 
 func (s *serviceSuite) TestServiceUpdateInvalidService(c *gc.C) {
 	args := params.ServiceUpdate{ServiceName: "no-such-service"}
-	err := s.serviceApi.ServiceUpdate(args)
+	err := s.serviceApi.Update(args)
 	c.Assert(err, gc.ErrorMatches, `service "no-such-service" not found`)
 }
 
@@ -1390,7 +1390,7 @@ var (
 func (s *serviceSuite) TestServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err := s.serviceApi.ServiceSet(params.ServiceSet{ServiceName: "dummy", Options: map[string]string{
+	err := s.serviceApi.Set(params.ServiceSet{ServiceName: "dummy", Options: map[string]string{
 		"title":    "foobar",
 		"username": validSetTestValue,
 	}})
@@ -1402,7 +1402,7 @@ func (s *serviceSuite) TestServiceSet(c *gc.C) {
 		"username": validSetTestValue,
 	})
 
-	err = s.serviceApi.ServiceSet(params.ServiceSet{ServiceName: "dummy", Options: map[string]string{
+	err = s.serviceApi.Set(params.ServiceSet{ServiceName: "dummy", Options: map[string]string{
 		"title":    "barfoo",
 		"username": "",
 	}})
@@ -1416,7 +1416,7 @@ func (s *serviceSuite) TestServiceSet(c *gc.C) {
 }
 
 func (s *serviceSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Service, msg string) {
-	err := s.serviceApi.ServiceSet(params.ServiceSet{
+	err := s.serviceApi.Set(params.ServiceSet{
 		ServiceName: "dummy",
 		Options: map[string]string{
 			"title":    "foobar",
@@ -1425,7 +1425,7 @@ func (s *serviceSuite) assertServiceSetBlocked(c *gc.C, dummy *state.Service, ms
 }
 
 func (s *serviceSuite) assertServiceSet(c *gc.C, dummy *state.Service) {
-	err := s.serviceApi.ServiceSet(params.ServiceSet{
+	err := s.serviceApi.Set(params.ServiceSet{
 		ServiceName: "dummy",
 		Options: map[string]string{
 			"title":    "foobar",
@@ -1460,7 +1460,7 @@ func (s *serviceSuite) TestBlockChangesServiceSet(c *gc.C) {
 func (s *serviceSuite) TestServerUnset(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err := s.serviceApi.ServiceSet(params.ServiceSet{ServiceName: "dummy", Options: map[string]string{
+	err := s.serviceApi.Set(params.ServiceSet{ServiceName: "dummy", Options: map[string]string{
 		"title":    "foobar",
 		"username": "user name",
 	}})
@@ -1472,7 +1472,7 @@ func (s *serviceSuite) TestServerUnset(c *gc.C) {
 		"username": "user name",
 	})
 
-	err = s.serviceApi.ServiceUnset(params.ServiceUnset{ServiceName: "dummy", Options: []string{"username"}})
+	err = s.serviceApi.Unset(params.ServiceUnset{ServiceName: "dummy", Options: []string{"username"}})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1484,7 +1484,7 @@ func (s *serviceSuite) TestServerUnset(c *gc.C) {
 func (s *serviceSuite) setupServerUnsetBlocked(c *gc.C) *state.Service {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
-	err := s.serviceApi.ServiceSet(params.ServiceSet{
+	err := s.serviceApi.Set(params.ServiceSet{
 		ServiceName: "dummy",
 		Options: map[string]string{
 			"title":    "foobar",
@@ -1501,7 +1501,7 @@ func (s *serviceSuite) setupServerUnsetBlocked(c *gc.C) *state.Service {
 }
 
 func (s *serviceSuite) assertServerUnset(c *gc.C, dummy *state.Service) {
-	err := s.serviceApi.ServiceUnset(params.ServiceUnset{
+	err := s.serviceApi.Unset(params.ServiceUnset{
 		ServiceName: "dummy",
 		Options:     []string{"username"},
 	})
@@ -1514,7 +1514,7 @@ func (s *serviceSuite) assertServerUnset(c *gc.C, dummy *state.Service) {
 }
 
 func (s *serviceSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Service, msg string) {
-	err := s.serviceApi.ServiceUnset(params.ServiceUnset{
+	err := s.serviceApi.Unset(params.ServiceUnset{
 		ServiceName: "dummy",
 		Options:     []string{"username"},
 	})
@@ -1583,7 +1583,7 @@ func (s *serviceSuite) TestClientAddServiceUnits(c *gc.C) {
 		if t.to != "" {
 			args.Placement = []*instance.Placement{instance.MustParsePlacement(t.to)}
 		}
-		result, err := s.serviceApi.AddServiceUnits(args)
+		result, err := s.serviceApi.AddUnits(args)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
@@ -1604,7 +1604,7 @@ func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.serviceApi.AddServiceUnits(params.AddServiceUnits{
+	_, err = s.serviceApi.AddUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    1,
 		Placement:   []*instance.Placement{instance.MustParsePlacement("lxc:" + machine.Id())},
@@ -1655,7 +1655,7 @@ func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
 		if serviceName == "" {
 			serviceName = "dummy"
 		}
-		result, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
+		result, err := s.serviceApi.AddUnits(params.AddServiceUnits{
 			ServiceName: serviceName,
 			NumUnits:    len(t.expected),
 			Placement:   t.placement,
@@ -1677,7 +1677,7 @@ func (s *serviceSuite) TestAddServiceUnits(c *gc.C) {
 }
 
 func (s *serviceSuite) assertAddServiceUnits(c *gc.C) {
-	result, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
+	result, err := s.serviceApi.AddUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    3,
 	})
@@ -1700,10 +1700,10 @@ func (s *serviceSuite) TestServiceCharmRelations(c *gc.C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.serviceApi.ServiceCharmRelations(params.ServiceCharmRelations{"blah"})
+	_, err = s.serviceApi.CharmRelations(params.ServiceCharmRelations{"blah"})
 	c.Assert(err, gc.ErrorMatches, `service "blah" not found`)
 
-	result, err := s.serviceApi.ServiceCharmRelations(params.ServiceCharmRelations{"wordpress"})
+	result, err := s.serviceApi.CharmRelations(params.ServiceCharmRelations{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.CharmRelations, gc.DeepEquals, []string{
 		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
@@ -1711,7 +1711,7 @@ func (s *serviceSuite) TestServiceCharmRelations(c *gc.C) {
 }
 
 func (s *serviceSuite) assertAddServiceUnitsBlocked(c *gc.C, msg string) {
-	_, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
+	_, err := s.serviceApi.AddUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    3,
 	})
@@ -1738,7 +1738,7 @@ func (s *serviceSuite) TestBlockChangeAddServiceUnits(c *gc.C) {
 
 func (s *serviceSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	_, err := s.serviceApi.AddServiceUnits(params.AddServiceUnits{
+	_, err := s.serviceApi.AddUnits(params.AddServiceUnits{
 		ServiceName: "dummy",
 		NumUnits:    3,
 		Placement:   []*instance.Placement{instance.MustParsePlacement("42")},
@@ -1760,7 +1760,7 @@ func (s *serviceSuite) TestServiceExpose(c *gc.C) {
 	c.Assert(svcs[1].IsExposed(), jc.IsTrue)
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err = s.serviceApi.ServiceExpose(params.ServiceExpose{t.service})
+		err = s.serviceApi.Expose(params.ServiceExpose{t.service})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -1812,7 +1812,7 @@ var serviceExposeTests = []struct {
 func (s *serviceSuite) assertServiceExpose(c *gc.C) {
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.serviceApi.ServiceExpose(params.ServiceExpose{t.service})
+		err := s.serviceApi.Expose(params.ServiceExpose{t.service})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -1827,7 +1827,7 @@ func (s *serviceSuite) assertServiceExpose(c *gc.C) {
 func (s *serviceSuite) assertServiceExposeBlocked(c *gc.C, msg string) {
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.serviceApi.ServiceExpose(params.ServiceExpose{t.service})
+		err := s.serviceApi.Expose(params.ServiceExpose{t.service})
 		s.AssertBlocked(c, err, msg)
 	}
 }
@@ -1885,7 +1885,7 @@ func (s *serviceSuite) TestServiceUnexpose(c *gc.C) {
 			svc.SetExposed()
 		}
 		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
-		err := s.serviceApi.ServiceUnexpose(params.ServiceUnexpose{t.service})
+		err := s.serviceApi.Unexpose(params.ServiceUnexpose{t.service})
 		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			svc.Refresh()
@@ -1907,7 +1907,7 @@ func (s *serviceSuite) setupServiceUnexpose(c *gc.C) *state.Service {
 }
 
 func (s *serviceSuite) assertServiceUnexpose(c *gc.C, svc *state.Service) {
-	err := s.serviceApi.ServiceUnexpose(params.ServiceUnexpose{"dummy-service"})
+	err := s.serviceApi.Unexpose(params.ServiceUnexpose{"dummy-service"})
 	c.Assert(err, jc.ErrorIsNil)
 	svc.Refresh()
 	c.Assert(svc.IsExposed(), gc.Equals, false)
@@ -1916,7 +1916,7 @@ func (s *serviceSuite) assertServiceUnexpose(c *gc.C, svc *state.Service) {
 }
 
 func (s *serviceSuite) assertServiceUnexposeBlocked(c *gc.C, svc *state.Service, msg string) {
-	err := s.serviceApi.ServiceUnexpose(params.ServiceUnexpose{"dummy-service"})
+	err := s.serviceApi.Unexpose(params.ServiceUnexpose{"dummy-service"})
 	s.AssertBlocked(c, err, msg)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1965,7 +1965,7 @@ func (s *serviceSuite) TestServiceDestroy(c *gc.C) {
 	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
 	for i, t := range serviceDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.serviceApi.ServiceDestroy(params.ServiceDestroy{t.service})
+		err := s.serviceApi.Destroy(params.ServiceDestroy{t.service})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -1973,14 +1973,14 @@ func (s *serviceSuite) TestServiceDestroy(c *gc.C) {
 		}
 	}
 
-	// Now do ServiceDestroy on a service with units. Destroy will
+	// Now do Destroy on a service with units. Destroy will
 	// cause the service to be not-Alive, but will not remove its
 	// document.
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceApi.ServiceDestroy(params.ServiceDestroy{serviceName})
+	err = s.serviceApi.Destroy(params.ServiceDestroy{serviceName})
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1997,7 +1997,7 @@ func (s *serviceSuite) TestBlockServiceDestroy(c *gc.C) {
 
 	// block remove-objects
 	s.BlockRemoveObject(c, "TestBlockServiceDestroy")
-	err := s.serviceApi.ServiceDestroy(params.ServiceDestroy{"dummy-service"})
+	err := s.serviceApi.Destroy(params.ServiceDestroy{"dummy-service"})
 	s.AssertBlocked(c, err, "TestBlockServiceDestroy")
 	// Tests may have invalid service names.
 	service, err := s.State.Service("dummy-service")
@@ -2037,7 +2037,7 @@ func (s *serviceSuite) TestDestroySubordinateUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
@@ -2048,7 +2048,7 @@ func (s *serviceSuite) TestDestroySubordinateUnits(c *gc.C) {
 
 func (s *serviceSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
 	// Destroy 2 of them; check they become Dying.
-	err := s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err := s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2057,7 +2057,7 @@ func (s *serviceSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit)
 
 	// Try to destroy an Alive one and a Dying one; check
 	// it destroys the Alive one and ignores the Dying one.
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/2", "wordpress/0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2065,7 +2065,7 @@ func (s *serviceSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit)
 
 	// Try to destroy an Alive one along with a nonexistent one; check that
 	// the valid instruction is followed but the invalid one is warned about.
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"boojum/123", "wordpress/3"},
 	})
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "boojum/123" does not exist`)
@@ -2076,7 +2076,7 @@ func (s *serviceSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wp0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/4"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2116,7 +2116,7 @@ func (s *serviceSuite) assertBlockedErrorAndLiveliness(
 func (s *serviceSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockAllChanges(c, "TestBlockChangesDestroyPrincipalUnits")
-	err := s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err := s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
@@ -2125,7 +2125,7 @@ func (s *serviceSuite) TestBlockChangesDestroyPrincipalUnits(c *gc.C) {
 func (s *serviceSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyPrincipalUnits")
-	err := s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err := s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockRemoveDestroyPrincipalUnits", units[0], units[1], units[2], units[3])
@@ -2134,7 +2134,7 @@ func (s *serviceSuite) TestBlockRemoveDestroyPrincipalUnits(c *gc.C) {
 func (s *serviceSuite) TestBlockDestroyDestroyPrincipalUnits(c *gc.C) {
 	units := s.setupDestroyPrincipalUnits(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroyPrincipalUnits")
-	err := s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err := s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "wordpress/1"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2146,7 +2146,7 @@ func (s *serviceSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, loggin
 	// Try to destroy the principal and the subordinate together; check it warns
 	// about the subordinate, but destroys the one it can. (The principal unit
 	// agent will be responsible for destroying the subordinate.)
-	err := s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err := s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "logging/0" is a subordinate`)
@@ -2172,7 +2172,7 @@ func (s *serviceSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
@@ -2180,7 +2180,7 @@ func (s *serviceSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroySubordinateUnits")
@@ -2207,7 +2207,7 @@ func (s *serviceSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockAllChanges(c, "TestBlockChangesDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
@@ -2215,7 +2215,7 @@ func (s *serviceSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"wordpress/0", "logging/0"},
 	})
 	s.AssertBlocked(c, err, "TestBlockChangesDestroySubordinateUnits")
@@ -2242,7 +2242,7 @@ func (s *serviceSuite) TestBlockDestroyDestroySubordinateUnits(c *gc.C) {
 
 	s.BlockDestroyModel(c, "TestBlockDestroyDestroySubordinateUnits")
 	// Try to destroy the subordinate alone; check it fails.
-	err = s.serviceApi.DestroyServiceUnits(params.DestroyServiceUnits{
+	err = s.serviceApi.DestroyUnits(params.DestroyServiceUnits{
 		UnitNames: []string{"logging/0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
@@ -2257,7 +2257,7 @@ func (s *serviceSuite) TestClientSetServiceConstraints(c *gc.C) {
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.serviceApi.SetServiceConstraints(params.SetConstraints{ServiceName: "dummy", Constraints: cons})
+	err = s.serviceApi.SetConstraints(params.SetConstraints{ServiceName: "dummy", Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -2275,7 +2275,7 @@ func (s *serviceSuite) setupSetServiceConstraints(c *gc.C) (*state.Service, cons
 }
 
 func (s *serviceSuite) assertSetServiceConstraints(c *gc.C, service *state.Service, cons constraints.Value) {
-	err := s.serviceApi.SetServiceConstraints(params.SetConstraints{ServiceName: "dummy", Constraints: cons})
+	err := s.serviceApi.SetConstraints(params.SetConstraints{ServiceName: "dummy", Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the constraints have been correctly updated.
 	obtained, err := service.Constraints()
@@ -2284,7 +2284,7 @@ func (s *serviceSuite) assertSetServiceConstraints(c *gc.C, service *state.Servi
 }
 
 func (s *serviceSuite) assertSetServiceConstraintsBlocked(c *gc.C, msg string, service *state.Service, cons constraints.Value) {
-	err := s.serviceApi.SetServiceConstraints(params.SetConstraints{ServiceName: "dummy", Constraints: cons})
+	err := s.serviceApi.SetConstraints(params.SetConstraints{ServiceName: "dummy", Constraints: cons})
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -2316,7 +2316,7 @@ func (s *serviceSuite) TestClientGetServiceConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can get the constraints.
-	result, err := s.serviceApi.GetServiceConstraints(params.GetServiceConstraints{"dummy"})
+	result, err := s.serviceApi.GetConstraints(params.GetServiceConstraints{"dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Constraints, gc.DeepEquals, cons)
 }

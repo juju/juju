@@ -257,7 +257,7 @@ HTTP request and starts the individual WebSockets connection. Inside of
 `Server.serveConn()` it uses the WebSocket to etablish the RPC using 
 the JSON codec. 
 
-In case of a valid model UUID a new server state server instance is
+In case of a valid model UUID a new server controller instance is
 created using `apiserver.initialRoot` with an `apiserver.srvAdmin` for the
 login process. If this is successful the root is changed to `apiserver.srvRoot`
 for the real API request handling. It implements `FindMethod()` which is needed

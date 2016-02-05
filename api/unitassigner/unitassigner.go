@@ -26,7 +26,7 @@ func New(caller base.APICaller) API {
 	return API{facade: fc}
 }
 
-// AssignUnits tells the state server to run whatever unit assignments it has.
+// AssignUnits tells the controller to run whatever unit assignments it has.
 // Unit assignments for units that no longer exist will return an error that
 // satisfies errors.IsNotFound.
 func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {

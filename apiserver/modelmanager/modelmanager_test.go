@@ -20,7 +20,6 @@ import (
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/joyent"
-	_ "github.com/juju/juju/provider/local"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
@@ -85,7 +84,7 @@ func (s *modelManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.Mode
 			"name":            "test-model",
 			"authorized-keys": "ssh-key",
 			// And to make it a valid dummy config
-			"state-server": false,
+			"controller": false,
 		},
 	}
 }
@@ -153,11 +152,6 @@ func (s *modelManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port"},
 		}, {
-			provider: "local",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port",
-				"container", "network-bridge", "root-dir", "proxy-ssh"},
-		}, {
 			provider: "maas",
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port",
@@ -210,9 +204,9 @@ func (s *modelManagerSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgs(c, admin)
-	delete(args.Config, "state-server")
+	delete(args.Config, "controller")
 	_, err := s.modelmanager.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, "provider validation failed: state-server: expected bool, got nothing")
+	c.Assert(err, gc.ErrorMatches, "provider validation failed: controller: expected bool, got nothing")
 }
 
 func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {
