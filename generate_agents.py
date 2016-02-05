@@ -8,15 +8,22 @@ from argparse import (
 from datetime import datetime
 import glob
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tarfile
 from urlparse import (
     urlsplit,
     urlunsplit,
     )
 
+from debian import deb822
+
 from agent_archive import get_agents
+from build_package import juju_series
+from make_agent_json import StanzaWriter
+from utils import temp_dir
 
 
 # These are the archives that are searched for matching releases.
@@ -81,6 +88,41 @@ def list_ppas(juju_home):
     return listing.splitlines()
 
 
+def deb_to_agent(deb_path, dest_dir):
+    with temp_dir() as work_dir:
+        control = os.path.join(work_dir, 'control')
+        os.mkdir(control)
+        subprocess.check_call(['dpkg-deb', '-e', deb_path, control])
+        with open(os.path.join(control, 'control')) as control_file:
+            control = deb822.Deb822(control_file)
+        control_version = control['Version']
+        base_version = re.sub('-0ubuntu.*$', '', control_version)
+        series = juju_series.get_name_from_package_version(control_version)
+        architecture = control['Architecture']
+        contents = os.path.join(work_dir, 'contents')
+        os.mkdir(contents)
+        subprocess.check_call(['dpkg-deb', '-x', deb_path, contents])
+        jujud_path = os.path.join(
+            contents, 'usr', 'lib', 'juju-{}'.format(base_version), 'bin',
+            'jujud')
+        basename = 'juju-{}-{}-{}.tgz'.format(base_version, series,
+                                              architecture)
+        agent_filename = os.path.join(work_dir, basename)
+        with tarfile.open(agent_filename, 'w:gz') as tf:
+            tf.add(jujud_path, 'jujud')
+        writer = StanzaWriter.for_ubuntu(
+            juju_series.get_version(series), series, architecture,
+            base_version, 0, agent_filename)
+        writer.write_stanzas()
+        shutil.move(writer.filename, dest_dir)
+        shutil.move(agent_filename, dest_dir)
+
+
+def debs_to_agents(dest_debs):
+    for deb_path in glob.glob(os.path.join(dest_debs, '*.deb')):
+        deb_to_agent(deb_path, dest_debs)
+
+
 def main():
     args = parse_args()
     dest_debs = os.path.abspath(os.path.join(args.destination, 'debs'))
@@ -95,6 +137,7 @@ def main():
         print("Searching the build archives.")
     retrieve_packages(args.release, args.upatch, archives, dest_debs,
                       s3_config)
+    debs_to_agents(dest_debs)
 
 
 if __name__ == '__main__':
