@@ -102,8 +102,8 @@ func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) 
 	return nil
 }
 
-func (s *stubPersistence) NewResolvePendingResourceOps(resID, ignored, serviceID, pendingID string) ([]txn.Op, error) {
-	s.stub.AddCall("NewResolvePendingResourceOps", resID, ignored, serviceID, pendingID)
+func (s *stubPersistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
+	s.stub.AddCall("NewResolvePendingResourceOps", resID, pendingID)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

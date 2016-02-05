@@ -46,7 +46,7 @@ type resourcePersistence interface {
 
 	// NewResolvePendingResourceOps generates mongo transaction operations
 	// to set the identified resource as active.
-	NewResolvePendingResourceOps(oldID, newID, serviceID, pendingID string) ([]txn.Op, error)
+	NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error)
 }
 
 // StagedResource represents resource info that has been added to the
@@ -275,7 +275,7 @@ func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingI
 
 func (st resourceState) newResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
 	resID := newResourceID(serviceID, name)
-	return st.persist.NewResolvePendingResourceOps(resID, resID, serviceID, pendingID)
+	return st.persist.NewResolvePendingResourceOps(resID, pendingID)
 }
 
 // TODO(ericsnow) Incorporate the service and resource name into the ID

@@ -246,11 +246,11 @@ func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 // Leaking mongo details (transaction ops) is a necessary evil since we
 // do not have any machinery to facilitate transactions between
 // different components.
-func (p Persistence) NewResolvePendingResourceOps(oldID, newID, serviceID, pendingID string) ([]txn.Op, error) {
+func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
 	if pendingID == "" {
 		return nil, errors.New("missing pending ID")
 	}
-	oldDoc, err := p.getOnePending(oldID, pendingID)
+	oldDoc, err := p.getOnePending(resID, pendingID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

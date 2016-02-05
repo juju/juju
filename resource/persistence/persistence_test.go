@@ -324,7 +324,7 @@ func (s *PersistenceSuite) TestNewResourcePendingResourceOps(c *gc.C) {
 	s.base.ReturnOne = doc
 	p := NewPersistence(s.base)
 
-	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.ID, stored.ServiceID, stored.PendingID)
+	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "One")
