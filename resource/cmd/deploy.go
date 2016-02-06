@@ -36,9 +36,13 @@ type deployUploader struct {
 // filename pairs, as well as uploading metadata for any resources not mentioned
 // in the files. It returns a map of resource name to pending resource IDs.
 func DeployResources(serviceID string, files map[string]string, resources map[string]charmresource.Meta, conn api.Connection) (ids map[string]string, err error) {
+	client, err := newClient(conn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	d := deployUploader{
 		serviceID: serviceID,
-		client:    newClient(conn),
+		client:    client,
 		resources: resources,
 		osOpen:    func(s string) (ReadSeekCloser, error) { return os.Open(s) },
 	}
@@ -48,7 +52,7 @@ func DeployResources(serviceID string, files map[string]string, resources map[st
 
 func (d deployUploader) upload(files map[string]string) (map[string]string, error) {
 	if err := d.validateResources(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	if err := d.checkExpectedResources(files); err != nil {
@@ -92,7 +96,7 @@ func (d deployUploader) validateResources() error {
 	if len(errs) > 1 {
 		msgs := make([]string, len(errs))
 		for i, err := range errs {
-			msgs = append(msgs, err.Error())
+			msgs[i] = err.Error()
 		}
 		return errors.NewNotValid(nil, strings.Join(msgs, ", "))
 	}
