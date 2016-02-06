@@ -528,7 +528,7 @@ func (c *DeployCommand) deployCharm(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		ids, err = resourcecmd.Upload(serviceName, c.Resources, charmInfo.Meta.Resources, api)
+		ids, err = resourcecmd.DeployResources(serviceName, c.Resources, charmInfo.Meta.Resources, api)
 		if err != nil {
 			return errors.Trace(err)
 		}

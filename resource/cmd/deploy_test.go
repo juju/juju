@@ -36,9 +36,13 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 		resources: map[string]charmresource.Meta{
 			"upload": {
 				Name: "upload",
+				Type: charmresource.TypeFile,
+				Path: "upload",
 			},
 			"store": {
 				Name: "store",
+				Type: charmresource.TypeFile,
+				Path: "store",
 			},
 		},
 		osOpen: deps.Open,
@@ -49,7 +53,7 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 	}
 	ids, err := du.upload(files)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.DeepEquals, map[string]string{
+	c.Check(ids, gc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
 	})
@@ -85,7 +89,7 @@ func (s DeploySuite) TestUploadUnexpectedResource(c *gc.C) {
 
 	files := map[string]string{"some bad resource": "foobar.txt"}
 	_, err := du.upload(files)
-	c.Assert(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
+	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
 }
