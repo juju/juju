@@ -211,6 +211,7 @@ var commandNames = []string{
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
+	"charm",
 	"create-environment",
 	"create-model", // alias for create-environment
 	"debug-hooks",
