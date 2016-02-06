@@ -71,6 +71,7 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument('release', help='The juju release to prepare')
+    parser.add_argument('agent_stream', help='The juju agent-stream.')
     parser.add_argument('destination', help='The simplestreams destination')
     parser.add_argument('--upatch', help='Ubuntu patchlevel', default='1')
     return parser.parse_args()
@@ -88,15 +89,15 @@ def list_ppas(juju_home):
     return listing.splitlines()
 
 
-def deb_to_agent(deb_path, dest_dir):
+def deb_to_agent(deb_path, dest_dir, agent_stream):
+    control_str = subprocess.check_output(['dpkg-deb', '-I', deb_path,
+                                           'control'])
+    control = deb822.Deb822(control_str)
+    control_version = control['Version']
+    base_version = re.sub('-0ubuntu.*$', '', control_version)
+    series = juju_series.get_name_from_package_version(control_version)
+    architecture = control['Architecture']
     with temp_dir() as work_dir:
-        control_str = subprocess.check_output([
-            'dpkg-deb', '-I', deb_path, 'control'])
-        control = deb822.Deb822(control_str)
-        control_version = control['Version']
-        base_version = re.sub('-0ubuntu.*$', '', control_version)
-        series = juju_series.get_name_from_package_version(control_version)
-        architecture = control['Architecture']
         contents = os.path.join(work_dir, 'contents')
         os.mkdir(contents)
         subprocess.check_call(['dpkg-deb', '-x', deb_path, contents])
@@ -110,15 +111,15 @@ def deb_to_agent(deb_path, dest_dir):
             tf.add(jujud_path, 'jujud')
         writer = StanzaWriter.for_ubuntu(
             juju_series.get_version(series), series, architecture,
-            base_version, 0, agent_filename)
+            base_version, agent_filename, agent_stream=agent_stream)
         writer.write_stanzas()
         shutil.move(writer.filename, dest_dir)
         shutil.move(agent_filename, dest_dir)
 
 
-def debs_to_agents(dest_debs):
+def debs_to_agents(dest_debs, agent_stream):
     for deb_path in glob.glob(os.path.join(dest_debs, '*.deb')):
-        deb_to_agent(deb_path, dest_debs)
+        deb_to_agent(deb_path, dest_debs, agent_stream)
 
 
 def main():
@@ -135,7 +136,7 @@ def main():
         print("Searching the build archives.")
     retrieve_packages(args.release, args.upatch, archives, dest_debs,
                       s3_config)
-    debs_to_agents(dest_debs)
+    debs_to_agents(dest_debs, args.agent_stream)
 
 
 if __name__ == '__main__':
