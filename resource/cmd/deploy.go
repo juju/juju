@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/api"
@@ -16,25 +15,9 @@ import (
 	"github.com/juju/juju/resource/api/server"
 )
 
-var logger = loggo.GetLogger("resource/cmd")
-
-type uploadClient interface {
-	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error)
-	// AddPendingResource uploads data and metadata for a pending resource for the given service.
-	AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error)
-}
-
-type deployUploader struct {
-	serviceID string
-	resources map[string]charmresource.Meta
-	client    uploadClient
-	osOpen    func(path string) (ReadSeekCloser, error)
-}
-
-// DeployResources uploads the bytes and metadata for the given resourcename -
-// filename pairs, as well as uploading metadata for any resources not mentioned
-// in the files. It returns a map of resource name to pending resource IDs.
+// DeployResources uploads the bytes for the given files to the server and
+// creates pending resource metadata for the all resource mentioned in the
+// metadata. It returns a map of resource name to pending resource IDs.
 func DeployResources(serviceID string, files map[string]string, resources map[string]charmresource.Meta, conn api.Connection) (ids map[string]string, err error) {
 	client, err := newClient(conn)
 	if err != nil {
@@ -48,6 +31,20 @@ func DeployResources(serviceID string, files map[string]string, resources map[st
 	}
 
 	return d.upload(files)
+}
+
+type uploadClient interface {
+	// AddPendingResources adds pending metadata for store-based resources.
+	AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error)
+	// AddPendingResource uploads data and metadata for a pending resource for the given service.
+	AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error)
+}
+
+type deployUploader struct {
+	serviceID string
+	resources map[string]charmresource.Meta
+	client    uploadClient
+	osOpen    func(path string) (ReadSeekCloser, error)
 }
 
 func (d deployUploader) upload(files map[string]string) (map[string]string, error) {

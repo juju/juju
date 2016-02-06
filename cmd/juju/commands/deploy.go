@@ -125,11 +125,11 @@ flag.  When used with deploy, service-specific constraints are set so that later
 machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
 
-Resources may be uploaded at deploy time by specifying the --resources flag.
-Following the resources flag should be resources specifying by name=filepath
-pairs, separated by semicolons, for example:
+Resources may be uploaded at deploy time by specifying the --resource flag.
+Following the resource flag should be name=filepath pair.  This flag may be
+repeated more than once to upload more than one resource.
   
-  juju deploy foo --resources "bar=/some/path/file.tgz;baz=./my docs/cfg.xml"
+  juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
 Where bar and baz are resources named in the metadata for the foo charm.
 
@@ -224,7 +224,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
-	f.Var(stringMap{&c.Resources}, "resources", "resources to be uploaded to the controller")
+	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -296,6 +296,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 			if err := c.checkResources(); err != nil {
 				return err
 			}
+
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
