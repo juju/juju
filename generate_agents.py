@@ -90,11 +90,9 @@ def list_ppas(juju_home):
 
 def deb_to_agent(deb_path, dest_dir):
     with temp_dir() as work_dir:
-        control = os.path.join(work_dir, 'control')
-        os.mkdir(control)
-        subprocess.check_call(['dpkg-deb', '-e', deb_path, control])
-        with open(os.path.join(control, 'control')) as control_file:
-            control = deb822.Deb822(control_file)
+        control_str = subprocess.check_output([
+            'dpkg-deb', '-I', deb_path, 'control'])
+        control = deb822.Deb822(control_str)
         control_version = control['Version']
         base_version = re.sub('-0ubuntu.*$', '', control_version)
         series = juju_series.get_name_from_package_version(control_version)
