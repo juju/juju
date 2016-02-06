@@ -85,7 +85,7 @@ func (m stringMap) Set(s string) error {
 
 	vals := strings.SplitN(s, "=", 2)
 	if len(vals) != 2 {
-		return errors.NewNotValid(nil, "badly formatted name value pair: "+pair)
+		return errors.NewNotValid(nil, "badly formatted name value pair: "+s)
 	}
 	name, value := vals[0], vals[1]
 	if _, ok := mapping[name]; ok {
