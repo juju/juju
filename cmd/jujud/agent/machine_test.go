@@ -1523,7 +1523,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
+	s.PatchValue(&certupdater.NewCertificateUpdater, newUpdater)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
@@ -1541,7 +1541,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonC
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
+	s.PatchValue(&certupdater.NewCertificateUpdater, newUpdater)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1588,7 +1588,7 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
+	s.PatchValue(&certupdater.NewCertificateUpdater, newUpdater)
 
 	// Set up the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobManageModel)

@@ -6,11 +6,14 @@ package machine
 import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiserver"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
@@ -19,6 +22,7 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/worker/upgradewaiter"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -58,6 +62,27 @@ type ManifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
+
+	// TODO(waigani) move this function and its tests to worker/apiserver
+	// NewApiserverWorker starts a new apiserver worker.
+	NewApiserverWorker func(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error)
+
+	// OpenState opens a connection to State. It is used by the apiserver
+	// worker, which needs to establish a new connection must be established
+	// each time the worker is started. It is also used by other workers
+	// requiring a state connection. TODO(waigani) such workers are not
+	// reusing connection from the state pool.
+	OpenState func() (_ *state.State, _ *state.Machine, err error)
+
+	// certChangedChan is shared by multiple workers it's up
+	// to the agent to close it rather than any one of the
+	// workers.
+	//
+	// TODO(ericsnow) For now we simply do not close the channel.
+	CertChangedChan chan params.StateServingInfo
+
+	// ChangeConfig changes the agent's config. It is used by the certupdater worker.
+	ChangeConfig func(mutate coreagent.ConfigMutator) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -178,6 +203,26 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		// The apiserver worker starts the apisever.
+		apiserverName: apiserver.Manifold(apiserver.ManifoldConfig{
+			AgentName:          agentName,
+			NewApiserverWorker: config.NewApiserverWorker,
+			OpenState:          config.OpenState,
+		}),
+
+		// The apiserver worker starts the apisever.
+		certupdaterName: certupdater.Manifold(certupdater.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+			APIServerName:   apiserverName,
+			OpenState:       config.OpenState,
+			CertChangedChan: config.CertChangedChan,
+			ChangeConfig:    config.ChangeConfig,
+		}),
 	}
 }
 
@@ -196,4 +241,6 @@ const (
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
+	apiserverName            = "apiserver"
+	certupdaterName          = "certupdater"
 )
