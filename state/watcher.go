@@ -2318,6 +2318,47 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 	})
 }
 
+// WatchControllerStatusChanges starts and returns a StringsWatcher that
+// notifies when the status of a controller machine changes.
+func (st *State) WatchControllerStatusChanges() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{
+		col:    statusesC,
+		filter: makeControllerIdFilter(st),
+	})
+}
+
+func makeControllerIdFilter(st *State) func(interface{}) bool {
+	initialInfo, err := st.ControllerInfo()
+	if err != nil {
+		return nil
+	}
+	machines := initialInfo.MachineIds
+	return func(key interface{}) bool {
+		switch key.(type) {
+		case string:
+			info, err := st.ControllerInfo()
+			if err != nil {
+				// Most likely, things will be killed and
+				// restarted if we hit this error.  Just use
+				// the machine list we knew about last time.
+				logger.Debugf("unable to get controller info: %v", err)
+			} else {
+				machines = info.MachineIds
+			}
+			for _, machine := range machines {
+				// TODO (cherylj) Prepend controller UUID for exact match?
+				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
+					return true
+				}
+			}
+		default:
+			watchLogger.Errorf("key is not type string, got %T", key)
+		}
+		return false
+	}
+
+}
+
 // WatchActionResults starts and returns a StringsWatcher that
 // notifies on new ActionResults being added.
 func (st *State) WatchActionResults() StringsWatcher {

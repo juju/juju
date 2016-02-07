@@ -22,6 +22,7 @@ import (
 type stateInterface interface {
 	Machine(id string) (stateMachine, error)
 	WatchControllerInfo() state.NotifyWatcher
+	WatchControllerStatusChanges() state.StringsWatcher
 	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
 }
@@ -29,6 +30,7 @@ type stateInterface interface {
 type stateMachine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
+	Status() (state.StatusInfo, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -366,14 +368,16 @@ func setHasVote(ms []*machine, hasVote bool) error {
 // serverInfoWatcher watches the controller info and
 // notifies the worker when it changes.
 type serverInfoWatcher struct {
-	worker  *pgWorker
-	watcher state.NotifyWatcher
+	worker               *pgWorker
+	controllerWatcher    state.NotifyWatcher
+	machineStatusWatcher state.StringsWatcher
 }
 
 func (w *pgWorker) watchControllerInfo() *serverInfoWatcher {
 	infow := &serverInfoWatcher{
-		worker:  w,
-		watcher: w.st.WatchControllerInfo(),
+		worker:               w,
+		controllerWatcher:    w.st.WatchControllerInfo(),
+		machineStatusWatcher: w.st.WatchControllerStatusChanges(),
 	}
 	w.start(infow.loop)
 	return infow
@@ -382,9 +386,14 @@ func (w *pgWorker) watchControllerInfo() *serverInfoWatcher {
 func (infow *serverInfoWatcher) loop() error {
 	for {
 		select {
-		case _, ok := <-infow.watcher.Changes():
+		case _, ok := <-infow.machineStatusWatcher.Changes():
 			if !ok {
-				return infow.watcher.Err()
+				return infow.machineStatusWatcher.Err()
+			}
+			infow.worker.notify(infow.updateMachines)
+		case _, ok := <-infow.controllerWatcher.Changes():
+			if !ok {
+				return infow.controllerWatcher.Err()
 			}
 			infow.worker.notify(infow.updateMachines)
 		case <-infow.worker.tomb.Dying():
@@ -394,7 +403,8 @@ func (infow *serverInfoWatcher) loop() error {
 }
 
 func (infow *serverInfoWatcher) stop() {
-	infow.watcher.Stop()
+	infow.machineStatusWatcher.Stop()
+	infow.controllerWatcher.Stop()
 }
 
 // updateMachines is a notifyFunc that updates the current
@@ -432,8 +442,20 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 			}
 			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
 		}
-		infow.worker.machines[id] = infow.worker.newMachine(stm)
-		changed = true
+
+		// Don't add the machine unless it is "Started"
+		status, err := stm.Status()
+		if err != nil {
+			return false, fmt.Errorf("cannot get machine status: %q: %v", id, err)
+		}
+		if status.Status == state.StatusStarted {
+			logger.Tracef("machine %q has started, adding it to peergrouper list", id)
+			infow.worker.machines[id] = infow.worker.newMachine(stm)
+			changed = true
+		} else {
+			logger.Tracef("machine %q not ready: %v", id, status.Status)
+		}
+
 	}
 	return changed, nil
 }
