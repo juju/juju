@@ -2231,6 +2231,46 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker, receivers...))
 }
 
+// WatchStateServerStatusChanges starts and returns a StringsWatcher that
+// notifies when the status of a state server changes.
+func (st *State) WatchStateServerStatusChanges() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{
+		col:    statusesC,
+		filter: makeStateServerIdFilter(st),
+	})
+}
+
+func makeStateServerIdFilter(st *State) func(interface{}) bool {
+	initialInfo, err := st.StateServerInfo()
+	if err != nil {
+		return nil
+	}
+	machines := initialInfo.MachineIds
+	return func(key interface{}) bool {
+		switch key.(type) {
+		case string:
+			info, err := st.StateServerInfo()
+			if err != nil {
+				// Most likely, things will be killed and
+				// restarted if we hit this error.  Just use
+				// the machine list we knew about last time.
+				logger.Debugf("unable to get state server info: %v", err)
+			} else {
+				machines = info.MachineIds
+			}
+			for _, machine := range machines {
+				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
+					return true
+				}
+			}
+		default:
+			watchLogger.Errorf("key is not type string, got %T", key)
+		}
+		return false
+	}
+
+}
+
 // WatchActionResults starts and returns a StringsWatcher that
 // notifies on new ActionResults being added.
 func (st *State) WatchActionResults() StringsWatcher {
