@@ -641,7 +641,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = st.APICall("Client", 1, "", "DestroyModel", nil, nil)
-		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
+		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }

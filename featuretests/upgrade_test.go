@@ -7,7 +7,6 @@
 package featuretests
 
 import (
-	"strings"
 	"time"
 
 	"github.com/juju/names"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
@@ -297,7 +297,7 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 				return
 			}
 		case RestrictedAPIExposed:
-			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
+			if err != nil && err == apiserver.UpgradeInProgressError {
 				return
 			}
 		}

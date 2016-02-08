@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -116,13 +117,13 @@ type mockBlockClient struct {
 func (c *mockBlockClient) List() ([]params.Block, error) {
 	c.retryCount += 1
 	if c.retryCount == 5 {
-		return nil, fmt.Errorf("upgrade in progress")
+		return nil, apiserver.UpgradeInProgressError
 	}
 	if c.numRetries < 0 {
 		return nil, fmt.Errorf("other error")
 	}
 	if c.retryCount < c.numRetries {
-		return nil, fmt.Errorf("upgrade in progress")
+		return nil, apiserver.UpgradeInProgressError
 	}
 	return []params.Block{}, nil
 }
