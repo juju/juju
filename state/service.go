@@ -1208,14 +1208,37 @@ func (s *Service) Networks() ([]string, error) {
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
-// name it is bound to.
+// name it is bound to (or empty if unspecified). When no bindings are stored
+// for the service, defaults are returned.
 func (s *Service) EndpointBindings() (map[string]string, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(s.st, s.globalKey())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if bindings == nil {
+		bindings, err = s.defaultEndpointBindings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return bindings, nil
+}
+
+// defaultEndpointBindings returns a map with each endpoint from the current
+// charm metadata bound to an empty space. If no charm URL is set yet, it
+// returns an empty map.
+func (s *Service) defaultEndpointBindings() (map[string]string, error) {
+	if s.doc.CharmURL == nil {
+		return map[string]string{}, nil
+	}
+
+	charm, _, err := s.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return bindings, nil
+
+	return defaultEndpointBindingsForCharm(charm.Meta())
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
