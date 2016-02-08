@@ -391,7 +391,7 @@ func updateControllerInfo(cache jujuclient.Cache, existing, new configstore.APIE
 		return errors.Trace(err)
 	}
 
-	var controllerDetails jujuclient.Controller
+	var controllerDetails jujuclient.ControllerDetails
 	var controllerName string
 	for name, one := range all {
 		if one.ControllerUUID == existing.ServerUUID {

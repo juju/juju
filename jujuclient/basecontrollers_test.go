@@ -14,14 +14,14 @@ type baseControllersSuite struct {
 	testing.FakeJujuHomeSuite
 
 	controllerName string
-	controller     jujuclient.Controller
+	controller     jujuclient.ControllerDetails
 }
 
 func (s *baseControllersSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	s.controllerName = "test.controller"
-	s.controller = jujuclient.Controller{
+	s.controller = jujuclient.ControllerDetails{
 		[]string{"test.server.hostname"},
 		"test.uuid",
 		[]string{"test.api.endpoint"},

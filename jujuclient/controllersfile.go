@@ -23,7 +23,7 @@ func JujuControllersPath() string {
 
 // ReadControllersFile loads all controllers defined in a given file.
 // If the file is not found, it is not an error.
-func ReadControllersFile(file string) (map[string]Controller, error) {
+func ReadControllersFile(file string) (map[string]ControllerDetails, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -40,7 +40,7 @@ func ReadControllersFile(file string) (map[string]Controller, error) {
 
 // WriteControllersFile marshals to YAML details of the given controllers
 // and writes it to the controllers file.
-func WriteControllersFile(controllers *Controllers) error {
+func WriteControllersFile(controllers *ControllerDetailsList) error {
 	data, err := yaml.Marshal(controllers)
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml controllers")
@@ -49,8 +49,8 @@ func WriteControllersFile(controllers *Controllers) error {
 }
 
 // ParseControllers parses the given YAML bytes into controllers metadata.
-func ParseControllers(data []byte) (*Controllers, error) {
-	var result Controllers
+func ParseControllers(data []byte) (*ControllerDetailsList, error) {
+	var result ControllerDetailsList
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml controllers metadata")

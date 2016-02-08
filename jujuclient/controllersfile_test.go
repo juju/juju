@@ -42,7 +42,7 @@ func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
 	c.Assert(controllers, gc.IsNil)
 }
 
-func parseControllers(c *gc.C) *jujuclient.Controllers {
+func parseControllers(c *gc.C) *jujuclient.ControllerDetailsList {
 	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -52,7 +52,7 @@ func parseControllers(c *gc.C) *jujuclient.Controllers {
 	return controllers
 }
 
-func writeTestControllersFile(c *gc.C) *jujuclient.Controllers {
+func writeTestControllersFile(c *gc.C) *jujuclient.ControllerDetailsList {
 	controllers := parseControllers(c)
 	err := jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,6 +71,6 @@ func (s *FileSuite) TestParseControllerMetadata(c *gc.C) {
 
 func (s *FileSuite) TestParseControllerMetadataError(c *gc.C) {
 	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.Controllers")
+	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.ControllerDetailsList")
 	c.Assert(controllers, gc.IsNil)
 }

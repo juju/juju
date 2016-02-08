@@ -94,7 +94,7 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cache jujuclient.Cache, 
 	info.SetBootstrapConfig(cfg.AllAttrs())
 
 	connectionDetails := info.APIEndpoint()
-	c := jujuclient.Controller{
+	c := jujuclient.ControllerDetails{
 		connectionDetails.Hostnames,
 		endpoint.ServerUUID,
 		connectionDetails.Addresses,

@@ -15,12 +15,12 @@ func NewControllersCache() ControllersCache {
 
 // AllControllers implements ControllersGetter.AllControllers.
 // This implementation gets all controllers defined in the controllers file.
-func (f *controllersFile) AllControllers() (map[string]Controller, error) {
+func (f *controllersFile) AllControllers() (map[string]ControllerDetails, error) {
 	return ReadControllersFile(JujuControllersPath())
 }
 
 // ControllerByName implements ControllersGetter.ControllerByName.
-func (f *controllersFile) ControllerByName(name string) (*Controller, error) {
+func (f *controllersFile) ControllerByName(name string) (*ControllerDetails, error) {
 	controllers, err := f.AllControllers()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -33,7 +33,7 @@ func (f *controllersFile) ControllerByName(name string) (*Controller, error) {
 
 // UpdateController implements ControllersUpdater.UpdateController.
 // Once controllers collection is updated, controllers file is written.
-func (f *controllersFile) UpdateController(name string, one Controller) error {
+func (f *controllersFile) UpdateController(name string, one ControllerDetails) error {
 	// Host names and api endpoints may not exist when the initial
 	// controller name/uuid may be written.
 	// For example, on open, we need to add an entry for the controller
@@ -49,11 +49,11 @@ func (f *controllersFile) UpdateController(name string, one Controller) error {
 	}
 
 	if len(all) == 0 {
-		all = make(map[string]Controller)
+		all = make(map[string]ControllerDetails)
 	}
 
 	all[name] = one
-	return WriteControllersFile(&Controllers{all})
+	return WriteControllersFile(&ControllerDetailsList{all})
 }
 
 // RemoveController implements ControllersRemover.RemoveController
@@ -65,11 +65,11 @@ func (f *controllersFile) RemoveController(name string) error {
 	}
 
 	delete(all, name)
-	return WriteControllersFile(&Controllers{all})
+	return WriteControllersFile(&ControllerDetailsList{all})
 }
 
 // ValidateControllerDetails ensures that given controller details are valid.
-func ValidateControllerDetails(name string, c Controller) error {
+func ValidateControllerDetails(name string, c ControllerDetails) error {
 	if name == "" {
 		return errors.NotValidf("missing name, controller info")
 	}

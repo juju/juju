@@ -3,15 +3,15 @@
 
 package jujuclient
 
-// Controllers is a struct containing controllers definitions.
-type Controllers struct {
-	// Controllers is a map of controllers definitions,
+// ControllerDetailsList contains list of controller details.
+type ControllerDetailsList struct {
+	// Controllers is a map of controllers details,
 	// keyed on controller name.
-	Controllers map[string]Controller `yaml:"controllers"`
+	Controllers map[string]ControllerDetails `yaml:"controllers"`
 }
 
-// Controller is a controller definition.
-type Controller struct {
+// ControllerDetails holds controller details needed to connect to it.
+type ControllerDetails struct {
 	// Servers is the collection of host names running in this controller.
 	Servers []string `yaml:"servers,flow"`
 
@@ -31,7 +31,7 @@ type ControllersUpdater interface {
 	// If controller does not exist in the given data, it will be added.
 	// If controller exists, it will be overwritten with new values.
 	// This assumes that there cannot be any 2 controllers with the same name.
-	UpdateController(name string, one Controller) error
+	UpdateController(name string, one ControllerDetails) error
 }
 
 // ControllersRemover removes controllers.
@@ -44,12 +44,12 @@ type ControllersRemover interface {
 // ControllersGetter gets controllers.
 type ControllersGetter interface {
 	// AllControllers gets all controllers.
-	AllControllers() (map[string]Controller, error)
+	AllControllers() (map[string]ControllerDetails, error)
 
 	// ControllerByName returns the controller with the specified name.
 	// If there exists no controller with the specified name, an
 	// error satisfying errors.IsNotFound will be returned.
-	ControllerByName(name string) (*Controller, error)
+	ControllerByName(name string) (*ControllerDetails, error)
 }
 
 // ControllersCache provides functionality for controllers cache.

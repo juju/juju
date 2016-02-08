@@ -185,7 +185,7 @@ func (s *SwitchSimpleSuite) updateControllersFile(c *gc.C, name string, endpoint
 	cache, err := jujuclient.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	err = cache.UpdateController(name,
-		jujuclient.Controller{
+		jujuclient.ControllerDetails{
 			[]string{"test.host.name"},
 			endpoint.ServerUUID,
 			endpoint.Addresses,

@@ -113,7 +113,7 @@ func (s *ControllersSuite) assertUpdateSucceeded(c *gc.C) {
 	c.Assert(s.getControllers(c)[s.controllerName], gc.DeepEquals, s.controller)
 }
 
-func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.Controller {
+func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.ControllerDetails {
 	controllers, err := s.cache.AllControllers()
 	c.Assert(err, jc.ErrorIsNil)
 	return controllers

@@ -623,7 +623,7 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	if err != nil {
 		return errors.Annotate(err, "failed to access juju client cache")
 	}
-	err = cache.UpdateController(c.ControllerName, jujuclient.Controller{
+	err = cache.UpdateController(c.ControllerName, jujuclient.ControllerDetails{
 		hosts,
 		endpoint.ServerUUID,
 		addrs,

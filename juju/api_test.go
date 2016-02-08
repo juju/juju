@@ -754,7 +754,7 @@ func newConfigStore(envName string, info *environInfo) configstore.Storage {
 func newJujuClientCache(controllerName string, info *environInfo) jujuclient.Cache {
 	cache := jujuclienttesting.NewMem()
 
-	err := cache.UpdateController(controllerName, jujuclient.Controller{
+	err := cache.UpdateController(controllerName, jujuclient.ControllerDetails{
 		info.endpoint.Hostnames,
 		info.endpoint.ServerUUID,
 		info.endpoint.Addresses,
@@ -877,7 +877,7 @@ func (s *CacheAPIEndpointsSuite) assertCreateInfo(c *gc.C, name string) configst
 	// write controller
 	c.Assert(updateEndpoint.Hostnames, gc.HasLen, 0)
 	c.Assert(updateEndpoint.Addresses, gc.HasLen, 0)
-	controllerDetails := jujuclient.Controller{
+	controllerDetails := jujuclient.ControllerDetails{
 		updateEndpoint.Hostnames,
 		fakeUUID,
 		updateEndpoint.Addresses,

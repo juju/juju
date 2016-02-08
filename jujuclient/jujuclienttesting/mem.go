@@ -10,20 +10,20 @@ import (
 )
 
 type inMemory struct {
-	all map[string]jujuclient.Controller
+	all map[string]jujuclient.ControllerDetails
 }
 
 func NewMem() jujuclient.Cache {
-	return &inMemory{make(map[string]jujuclient.Controller)}
+	return &inMemory{make(map[string]jujuclient.ControllerDetails)}
 }
 
 // AllControllers implements ControllersGetter.AllControllers
-func (c *inMemory) AllControllers() (map[string]jujuclient.Controller, error) {
+func (c *inMemory) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
 	return c.all, nil
 }
 
 // ControllerByName implements ControllersGetter.ControllerByName
-func (c *inMemory) ControllerByName(name string) (*jujuclient.Controller, error) {
+func (c *inMemory) ControllerByName(name string) (*jujuclient.ControllerDetails, error) {
 	if result, ok := c.all[name]; ok {
 		return &result, nil
 	}
@@ -31,7 +31,7 @@ func (c *inMemory) ControllerByName(name string) (*jujuclient.Controller, error)
 }
 
 // UpdateController implements ControllersUpdater.UpdateController
-func (c *inMemory) UpdateController(name string, one jujuclient.Controller) error {
+func (c *inMemory) UpdateController(name string, one jujuclient.ControllerDetails) error {
 	if err := jujuclient.ValidateControllerDetails(name, one); err != nil {
 		return err
 	}

@@ -251,7 +251,7 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails modelcmd.ServerFile, ap
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to access juju client cache")
 	}
-	err = cache.UpdateController(c.Name, jujuclient.Controller{
+	err = cache.UpdateController(c.Name, jujuclient.ControllerDetails{
 		addrs,
 		controllerTag.Id(),
 		addrs,
