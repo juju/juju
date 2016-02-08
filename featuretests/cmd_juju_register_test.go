@@ -60,9 +60,12 @@ Please send this command to bob:
 	context = s.run(c, stdin, args...)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
+Please set a name for this controller: 
 Enter password: 
 Confirm password: 
 dummymodel (controller) -> bob-controller (controller)
+
+Welcome, bob. You are now logged into "bob-controller".
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect

@@ -28,14 +28,13 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/network"
 )
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
 func NewRegisterCommand() cmd.Command {
 	cmd := &registerCommand{}
 	cmd.apiOpen = cmd.APIOpen
+	cmd.newAPIRoot = cmd.NewAPIRoot
 	return modelcmd.WrapBase(cmd)
 }
 
@@ -44,6 +43,7 @@ func NewRegisterCommand() cmd.Command {
 type registerCommand struct {
 	modelcmd.JujuCommandBase
 	apiOpen     api.OpenFunc
+	newAPIRoot  modelcmd.OpenFunc
 	EncodedData string
 }
 
@@ -71,7 +71,7 @@ func (c *registerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
 		Args:    "<name>",
-		Purpose: "register a Juju Controller",
+		Purpose: "register with a Juju Controller",
 		Doc:     registerDoc,
 	}
 }
@@ -94,6 +94,17 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	store, err := configstore.Default()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerInfo, err := store.ReadInfo(registrationParams.controllerName)
+	if err == nil {
+		return errors.AlreadyExistsf("controller %q", registrationParams.controllerName)
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	controllerInfo = store.CreateInfo(registrationParams.controllerName)
 
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.
@@ -134,30 +145,38 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err := json.Unmarshal(payloadBytes, &responsePayload); err != nil {
 		return errors.Annotate(err, "unmarshalling response payload")
 	}
-	apiConn, err := c.passwordLogin(
-		registrationParams.userTag,
-		responsePayload.CACert,
-		registrationParams.newPassword,
-		registrationParams.controllerAddrs,
-	)
+
+	// Store the controller information.
+	controllerInfo.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses: registrationParams.controllerAddrs,
+		CACert:    responsePayload.CACert,
+	})
+	controllerInfo.SetAPICredentials(configstore.APICredentials{
+		User:     registrationParams.userTag.Id(),
+		Password: registrationParams.newPassword,
+	})
+	if err := controllerInfo.Write(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Log into the controller to verify the credentials, and
+	// refresh the connection information.
+	apiConn, err := c.newAPIRoot(registrationParams.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer apiConn.Close()
-
-	// Finally, record the credentials.
-	if _, err := c.cacheConnectionInfo(
-		registrationParams.controllerName,
-		registrationParams.userTag.Id(),
-		responsePayload.CACert,
-		registrationParams.newPassword,
-		apiConn,
-	); err != nil {
+	if err := apiConn.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(modelcmd.SetCurrentController(
-		ctx, registrationParams.controllerName,
-	))
+	if err := modelcmd.SetCurrentController(ctx, registrationParams.controllerName); err != nil {
+		return errors.Trace(err)
+	}
+
+	fmt.Fprintf(
+		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
+		registrationParams.userTag.Id(), registrationParams.controllerName,
+	)
+	return nil
 }
 
 type registrationParams struct {
@@ -267,20 +286,6 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	return &resp, nil
 }
 
-func (c *registerCommand) passwordLogin(userTag names.UserTag, caCert, password string, addrs []string) (api.Connection, error) {
-	info := api.Info{
-		Addrs:    addrs,
-		CACert:   caCert,
-		Tag:      userTag,
-		Password: password,
-	}
-	apiConn, err := c.apiOpen(&info, api.DefaultDialOpts())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apiConn, nil
-}
-
 func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (string, error) {
 	password, err := c.readPassword("Enter password: ", stderr, stdin)
 	if err != nil {
@@ -333,48 +338,6 @@ func (c *registerCommand) readLine(stdin io.Reader) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return line[:len(line)-1], nil
-}
-
-func (c *registerCommand) cacheConnectionInfo(controllerName, user, caCert, password string, apiConn api.Connection) (configstore.EnvironInfo, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	controllerTag, err := apiConn.ControllerTag()
-	if err != nil {
-		return nil, errors.Wrap(err, errors.New("juju controller too old to support login"))
-	}
-
-	connectedAddresses, err := network.ParseHostPorts(apiConn.Addr())
-	if err != nil {
-		// Should never happen, since we've just connected with it.
-		return nil, errors.Annotatef(err, "invalid API address %q", apiConn.Addr())
-	}
-	addressConnectedTo := connectedAddresses[0]
-
-	controllerInfo := store.CreateInfo(controllerName)
-	addrs, hosts, changed := juju.PrepareEndpointsForCaching(controllerInfo, apiConn.APIHostPorts(), addressConnectedTo)
-	if !changed {
-		logger.Infof("api addresses: %v", apiConn.APIHostPorts())
-		logger.Infof("address connected to: %v", addressConnectedTo)
-		return nil, errors.New("no addresses returned from prepare for caching")
-	}
-
-	controllerInfo.SetAPICredentials(configstore.APICredentials{
-		User:     user,
-		Password: password,
-	})
-	controllerInfo.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:  addrs,
-		Hostnames:  hosts,
-		CACert:     caCert,
-		ServerUUID: controllerTag.Id(),
-	})
-	if err = controllerInfo.Write(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return controllerInfo, nil
 }
 
 type byteAtATimeReader struct {

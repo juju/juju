@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
@@ -35,6 +34,7 @@ type RegisterSuite struct {
 	apiConnection *mockAPIConnection
 	store         configstore.Storage
 	apiOpenError  error
+	apiOpenName   string
 	server        *httptest.Server
 	httpHandler   http.Handler
 }
@@ -56,6 +56,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		controllerTag: testing.ModelTag,
 		addr:          serverURL.Host,
 	}
+	s.apiOpenName = ""
 
 	s.store = configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
@@ -77,8 +78,16 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 	return s.apiConnection, nil
 }
 
+func (s *RegisterSuite) newAPIRoot(name string) (api.Connection, error) {
+	if s.apiOpenError != nil {
+		return nil, s.apiOpenError
+	}
+	s.apiOpenName = name
+	return s.apiConnection, nil
+}
+
 func (s *RegisterSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
-	command := controller.NewRegisterCommandForTest(s.apiOpen)
+	command := controller.NewRegisterCommandForTest(s.apiOpen, s.newAPIRoot)
 	err := testing.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -105,7 +114,7 @@ func (s *RegisterSuite) seal(c *gc.C, message, key, nonce []byte) []byte {
 }
 
 func (s *RegisterSuite) TestInit(c *gc.C) {
-	registerCommand := controller.NewRegisterCommandForTest(nil)
+	registerCommand := controller.NewRegisterCommandForTest(nil, nil)
 
 	err := testing.InitCommand(registerCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "registration data missing")
@@ -163,16 +172,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	expectedCiphertext := s.seal(c, requestPayloadPlaintext, secretKey, request.Nonce)
 	c.Assert(request.PayloadCiphertext, jc.DeepEquals, expectedCiphertext)
 
-	// The command should have logged into the controller with the
-	// new password.
-	c.Assert(s.apiConnection.info, jc.DeepEquals, &api.Info{
-		Addrs:    []string{s.apiConnection.addr},
-		CACert:   testing.CACert,
-		Tag:      names.NewUserTag("bob"),
-		Password: "hunter2",
-	})
-
-	// Finally, the controller information should be recorded with
+	// The controller information should be recorded with
 	// the specified controller name ("controller-name").
 	info, err := s.store.ReadInfo("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,10 +182,13 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	})
 	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{
 		Addresses:  []string{s.apiConnection.addr},
-		Hostnames:  []string{s.apiConnection.addr},
 		CACert:     testing.CACert,
 		ServerUUID: testing.ModelTag.Id(),
 	})
+
+	// The command should have logged into the controller with the
+	// information we checked above.
+	c.Assert(s.apiOpenName, gc.Equals, "controller-name")
 }
 
 func (s *RegisterSuite) TestRegisterInvalidRegistrationData(c *gc.C) {
@@ -202,6 +205,17 @@ func (s *RegisterSuite) TestRegisterEmptyControllerName(c *gc.C) {
 	stdin := strings.NewReader("\n")
 	_, err := s.run(c, stdin, registrationData)
 	c.Assert(err, gc.ErrorMatches, "you must specify a non-empty controller name")
+}
+
+func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
+	err := s.store.CreateInfo("controller-name").Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	secretKey := []byte(strings.Repeat("X", 32))
+	registrationData := s.encodeRegistrationData(c, "bob", secretKey)
+	stdin := strings.NewReader("controller-name\nhunter2\nhunter2\n")
+	_, err = s.run(c, stdin, registrationData)
+	c.Assert(err, gc.ErrorMatches, `controller "controller-name" already exists`)
 }
 
 func (s *RegisterSuite) TestRegisterEmptyPassword(c *gc.C) {
