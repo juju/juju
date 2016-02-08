@@ -248,6 +248,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListCommand())
 	r.Register(controller.NewListBlocksCommand())
 	r.Register(controller.NewLoginCommand())
+	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewUseModelCommand())
 

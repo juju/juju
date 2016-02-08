@@ -45,7 +45,7 @@ func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error
 func (s *UserSuite) TestUserAdd(c *gc.C) {
 	ctx, err := s.RunUserCommand(c, "add-user", "test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), jc.HasPrefix, `user "test" added`)
+	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)

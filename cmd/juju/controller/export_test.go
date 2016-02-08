@@ -58,6 +58,12 @@ func NewLoginCommandForTest(apiOpen api.OpenFunc, getUserManager GetUserManagerF
 	}
 }
 
+// NewRegisterCommandForTest returns a RegisterCommand with the function used
+// to open the API connection mocked out.
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot}
+}
+
 type UseModelCommand struct {
 	*useModelCommand
 }
