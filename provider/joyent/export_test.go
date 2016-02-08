@@ -23,6 +23,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -194,7 +195,9 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(), cfg.Name(),
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMem(),
+		cfg.Name(),
 		environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)

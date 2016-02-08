@@ -117,7 +117,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Networki
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), s.ConfigStore, cfg.Name(),
+		envtesting.BootstrapContext(c), s.ConfigStore,
+		s.JujuClientCache, cfg.Name(),
 		environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))

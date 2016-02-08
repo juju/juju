@@ -3,6 +3,7 @@ package juju
 import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -16,9 +17,9 @@ var (
 	ServerAddress          = &serverAddress
 )
 
-func NewAPIFromStore(envName string, store configstore.Storage, f api.OpenFunc) (api.Connection, error) {
+func NewAPIFromStore(envName string, store configstore.Storage, cache jujuclient.Cache, f api.OpenFunc) (api.Connection, error) {
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return f(info, opts)
 	}
-	return newAPIFromStore(envName, store, apiOpen, nil)
+	return newAPIFromStore(envName, store, cache, apiOpen, nil)
 }

@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
 
@@ -247,23 +247,17 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails modelcmd.ServerFile, ap
 		return nil, errors.Trace(err)
 	}
 
-	// (anastasiamac 2016-02-04) has to be done for controller only... So,
-	// How do I know that this is not just any model but a controller?
-	controllerName, err := modelcmd.ReadCurrentController()
+	cache, err := jujuclient.Default()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "failed to access juju client cache")
 	}
-
-	newControllerInfo := controller.ControllerInfo{
-		controller.Controller{
-			addrs,
-			controllerTag.Id(),
-			addrs,
-			serverDetails.CACert},
-		controllerName,
-	}
-
-	if err = newControllerInfo.Write(); err != nil {
+	err = cache.UpdateController(c.Name, jujuclient.Controller{
+		addrs,
+		controllerTag.Id(),
+		addrs,
+		serverDetails.CACert,
+	})
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 

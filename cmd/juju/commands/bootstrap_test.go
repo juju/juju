@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -305,11 +305,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{addrConnectedTo})
 
 	// Check controllers.yaml has controller
-	//
-	// (anastasiamac 2016-02-04) has to be done for controller only... So,
-	// How do I know that this is not just any model but a controller?
 	endpoint := info.APIEndpoint()
-	controller, err := controller.ControllerByName("peckham-controller")
+	cache, err := jujuclient.Default()
+	c.Assert(err, jc.ErrorIsNil)
+	controller, err := cache.ControllerByName("peckham-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.CACert, gc.Equals, endpoint.CACert)
 	c.Assert(controller.Servers, gc.DeepEquals, endpoint.Hostnames)
@@ -501,6 +500,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&environsPrepare, func(
 		environs.BootstrapContext,
 		configstore.Storage,
+		jujuclient.Cache,
 		string,
 		environs.PrepareForBootstrapParams,
 	) (environs.Environ, error) {

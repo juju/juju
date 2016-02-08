@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -127,6 +128,7 @@ func testConfig(c *gc.C) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMem(),
 		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)

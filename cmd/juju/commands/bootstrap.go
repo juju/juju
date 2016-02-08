@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
@@ -339,8 +339,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	cache, err := jujuclient.Default()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), store, c.ControllerName,
+		modelcmd.BootstrapContext(ctx), store, cache, c.ControllerName,
 		environs.PrepareForBootstrapParams{
 			Config:        cfg,
 			Credentials:   *credential,
@@ -615,18 +619,17 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
 	}
 
-	// (anastasiamac 2016-02-04) has to be done for controller only... So,
-	// How do I know that this is not just any model but a controller?
-	controllerInfo := controller.ControllerInfo{
-		controller.Controller{
-			hosts,
-			endpoint.ServerUUID,
-			addrs,
-			endpoint.CACert,
-		},
-		c.ControllerName,
+	cache, err := jujuclient.Default()
+	if err != nil {
+		return errors.Annotate(err, "failed to access juju client cache")
 	}
-	if err := controllerInfo.Write(); err != nil {
+	err = cache.UpdateController(c.ControllerName, jujuclient.Controller{
+		hosts,
+		endpoint.ServerUUID,
+		addrs,
+		endpoint.CACert,
+	})
+	if err != nil {
 		return errors.Trace(err)
 	}
 

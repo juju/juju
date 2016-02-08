@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package controller_test
+package jujuclient_test
 
 import (
 	"io/ioutil"
@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,7 +28,7 @@ func (s *FileSuite) TestWriteFile(c *gc.C) {
 }
 
 func (s *FileSuite) TestReadNoFile(c *gc.C) {
-	controllers, err := controller.ReadControllersFile("nohere.yaml")
+	controllers, err := jujuclient.ReadControllersFile("nohere.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers, gc.IsNil)
 }
@@ -37,13 +37,13 @@ func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllers, err := controller.ControllerMetadata()
+	controllers, err := jujuclient.NewControllersCache().AllControllers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers, gc.IsNil)
 }
 
-func parseControllers(c *gc.C) *controller.Controllers {
-	controllers, err := controller.ParseControllers([]byte(testControllersYAML))
+func parseControllers(c *gc.C) *jujuclient.Controllers {
+	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
@@ -52,9 +52,9 @@ func parseControllers(c *gc.C) *controller.Controllers {
 	return controllers
 }
 
-func writeTestControllersFile(c *gc.C) *controller.Controllers {
+func writeTestControllersFile(c *gc.C) *jujuclient.Controllers {
 	controllers := parseControllers(c)
-	err := controller.WriteControllersFile(controllers)
+	err := jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
 	return controllers
 }
@@ -70,7 +70,7 @@ func (s *FileSuite) TestParseControllerMetadata(c *gc.C) {
 }
 
 func (s *FileSuite) TestParseControllerMetadataError(c *gc.C) {
-	controllers, err := controller.ParseControllers([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into controller.Controllers")
+	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
+	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.Controllers")
 	c.Assert(controllers, gc.IsNil)
 }

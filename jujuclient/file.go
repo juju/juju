@@ -1,10 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package controller provides functionality to parse information
-// describing controllers.
-
-package controller
+package jujuclient
 
 import (
 	"io/ioutil"
@@ -24,7 +21,7 @@ func JujuControllersPath() string {
 	return osenv.JujuXDGDataHomePath("controllers.yaml")
 }
 
-// ReadControllerMetadataFile loads all controllers defined in a given file.
+// ReadControllersFile loads all controllers defined in a given file.
 // If the file is not found, it is not an error.
 func ReadControllersFile(file string) (map[string]Controller, error) {
 	data, err := ioutil.ReadFile(file)
@@ -41,7 +38,7 @@ func ReadControllersFile(file string) (map[string]Controller, error) {
 	return controllers.Controllers, nil
 }
 
-// WriteControllerMetadataFile marshals to YAML details of the given controllers
+// WriteControllersFile marshals to YAML details of the given controllers
 // and writes it to the controllers file.
 func WriteControllersFile(controllers *Controllers) error {
 	data, err := yaml.Marshal(controllers)
@@ -51,7 +48,7 @@ func WriteControllersFile(controllers *Controllers) error {
 	return ioutil.WriteFile(JujuControllersPath(), data, os.FileMode(0600))
 }
 
-// ParseControllerMetadata parses the given YAML bytes into controllers metadata.
+// ParseControllers parses the given YAML bytes into controllers metadata.
 func ParseControllers(data []byte) (*Controllers, error) {
 	var result Controllers
 	err := yaml.Unmarshal(data, &result)
