@@ -46,7 +46,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
+	logger.Infof("opening model %q", cfg.Name())
 	e := new(environ)
 	e.name = cfg.Name()
 	err := e.SetConfig(cfg)

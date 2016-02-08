@@ -55,7 +55,7 @@ func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *
 	if err != nil {
 		return nil, err
 	}
-	envConfig = newEnvironConfig(cfg, envConfig.attrs)
+	envConfig = newModelConfig(cfg, envConfig.attrs)
 	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// validate adds missing manual-specific config attributes
 	// with their defaults in the result; we don't wnat that in
 	// Open.
-	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
+	envConfig := newModelConfig(cfg, cfg.UnknownAttrs())
 	return p.open(envConfig)
 }
 
@@ -99,7 +99,7 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	if err != nil {
 		return nil, err
 	}
-	envConfig := newEnvironConfig(cfg, validated)
+	envConfig := newModelConfig(cfg, validated)
 	if envConfig.bootstrapHost() == "" {
 		return nil, errNoBootstrapHost
 	}

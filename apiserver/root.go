@@ -47,22 +47,22 @@ type apiHandler struct {
 	resources        *common.Resources
 	entity           state.Entity
 	mongoUnavailable *uint32
-	// An empty envUUID means that the user has logged in through the
-	// root of the API server rather than the /environment/:env-uuid/api
+	// An empty modelUUID means that the user has logged in through the
+	// root of the API server rather than the /model/:model-uuid/api
 	// path, logins processed with v2 or later will only offer the
-	// user manager and environment manager api endpoints from here.
-	envUUID string
+	// user manager and model manager api endpoints from here.
+	modelUUID string
 }
 
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:            st,
 		resources:        common.NewResources(),
 		rpcConn:          rpcConn,
-		envUUID:          envUUID,
+		modelUUID:        modelUUID,
 		mongoUnavailable: &srv.mongoUnavailable,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
@@ -289,10 +289,10 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
-// AuthEnvironManager returns whether the authenticated user is a
+// AuthModelManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthEnvironManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageEnviron)
+func (r *apiHandler) AuthModelManager() bool {
+	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 
 // AuthClient returns whether the authenticated entity is a client

@@ -126,8 +126,8 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return result, nil
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances is specified in the Environ interface.
+func (e *manualEnviron) ControllerInstances() ([]instance.Id, error) {
 	// If we're running from the bootstrap host, then
 	// useSSHStorage will be false; in that case, we
 	// do not need or want to verify the bootstrap host.
@@ -177,7 +177,7 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	e.cfg = newEnvironConfig(cfg, cfg.UnknownAttrs())
+	e.cfg = newModelConfig(cfg, cfg.UnknownAttrs())
 	return nil
 }
 

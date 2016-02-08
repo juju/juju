@@ -51,7 +51,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 	return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
 }
 
-// Restore handles either returning or creating a state server to a backed up status:
+// Restore handles either returning or creating a controller to a backed up status:
 // * extracts the content of the given backup file and:
 // * runs mongorestore with the backed up mongo dump
 // * updates and writes configuration files
@@ -165,13 +165,13 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Annotate(err, "cannot update mongo entries")
 	}
 
-	// From here we work with the restored state server
+	// From here we work with the restored controller
 	mgoInfo, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
 	}
 
-	st, err := newStateConnection(agentConfig.Environment(), mgoInfo)
+	st, err := newStateConnection(agentConfig.Model(), mgoInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,7 +187,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Annotate(err, "cannot update api server machine addresses")
 	}
 
-	// update all agents known to the new state server.
+	// update all agents known to the new controller.
 	// TODO(perrito666): We should never stop process because of this.
 	// updateAllMachines will not return errors for individual
 	// agent update failures

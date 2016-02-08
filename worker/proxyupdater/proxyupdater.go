@@ -18,7 +18,7 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/api/environment"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -47,7 +47,7 @@ var (
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	api      *environment.Facade
+	api      *apiproxyupdater.Facade
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
 
@@ -63,9 +63,9 @@ type proxyWorker struct {
 	first bool
 }
 
-// New returns a worker.Worker that updates proxy environment variables for the
+// NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process; and, if writeSystemFiles is true, for the whole machine.
-var New = func(api *environment.Facade, writeSystemFiles bool) (worker.Worker, error) {
+var NewWorker = func(api *apiproxyupdater.Facade, writeSystemFiles bool) (worker.Worker, error) {
 	logger.Debugf("write system files: %v", writeSystemFiles)
 	envWorker := &proxyWorker{
 		api:              api,
@@ -193,7 +193,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	env, err := w.api.EnvironConfig()
+	env, err := w.api.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	w.first = false
 	Started()
-	return w.api.WatchForEnvironConfigChanges()
+	return w.api.WatchForModelConfigChanges()
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.

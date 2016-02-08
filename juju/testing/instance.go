@@ -44,11 +44,11 @@ func FakeStateInfo(machineId string) *mongo.MongoInfo {
 // of the machine to be started.
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addrs:      []string{"0.1.2.3:1234"},
-		Tag:        names.NewMachineTag(machineId),
-		Password:   "unimportant",
-		CACert:     testing.CACert,
-		EnvironTag: testing.EnvironmentTag,
+		Addrs:    []string{"0.1.2.3:1234"},
+		Tag:      names.NewMachineTag(machineId),
+		Password: "unimportant",
+		CACert:   testing.CACert,
+		ModelTag: testing.ModelTag,
 	}
 }
 
@@ -162,7 +162,7 @@ func StartInstanceWithParams(
 	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, errors.New("missing agent version in environment config")
+		return nil, errors.New("missing agent version in model config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
@@ -206,7 +206,7 @@ func StartInstanceWithParams(
 		return nil, errors.Trace(err)
 	}
 	eUUID, _ := env.Config().UUID()
-	instanceConfig.Tags[tags.JujuEnv] = eUUID
+	instanceConfig.Tags[tags.JujuModel] = eUUID
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)

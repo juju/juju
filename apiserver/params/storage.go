@@ -162,13 +162,13 @@ type MachineStorageIds struct {
 	Ids []MachineStorageId `json:"ids"`
 }
 
-// Volume identifies and describes a storage volume in the environment.
+// Volume identifies and describes a storage volume in the model.
 type Volume struct {
 	VolumeTag string     `json:"volumetag"`
 	Info      VolumeInfo `json:"info"`
 }
 
-// Volume describes a storage volume in the environment.
+// Volume describes a storage volume in the model.
 type VolumeInfo struct {
 	VolumeId   string `json:"volumeid"`
 	HardwareId string `json:"hardwareid,omitempty"`
@@ -177,7 +177,7 @@ type VolumeInfo struct {
 	Persistent bool   `json:"persistent"`
 }
 
-// Volumes describes a set of storage volumes in the environment.
+// Volumes describes a set of storage volumes in the model.
 type Volumes struct {
 	Volumes []Volume `json:"volumes"`
 }
@@ -283,21 +283,21 @@ type VolumeAttachmentParamsResults struct {
 	Results []VolumeAttachmentParamsResult `json:"results,omitempty"`
 }
 
-// Filesystem identifies and describes a storage filesystem in the environment.
+// Filesystem identifies and describes a storage filesystem in the model.
 type Filesystem struct {
 	FilesystemTag string         `json:"filesystemtag"`
 	VolumeTag     string         `json:"volumetag,omitempty"`
 	Info          FilesystemInfo `json:"info"`
 }
 
-// Filesystem describes a storage filesystem in the environment.
+// Filesystem describes a storage filesystem in the model.
 type FilesystemInfo struct {
 	FilesystemId string `json:"filesystemid"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
 }
 
-// Filesystems describes a set of storage filesystems in the environment.
+// Filesystems describes a set of storage filesystems in the model.
 type Filesystems struct {
 	Filesystems []Filesystem `json:"filesystems"`
 }
@@ -533,7 +533,7 @@ type FilesystemFilters struct {
 	Filters []FilesystemFilter `json:"filters,omitempty"`
 }
 
-// VolumeDetails describes a storage volume in the environment
+// VolumeDetails describes a storage volume in the model
 // for the purpose of volume CLI commands.
 //
 // This is kept separate from Volume which contains only information
@@ -585,7 +585,7 @@ type VolumeDetailsListResults struct {
 	Results []VolumeDetailsListResult `json:"results,omitempty"`
 }
 
-// FilesystemDetails describes a storage filesystem in the environment
+// FilesystemDetails describes a storage filesystem in the model
 // for the purpose of filesystem CLI commands.
 //
 // This is kept separate from Filesystem which contains only information

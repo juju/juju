@@ -9,13 +9,13 @@ const (
 	// JujuTagPrefix is the prefix for Juju-managed tags.
 	JujuTagPrefix = "juju-"
 
-	// JujuEnv is the tag name used for identifying the
-	// Juju environment a resource is part of.
-	JujuEnv = JujuTagPrefix + "env-uuid"
+	// JujuModel is the tag name used for identifying the
+	// Juju model a resource is part of.
+	JujuModel = JujuTagPrefix + "model-uuid"
 
-	// JujuStateServer is the tag name used for determining
-	// whether a machine instance is a state server or not.
-	JujuStateServer = JujuTagPrefix + "is-state"
+	// JujuController is the tag name used for determining
+	// whether a machine instance is a controller or not.
+	JujuController = JujuTagPrefix + "is-controller"
 
 	// JujuUnitsDeployed is the tag name used for identifying
 	// the units deployed to a machine instance. The value is
@@ -43,7 +43,7 @@ type ResourceTagger interface {
 
 // ResourceTags returns tags to set on an infrastructure resource
 // for the specified Juju environment.
-func ResourceTags(e names.EnvironTag, taggers ...ResourceTagger) map[string]string {
+func ResourceTags(e names.ModelTag, taggers ...ResourceTagger) map[string]string {
 	allTags := make(map[string]string)
 	for _, tagger := range taggers {
 		tags, ok := tagger.ResourceTags()
@@ -54,6 +54,6 @@ func ResourceTags(e names.EnvironTag, taggers ...ResourceTagger) map[string]stri
 			allTags[k] = v
 		}
 	}
-	allTags[JujuEnv] = e.Id()
+	allTags[JujuModel] = e.Id()
 	return allTags
 }

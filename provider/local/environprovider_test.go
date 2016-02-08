@@ -89,7 +89,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 	}{{
 		message: "nothing set",
 	}, {
-		message: "grabs proxy from environment",
+		message: "grabs proxy from model",
 		env: map[string]string{
 			"http_proxy":  "http://user@10.0.0.1",
 			"HTTPS_PROXY": "https://user@10.0.0.1",
@@ -108,7 +108,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 			Ftp:   "ftp://user@10.0.0.1",
 		},
 	}, {
-		message: "skips proxy from environment if http-proxy set",
+		message: "skips proxy from model if http-proxy set",
 		extraConfig: map[string]interface{}{
 			"http-proxy": "http://user@10.0.0.42",
 		},
@@ -124,7 +124,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 			Http: "http://user@10.0.0.42",
 		},
 	}, {
-		message: "skips proxy from environment if https-proxy set",
+		message: "skips proxy from model if https-proxy set",
 		extraConfig: map[string]interface{}{
 			"https-proxy": "https://user@10.0.0.42",
 		},
@@ -140,7 +140,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 			Https: "https://user@10.0.0.42",
 		},
 	}, {
-		message: "skips proxy from environment if ftp-proxy set",
+		message: "skips proxy from model if ftp-proxy set",
 		extraConfig: map[string]interface{}{
 			"ftp-proxy": "ftp://user@10.0.0.42",
 		},
@@ -156,7 +156,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 			Ftp: "ftp://user@10.0.0.42",
 		},
 	}, {
-		message: "skips proxy from environment if no-proxy set",
+		message: "skips proxy from model if no-proxy set",
 		extraConfig: map[string]interface{}{
 			"no-proxy": "localhost,10.0.3.1",
 		},

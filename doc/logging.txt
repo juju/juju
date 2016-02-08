@@ -17,10 +17,10 @@ access Juju's logs. Specifically:
 Consolidated log infrastructure
 ===============================
 All machine and unit agents run a "logsender" worker which sends the
-agent's logs to a state server using the "logsink" API. The "logsink"
+agent's logs to a controller using the "logsink" API. The "logsink"
 API handler writes the received logs to a "logs" collection in the
 "logs" MongoDB database (via DbLogger in the state package). In a HA
-environment the logs are replicated between state servers using
+model the logs are replicated between controllers using
 MongoDB's usual replication mechanisms.
 
 The `juju debug-log` command uses the "logs" API to retrieve

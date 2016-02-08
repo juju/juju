@@ -10,13 +10,13 @@ var (
 	StateUpgradeOperations = &stateUpgradeOperations
 )
 
-type EnvironConfigUpdater environConfigUpdater
-type EnvironConfigReader environConfigReader
+type ModelConfigUpdater environConfigUpdater
+type ModelConfigReader environConfigReader
 
-func UpgradeEnvironConfig(
-	reader EnvironConfigReader,
-	updater EnvironConfigUpdater,
+func UpgradeModelConfig(
+	reader ModelConfigReader,
+	updater ModelConfigUpdater,
 	registry environs.ProviderRegistry,
 ) error {
-	return upgradeEnvironConfig(reader, updater, registry)
+	return upgradeModelConfig(reader, updater, registry)
 }

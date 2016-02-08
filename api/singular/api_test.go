@@ -37,7 +37,7 @@ func (s *APISuite) TestBadControllerTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "controller tag not valid")
 }
 
-func (s *APISuite) TestBadEnvironTag(c *gc.C) {
+func (s *APISuite) TestBadModelTag(c *gc.C) {
 	api, err := singular.NewAPI(mockAPICaller{}, machine123)
 	c.Check(api, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "no tags for you")
@@ -64,7 +64,7 @@ func (s *APISuite) TestClaimSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
-			ModelTag:      "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			ModelTag:      "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			ControllerTag: "machine-123",
 			Duration:      time.Minute,
 		}},
@@ -86,7 +86,7 @@ func (s *APISuite) TestClaimDenied(c *gc.C) {
 	c.Check(err, gc.Equals, lease.ErrClaimDenied)
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
-			ModelTag:      "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			ModelTag:      "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			ControllerTag: "machine-123",
 			Duration:      time.Hour,
 		}},
@@ -108,7 +108,7 @@ func (s *APISuite) TestClaimError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "zap pow splat oof")
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
-			ModelTag:      "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			ModelTag:      "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			ControllerTag: "machine-123",
 			Duration:      time.Second,
 		}},
@@ -128,7 +128,7 @@ func (s *APISuite) TestWaitSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	checkCall(c, stub, "Wait", params.Entities{
 		Entities: []params.Entity{{
-			Tag: "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		}},
 	})
 }
@@ -148,7 +148,7 @@ func (s *APISuite) TestWaitError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "crunch squelch")
 	checkCall(c, stub, "Wait", params.Entities{
 		Entities: []params.Entity{{
-			Tag: "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		}},
 	})
 }
@@ -181,6 +181,6 @@ type mockAPICaller struct {
 	base.APICaller
 }
 
-func (mockAPICaller) EnvironTag() (names.EnvironTag, error) {
-	return names.EnvironTag{}, errors.New("no tags for you")
+func (mockAPICaller) ModelTag() (names.ModelTag, error) {
+	return names.ModelTag{}, errors.New("no tags for you")
 }

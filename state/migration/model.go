@@ -82,7 +82,7 @@ type model struct {
 
 }
 
-func (m *model) Tag() names.EnvironTag {
+func (m *model) Tag() names.ModelTag {
 	// Here we make the assumption that the environment UUID is set
 	// correctly in the Config.
 	value := m.Config_["uuid"]
@@ -90,7 +90,7 @@ func (m *model) Tag() names.EnvironTag {
 	// and it is wrong, we panic. Here we fully expect it to exist, but
 	// paranoia says 'never panic', so worst case is we have an empty string.
 	uuid, _ := value.(string)
-	return names.NewEnvironTag(uuid)
+	return names.NewModelTag(uuid)
 }
 
 // Owner implements Model.

@@ -94,7 +94,7 @@ func (s *ConfigSuite) checkNotValid(c *gc.C, match string) {
 
 func validEnvironConfig() storageprovisioner.Config {
 	config := almostValidConfig()
-	config.Scope = coretesting.EnvironmentTag
+	config.Scope = coretesting.ModelTag
 	return config
 }
 
@@ -119,7 +119,7 @@ func almostValidConfig() storageprovisioner.Config {
 			storageprovisioner.LifecycleManager
 		}{},
 		Environ: struct {
-			storageprovisioner.EnvironAccessor
+			storageprovisioner.ModelAccessor
 		}{},
 		Machines: struct {
 			storageprovisioner.MachineAccessor

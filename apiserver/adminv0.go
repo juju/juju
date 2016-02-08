@@ -55,9 +55,9 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 	}
 
 	resultV0 := params.LoginResult{
-		Servers:    resultV1.Servers,
-		EnvironTag: resultV1.EnvironTag,
-		Facades:    resultV1.Facades,
+		Servers:  resultV1.Servers,
+		ModelTag: resultV1.ModelTag,
+		Facades:  resultV1.Facades,
 	}
 	if resultV1.UserInfo != nil {
 		resultV0.LastConnection = resultV1.UserInfo.LastConnection

@@ -11,12 +11,12 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const userCredentialsDoc = `
 Writes out the current user and credentials to a file that can be used
-with 'juju controller login' to allow the user to access the same environments
+with 'juju controller login' to allow the user to access the same models
 as the same user from another machine.
 
 Examples:
@@ -33,12 +33,12 @@ See Also:
 `
 
 func NewCredentialsCommand() cmd.Command {
-	return envcmd.WrapController(&credentialsCommand{})
+	return modelcmd.WrapController(&credentialsCommand{})
 }
 
 // credentialsCommand changes the password for a user.
 type credentialsCommand struct {
-	envcmd.ControllerCommandBase
+	modelcmd.ControllerCommandBase
 	OutPath string
 }
 

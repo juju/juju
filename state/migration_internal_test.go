@@ -16,9 +16,9 @@ var _ = gc.Suite(&MigrationSuite{})
 
 func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
-		environmentsC,
-		envUsersC,
-		envUserLastConnectionC,
+		modelsC,
+		modelUsersC,
+		modelUserLastConnectionC,
 		settingsC,
 		statusesC,
 
@@ -33,13 +33,13 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	)
 
 	ignoredCollections := set.NewStrings(
-		// We don't export the controller environment at this stage.
-		stateServersC,
+		// We don't export the controller model at this stage.
+		controllersC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
 		// userenvnameC is just to provide a unique key constraint.
-		userenvnameC,
+		usermodelnameC,
 		// Metrics aren't migrated.
 		metricsC,
 		// leaseC is deprecated in favour of leasesC.
@@ -69,7 +69,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
-		// environment
+		// model
 		blocksC,
 		cleanupsC,
 		cloudimagemetadataC,
@@ -139,7 +139,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	c.Assert(remainder, gc.HasLen, 0)
 }
 
-func (s *MigrationSuite) TestEnvironmentDocFields(c *gc.C) {
+func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// UUID and Mame are constructed from the model config.
 		"UUID",
@@ -156,16 +156,16 @@ func (s *MigrationSuite) TestEnvironmentDocFields(c *gc.C) {
 		"TimeOfDying",
 		"TimeOfDeath",
 	)
-	s.AssertExportedFields(c, environmentDoc{}, fields)
+	s.AssertExportedFields(c, modelDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 		// Tracked fields:
 		"UserName",
 		"DisplayName",
@@ -173,21 +173,21 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 		"DateCreated",
 		"ReadOnly",
 	)
-	s.AssertExportedFields(c, envUserDoc{}, fields)
+	s.AssertExportedFields(c, modelUserDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 		// UserName is captured in the migration.User.
 		"UserName",
 		"LastConnection",
 	)
-	s.AssertExportedFields(c, envUserLastConnectionDoc{}, fields)
+	s.AssertExportedFields(c, modelUserLastConnectionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
@@ -196,9 +196,9 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"DocID",
 		// ID is the machine id
 		"Id",
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 		// Life is always alive, confirmed by export precheck.
 		"Life",
 
@@ -232,9 +232,9 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		// DocID is the env + machine id
 		"DocID",
 		"MachineId",
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 
 		"InstanceId",
 		"Status",
@@ -253,14 +253,14 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// DocID is the env + name
 		"DocID",
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 		// Always alive, not explicitly exported.
 		"Life",
 		// OwnerTag is deprecated and should be deleted.
 		"OwnerTag",
-		// TxnRevno is mgo internals and no idea why this is read.
+		// TxnRevno is mgo internals and should not be migrated.
 		"TxnRevno",
 
 		"Name",
@@ -281,9 +281,9 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
 	fields := set.NewStrings(
-		// EnvUUID shouldn't be exported, and is inherited
+		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
-		"EnvUUID",
+		"ModelUUID",
 
 		"RefCount",
 	)

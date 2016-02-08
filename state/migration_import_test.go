@@ -45,7 +45,7 @@ func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
-	original, err := s.State.Environment()
+	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newEnv.Owner(), gc.Equals, original.Owner())
@@ -69,21 +69,21 @@ func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	c.Assert(newAttrs, jc.DeepEquals, originalAttrs)
 }
 
-func (s *MigrationImportSuite) newEnvUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.EnvironmentUser {
-	user, err := s.State.AddEnvironmentUser(state.EnvUserSpec{
+func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
+	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
 		ReadOnly:  readOnly,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if !lastConnection.IsZero() {
-		err = state.UpdateEnvUserLastConnection(user, lastConnection)
+		err = state.UpdateModelUserLastConnection(user, lastConnection)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
 }
 
-func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.EnvironmentUser) {
+func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.ModelUser) {
 	c.Assert(newUser.UserName(), gc.Equals, oldUser.UserName())
 	c.Assert(newUser.DisplayName(), gc.Equals, oldUser.DisplayName())
 	c.Assert(newUser.CreatedBy(), gc.Equals, oldUser.CreatedBy())
@@ -103,17 +103,17 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.
 	}
 }
 
-func (s *MigrationImportSuite) TestEnvironmentUsers(c *gc.C) {
+func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	// To be sure with this test, we create three env users, and remove
 	// the owner.
-	err := s.State.RemoveEnvironmentUser(s.Owner)
+	err := s.State.RemoveModelUser(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	lastConnection := state.NowToTheSecond()
 
-	bravo := s.newEnvUser(c, "bravo@external", false, lastConnection)
-	charlie := s.newEnvUser(c, "charlie@external", true, lastConnection)
-	delta := s.newEnvUser(c, "delta@external", true, time.Time{})
+	bravo := s.newModelUser(c, "bravo@external", false, lastConnection)
+	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
+	delta := s.newModelUser(c, "delta@external", true, time.Time{})
 
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,8 +126,8 @@ func (s *MigrationImportSuite) TestEnvironmentUsers(c *gc.C) {
 	defer newSt.Close()
 
 	// Check the import values of the users.
-	for _, user := range []*state.EnvironmentUser{bravo, charlie, delta} {
-		newUser, err := newSt.EnvironmentUser(user.UserTag())
+	for _, user := range []*state.ModelUser{bravo, charlie, delta} {
+		newUser, err := newSt.ModelUser(user.UserTag())
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertUserEqual(c, newUser, user)
 	}
@@ -229,7 +229,6 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 
 	_, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%#v", newSt)
 	defer newSt.Close()
 
 	importedServices, err := newSt.AllServices()
@@ -258,7 +257,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
-// environment / model are unique together in a controller.
+// model are unique together in a controller.
 func newModel(m migration.Model, uuid, name string) migration.Model {
 	return &mockModel{m, uuid, name}
 }
@@ -269,8 +268,8 @@ type mockModel struct {
 	name string
 }
 
-func (m *mockModel) Tag() names.EnvironTag {
-	return names.NewEnvironTag(m.uuid)
+func (m *mockModel) Tag() names.ModelTag {
+	return names.NewModelTag(m.uuid)
 }
 
 func (m *mockModel) Config() map[string]interface{} {

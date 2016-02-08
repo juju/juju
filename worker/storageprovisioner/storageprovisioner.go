@@ -5,8 +5,8 @@
 // and deprovisioning of storage volumes and filesystems, and attaching them
 // to and detaching them from machines.
 //
-// A storage provisioner worker is run at each environment manager, which
-// manages environment-scoped storage such as virtual disk services of the
+// A storage provisioner worker is run at each model manager, which
+// manages model-scoped storage such as virtual disk services of the
 // cloud provider. In addition to this, each machine agent runs a machine-
 // storage provisioner worker that manages storage scoped to that machine,
 // such as loop devices, temporary filesystems (tmpfs), and rootfs.
@@ -156,16 +156,16 @@ type StatusSetter interface {
 	SetStatus([]params.EntityStatusArgs) error
 }
 
-// EnvironAccessor defines an interface used to enable a storage provisioner
-// worker to watch changes to and read environment config, to use when
+// ModelAccessor defines an interface used to enable a storage provisioner
+// worker to watch changes to and read model config, to use when
 // provisioning storage.
-type EnvironAccessor interface {
-	// WatchForEnvironConfigChanges returns a watcher that will be notified
-	// whenever the environment config changes in state.
-	WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error)
+type ModelAccessor interface {
+	// WatchForModelConfigChanges returns a watcher that will be notified
+	// whenever the model config changes in state.
+	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 
-	// EnvironConfig returns the current environment config.
-	EnvironConfig() (*config.Config, error)
+	// ModelConfig returns the current model config.
+	ModelConfig() (*config.Config, error)
 }
 
 // NewStorageProvisioner returns a Worker which manages
@@ -173,7 +173,7 @@ type EnvironAccessor interface {
 // of first-class volumes and filesystems.
 //
 // Machine-scoped storage workers will be provided with
-// a storage directory, while environment-scoped workers
+// a storage directory, while model-scoped workers
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
 func NewStorageProvisioner(config Config) (worker.Worker, error) {
@@ -218,11 +218,11 @@ func (w *storageProvisioner) loop() error {
 	)
 	machineChanges := make(chan names.MachineTag)
 
-	environConfigWatcher, err := w.config.Environ.WatchForEnvironConfigChanges()
+	modelConfigWatcher, err := w.config.Environ.WatchForModelConfigChanges()
 	if err != nil {
-		return errors.Annotate(err, "watching environ config")
+		return errors.Annotate(err, "watching model config")
 	}
-	if err := w.catacomb.Add(environConfigWatcher); err != nil {
+	if err := w.catacomb.Add(modelConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -309,22 +309,22 @@ func (w *storageProvisioner) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-environConfigWatcher.Changes():
+		case _, ok := <-modelConfigWatcher.Changes():
 			if !ok {
 				return errors.New("environ config watcher closed")
 			}
-			environConfig, err := w.config.Environ.EnvironConfig()
+			modelConfig, err := w.config.Environ.ModelConfig()
 			if err != nil {
-				return errors.Annotate(err, "getting environ config")
+				return errors.Annotate(err, "getting model config")
 			}
-			if ctx.environConfig == nil {
-				// We've received the initial environ config,
+			if ctx.modelConfig == nil {
+				// We've received the initial model config,
 				// so we can begin provisioning storage.
 				if err := startWatchers(); err != nil {
 					return err
 				}
 			}
-			ctx.environConfig = environConfig
+			ctx.modelConfig = modelConfig
 		case changes, ok := <-volumesChanges:
 			if !ok {
 				return errors.New("volumes watcher closed")
@@ -450,10 +450,10 @@ func processSchedule(ctx *context) error {
 }
 
 type context struct {
-	kill          func(error)
-	addWorker     func(worker.Worker) error
-	config        Config
-	environConfig *config.Config
+	kill        func(error)
+	addWorker   func(worker.Worker) error
+	config      Config
+	modelConfig *config.Config
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume

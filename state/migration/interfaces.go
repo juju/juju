@@ -13,7 +13,7 @@ import (
 
 // Model is a database agnostic representation of an existing model.
 type Model interface {
-	Tag() names.EnvironTag
+	Tag() names.ModelTag
 	Owner() names.UserTag
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number

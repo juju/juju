@@ -90,7 +90,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 
 		expectedDocs = append(expectedDocs, bson.M{
 			"t": ts,
-			"e": s.State.EnvironUUID(),
+			"e": s.State.ModelUUID(),
 			"n": s.machineTag.String(),
 			"m": "logsender-test",
 			"l": location,
@@ -172,7 +172,7 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	delete(docs[1], "_id")
 	c.Assert(docs[1], gc.DeepEquals, bson.M{
 		"t": ts, // Should share timestamp with previous message.
-		"e": s.State.EnvironUUID(),
+		"e": s.State.ModelUUID(),
 		"n": s.machineTag.String(),
 		"m": "juju.worker.logsender",
 		"l": "",

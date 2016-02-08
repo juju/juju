@@ -90,7 +90,7 @@ func (s *CertUpdaterSuite) StateServingInfo() (params.StateServingInfo, bool) {
 
 type mockConfigGetter struct{}
 
-func (g *mockConfigGetter) EnvironConfig() (*config.Config, error) {
+func (g *mockConfigGetter) ModelConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, coretesting.FakeConfig())
 
 }
