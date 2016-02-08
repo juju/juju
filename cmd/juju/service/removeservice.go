@@ -59,8 +59,8 @@ func (c *removeServiceCommand) Init(args []string) error {
 
 type ServiceRemoveAPI interface {
 	Close() error
-	ServiceDestroy(serviceName string) error
-	DestroyServiceUnits(unitNames ...string) error
+	Destroy(serviceName string) error
+	DestroyUnits(unitNames ...string) error
 }
 
 func (c *removeServiceCommand) getAPI() (ServiceRemoveAPI, error) {
@@ -77,5 +77,5 @@ func (c *removeServiceCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.ServiceDestroy(c.ServiceName), block.BlockRemove)
+	return block.ProcessBlockedError(client.Destroy(c.ServiceName), block.BlockRemove)
 }

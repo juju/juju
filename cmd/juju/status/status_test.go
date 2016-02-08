@@ -3543,7 +3543,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			},
 		},
 	}
-	formatter := newStatusFormatter(status, true)
+	formatter := NewStatusFormatter(status, true)
 	formatted := formatter.format()
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{

@@ -79,7 +79,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServicesDeploy")
+		c.Assert(request, gc.Equals, "Deploy")
 		args, ok := a.(params.ServicesDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Services, gc.HasLen, 1)
@@ -97,7 +97,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := s.client.ServiceDeploy("charmURL", "serviceA", "series", 2, "configYAML", constraints.MustParse("mem=4G"),
+	err := s.client.Deploy("charmURL", "serviceA", "series", 2, "configYAML", constraints.MustParse("mem=4G"),
 		[]*instance.Placement{{"scope", "directive"}}, []string{"neta"},
 		map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServiceGetCharmURL")
+		c.Assert(request, gc.Equals, "GetCharmURL")
 		args, ok := a.(params.ServiceGet)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ServiceName, gc.Equals, "service")
@@ -117,7 +117,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 		result.Result = "curl"
 		return nil
 	})
-	curl, err := s.client.ServiceGetCharmURL("service")
+	curl, err := s.client.GetCharmURL("service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
 	c.Assert(called, jc.IsTrue)
@@ -127,7 +127,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServiceSetCharm")
+		c.Assert(request, gc.Equals, "SetCharm")
 		args, ok := a.(params.ServiceSetCharm)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ServiceName, gc.Equals, "service")
@@ -136,7 +136,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
 	})
-	err := s.client.ServiceSetCharm("service", "charmURL", true, true)
+	err := s.client.SetCharm("service", "charmURL", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
