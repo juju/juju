@@ -11,8 +11,14 @@ import (
 )
 
 const (
+	// If you are adding variables here that could be defined
+	// in a system and therefore changing the behavior on test
+	// suites please take a moment to add them to JujuOSEnvSuite
+	// setup so they are cleared before running the suites using
+	// it.
+
 	JujuModelEnvKey         = "JUJU_MODEL"
-	JujuHomeEnvKey          = "JUJU_HOME"
+	JujuXDGDataHomeEnvKey   = "JUJU_DATA"
 	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
@@ -37,6 +43,10 @@ const (
 	// JujuStatusIsoTimeEnvKey is the env var which if true, will cause status
 	// timestamps to be written in RFC3339 format.
 	JujuStatusIsoTimeEnvKey = "JUJU_STATUS_ISO_TIME"
+
+	// XDGDataHome is a path where data for the running user
+	// should be stored according to the xdg standard.
+	XDGDataHome = "XDG_DATA_HOME"
 )
 
 // FeatureFlags returns a map that can be merged with os.Environ.

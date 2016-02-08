@@ -74,6 +74,8 @@ type DeployCommand struct {
 
 	Bindings map[string]string
 	Steps    []DeployStep
+
+	flagSet *gnuflag.FlagSet
 }
 
 const deployDoc = `
@@ -91,7 +93,7 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-  
+
 The current series for charms is determined first by the default-series model
 setting, followed by the preferred series for the charm in the charm store.
 
@@ -212,7 +214,16 @@ func (c *DeployCommand) Info() *cmd.Info {
 	}
 }
 
+var (
+	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
+	// whether we are deploying a charm or a bundle.
+	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade"}
+	bundleOnlyFlags = []string{}
+)
+
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
+	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
+	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
@@ -228,6 +239,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
+	c.flagSet = f
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -373,6 +385,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	// Handle a bundle.
 	if bundleData != nil {
+		if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
+			return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
+		}
 		if err := deployBundle(
 			bundleData, client, &deployer, csClient,
 			repoPath, conf, ctx, c.BundleStorage,
@@ -383,6 +398,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return nil
 	}
 	// Handle a charm.
+	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
+		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
+	}
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -689,4 +707,25 @@ func (s *metricsCredentialsAPIImpl) Close() error {
 
 var getMetricCredentialsAPI = func(state api.Connection) (metricCredentialsAPI, error) {
 	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
+}
+
+// getFlags returns the flags with the given names. Only flags that are set and
+// whose name is included in flagNames are included.
+func getFlags(flagSet *gnuflag.FlagSet, flagNames []string) []string {
+	flags := make([]string, 0, flagSet.NFlag())
+	flagSet.Visit(func(flag *gnuflag.Flag) {
+		for _, name := range flagNames {
+			if flag.Name == name {
+				flags = append(flags, flagWithMinus(name))
+			}
+		}
+	})
+	return flags
+}
+
+func flagWithMinus(name string) string {
+	if len(name) > 1 {
+		return "--" + name
+	}
+	return "-" + name
 }
