@@ -58,7 +58,8 @@ class StanzaWriter:
 
     @classmethod
     def for_living_ubuntu(cls, arch, version, revision_build, tarfile):
-        filename = 'revision-build-ubuntu-{}.json'.format(arch)
+        filename = 'revision-build-{}-ubuntu-{}.json'.format(revision_build,
+                                                             arch)
         releases = [
             (juju_series.get_version(name), name) for name
             in juju_series.get_living_names()]
