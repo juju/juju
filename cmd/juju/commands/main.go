@@ -171,6 +171,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
+	register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())
