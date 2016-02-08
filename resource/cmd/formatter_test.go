@@ -22,22 +22,19 @@ type CharmFormatterSuite struct {
 }
 
 func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
-	data := strings.NewReader("spamspamspam")
-	fp, err := charmresource.GenerateFingerprint(data)
-	c.Assert(err, jc.ErrorIsNil)
-	fingerprint := string(fp.Bytes())
-	res := charmRes(c, "spam", ".tgz", "X", fingerprint)
+	res := charmRes(c, "spam", ".tgz", "X", "spamspamspam")
+	res.Revision = 5
+
 	formatted := FormatCharmResource(res)
 
 	c.Check(formatted, jc.DeepEquals, FormattedCharmResource{
-		Name:          "spam",
-		Type:          "file",
-		Path:          "spam.tgz",
-		Comment:       "X",
-		Revision:      0,
-		Fingerprint:   fp.String(),
-		Origin:        "upload",
-		charmRevision: "-",
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Comment:     "X",
+		Revision:    5,
+		Fingerprint: res.Fingerprint.String(),
+		Origin:      "store",
 	})
 }
 

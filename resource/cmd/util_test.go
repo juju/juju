@@ -15,17 +15,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func charmRes(c *gc.C, name, suffix, comment, fingerprint string) charmresource.Resource {
-	var fp charmresource.Fingerprint
-	if fingerprint == "" {
-		built, err := charmresource.GenerateFingerprint(strings.NewReader(name))
-		c.Assert(err, jc.ErrorIsNil)
-		fp = built
-	} else {
-		wrapped, err := charmresource.NewFingerprint([]byte(fingerprint))
-		c.Assert(err, jc.ErrorIsNil)
-		fp = wrapped
+func charmRes(c *gc.C, name, suffix, comment, content string) charmresource.Resource {
+	if content == "" {
+		content = name
 	}
+
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
 
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
@@ -34,11 +30,12 @@ func charmRes(c *gc.C, name, suffix, comment, fingerprint string) charmresource.
 			Path:    name + suffix,
 			Comment: comment,
 		},
-		Origin:      charmresource.OriginUpload,
-		Revision:    0,
+		Origin:      charmresource.OriginStore,
+		Revision:    1,
 		Fingerprint: fp,
+		Size:        int64(len(content)),
 	}
-	err := res.Validate()
+	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	return res
 }

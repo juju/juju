@@ -71,6 +71,7 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
+	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
 	command := NewListCharmResourcesCommand(s.client)
@@ -78,9 +79,9 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE FROM   REV COMMENT
-website  upload -   .tgz of your website
-music    upload -   mp3 of your backing vocals
+RESOURCE REVISION COMMENT
+website  2        .tgz of your website
+music    1        mp3 of your backing vocals
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -107,7 +108,7 @@ func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE FROM REV COMMENT
+RESOURCE REVISION COMMENT
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -127,9 +128,9 @@ func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
 
 	formats := map[string]string{
 		"tabular": `
-RESOURCE FROM   REV COMMENT
-website  upload -   .tgz of your website
-music    upload -   mp3 of your backing vocals
+RESOURCE REVISION COMMENT
+website  1        .tgz of your website
+music    1        mp3 of your backing vocals
 
 `[1:],
 		"yaml": `
@@ -137,14 +138,16 @@ music    upload -   mp3 of your backing vocals
   type: file
   path: website.tgz
   comment: .tgz of your website
-  fingerprint: cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7
-  origin: upload
+  revision: 1
+  fingerprint: 73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4
+  origin: store
 - name: music
   type: file
   path: music.mp3
   comment: mp3 of your backing vocals
-  fingerprint: edcb0f4721e6578d900e4c24ad4b19e194ab6c87f8243bfc6b11754dd8b0bbde4f30b1d18197932b6376da004dcd97c4
-  origin: upload
+  revision: 1
+  fingerprint: b0ea2a0f90267a8bd32848c65d7a61569a136f4e421b56127b6374b10a576d29e09294e620b4dcdee40f602115104bd5
+  origin: store
 `[1:],
 		"json": strings.Replace(""+
 			"["+
@@ -153,20 +156,23 @@ music    upload -   mp3 of your backing vocals
 			`    "type":"file",`+
 			`    "path":"website.tgz",`+
 			`    "comment":".tgz of your website",`+
-			`    "fingerprint":"cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7",`+
-			`    "origin":"upload"`+
+			`    "revision":1,`+
+			`    "fingerprint":"73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4",`+
+			`    "origin":"store"`+
 			"  },{"+
 			`    "name":"music",`+
 			`    "type":"file",`+
 			`    "path":"music.mp3",`+
 			`    "comment":"mp3 of your backing vocals",`+
-			`    "fingerprint":"edcb0f4721e6578d900e4c24ad4b19e194ab6c87f8243bfc6b11754dd8b0bbde4f30b1d18197932b6376da004dcd97c4",`+
-			`    "origin":"upload"`+
+			`    "revision":1,`+
+			`    "fingerprint":"b0ea2a0f90267a8bd32848c65d7a61569a136f4e421b56127b6374b10a576d29e09294e620b4dcdee40f602115104bd5",`+
+			`    "origin":"store"`+
 			"  }"+
 			"]\n",
 			"  ", "", -1),
 	}
 	for format, expected := range formats {
+		c.Logf("checking format %q", format)
 		command := NewListCharmResourcesCommand(s.client)
 		args := []string{
 			"--format", format,

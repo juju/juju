@@ -26,19 +26,14 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, "RESOURCE\tFROM\tREV\tCOMMENT")
+	fmt.Fprintln(tw, "RESOURCE\tREVISION\tCOMMENT")
 
 	// Print each info to its own row.
 	for _, res := range resources {
-		if res.Origin == "store" {
-			res.Origin = "charmstore"
-		}
-
 		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%d\t%s\n",
 			res.Name,
-			res.Origin,
-			res.charmRevision,
+			res.Revision,
 			res.Comment,
 		)
 	}

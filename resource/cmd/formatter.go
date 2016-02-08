@@ -39,14 +39,13 @@ func (crf *charmResourcesFormatter) format() []FormattedCharmResource {
 // FormatCharmResource converts the resource info into a FormattedCharmResource.
 func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	return FormattedCharmResource{
-		Name:          res.Name,
-		Type:          res.Type.String(),
-		Path:          res.Path,
-		Comment:       res.Comment,
-		Revision:      res.Revision,
-		Origin:        res.Origin.String(),
-		Fingerprint:   res.Fingerprint.String(), // ...the hex string.
-		charmRevision: charmRevision(res),
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Comment:     res.Comment,
+		Revision:    res.Revision,
+		Origin:      res.Origin.String(),
+		Fingerprint: res.Fingerprint.String(), // ...the hex string.
 	}
 }
 
@@ -94,11 +93,4 @@ func usedYesNo(used bool) string {
 		return "yes"
 	}
 	return "no"
-}
-
-func charmRevision(r charmresource.Resource) string {
-	if r.Origin == charmresource.OriginStore {
-		return fmt.Sprintf("%d", r.Revision)
-	}
-	return "-"
 }

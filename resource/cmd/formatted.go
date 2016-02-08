@@ -15,10 +15,6 @@ type FormattedCharmResource struct {
 	Revision    int    `json:"revision,omitempty" yaml:"revision,omitempty"`
 	Fingerprint string `json:"fingerprint" yaml:"fingerprint"`
 	Origin      string `json:"origin" yaml:"origin"`
-
-	// These fields are not exported so they won't be serialized, since they are
-	// specific to the tabular output.
-	charmRevision string
 }
 
 // FormattedSvcResource holds the formatted representation of a resource's info.
