@@ -15,8 +15,8 @@ import (
 
 // JujuControllersPath is the location where controllers information is
 // expected to be found.
-// TODO (anastasiamac 2016-02-02) This needs to be updated to use new and shiny DATA instead of HOME...?
-// Requires JUJU_DATA to be set.
+// TODO (anastasiamac 2016-02-02) This needs to be updated to use new and shiny DATA instead of HOME.
+// Requires JUJU_HOME to be set.
 func JujuControllersPath() string {
 	return osenv.JujuXDGDataHomePath("controllers.yaml")
 }
