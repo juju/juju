@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync/atomic"
+	"strings"
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -181,6 +182,11 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	for _, ctype := range instance.ContainerTypes {
+		/* LXD isn't available on go 1.2 */
+		if ctype == instance.LXD && strings.HasPrefix(runtime.Version(), "go1.2") {
+			continue
+		}
+
 		// create a machine to host the container.
 		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 			Series:      coretesting.FakeDefaultSeries,
