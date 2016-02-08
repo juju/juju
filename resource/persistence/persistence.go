@@ -151,6 +151,23 @@ func (p Persistence) StageResource(res resource.Resource, storagePath string) (*
 	return staged, nil
 }
 
+// SetResource sets the info for the resource.
+func (p Persistence) SetResource(res resource.Resource) error {
+	storagePath := "" // unknown
+	staged, err := p.StageResource(res, storagePath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := staged.Activate(); err != nil {
+		if err := staged.Unstage(); err != nil {
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the service.
 func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error {

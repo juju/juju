@@ -80,6 +80,15 @@ func (s *stubPersistence) StageResource(res resource.Resource, storagePath strin
 	return s.ReturnStageResource, nil
 }
 
+func (s *stubPersistence) SetResource(res resource.Resource) error {
+	s.stub.AddCall("SetResource", res)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) error {
 	s.stub.AddCall("SetUnitResource", unitID, res)
 	if err := s.stub.NextErr(); err != nil {

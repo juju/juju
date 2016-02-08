@@ -240,6 +240,44 @@ func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
+func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
+	servicename := "a-service"
+	res, doc := newResource(c, servicename, "spam")
+	stagedDoc := doc // a copy
+	stagedDoc.DocID += "#staged"
+	s.base.ReturnOne = doc
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
+
+	err := p.SetResource(res.Resource)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"One",
+		"Run",
+		"RunTransaction",
+		"Run",
+		"RunTransaction",
+	)
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/spam#staged",
+		Assert: txn.DocMissing,
+		Insert: &stagedDoc,
+	}})
+	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/spam",
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}, {
+		C:      "resources",
+		Id:     "resource#a-service/spam#staged",
+		Remove: true,
+	}})
+}
+
 func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"

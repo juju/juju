@@ -147,6 +147,29 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	})
 }
 
+func (s *ResourceSuite) TestSetResourceInfoOnly(c *gc.C) {
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.Timestamp = time.Time{}
+	expected.Username = ""
+	chRes := expected.Resource
+	st := NewState(s.raw)
+	st.currentTimestamp = s.now
+	s.stub.ResetCalls()
+
+	res, err := st.SetResource("a-service", "a-user", chRes, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"SetResource",
+	)
+	s.stub.CheckCall(c, 0, "SetResource", expected)
+	c.Check(res, jc.DeepEquals, resource.Resource{
+		Resource:  chRes,
+		ID:        "a-service/" + res.Name,
+		ServiceID: "a-service",
+	})
+}
+
 func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
 	res.Revision = -1

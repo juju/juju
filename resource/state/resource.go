@@ -35,6 +35,9 @@ type resourcePersistence interface {
 	// is staged.
 	StageResource(res resource.Resource, storagePath string) (StagedResource, error)
 
+	// SetResource stores the info for the resource.
+	SetResource(args resource.Resource) error
+
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
 }
@@ -146,12 +149,13 @@ func (st resourceState) setResource(pendingID, serviceID, userID string, chRes c
 	}
 
 	if r == nil {
-		err := st.setResourceInfo(res)
-		return res, errors.Trace(err)
-	}
-
-	if err := st.storeResource(res, r); err != nil {
-		return res, errors.Trace(err)
+		if err := st.persist.SetResource(res); err != nil {
+			return res, errors.Trace(err)
+		}
+	} else {
+		if err := st.storeResource(res, r); err != nil {
+			return res, errors.Trace(err)
+		}
 	}
 
 	return res, nil
@@ -187,21 +191,6 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 		return errors.Trace(err)
 	}
 
-	return nil
-}
-
-func (st resourceState) setResourceInfo(res resource.Resource) error {
-	staged, err := st.persist.StageResource(res, "")
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := staged.Activate(); err != nil {
-		if err := staged.Unstage(); err != nil {
-			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
-		}
-		return errors.Trace(err)
-	}
 	return nil
 }
 
