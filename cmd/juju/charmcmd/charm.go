@@ -33,12 +33,11 @@ func NewSuperCommand() *Command {
 	}
 	spec := newCharmstoreSpec()
 
-	//charmCmd.Register(wrapCommand(newXXXCommand(spec)))
+	//charmCmd.Register(newXXXCommand(spec))
 
 	for _, newSubCommand := range registeredSubCommands {
 		command := newSubCommand(spec)
-		wrapped := wrapCommand(command)
-		charmCmd.Register(wrapped)
+		charmCmd.Register(command)
 	}
 
 	return charmCmd
