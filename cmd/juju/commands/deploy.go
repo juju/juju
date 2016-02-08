@@ -261,19 +261,6 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
-func (c *DeployCommand) checkResources() error {
-	for name, path := range c.Resources {
-		_, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			return errors.Annotatef(err, "file for resource %q", name)
-		}
-		if err != nil {
-			return errors.Annotatef(err, "can't read file for resource %q", name)
-		}
-	}
-	return nil
-}
-
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
 	deployer := serviceDeployer{ctx, c.newServiceAPIClient}
 
@@ -293,10 +280,6 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		// Charm may have been supplied via a path reference.
 		ch, curl, charmErr := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
 		if charmErr == nil {
-			if err := c.checkResources(); err != nil {
-				return err
-			}
-
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
@@ -380,10 +363,6 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 
 	// Handle a charm.
-
-	if err := c.checkResources(); err != nil {
-		return err
-	}
 
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)

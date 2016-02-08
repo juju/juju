@@ -28,6 +28,7 @@ func DeployResources(serviceID string, files map[string]string, resources map[st
 		client:    client,
 		resources: resources,
 		osOpen:    func(s string) (ReadSeekCloser, error) { return os.Open(s) },
+		osStat:    func(s string) error { _, err := os.Stat(s); return err },
 	}
 
 	return d.upload(files)
@@ -45,6 +46,7 @@ type deployUploader struct {
 	resources map[string]charmresource.Meta
 	client    uploadClient
 	osOpen    func(path string) (ReadSeekCloser, error)
+	osStat    func(path string) error
 }
 
 func (d deployUploader) upload(files map[string]string) (map[string]string, error) {
@@ -53,6 +55,10 @@ func (d deployUploader) upload(files map[string]string) (map[string]string, erro
 	}
 
 	if err := d.checkExpectedResources(files); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := d.checkFiles(files); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -78,6 +84,19 @@ func (d deployUploader) upload(files map[string]string) (map[string]string, erro
 	}
 
 	return pending, nil
+}
+
+func (d deployUploader) checkFiles(files map[string]string) error {
+	for name, path := range files {
+		err := d.osStat(path)
+		if os.IsNotExist(err) {
+			return errors.Annotatef(err, "file for resource %q", name)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "can't read file for resource %q", name)
+		}
+	}
+	return nil
 }
 
 func (d deployUploader) validateResources() error {

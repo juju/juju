@@ -6,8 +6,9 @@ package cmd
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +30,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 }
 
 func (s DeploySuite) TestUploadOK(c *gc.C) {
-	deps := uploadDeps{s.stub, ioutil.NopCloser(&bytes.Buffer{})}
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	du := deployUploader{
 		serviceID: "mysql",
 		client:    deps,
@@ -46,6 +47,7 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 			},
 		},
 		osOpen: deps.Open,
+		osStat: deps.Stat,
 	}
 
 	files := map[string]string{
@@ -64,27 +66,30 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 			Origin: charmresource.OriginStore,
 		},
 	}
-	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", expectedStore)
-	s.stub.CheckCall(c, 1, "Open", "foobar.txt")
+	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", expectedStore)
+	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
 	expectedUpload := charmresource.Resource{
 		Meta:   du.resources["upload"],
 		Origin: charmresource.OriginUpload,
 	}
-	s.stub.CheckCall(c, 2, "AddPendingResource", "mysql", expectedUpload, deps.readCloser)
+	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, deps.ReadSeekCloser)
 }
 
 func (s DeploySuite) TestUploadUnexpectedResource(c *gc.C) {
-	deps := uploadDeps{s.stub, ioutil.NopCloser(&bytes.Buffer{})}
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	du := deployUploader{
 		serviceID: "mysql",
 		client:    deps,
 		resources: map[string]charmresource.Meta{
 			"res1": {
 				Name: "res1",
+				Type: charmresource.TypeFile,
+				Path: "path",
 			},
 		},
 		osOpen: deps.Open,
+		osStat: deps.Stat,
 	}
 
 	files := map[string]string{"some bad resource": "foobar.txt"}
@@ -94,9 +99,34 @@ func (s DeploySuite) TestUploadUnexpectedResource(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
+func (s DeploySuite) TestMissingResource(c *gc.C) {
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	du := deployUploader{
+		serviceID: "mysql",
+		client:    deps,
+		resources: map[string]charmresource.Meta{
+			"res1": {
+				Name: "res1",
+				Type: charmresource.TypeFile,
+				Path: "path",
+			},
+		},
+		osOpen: deps.Open,
+		osStat: deps.Stat,
+	}
+
+	// set the error that will be returned by os.Stat
+	s.stub.SetErrors(os.ErrNotExist)
+
+	files := map[string]string{"res1": "foobar.txt"}
+	_, err := du.upload(files)
+	c.Check(err, gc.ErrorMatches, `file for resource "res1".*`)
+	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+}
+
 type uploadDeps struct {
-	stub       *testing.Stub
-	readCloser io.ReadCloser
+	stub           *testing.Stub
+	ReadSeekCloser ReadSeekCloser
 }
 
 func (s uploadDeps) AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error) {
@@ -111,7 +141,7 @@ func (s uploadDeps) AddPendingResources(serviceID string, resources []charmresou
 	return ids, nil
 }
 
-func (s uploadDeps) AddPendingResource(serviceID string, resource charmresource.Resource, r io.Reader) (id string, err error) {
+func (s uploadDeps) AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error) {
 	s.stub.AddCall("AddPendingResource", serviceID, resource, r)
 	if err := s.stub.NextErr(); err != nil {
 		return "", err
@@ -119,10 +149,26 @@ func (s uploadDeps) AddPendingResource(serviceID string, resource charmresource.
 	return "id-" + resource.Name, nil
 }
 
-func (s uploadDeps) Open(name string) (io.ReadCloser, error) {
+func (s uploadDeps) Open(name string) (ReadSeekCloser, error) {
 	s.stub.AddCall("Open", name)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return s.readCloser, nil
+	return s.ReadSeekCloser, nil
+}
+
+func (s uploadDeps) Stat(name string) error {
+	s.stub.AddCall("Stat", name)
+	return s.stub.NextErr()
+}
+
+type rsc struct {
+	*bytes.Buffer
+}
+
+func (rsc) Close() error {
+	return nil
+}
+func (rsc) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
 }

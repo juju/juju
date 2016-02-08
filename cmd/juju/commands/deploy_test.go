@@ -289,27 +289,18 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := fmt.Sprintf("foo=%s;bar=%s", foopath, barpath)
+	res1 := fmt.Sprintf("foo=%s", foopath)
+	res2 := fmt.Sprintf("bar=%s", barpath)
 
 	d := DeployCommand{}
-	err = coretesting.InitCommand(envcmd.Wrap(&d),
-		[]string{"local:dummy", "--resources", res})
+	args := []string{"local:dummy", "--resource", res1, "--resource", res2}
+
+	err = coretesting.InitCommand(envcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
 		"bar": barpath,
 	})
-}
-
-func (s *DeploySuite) TestResourceNotFound(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	res := "foo=" + path.Join(c.MkDir(), "foo")
-
-	d := DeployCommand{}
-	err := coretesting.InitCommand(envcmd.Wrap(&d),
-		[]string{"local:dummy", "--resources", res})
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.ErrorMatches, "file for resource foo.*")
 }
 
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
