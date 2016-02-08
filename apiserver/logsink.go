@@ -6,13 +6,11 @@ package apiserver
 import (
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -22,14 +20,7 @@ import (
 )
 
 func newLogSinkHandler(h httpContext, logDir string) http.Handler {
-
 	logPath := filepath.Join(logDir, "logsink.log")
-	if err := primeLogFile(logPath); err != nil {
-		// This isn't a fatal error so log and continue if priming
-		// fails.
-		logger.Errorf("Unable to prime %s (proceeding anyway): %v", logPath, err)
-	}
-
 	return &logSinkHandler{
 		ctxt: h,
 		fileLogger: &lumberjack.Logger{
@@ -38,18 +29,6 @@ func newLogSinkHandler(h httpContext, logDir string) http.Handler {
 			MaxBackups: 2,
 		},
 	}
-}
-
-// primeLogFile ensures the logsink log file is created with the
-// correct mode and ownership.
-func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	f.Close()
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
 }
 
 type logSinkHandler struct {
