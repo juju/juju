@@ -40,7 +40,7 @@ type Server struct {
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
-	addr              *net.TCPAddr
+	lis               net.Listener
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -177,21 +177,6 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 }
 
 func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
-	logger.Infof("listening on %q", lis.Addr())
-	srv := &Server{
-		state:     s,
-		statePool: state.NewStatePool(s),
-		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
-		tag:       cfg.Tag,
-		dataDir:   cfg.DataDir,
-		logDir:    cfg.LogDir,
-		limiter:   utils.NewLimiter(loginRateLimit),
-		validator: cfg.Validator,
-		adminApiFactories: map[int]adminApiFactory{
-			2: newAdminApiV2,
-		},
-	}
-	srv.authCtxt = newAuthContext(srv)
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
 		return nil, err
@@ -202,8 +187,21 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		Certificates: []tls.Certificate{tlsCert},
 		MinVersion:   tls.VersionTLS10,
 	}
-	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
-	go srv.run(changeCertListener)
+	srv := &Server{
+		state:     s,
+		statePool: state.NewStatePool(s),
+		lis:       newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
+		tag:       cfg.Tag,
+		dataDir:   cfg.DataDir,
+		logDir:    cfg.LogDir,
+		limiter:   utils.NewLimiter(loginRateLimit),
+		validator: cfg.Validator,
+		adminApiFactories: map[int]adminApiFactory{
+			2: newAdminApiV2,
+		},
+	}
+	srv.authCtxt = newAuthContext(srv)
+	go srv.run()
 	return srv, nil
 }
 
@@ -311,7 +309,8 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 	mux.Options(pattern, handler)
 }
 
-func (srv *Server) run(lis net.Listener) {
+func (srv *Server) run() {
+	logger.Infof("listening on %q", srv.lis.Addr())
 	defer func() {
 		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
@@ -404,11 +403,11 @@ func (srv *Server) run(lis net.Listener) {
 
 	go func() {
 		// The error from http.Serve is not interesting.
-		http.Serve(lis, mux)
+		http.Serve(srv.lis, mux)
 	}()
 
 	<-srv.tomb.Dying()
-	lis.Close()
+	srv.lis.Close()
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
@@ -434,11 +433,6 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 	wsServer.ServeHTTP(w, req)
-}
-
-// Addr returns the address that the server is listening on.
-func (srv *Server) Addr() *net.TCPAddr {
-	return srv.addr
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, modelUUID string) error {
