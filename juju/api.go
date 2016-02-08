@@ -393,9 +393,9 @@ func updateControllerInfo(controllerStore jujuclient.ControllerStore, existing, 
 
 	var controllerDetails jujuclient.ControllerDetails
 	var controllerName string
-	for name, one := range all {
-		if one.ControllerUUID == existing.ServerUUID {
-			controllerDetails = one
+	for name, details := range all {
+		if details.ControllerUUID == existing.ServerUUID {
+			controllerDetails = details
 			controllerName = name
 			break
 		}
