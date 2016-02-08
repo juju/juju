@@ -102,7 +102,11 @@ func (s *RegisterSuite) encodeRegistrationData(c *gc.C, user string, secretKey [
 		SecretKey: secretKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return base64.RawURLEncoding.EncodeToString(data)
+	// Append some junk to the end of the encoded data to
+	// ensure that, if we have to pad the data in add-user,
+	// register can still decode it.
+	data = append(data, 0, 0, 0)
+	return base64.URLEncoding.EncodeToString(data)
 }
 
 func (s *RegisterSuite) seal(c *gc.C, message, key, nonce []byte) []byte {
@@ -181,9 +185,8 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 		Password: "hunter2",
 	})
 	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{
-		Addresses:  []string{s.apiConnection.addr},
-		CACert:     testing.CACert,
-		ServerUUID: testing.ModelTag.Id(),
+		Addresses: []string{s.apiConnection.addr},
+		CACert:    testing.CACert,
 	})
 
 	// The command should have logged into the controller with the
