@@ -181,7 +181,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
 	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
-	resetJujuHome(c, "devenv")
+	resetJujuXDGDataHome(c, "devenv")
 
 	s.mockBlockClient.discoveringSpacesError = 2
 	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv", "--auto-upgrade")
