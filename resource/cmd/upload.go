@@ -58,7 +58,7 @@ func NewUploadCommand(deps UploadDeps) *UploadCommand {
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "push-resource",
-		Args:    "service name=file [name2=file2 ...]",
+		Args:    "service name=file",
 		Purpose: "upload a file as a resource for a service",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be

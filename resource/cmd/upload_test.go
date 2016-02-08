@@ -107,7 +107,7 @@ func (s *UploadSuite) TestInfo(c *gc.C) {
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "push-resource",
-		Args:    "service name=file [name2=file2 ...]",
+		Args:    "service name=file",
 		Purpose: "upload a file as a resource for a service",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be
