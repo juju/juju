@@ -316,7 +316,7 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
-        env['JUJU_HOME'] = self.env.juju_home
+        env['JUJU_DATA'] = self.env.juju_home
         return env
 
     def add_ssh_machines(self, machines):
@@ -887,6 +887,18 @@ class EnvJujuClient2A1(EnvJujuClient):
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
+    def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        env['JUJU_HOME'] = self.env.juju_home
+        return env
+
     def remove_service(self, service):
         self.juju('destroy-service', (service,))
 
@@ -1264,6 +1276,7 @@ def _temp_env(new_config, parent=None, set_home=True):
         with context:
             if set_home:
                 os.environ['JUJU_HOME'] = temp_juju_home
+                os.environ['JUJU_DATA'] = temp_juju_home
             yield temp_juju_home
 
 

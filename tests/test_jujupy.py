@@ -1027,6 +1027,14 @@ class TestEnvJujuClient(ClientTest):
             (sys.executable, get_timeout_path(), '5.00', '--', 'juju',
              '--show-log', 'bar', '-m', 'foo'))
 
+    def test__shell_environ_juju_data(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
+            'asdf')
+        env = client._shell_environ()
+        self.assertEqual(env['JUJU_DATA'], 'asdf')
+        self.assertNotIn('JUJU_HOME', env)
+
     def test__shell_environ_cloudsigma(self):
         client = EnvJujuClient(
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
@@ -2539,6 +2547,13 @@ class TestEnvJujuClient1X(ClientTest):
             (sys.executable, get_timeout_path(), '5.00', '--', 'juju',
              '--show-log', 'bar', '-e', 'foo'))
 
+    def test__shell_environ_juju_home(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
+            'asdf')
+        env = client._shell_environ()
+        self.assertEqual(env['JUJU_HOME'], 'asdf')
+
     def test__shell_environ_cloudsigma(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
@@ -3810,6 +3825,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             agent_version = client.get_matching_agent_version()
             with temp_bootstrap_env(fake_home, client):
                 temp_home = os.environ['JUJU_HOME']
+                self.assertEqual(temp_home, os.environ['JUJU_DATA'])
                 self.assertNotEqual(temp_home, fake_home)
                 symlink_path = get_jenv_path(fake_home, 'qux')
                 symlink_target = os.path.realpath(symlink_path)
@@ -3846,9 +3862,11 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = self.get_client(env)
         os.environ['JUJU_HOME'] = 'foo'
+        os.environ['JUJU_DATA'] = 'bar'
         with patch('jujupy.check_free_disk_space', autospec=True):
             with temp_bootstrap_env(self.home_dir, client, set_home=False):
                 self.assertEqual(os.environ['JUJU_HOME'], 'foo')
+                self.assertEqual(os.environ['JUJU_DATA'], 'bar')
 
     def test_output(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
