@@ -17,29 +17,22 @@ func RegisterSubCommand(newCommand func(CharmstoreSpec) cmd.Command) {
 	registeredSubCommands = append(registeredSubCommands, newCommand)
 }
 
-// CommandBase is the type that should be embedded in "juju charm"
-// sub-commands.
-type CommandBase interface {
-	cmd.Command
-
-	// Connect connects to the charm store and returns a client.
-	Connect() (CharmstoreClient, error)
-}
-
 // NewCommandBase returns a new CommandBase.
-func NewCommandBase(spec CharmstoreSpec) CommandBase {
-	return &commandBase{
+func NewCommandBase(spec CharmstoreSpec) *CommandBase {
+	return &CommandBase{
 		spec: newCharmstoreSpec(),
 	}
 }
 
-type commandBase struct {
-	cmd.Command
+// CommandBase is the type that should be embedded in "juju charm"
+// sub-commands.
+type CommandBase struct {
+	cmd.CommandBase
 	spec CharmstoreSpec
 }
 
 // Connect implements CommandBase.
-func (c *commandBase) Connect() (CharmstoreClient, error) {
+func (c *CommandBase) Connect() (CharmstoreClient, error) {
 	if c.spec == nil {
 		return nil, errors.Errorf("missing charm store spec")
 	}
