@@ -54,17 +54,19 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		FormatCharmResource(charmRes(c, "song", ".mp3", "your favorite", "")),
 		FormatCharmResource(charmRes(c, "avatar", ".png", "your picture", "")),
 	}
+	formatted[1].Origin = "store"
+	formatted[1].charmRevision = "2"
 
 	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE     FROM   REV COMMENT
-spam         upload -   spamspamspamspam
-eggs         upload -   ...
-somethingbig upload -   
-song         upload -   your favorite
-avatar       upload -   your picture
+RESOURCE     FROM       REV COMMENT
+spam         upload     -   spamspamspamspam
+eggs         charmstore 2   ...
+somethingbig upload     -   
+song         upload     -   your favorite
+avatar       upload     -   your picture
 `[1:])
 }
 

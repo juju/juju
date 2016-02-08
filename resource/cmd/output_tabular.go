@@ -13,7 +13,6 @@ import (
 
 // FormatCharmTabular returns a tabular summary of charm resources.
 func FormatCharmTabular(value interface{}) ([]byte, error) {
-
 	resources, valueConverted := value.([]FormattedCharmResource)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", resources, value)
@@ -31,6 +30,10 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 
 	// Print each info to its own row.
 	for _, res := range resources {
+		if res.Origin == "store" {
+			res.Origin = "charmstore"
+		}
+
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			res.Name,
