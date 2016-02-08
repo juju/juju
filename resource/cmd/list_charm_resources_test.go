@@ -45,7 +45,7 @@ func (s *ListCharmSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "resources",
+		Name:    "list-resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc: `
@@ -62,6 +62,7 @@ For cs:trusty/mysql
 For cs:~user/trusty/mysql
   cs:~user/mysql
 `,
+		Aliases: []string{"resources"},
 	})
 }
 
@@ -72,7 +73,7 @@ func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	)
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := NewListCharmResourcesCommand(s.newAPIClient)
+	command := NewListCharmResourcesCommand(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -83,8 +84,11 @@ music    upload -   mp3 of your backing vocals
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
-	s.stub.CheckCallNames(c, "newAPIClient", "ListResources", "Close")
-	s.stub.CheckCall(c, 0, "newAPIClient", command)
+	s.stub.CheckCallNames(c,
+		"Connect",
+		"ListResources",
+		"Close",
+	)
 	s.stub.CheckCall(c, 1, "ListResources", []charm.URL{{
 		Schema:   "cs",
 		User:     "",
@@ -98,7 +102,7 @@ music    upload -   mp3 of your backing vocals
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := NewListCharmResourcesCommand(s.newAPIClient)
+	command := NewListCharmResourcesCommand(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -107,7 +111,7 @@ RESOURCE FROM REV COMMENT
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
-	s.stub.CheckCallNames(c, "newAPIClient", "ListResources", "Close")
+	s.stub.CheckCallNames(c, "Connect", "ListResources", "Close")
 }
 
 func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
@@ -163,7 +167,7 @@ music    upload -   mp3 of your backing vocals
 			"  ", "", -1),
 	}
 	for format, expected := range formats {
-		command := NewListCharmResourcesCommand(s.newAPIClient)
+		command := NewListCharmResourcesCommand(s.client)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",

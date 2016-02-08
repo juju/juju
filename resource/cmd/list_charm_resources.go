@@ -9,9 +9,14 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
+
+// CharmCommandBase exposes the functionality of charmcmd.CommandBase
+// needed here.
+type CharmCommandBase interface {
+	// Connect connects to the charm store and returns a client.
+	Connect() (CharmResourceLister, error)
+}
 
 // CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
 type CharmResourceLister interface {
@@ -22,20 +27,19 @@ type CharmResourceLister interface {
 	Close() error
 }
 
-// ListCharmResourcesCommand implements the show-resources command.
+// ListCharmResourcesCommand implements the "juju charm list-resources" command.
 type ListCharmResourcesCommand struct {
-	envcmd.EnvCommandBase
+	cmd.CommandBase
+	CharmCommandBase
 	out   cmd.Output
 	charm string
-
-	newResourceLister func(c *ListCharmResourcesCommand) (CharmResourceLister, error)
 }
 
 // NewListCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
-func NewListCharmResourcesCommand(newResourceLister func(c *ListCharmResourcesCommand) (CharmResourceLister, error)) *ListCharmResourcesCommand {
+func NewListCharmResourcesCommand(base CharmCommandBase) *ListCharmResourcesCommand {
 	cmd := &ListCharmResourcesCommand{
-		newResourceLister: newResourceLister,
+		CharmCommandBase: base,
 	}
 	return cmd
 }
@@ -58,10 +62,11 @@ For cs:~user/trusty/mysql
 // Info implements cmd.Command.
 func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "resources",
+		Name:    "list-resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc:     listCharmResourcesDoc,
+		Aliases: []string{"resources"},
 	}
 }
 
@@ -93,7 +98,7 @@ func (c *ListCharmResourcesCommand) Init(args []string) error {
 func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
-	apiclient, err := c.newResourceLister(c)
+	apiclient, err := c.Connect()
 	if err != nil {
 		// TODO(ericsnow) Return a more user-friendly error?
 		return errors.Trace(err)

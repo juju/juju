@@ -8,17 +8,17 @@ import (
 	"os"
 	"reflect"
 
+	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	jujucmd "github.com/juju/cmd"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
@@ -138,6 +138,19 @@ func (p resourcePersistence) StageResource(res resource.Resource, storagePath st
 	return p.Persistence.StageResource(res, storagePath)
 }
 
+type resourcesCharmCmdBase struct {
+	*charmcmd.CommandBase
+}
+
+// Connect implements cmd.CommandBase
+func (c *resourcesCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
+	client, err := c.CommandBase.Connect()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &charmstoreClient{client}, nil
+}
+
 // registerPublicCommands adds the resources-related commands
 // to the "juju" supercommand.
 func (r resources) registerPublicCommands() {
@@ -145,12 +158,10 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	newShowAPIClient := func(command *cmd.ListCharmResourcesCommand) (cmd.CharmResourceLister, error) {
-		client := newCharmstoreClient()
-		return &charmstoreClient{Interface: client}, nil
-	}
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		return cmd.NewListCharmResourcesCommand(newShowAPIClient)
+	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
+		base := charmcmd.NewCommandBase(spec)
+		resBase := &resourcesCharmCmdBase{base}
+		return cmd.NewListCharmResourcesCommand(resBase)
 	})
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
@@ -174,17 +185,10 @@ func (r resources) registerPublicCommands() {
 	})
 }
 
-func newCharmstoreClient() charmrepo.Interface {
-	// Also see apiserver/service/charmstore.go.
-	var args charmrepo.NewCharmStoreParams
-	client := charmrepo.NewCharmStore(args)
-	return client
-}
-
 // TODO(ericsnow) Get rid of charmstoreClient one charmrepo.Interface grows the methods.
 
 type charmstoreClient struct {
-	charmrepo.Interface
+	charmcmd.CharmstoreClient
 }
 
 func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
@@ -224,10 +228,6 @@ func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.
 		},
 	}
 	return res, nil
-}
-
-func (charmstoreClient) Close() error {
-	return nil
 }
 
 type apicommand interface {
