@@ -14,10 +14,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-// Resource defines a single resource within Juju state.
+// Resource defines a single resource within a Juju model.
+//
+// Each service will have have exactly the same resources associated
+// with it as are defined in the charm's metadata, no more, no less.
+// When associated with the service the resource may have additional
+// information associated with it.
 //
 // A resource may be a "placeholder", meaning it is only partially
-// populated pending an upload (whether local or from the charm store).
+// populated before an upload (whether local or from the charm store).
 // In that case the following fields are not set:
 //
 //   Timestamp
@@ -28,8 +33,32 @@ import (
 //
 //   Fingerprint
 //   Size
+//
+// A resource may also be added to the model as "pending", meaning it
+// is queued up to be used as a resource for the service. Until it is
+// "activated", a pending resources is virtually invisible. There may
+// be more that one pending resource for a given resource ID.
 type Resource struct {
 	resource.Resource
+
+	// ID uniquely identifies a resource-service pair within the model.
+	// Note that the model ignores pending resources (those with a
+	// pending ID) except for in a few clearly pending-related places.
+	// ID may be empty if the ID (assigned by the model) is not known.
+	ID string
+
+	// PendingID identifies that this resource is pending and
+	// distinguishes it from other pending resources with the same model
+	// ID (and from the active resource). The active resource for the
+	// services will not have PendingID set.
+	PendingID string
+
+	// TODO(ericsnow) Use names.ServiceTag for ServiceID?
+
+	// ServiceID identifies the service for the resource.
+	ServiceID string
+
+	// TODO(ericsnow) Use names.UserTag for Username?
 
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
@@ -48,6 +77,10 @@ func (res Resource) Validate() error {
 
 	if err := res.Resource.Validate(); err != nil {
 		return errors.Annotate(err, "bad info")
+	}
+
+	if res.ServiceID == "" {
+		return errors.NewNotValid(nil, "missing service ID")
 	}
 
 	// TODO(ericsnow) Require that Username be set if timestamp is?

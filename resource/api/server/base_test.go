@@ -5,17 +5,16 @@ package server_test
 
 import (
 	"io"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 type BaseSuite struct {
@@ -33,44 +32,27 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
-	var size int64
-	var now time.Time
-	if data != "" {
-		size = int64(len(data))
-		now = time.Now().UTC()
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	res := opened.Resource
+	res.Username = username
+	if username == "" {
+		res.Timestamp = time.Time{}
 	}
-	res := resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: name,
-				Type: charmresource.TypeFile,
-				Path: name + ".tgz",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    0,
-			Fingerprint: fp,
-			Size:        size,
-		},
-		Username:  username,
-		Timestamp: now,
-	}
-	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
 
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        name,
 			Type:        "file",
-			Path:        name + ".tgz",
+			Path:        res.Path,
 			Origin:      "upload",
 			Revision:    0,
-			Fingerprint: fp.Bytes(),
-			Size:        size,
+			Fingerprint: res.Fingerprint.Bytes(),
+			Size:        res.Size,
 		},
+		ID:        res.ID,
+		ServiceID: res.ServiceID,
 		Username:  username,
-		Timestamp: now,
+		Timestamp: res.Timestamp,
 	}
 
 	return res, apiRes
@@ -129,13 +111,4 @@ func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.
 	}
 
 	return s.ReturnSetResource, nil
-}
-
-func (s *stubDataStore) SetUnitResource(id, unitID, serviceID string, res resource.Resource) error {
-	s.stub.AddCall("SetUnitResource", id, unitID, serviceID, res)
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }

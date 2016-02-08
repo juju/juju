@@ -38,6 +38,8 @@ func newFullCharmResource(c *gc.C, name string) charmresource.Resource {
 func newFullResource(c *gc.C, name string) resource.Resource {
 	return resource.Resource{
 		Resource:  newFullCharmResource(c, name),
+		ID:        "a-service/" + name,
+		ServiceID: "a-service",
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}

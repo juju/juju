@@ -18,6 +18,10 @@ var logger = loggo.GetLogger("juju.resource.persistence")
 // PersistenceBase exposes the core persistence functionality needed
 // for resources.
 type PersistenceBase interface {
+	// One populates doc with the document corresponding to the given
+	// ID. Missing documents result in errors.NotFound.
+	One(collName, id string, doc interface{}) error
+
 	// All populates docs with the list of the documents corresponding
 	// to the provided query.
 	All(collName string, query, docs interface{}) error
@@ -80,48 +84,22 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 	return results, nil
 }
 
-// ListModelResources returns the extended, model-related info for each
-// non-pending resource of the identified service.
-func (p Persistence) ListModelResources(serviceID string) ([]resource.ModelResource, error) {
-	docs, err := p.resources(serviceID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var resources []resource.ModelResource
-	for _, doc := range docs {
-		if doc.UnitID != "" {
-			continue
-		}
-		if doc.PendingID != "" {
-			continue
-		}
-
-		res, err := doc2resource(doc)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resources = append(resources, res)
-	}
-	return resources, nil
-}
-
 // ListPendingResources returns the extended, model-related info for
 // each pending resource of the identifies service.
-func (p Persistence) ListPendingResources(serviceID string) ([]resource.ModelResource, error) {
+func (p Persistence) ListPendingResources(serviceID string) ([]resource.Resource, error) {
 	docs, err := p.resources(serviceID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var resources []resource.ModelResource
+	var resources []resource.Resource
 	for _, doc := range docs {
 		if doc.PendingID == "" {
 			continue
 		}
 		// doc.UnitID will always be empty here.
 
-		res, err := doc2resource(doc)
+		res, err := doc2basicResource(doc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -130,61 +108,64 @@ func (p Persistence) ListPendingResources(serviceID string) ([]resource.ModelRes
 	return resources, nil
 }
 
+// GetResource returns the extended, model-related info for the non-pending
+// resource.
+func (p Persistence) GetResource(id string) (res resource.Resource, storagePath string, _ error) {
+	doc, err := p.getOne(id)
+	if err != nil {
+		return res, "", errors.Trace(err)
+	}
+
+	stored, err := doc2resource(doc)
+	if err != nil {
+		return res, "", errors.Trace(err)
+	}
+
+	return stored.Resource, stored.storagePath, nil
+}
+
 // StageResource adds the resource in a separate staging area
 // if the resource isn't already staged. If it is then
-// errors.AlreadyExists is returned.
-func (p Persistence) StageResource(args resource.ModelResource) error {
-	// TODO(ericsnow) Ensure that the service is still there?
-
-	if err := args.Resource.Validate(); err != nil {
-		return errors.Annotate(err, "bad resource")
+// errors.AlreadyExists is returned. A wrapper around the staged
+// resource is returned which supports both finalizing and removing
+// the staged resource.
+func (p Persistence) StageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
+	if storagePath == "" {
+		return nil, errors.Errorf("missing storage path")
 	}
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
-		switch attempt {
-		case 0:
-			ops = newStagedResourceOps(args)
-		case 1:
-			ops = newEnsureStagedSameOps(args)
-		default:
-			return nil, errors.NewAlreadyExists(nil, "already staged")
-		}
+	if err := res.Validate(); err != nil {
+		return nil, errors.Annotate(err, "bad resource")
+	}
 
-		return ops, nil
+	stored := storedResource{
+		Resource:    res,
+		storagePath: storagePath,
 	}
-	if err := p.base.Run(buildTxn); err != nil {
-		return errors.Trace(err)
+	staged := &StagedResource{
+		base:   p.base,
+		id:     res.ID,
+		stored: stored,
 	}
-	return nil
+	if err := staged.stage(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return staged, nil
 }
 
-// UnstageResource ensures that the resource is removed
-// from the staging area. If it isn't in the staging area
-// then this is a noop.
-func (p Persistence) UnstageResource(id string) error {
-	// TODO(ericsnow) Ensure that the service is still there?
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// The op has no assert so we should not get here.
-			return nil, errors.New("unstaging the resource failed")
-		}
-
-		ops := newRemoveStagedOps(id)
-		return ops, nil
-	}
-	if err := p.base.Run(buildTxn); err != nil {
+// SetResource sets the info for the resource.
+func (p Persistence) SetResource(res resource.Resource) error {
+	stored, err := p.getStored(res)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	return nil
-}
+	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
+	// so then the following line is unnecessary.
+	stored.Resource = res
 
-// SetUnitResource stores the resource info for a particular unit. This is an
-// "upsert".
-func (p Persistence) SetUnitResource(unitID string, args resource.ModelResource) error {
 	// TODO(ericsnow) Ensure that the service is still there?
-	if err := args.Resource.Validate(); err != nil {
+
+	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
 
@@ -193,9 +174,9 @@ func (p Persistence) SetUnitResource(unitID string, args resource.ModelResource)
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(unitID, args)
+			ops = newInsertResourceOps(stored)
 		case 1:
-			ops = newUpdateUnitResourceOps(unitID, args)
+			ops = newUpdateResourceOps(stored)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
@@ -208,13 +189,20 @@ func (p Persistence) SetUnitResource(unitID string, args resource.ModelResource)
 	return nil
 }
 
-// SetResource stores the resource info. This is an "upsert". If the
-// resource is already staged then it is unstaged. The caller is
-// responsible for getting the staging right.
-func (p Persistence) SetResource(args resource.ModelResource) error {
+// SetUnitResource stores the resource info for a particular unit. The
+// resource must already be set for the service.
+func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error {
+	stored, err := p.getStored(res)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
+	// so then the following line is unnecessary.
+	stored.Resource = res
+
 	// TODO(ericsnow) Ensure that the service is still there?
 
-	if err := args.Resource.Validate(); err != nil {
+	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
 
@@ -223,19 +211,31 @@ func (p Persistence) SetResource(args resource.ModelResource) error {
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertResourceOps(args)
+			ops = newInsertUnitResourceOps(unitID, stored)
 		case 1:
-			ops = newUpdateResourceOps(args)
+			ops = newUpdateUnitResourceOps(unitID, stored)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
-		// No matter what, we always remove any staging.
-		ops = append(ops, newRemoveStagedOps(args.ID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
+	doc, err := p.getOne(res.ID)
+	if err != nil {
+		return storedResource{}, errors.Trace(err)
+	}
+
+	stored, err := doc2resource(doc)
+	if err != nil {
+		return stored, errors.Trace(err)
+	}
+
+	return stored, nil
 }

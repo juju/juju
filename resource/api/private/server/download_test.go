@@ -36,7 +36,7 @@ func (s *DownloadSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DownloadSuite) TestHandleDownload(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
 	s.deps.ReturnExtractDownloadRequest = "spam"
 	s.store.ReturnOpenResource = opened
 	req, err := http.NewRequest("GET", "...", nil)

@@ -121,12 +121,22 @@ type resourceState struct {
 
 // Persistence implements resource/state.RawState.
 func (st resourceState) Persistence() state.Persistence {
-	return persistence.NewPersistence(st.persist)
+	persist := persistence.NewPersistence(st.persist)
+	return resourcePersistence{persist}
 }
 
 // Storage implements resource/state.RawState.
 func (st resourceState) Storage() state.Storage {
 	return st.persist.NewStorage()
+}
+
+type resourcePersistence struct {
+	*persistence.Persistence
+}
+
+// StageResource implements state.resourcePersistence.
+func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
+	return p.Persistence.StageResource(res, storagePath)
 }
 
 // registerPublicCommands adds the resources-related commands

@@ -121,6 +121,19 @@ type UploadResult struct {
 type Resource struct {
 	CharmResource
 
+	// ID uniquely identifies a resource-service pair within the model.
+	// Note that the model ignores pending resources (those with a
+	// pending ID) except for in a few clearly pending-related places.
+	ID string
+
+	// PendingID identifies that this resource is pending and
+	// distinguishes it from other pending resources with the same model
+	// ID (and from the active resource).
+	PendingID string
+
+	// ServiceID identifies the service for the resource.
+	ServiceID string
+
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).
 	Username string `json:"username"`

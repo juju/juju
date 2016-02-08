@@ -5,43 +5,22 @@ package internal_test
 
 import (
 	"io"
-	"strings"
 	"time"
 
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 func newResource(c *gc.C, stub *testing.Stub, name, content string) (resource.Resource, io.ReadCloser) {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
-	var size int64
-	var now time.Time
+	opened := resourcetesting.NewResource(c, stub, name, "a-service", content)
+	res := opened.Resource
 	if content != "" {
-		size = int64(len(content))
-		now = time.Now().UTC()
+		return res, opened.ReadCloser
 	}
-	res := resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: name,
-				Type: charmresource.TypeFile,
-				Path: name + ".tgz",
-			},
-			Origin:      charmresource.OriginUpload,
-			Revision:    0,
-			Fingerprint: fp,
-			Size:        size,
-		},
-		Username:  "a.user",
-		Timestamp: now,
-	}
-	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-
-	return res, newStubReadCloser(stub, content)
+	res.Username = ""
+	res.Timestamp = time.Time{}
+	return res, nil
 }
