@@ -155,6 +155,9 @@ type Service interface {
 	Status() Status
 	SetStatus(StatusArgs)
 
+	Units() []Unit
+	AddUnit(UnitArgs) Unit
+
 	Validate() error
 }
 

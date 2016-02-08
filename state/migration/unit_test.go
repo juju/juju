@@ -48,11 +48,11 @@ func minimalUnitMap() map[interface{}]interface{} {
 }
 
 func minimalUnit() *unit {
-	s := newUnit(minimalUnitArgs())
-	s.SetAgentStatus(minimalStatusArgs())
-	s.SetWorkloadStatus(minimalStatusArgs())
-	s.SetTools(minimalAgentToolsArgs())
-	return s
+	u := newUnit(minimalUnitArgs())
+	u.SetAgentStatus(minimalStatusArgs())
+	u.SetWorkloadStatus(minimalStatusArgs())
+	u.SetTools(minimalAgentToolsArgs())
+	return u
 }
 
 func minimalUnitArgs() UnitArgs {
