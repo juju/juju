@@ -2228,9 +2228,7 @@ func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *sta
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	bindings, err := service.EndpointBindings()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(bindings, gc.IsNil)
+	state.AssertEndpointBindingsNotFoundForService(c, service)
 }
 
 func (s *ServiceSuite) TestEndpointBindingsReturnsDefaultsWhenNotFound(c *gc.C) {

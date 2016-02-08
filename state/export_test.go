@@ -475,6 +475,15 @@ func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
 	globalKey := service.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	err := service.st.runTransaction([]txn.Op{removeOp})
+	txnError := service.st.runTransaction([]txn.Op{removeOp})
+	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
+	globalKey := service.globalKey()
+	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
+	c.Assert(storedBindings, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

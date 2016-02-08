@@ -1927,8 +1927,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = svc.EndpointBindings()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state.AssertEndpointBindingsNotFoundForService(c, svc)
 }
 
 func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
