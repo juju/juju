@@ -76,6 +76,8 @@ var testResourceTagsMap = map[string]string{
 	"a": "b", "c": "", "d": "e",
 }
 
+var quotedPathSeparator = regexp.QuoteMeta(string(os.PathSeparator))
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -331,7 +333,7 @@ var configTests = []configTest{
 			"name":         "my-name",
 			"ca-cert-path": "no-such-file",
 		},
-		err: fmt.Sprintf(`open .*\.local\/share\/juju%sno-such-file: .*`, regexp.QuoteMeta(string(os.PathSeparator))),
+		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
 	}, {
 		about:       "CA key specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -340,7 +342,7 @@ var configTests = []configTest{
 			"name":                "my-name",
 			"ca-private-key-path": "no-such-file",
 		},
-		err: fmt.Sprintf(`open .*\.local\/share\/juju%sno-such-file: .*`, regexp.QuoteMeta(string(os.PathSeparator))),
+		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
 	}, {
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
