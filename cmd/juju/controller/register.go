@@ -194,7 +194,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 
 	// Decode key, username, controller addresses from the string supplied
 	// on the command line.
-	decodedData, err := base64.RawURLEncoding.DecodeString(c.EncodedData)
+	decodedData, err := base64.URLEncoding.DecodeString(c.EncodedData)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

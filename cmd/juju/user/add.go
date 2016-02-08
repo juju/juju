@@ -116,12 +116,25 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Use URLEncoding so we don't get + or / in the string,
+	// and pad with zero bytes so we don't get =; this all
+	// makes it easier to copy & paste in a terminal.
+	//
+	// The embedded ASN.1 data is length-encoded, so the
+	// padding will not complicate decoding.
+	remainder := len(registrationData) % 3
+	for remainder > 0 {
+		registrationData = append(registrationData, 0)
+		remainder--
+	}
+	base64RegistrationData := base64.URLEncoding.EncodeToString(
+		registrationData,
+	)
+
 	fmt.Fprintf(ctx.Stdout, "User %q added\n", displayName)
 	fmt.Fprintf(ctx.Stdout, "Please send this command to %v:\n", c.User)
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",
-		// Use RawURLEncoding so we don't get + or = in the string,
-		// making it easier to copy & paste in a terminal.
-		base64.RawURLEncoding.EncodeToString(registrationData),
+		base64RegistrationData,
 	)
 
 	return nil
