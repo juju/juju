@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -46,9 +47,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: placementMachine.Tag().String()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
 	}}
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,9 +98,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					},
 				}},
 			}},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
 		},
 	}
 	// The order of volumes is not predictable, so we make sure we
@@ -144,11 +139,50 @@ func (s *withoutControllerSuite) registerStaticStorageProvider(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestProvisioningInfoWithValidSpacesConstraints(c *gc.C) {
-	// Add a couple of spaces.
-	_, err := s.State.AddSpace("space1", "", nil, true)
+func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraints(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+
+	cons := constraints.MustParse("cpu-cores=123 mem=8G spaces=^space1,space2")
+	template := state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+		Placement:   "valid",
+	}
+	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", "", nil, false)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				Series:      "quantal",
+				Constraints: template.Constraints,
+				Placement:   template.Placement,
+				Networks:    template.RequestedNetworks,
+				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Tags: map[string]string{
+					tags.JujuModel: coretesting.ModelTag.Id(),
+				},
+				SubnetsToZones: map[string][]string{
+					"subnet-1": []string{"zone1"},
+					"subnet-2": []string{"zone2"},
+				},
+			},
+		}}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
+	// Add a couple of spaces.
+	_, err := s.State.AddSpace("space1", "first space id", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space2", "second space id", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Only the first subnet of space2 has AllocatableIPLow|High set.
@@ -162,56 +196,56 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithValidSpacesConstraints(
 		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
 		VLANTag:           42,
 	})
+}
 
-	cons := constraints.MustParse("cpu-cores=123 mem=8G spaces=^space1,space2")
-	template := state.MachineTemplate{
-		Series:      "quantal",
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: cons,
-		Placement:   "valid",
+func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+
+	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Use juju names for spaces in bindings, simulating ''juju deploy
+	// --bind...' was called.
+	bindings := map[string]string{
+		"url": "space2",
+		"db":  "space1",
 	}
-	placementMachine, err := s.State.AddOneMachine(template)
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	wordpressService := s.AddTestingServiceWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressUnit, err := wordpressService.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpressUnit.AssignToMachine(wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: placementMachine.Tag().String()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: wordpressMachine.Tag().String()},
 	}}
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{
-			{Result: &params.ProvisioningInfo{
-				Series:   "quantal",
-				Networks: []string{},
-				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Results: []params.ProvisioningInfoResult{{
+			Result: &params.ProvisioningInfo{
+				Series: "quantal",
+				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+					tags.JujuModel:         coretesting.ModelTag.Id(),
+					tags.JujuUnitsDeployed: wordpressUnit.Name(),
 				},
-			}},
-			{Result: &params.ProvisioningInfo{
-				Series:      "quantal",
-				Constraints: template.Constraints,
-				Placement:   template.Placement,
-				Networks:    template.RequestedNetworks,
-				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+				// Ensure space names are translated to provider IDs, where
+				// possible.
+				EndpointBindings: map[string]string{
+					"db":              "first space id",
+					"url":             "second space id",
+					"cache":           network.DefaultSpace,
+					"monitoring-port": network.DefaultSpace,
+					"logging-dir":     network.DefaultSpace,
 				},
-				SubnetsToZones: map[string][]string{
-					"subnet-1": []string{"zone1"},
-					"subnet-2": []string{"zone2"},
-				},
-			}},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	}
+			},
+		}}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -267,8 +268,14 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
 	units, err := m.Units()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
+	spacesNamesToProviderIds, err := p.allSpaceNamesToProviderIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var combinedBindings map[string]string
 	processedServicesSet := set.NewStrings()
 	for _, unit := range units {
@@ -296,11 +303,45 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 			combinedBindings = make(map[string]string)
 		}
 
-		for endpoint, space := range bindings {
-			combinedBindings[endpoint] = space
+		for endpoint, spaceName := range bindings {
+			spaceProviderId, found := spacesNamesToProviderIds[spaceName]
+			if found {
+				combinedBindings[endpoint] = spaceProviderId
+			} else {
+				// Technically, this can't happen in practice, as we're
+				// validating the bindings during service deployment.
+				return nil, errors.Errorf("unknown space %q with no provider ID specified for endpoint %q", spaceName, endpoint)
+			}
 		}
 	}
 	return combinedBindings, nil
+}
+
+func (p *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error) {
+	allSpaces, err := p.st.AllSpaces()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting all spaces")
+	}
+
+	namesToProviderIds := make(map[string]string, len(allSpaces))
+	for _, space := range allSpaces {
+		name := space.Name()
+
+		// For providers without native support for spaces, use the name instead
+		// as provider ID.
+		providerId := string(space.ProviderId())
+		if len(providerId) == 0 {
+			providerId = name
+		}
+
+		namesToProviderIds[name] = providerId
+	}
+
+	// TODO(dimitern): Drop this once network.DefaultSpace is no longer assumed
+	// to exist.
+	namesToProviderIds[network.DefaultSpace] = network.DefaultSpace
+
+	return namesToProviderIds, nil
 }
 
 // availableImageMetadata returns all image metadata available to this machine
