@@ -15,7 +15,7 @@ import (
 type ControllersSuite struct {
 	baseControllersSuite
 
-	cache jujuclient.ControllersCache
+	store jujuclient.ControllerStore
 }
 
 var _ = gc.Suite(&ControllersSuite{})
@@ -23,7 +23,9 @@ var _ = gc.Suite(&ControllersSuite{})
 func (s *ControllersSuite) SetUpTest(c *gc.C) {
 	s.baseControllersSuite.SetUpTest(c)
 
-	s.cache = jujuclient.NewControllersCache()
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	c.Assert(err, jc.ErrorIsNil)
+	s.store = controllerStore
 }
 
 func (s *ControllersSuite) TestControllerMetadataNone(c *gc.C) {
@@ -31,35 +33,35 @@ func (s *ControllersSuite) TestControllerMetadataNone(c *gc.C) {
 }
 
 func (s *ControllersSuite) TestControllerByNameNoFile(c *gc.C) {
-	found, err := s.cache.ControllerByName(s.controllerName)
+	found, err := s.store.ControllerByName(s.controllerName)
 	c.Assert(err, gc.ErrorMatches, "controller test.controller not found")
 	c.Assert(found, gc.IsNil)
 }
 
 func (s *ControllersSuite) TestControllerByNameNoneExists(c *gc.C) {
 	writeTestControllersFile(c)
-	found, err := s.cache.ControllerByName(s.controllerName)
+	found, err := s.store.ControllerByName(s.controllerName)
 	c.Assert(err, gc.ErrorMatches, "controller test.controller not found")
 	c.Assert(found, gc.IsNil)
 }
 
 func (s *ControllersSuite) TestControllerByName(c *gc.C) {
 	name := firstTestControllerName(c)
-	found, err := s.cache.ControllerByName(name)
+	found, err := s.store.ControllerByName(name)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.getControllers(c)[name]
 	c.Assert(found, gc.DeepEquals, &expected)
 }
 
 func (s *ControllersSuite) TestUpdateControllerAddFirst(c *gc.C) {
-	err := s.cache.UpdateController(s.controllerName, s.controller)
+	err := s.store.UpdateController(s.controllerName, s.controller)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
 func (s *ControllersSuite) TestUpdateControllerAddNew(c *gc.C) {
 	s.assertControllerNotExists(c)
-	err := s.cache.UpdateController(s.controllerName, s.controller)
+	err := s.store.UpdateController(s.controllerName, s.controller)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
@@ -67,38 +69,38 @@ func (s *ControllersSuite) TestUpdateControllerAddNew(c *gc.C) {
 func (s *ControllersSuite) TestUpdateController(c *gc.C) {
 	s.controllerName = firstTestControllerName(c)
 
-	err := s.cache.UpdateController(s.controllerName, s.controller)
+	err := s.store.UpdateController(s.controllerName, s.controller)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
 func (s *ControllersSuite) TestRemoveControllerNoFile(c *gc.C) {
-	err := s.cache.RemoveController(s.controllerName)
+	err := s.store.RemoveController(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ControllersSuite) TestRemoveControllerUnknown(c *gc.C) {
 	s.assertControllerNotExists(c)
-	err := s.cache.RemoveController(s.controllerName)
+	err := s.store.RemoveController(s.controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ControllersSuite) TestRemoveController(c *gc.C) {
 	name := firstTestControllerName(c)
 
-	err := s.cache.RemoveController(name)
+	err := s.store.RemoveController(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := s.cache.ControllerByName(name)
+	found, err := s.store.ControllerByName(name)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", name))
 	c.Assert(found, gc.IsNil)
 }
 
 func (s *ControllersSuite) assertWriteFails(c *gc.C, failureMessage string) {
-	err := s.cache.UpdateController(s.controllerName, s.controller)
+	err := s.store.UpdateController(s.controllerName, s.controller)
 	c.Assert(err, gc.ErrorMatches, failureMessage)
 
-	found, err := s.cache.ControllerByName(s.controllerName)
+	found, err := s.store.ControllerByName(s.controllerName)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", s.controllerName))
 	c.Assert(found, gc.IsNil)
 }
@@ -114,7 +116,7 @@ func (s *ControllersSuite) assertUpdateSucceeded(c *gc.C) {
 }
 
 func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.ControllerDetails {
-	controllers, err := s.cache.AllControllers()
+	controllers, err := s.store.AllControllers()
 	c.Assert(err, jc.ErrorIsNil)
 	return controllers
 }

@@ -1263,7 +1263,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
 		cfg.Name(), environs.PrepareForBootstrapParams{
 			Config: cfg,
 			Credentials: cloud.NewCredential(

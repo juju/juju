@@ -412,7 +412,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), s.ConfigStore,
-		s.JujuClientCache,
+		s.ControllerStore,
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1174,7 +1174,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.env, err = environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1790,7 +1790,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	configStore := configstore.NewMem()
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), configStore,
-		jujuclienttesting.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)

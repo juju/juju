@@ -13,7 +13,7 @@ type inMemory struct {
 	all map[string]jujuclient.ControllerDetails
 }
 
-func NewMem() jujuclient.Cache {
+func NewMemControllerStore() jujuclient.ControllerStore {
 	return &inMemory{make(map[string]jujuclient.ControllerDetails)}
 }
 

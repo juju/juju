@@ -34,7 +34,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(
 		ctx, configstore.NewMem(),
-		jujuclienttesting.NewMem(), cfg.Name(),
+		jujuclienttesting.NewMemControllerStore(), cfg.Name(),
 		environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		ctx := envtesting.BootstrapContext(c)
 		env, err := environs.Prepare(
 			ctx, configstore.NewMem(),
-			jujuclienttesting.NewMem(),
+			jujuclienttesting.NewMemControllerStore(),
 			cfg.Name(),
 			environs.PrepareForBootstrapParams{Config: cfg},
 		)

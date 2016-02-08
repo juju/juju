@@ -37,7 +37,9 @@ func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllers, err := jujuclient.NewControllersCache().AllControllers()
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	c.Assert(err, jc.ErrorIsNil)
+	controllers, err := controllerStore.AllControllers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers, gc.IsNil)
 }

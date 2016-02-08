@@ -33,7 +33,7 @@ func New(config *config.Config) (Environ, error) {
 func Prepare(
 	ctx BootstrapContext,
 	store configstore.Storage,
-	cache jujuclient.Cache,
+	controllerStore jujuclient.ControllerStore,
 	controllerName string,
 	args PrepareForBootstrapParams,
 ) (Environ, error) {
@@ -59,7 +59,7 @@ func Prepare(
 		}
 		return nil, errors.Trace(err)
 	}
-	if err := decorateAndWriteInfo(info, cache, env.Config()); err != nil {
+	if err := decorateAndWriteInfo(info, controllerStore, env.Config()); err != nil {
 		return nil, errors.Annotatef(err, "cannot create controller %q info", controllerName)
 	}
 	return env, nil
@@ -67,7 +67,7 @@ func Prepare(
 
 // decorateAndWriteInfo decorates the info struct with information
 // from the given cfg, and the writes that out to the filesystem.
-func decorateAndWriteInfo(info configstore.EnvironInfo, cache jujuclient.Cache, cfg *config.Config) error {
+func decorateAndWriteInfo(info configstore.EnvironInfo, controllerStore jujuclient.ControllerStore, cfg *config.Config) error {
 
 	// Sanity check our config.
 	var endpoint configstore.APIEndpoint
@@ -100,7 +100,7 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cache jujuclient.Cache, 
 		connectionDetails.Addresses,
 		endpoint.CACert,
 	}
-	if err := cache.UpdateController(cfg.Name(), c); err != nil {
+	if err := controllerStore.UpdateController(cfg.Name(), c); err != nil {
 		return errors.Trace(err)
 	}
 

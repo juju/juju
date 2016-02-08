@@ -52,15 +52,18 @@ type ControllersGetter interface {
 	ControllerByName(name string) (*ControllerDetails, error)
 }
 
-// ControllersCache provides functionality for controllers cache.
-type ControllersCache interface {
-	ControllersUpdater
-	ControllersRemover
-	ControllersGetter
-}
+// ControllerStore has information related to controllers:
+// controllers details, accounts, models.
+// The model information is cached;
+// the controller and the account information is more persistent.
+type ControllerStore interface {
 
-// Cache defines the methods needed to cache information about
-// Juju client.
-type Cache interface {
-	ControllersCache
+	// Interfaces that deal with Controller.
+	//
+	// ControllersUpdater caches controllers.
+	ControllersUpdater
+	// ControllersRemover removes controllers.
+	ControllersRemover
+	// ControllersGetter gets controllers.
+	ControllersGetter
 }

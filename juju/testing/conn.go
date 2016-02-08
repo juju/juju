@@ -86,7 +86,7 @@ type JujuConnSuite struct {
 	APIState        api.Connection
 	apiStates       []api.Connection // additional api.Connections to close on teardown
 	ConfigStore     configstore.Storage
-	JujuClientCache jujuclient.Cache
+	ControllerStore jujuclient.ControllerStore
 	BackingState    *state.State // The State being used by the API server
 	RootDir         string       // The faked-up root directory.
 	LogDir          string
@@ -238,15 +238,15 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.ConfigStore = store
 
-	cache, err := jujuclient.Default()
+	controllerStore, err := jujuclient.DefaultControllerStore()
 	c.Assert(err, jc.ErrorIsNil)
-	s.JujuClientCache = cache
+	s.ControllerStore = controllerStore
 
 	ctx := testing.Context(c)
 	environ, err := environs.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ConfigStore,
-		s.JujuClientCache,
+		s.ControllerStore,
 		"dummymodel",
 		environs.PrepareForBootstrapParams{
 			Config:      cfg,
@@ -299,10 +299,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
-	controller, err := s.JujuClientCache.ControllerByName("dummymodel")
+	controller, err := s.ControllerStore.ControllerByName("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
-	err = s.JujuClientCache.UpdateController("dummymodel", *controller)
+	err = s.ControllerStore.UpdateController("dummymodel", *controller)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO (anastasiamac 2016-02-08) START REMOVE with cache.yaml

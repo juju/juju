@@ -47,7 +47,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
 		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	return env

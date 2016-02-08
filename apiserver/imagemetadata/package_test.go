@@ -128,7 +128,7 @@ func testConfig(c *gc.C) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
 		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)

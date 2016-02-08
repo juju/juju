@@ -39,11 +39,11 @@ type Tests struct {
 	// This is initialized by SetUpTest.
 	ConfigStore configstore.Storage
 
-	// JujuClientCache holds the client details
+	// ControllerStore holds the controller related informtion
 	// such as controllers, accounts, etc
 	// used when preparing the environment.
 	// This is initialized by SetUpSuite.
-	JujuClientCache jujuclient.Cache
+	ControllerStore jujuclient.ControllerStore
 }
 
 // Open opens an instance of the testing environment.
@@ -72,7 +72,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 		CloudEndpoint: t.CloudEndpoint,
 		CloudRegion:   t.CloudRegion,
 	}
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, t.JujuClientCache, args.Config.Name(), args)
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, t.ControllerStore, args.Config.Name(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -84,7 +84,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 	t.ConfigStore = configstore.NewMem()
-	t.JujuClientCache = jujuclienttesting.NewMem()
+	t.ControllerStore = jujuclienttesting.NewMemControllerStore()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

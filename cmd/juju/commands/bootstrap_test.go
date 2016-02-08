@@ -306,9 +306,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	// Check controllers.yaml has controller
 	endpoint := info.APIEndpoint()
-	cache, err := jujuclient.Default()
+	controllerStore, err := jujuclient.DefaultControllerStore()
 	c.Assert(err, jc.ErrorIsNil)
-	controller, err := cache.ControllerByName("peckham-controller")
+	controller, err := controllerStore.ControllerByName("peckham-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.CACert, gc.Equals, endpoint.CACert)
 	c.Assert(controller.Servers, gc.DeepEquals, endpoint.Hostnames)
@@ -500,7 +500,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&environsPrepare, func(
 		environs.BootstrapContext,
 		configstore.Storage,
-		jujuclient.Cache,
+		jujuclient.ControllerStore,
 		string,
 		environs.PrepareForBootstrapParams,
 	) (environs.Environ, error) {

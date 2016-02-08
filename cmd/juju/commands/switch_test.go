@@ -31,8 +31,8 @@ func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
 		return memstore, nil
 	})
 
-	memcache := jujuclienttesting.NewMem()
-	s.PatchValue(&jujuclient.Default, func() (jujuclient.Cache, error) {
+	memcache := jujuclienttesting.NewMemControllerStore()
+	s.PatchValue(&jujuclient.DefaultControllerStore, func() (jujuclient.ControllerStore, error) {
 		return memcache, nil
 	})
 }
@@ -182,9 +182,9 @@ func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
 }
 
 func (s *SwitchSimpleSuite) updateControllersFile(c *gc.C, name string, endpoint configstore.APIEndpoint) {
-	cache, err := jujuclient.Default()
+	controllerStore, err := jujuclient.DefaultControllerStore()
 	c.Assert(err, jc.ErrorIsNil)
-	err = cache.UpdateController(name,
+	err = controllerStore.UpdateController(name,
 		jujuclient.ControllerDetails{
 			[]string{"test.host.name"},
 			endpoint.ServerUUID,
