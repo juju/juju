@@ -130,16 +130,18 @@ func (p Persistence) GetResource(id string) (res resource.Resource, storagePath 
 // resource is returned which supports both finalizing and removing
 // the staged resource.
 func (p Persistence) StageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
-	stored, err := p.getStored(res, storagePath)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if storagePath == "" {
+		return nil, errors.Errorf("missing storage path")
 	}
 
-	// Validate first?
 	if err := res.Validate(); err != nil {
 		return nil, errors.Annotate(err, "bad resource")
 	}
 
+	stored := storedResource{
+		Resource:    res,
+		storagePath: storagePath,
+	}
 	staged := &StagedResource{
 		base:   p.base,
 		id:     res.ID,
@@ -153,16 +155,35 @@ func (p Persistence) StageResource(res resource.Resource, storagePath string) (*
 
 // SetResource sets the info for the resource.
 func (p Persistence) SetResource(res resource.Resource) error {
-	storagePath := "" // unknown
-	staged, err := p.StageResource(res, storagePath)
+	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
+	// so then the following line is unnecessary.
+	stored.Resource = res
 
-	if err := staged.Activate(); err != nil {
-		if err := staged.Unstage(); err != nil {
-			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
+	// TODO(ericsnow) Ensure that the service is still there?
+
+	if err := res.Validate(); err != nil {
+		return errors.Annotate(err, "bad resource")
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// This is an "upsert".
+		var ops []txn.Op
+		switch attempt {
+		case 0:
+			ops = newInsertResourceOps(stored)
+		case 1:
+			ops = newUpdateResourceOps(stored)
+		default:
+			// Either insert or update will work so we should not get here.
+			return nil, errors.New("setting the resource failed")
 		}
+		return ops, nil
+	}
+	if err := p.base.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -171,11 +192,13 @@ func (p Persistence) SetResource(res resource.Resource) error {
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the service.
 func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error {
-	storagePath := "" // unknown
-	stored, err := p.getStored(res, storagePath)
+	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
+	// so then the following line is unnecessary.
+	stored.Resource = res
 
 	// TODO(ericsnow) Ensure that the service is still there?
 
@@ -203,25 +226,16 @@ func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error
 	return nil
 }
 
-func (p Persistence) getStored(res resource.Resource, storagePath string) (storedResource, error) {
-	if storagePath != "" {
-		stored := storedResource{
-			Resource:    res,
-			storagePath: storagePath,
-		}
-		return stored, nil
-	}
-
+func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 	doc, err := p.getOne(res.ID)
 	if err != nil {
 		return storedResource{}, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Ensure that doc matches res?
-
-	stored := storedResource{
-		Resource:    res,
-		storagePath: doc.StoragePath,
+	stored, err := doc2resource(doc)
+	if err != nil {
+		return stored, errors.Trace(err)
 	}
+
 	return stored, nil
 }

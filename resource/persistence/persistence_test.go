@@ -202,29 +202,14 @@ func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	})
 }
 
-func (s *PersistenceSuite) TestStageResourceLookedUp(c *gc.C) {
-	res, doc := newResource(c, "a-service", "spam")
-	doc.DocID += "#staged"
-	s.base.ReturnOne = doc
+func (s *PersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) {
+	res, _ := newResource(c, "a-service", "spam")
 	p := NewPersistence(s.base)
-	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
-	staged, err := p.StageResource(res.Resource, "")
-	c.Assert(err, jc.ErrorIsNil)
+	_, err := p.StageResource(res.Resource, "")
 
-	s.stub.CheckCallNames(c, "One", "Run", "RunTransaction")
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
-		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
-		Assert: txn.DocMissing,
-		Insert: &doc,
-	}})
-	c.Check(staged, jc.DeepEquals, &StagedResource{
-		base:   s.base,
-		id:     res.ID,
-		stored: res,
-	})
+	s.stub.CheckNoCalls(c)
+	c.Check(err, gc.ErrorMatches, `missing storage path`)
 }
 
 func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
@@ -243,12 +228,10 @@ func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	res, doc := newResource(c, servicename, "spam")
-	stagedDoc := doc // a copy
-	stagedDoc.DocID += "#staged"
 	s.base.ReturnOne = doc
 	p := NewPersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
 	err := p.SetResource(res.Resource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,24 +240,12 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 		"One",
 		"Run",
 		"RunTransaction",
-		"Run",
-		"RunTransaction",
 	)
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
-		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
-		Assert: txn.DocMissing,
-		Insert: &stagedDoc,
-	}})
-	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
-	}, {
-		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
-		Remove: true,
 	}})
 }
 
