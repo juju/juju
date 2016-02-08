@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""TODO: add rough description of what is assessed in this module."""
+"""Test juju update-mongo command."""
 
 from __future__ import print_function
 
@@ -18,24 +18,22 @@ from utility import (
 )
 
 
-log = logging.getLogger("assess_update-mongo")
+log = logging.getLogger("assess_update_mongo")
 
 
-def assess_update-mongo(client):
-    # Deploy charms, there are several under ./repository
-    client.juju("deploy", ('local:trusty/my-charm',))
-    # Wait for the deployment to finish.
+def assess_update_mongo(client, series):
+    charm = 'local:{}/ubuntu'.format(series)
+    log.info("Setting up test.")
+    client.deploy(charm)
     client.wait_for_started()
-    log.info("TODO: Add log line about any test")
-    # TODO: Add specific functional testing actions here.
+    log.info("Setup complete.")
 
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="TODO: script info")
-    # TODO: Add additional positional arguments.
+    parser = argparse.ArgumentParser(
+        description="Test juju update-mongo command")
     add_basic_testing_arguments(parser)
-    # TODO: Add additional optional arguments.
     return parser.parse_args(argv)
 
 
@@ -44,7 +42,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_update-mongo(bs_manager.client)
+        assess_update_mongo(bs_manager.client, args.series)
     return 0
 
 

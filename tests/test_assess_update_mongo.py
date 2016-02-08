@@ -9,6 +9,7 @@ from assess_update_mongo import (
     parse_args,
     main,
 )
+from tests.test_jujupy import FakeJujuClient
 from tests import (
     parse_error,
     TestCase,
@@ -37,7 +38,8 @@ class TestParseArgs(TestCase):
 class TestMain(TestCase):
 
     def test_main(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose",
+                "--series", "trusty"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_update_mongo.configure_logging",
@@ -55,15 +57,15 @@ class TestMain(TestCase):
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, 'trusty')
 
 
 class TestAssess(TestCase):
 
     def test_update_mongo(self):
-        mock_client = Mock(spec=["juju", "wait_for_started"])
-        assess_update_mongo(mock_client)
-        mock_client.juju.assert_called_once_with(
-            'deploy', ('local:trusty/my-charm',))
+        # mock_client = FakeJujuClient()
+        mock_client = Mock(spec=["juju", "wait_for_started", "deploy"])
+        assess_update_mongo(mock_client, 'trusty')
+        mock_client.deploy.assert_called_once_with('local:trusty/ubuntu')
         mock_client.wait_for_started.assert_called_once_with()
         self.assertNotIn("TODO", self.log_stream.getvalue())
