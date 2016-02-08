@@ -2553,6 +2553,7 @@ class TestEnvJujuClient1X(ClientTest):
             'asdf')
         env = client._shell_environ()
         self.assertEqual(env['JUJU_HOME'], 'asdf')
+        self.assertNotIn('JUJU_DATA', env)
 
     def test__shell_environ_cloudsigma(self):
         client = EnvJujuClient1X(
