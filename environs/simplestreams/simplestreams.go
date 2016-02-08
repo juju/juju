@@ -474,7 +474,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 		data, err = ioutil.ReadAll(rc)
 	}
 	if err != nil {
-		return nil, dataURL, errors.Annotatef(err, "cannot read data for source %q at URL %q", source.Description(), dataURL)
+		return nil, dataURL, errors.Annotatef(err, "cannot read data for source %q at URL %v", source.Description(), dataURL)
 	}
 	return data, dataURL, nil
 }
