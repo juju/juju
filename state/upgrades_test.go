@@ -523,24 +523,24 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 	services := s.setupAddDefaultEndpointBindingsToServices(c)
 	initialBindings := s.getServicesBindings(c, services)
 	wpAllDefaults := map[string]string{
-		"url":             network.DefaultSpace,
-		"logging-dir":     network.DefaultSpace,
-		"monitoring-port": network.DefaultSpace,
-		"db":              network.DefaultSpace,
-		"cache":           network.DefaultSpace,
+		"url":             "",
+		"logging-dir":     "",
+		"monitoring-port": "",
+		"db":              "",
+		"cache":           "",
 	}
 	msAllDefaults := map[string]string{
-		"server": network.DefaultSpace,
+		"server": "",
 	}
 	c.Assert(initialBindings, jc.DeepEquals, map[string]map[string]string{
 		"wp-no-bindings":      map[string]string{},
 		"wp-default-bindings": wpAllDefaults,
 		"wp-given-bindings": map[string]string{
 			"url":             "apps",
-			"logging-dir":     network.DefaultSpace,
-			"monitoring-port": network.DefaultSpace,
+			"logging-dir":     "",
+			"monitoring-port": "",
 			"db":              "db",
-			"cache":           network.DefaultSpace,
+			"cache":           "",
 		},
 
 		"ms-no-bindings":      map[string]string{},
@@ -557,10 +557,10 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 			"wp-default-bindings": wpAllDefaults,
 			"wp-given-bindings": map[string]string{
 				"url":             "apps",
-				"logging-dir":     network.DefaultSpace,
-				"monitoring-port": network.DefaultSpace,
+				"logging-dir":     "",
+				"monitoring-port": "",
 				"db":              "db",
-				"cache":           network.DefaultSpace,
+				"cache":           "",
 			},
 
 			"ms-no-bindings":      msAllDefaults,

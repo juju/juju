@@ -470,3 +470,11 @@ func IsManagerMachineError(err error) bool {
 }
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
+
+func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
+	globalKey := service.globalKey()
+	removeOp := removeEndpointBindingsOp(globalKey)
+
+	err := service.st.runTransaction([]txn.Op{removeOp})
+	c.Assert(err, jc.ErrorIsNil)
+}
