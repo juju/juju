@@ -1717,12 +1717,6 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 		return nil, errors.Trace(err)
 	}
 
-	boundSpace, ok := bindings[endpoint.Name]
-	if !ok {
-		return nil, errors.Errorf("endpoint %q not bound to any space", endpoint.Name)
-	}
-	logger.Debugf("endpoint %q is bound to space %q", endpoint.Name, boundSpace)
-
 	machineID, err := unit.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1732,6 +1726,25 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var results []params.NetworkConfig
+
+	boundSpace, isBound := bindings[endpoint.Name]
+	if !isBound || boundSpace == "" {
+		name := endpoint.Name
+		logger.Debugf("endpoint not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
+
+		privateAddress, err := machine.PrivateAddress()
+		if err != nil && !network.IsNoAddress(err) {
+			return nil, errors.Annotatef(err, "getting machine %q preferred private address", machineID)
+		}
+
+		results = append(results, params.NetworkConfig{
+			Address: privateAddress.Value,
+		})
+		return results, nil
+	}
+	logger.Debugf("endpoint %q is explicitly bound to space %q", endpoint.Name, boundSpace)
 
 	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
 	// the PoC to enable minimal network-get implementation returning just the
@@ -1744,7 +1757,6 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 		machineID, addresses, unit.Name(), service.Name(), bindings,
 	)
 
-	var results []params.NetworkConfig
 	for _, addr := range addresses {
 		space := string(addr.SpaceName)
 		if space != boundSpace {
