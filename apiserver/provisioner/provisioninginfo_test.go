@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -182,7 +181,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	// Add a couple of spaces.
 	_, err := s.State.AddSpace("space1", "first space id", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", "second space id", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Only the first subnet of space2 has AllocatableIPLow|High set.
@@ -210,8 +209,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	// Use juju names for spaces in bindings, simulating ''juju deploy
 	// --bind...' was called.
 	bindings := map[string]string{
-		"url": "space2",
-		"db":  "space1",
+		"url": "space1", // has both name and provider ID
+		"db":  "space2", // has only name, no provider ID
 	}
 	wordpressCharm := s.AddTestingCharm(c, "wordpress")
 	wordpressService := s.AddTestingServiceWithBindings(c, "wordpress", wordpressCharm, bindings)
@@ -238,11 +237,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 				// Ensure space names are translated to provider IDs, where
 				// possible.
 				EndpointBindings: map[string]string{
-					"db":              "first space id",
-					"url":             "second space id",
-					"cache":           network.DefaultSpace,
-					"monitoring-port": network.DefaultSpace,
-					"logging-dir":     network.DefaultSpace,
+					"db":  "space2",         // just name, no provider ID
+					"url": "first space id", // has provider ID
+					// We expect none of the unspecified bindings in the result.
 				},
 			},
 		}}}

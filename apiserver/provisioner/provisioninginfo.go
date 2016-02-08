@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -304,8 +303,14 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 		}
 
 		for endpoint, spaceName := range bindings {
-			spaceProviderId, found := spacesNamesToProviderIds[spaceName]
-			if found {
+			if spaceName == "" {
+				// Skip unspecified bindings, as they won't affect the instance
+				// selected for provisioning.
+				continue
+			}
+
+			spaceProviderId, nameKnown := spacesNamesToProviderIds[spaceName]
+			if nameKnown {
 				combinedBindings[endpoint] = spaceProviderId
 			} else {
 				// Technically, this can't happen in practice, as we're
@@ -336,10 +341,6 @@ func (p *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error)
 
 		namesToProviderIds[name] = providerId
 	}
-
-	// TODO(dimitern): Drop this once network.DefaultSpace is no longer assumed
-	// to exist.
-	namesToProviderIds[network.DefaultSpace] = network.DefaultSpace
 
 	return namesToProviderIds, nil
 }
