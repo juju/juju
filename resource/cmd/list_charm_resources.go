@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// CharmResourceLister has the charm store API methods needed by ShowCommand.
+// CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
 type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
 	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
@@ -22,25 +22,25 @@ type CharmResourceLister interface {
 	Close() error
 }
 
-// ShowCommand implements the show-resources command.
-type ShowCommand struct {
+// ListCharmResourcesCommand implements the show-resources command.
+type ListCharmResourcesCommand struct {
 	envcmd.EnvCommandBase
 	out   cmd.Output
 	charm string
 
-	newResourceLister func(c *ShowCommand) (CharmResourceLister, error)
+	newResourceLister func(c *ListCharmResourcesCommand) (CharmResourceLister, error)
 }
 
-// NewShowCommand returns a new command that lists resources defined
+// NewListCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowCommand(newResourceLister func(c *ShowCommand) (CharmResourceLister, error)) *ShowCommand {
-	cmd := &ShowCommand{
+func NewListCharmResourcesCommand(newResourceLister func(c *ListCharmResourcesCommand) (CharmResourceLister, error)) *ListCharmResourcesCommand {
+	cmd := &ListCharmResourcesCommand{
 		newResourceLister: newResourceLister,
 	}
 	return cmd
 }
 
-var showDoc = `
+var listCharmResourcesDoc = `
 This command will report the resources for a charm in the charm store.
 
 <charm> can be a charm URL, or an unambiguously condensed form of it;
@@ -56,17 +56,17 @@ For cs:~user/trusty/mysql
 `
 
 // Info implements cmd.Command.
-func (c *ShowCommand) Info() *cmd.Info {
+func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
-		Doc:     showDoc,
+		Doc:     listCharmResourcesDoc,
 	}
 }
 
 // SetFlags implements cmd.Command.
-func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"tabular": FormatCharmTabular,
@@ -76,7 +76,7 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements cmd.Command.
-func (c *ShowCommand) Init(args []string) error {
+func (c *ListCharmResourcesCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing charm")
 	}
@@ -90,7 +90,7 @@ func (c *ShowCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c *ShowCommand) Run(ctx *cmd.Context) error {
+func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
 	apiclient, err := c.newResourceLister(c)

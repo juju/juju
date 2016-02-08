@@ -15,23 +15,23 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
-var _ = gc.Suite(&ShowSuite{})
+var _ = gc.Suite(&ListCharmSuite{})
 
-type ShowSuite struct {
+type ListCharmSuite struct {
 	testing.IsolationSuite
 
 	stub   *testing.Stub
 	client *stubCharmStore
 }
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ListCharmSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
 	s.client = &stubCharmStore{stub: s.stub}
 }
 
-func (s *ShowSuite) newAPIClient(c *ShowCommand) (CharmResourceLister, error) {
+func (s *ListCharmSuite) newAPIClient(c *ListCharmResourcesCommand) (CharmResourceLister, error) {
 	s.stub.AddCall("newAPIClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -40,8 +40,8 @@ func (s *ShowSuite) newAPIClient(c *ShowCommand) (CharmResourceLister, error) {
 	return s.client, nil
 }
 
-func (s *ShowSuite) TestInfo(c *gc.C) {
-	var command ShowCommand
+func (s *ListCharmSuite) TestInfo(c *gc.C) {
+	var command ListCharmResourcesCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
@@ -65,14 +65,14 @@ For cs:~user/trusty/mysql
 	})
 }
 
-func (s *ShowSuite) TestOkay(c *gc.C) {
+func (s *ListCharmSuite) TestOkay(c *gc.C) {
 	resources := newCharmResources(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
 	)
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := NewShowCommand(s.newAPIClient)
+	command := NewListCharmResourcesCommand(s.newAPIClient)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -95,10 +95,10 @@ music    upload -   mp3 of your backing vocals
 	}})
 }
 
-func (s *ShowSuite) TestNoResources(c *gc.C) {
+func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := NewShowCommand(s.newAPIClient)
+	command := NewListCharmResourcesCommand(s.newAPIClient)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -110,7 +110,7 @@ RESOURCE FROM REV COMMENT
 	s.stub.CheckCallNames(c, "newAPIClient", "ListResources", "Close")
 }
 
-func (s *ShowSuite) TestOutputFormats(c *gc.C) {
+func (s *ListCharmSuite) TestOutputFormats(c *gc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
@@ -163,7 +163,7 @@ music    upload -   mp3 of your backing vocals
 			"  ", "", -1),
 	}
 	for format, expected := range formats {
-		command := NewShowCommand(s.newAPIClient)
+		command := NewListCharmResourcesCommand(s.newAPIClient)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
