@@ -42,7 +42,7 @@ func (m *MockGetMetricsClient) Close() error {
 }
 
 type DebugMetricsMockSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&DebugMetricsMockSuite{})

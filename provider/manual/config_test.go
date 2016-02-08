@@ -15,7 +15,7 @@ import (
 )
 
 type configSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&configSuite{})
