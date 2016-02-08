@@ -134,14 +134,18 @@ music    1        mp3 of your backing vocals
 
 `[1:],
 		"yaml": `
-- name: website
+- resourceid: a-service/website
+  serviceid: a-service
+  name: website
   type: file
   path: website.tgz
   comment: .tgz of your website
   revision: 1
   fingerprint: 73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4
   origin: store
-- name: music
+- resourceid: a-service/music
+  serviceid: a-service
+  name: music
   type: file
   path: music.mp3
   comment: mp3 of your backing vocals
@@ -152,6 +156,8 @@ music    1        mp3 of your backing vocals
 		"json": strings.Replace(""+
 			"["+
 			"  {"+
+			`    "resourceid":"a-service/website",`+
+			`    "serviceid":"a-service",`+
 			`    "name":"website",`+
 			`    "type":"file",`+
 			`    "path":"website.tgz",`+
@@ -160,6 +166,8 @@ music    1        mp3 of your backing vocals
 			`    "fingerprint":"73100f01cf258766906c34a30f9a486f07259c627ea0696d97c4582560447f59a6df4a7cf960708271a30324b1481ef4",`+
 			`    "origin":"store"`+
 			"  },{"+
+			`    "resourceid":"a-service/music",`+
+			`    "serviceid":"a-service",`+
 			`    "name":"music",`+
 			`    "type":"file",`+
 			`    "path":"music.mp3",`+

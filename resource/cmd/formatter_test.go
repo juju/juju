@@ -34,6 +34,7 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
 		Comment:     "X",
 		Revision:    5,
 		Fingerprint: res.Fingerprint.String(),
+		Size:        int64(len("spamspamspam")),
 		Origin:      "store",
 	})
 }
@@ -58,13 +59,18 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 			Revision:    5,
 			Origin:      charmresource.OriginStore,
 			Fingerprint: fp,
+			Size:        10,
 		},
 		Username:  "Bill User",
 		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
+		ID:        "a-service/website",
+		ServiceID: "a-service",
 	}
 
 	f := FormatSvcResource(r)
 	c.Assert(f, gc.Equals, FormattedSvcResource{
+		ID:               "a-service/website",
+		ServiceID:        "a-service",
 		Name:             r.Name,
 		Type:             "file",
 		Path:             r.Path,
@@ -72,6 +78,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Revision:         r.Revision,
 		Origin:           "store",
 		Fingerprint:      fp.String(),
+		Size:             10,
 		Comment:          r.Comment,
 		Timestamp:        r.Timestamp,
 		Username:         r.Username,

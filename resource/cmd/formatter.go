@@ -46,6 +46,7 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 		Revision:    res.Revision,
 		Origin:      res.Origin.String(),
 		Fingerprint: res.Fingerprint.String(), // ...the hex string.
+		Size:        res.Size,
 	}
 }
 
@@ -60,6 +61,7 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		Revision:         res.Revision,
 		Origin:           res.Origin.String(),
 		Fingerprint:      res.Fingerprint.String(),
+		Size:             res.Size,
 		Used:             used,
 		Timestamp:        res.Timestamp,
 		Username:         res.Username,
