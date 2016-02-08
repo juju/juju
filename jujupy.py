@@ -243,6 +243,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient
         elif re.match('^2\.0-alpha1', version):
             client_class = EnvJujuClient2A1
+        elif re.match('^2\.0-alpha2', version):
+            client_class = EnvJujuClient2A2
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
@@ -855,6 +857,23 @@ class EnvJujuClient:
 
     def add_subnet(self, subnet, space):
         self.juju('add-subnet', (subnet, space))
+
+
+class EnvJujuClient2A2(EnvJujuClient):
+    """Drives Juju 2.0-alpha2 clients."""
+
+    def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        env['JUJU_HOME'] = self.env.juju_home
+        env['JUJU_DATA'] = self.env.juju_home
+        return env
 
 
 class EnvJujuClient2A1(EnvJujuClient):

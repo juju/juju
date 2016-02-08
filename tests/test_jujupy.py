@@ -39,6 +39,7 @@ from jujupy import (
     EnvJujuClient25,
     EnvJujuClient26,
     EnvJujuClient2A1,
+    EnvJujuClient2A2,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -767,7 +768,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha1')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2A2)
             self.assertEqual(client.version, '2.0-alpha2')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
@@ -2153,6 +2154,19 @@ class TestEnvJujuClient(ClientTest):
                 client.get_service_config('foo')
 
 
+class TestEnvJujuClient2A2(TestCase):
+
+    def test__shell_environ_juju_home(self):
+        client = EnvJujuClient2A2(
+            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
+            'asdf')
+        with patch.dict(os.environ, {'PATH': ''}):
+            env = client._shell_environ()
+        # For transition, supply both.
+        self.assertEqual(env['JUJU_HOME'], 'asdf')
+        self.assertEqual(env['JUJU_DATA'], 'asdf')
+
+
 class TestEnvJujuClient1X(ClientTest):
 
     def test_no_duplicate_env(self):
@@ -2258,7 +2272,7 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A1)
             self.assertEqual(client.version, '2.0-alpha1')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2A2)
             self.assertEqual(client.version, '2.0-alpha2')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
