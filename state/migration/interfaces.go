@@ -185,4 +185,6 @@ type Unit interface {
 
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
+
+	Validate() error
 }

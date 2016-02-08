@@ -171,6 +171,23 @@ func (u *unit) SetAgentStatus(args StatusArgs) {
 	u.AgentStatus_ = newStatus(args)
 }
 
+// Validate impelements Unit.
+func (u *unit) Validate() error {
+	if u.Name_ == "" {
+		return errors.NotValidf("missing name")
+	}
+	if u.AgentStatus_ == nil {
+		return errors.NotValidf("unit %q missing agent status", u.Name_)
+	}
+	if u.WorkloadStatus_ == nil {
+		return errors.NotValidf("unit %q missing workload status", u.Name_)
+	}
+	if u.Tools_ == nil {
+		return errors.NotValidf("unit %q missing tools", u.Name_)
+	}
+	return nil
+}
+
 func importUnits(source map[string]interface{}) ([]*unit, error) {
 	checker := versionedChecker("units")
 	coerced, err := checker.Coerce(source, nil)

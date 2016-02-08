@@ -28,7 +28,6 @@ func (s *UnitSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-// TODO MAYBE: move this test into the slice serialization base.
 func (*UnitSerializationSuite) TestUnitsIsMap(c *gc.C) {
 	_, err := importUnits(map[string]interface{}{
 		"version": 42,
@@ -39,71 +38,83 @@ func (*UnitSerializationSuite) TestUnitsIsMap(c *gc.C) {
 
 func minimalUnitMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"name":      "ubuntu",
-		"series":    "trusty",
-		"charm-url": "cs:trusty/ubuntu",
-		"status":    minimalStatusMap(),
-		"settings": map[interface{}]interface{}{
-			"key": "value",
-		},
-		"settings-refcount": 1,
-		"leadership-settings": map[interface{}]interface{}{
-			"leader": true,
-		},
+		"name":            "ubuntu/0",
+		"machine":         "0",
+		"agent-status":    minimalStatusMap(),
+		"workload-status": minimalStatusMap(),
+		"password-hash":   "secure-hash",
+		"tools":           minimalAgentToolsMap(),
 	}
 }
 
 func minimalUnit() *unit {
 	s := newUnit(minimalUnitArgs())
-	s.SetStatus(minimalStatusArgs())
+	s.SetAgentStatus(minimalStatusArgs())
+	s.SetWorkloadStatus(minimalStatusArgs())
+	s.SetTools(minimalAgentToolsArgs())
 	return s
 }
 
 func minimalUnitArgs() UnitArgs {
 	return UnitArgs{
-		Tag:      names.NewUnitTag("ubuntu"),
-		Series:   "trusty",
-		CharmURL: "cs:trusty/ubuntu",
-		Settings: map[string]interface{}{
-			"key": "value",
-		},
-		SettingsRefCount: 1,
-		LeadershipSettings: map[string]interface{}{
-			"leader": true,
-		},
+		Tag:          names.NewUnitTag("ubuntu/0"),
+		Machine:      names.NewMachineTag("0"),
+		PasswordHash: "secure-hash",
 	}
 }
 
-func (s *UnitSerializationSuite) TestNewUnit(c *gc.C) {
+func (s *UnitSerializationSuite) completeUnit() *unit {
+	// This unit is about completeness, not reasonableness. That is why the
+	// unit has a principle (normally only for subordinates), and also a list
+	// of subordinates.
 	args := UnitArgs{
-		Tag:         names.NewUnitTag("magic"),
-		Series:      "zesty",
-		Subordinate: true,
-		CharmURL:    "cs:zesty/magic",
-		ForceCharm:  true,
-		Exposed:     true,
-		MinUnits:    42, // no judgement is made by the migration code
-		Settings: map[string]interface{}{
-			"key": "value",
-		},
-		SettingsRefCount: 1,
-		LeadershipSettings: map[string]interface{}{
-			"leader": true,
+		Tag:          names.NewUnitTag("ubuntu/0"),
+		Machine:      names.NewMachineTag("0"),
+		PasswordHash: "secure-hash",
+		Principal:    names.NewUnitTag("principal/0"),
+		Subordinates: []names.UnitTag{
+			names.NewUnitTag("sub1/0"),
+			names.NewUnitTag("sub2/0"),
 		},
 	}
 	unit := newUnit(args)
+	unit.SetAgentStatus(minimalStatusArgs())
+	unit.SetWorkloadStatus(minimalStatusArgs())
+	unit.SetAddresses(AddressArgs{
+		Value: "8.8.8.8",
+		Type:  "public",
+	}, AddressArgs{
+		Value: "10.10.10.10",
+		Type:  "private",
+	})
+	unit.SetTools(minimalAgentToolsArgs())
+	return unit
+}
 
-	c.Assert(unit.Name(), gc.Equals, "magic")
-	c.Assert(unit.Tag(), gc.Equals, names.NewUnitTag("magic"))
-	c.Assert(unit.Series(), gc.Equals, "zesty")
-	c.Assert(unit.Subordinate(), jc.IsTrue)
-	c.Assert(unit.CharmURL(), gc.Equals, "cs:zesty/magic")
-	c.Assert(unit.ForceCharm(), jc.IsTrue)
-	c.Assert(unit.Exposed(), jc.IsTrue)
-	c.Assert(unit.MinUnits(), gc.Equals, 42)
-	c.Assert(unit.Settings(), jc.DeepEquals, args.Settings)
-	c.Assert(unit.SettingsRefCount(), gc.Equals, 1)
-	c.Assert(unit.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
+func (s *UnitSerializationSuite) TestNewUnit(c *gc.C) {
+	unit := s.completeUnit()
+
+	c.Assert(unit.Tag(), gc.Equals, names.NewUnitTag("ubuntu/0"))
+	c.Assert(unit.Name(), gc.Equals, "ubuntu/0")
+	c.Assert(unit.Machine(), gc.Equals, names.NewMachineTag("0"))
+	c.Assert(unit.PasswordHash(), gc.Equals, "secure-hash")
+	c.Assert(unit.Principal(), gc.Equals, names.NewUnitTag("principal/0"))
+	c.Assert(unit.Subordinates(), jc.DeepEquals, []names.UnitTag{
+		names.NewUnitTag("sub1/0"),
+		names.NewUnitTag("sub2/0"),
+	})
+
+	publicAddress := unit.PublicAddress()
+	c.Assert(publicAddress.Value(), gc.Equals, "8.8.8.8")
+	c.Assert(publicAddress.Type(), gc.Equals, "public")
+
+	privateAddress := unit.PrivateAddress()
+	c.Assert(privateAddress.Value(), gc.Equals, "10.10.10.10")
+	c.Assert(privateAddress.Type(), gc.Equals, "private")
+
+	c.Assert(unit.Tools(), gc.NotNil)
+	c.Assert(unit.WorkloadStatus(), gc.NotNil)
+	c.Assert(unit.AgentStatus(), gc.NotNil)
 }
 
 func (s *UnitSerializationSuite) TestMinimalUnitValid(c *gc.C) {
@@ -122,26 +133,17 @@ func (s *UnitSerializationSuite) TestMinimalMatches(c *gc.C) {
 }
 
 func (s *UnitSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	svc := minimalUnit()
 	initial := units{
 		Version: 1,
-		Units_:  []*unit{svc},
+		Units_:  []*unit{s.completeUnit()},
 	}
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("-- bytes --\n%s\n", bytes)
-
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Logf("-- map --")
-	unitMap := source["units"].([]interface{})[0].(map[interface{}]interface{})
-	for key, value := range unitMap {
-		c.Logf("%s: %v", key, value)
-	}
 
 	units, err := importUnits(source)
 	c.Assert(err, jc.ErrorIsNil)
