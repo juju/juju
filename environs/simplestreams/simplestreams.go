@@ -474,7 +474,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 		data, err = ioutil.ReadAll(rc)
 	}
 	if err != nil {
-		return nil, dataURL, errors.Annotatef(err, "cannot read URL data at source %q", source.Description())
+		return nil, dataURL, errors.Annotatef(err, "cannot read data for source %q at URL %q", source.Description(), dataURL)
 	}
 	return data, dataURL, nil
 }
@@ -519,7 +519,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames, source.Priority(), source.RequireSigned())
+			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames, source.Priority(), requireSigned)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)
