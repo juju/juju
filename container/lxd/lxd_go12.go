@@ -7,8 +7,13 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/container"
+)
+
+var (
+	logger = loggo.GetLogger("juju.container.lxd")
 )
 
 const (
