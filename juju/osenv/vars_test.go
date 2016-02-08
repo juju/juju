@@ -28,6 +28,8 @@ func (s *varsSuite) TestJujuXDGDataHomeEnvVar(c *gc.C) {
 
 func (s *varsSuite) TestBlankJujuXDGDataHomeEnvVar(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuXDGDataHomeEnvKey, "")
+	// TODO(wallyworld) - remove this when support for legacy juju_home is gone
+	s.PatchEnvironment("JUJU_HOME", "")
 
 	if runtime.GOOS == "windows" {
 		s.PatchEnvironment("APPDATA", `P:\foobar`)
