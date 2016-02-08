@@ -61,6 +61,7 @@ from jujupy import (
     temp_bootstrap_env,
     _temp_env as temp_env,
     uniquify_local,
+    UpgradeMongoNotSupported,
 )
 from tests import (
     TestCase,
@@ -2144,6 +2145,12 @@ class TestEnvJujuClient(ClientTest):
                     Exception, 'Timed out waiting for juju get'):
                 client.get_service_config('foo')
 
+    def test_upgrade_mongo(self):
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.upgrade_mongo()
+        juju_mock.assert_called_once_with('upgrade-mongo', ())
+
 
 class TestEnvJujuClient1X(ClientTest):
 
@@ -2196,6 +2203,12 @@ class TestEnvJujuClient1X(ClientTest):
             client.upgrade_juju(force_version=False)
         juju_mock.assert_called_with(
             'upgrade-juju', ('--upload-tools',))
+
+    def test_upgrade_mongo_exception(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with self.assertRaises(UpgradeMongoNotSupported):
+            client.upgrade_mongo()
 
     @patch.object(EnvJujuClient1X, 'get_full_path', return_value='fake-path')
     def test_by_version(self, gfp_mock):

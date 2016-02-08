@@ -100,6 +100,13 @@ class BootstrapMismatch(Exception):
                 arg_name, arg_val, env_name, env_val))
 
 
+class UpgradeMongoNotSupported(Exception):
+
+    def __init__(self):
+        super(UpgradeMongoNotSupported, self).__init__(
+            'This client does not support upgrade-mongo')
+
+
 class JESNotSupported(Exception):
 
     def __init__(self):
@@ -768,6 +775,9 @@ class EnvJujuClient:
             args += ('--upload-tools',)
         self.juju('upgrade-juju', args)
 
+    def upgrade_mongo(self):
+        self.juju('upgrade-mongo', ())
+
     def backup(self):
         environ = self._shell_environ()
         try:
@@ -1071,6 +1081,8 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             ensure_deleted(jenv_path)
         return exit_status
 
+    def upgrade_mongo(self):
+        raise UpgradeMongoNotSupported()
 
 class EnvJujuClient22(EnvJujuClient1X):
 
