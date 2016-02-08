@@ -15,6 +15,7 @@ import (
 var (
 	registeredCommands    []func() cmd.Command
 	registeredEnvCommands []func() envcmd.EnvironCommand
+	registeredSubCommands map[string][]func() cmd.Command
 )
 
 // RegisterCommand adds the provided func to the set of those that will
@@ -30,4 +31,11 @@ func RegisterCommand(newCommand func() cmd.Command) {
 // "juju" supercommand.
 func RegisterEnvCommand(newCommand func() envcmd.EnvironCommand) {
 	registeredEnvCommands = append(registeredEnvCommands, newCommand)
+}
+
+// RegisterSubCommand adds the provided func to the set of those that
+// will be called when the juju command runs. Each returned command will
+// be registered with the identified "juju" sub-supercommand.
+func RegisterSubCommand(super string, newCommand func() cmd.Command) {
+	registeredSubCommands[super] = append(registeredSubCommands[super], newCommand)
 }

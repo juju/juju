@@ -122,6 +122,15 @@ type commandRegistry interface {
 
 // registerCommands registers commands in the specified registry.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
+	superCommands := make(map[string]*cmd.SuperCommand)
+	register := func(command cmd.Command) {
+		r.Register(command)
+		if super, ok := command.(*cmd.SuperCommand); ok {
+			name := super.Info().Name
+			superCommands[name] = super
+		}
+	}
+
 	// Creation commands.
 	r.Register(newBootstrapCommand())
 	r.Register(newDeployCommand())
@@ -162,7 +171,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
-	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())
@@ -245,6 +253,16 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	for _, newCommand := range registeredEnvCommands {
 		command := newCommand()
 		r.Register(envcmd.Wrap(command))
+	}
+	for subname, newCommandFuncs := range registeredSubCommands {
+		subregistry, ok := superCommands[subname]
+		if !ok {
+			// TODO(ericsnow) Fail?
+		}
+		for _, newCommand := range newCommandFuncs {
+			command := newCommand()
+			subregistry.Register(command)
+		}
 	}
 }
 
