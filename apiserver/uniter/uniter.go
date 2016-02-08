@@ -1732,7 +1732,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	boundSpace, isBound := bindings[endpoint.Name]
 	if !isBound || boundSpace == "" {
 		name := endpoint.Name
-		logger.Debugf("endpoint not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
+		logger.Debugf("endpoint %q not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
 
 		privateAddress, err := machine.PrivateAddress()
 		if err != nil && !network.IsNoAddress(err) {
