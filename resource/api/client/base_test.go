@@ -72,6 +72,9 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 	res.Revision = 1
 	res.Username = username
 	if username == "" {
+		// Note that resourcetesting.NewResource() returns a resources
+		// with a username and timestamp set. So if the username was
+		// "un-set" then we have to also unset the timestamp.
 		res.Timestamp = time.Time{}
 	}
 
