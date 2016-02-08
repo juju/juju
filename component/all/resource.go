@@ -136,14 +136,6 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
-		client := newCharmstoreClient()
-		return &charmstoreClient{client}, nil
-	}
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		return cmd.NewShowCommand(newShowAPIClient)
-	})
-
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
