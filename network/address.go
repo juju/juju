@@ -66,6 +66,7 @@ type Address struct {
 	NetworkName string
 	Scope
 	SpaceName
+	SpaceProviderId Id
 }
 
 // String returns a string representation of the address, in the form:
