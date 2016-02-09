@@ -155,7 +155,7 @@ func (s *Subnet) Remove() (err error) {
 
 // ProviderId returns the provider-specific id of the subnet.
 func (s *Subnet) ProviderId() network.Id {
-	return network.Id(s.doc.ProviderId)
+	return network.Id(s.st.localID(s.doc.ProviderId))
 }
 
 // CIDR returns the subnet CIDR (e.g. 192.168.50.0/24).

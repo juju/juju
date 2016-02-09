@@ -1586,13 +1586,18 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
+	var modelLocalProviderID string
+	if args.ProviderId != "" {
+		modelLocalProviderID = st.docID(string(args.ProviderId))
+	}
+
 	subDoc := subnetDoc{
 		DocID:             subnetID,
 		ModelUUID:         st.ModelUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
-		ProviderId:        string(args.ProviderId),
+		ProviderId:        modelLocalProviderID,
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,
@@ -1625,13 +1630,16 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			return nil, errors.Trace(err)
 		}
 	case nil:
-		// if the ProviderId was not unique adding the subnet can fail
-		// without an error. Refreshing catches this
+		// If the ProviderId was not unique adding the subnet can fail without
+		// an error. Refreshing catches this by returning NotFoundError.
 		err = subnet.Refresh()
-		if err == nil {
-			return subnet, nil
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+			}
+			return nil, errors.Trace(err)
 		}
-		return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+		return subnet, nil
 	}
 	return nil, errors.Trace(err)
 }

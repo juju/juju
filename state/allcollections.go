@@ -306,12 +306,11 @@ func allCollections() collectionSchema {
 		},
 		subnetsC: {
 			indexes: []mgo.Index{{
-				// TODO(dimitern): make unique per-model, not globally.
-				// Note: currently in Mongodb sparse and unique
-				// indexes don't work for compound indexes.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support subnets, it can be empty, hence both
+				// unique and sparse.
+				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
 			}},
