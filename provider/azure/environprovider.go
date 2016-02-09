@@ -111,8 +111,9 @@ func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapCont
 	}
 
 	attrs := map[string]interface{}{
-		configAttrLocation: args.CloudRegion,
-		configAttrEndpoint: args.CloudEndpoint,
+		configAttrLocation:        args.CloudRegion,
+		configAttrEndpoint:        args.CloudEndpoint,
+		configAttrStorageEndpoint: args.CloudStorageEndpoint,
 
 		// Record the UUID that will be used for the controller
 		// model, which contains shared resources.

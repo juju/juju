@@ -76,10 +76,11 @@ func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
 
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
 	env, err := s.provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
-		Config:        cfg,
-		CloudRegion:   "westus",
-		CloudEndpoint: "https://api.azurestack.local",
-		Credentials:   fakeUserPassCredential(),
+		Config:               cfg,
+		CloudRegion:          "westus",
+		CloudEndpoint:        "https://api.azurestack.local",
+		CloudStorageEndpoint: "https://storage.azurestack.local",
+		Credentials:          fakeUserPassCredential(),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env, gc.NotNil)

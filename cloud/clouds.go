@@ -63,14 +63,23 @@ type Cloud struct {
 	// overridden by a region.
 	Endpoint string `yaml:"endpoint,omitempty"`
 
+	// StorageEndpoint is the default storage endpoint for the cloud
+	// regions, may be overridden by a region.
+	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
+
 	// Regions are the regions available in the cloud.
 	Regions map[string]Region `yaml:"regions,omitempty"`
 }
 
 // Region is a cloud region.
 type Region struct {
-	// Endpoint is the region's endpoint URL.
+	// Endpoint is the region's primary endpoint URL.
 	Endpoint string `yaml:"endpoint,omitempty"`
+
+	// StorageEndpoint is the region's storage endpoint URL.
+	// If the cloud/region does not have a storage-specific
+	// endpoint URL, this will be empty.
+	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
 // CloudByName returns the cloud with the specified name.

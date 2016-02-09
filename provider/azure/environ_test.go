@@ -99,7 +99,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Type: to.StringPtr("Standard_LRS"),
 		Properties: &storage.AccountProperties{
 			PrimaryEndpoints: &storage.Endpoints{
-				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.core.windows.net/", fakeStorageAccount)),
+				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", fakeStorageAccount)),
 			},
 		},
 	}
@@ -241,7 +241,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 					Caching:      compute.ReadWrite,
 					Vhd: &compute.VirtualHardDisk{
 						URI: to.StringPtr(fmt.Sprintf(
-							"https://%s.blob.core.windows.net/osvhds/machine-0.vhd",
+							"https://%s.blob.storage.azurestack.local/osvhds/machine-0.vhd",
 							fakeStorageAccount,
 						)),
 					},
@@ -306,10 +306,11 @@ func prepareForBootstrap(
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
 	env, err := provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
-		Config:        cfg,
-		CloudRegion:   "westus",
-		CloudEndpoint: "https://management.azure.com",
-		Credentials:   fakeUserPassCredential(),
+		Config:               cfg,
+		CloudRegion:          "westus",
+		CloudEndpoint:        "https://management.azure.com",
+		CloudStorageEndpoint: "https://core.windows.net",
+		Credentials:          fakeUserPassCredential(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env

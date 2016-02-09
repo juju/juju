@@ -98,7 +98,11 @@ func (EnvironProvider) DetectRegions() (map[string]cloud.Region, error) {
 	if creds.URL == "" {
 		return nil, errors.NewNotFound(nil, "OS_AUTH_URL environment variable not set")
 	}
-	return map[string]cloud.Region{creds.Region: {creds.URL}}, nil
+	return map[string]cloud.Region{
+		creds.Region: {
+			Endpoint: creds.URL,
+		},
+	}, nil
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.

@@ -77,7 +77,18 @@ func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]clo
 			AuthTypes: []cloud.AuthType{"userpass", "access-key"},
 			Endpoint:  "http://homestack",
 			Regions: map[string]cloud.Region{
-				"london": cloud.Region{"http://london/1.0"},
+				"london": cloud.Region{Endpoint: "http://london/1.0"},
+			},
+		},
+		"azurestack": cloud.Cloud{
+			Type:            "azure",
+			AuthTypes:       []cloud.AuthType{"userpass"},
+			StorageEndpoint: "http://storage.azurestack.local",
+			Regions: map[string]cloud.Region{
+				"local": cloud.Region{
+					Endpoint:        "http://azurestack.local",
+					StorageEndpoint: "http://storage.azurestack.local",
+				},
 			},
 		},
 	})
@@ -93,6 +104,13 @@ clouds:
     regions:
       london:
         endpoint: http://london/1.0
+  azurestack:
+    type: azure
+    auth-types: [userpass]
+    storage-endpoint: http://storage.azurestack.local
+    regions:
+      local:
+        endpoint: http://azurestack.local
 `[1:]
 	err := ioutil.WriteFile(destPath, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)

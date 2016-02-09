@@ -369,7 +369,7 @@ func (s *localTests) TestDetectRegions(c *gc.C) {
 	regions, err := s.detectRegions(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(regions, jc.DeepEquals, map[string]cloud.Region{
-		"oceania": {"http://keystone.internal"},
+		"oceania": {Endpoint: "http://keystone.internal"},
 	})
 }
 
