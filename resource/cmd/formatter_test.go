@@ -31,7 +31,7 @@ func (s *CharmFormatterSuite) TestFormatCharmResource(c *gc.C) {
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
-		Comment:     "X",
+		Description: "X",
 		Revision:    5,
 		Fingerprint: res.Fingerprint.String(),
 		Size:        int64(len("spamspamspam")),

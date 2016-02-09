@@ -28,8 +28,8 @@ func (s *CharmTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION COMMENT
-spam     1        ...
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
@@ -41,8 +41,8 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION COMMENT
-spam     1        
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
@@ -55,8 +55,8 @@ func (s *CharmTabularSuite) TestFormatCharmTabularUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION COMMENT
-spam     1        
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
@@ -74,12 +74,12 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE     REVISION COMMENT
-spam         1        spamspamspamspam
-eggs         2        ...
-somethingbig 1        
-song         1        your favorite
-avatar       1        your picture
+RESOURCE     REVISION
+spam         1
+eggs         2
+somethingbig 1
+song         1
+avatar       1
 `[1:])
 }
 
