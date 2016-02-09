@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
@@ -58,11 +59,13 @@ func (c payloads) registerPublicFacade() {
 		return
 	}
 
+	const version = 0
 	common.RegisterStandardFacade(
 		payload.ComponentName,
-		0,
+		version,
 		c.newPublicFacade,
 	)
+	api.RegisterFacadeVersion(payload.ComponentName, version)
 }
 
 type facadeCaller struct {
@@ -133,12 +136,14 @@ func (payloads) newHookContextFacade(st *state.State, unit *state.Unit) (interfa
 }
 
 func (c payloads) registerHookContextFacade() {
+	const version = 0
 	common.RegisterHookContextFacade(
 		payloadsHookContextFacade,
-		0,
+		version,
 		c.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
+	api.RegisterFacadeVersion(payloadsHookContextFacade, version)
 }
 
 type payloadsHookContext struct {

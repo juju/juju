@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	resourcecmd "github.com/juju/juju/resource/cmd"
+	"github.com/juju/juju/resource/resourceexternal"
 	"github.com/juju/juju/storage"
 )
 
@@ -502,16 +503,9 @@ func (c *DeployCommand) deployCharm(
 		}
 	}
 
-	var ids map[string]string
-	if len(c.Resources) > 0 || len(charmInfo.Meta.Resources) > 0 {
-		api, err := c.NewAPIRoot()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ids, err = resourcecmd.DeployResources(serviceName, c.Resources, charmInfo.Meta.Resources, api)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	ids, err := c.handleResources(serviceName, charmInfo.Meta.Resources)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	params := serviceDeployParams{
@@ -548,6 +542,24 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	return err
+}
+
+func (c *DeployCommand) handleResources(serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+	if len(c.Resources) == 0 && len(metaResources) == 0 {
+		return nil, nil
+	}
+
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ids, err := resourceexternal.DeployResources(serviceName, c.Resources, metaResources, api)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ids, nil
 }
 
 type serviceDeployParams struct {

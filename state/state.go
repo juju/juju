@@ -1322,6 +1322,20 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 	ops = append(ops, peerOps...)
 
+	if len(args.Resources) > 0 {
+		// Collect pending resource resolution operations.
+		resources, err := st.Resources()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
+	}
+
+	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
 		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
@@ -1348,13 +1362,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	// Refresh to pick the txn-revno.
 	if err = svc.Refresh(); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// TODO(natefinch) DEMO code, revisit after demo!
-	for _, postFunc := range AddServicePostFuncs {
-		if err := postFunc(st, args); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	return svc, nil

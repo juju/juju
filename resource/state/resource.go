@@ -3,6 +3,8 @@
 
 package state
 
+// TODO(ericsnow) Figure out a way to drop the txn dependency here?
+
 import (
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )
@@ -40,6 +43,10 @@ type resourcePersistence interface {
 
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
+
+	// NewResolvePendingResourceOps generates mongo transaction operations
+	// to set the identified resource as active.
+	NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error)
 }
 
 // StagedResource represents resource info that has been added to the
@@ -242,6 +249,39 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that
+// it has more meat to it?
+
+// NewResolvePendingResourcesOps generates mongo transaction operations
+// to set the identified resources as active.
+//
+// Leaking mongo details (transaction ops) is a necessary evil since we
+// do not have any machinery to facilitate transactions between
+// different components.
+func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error) {
+	if len(pendingIDs) == 0 {
+		return nil, nil
+	}
+
+	// TODO(ericsnow) The resources need to be pulled in from the charm
+	// store before we get to this point.
+
+	var allOps []txn.Op
+	for name, pendingID := range pendingIDs {
+		ops, err := st.newResolvePendingResourceOps(serviceID, name, pendingID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allOps = append(allOps, ops...)
+	}
+	return allOps, nil
+}
+
+func (st resourceState) newResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
+	resID := newResourceID(serviceID, name)
+	return st.persist.NewResolvePendingResourceOps(resID, pendingID)
 }
 
 // TODO(ericsnow) Incorporate the service and resource name into the ID
