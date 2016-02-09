@@ -24,6 +24,9 @@ type CharmstoreClient interface {
 	io.Closer
 }
 
+///////////////////
+// The charmstoreSpec code is based loosely on code in cmd/juju/commands/deploy.go.
+
 // CharmstoreSpec provides the functionality needed to open a charm
 // store client.
 type CharmstoreSpec interface {
@@ -80,6 +83,9 @@ func (cs charmstoreSpec) connect() (charmrepo.NewCharmStoreParams, *apiContext, 
 	return params, apiContext, nil
 }
 
+///////////////////
+// charmstoreClient is based loosely on cmd/juju/commands/common.go.
+
 type charmstoreClient struct {
 	*csclient.Client
 	*apiContext
@@ -89,6 +95,9 @@ type charmstoreClient struct {
 func (cs *charmstoreClient) Close() error {
 	return cs.apiContext.Close()
 }
+
+///////////////////
+// For the most part, apiContext is copied directly from cmd/envcmd/base.go.
 
 // newAPIContext returns a new api context, which should be closed
 // when done with.
