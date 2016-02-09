@@ -115,12 +115,22 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
             base_version, agent_filename, agent_stream=agent_stream)
         writer.write_stanzas()
         shutil.move(writer.filename, dest_dir)
-        shutil.move(agent_filename, dest_dir)
+        final_agent_path = os.path.join(dest_dir, writer.agent_path)
+        move_create_parent(agent_filename, final_agent_path)
 
 
 def debs_to_agents(dest_debs, agent_stream):
     for deb_path in glob.glob(os.path.join(dest_debs, '*.deb')):
         deb_to_agent(deb_path, dest_debs, agent_stream)
+
+
+def move_create_parent(source, target):
+    try:
+        os.makedirs(os.path.dirname(target))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    shutil.move(source, target)
 
 
 def make_windows_agent(dest_debs, agent_stream, release):
@@ -133,12 +143,19 @@ def make_windows_agent(dest_debs, agent_stream, release):
         release, target, agent_stream=agent_stream)
     writer.write_stanzas()
     agent_path = os.path.join(dest_debs, writer.agent_path)
-    try:
-        os.makedirs(os.path.dirname(agent_path))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
+    move_create_parent(target, agent_path)
     shutil.move(target, agent_path)
+    os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
+
+
+def make_centos_agent(dest_debs, agent_stream, release):
+    tarfile = os.path.join(
+        dest_debs, 'juju-{}-centos7-amd64.tgz'.format(release))
+    writer = StanzaWriter.for_centos(release, tarfile,
+                                     agent_stream=agent_stream)
+    writer.write_stanzas()
+    agent_path = os.path.join(dest_debs, writer.agent_path)
+    shutil.copy2(tarfile, agent_path)
     os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
 
 
@@ -158,6 +175,7 @@ def main():
                       s3_config)
     debs_to_agents(dest_debs, args.agent_stream)
     make_windows_agent(dest_debs, args.agent_stream, args.release)
+    make_centos_agent(dest_debs, args.agent_stream, args.release)
 
 
 if __name__ == '__main__':
