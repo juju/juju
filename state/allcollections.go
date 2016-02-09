@@ -293,6 +293,17 @@ func allCollections() collectionSchema {
 		},
 		openedPortsC:       {},
 		requestedNetworksC: {},
+		spacesC: {
+			indexes: []mgo.Index{{
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support spaces, it can be empty, hence both
+				// unique and sparse.
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
 		subnetsC: {
 			indexes: []mgo.Index{{
 				// TODO(dimitern): make unique per-model, not globally.
@@ -344,18 +355,6 @@ func allCollections() collectionSchema {
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey"},
-			}},
-		},
-		spacesC: {
-			indexes: []mgo.Index{{
-				// TODO(mfood): make unique per-environment, not globally.
-				// Note: currently in Mongodb sparse and unique
-				// indexes don't work for compound indexes.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
-				Unique: true,
-				Sparse: true,
 			}},
 		},
 

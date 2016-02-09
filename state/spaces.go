@@ -12,10 +12,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// Space represents the state of a space.
-// A space is a security subdivision of a network. In practice, a space
-// is a collection of related subnets that have no firewalls between
-// each other, and that have the same ingress and egress policies.
+// Space represents the state of a juju network space.
 type Space struct {
 	st  *State
 	doc spaceDoc
@@ -53,7 +50,7 @@ func (s *Space) Name() string {
 // ProviderId returns the provider id of the space. This will be the empty
 // string except on substrates that directly support spaces.
 func (s *Space) ProviderId() network.Id {
-	return network.Id(s.doc.ProviderId)
+	return network.Id(s.st.localID(s.doc.ProviderId))
 }
 
 // Subnets returns all the subnets associated with the Space.
@@ -85,13 +82,18 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	}
 
 	spaceID := st.docID(name)
+	var modelLocalProviderID string
+	if providerId != "" {
+		modelLocalProviderID = st.docID(string(providerId))
+	}
+
 	spaceDoc := spaceDoc{
 		DocID:      spaceID,
 		ModelUUID:  st.ModelUUID(),
 		Life:       Alive,
 		Name:       name,
 		IsPublic:   isPublic,
-		ProviderId: string(providerId),
+		ProviderId: string(modelLocalProviderID),
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
@@ -126,13 +128,18 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	} else if err != nil {
 		return nil, err
 	}
-	// if the ProviderId was not unique adding the space can fail
-	// without an error. Refreshing catches this.
+
+	// If the ProviderId was not unique adding the space can fail without an
+	// error. Refreshing catches this by returning NotFoundError.
 	err = newSpace.Refresh()
-	if err == nil {
-		return newSpace, nil
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, errors.Errorf("ProviderId %q not unique", providerId)
+		}
+		return nil, errors.Trace(err)
 	}
-	return nil, errors.Errorf("ProviderId %q not unique", providerId)
+
+	return newSpace, nil
 }
 
 // Space returns a space from state that matches the provided name. An error
