@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -29,8 +30,6 @@ var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
-
-var errNotImplemented = errors.New("not implemented in Joyent provider")
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (joyentProvider) RestrictedConfigAttributes() []string {
@@ -53,8 +52,37 @@ func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.C
 }
 
 func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+	attrs := map[string]interface{}{
+		SdcUrl: args.CloudEndpoint,
+	}
+	for k, v := range args.Config.AllAttrs() {
+		attrs[k] = v
+	}
+	// Add the credential attributes to config.
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		for k, v := range credentialAttrs {
+			if v != "" {
+				attrs[k] = v
+			}
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	// We want defaults filled in to pick up credential attributes
+	// not specified by the user.
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Ensure private key and other derived attributes are properly filled in.
+	cfg, err = p.Validate(cfg, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
