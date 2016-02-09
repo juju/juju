@@ -68,6 +68,7 @@ func (r resources) registerPublicFacade() {
 		server.Version,
 		r.newPublicFacade,
 	)
+	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
 }
 
 // newPublicFacade is passed into common.RegisterStandardFacade
@@ -289,6 +290,7 @@ func (r resources) registerHookContextFacade() {
 		r.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
+	api.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
 }
 
 // resourcesUnitDatastore is a shim to elide serviceName from
