@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
+	// TODO(axw) replace with flock on file in $XDG_RUNTIME_DIR
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/juju/osenv"
@@ -27,8 +28,6 @@ var logger = loggo.GetLogger("juju.jujuclient")
 // reasonable time to get the lock.
 var lockTimeout = 5 * time.Second
 
-type store struct{}
-
 // DefaultControllerStore returns files-based controller store
 // rooted at JujuHome.
 // TODO (anastasiamac 2016-02-08) aim to remove this
@@ -37,7 +36,10 @@ var DefaultControllerStore = func() (ControllerStore, error) {
 	return &store{}, nil
 }
 
-func acquireEnvironmentLock(lockName, operation string) (*fslock.Lock, error) {
+type store struct{}
+
+func (s *store) lock(operation string) (*fslock.Lock, error) {
+	lockName := "controllers.lock"
 	lock, err := fslock.NewLock(osenv.JujuXDGDataHome(), lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -70,7 +72,7 @@ func acquireEnvironmentLock(lockName, operation string) (*fslock.Lock, error) {
 
 // It appears that sometimes the lock is not cleared when we expect it to be.
 // Capture and log any errors from the Unlock method and retry a few times.
-func unlockEnvironmentLock(lock *fslock.Lock) {
+func (s *store) unlock(lock *fslock.Lock) {
 	err := retry.Call(retry.CallArgs{
 		Func: lock.Unlock,
 		NotifyFunc: func(err error, attempt int) {

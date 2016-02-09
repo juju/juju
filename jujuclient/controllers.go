@@ -7,26 +7,24 @@ import (
 	"github.com/juju/errors"
 )
 
-const controllersLockName = "controllers.lock"
-
 // AllControllers implements ControllersGetter.AllControllers.
 // This implementation gets all controllers defined in the controllers file.
-func (f *store) AllControllers() (map[string]ControllerDetails, error) {
-	lock, err := acquireEnvironmentLock(controllersLockName, "read-all-controllers")
+func (s *store) AllControllers() (map[string]ControllerDetails, error) {
+	lock, err := s.lock("read-all-controllers")
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read all controllers")
 	}
-	defer unlockEnvironmentLock(lock)
+	defer s.unlock(lock)
 	return ReadControllersFile(JujuControllersPath())
 }
 
 // ControllerByName implements ControllersGetter.ControllerByName.
-func (f *store) ControllerByName(name string) (*ControllerDetails, error) {
-	lock, err := acquireEnvironmentLock(controllersLockName, "read-controller-by-name")
+func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
+	lock, err := s.lock("read-controller-by-name")
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read controller %v", name)
 	}
-	defer unlockEnvironmentLock(lock)
+	defer s.unlock(lock)
 
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
@@ -40,16 +38,16 @@ func (f *store) ControllerByName(name string) (*ControllerDetails, error) {
 
 // UpdateController implements ControllersUpdater.UpdateController.
 // Once controllers collection is updated, controllers file is written.
-func (f *store) UpdateController(name string, one ControllerDetails) error {
+func (s *store) UpdateController(name string, one ControllerDetails) error {
 	if err := ValidateControllerDetails(name, one); err != nil {
 		return err
 	}
 
-	lock, err := acquireEnvironmentLock(controllersLockName, "update-controller")
+	lock, err := s.lock("update-controller")
 	if err != nil {
 		return errors.Annotatef(err, "cannot update controller %v", name)
 	}
-	defer unlockEnvironmentLock(lock)
+	defer s.unlock(lock)
 
 	all, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
@@ -66,12 +64,12 @@ func (f *store) UpdateController(name string, one ControllerDetails) error {
 
 // RemoveController implements ControllersRemover.RemoveController
 // Once controllers collection is updated, controllers file is written.
-func (f *store) RemoveController(name string) error {
-	lock, err := acquireEnvironmentLock(controllersLockName, "remove-controller")
+func (s *store) RemoveController(name string) error {
+	lock, err := s.lock("remove-controller")
 	if err != nil {
 		return errors.Annotatef(err, "cannot remove controller %v", name)
 	}
-	defer unlockEnvironmentLock(lock)
+	defer s.unlock(lock)
 
 	all, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
