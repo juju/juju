@@ -21,15 +21,13 @@ type configFlag struct {
 
 // Set implements gnuflag.Value.Set.
 func (f *configFlag) Set(s string) error {
+	if s == "" {
+		return errors.NotValidf("empty string")
+	}
 	fields := strings.SplitN(s, "=", 2)
-	switch len(fields) {
-	case 1:
+	if len(fields) == 1 {
 		f.files = append(f.files, fields[0])
 		return nil
-	case 2:
-		break
-	default:
-		return errors.New("expected <file> or <key>=<value>")
 	}
 	var value interface{}
 	if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
