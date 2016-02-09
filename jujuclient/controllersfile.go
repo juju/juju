@@ -15,8 +15,6 @@ import (
 
 // JujuControllersPath is the location where controllers information is
 // expected to be found.
-// TODO (anastasiamac 2016-02-02) This needs to be updated to use new and shiny DATA instead of HOME.
-// Requires JUJU_HOME to be set.
 func JujuControllersPath() string {
 	return osenv.JujuXDGDataHomePath("controllers.yaml")
 }
@@ -41,7 +39,7 @@ func ReadControllersFile(file string) (map[string]ControllerDetails, error) {
 // WriteControllersFile marshals to YAML details of the given controllers
 // and writes it to the controllers file.
 func WriteControllersFile(controllers map[string]ControllerDetails) error {
-	data, err := yaml.Marshal(controllerDetailsList{controllers})
+	data, err := yaml.Marshal(controllersCollection{controllers})
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml controllers")
 	}
@@ -50,7 +48,7 @@ func WriteControllersFile(controllers map[string]ControllerDetails) error {
 
 // ParseControllers parses the given YAML bytes into controllers metadata.
 func ParseControllers(data []byte) (map[string]ControllerDetails, error) {
-	var result controllerDetailsList
+	var result controllersCollection
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml controllers metadata")
@@ -58,6 +56,6 @@ func ParseControllers(data []byte) (map[string]ControllerDetails, error) {
 	return result.Controllers, nil
 }
 
-type controllerDetailsList struct {
+type controllersCollection struct {
 	Controllers map[string]ControllerDetails `yaml:"controllers"`
 }

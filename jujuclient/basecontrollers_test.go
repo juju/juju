@@ -11,14 +11,14 @@ import (
 )
 
 type baseControllersSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 
 	controllerName string
 	controller     jujuclient.ControllerDetails
 }
 
 func (s *baseControllersSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.controllerName = "test.controller"
 	s.controller = jujuclient.ControllerDetails{
