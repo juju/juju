@@ -48,9 +48,9 @@ type Server struct {
 	limiter           utils.Limiter
 	validator         LoginValidator
 	adminApiFactories map[int]adminApiFactory
-
-	mu          sync.Mutex // protects the fields that follow
-	environUUID string
+	mu                sync.Mutex // protects the fields that follow
+	environUUID       string
+	connections       int32 // count of active websocket connections
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -222,15 +222,20 @@ type requestNotifier struct {
 
 	mu   sync.Mutex
 	tag_ string
+
+	// count is incremented by calls to join, and deincremented
+	// by calls to leave.
+	count *int32
 }
 
 var globalCounter int64
 
-func newRequestNotifier() *requestNotifier {
+func newRequestNotifier(count *int32) *requestNotifier {
 	return &requestNotifier{
 		id:    atomic.AddInt64(&globalCounter, 1),
 		tag_:  "<unknown>",
 		start: time.Now(),
+		count: count,
 	}
 }
 
@@ -276,11 +281,13 @@ func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body int
 }
 
 func (n *requestNotifier) join(req *http.Request) {
-	logger.Infof("[%X] API connection from %s", n.id, req.RemoteAddr)
+	active := atomic.AddInt32(n.count, 1)
+	logger.Infof("[%X] API connection from %s, active connections: %d", n.id, req.RemoteAddr, active)
 }
 
 func (n *requestNotifier) leave() {
-	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
+	active := atomic.AddInt32(n.count, -1)
+	logger.Infof("[%X] %s API connection terminated after %v, active connections: %d", n.id, n.tag(), time.Since(n.start), active)
 }
 
 func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -300,6 +307,12 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 
 func (srv *Server) run() {
 	logger.Infof("listening on %q", srv.lis.Addr())
+	defer func() {
+		addr := srv.lis.Addr().String() // Addr not valid after close
+		err := srv.lis.Close()
+		logger.Infof("closed listening socket %q with final error: %v", addr, err)
+	}()
+
 	defer func() {
 		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
@@ -392,16 +405,20 @@ func (srv *Server) run() {
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {
-		// The error from http.Serve is not interesting.
-		http.Serve(srv.lis, mux)
+		addr := srv.lis.Addr() // not valid after addr closed
+		logger.Debugf("Starting API http server on address %q", addr)
+		err := http.Serve(srv.lis, mux)
+		// normally logging an error at debug level would be grounds for a beating,
+		// however in this case the error is *expected* to be non nil, and does not
+		// affect the operation of the apiserver, but for completeness log it anyway.
+		logger.Debugf("API http server exited, final error was: %v", err)
 	}()
 
 	<-srv.tomb.Dying()
-	srv.lis.Close()
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	reqNotifier := newRequestNotifier()
+	reqNotifier := newRequestNotifier(&srv.connections)
 	reqNotifier.join(req)
 	defer reqNotifier.leave()
 	wsServer := websocket.Server{
