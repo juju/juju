@@ -44,17 +44,17 @@ func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
 	c.Assert(controllers, gc.IsNil)
 }
 
-func parseControllers(c *gc.C) *jujuclient.ControllerDetailsList {
+func parseControllers(c *gc.C) map[string]jujuclient.ControllerDetails {
 	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
-	c.Assert(controllers.Controllers["local.mark-test-prodstack"].Servers, gc.HasLen, 2)
-	c.Assert(controllers.Controllers["local.mallards"].APIEndpoints, gc.HasLen, 2)
+	c.Assert(controllers["local.mark-test-prodstack"].Servers, gc.HasLen, 2)
+	c.Assert(controllers["local.mallards"].APIEndpoints, gc.HasLen, 2)
 	return controllers
 }
 
-func writeTestControllersFile(c *gc.C) *jujuclient.ControllerDetailsList {
+func writeTestControllersFile(c *gc.C) map[string]jujuclient.ControllerDetails {
 	controllers := parseControllers(c)
 	err := jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,7 +64,7 @@ func writeTestControllersFile(c *gc.C) *jujuclient.ControllerDetailsList {
 func (s *FileSuite) TestParseControllerMetadata(c *gc.C) {
 	controllers := parseControllers(c)
 	var names []string
-	for name, _ := range controllers.Controllers {
+	for name, _ := range controllers {
 		names = append(names, name)
 	}
 	c.Assert(names, jc.SameContents,
@@ -73,6 +73,6 @@ func (s *FileSuite) TestParseControllerMetadata(c *gc.C) {
 
 func (s *FileSuite) TestParseControllerMetadataError(c *gc.C) {
 	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.ControllerDetailsList")
+	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.controllerDetailsList")
 	c.Assert(controllers, gc.IsNil)
 }

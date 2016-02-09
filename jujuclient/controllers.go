@@ -41,7 +41,7 @@ func (f *store) UpdateController(name string, one ControllerDetails) error {
 	}
 
 	all[name] = one
-	return WriteControllersFile(&ControllerDetailsList{all})
+	return WriteControllersFile(all)
 }
 
 // RemoveController implements ControllersRemover.RemoveController
@@ -53,7 +53,7 @@ func (f *store) RemoveController(name string) error {
 	}
 
 	delete(all, name)
-	return WriteControllersFile(&ControllerDetailsList{all})
+	return WriteControllersFile(all)
 }
 
 // ValidateControllerDetails ensures that given controller details are valid.

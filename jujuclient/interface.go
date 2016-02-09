@@ -3,19 +3,12 @@
 
 package jujuclient
 
-// ControllerDetailsList contains list of controller details.
-type ControllerDetailsList struct {
-	// Controllers is a map of controllers details,
-	// keyed on controller name.
-	Controllers map[string]ControllerDetails `yaml:"controllers"`
-}
-
 // ControllerDetails holds controller details needed to connect to it.
 type ControllerDetails struct {
-	// Servers is the collection of host names running in this controller.
+	// Servers contains the addresses of hosts that form Juju controller cluster.
 	Servers []string `yaml:"servers,flow"`
 
-	// ControllerUUID is controller unique ID.
+	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid"`
 
 	// APIEndpoints is the collection of API endpoints running in this controller.

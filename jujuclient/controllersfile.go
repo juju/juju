@@ -35,13 +35,13 @@ func ReadControllersFile(file string) (map[string]ControllerDetails, error) {
 	if err != nil {
 		return nil, err
 	}
-	return controllers.Controllers, nil
+	return controllers, nil
 }
 
 // WriteControllersFile marshals to YAML details of the given controllers
 // and writes it to the controllers file.
-func WriteControllersFile(controllers *ControllerDetailsList) error {
-	data, err := yaml.Marshal(controllers)
+func WriteControllersFile(controllers map[string]ControllerDetails) error {
+	data, err := yaml.Marshal(controllerDetailsList{controllers})
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml controllers")
 	}
@@ -49,11 +49,15 @@ func WriteControllersFile(controllers *ControllerDetailsList) error {
 }
 
 // ParseControllers parses the given YAML bytes into controllers metadata.
-func ParseControllers(data []byte) (*ControllerDetailsList, error) {
-	var result ControllerDetailsList
+func ParseControllers(data []byte) (map[string]ControllerDetails, error) {
+	var result controllerDetailsList
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml controllers metadata")
 	}
-	return &result, nil
+	return result.Controllers, nil
+}
+
+type controllerDetailsList struct {
+	Controllers map[string]ControllerDetails `yaml:"controllers"`
 }
