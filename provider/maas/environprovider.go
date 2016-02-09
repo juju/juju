@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -59,8 +60,26 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 }
 
 func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+	// For MAAS, the endpoint from the cloud definition defines the MAAS server.
+	attrs := map[string]interface{}{
+		"maas-server": args.CloudEndpoint,
+	}
+	// Add the credentials.
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.OAuth1AuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		for k, v := range credentialAttrs {
+			attrs[k] = v
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}

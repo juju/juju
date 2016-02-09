@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -29,8 +30,6 @@ var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
-
-var errNotImplemented = errors.New("not implemented in Joyent provider")
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (joyentProvider) RestrictedConfigAttributes() []string {
@@ -53,8 +52,32 @@ func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.C
 }
 
 func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+	// We don't have a way of passing more than one
+	// API endpoint from clouds.yaml, so we can't
+	// say which Manta URL to use.
+	// Use of Manta is going away. It defaults to
+	// https://us-east.manta.joyent.com, so for now,
+	// if the default value is not correct, it's necessary
+	// to specify the URL in bootstrap config.
+	attrs := map[string]interface{}{
+		SdcUrl: args.CloudEndpoint,
+	}
+	// Add the credential attributes to config.
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		for k, v := range credentialAttrs {
+			attrs[k] = v
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

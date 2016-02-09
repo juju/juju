@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -121,6 +122,11 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
+	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
+	s.Credential = cloud.NewCredential(
+		cloud.UserPassAuthType,
+		credentialsAttrs,
+	)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
@@ -166,6 +172,11 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
+	s.Credential = cloud.NewCredential(
+		cloud.UserPassAuthType,
+		credentialsAttrs,
+	)
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(c, creds)

@@ -20,7 +20,7 @@ var _ = gc.Suite(&cloudSuite{})
 func parsePublicClouds(c *gc.C) *cloud.Clouds {
 	clouds, err := cloud.ParseCloudMetadata([]byte(cloud.FallbackPublicCloudInfo))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds.Clouds, gc.HasLen, 7)
+	c.Assert(clouds.Clouds, gc.HasLen, 8)
 	return clouds
 }
 
@@ -31,7 +31,7 @@ func (s *cloudSuite) TestParseClouds(c *gc.C) {
 		cloudNames = append(cloudNames, name)
 	}
 	c.Assert(cloudNames, jc.SameContents,
-		[]string{"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace"})
+		[]string{"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent"})
 }
 
 func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 		cloudNames = append(cloudNames, name)
 	}
 	c.Assert(cloudNames, jc.SameContents,
-		[]string{"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace"})
+		[]string{"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent"})
 }
 
 func (s *cloudSuite) TestPublicCloudsMetadata(c *gc.C) {
