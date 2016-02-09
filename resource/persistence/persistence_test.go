@@ -249,6 +249,33 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	}})
 }
 
+func (s *PersistenceSuite) TestSetResourceNotFound(c *gc.C) {
+	servicename := "a-service"
+	res, doc := newResource(c, servicename, "spam")
+	s.base.ReturnOne = doc
+	expected := doc // a copy
+	expected.StoragePath = ""
+	p := NewPersistence(s.base)
+	notFound := errors.NewNotFound(nil, "")
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(notFound, nil, nil, ignoredErr)
+
+	err := p.SetResource(res.Resource)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"One",
+		"Run",
+		"RunTransaction",
+	)
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/spam",
+		Assert: txn.DocMissing,
+		Insert: &expected,
+	}})
+}
+
 func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"
@@ -268,6 +295,21 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
+}
+
+func (s *PersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
+	servicename := "a-service"
+	unitname := "a-service/0"
+	res, _ := newUnitResource(c, servicename, unitname, "eggs")
+	p := NewPersistence(s.base)
+	notFound := errors.NewNotFound(nil, "")
+	s.stub.SetErrors(notFound)
+
+	err := p.SetUnitResource("a-service/0", res)
+
+	s.stub.CheckCallNames(c, "One")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `resource "eggs" not found`)
 }
 
 func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {

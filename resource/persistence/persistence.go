@@ -156,7 +156,9 @@ func (p Persistence) StageResource(res resource.Resource, storagePath string) (*
 // SetResource sets the info for the resource.
 func (p Persistence) SetResource(res resource.Resource) error {
 	stored, err := p.getStored(res)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		stored = storedResource{Resource: res}
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
@@ -228,6 +230,9 @@ func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error
 
 func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 	doc, err := p.getOne(res.ID)
+	if errors.IsNotFound(err) {
+		err = errors.NotFoundf("resource %q", res.Name)
+	}
 	if err != nil {
 		return storedResource{}, errors.Trace(err)
 	}
