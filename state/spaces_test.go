@@ -290,10 +290,9 @@ func (s *SpacesSuite) addTwoSpacesReturnSecond(c *gc.C, args1, args2 addSpaceArg
 	s.assertSpaceMatchesArgs(c, space1, args1)
 
 	return s.addSpaceWithSubnets(c, args2)
-
 }
 
-func (s *SpacesSuite) TestAddTwoSpaceWithDifferentNamesButSameProviderIdFailsInSameModel(c *gc.C) {
+func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesButSameProviderIdFailsInSameModel(c *gc.C) {
 	args1 := addSpaceArgs{
 		Name:       "my-space",
 		ProviderId: network.Id("provider id"),
@@ -337,7 +336,6 @@ func (s *SpacesSuite) newStateForModelNamed(c *gc.C, modelName string) *state.St
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { otherState.Close() })
 	return otherState
-
 }
 
 func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesAndEmptyProviderIdSucceedsInSameModel(c *gc.C) {
@@ -351,7 +349,6 @@ func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesAndEmptyProviderIdSuccee
 	space2, err := s.addTwoSpacesReturnSecond(c, args1, args2)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSpaceMatchesArgs(c, space2, args2)
-
 }
 
 func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesAndEmptyProviderIdSucceedsInDifferentModels(c *gc.C) {
@@ -370,7 +367,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesAndEmptyProviderIdSuccee
 	s.assertSpaceMatchesArgs(c, space2, args2)
 }
 
-func (s *SpacesSuite) TestAddTwoSpaceWithSameNamesAndEmptyProviderIdsFailsInSameModel(c *gc.C) {
+func (s *SpacesSuite) TestAddTwoSpacesWithSameNamesAndEmptyProviderIdsFailsInSameModel(c *gc.C) {
 	args := addSpaceArgs{
 		Name:       "my-space",
 		ProviderId: "",
