@@ -107,7 +107,7 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	charmURLs, err := resolveCharms(c.charm)
+	charmURLs, err := resolveCharms([]string{c.charm})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, formatted)
 }
 
-func resolveCharms(charms ...string) ([]charm.URL, error) {
+func resolveCharms(charms []string) ([]charm.URL, error) {
 	var charmURLs []charm.URL
 	for _, raw := range charms {
 		charmURL, err := resolveCharm(raw)
