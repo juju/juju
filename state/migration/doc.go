@@ -22,7 +22,7 @@ package migration
 
 // NOTES:
 //
-// Prechecks:
+// The following prechecks are to be made before attempting migration:
 //
 // - no agents in an error state
 // - nothing dying or dead; machine, service, unit, relation, storage, network etc

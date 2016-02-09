@@ -181,6 +181,7 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	m.SetTools(minimalAgentToolsArgs())
 	m.SetStatus(minimalStatusArgs())
 	m.SetInstance(minimalCloudInstanceArgs())
+
 	// Just use one set of address args for both machine and provider.
 	addrArgs := []AddressArgs{
 		{
@@ -205,17 +206,9 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("-- bytes --\n%s\n", bytes)
-
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Logf("-- map --")
-	machineMap := source["machines"].([]interface{})[0].(map[interface{}]interface{})
-	for key, value := range machineMap {
-		c.Logf("%s: %v", key, value)
-	}
 
 	machines, err := importMachines(source)
 	c.Assert(err, jc.ErrorIsNil)
