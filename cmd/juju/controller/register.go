@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
@@ -198,7 +198,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var info controller.RegistrationInfo
+	var info jujuclient.RegistrationInfo
 	if _, err := asn1.Unmarshal(decodedData, &info); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controllerserver/authentication"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient/authentication"
 	"github.com/juju/juju/state"
 )
 

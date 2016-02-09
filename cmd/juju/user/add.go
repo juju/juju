@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/jujuclient"
 )
 
 const useraddCommandDoc = `
@@ -106,7 +106,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	registrationInfo := controller.RegistrationInfo{
+	registrationInfo := jujuclient.RegistrationInfo{
 		User:      c.User,
 		Addrs:     info.APIEndpoint().Addresses,
 		SecretKey: secretKey,
