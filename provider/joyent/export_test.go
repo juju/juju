@@ -201,7 +201,9 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(), cfg.Name(),
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
+		cfg.Name(),
 		environs.PrepareForBootstrapParams{
 			Config: cfg,
 			Credentials: cloud.NewCredential(
@@ -209,11 +211,6 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 				CredentialsAttributes(attrs),
 			),
 		},
-		
-		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMemControllerStore(),
-		cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.(*joyentEnviron).Ecfg()

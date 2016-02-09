@@ -52,6 +52,13 @@ func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.C
 }
 
 func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	// We don't have a way of passing more than one
+	// API endpoint from clouds.yaml, so we can't
+	// say which Manta URL to use.
+	// Use of Manta is going away. It defaults to
+	// https://us-east.manta.joyent.com, so for now,
+	// if the default value is not correct, it's necessary
+	// to specify the URL in bootstrap config.
 	attrs := map[string]interface{}{
 		SdcUrl: args.CloudEndpoint,
 	}
@@ -63,9 +70,7 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 	case cloud.UserPassAuthType:
 		credentialAttrs := args.Credentials.Attributes()
 		for k, v := range credentialAttrs {
-			if v != "" {
-				attrs[k] = v
-			}
+			attrs[k] = v
 		}
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
