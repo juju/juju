@@ -766,7 +766,7 @@ var stringTests = []struct {
 		Scope:           network.ScopePublic,
 		SpaceProviderId: network.Id("3"),
 	},
-	str: "public:foo.com",
+	str: "public:foo.com@(id:3)",
 }, {
 	addr: network.Address{
 		Type:      network.HostName,
@@ -783,7 +783,7 @@ var stringTests = []struct {
 		NetworkName:     "netname",
 		SpaceProviderId: network.Id("3"),
 	},
-	str: "public:foo.com(netname)",
+	str: "public:foo.com(netname)@(id:3)",
 }, {
 	addr: network.Address{
 		Type:            network.HostName,
@@ -793,7 +793,7 @@ var stringTests = []struct {
 		SpaceName:       "badlands",
 		SpaceProviderId: network.Id("3"),
 	},
-	str: "public:foo.com(netname)@badlands",
+	str: "public:foo.com(netname)@badlands(id:3)",
 }}
 
 func (s *AddressSuite) TestString(c *gc.C) {

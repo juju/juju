@@ -6,6 +6,7 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"sort"
 
@@ -91,11 +92,18 @@ func (a Address) String() string {
 		buf.WriteByte(')')
 	}
 
+	var spaceFound bool
 	if a.SpaceName != "" {
+		spaceFound = true
 		buf.WriteByte('@')
 		buf.WriteString(string(a.SpaceName))
 	}
-
+	if a.SpaceProviderId != Id("") {
+		if !spaceFound {
+			buf.WriteByte('@')
+		}
+		buf.WriteString(fmt.Sprintf("(id:%v)", string(a.SpaceProviderId)))
+	}
 	return buf.String()
 }
 
