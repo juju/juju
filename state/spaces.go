@@ -178,7 +178,7 @@ func (st *State) AllSpaces() ([]*Space, error) {
 	return spaces, nil
 }
 
-// EnsureDead sets the Life of the space to Dead, if it's Alive. If spaces is
+// EnsureDead sets the Life of the space to Dead, if it's Alive. If the space is
 // already Dead, no error is returned. When the space is no longer Alive or
 // already removed, errNotAlive is returned.
 func (s *Space) EnsureDead() (err error) {
