@@ -33,8 +33,10 @@ func NewSuperCommand() *Command {
 	}
 	spec := newCharmstoreSpec()
 
+	// Sub-commands may be registered directly here, like so:
 	//charmCmd.Register(newXXXCommand(spec))
 
+	// ...or externally via RegisterSubCommand().
 	for _, newSubCommand := range registeredSubCommands {
 		command := newSubCommand(spec)
 		charmCmd.Register(command)
