@@ -176,10 +176,6 @@ type Unit interface {
 	// TODO: meter status
 	// TODO: storage
 
-	PublicAddress() Address
-	PrivateAddress() Address
-	SetAddresses(public AddressArgs, private AddressArgs)
-
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
 

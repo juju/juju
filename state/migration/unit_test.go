@@ -80,13 +80,6 @@ func (s *UnitSerializationSuite) completeUnit() *unit {
 	unit := newUnit(args)
 	unit.SetAgentStatus(minimalStatusArgs())
 	unit.SetWorkloadStatus(minimalStatusArgs())
-	unit.SetAddresses(AddressArgs{
-		Value: "8.8.8.8",
-		Type:  "public",
-	}, AddressArgs{
-		Value: "10.10.10.10",
-		Type:  "private",
-	})
 	unit.SetTools(minimalAgentToolsArgs())
 	return unit
 }
@@ -103,14 +96,6 @@ func (s *UnitSerializationSuite) TestNewUnit(c *gc.C) {
 		names.NewUnitTag("sub1/0"),
 		names.NewUnitTag("sub2/0"),
 	})
-
-	publicAddress := unit.PublicAddress()
-	c.Assert(publicAddress.Value(), gc.Equals, "8.8.8.8")
-	c.Assert(publicAddress.Type(), gc.Equals, "public")
-
-	privateAddress := unit.PrivateAddress()
-	c.Assert(privateAddress.Value(), gc.Equals, "10.10.10.10")
-	c.Assert(privateAddress.Type(), gc.Equals, "private")
 
 	c.Assert(unit.Tools(), gc.NotNil)
 	c.Assert(unit.WorkloadStatus(), gc.NotNil)

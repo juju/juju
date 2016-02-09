@@ -414,6 +414,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
 	c.Assert(err, jc.ErrorIsNil)
+
+	agentTools := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: params.Service.Series(),
+	}
+	err = unit.SetAgentVersion(agentTools)
+	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
 		serviceCharmURL, _ := params.Service.CharmURL()
 		err = unit.SetCharmURL(serviceCharmURL)

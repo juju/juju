@@ -176,6 +176,12 @@ func (s *service) Validate() error {
 	if s.Status_ == nil {
 		return errors.NotValidf("service %q missing status", s.Name_)
 	}
+	// All of the services units should also be valid.
+	for _, u := range s.Units() {
+		if err := u.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 

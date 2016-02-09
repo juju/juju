@@ -37,9 +37,6 @@ type unit struct {
 
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
-
-	PublicAddress_  *address `yaml:"public-address,omitempty"`
-	PrivateAddress_ *address `yaml:"private-address,omitempty"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Service in the Model.
@@ -99,34 +96,6 @@ func (u *unit) Subordinates() []names.UnitTag {
 		subordinates = append(subordinates, names.NewUnitTag(s))
 	}
 	return subordinates
-}
-
-// PublicAddress implements Unit.
-func (u *unit) PublicAddress() Address {
-	// To avoid typed nils check nil here.
-	if u.PublicAddress_ == nil {
-		return nil
-	}
-	return u.PublicAddress_
-}
-
-// PrivateAddress implements Unit.
-func (u *unit) PrivateAddress() Address {
-	// To avoid typed nils check nil here.
-	if u.PrivateAddress_ == nil {
-		return nil
-	}
-	return u.PrivateAddress_
-}
-
-// SetAddresses implements Unit.
-func (u *unit) SetAddresses(public AddressArgs, private AddressArgs) {
-	if public.Value != "" {
-		u.PublicAddress_ = newAddress(public)
-	}
-	if private.Value != "" {
-		u.PrivateAddress_ = newAddress(private)
-	}
 }
 
 // Tools implements Unit.
@@ -240,15 +209,10 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 
 		"password-hash": schema.String(),
 		"tools":         schema.StringMap(schema.Any()),
-
-		"public-address":  schema.StringMap(schema.Any()),
-		"private-address": schema.StringMap(schema.Any()),
 	}
 	defaults := schema.Defaults{
-		"principal":       "",
-		"subordinates":    schema.Omit,
-		"public-address":  schema.Omit,
-		"private-address": schema.Omit,
+		"principal":    "",
+		"subordinates": schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -294,22 +258,6 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		return nil, errors.Trace(err)
 	}
 	result.WorkloadStatus_ = workloadStatus
-
-	if address, ok := valid["public-address"]; ok {
-		publicAddress, err := importAddress(address.(map[string]interface{}))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result.PublicAddress_ = publicAddress
-	}
-
-	if address, ok := valid["private-address"]; ok {
-		privateAddress, err := importAddress(address.(map[string]interface{}))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result.PrivateAddress_ = privateAddress
-	}
 
 	return result, nil
 }
