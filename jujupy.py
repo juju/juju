@@ -47,6 +47,8 @@ CONTROLLER = 'controller'
 KILL_CONTROLLER = 'kill-controller'
 SYSTEM = 'system'
 
+_DEFAULT_BUNDLE_TIMEOUT = 3600
+
 _jes_cmds = {KILL_CONTROLLER: {
     'create': 'create-environment',
     'kill': KILL_CONTROLLER,
@@ -530,6 +532,10 @@ class EnvJujuClient:
 
     def remove_service(self, service):
         self.juju('remove-service', (service,))
+
+    def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
+        """Deploy bundle using native juju 2.0 deploy command."""
+        self.juju('deploy', bundle, timeout=timeout)
 
     def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
         """deployer, using sudo if necessary."""
@@ -1101,6 +1107,10 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
         return exit_status
+
+    def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
+        """Deploy bundle using deployer for Juju 1.X version."""
+        self.deployer(bundle, timeout=timeout)
 
 
 class EnvJujuClient22(EnvJujuClient1X):

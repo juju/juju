@@ -1158,6 +1158,14 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
+    def test_deploy_bundle_2X(self):
+        client = EnvJujuClient(SimpleEnvironment('an_env', None),
+                               '1.23-series-arch', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.deploy_bundle('bundle:~juju-qa/some-bundle')
+        mock_juju.assert_called_with(
+            'deploy', ('bundle:~juju-qa/some-bundle'), timeout=3600)
+
     def test_remove_service(self):
         env = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
@@ -3482,6 +3490,17 @@ class TestEnvJujuClient1X(ClientTest):
         flattened_timings = client.get_juju_timings()
         expected = {"juju op1": [1], "juju op2": [2]}
         self.assertEqual(flattened_timings, expected)
+
+    def test_deploy_bundle_1X(self):
+        client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
+                                 '1.23-series-arch', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.deploy_bundle('bundle:~juju-qa/some-bundle')
+        mock_juju.assert_called_with(
+            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
+            False
+        )
 
     def test_deployer(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
