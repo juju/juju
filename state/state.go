@@ -1322,16 +1322,18 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 	ops = append(ops, peerOps...)
 
-	// Collect pending resource resolution operations.
-	resources, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
+	if len(args.Resources) > 0 {
+		// Collect pending resource resolution operations.
+		resources, err := st.Resources()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
 	}
-	resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, resOps...)
 
 	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
