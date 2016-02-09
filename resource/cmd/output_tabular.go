@@ -56,16 +56,15 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, "RESOURCE\tORIGIN\tREV\tUSED\tCOMMENT")
+	fmt.Fprintln(tw, "RESOURCE\tSUPPLIED BY\tREVISION\tCOMMENT")
 
 	// Print each info to its own row.
 	for _, r := range resources {
 		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\t%v\n",
+		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
 			r.Name,
 			r.combinedOrigin,
 			r.combinedRevision,
-			r.usedYesNo,
 			r.Comment,
 		)
 	}

@@ -128,11 +128,11 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE ORIGIN    REV        USED COMMENT
-openjdk  store     7          no   the java runtime
-website  upload    -          no   your website data
-rsc1234  store     15         yes  a big comment
-website2 Bill User 2012-12-12 yes  awesome data
+RESOURCE SUPPLIED BY REVISION         COMMENT
+openjdk  charmstore  7                the java runtime
+website  upload      -                your website data
+rsc1234  charmstore  15               a big comment
+website2 Bill User   2012-12-12T12:12 awesome data
 
 `[1:])
 
