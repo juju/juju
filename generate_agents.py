@@ -144,7 +144,6 @@ def make_windows_agent(dest_debs, agent_stream, release):
     writer.write_stanzas()
     agent_path = os.path.join(dest_debs, writer.agent_path)
     move_create_parent(target, agent_path)
-    shutil.move(target, agent_path)
     os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
 
 
