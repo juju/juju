@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -265,6 +266,11 @@ func (client *instanceClient) RemoveInstances(prefix string, names ...string) er
 	if err != nil {
 		return errors.Annotatef(err, "while removing instances %v", names)
 	}
+
+	// Reverse instance names so that controllers come last. Otherwise, the
+	// controller instance could get deleted before all the other delete API
+	// calls have been made.
+	sort.Sort(sort.Reverse(sort.StringSlice(names)))
 
 	var failed []string
 	for _, name := range names {
