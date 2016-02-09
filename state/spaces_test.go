@@ -9,14 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type SpacesSuite struct {
@@ -317,25 +314,12 @@ func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesButSameProviderIdSucceed
 	}
 	args2 := args1
 	args2.Name = "different"
-	args2.ForState = s.newStateForModelNamed(c, "other")
+	args2.ForState = s.NewStateForModelNamed(c, "other")
 
 	space2, err := s.addTwoSpacesReturnSecond(c, args1, args2)
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSpaceMatchesArgs(c, space2, args2)
-}
-
-func (s *SpacesSuite) newStateForModelNamed(c *gc.C, modelName string) *state.State {
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": modelName,
-		"uuid": utils.MustNewUUID().String(),
-	})
-	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(cfg, otherOwner)
-
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { otherState.Close() })
-	return otherState
 }
 
 func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesAndEmptyProviderIdSucceedsInSameModel(c *gc.C) {
@@ -359,7 +343,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesAndEmptyProviderIdSuccee
 	}
 	args2 := args1
 	args2.Name = "different"
-	args2.ForState = s.newStateForModelNamed(c, "other")
+	args2.ForState = s.NewStateForModelNamed(c, "other")
 
 	space2, err := s.addTwoSpacesReturnSecond(c, args1, args2)
 
@@ -400,7 +384,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithSameNamesAndEmptyProviderIdsSuccedsInD
 		ForState:   s.State,
 	}
 	args2 := args1
-	args2.ForState = s.newStateForModelNamed(c, "other")
+	args2.ForState = s.NewStateForModelNamed(c, "other")
 
 	space2, err := s.addTwoSpacesReturnSecond(c, args1, args2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -414,7 +398,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithSameNamesAndProviderIdsSuccedsInDiffer
 		ForState:   s.State,
 	}
 	args2 := args1
-	args2.ForState = s.newStateForModelNamed(c, "other")
+	args2.ForState = s.NewStateForModelNamed(c, "other")
 
 	space2, err := s.addTwoSpacesReturnSecond(c, args1, args2)
 	c.Assert(err, jc.ErrorIsNil)
