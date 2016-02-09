@@ -28,9 +28,17 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+var planURL = "https://api.jujucharms.com/omnibus/v2"
+
 // NewDeployCommand returns a command to deploy services.
 func NewDeployCommand() cmd.Command {
-	return modelcmd.Wrap(&DeployCommand{})
+	return modelcmd.Wrap(&DeployCommand{
+		Steps: []DeployStep{
+			&RegisterMeteredCharm{
+				RegisterURL: planURL + "/plan/authorize",
+				QueryURL:    planURL + "/charm",
+			},
+			&AllocateBudget{}}})
 }
 
 type DeployCommand struct {
@@ -63,7 +71,8 @@ type DeployCommand struct {
 	// the storage name defined in that service's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
-	Steps []DeployStep
+	Steps   []DeployStep
+	flagSet *gnuflag.FlagSet
 }
 
 const deployDoc = `
@@ -81,7 +90,7 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-  
+
 The current series for charms is determined first by the default-series model
 setting, followed by the preferred series for the charm in the charm store.
 
@@ -179,9 +188,10 @@ type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(api.Connection, *http.Client, DeploymentInfo) error
+	RunPre(api.Connection, *http.Client, *cmd.Context, DeploymentInfo) error
 	// RunPost runs after the call is made to add the charm to the environment.
-	RunPost(api.Connection, *http.Client, DeploymentInfo) error
+	// The error parameter is used to notify the step of a previously occurred error.
+	RunPost(api.Connection, *http.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -201,7 +211,16 @@ func (c *DeployCommand) Info() *cmd.Info {
 	}
 }
 
+var (
+	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
+	// whether we are deploying a charm or a bundle.
+	charmOnlyFlags  = []string{"config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade"}
+	bundleOnlyFlags = []string{}
+)
+
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
+	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
+	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
@@ -216,6 +235,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
+	c.flagSet = f
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -357,6 +377,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	// Handle a bundle.
 	if bundleData != nil {
+		if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
+			return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
+		}
 		if err := deployBundle(
 			bundleData, client, &deployer, csClient,
 			repoPath, conf, ctx, c.BundleStorage,
@@ -367,6 +390,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return nil
 	}
 	// Handle a charm.
+	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
+		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
+	}
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -449,7 +475,7 @@ func charmSeries(
 func (c *DeployCommand) deployCharm(
 	curl *charm.URL, series string, ctx *cmd.Context,
 	client *api.Client, deployer *serviceDeployer,
-) error {
+) (rErr error) {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
@@ -499,11 +525,20 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	for _, step := range c.Steps {
-		err = step.RunPre(state, httpClient, deployInfo)
+		err = step.RunPre(state, httpClient, ctx, deployInfo)
 		if err != nil {
 			return err
 		}
 	}
+
+	defer func() {
+		for _, step := range c.Steps {
+			err = step.RunPost(state, httpClient, ctx, deployInfo, rErr)
+			if err != nil {
+				rErr = err
+			}
+		}
+	}()
 
 	if err := deployer.serviceDeploy(serviceDeployParams{
 		curl.String(),
@@ -526,13 +561,6 @@ func (c *DeployCommand) deployCharm(
 	httpClient, err = c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	for _, step := range c.Steps {
-		err = step.RunPost(state, httpClient, deployInfo)
-		if err != nil {
-			return err
-		}
 	}
 
 	return err
@@ -574,7 +602,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		}
 		args.placement[i] = p
 	}
-	return serviceClient.ServiceDeploy(
+	return serviceClient.Deploy(
 		args.charmURL,
 		args.serviceName,
 		args.series,
@@ -624,4 +652,25 @@ func (s *metricsCredentialsAPIImpl) Close() error {
 
 var getMetricCredentialsAPI = func(state api.Connection) (metricCredentialsAPI, error) {
 	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
+}
+
+// getFlags returns the flags with the given names. Only flags that are set and
+// whose name is included in flagNames are included.
+func getFlags(flagSet *gnuflag.FlagSet, flagNames []string) []string {
+	flags := make([]string, 0, flagSet.NFlag())
+	flagSet.Visit(func(flag *gnuflag.Flag) {
+		for _, name := range flagNames {
+			if flag.Name == name {
+				flags = append(flags, flagWithMinus(name))
+			}
+		}
+	})
+	return flags
+}
+
+func flagWithMinus(name string) string {
+	if len(name) > 1 {
+		return "--" + name
+	}
+	return "-" + name
 }

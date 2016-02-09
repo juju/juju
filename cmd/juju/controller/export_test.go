@@ -12,11 +12,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-var (
-	SetConfigSpecialCaseDefaults = setConfigSpecialCaseDefaults
-	UserCurrent                  = &userCurrent
-)
-
 // NewListCommandForTest returns a ListCommand with the configstore provided
 // as specified.
 func NewListCommandForTest(cfgStore configstore.Storage) *listCommand {

@@ -63,6 +63,11 @@ func (s *SetSuite) TestSetCommandInit(c *gc.C) {
 	// --config and options specified
 	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"service", "--config", "testconfig.yaml", "bees="})
 	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
+
+	// --to-default and no config name provided
+	err = coretesting.InitCommand(service.NewSetCommandForTest(s.fakeServiceAPI), []string{"service", "--to-default"})
+	c.Assert(err, gc.ErrorMatches, "no configuration options specified")
+
 }
 
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
@@ -138,6 +143,16 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(s.fakeServiceAPI.config, gc.Equals, yamlConfigValue)
+}
+
+func (s *SetSuite) TestSetConfigToDefault(c *gc.C) {
+	s.fakeServiceAPI = &fakeServiceAPI{serviceName: "dummy-service", values: map[string]interface{}{
+		"username": "hello",
+	}}
+	s.assertSetSuccess(c, s.dir, []string{
+		"--to-default",
+		"username",
+	}, make(map[string]interface{}))
 }
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {

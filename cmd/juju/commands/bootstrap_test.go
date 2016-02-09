@@ -472,12 +472,12 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	const envName = "devenv"
 	s.patchVersionAndSeries(c, "raring")
 
-	// Change permissions on the jenv file to simulate some kind of
+	// Change permissions on the models directory to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	environmentsDir := testing.JujuXDGDataHomePath("models")
-	err := os.MkdirAll(environmentsDir, 0755)
+	modelsDir := testing.JujuXDGDataHomePath("models")
+	err := os.MkdirAll(modelsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	jenvFile := filepath.Join(environmentsDir, envName+".jenv")
+	jenvFile := filepath.Join(modelsDir, envName+".jenv")
 	err = ioutil.WriteFile(jenvFile, []byte("nonsense"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -4,8 +4,6 @@
 package controller
 
 import (
-	"os"
-	"os/user"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -20,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	localProvider "github.com/juju/juju/provider/local"
 )
 
 // NewCreateModelCommand returns a command to create an model.
@@ -242,9 +239,6 @@ func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton pa
 	}
 	configValues["name"] = c.Name
 
-	if err := setConfigSpecialCaseDefaults(c.Name, configValues); err != nil {
-		return nil, errors.Trace(err)
-	}
 	// TODO: allow version to be specified on the command line and add here.
 	cfg, err := config.New(config.UseDefaults, configValues)
 	if err != nil {
@@ -252,27 +246,4 @@ func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton pa
 	}
 
 	return cfg.AllAttrs(), nil
-}
-
-var userCurrent = user.Current
-
-func setConfigSpecialCaseDefaults(envName string, cfg map[string]interface{}) error {
-	// As a special case, the local provider's namespace value
-	// comes from the user's name and the environment name.
-	switch cfg["type"] {
-	case "local":
-		if _, ok := cfg[localProvider.NamespaceKey]; ok {
-			return nil
-		}
-		username := os.Getenv("USER")
-		if username == "" {
-			u, err := userCurrent()
-			if err != nil {
-				return errors.Annotatef(err, "failed to determine username for namespace")
-			}
-			username = u.Username
-		}
-		cfg[localProvider.NamespaceKey] = username + "-" + envName
-	}
-	return nil
 }

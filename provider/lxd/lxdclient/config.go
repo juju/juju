@@ -43,6 +43,8 @@ type Config struct {
 // ConfigPath returns the full path to Juju LXC config directory.
 // This is here so we do not have to import lxc/lxd into the provider.
 func ConfigPath(namespace string) string {
+	// Here we use the same path as lxc for convention, but we could use
+	// any juju specific path.
 	return lxd.ConfigPath(namespace)
 }
 

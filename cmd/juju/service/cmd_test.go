@@ -75,8 +75,12 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	for _, t := range deployTests {
 		initExpectations(t.com)
 		com, err := initDeployCommand(t.args...)
+		// Testing that the flag set is populated is good enough for the scope
+		// of this test.
+		c.Assert(com.flagSet, gc.NotNil)
+		com.flagSet = nil
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(com, gc.DeepEquals, t.com)
+		c.Assert(com, jc.DeepEquals, t.com)
 	}
 
 	// test relative --config path
