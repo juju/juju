@@ -4,6 +4,11 @@ maintainer: Nate Finch <nate.finch@gmail.com>
 description: Doesn't do anything at all.
 tags:
   - application
+series:
+  - quantal
+  - trusty
+  - wily
+  - xenial
 resources:
   store-resource:
     Type: file
