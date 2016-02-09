@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -48,6 +49,12 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
+
+func init() {
+	if err := all.RegisterForServer(); err != nil {
+		panic(err)
+	}
+}
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
