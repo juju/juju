@@ -2235,10 +2235,7 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 // notifies when the status of a state server changes.
 // TODO(cherylj) Add unit tests for this, as per bug 1543408.
 func (st *State) WatchStateServerStatusChanges() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
-		col:    statusesC,
-		filter: makeStateServerIdFilter(st),
-	})
+	return newIdPrefixWatcher(st, statusesC, makeStateServerIdFilter(st))
 }
 
 func makeStateServerIdFilter(st *State) func(interface{}) bool {
