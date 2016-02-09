@@ -1506,9 +1506,9 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
             'machines': {
-                '0': {'state-server-member-status': 'has-vote'},
-                '1': {'state-server-member-status': 'has-vote'},
-                '2': {'state-server-member-status': 'has-vote'},
+                '0': {'controller-member-status': 'has-vote'},
+                '1': {'controller-member-status': 'has-vote'},
+                '2': {'controller-member-status': 'has-vote'},
             },
             'services': {},
         })
@@ -1519,9 +1519,9 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_ha_no_has_vote(self):
         value = yaml.safe_dump({
             'machines': {
-                '0': {'state-server-member-status': 'no-vote'},
-                '1': {'state-server-member-status': 'no-vote'},
-                '2': {'state-server-member-status': 'no-vote'},
+                '0': {'controller-member-status': 'no-vote'},
+                '1': {'controller-member-status': 'no-vote'},
+                '2': {'controller-member-status': 'no-vote'},
             },
             'services': {},
         })
@@ -1543,8 +1543,8 @@ class TestEnvJujuClient(ClientTest):
     def test_wait_for_ha_timeout(self):
         value = yaml.safe_dump({
             'machines': {
-                '0': {'state-server-member-status': 'has-vote'},
-                '1': {'state-server-member-status': 'has-vote'},
+                '0': {'controller-member-status': 'has-vote'},
+                '1': {'controller-member-status': 'has-vote'},
             },
             'services': {},
         })

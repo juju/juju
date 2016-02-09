@@ -84,7 +84,7 @@ def delete_extra_state_servers(client, instance_id):
     status = client.get_status()
     for machine, info in status.iter_machines():
         extra_instance_id = info.get('instance-id')
-        status = info.get('state-server-member-status')
+        status = client.get_controller_member_status(info)
         if extra_instance_id != instance_id and status is not None:
             print_now("Deleting state-server-member {}".format(machine))
             host = get_machine_dns_name(client, machine)

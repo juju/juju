@@ -1408,9 +1408,9 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
             'juju', '--show-log', 'enable-ha', '-m', 'steve', '-n', '3'))
         status = {
             'machines': {
-                '0': {'state-server-member-status': 'has-vote'},
-                '1': {'state-server-member-status': 'has-vote'},
-                '2': {'state-server-member-status': 'has-vote'},
+                '0': {'controller-member-status': 'has-vote'},
+                '1': {'controller-member-status': 'has-vote'},
+                '2': {'controller-member-status': 'has-vote'},
                 },
             'services': {},
         }

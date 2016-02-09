@@ -32,7 +32,7 @@ def run_complete_status(client, status):
                                             machine.get("instance-id"))
         status.s.assert_machine_series(name, machine.get("series"))
         status.s.assert_machine_hardware(name, machine.get("hardware"))
-        state_server = machine.get("state-server-member-status", None)
+        state_server = client.get_controller_member_status(machine)
         if state_server:
             status.s.assert_machine_member_status(name, "has-vote")
 

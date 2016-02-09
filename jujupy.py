@@ -643,6 +643,10 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
                               timeout=timeout, start=start)
 
+    @staticmethod
+    def get_controller_member_status(info_dict):
+        return info_dict.get('controller-member-status')
+
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
@@ -651,7 +655,7 @@ class EnvJujuClient:
                 status = self.get_status()
                 states = {}
                 for machine, info in status.iter_machines():
-                    status = info.get('state-server-member-status')
+                    status = self.get_controller_member_status(info)
                     if status is None:
                         continue
                     states.setdefault(status, []).append(machine)
@@ -954,6 +958,10 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def enable_ha(self):
         self.juju('ensure-availability', ('-n', '3'))
+
+    @staticmethod
+    def get_controller_member_status(info_dict):
+        return info_dict.get('state-server-member-status')
 
     def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.
