@@ -16,12 +16,14 @@ var configFields = schema.Fields{
 	"username": schema.String(),
 	"password": schema.String(),
 	"region":   schema.String(),
+	"endpoint": schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
 	"username": "",
 	"password": "",
 	"region":   gosigma.DefaultRegion,
+	"endpoint": "",
 }
 
 var configSecretFields = []string{
@@ -30,6 +32,7 @@ var configSecretFields = []string{
 
 var configImmutableFields = []string{
 	"region",
+	"endpoint",
 }
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
@@ -122,6 +125,10 @@ type environConfig struct {
 
 func (c environConfig) region() string {
 	return c.attrs["region"].(string)
+}
+
+func (c environConfig) endpoint() string {
+	return c.attrs["endpoint"].(string)
 }
 
 func (c environConfig) username() string {

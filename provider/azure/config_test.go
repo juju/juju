@@ -104,6 +104,7 @@ func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 		"application-password":      "opensezme",
 		"subscription-id":           fakeSubscriptionId,
 		"location":                  "westus",
+		"endpoint":                  "httsp://api.azurestack.local",
 		"controller-resource-group": "arbitrary",
 		"agent-version":             "1.2.3",
 	}

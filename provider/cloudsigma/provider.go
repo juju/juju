@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -92,6 +93,23 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 // prepared, this call is equivalent to Open.
 func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
 	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		var err error
+		credentialAttributes := args.Credentials.Attributes()
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"username": credentialAttributes["username"],
+			"password": credentialAttributes["password"],
+			"region":   args.CloudRegion,
+			"endpoint": args.CloudEndpoint,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
 	logger.Infof("preparing model %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }

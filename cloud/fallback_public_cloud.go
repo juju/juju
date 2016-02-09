@@ -59,50 +59,49 @@ clouds:
     auth-types: [ userpass ]
     regions:
       Central US:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       East US:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       East US 2:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       North Central US:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       South Central US:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       West US:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       North Europe:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       West Europe:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       East Asia:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Southeast Asia:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Japan East:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Japan West:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Brazil South:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Australia East:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Australia Southeast:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       Central India:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       South India:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
       West India:
-        endpoint: https://management.core.windows.net/
+        endpoint: https://management.azure.com
   azure-china:
     type: azure
     auth-types: [ userpass ]
-    endpoint: https://management.core.chinacloudapi.cn/
     regions:
       China East:
-        endpoint: https://management.core.chinacloudapi.cn/
+        endpoint: https://management.chinacloudapi.cn
       China North:
-        endpoint: https://management.core.chinacloudapi.cn/
+        endpoint: https://management.chinacloudapi.cn
   rackspace:
     type: openstack
     auth-types: [ access-key, userpass ]
@@ -136,4 +135,18 @@ clouds:
         endpoint: https://us-east-3.api.joyentcloud.com
       us-west-1: 
         endpoint: https://us-west-1.api.joyentcloud.com
+  cloudsigma:
+    type: cloudsigma
+    auth-types: [ userpass ]
+    regions:
+      hnl:
+        endpoint: https://hnl.cloudsigma.com/api/2.0/
+      mia:
+        endpoint: https://mia.cloudsigma.com/api/2.0/
+      sjc:
+        endpoint: https://sjc.cloudsigma.com/api/2.0/
+      wdc:
+        endpoint: https://wdc.cloudsigma.com/api/2.0/
+      zrh:
+        endpoint: https://zrh.cloudsigma.com/api/2.0/
 `

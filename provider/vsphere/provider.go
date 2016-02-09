@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -30,7 +31,23 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+
 	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		var err error
+		cfg, err = cfg.Apply(map[string]interface{}{
+			cfgUser:     credentialAttrs["user"],
+			cfgPassword: credentialAttrs["password"],
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)

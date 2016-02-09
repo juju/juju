@@ -25,6 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -306,7 +307,18 @@ func prepareForBootstrap(
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
 	env, err := provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
-		Config: cfg,
+		Config:        cfg,
+		CloudRegion:   "westus",
+		CloudEndpoint: "https://management.azure.com",
+		Credentials: cloud.NewCredential(
+			cloud.UserPassAuthType,
+			map[string]string{
+				"application-id":       "application-id",
+				"subscription-id":      "subscription-id",
+				"tenant-id":            "tenant-id",
+				"application-password": "application-password",
+			},
+		),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -446,17 +458,12 @@ func (s *environSuite) TestOpen(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
-func (s *environSuite) TestGlobalLocationManagementURI(c *gc.C) {
-	s.testLocationManagementURI(c, "West US", "management.azure.com")
-}
-
-func (s *environSuite) TestChinalLocationManagementURI(c *gc.C) {
-	s.testLocationManagementURI(c, "China North", "management.chinacloudapi.cn")
-	s.testLocationManagementURI(c, "chinaeast", "management.chinacloudapi.cn")
+func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
+	s.testLocationManagementURI(c, "West US", "api.azurestack.local")
 }
 
 func (s *environSuite) testLocationManagementURI(c *gc.C, location, host string) {
-	env := s.openEnviron(c, testing.Attrs{"location": location})
+	env := s.openEnviron(c) //, testing.Attrs{"location": location})
 
 	sender := mocks.NewSender()
 	sender.EmitContent("{}")
