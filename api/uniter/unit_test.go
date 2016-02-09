@@ -711,6 +711,93 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	wc.AssertOneChange()
 }
 
+func (s *unitSuite) TestHookRetryStrategyError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.BoolResults)
+			result.Results = make([]params.BoolResult, 1)
+			return fmt.Errorf("boo")
+		},
+	)
+	retry, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, gc.ErrorMatches, "boo")
+	c.Assert(retry, jc.IsFalse)
+}
+
+func (s *unitSuite) TestHookRetryStrategyMultipleResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.BoolResults)
+			result.Results = make([]params.BoolResult, 2)
+			return nil
+		},
+	)
+	retry, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(retry, jc.IsFalse)
+}
+
+func (s *unitSuite) TestHookRetryStrategySuccess(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.BoolResults)
+			result.Results = make([]params.BoolResult, 1)
+			result.Results[0].Result = true
+			return nil
+		},
+	)
+	retry, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retry, jc.IsTrue)
+}
+
+func (s *unitSuite) TestHookRetryStrategyResultError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.BoolResults)
+			result.Results = make([]params.BoolResult, 1)
+			result.Results[0].Result = true
+			result.Results[0].Error = &params.Error{
+				Message: "swoosh",
+				Code:    params.CodeNotAssigned,
+			}
+			return nil
+		},
+	)
+	retry, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, gc.ErrorMatches, "swoosh")
+	c.Assert(retry, jc.IsFalse)
+}
+
+func (s *uniterSuite) setHookRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestWatchHookRetryStrategy(c *gc.C) {
+	w, err := s.apiUnit.WatchHookRetryStrategy()
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event
+	wc.AssertOneChange()
+
+	retry, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retry, jc.IsTrue)
+
+	s.setHookRetryStrategy(c, false)
+	wc.AssertOneChange()
+
+	// No change
+	s.setHookRetryStrategy(c, false)
+	wc.AssertNoChange()
+
+	retry, err = s.apiUnit.HookRetryStrategy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retry, jc.IsFalse)
+}
+
 func (s *unitSuite) patchNewState(
 	c *gc.C,
 	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
