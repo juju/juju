@@ -13,6 +13,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/juju/api"
@@ -127,6 +129,18 @@ func (st resourceState) Storage() state.Storage {
 	return st.persist.NewStorage()
 }
 
+// NewCharmstoreClient implements resource/state.RawState.
+func (st resourceState) NewCharmstoreClient() (state.CharmstoreClient, error) {
+	httpClient := httpbakery.NewHTTPClient()
+	client := csclient.New(csclient.Params{
+		// TODO(ericsnow) Are we okay to use the default URL?
+		//URL: Use the default.
+		HTTPClient: httpClient,
+		//VisitWebPage: Use the default.
+	})
+	return charmstoreClient{Client: client}, nil
+}
+
 type resourcePersistence struct {
 	*persistence.Persistence
 }
@@ -145,7 +159,7 @@ func (r resources) registerPublicCommands() {
 
 	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
 		client := newCharmstoreClient()
-		return &charmstoreClient{client}, nil
+		return &charmstoreClient{Interface: client}, nil
 	}
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowCommand(newShowAPIClient)
@@ -182,6 +196,7 @@ func newCharmstoreClient() charmrepo.Interface {
 // TODO(ericsnow) Get rid of charmstoreClient one charmrepo.Interface grows the methods.
 
 type charmstoreClient struct {
+	*csclient.Client
 	charmrepo.Interface
 }
 

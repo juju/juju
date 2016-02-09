@@ -1327,7 +1327,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+	resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources, *args.Charm.URL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

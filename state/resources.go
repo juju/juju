@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
@@ -38,7 +39,7 @@ type Resources interface {
 
 	// NewResolvePendingResourcesOps generates mongo transaction operations
 	// to set the identified resources as active.
-	NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error)
+	NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string, cURL charm.URL) ([]txn.Op, error)
 }
 
 var newResources func(Persistence) Resources

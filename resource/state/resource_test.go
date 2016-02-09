@@ -13,6 +13,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -28,6 +30,7 @@ type ResourceSuite struct {
 	raw       *stubRawState
 	persist   *stubPersistence
 	storage   *stubStorage
+	csClient  *stubCharmstoreClient
 	timestamp time.Time
 	pendingID string
 }
@@ -40,8 +43,10 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 	s.persist = &stubPersistence{stub: s.stub}
 	s.persist.ReturnStageResource = &stubStagedResource{stub: s.stub}
 	s.storage = &stubStorage{stub: s.stub}
+	s.csClient = &stubCharmstoreClient{stub: s.stub}
 	s.raw.ReturnPersistence = s.persist
 	s.raw.ReturnStorage = s.storage
+	s.raw.ReturnNewCharmstoreClient = s.csClient
 	s.timestamp = time.Now().UTC()
 	s.pendingID = ""
 }
@@ -437,17 +442,46 @@ func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
 		expected[:2],
 		expected[2:],
 	}
+	s.persist.ReturnListPendingResources = []resource.Resource{{
+		Resource:  newCharmResource(c, "spam", "spamspamspam", 1),
+		ID:        "a-service/spam",
+		PendingID: "some-unique-id",
+		ServiceID: "a-service",
+	}, {
+		Resource:  newCharmResource(c, "eggs", "<some data>", 2),
+		ID:        "a-service/eggs",
+		PendingID: "other-unique-id",
+		ServiceID: "a-service",
+	}}
+	s.csClient.ReturnListResources = [][]charmresource.Resource{{
+		newCharmResource(c, "spam", "spamspamspam", 1),
+		newCharmResource(c, "eggs", "<some data>", 2),
+	}}
 	serviceID := "a-service"
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
-
-	ops, err := st.NewResolvePendingResourcesOps(serviceID, map[string]string{
+	pendingIDs := map[string]string{
 		"spam": "some-unique-id",
 		"eggs": "other-unique-id",
-	})
+	}
+	cURL := charm.URL{
+		Schema:   "cs",
+		User:     "",
+		Name:     "a-charm",
+		Revision: -1,
+		Series:   "",
+		Channel:  "",
+	}
+
+	ops, err := st.NewResolvePendingResourcesOps(serviceID, pendingIDs, cURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
+		"ListPendingResources",
+		"NewCharmstoreClient",
+		"ListResources",
+		"SetResource",
+		"SetResource",
 		"NewResolvePendingResourceOps",
 		"NewResolvePendingResourceOps",
 	)
@@ -545,6 +579,14 @@ func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 func newUploadResource(c *gc.C, name, data string) resource.Resource {
 	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
 	return opened.Resource
+}
+
+func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	chRes := opened.Resource.Resource
+	chRes.Origin = charmresource.OriginStore
+	chRes.Revision = rev
+	return chRes
 }
 
 type fakeUnit struct {

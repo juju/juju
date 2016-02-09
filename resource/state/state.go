@@ -28,6 +28,9 @@ type RawState interface {
 
 	// Storage exposes the state blob storage needed for resources.
 	Storage() Storage
+
+	// NewCharmstoreClient returns a new charmstore client to use.
+	NewCharmstoreClient() (CharmstoreClient, error)
 }
 
 // State exposes the state functionality needed for resources.
@@ -51,6 +54,7 @@ func NewState(raw RawState) *State {
 			currentTimestamp: func() time.Time {
 				return time.Now().UTC()
 			},
+			newCharmstoreClient: raw.NewCharmstoreClient,
 		},
 	}
 	return st
