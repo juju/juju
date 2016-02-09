@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/environment"
@@ -161,6 +162,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
+	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())
