@@ -101,6 +101,7 @@ func cacheTestEnvConfig(c *gc.C) {
 		"type":                      "azure",
 		"default-series":            "raring",
 		"location":                  "West US",
+		"endpoint":                  "https://management.azure.com",
 		"subscription-id":           "foo",
 		"application-id":            "bar",
 		"application-password":      "baz",
