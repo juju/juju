@@ -6,6 +6,7 @@ from argparse import (
     Namespace,
     )
 from datetime import datetime
+import errno
 import glob
 import os
 import re
@@ -122,6 +123,25 @@ def debs_to_agents(dest_debs, agent_stream):
         deb_to_agent(deb_path, dest_debs, agent_stream)
 
 
+def make_windows_agent(dest_debs, agent_stream, release):
+    source = os.path.join(
+        dest_debs, 'juju-{}-win8-amd64.tgz'.format(release))
+    target = os.path.join(
+        dest_debs, 'juju-{}-windows-amd64.tgz'.format(release))
+    shutil.copy2(source, target)
+    writer = StanzaWriter.for_windows(
+        release, target, agent_stream=agent_stream)
+    writer.write_stanzas()
+    agent_path = os.path.join(dest_debs, writer.agent_path)
+    try:
+        os.makedirs(os.path.dirname(agent_path))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    shutil.move(target, agent_path)
+    os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
+
+
 def main():
     args = parse_args()
     dest_debs = os.path.abspath(os.path.join(args.destination, 'debs'))
@@ -137,6 +157,7 @@ def main():
     retrieve_packages(args.release, args.upatch, archives, dest_debs,
                       s3_config)
     debs_to_agents(dest_debs, args.agent_stream)
+    make_windows_agent(dest_debs, args.agent_stream, args.release)
 
 
 if __name__ == '__main__':
