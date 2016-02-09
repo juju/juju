@@ -20,6 +20,13 @@ from utility import (
 
 log = logging.getLogger("assess_update_mongo")
 
+DEP_SCRIPT = """\
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-add-repository -y ppa:juju/experimental
+sudo apt-get update
+sudo apt-get install -y juju-mongodb2.6 juju-mongodb3.2 juju-mongo-tools3.2
+"""
+
 
 def assess_update_mongo(client, series):
     charm = 'local:{}/ubuntu'.format(series)
@@ -27,6 +34,14 @@ def assess_update_mongo(client, series):
     client.deploy(charm)
     client.wait_for_started()
     log.info("Setup complete.")
+    log.info("Test started.")
+    # Instrument the case where Juju can install the new mongo packages from
+    # Ubuntu.
+    client.upgrade_mongo()
+    # Wait for upgrade
+    # Verify mongo 3 runs on the server
+    # Check status.
+    log.info("Test complete.")
 
 
 def parse_args(argv):

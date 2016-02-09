@@ -63,9 +63,10 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_update_mongo(self):
-        # mock_client = FakeJujuClient()
-        mock_client = Mock(spec=["juju", "wait_for_started", "deploy"])
+        mock_client = Mock(
+            spec=["juju", "wait_for_started", "deploy", "upgrade_mongo"])
         assess_update_mongo(mock_client, 'trusty')
         mock_client.deploy.assert_called_once_with('local:trusty/ubuntu')
         mock_client.wait_for_started.assert_called_once_with()
+        mock_client.upgrade_mongo.assert_called_once_with()
         self.assertNotIn("TODO", self.log_stream.getvalue())
