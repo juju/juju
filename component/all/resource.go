@@ -185,7 +185,7 @@ func (r resources) registerPublicCommands() {
 	})
 }
 
-// TODO(ericsnow) Get rid of charmstoreClient one charmrepo.Interface grows the methods.
+// TODO(ericsnow) Get rid of charmstoreClient once csclient.Client grows the methods.
 
 type charmstoreClient struct {
 	charmcmd.CharmstoreClient
