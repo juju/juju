@@ -14,56 +14,118 @@ from make_agent_json import (
 
 class TestStanzaWriter(TestCase):
 
-    def test_for_ubuntu(self):
+    def test_for_ubuntu_revision_build(self):
         writer = StanzaWriter.for_ubuntu(
-            '18.04', 'angsty', 'IA64', '1.27', 3565, 'tarfile.tar.gz')
+            '18.04', 'angsty', 'IA64', '1.27', 'tarfile.tar.gz', 3565)
         self.assertEqual([('18.04', 'angsty')], writer.releases)
         self.assertEqual('IA64', writer.arch)
         self.assertEqual('1.27', writer.version)
-        self.assertEqual(3565, writer.revision_build)
+        self.assertEqual('revision-build-3565', writer.agent_stream)
+        self.assertEqual('agent/revision-build-3565/tarfile.tar.gz',
+                         writer.agent_path)
         self.assertEqual('tarfile.tar.gz', writer.tarfile)
         self.assertEqual('revision-build-3565-angsty-IA64.json',
                          writer.filename)
 
-    def test_for_living_ubuntu(self):
-        writer = StanzaWriter.for_living_ubuntu('IA64', '1.27', 3565,
-                                                'tarfile.tar.gz')
+    def test_for_ubuntu_agent_stream(self):
+        writer = StanzaWriter.for_ubuntu(
+            '18.04', 'angsty', 'IA64', '1.27', 'tarfile.tar.gz',
+            agent_stream='escaped')
+        self.assertEqual([('18.04', 'angsty')], writer.releases)
+        self.assertEqual('IA64', writer.arch)
+        self.assertEqual('1.27', writer.version)
+        self.assertEqual('escaped', writer.agent_stream)
+        self.assertEqual('agent/1.27/tarfile.tar.gz',
+                         writer.agent_path)
+        self.assertEqual('tarfile.tar.gz', writer.tarfile)
+        self.assertEqual('escaped-1.27-angsty-IA64.json', writer.filename)
+
+    def test_for_living_ubuntu_revision_build(self):
+        writer = StanzaWriter.for_living_ubuntu('IA64', '1.27',
+                                                'tarfile.tar.gz', 3565)
         releases = [
             (juju_series.get_version(name), name) for name
             in juju_series.get_living_names()]
         self.assertEqual(releases, writer.releases)
         self.assertEqual('IA64', writer.arch)
         self.assertEqual('1.27', writer.version)
-        self.assertEqual(3565, writer.revision_build)
+        self.assertEqual('revision-build-3565', writer.agent_stream)
+        self.assertEqual('agent/revision-build-3565/tarfile.tar.gz',
+                         writer.agent_path)
         self.assertEqual('tarfile.tar.gz', writer.tarfile)
         self.assertEqual('revision-build-3565-ubuntu-IA64.json',
                          writer.filename)
 
-    def test_for_windows(self):
-        writer = StanzaWriter.for_windows('1.27', 3565, 'tarfile.tar.gz')
+    def test_for_living_ubuntu_agent_stream(self):
+        writer = StanzaWriter.for_living_ubuntu('IA64', '1.27',
+                                                'tarfile.tar.gz',
+                                                agent_stream='escaped')
+        releases = [
+            (juju_series.get_version(name), name) for name
+            in juju_series.get_living_names()]
+        self.assertEqual(releases, writer.releases)
+        self.assertEqual('IA64', writer.arch)
+        self.assertEqual('1.27', writer.version)
+        self.assertEqual('escaped', writer.agent_stream)
+        self.assertEqual('agent/1.27/tarfile.tar.gz',
+                         writer.agent_path)
+        self.assertEqual('tarfile.tar.gz', writer.tarfile)
+        self.assertEqual('escaped-1.27-ubuntu-IA64.json', writer.filename)
+
+    def test_for_windows_revision_build(self):
+        writer = StanzaWriter.for_windows('1.27', 'tarfile.tar.gz', 3565)
         releases = [(r, r) for r in supported_windows_releases]
         self.assertEqual(releases, writer.releases)
         self.assertEqual('amd64', writer.arch)
         self.assertEqual('1.27', writer.version)
-        self.assertEqual(3565, writer.revision_build)
+        self.assertEqual('revision-build-3565', writer.agent_stream)
+        self.assertEqual('agent/revision-build-3565/tarfile.tar.gz',
+                         writer.agent_path)
         self.assertEqual('tarfile.tar.gz', writer.tarfile)
         self.assertEqual('revision-build-3565-windows.json',
                          writer.filename)
 
-    def test_for_centos(self):
-        writer = StanzaWriter.for_centos('1.27', 3565, 'tarfile.tar.gz')
+    def test_for_windows_agent_stream(self):
+        writer = StanzaWriter.for_windows('1.27', 'tarfile.tar.gz',
+                                          agent_stream='escaped')
+        releases = [(r, r) for r in supported_windows_releases]
+        self.assertEqual(releases, writer.releases)
+        self.assertEqual('amd64', writer.arch)
+        self.assertEqual('1.27', writer.version)
+        self.assertEqual('escaped', writer.agent_stream)
+        self.assertEqual('agent/1.27/tarfile.tar.gz',
+                         writer.agent_path)
+        self.assertEqual('tarfile.tar.gz', writer.tarfile)
+        self.assertEqual('escaped-1.27-windows.json', writer.filename)
+
+    def test_for_centos_revision_build(self):
+        writer = StanzaWriter.for_centos('1.27', 'tarfile.tar.gz', 3565)
         self.assertEqual([('centos7', 'centos7')], writer.releases)
         self.assertEqual('amd64', writer.arch)
         self.assertEqual('1.27', writer.version)
-        self.assertEqual(3565, writer.revision_build)
+        self.assertEqual('revision-build-3565', writer.agent_stream)
+        self.assertEqual('agent/revision-build-3565/tarfile.tar.gz',
+                         writer.agent_path)
         self.assertEqual('tarfile.tar.gz', writer.tarfile)
         self.assertEqual('revision-build-3565-centos.json',
                          writer.filename)
 
+    def test_for_centos_agent_stream(self):
+        writer = StanzaWriter.for_centos('1.27', 'tarfile.tar.gz',
+                                         agent_stream='escaped')
+        self.assertEqual([('centos7', 'centos7')], writer.releases)
+        self.assertEqual('amd64', writer.arch)
+        self.assertEqual('1.27', writer.version)
+        self.assertEqual('escaped', writer.agent_stream)
+        self.assertEqual('agent/1.27/tarfile.tar.gz',
+                         writer.agent_path)
+        self.assertEqual('tarfile.tar.gz', writer.tarfile)
+        self.assertEqual('escaped-1.27-centos.json', writer.filename)
+
     def test_write_stanzas(self):
         with NamedTemporaryFile() as tempfile:
             writer = StanzaWriter([('18.04', 'angsty')], 'IA64', '2.0-zeta1',
-                                  3565, tempfile.name, tempfile.name)
+                                  tempfile.name, tempfile.name, 3565)
             writer.version_name = '20160207'
             with patch('sys.stderr'):
                 writer.write_stanzas()
