@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
@@ -83,9 +82,8 @@ type resourceState struct {
 	persist resourcePersistence
 	storage resourceStorage
 
-	newPendingID        func() (string, error)
-	currentTimestamp    func() time.Time
-	newCharmstoreClient func() (CharmstoreClient, error)
+	newPendingID     func() (string, error)
+	currentTimestamp func() time.Time
 }
 
 // ListResources returns the resource data for the given service ID.
@@ -262,15 +260,13 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 // Leaking mongo details (transaction ops) is a necessary evil since we
 // do not have any machinery to facilitate transactions between
 // different components.
-func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string, cURL charm.URL) ([]txn.Op, error) {
+func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error) {
 	if len(pendingIDs) == 0 {
 		return nil, nil
 	}
 
-	// TODO(ericsnow) Do this over in apiserver/service/charmstore.go:AddCharmWithAuthorization()?
-	if err := st.importPendingFromCharmStore(serviceID, pendingIDs, cURL); err != nil {
-		return nil, errors.Trace(err)
-	}
+	// TODO(ericsnow) The resources need to be pulled in from the charm
+	// store before we get to this point.
 
 	var allOps []txn.Op
 	for name, pendingID := range pendingIDs {
@@ -286,48 +282,6 @@ func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingI
 func (st resourceState) newResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
 	resID := newResourceID(serviceID, name)
 	return st.persist.NewResolvePendingResourceOps(resID, pendingID)
-}
-
-func (st resourceState) importPendingFromCharmStore(serviceID string, pendingIDs map[string]string, cURL charm.URL) error {
-	allPending, err := st.persist.ListPendingResources(serviceID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	storeResources := make(map[string]resource.Resource)
-	for name, pendingID := range pendingIDs {
-		for _, pending := range allPending {
-			if pending.Name == name && pending.PendingID == pendingID {
-				if pending.Origin == charmresource.OriginStore {
-					storeResources[name] = pending
-				}
-				break
-			}
-		}
-		// TODO(ericsnow) Return an error if not actually pending?
-	}
-
-	if len(storeResources) == 0 {
-		// Nothing to do!
-		return nil
-	}
-
-	client, err := st.newCharmstoreClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := getCharmstoreResources(client, cURL, storeResources); err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, res := range storeResources {
-		if err := st.persist.SetResource(res); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	return nil
 }
 
 // TODO(ericsnow) Incorporate the service and resource name into the ID

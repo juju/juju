@@ -9,8 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -19,9 +17,8 @@ import (
 type stubRawState struct {
 	stub *testing.Stub
 
-	ReturnPersistence         Persistence
-	ReturnStorage             Storage
-	ReturnNewCharmstoreClient CharmstoreClient
+	ReturnPersistence Persistence
+	ReturnStorage     Storage
 }
 
 func (s *stubRawState) Persistence() Persistence {
@@ -36,15 +33,6 @@ func (s *stubRawState) Storage() Storage {
 	s.stub.NextErr()
 
 	return s.ReturnStorage
-}
-
-func (s *stubRawState) NewCharmstoreClient() (CharmstoreClient, error) {
-	s.stub.AddCall("NewCharmstoreClient")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnNewCharmstoreClient, nil
 }
 
 type stubPersistence struct {
@@ -204,28 +192,4 @@ func (s *stubReader) Read(buf []byte) (int, error) {
 	}
 
 	return s.ReturnRead, nil
-}
-
-type stubCharmstoreClient struct {
-	stub *testing.Stub
-
-	ReturnListResources [][]charmresource.Resource
-}
-
-func (s *stubCharmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
-	s.stub.AddCall("ListResources", charmURLs)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnListResources, nil
-}
-
-func (s *stubCharmstoreClient) Close() error {
-	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }
