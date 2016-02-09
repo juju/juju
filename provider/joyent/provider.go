@@ -62,9 +62,6 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 	attrs := map[string]interface{}{
 		SdcUrl: args.CloudEndpoint,
 	}
-	for k, v := range args.Config.AllAttrs() {
-		attrs[k] = v
-	}
 	// Add the credential attributes to config.
 	switch authType := args.Credentials.AuthType(); authType {
 	case cloud.UserPassAuthType:
@@ -75,14 +72,7 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
-	// We want defaults filled in to pick up credential attributes
-	// not specified by the user.
-	cfg, err := config.New(config.UseDefaults, attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Ensure private key and other derived attributes are properly filled in.
-	cfg, err = p.Validate(cfg, nil)
+	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

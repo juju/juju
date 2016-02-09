@@ -68,7 +68,9 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 	switch authType := args.Credentials.AuthType(); authType {
 	case cloud.OAuth1AuthType:
 		credentialAttrs := args.Credentials.Attributes()
-		attrs["maas-oauth"] = credentialAttrs["maas-oauth"]
+		for k, v := range credentialAttrs {
+			attrs[k] = v
+		}
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
