@@ -221,6 +221,9 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 	}
 	// TODO(dimitern): For the network model MVP we only use the first
 	// included space and ignore the rest.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/117352306
+	// LP Bug: http://pad.lv/1498232
 	spaceName := includeSpaces[0]
 	if len(includeSpaces) > 1 {
 		logger.Debugf(
@@ -245,8 +248,6 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 			"not using subnet %q in space %q for machine %q provisioning: ",
 			subnet.CIDR(), spaceName, m.Id(),
 		)
-		// TODO(dimitern): state.Subnet.ProviderId needs to be of type
-		// network.Id.
 		providerId := subnet.ProviderId()
 		if providerId == "" {
 			logger.Warningf(warningPrefix + "no ProviderId set")
@@ -254,6 +255,8 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 		}
 		// TODO(dimitern): Once state.Subnet supports multiple zones,
 		// use all of them below.
+		//
+		// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119979611
 		zone := subnet.AvailabilityZone()
 		if zone == "" {
 			logger.Warningf(warningPrefix + "no availability zone(s) set")
