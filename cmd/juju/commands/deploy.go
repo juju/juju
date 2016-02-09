@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
+	resourcecmd "github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -61,6 +62,9 @@ type DeployCommand struct {
 	// BundleStorage maps service names to maps of storage constraints keyed on
 	// the storage name defined in that service's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
+
+	// Resources is a map of resource name to filename to be uploaded on deploy.
+	Resources map[string]string
 
 	Steps []DeployStep
 }
@@ -120,6 +124,14 @@ Constraints can be specified when using deploy by specifying the --constraints
 flag.  When used with deploy, service-specific constraints are set so that later
 machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
+
+Resources may be uploaded at deploy time by specifying the --resource flag.
+Following the resource flag should be name=filepath pair.  This flag may be
+repeated more than once to upload more than one resource.
+  
+  juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+Where bar and baz are resources named in the metadata for the foo charm.
 
 Charms can be deployed to a specific machine using the --to argument.
 If the destination is an LXC container the default is to use lxc-clone
@@ -212,6 +224,8 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
+	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
+
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
@@ -235,6 +249,7 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
+
 	return c.UnitCommandBase.Init(args)
 }
 
@@ -346,7 +361,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		ctx.Infof("deployment of bundle %q completed", bundlePath)
 		return nil
 	}
+
 	// Handle a charm.
+
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -485,18 +502,32 @@ func (c *DeployCommand) deployCharm(
 		}
 	}
 
-	if err := deployer.serviceDeploy(serviceDeployParams{
-		curl.String(),
-		serviceName,
-		series,
-		numUnits,
-		string(configYAML),
-		c.Constraints,
-		c.PlacementSpec,
-		c.Placement,
-		c.Networks,
-		c.Storage,
-	}); err != nil {
+	var ids map[string]string
+	if len(c.Resources) > 0 || len(charmInfo.Meta.Resources) > 0 {
+		api, err := c.NewAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ids, err = resourcecmd.DeployResources(serviceName, c.Resources, charmInfo.Meta.Resources, api)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	params := serviceDeployParams{
+		charmURL:      curl.String(),
+		serviceName:   serviceName,
+		series:        series,
+		numUnits:      numUnits,
+		configYAML:    string(configYAML),
+		constraints:   c.Constraints,
+		placementSpec: c.PlacementSpec,
+		placement:     c.Placement,
+		networks:      c.Networks,
+		storage:       c.Storage,
+		resources:     ids,
+	}
+	if err := deployer.serviceDeploy(params); err != nil {
 		return err
 	}
 
@@ -530,6 +561,7 @@ type serviceDeployParams struct {
 	placement     []*instance.Placement
 	networks      string
 	storage       map[string]storage.Constraints
+	resources     map[string]string
 }
 
 type serviceDeployer struct {
@@ -564,7 +596,8 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		}
 		args.placement[i] = p
 	}
-	return serviceClient.ServiceDeploy(
+
+	clientArgs := apiservice.ServiceDeployArgs{
 		args.charmURL,
 		args.serviceName,
 		args.series,
@@ -575,7 +608,10 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		args.placement,
 		[]string{},
 		args.storage,
-	)
+		args.resources,
+	}
+
+	return serviceClient.ServiceDeploy(clientArgs)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
