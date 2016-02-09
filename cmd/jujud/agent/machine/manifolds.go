@@ -68,11 +68,6 @@ type ManifoldsConfig struct {
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
 
-	// ShouldWriteProxyFiles is a function that is used by apiaddressupdater.
-	// It returns true, unless the supplied conf identifies the machine agent
-	// running directly on the host system in a local environment.
-	ShouldWriteProxyFiles func(conf coreagent.Config) bool
-
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.
 	LogSource logsender.LogRecordCh
@@ -83,14 +78,6 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
-
-	// MachineID is the id of the machine agent, used by the
-	// authenticationworker.
-	MachineID string
-
-	// BootstrapMachineID is the id of the bootstrap machine. It is used by the
-	// authenticationworker.
-	BootstrapMachineID string
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -224,12 +211,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
 		proxyConfigUpdater: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
-				AgentName:         agentName,
-				APICallerName:     apiCallerName,
-				UpgradeWaiterName: upgradeWaiterName,
-			},
-			ShouldWriteProxyFiles: config.ShouldWriteProxyFiles,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
@@ -278,12 +262,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		}),
 		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
-			MachineID: config.MachineID,
-			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
-				AgentName:         agentName,
-				APICallerName:     apiCallerName,
-				UpgradeWaiterName: upgradeWaiterName,
-			},
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
 		}),
 	}
 }

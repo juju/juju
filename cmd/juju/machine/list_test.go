@@ -14,7 +14,7 @@ import (
 )
 
 type MachineListCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&MachineListCommandSuite{})
@@ -58,7 +58,7 @@ func (*fakeStatusAPI) Close() error {
 }
 
 func (s *MachineListCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
 func (s *MachineListCommandSuite) TestMachine(c *gc.C) {

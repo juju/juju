@@ -60,7 +60,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -472,19 +471,16 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
-			PreviousAgentVersion:  previousAgentVersion,
-			Agent:                 agent.APIHostPortsSetter{a},
-			UpgradeStepsLock:      a.upgradeComplete,
-			UpgradeCheckLock:      a.initialUpgradeCheckComplete,
-			OpenStateForUpgrade:   a.openStateForUpgrade,
-			WriteUninstallFile:    a.writeUninstallAgentFile,
-			StartAPIWorkers:       a.startAPIWorkers,
-			PreUpgradeSteps:       upgrades.PreUpgradeSteps,
-			ShouldWriteProxyFiles: shouldWriteProxyFiles,
-			LogSource:             a.bufferedLogs,
-			NewDeployContext:      newDeployContext,
-			MachineID:             a.machineId,
-			BootstrapMachineID:    bootstrapMachineId,
+			PreviousAgentVersion: previousAgentVersion,
+			Agent:                agent.APIHostPortsSetter{a},
+			UpgradeStepsLock:     a.upgradeComplete,
+			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			OpenStateForUpgrade:  a.openStateForUpgrade,
+			WriteUninstallFile:   a.writeUninstallAgentFile,
+			StartAPIWorkers:      a.startAPIWorkers,
+			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			LogSource:            a.bufferedLogs,
+			NewDeployContext:     newDeployContext,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -700,6 +696,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
+	modelConfig, err := apiConn.Agent().ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
@@ -728,11 +725,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return w, nil
 
 	})
-
-	modelConfig, err := apiConn.Agent().ModelConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not get model config")
-	}
 
 	// Check if the network management is disabled.
 	disableNetworkManagement, _ := modelConfig.DisableNetworkManagement()
@@ -848,15 +840,6 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 		st.Close()
 	}
 	return st, closer, nil
-}
-
-// shouldWriteProxyFiles returns true, unless the supplied conf identifies the
-// machine agent running directly on the host system in a local environment.
-var shouldWriteProxyFiles = func(conf agent.Config) bool {
-	if conf.Value(agent.ProviderType) != provider.Local {
-		return true
-	}
-	return conf.Tag() != names.NewMachineTag(bootstrapMachineId)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -1482,7 +1465,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	var needReplicasetInit = false
 	var machineAddrs []network.Address
 
-	mongoInstalled, err := mongo.IsServiceInstalled(agentConfig.Value(agent.Namespace))
+	mongoInstalled, err := mongo.IsServiceInstalled()
 	if err != nil {
 		return errors.Annotate(err, "error while checking if mongodb service is installed")
 	}
@@ -1567,12 +1550,11 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo:  dialInfo,
-		Namespace: agentConfig.Value(agent.Namespace),
-		DataDir:   agentConfig.DataDir(),
-		Port:      servingInfo.StatePort,
-		User:      mongoInfo.Tag.String(),
-		Password:  mongoInfo.Password,
+		DialInfo: dialInfo,
+		DataDir:  agentConfig.DataDir(),
+		Port:     servingInfo.StatePort,
+		User:     mongoInfo.Tag.String(),
+		Password: mongoInfo.Password,
 	})
 }
 
@@ -1843,7 +1825,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	}
 	logger.Infof("%q found, uninstalling agent", uninstallFile)
 
-	var errors []error
+	var errs []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
@@ -1853,17 +1835,17 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	if agentServiceName != "" {
 		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
 		if err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		} else if err := svc.Remove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
 
-	errors = append(errors, a.removeJujudSymlinks()...)
+	errs = append(errs, a.removeJujudSymlinks()...)
 
 	insideLXC, err := lxcutils.RunningInsideLXC()
 	if err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	} else if insideLXC {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
@@ -1873,21 +1855,20 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		// to see if the loop device is attached to the container; that
 		// will fail if the data-dir is removed first.
 		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
-			errors = append(errors, err)
+			errs = append(errs, err)
 		}
 	}
 
-	namespace := agentConfig.Value(agent.Namespace)
-	if err := mongo.RemoveService(namespace); err != nil {
-		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
+	if err := mongo.RemoveService(); err != nil {
+		errs = append(errs, errors.Annotate(err, "cannot stop/remove mongo service"))
 	}
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
-	if len(errors) == 0 {
+	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errors)
+	return fmt.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {

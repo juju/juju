@@ -1284,21 +1284,6 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 }
 
 func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
-	s.assertProxyUpdater(c, true)
-}
-
-func (s *MachineSuite) TestProxyUpdaterNoSystemFileUpdate(c *gc.C) {
-	s.assertProxyUpdater(c, false)
-}
-
-func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) {
-	// Patch out the func that decides whether we should write system files.
-	var gotConf agent.Config
-	s.AgentSuite.PatchValue(&shouldWriteProxyFiles, func(conf agent.Config) bool {
-		gotConf = conf
-		return expectWriteSystemFiles
-	})
-
 	// Make sure there are some proxy settings to write.
 	expectSettings := proxy.Settings{
 		Http:  "http proxy",
@@ -1311,9 +1296,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 
 	// Patch out the actual worker func.
 	started := newSignal()
-	mockNew := func(api *apiproxyupdater.Facade, writeSystemFiles bool) (worker.Worker, error) {
-		// Direct check of the behaviour flag.
-		c.Check(writeSystemFiles, gc.Equals, expectWriteSystemFiles)
+	mockNew := func(api *apiproxyupdater.Facade) (worker.Worker, error) {
 		// Indirect check that we get a functional API.
 		conf, err := api.ModelConfig()
 		if c.Check(err, jc.ErrorIsNil) {
@@ -1336,7 +1319,6 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for proxy updater to start")
 	case <-started.triggered():
-		c.Assert(gotConf, jc.DeepEquals, a.CurrentConfig())
 	}
 }
 
@@ -2123,59 +2105,6 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 	c.Assert(safe, gc.NotNil)
 	c.Assert(safe.WMode, gc.Equals, expectedWMode)
 	c.Assert(safe.J, jc.IsTrue) // always enabled
-}
-
-type shouldWriteProxyFilesSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&shouldWriteProxyFilesSuite{})
-
-func (s *shouldWriteProxyFilesSuite) TestAll(c *gc.C) {
-	tests := []struct {
-		description  string
-		providerType string
-		machineId    string
-		expect       bool
-	}{{
-		description:  "local provider machine 0 must not write",
-		providerType: "local",
-		machineId:    "0",
-		expect:       false,
-	}, {
-		description:  "local provider other machine must write 1",
-		providerType: "local",
-		machineId:    "0/kvm/0",
-		expect:       true,
-	}, {
-		description:  "local provider other machine must write 2",
-		providerType: "local",
-		machineId:    "123",
-		expect:       true,
-	}, {
-		description:  "other provider machine 0 must write",
-		providerType: "anything",
-		machineId:    "0",
-		expect:       true,
-	}, {
-		description:  "other provider other machine must write 1",
-		providerType: "dummy",
-		machineId:    "0/kvm/0",
-		expect:       true,
-	}, {
-		description:  "other provider other machine must write 2",
-		providerType: "blahblahblah",
-		machineId:    "123",
-		expect:       true,
-	}}
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.description)
-		mockConf := &mockAgentConfig{
-			providerType: test.providerType,
-			tag:          names.NewMachineTag(test.machineId),
-		}
-		c.Check(shouldWriteProxyFiles(mockConf), gc.Equals, test.expect)
-	}
 }
 
 type mockAgentConfig struct {

@@ -59,7 +59,7 @@ func (c *removeUnitCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *removeUnitCommand) getAPI() (ServiceRemoveAPI, error) {
+func (c *removeUnitCommand) getAPI() (ServiceAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -75,5 +75,5 @@ func (c *removeUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.DestroyServiceUnits(c.UnitNames...), block.BlockRemove)
+	return block.ProcessBlockedError(client.DestroyUnits(c.UnitNames...), block.BlockRemove)
 }
