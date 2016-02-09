@@ -86,6 +86,9 @@ func (u *unit) PasswordHash() string {
 
 // Principal implements Unit.
 func (u *unit) Principal() names.UnitTag {
+	if u.Principal_ == "" {
+		return names.UnitTag{}
+	}
 	return names.NewUnitTag(u.Principal_)
 }
 

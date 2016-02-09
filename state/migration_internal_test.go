@@ -67,6 +67,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// number of units is changed. The Service doc has all we need
 		// for migratino.
 		minUnitsC,
+		// This is a transitory collection of units that need to be assigned
+		// to machines.
+		assignUnitC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -81,7 +84,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		rebootC,
 
 		// service / unit
-		assignUnitC,
 		charmsC,
 		leasesC,
 		openedPortsC,

@@ -394,7 +394,48 @@ func (i *importer) service(s migration.Service) error {
 		return errors.Trace(err)
 	}
 
-	// TODO: units here.
+	for _, unit := range s.Units() {
+		if err := i.unit(s, unit); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
+func (i *importer) unit(s migration.Service, u migration.Unit) error {
+	i.logger.Debugf("importing unit %s", u.Name())
+
+	// 1. construct a unitDoc
+	udoc, err := i.makeUnitDoc(s, u)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// 2. construct a statusDoc for the workload status and agent status
+	agentStatus := u.AgentStatus()
+	if agentStatus == nil {
+		return errors.NotValidf("missing agent status")
+	}
+	agentStatusDoc := i.makeStatusDoc(agentStatus)
+
+	workloadStatus := u.WorkloadStatus()
+	if workloadStatus == nil {
+		return errors.NotValidf("missing workload status")
+	}
+	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
+
+	ops := addUnitOps(i.st, addUnitOpsArgs{
+		unitDoc:           udoc,
+		agentStatusDoc:    agentStatusDoc,
+		workloadStatusDoc: workloadStatusDoc,
+		// TODO: meter status
+		meterStatusDoc: &meterStatusDoc{Code: MeterNotSet.String()},
+	})
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
 
 	return nil
 }
@@ -412,10 +453,43 @@ func (i *importer) makeServiceDoc(s migration.Service) (*serviceDoc, error) {
 		CharmURL:    charmUrl,
 		ForceCharm:  s.ForceCharm(),
 		Life:        Alive,
-		// UnitCount:    TODO,
+		UnitCount:   len(s.Units()),
 		// RelationCount:  TODO,
 		Exposed:  s.Exposed(),
 		MinUnits: s.MinUnits(),
 		// MetricCredentials: TODO,
+	}, nil
+}
+
+func (i *importer) makeUnitDoc(s migration.Service, u migration.Unit) (*unitDoc, error) {
+	// NOTE: if we want to support units having different charms deployed
+	// than the service recomments and migrate that, then we should serialize
+	// the chrm url for each unit rather than grabbing the services charm url.
+	// Currently the units charm url matching the service is a precondiation
+	// to migration.
+	charmUrl, err := charm.ParseURL(s.CharmURL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var subordinates []string
+	if subs := u.Subordinates(); len(subs) > 0 {
+		for _, s := range subs {
+			subordinates = append(subordinates, s.Id())
+		}
+	}
+
+	return &unitDoc{
+		Name:         u.Name(),
+		Service:      s.Name(),
+		Series:       s.Series(),
+		CharmURL:     charmUrl,
+		Principal:    u.Principal().Id(),
+		Subordinates: subordinates,
+		// StorageAttachmentCount int `bson:"storageattachmentcount"`
+		MachineId:    u.Machine().Id(),
+		Tools:        i.makeTools(u.Tools()),
+		Life:         Alive,
+		PasswordHash: u.PasswordHash(),
 	}, nil
 }

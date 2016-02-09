@@ -736,7 +736,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, err
 	}
-	args := addUnitOpsArgs{
+	args := serviceAddUnitOpsArgs{
 		cons:          cons,
 		principalName: principalName,
 		storageCons:   storageCons,
@@ -751,7 +751,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return names, ops, err
 }
 
-type addUnitOpsArgs struct {
+type serviceAddUnitOpsArgs struct {
 	principalName string
 	cons          constraints.Value
 	storageCons   map[string]StorageConstraints
@@ -759,7 +759,7 @@ type addUnitOpsArgs struct {
 
 // addServiceUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at service creation time).
-func (s *Service) addServiceUnitOps(args addUnitOpsArgs) (string, []txn.Op, error) {
+func (s *Service) addServiceUnitOps(args serviceAddUnitOpsArgs) (string, []txn.Op, error) {
 	names, ops, err := s.addUnitOpsWithCons(args)
 	if err == nil {
 		ops = append(ops, s.incUnitCountOp(nil))
@@ -768,7 +768,7 @@ func (s *Service) addServiceUnitOps(args addUnitOpsArgs) (string, []txn.Op, erro
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, error) {
+func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.Op, error) {
 	if s.doc.Subordinate && args.principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && args.principalName != "" {
@@ -788,11 +788,9 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
-	meterStatusGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
-		ModelUUID:              s.doc.ModelUUID,
 		Service:                s.doc.Name,
 		Series:                 s.doc.Series,
 		Life:                   Alive,
@@ -801,29 +799,22 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	}
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:    StatusAllocating,
-		Updated:   now.UnixNano(),
-		ModelUUID: s.st.ModelUUID(),
+		Status:  StatusAllocating,
+		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
-		ModelUUID:  s.st.ModelUUID(),
 	}
 
-	ops := []txn.Op{
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
-		{
-			C:      unitsC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: udoc,
-		},
-	}
+	ops := addUnitOps(s.st, addUnitOpsArgs{
+		unitDoc:           udoc,
+		agentStatusDoc:    agentStatusDoc,
+		workloadStatusDoc: unitStatusDoc,
+		meterStatusDoc:    &meterStatusDoc{Code: MeterNotSet.String()},
+	})
 
 	ops = append(ops, storageOps...)
 

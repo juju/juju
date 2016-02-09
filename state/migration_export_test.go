@@ -160,7 +160,7 @@ func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
+	unit := s.Factory.MakeUnit(c, nil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
