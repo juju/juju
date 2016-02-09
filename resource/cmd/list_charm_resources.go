@@ -29,7 +29,7 @@ type CharmResourceLister interface {
 	Close() error
 }
 
-// ShowCommand implements the show-resources command.
+// ListCharmResourcesCommand implements the "juju charm list-resources" command.
 type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
 	CharmCommandBase
