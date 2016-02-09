@@ -40,10 +40,10 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need it",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need it",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    1,
@@ -65,7 +65,7 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
-			Comment:     "you need it",
+			Description: "you need it",
 			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
@@ -86,10 +86,10 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need it",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need it",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    1,
@@ -108,10 +108,10 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	unitExpected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "unitspam",
-				Type:    charmresource.TypeFile,
-				Path:    "unitspam.tgz",
-				Comment: "you need it",
+				Name:        "unitspam",
+				Type:        charmresource.TypeFile,
+				Path:        "unitspam.tgz",
+				Description: "you need it",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    1,
@@ -132,7 +132,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
-			Comment:     "you need it",
+			Description: "you need it",
 			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
@@ -150,7 +150,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Name:        "unitspam",
 			Type:        "file",
 			Path:        "unitspam.tgz",
-			Comment:     "you need it",
+			Description: "you need it",
 			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
@@ -204,10 +204,10 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need it",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need it",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    1,
@@ -226,10 +226,10 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 	unitExpected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "unitspam",
-				Type:    charmresource.TypeFile,
-				Path:    "unitspam.tgz",
-				Comment: "you need it",
+				Name:        "unitspam",
+				Type:        charmresource.TypeFile,
+				Path:        "unitspam.tgz",
+				Description: "you need it",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    1,
@@ -250,7 +250,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
-			Comment:     "you need it",
+			Description: "you need it",
 			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
@@ -268,7 +268,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Name:        "unitspam",
 			Type:        "file",
 			Path:        "unitspam.tgz",
-			Comment:     "you need it",
+			Description: "you need it",
 			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
@@ -367,7 +367,7 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 			Name:        "spam",
 			Type:        "file",
 			Path:        "spam.tgz",
-			Comment:     "you need it",
+			Description: "you need it",
 			Origin:      "upload",
 			Revision:    1,
 			Fingerprint: []byte(fingerprint),
@@ -386,10 +386,10 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 	expected := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need it",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need it",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    1,
@@ -413,10 +413,10 @@ func (helpersSuite) TestCharmResource2API(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name:    "spam",
-			Type:    charmresource.TypeFile,
-			Path:    "spam.tgz",
-			Comment: "you need it",
+			Name:        "spam",
+			Type:        charmresource.TypeFile,
+			Path:        "spam.tgz",
+			Description: "you need it",
 		},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
@@ -431,7 +431,7 @@ func (helpersSuite) TestCharmResource2API(c *gc.C) {
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
-		Comment:     "you need it",
+		Description: "you need it",
 		Origin:      "upload",
 		Revision:    1,
 		Fingerprint: []byte(fingerprint),
@@ -444,7 +444,7 @@ func (helpersSuite) TestAPI2CharmResource(c *gc.C) {
 		Name:        "spam",
 		Type:        "file",
 		Path:        "spam.tgz",
-		Comment:     "you need it",
+		Description: "you need it",
 		Origin:      "upload",
 		Revision:    1,
 		Fingerprint: []byte(fingerprint),
@@ -456,10 +456,10 @@ func (helpersSuite) TestAPI2CharmResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name:    "spam",
-			Type:    charmresource.TypeFile,
-			Path:    "spam.tgz",
-			Comment: "you need it",
+			Name:        "spam",
+			Type:        charmresource.TypeFile,
+			Path:        "spam.tgz",
+			Description: "you need it",
 		},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,

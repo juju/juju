@@ -223,10 +223,10 @@ type resourceDoc struct {
 	ServiceID string `bson:"service-id"`
 	UnitID    string `bson:"unit-id"`
 
-	Name    string `bson:"name"`
-	Type    string `bson:"type"`
-	Path    string `bson:"path"`
-	Comment string `bson:"comment"`
+	Name        string `bson:"name"`
+	Type        string `bson:"type"`
+	Path        string `bson:"path"`
+	Description string `bson:"description"`
 
 	Origin      string `bson:"origin"`
 	Revision    int    `bson:"revision"`
@@ -257,10 +257,10 @@ func resource2doc(id string, stored storedResource) *resourceDoc {
 
 		ServiceID: res.ServiceID,
 
-		Name:    res.Name,
-		Type:    res.Type.String(),
-		Path:    res.Path,
-		Comment: res.Comment,
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Description: res.Description,
 
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,
@@ -310,10 +310,10 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 	res = resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    doc.Name,
-				Type:    resType,
-				Path:    doc.Path,
-				Comment: doc.Comment,
+				Name:        doc.Name,
+				Type:        resType,
+				Path:        doc.Path,
+				Description: doc.Description,
 			},
 			Origin:      origin,
 			Revision:    doc.Revision,

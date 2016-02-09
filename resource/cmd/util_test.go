@@ -15,7 +15,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func charmRes(c *gc.C, name, suffix, comment, content string) charmresource.Resource {
+func charmRes(c *gc.C, name, suffix, description, content string) charmresource.Resource {
 	if content == "" {
 		content = name
 	}
@@ -25,10 +25,10 @@ func charmRes(c *gc.C, name, suffix, comment, content string) charmresource.Reso
 
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name:    name,
-			Type:    charmresource.TypeFile,
-			Path:    name + suffix,
-			Comment: comment,
+			Name:        name,
+			Type:        charmresource.TypeFile,
+			Path:        name + suffix,
+			Description: description,
 		},
 		Origin:      charmresource.OriginStore,
 		Revision:    1,
@@ -43,14 +43,14 @@ func charmRes(c *gc.C, name, suffix, comment, content string) charmresource.Reso
 func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for _, name := range names {
-		var comment string
+		var description string
 		parts := strings.SplitN(name, ":", 2)
 		if len(parts) == 2 {
 			name = parts[0]
-			comment = parts[1]
+			description = parts[1]
 		}
 
-		res := charmRes(c, name, ".tgz", comment, "")
+		res := charmRes(c, name, ".tgz", description, "")
 		resources = append(resources, res)
 	}
 	return resources

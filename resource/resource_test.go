@@ -145,10 +145,10 @@ func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "foo",
-				Type:    charmresource.TypeFile,
-				Path:    "foo.tgz",
-				Comment: "you need it",
+				Name:        "foo",
+				Type:        charmresource.TypeFile,
+				Path:        "foo.tgz",
+				Description: "you need it",
 			},
 			Origin: charmresource.OriginUpload,
 		},
@@ -165,10 +165,10 @@ func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "foo",
-				Type:    charmresource.TypeFile,
-				Path:    "foo.tgz",
-				Comment: "you need it",
+				Name:        "foo",
+				Type:        charmresource.TypeFile,
+				Path:        "foo.tgz",
+				Description: "you need it",
 			},
 			Origin: charmresource.OriginUpload,
 		},
@@ -187,10 +187,10 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "foo",
-				Type:    charmresource.TypeFile,
-				Path:    "foo.tgz",
-				Comment: "you need it",
+				Name:        "foo",
+				Type:        charmresource.TypeFile,
+				Path:        "foo.tgz",
+				Description: "you need it",
 			},
 			Origin:   charmresource.OriginStore,
 			Revision: 7,

@@ -24,10 +24,10 @@ func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
 func newFullCharmResource(c *gc.C, name string) charmresource.Resource {
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name:    name,
-			Type:    charmresource.TypeFile,
-			Path:    name + ".tgz",
-			Comment: "you need it",
+			Name:        name,
+			Type:        charmresource.TypeFile,
+			Path:        name + ".tgz",
+			Description: "you need it",
 		},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,

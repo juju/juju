@@ -100,7 +100,7 @@ func CharmResource2API(res charmresource.Resource) CharmResource {
 		Name:        res.Name,
 		Type:        res.Type.String(),
 		Path:        res.Path,
-		Comment:     res.Comment,
+		Description: res.Description,
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,
 		Fingerprint: res.Fingerprint.Bytes(),
@@ -130,10 +130,10 @@ func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
 
 	res = charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name:    apiInfo.Name,
-			Type:    rtype,
-			Path:    apiInfo.Path,
-			Comment: apiInfo.Comment,
+			Name:        apiInfo.Name,
+			Type:        rtype,
+			Path:        apiInfo.Path,
+			Description: apiInfo.Description,
 		},
 		Origin:      origin,
 		Revision:    apiInfo.Revision,
