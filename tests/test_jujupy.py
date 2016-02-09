@@ -662,6 +662,9 @@ class FakePopen(object):
         self.returncode = self._code
         return self._out, self._err
 
+    def poll(self):
+        return self._code
+
 
 class TestEnvJujuClient(ClientTest):
 

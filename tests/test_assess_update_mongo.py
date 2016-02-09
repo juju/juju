@@ -6,10 +6,11 @@ import StringIO
 
 from assess_update_mongo import (
     assess_update_mongo,
+    DEP_SCRIPT,
     parse_args,
     main,
 )
-from tests.test_jujupy import FakeJujuClient
+from test_jujupy import FakePopen
 from tests import (
     parse_error,
     TestCase,
@@ -57,7 +58,8 @@ class TestMain(TestCase):
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, 'trusty')
+        # This should verify bs_manager.bootstrap_host was passed, not None.
+        mock_assess.assert_called_once_with(client, 'trusty', None)
 
 
 class TestAssess(TestCase):
@@ -65,8 +67,13 @@ class TestAssess(TestCase):
     def test_update_mongo(self):
         mock_client = Mock(
             spec=["juju", "wait_for_started", "deploy", "upgrade_mongo"])
-        assess_update_mongo(mock_client, 'trusty')
+        mock_remote = Mock(spec=['run'])
+        with patch('assess_update_mongo.remote_from_address',
+                   autospec=True, return_value=mock_remote) as r_mock:
+            assess_update_mongo(mock_client, 'trusty', '10.0.0.2')
         mock_client.deploy.assert_called_once_with('local:trusty/ubuntu')
         mock_client.wait_for_started.assert_called_once_with()
         mock_client.upgrade_mongo.assert_called_once_with()
+        r_mock.assert_called_once_with('10.0.0.2', series='trusty')
+        mock_remote.run.assert_called_once_with(DEP_SCRIPT)
         self.assertNotIn("TODO", self.log_stream.getvalue())
