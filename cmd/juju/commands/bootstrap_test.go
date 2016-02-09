@@ -252,8 +252,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Run command and check for uploads.
 	args := append([]string{
 		"peckham-controller", "dummy",
-		// TODO(axw) use --config when we have it
-		"-o", "default-series=raring",
+		"--config", "default-series=raring",
 	}, test.args...)
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), args...)
 	// Check for remaining operations/errors.
@@ -330,9 +329,8 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info:    "bad model",
 	version: "1.2.3-%LTS%-amd64",
-	// TODO(axw) use --config when we have it
-	args: []string{"-o", "broken=Bootstrap Destroy", "--auto-upgrade"},
-	err:  `failed to bootstrap model: dummy.Bootstrap is broken`,
+	args:    []string{"--config", "broken=Bootstrap Destroy", "--auto-upgrade"},
+	err:     `failed to bootstrap model: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -583,8 +581,7 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 		c, newBootstrapCommand(),
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "default-series=raring",
+		"--config", "default-series=raring",
 	)
 	c.Assert(bootstrap.args.MetadataDir, gc.Equals, sourceDir)
 }
@@ -605,8 +602,7 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 		c, newBootstrapCommand(),
 		"--agent-version", vers,
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "default-series=raring",
+		"--config", "default-series=raring",
 	)
 	c.Assert(bootstrap.args.AgentVersion, gc.NotNil)
 	c.Assert(*bootstrap.args.AgentVersion, gc.Equals, version.MustParse(expect))
@@ -688,8 +684,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(
 		cmdtesting.NullContext(c), newBootstrapCommand(),
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "default-series=raring",
+		"--config", "default-series=raring",
 		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
@@ -715,8 +710,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, newBootstrapCommand(),
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "default-series=raring",
+		"--config", "default-series=raring",
 	)
 	c.Assert(err, gc.ErrorMatches,
 		"failed to bootstrap model: Juju cannot bootstrap because no tools are available for your model(.|\n)*")
@@ -734,9 +728,8 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "default-series=raring",
-		"-o", "agent-stream=proposed",
+		"--config", "default-series=raring",
+		"--config", "agent-stream=proposed",
 		"--auto-upgrade",
 	)
 
@@ -756,8 +749,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(
 		cmdtesting.NullContext(c), newBootstrapCommand(),
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "broken=Bootstrap Destroy",
+		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
 	)
 	err := <-errc
@@ -785,8 +777,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(),
 		"--keep-broken",
 		"devenv", "dummy-cloud/region-1",
-		// TODO(axw) use --config when we have it
-		"-o", "broken=Bootstrap Destroy",
+		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
 	)
 	err := <-errc
@@ -838,6 +829,63 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "dummy/not-dummy")
 	c.Assert(err, gc.ErrorMatches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)`)
+}
+
+func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.patchVersionAndSeries(c, "raring")
+	_, err = coretesting.RunCommand(
+		c, newBootstrapCommand(), "ctrl", "dummy",
+		"--config", configFile,
+	)
+	c.Assert(err, gc.ErrorMatches, `controller: expected bool, got string.*`)
+}
+
+func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile1 := filepath.Join(tmpdir, "config-1.yaml")
+	err := ioutil.WriteFile(configFile1, []byte(
+		"controller: not-a-bool\nbroken: Bootstrap\n",
+	), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	configFile2 := filepath.Join(tmpdir, "config-2.yaml")
+	err = ioutil.WriteFile(configFile2, []byte(
+		"controller: false\n",
+	), 0644)
+
+	s.patchVersionAndSeries(c, "raring")
+	_, err = coretesting.RunCommand(
+		c, newBootstrapCommand(), "ctrl", "dummy",
+		"--auto-upgrade",
+		// the second config file should replace attributes
+		// with the same name from the first, but leave the
+		// others alone.
+		"--config", configFile1,
+		"--config", configFile2,
+	)
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+}
+
+func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.patchVersionAndSeries(c, "raring")
+	_, err = coretesting.RunCommand(
+		c, newBootstrapCommand(), "ctrl", "dummy",
+		"--auto-upgrade",
+		// Configuration specified on the command line overrides
+		// anything specified in files, no matter what the order.
+		"--config", "controller=false",
+		"--config", configFile,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // createToolsSource writes the mock tools and metadata into a temporary
