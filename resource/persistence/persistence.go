@@ -239,3 +239,25 @@ func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 
 	return stored, nil
 }
+
+// NewResolvePendingResourceOps generates mongo transaction operations
+// to set the identified resource as active.
+//
+// Leaking mongo details (transaction ops) is a necessary evil since we
+// do not have any machinery to facilitate transactions between
+// different components.
+func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
+	if pendingID == "" {
+		return nil, errors.New("missing pending ID")
+	}
+	oldDoc, err := p.getOnePending(resID, pendingID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	pending, err := doc2resource(oldDoc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops := newResolvePendingResourceOps(pending)
+	return ops, nil
+}

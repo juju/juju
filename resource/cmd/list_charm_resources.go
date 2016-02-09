@@ -13,7 +13,14 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// CharmResourceLister has the charm store API methods needed by ShowCommand.
+// CharmCommandBase exposes the functionality of charmcmd.CommandBase
+// needed here.
+type CharmCommandBase interface {
+	// Connect connects to the charm store and returns a client.
+	Connect() (CharmResourceLister, error)
+}
+
+// CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
 type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
 	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
@@ -23,29 +30,27 @@ type CharmResourceLister interface {
 }
 
 // ShowCommand implements the show-resources command.
-type ShowCommand struct {
+type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
+	CharmCommandBase
 	out   cmd.Output
 	charm string
-
-	newResourceLister func(c *ShowCommand) (CharmResourceLister, error)
 }
 
-// NewShowCommand returns a new command that lists resources defined
+// NewListCharmResourcesCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowCommand(newResourceLister func(c *ShowCommand) (CharmResourceLister, error)) *ShowCommand {
-	cmd := &ShowCommand{
-		newResourceLister: newResourceLister,
+func NewListCharmResourcesCommand(base CharmCommandBase) *ListCharmResourcesCommand {
+	cmd := &ListCharmResourcesCommand{
+		CharmCommandBase: base,
 	}
 	return cmd
 }
 
-var showDoc = `
+var listCharmResourcesDoc = `
 This command will report the resources for a charm in the charm store.
 
-<charm> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current series of "trusty", the following forms will be
-accepted:
+<charm> can be a charm URL, or an unambiguously condensed form of it,
+just like the deploy command. So the following forms will be accepted:
 
 For cs:trusty/mysql
   mysql
@@ -53,20 +58,24 @@ For cs:trusty/mysql
 
 For cs:~user/trusty/mysql
   cs:~user/mysql
+
+Where the series is not supplied, the series from your local host is used.
+Thus the above examples imply that the local series is trusty.
 `
 
 // Info implements cmd.Command.
-func (c *ShowCommand) Info() *cmd.Info {
+func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "resources",
+		Name:    "list-resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
-		Doc:     showDoc,
+		Doc:     listCharmResourcesDoc,
+		Aliases: []string{"resources"},
 	}
 }
 
 // SetFlags implements cmd.Command.
-func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"tabular": FormatCharmTabular,
@@ -76,7 +85,7 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements cmd.Command.
-func (c *ShowCommand) Init(args []string) error {
+func (c *ListCharmResourcesCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing charm")
 	}
@@ -90,17 +99,17 @@ func (c *ShowCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c *ShowCommand) Run(ctx *cmd.Context) error {
+func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
-	apiclient, err := c.newResourceLister(c)
+	apiclient, err := c.Connect()
 	if err != nil {
 		// TODO(ericsnow) Return a more user-friendly error?
 		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
-	charmURLs, err := resolveCharms(c.charm)
+	charmURLs, err := resolveCharms([]string{c.charm})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -120,7 +129,7 @@ func (c *ShowCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, formatted)
 }
 
-func resolveCharms(charms ...string) ([]charm.URL, error) {
+func resolveCharms(charms []string) ([]charm.URL, error) {
 	var charmURLs []charm.URL
 	for _, raw := range charms {
 		charmURL, err := resolveCharm(raw)

@@ -28,8 +28,8 @@ func (s *CharmTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE FROM   REV COMMENT
-spam     upload -   ...
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
@@ -41,8 +41,22 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE FROM   REV COMMENT
-spam     upload -   
+RESOURCE REVISION
+spam     1
+`[1:])
+}
+
+func (s *CharmTabularSuite) TestFormatCharmTabularUpload(c *gc.C) {
+	res := charmRes(c, "spam", "", "", "")
+	res.Origin = charmresource.OriginUpload
+	formatted := []FormattedCharmResource{FormatCharmResource(res)}
+
+	data, err := FormatCharmTabular(formatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(string(data), gc.Equals, `
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
@@ -54,17 +68,18 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		FormatCharmResource(charmRes(c, "song", ".mp3", "your favorite", "")),
 		FormatCharmResource(charmRes(c, "avatar", ".png", "your picture", "")),
 	}
+	formatted[1].Revision = 2
 
 	data, err := FormatCharmTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE     FROM   REV COMMENT
-spam         upload -   spamspamspamspam
-eggs         upload -   ...
-somethingbig upload -   
-song         upload -   your favorite
-avatar       upload -   your picture
+RESOURCE     REVISION
+spam         1
+eggs         2
+somethingbig 1
+song         1
+avatar       1
 `[1:])
 }
 

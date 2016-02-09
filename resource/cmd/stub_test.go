@@ -18,6 +18,15 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
+func (s *stubCharmStore) Connect() (CharmResourceLister, error) {
+	s.stub.AddCall("Connect")
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s, nil
+}
+
 func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charmURLs)
 	if err := s.stub.NextErr(); err != nil {

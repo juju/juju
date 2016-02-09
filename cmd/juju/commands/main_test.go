@@ -212,10 +212,9 @@ var commandNames = []string{
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
-	"collect-metrics",
-	"create-backup",
-	"create-budget",
-	"create-model",
+	"charm",
+	"create-environment",
+	"create-model", // alias for create-environment
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",

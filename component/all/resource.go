@@ -4,21 +4,20 @@
 package all
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"reflect"
 
+	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	jujucmd "github.com/juju/cmd"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/persistence"
+	"github.com/juju/juju/resource/resourceexternal"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
@@ -68,6 +68,7 @@ func (r resources) registerPublicFacade() {
 		server.Version,
 		r.newPublicFacade,
 	)
+	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
 }
 
 // newPublicFacade is passed into common.RegisterStandardFacade
@@ -109,8 +110,6 @@ func (resources) registerState() {
 	}
 
 	corestate.SetResourcesComponent(newResources)
-
-	corestate.AddServicePostFuncs["resources"] = saveResourcesForDemo
 }
 
 // resourceState is a wrapper around state.State that supports the needs
@@ -139,6 +138,19 @@ func (p resourcePersistence) StageResource(res resource.Resource, storagePath st
 	return p.Persistence.StageResource(res, storagePath)
 }
 
+type resourcesCharmCmdBase struct {
+	*charmcmd.CommandBase
+}
+
+// Connect implements cmd.CommandBase
+func (c *resourcesCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
+	client, err := c.CommandBase.Connect()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &charmstoreClient{client}, nil
+}
+
 // registerPublicCommands adds the resources-related commands
 // to the "juju" supercommand.
 func (r resources) registerPublicCommands() {
@@ -146,18 +158,16 @@ func (r resources) registerPublicCommands() {
 		return
 	}
 
-	newShowAPIClient := func(command *cmd.ShowCommand) (cmd.CharmResourceLister, error) {
-		client := newCharmstoreClient()
-		return &charmstoreClient{client}, nil
-	}
-	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
-		return cmd.NewShowCommand(newShowAPIClient)
+	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
+		base := charmcmd.NewCommandBase(spec)
+		resBase := &resourcesCharmCmdBase{base}
+		return cmd.NewListCharmResourcesCommand(resBase)
 	})
 
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
-				return r.newClient(c.NewAPIRoot)
+				return resourceexternal.NewAPIClient(c.NewAPIRoot)
 			},
 			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
 				return os.Open(s)
@@ -169,23 +179,16 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return r.newClient(c.NewAPIRoot)
+				return resourceexternal.NewAPIClient(c.NewAPIRoot)
 			},
 		})
 	})
 }
 
-func newCharmstoreClient() charmrepo.Interface {
-	// Also see apiserver/service/charmstore.go.
-	var args charmrepo.NewCharmStoreParams
-	client := charmrepo.NewCharmStore(args)
-	return client
-}
-
-// TODO(ericsnow) Get rid of charmstoreClient one charmrepo.Interface grows the methods.
+// TODO(ericsnow) Get rid of charmstoreClient once csclient.Client grows the methods.
 
 type charmstoreClient struct {
-	charmrepo.Interface
+	charmcmd.CharmstoreClient
 }
 
 func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
@@ -227,52 +230,8 @@ func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.
 	return res, nil
 }
 
-func (charmstoreClient) Close() error {
-	return nil
-}
-
 type apicommand interface {
 	NewAPIRoot() (api.Connection, error)
-}
-
-func (resources) newClient(newAPICaller func() (api.Connection, error)) (*client.Client, error) {
-	apiCaller, err := newAPICaller()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, resource.ComponentName, server.Version)
-	doer, err := apiCaller.HTTPClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// The apiCaller takes care of prepending /environment/<envUUID>.
-	cl := client.NewClient(caller, doer, apiCaller)
-	return cl, nil
-}
-
-// TODO(natefinch) DEMO CODE, revisit after demo!
-func saveResourcesForDemo(st *corestate.State, args corestate.AddServiceArgs) error {
-	resourceState, err := st.Resources()
-	if err != nil {
-		return errors.Annotate(err, "can't get resources from state")
-	}
-
-	for _, meta := range args.Charm.Meta().Resources {
-		res := charmresource.Resource{
-			Meta: meta,
-			// TODO(natefinch): how do we determine this at deploy time?
-			Origin: charmresource.OriginUpload,
-		}
-
-		// no data for you!
-		r := &bytes.Buffer{}
-
-		if _, err := resourceState.SetResource(args.Name, "", res, r); err != nil {
-			return errors.Annotatef(err, "can't add resource %q", meta.Name)
-		}
-	}
-	return nil
 }
 
 // TODO(katco): This seems to be common across components. Pop up a
@@ -331,6 +290,7 @@ func (r resources) registerHookContextFacade() {
 		r.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
+	api.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
 }
 
 // resourcesUnitDatastore is a shim to elide serviceName from

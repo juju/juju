@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )
@@ -37,11 +38,14 @@ func (s *stubRawState) Storage() Storage {
 type stubPersistence struct {
 	stub *testing.Stub
 
-	ReturnListResources        resource.ServiceResources
-	ReturnListPendingResources []resource.Resource
-	ReturnGetResource          resource.Resource
-	ReturnGetResourcePath      string
-	ReturnStageResource        *stubStagedResource
+	ReturnListResources                resource.ServiceResources
+	ReturnListPendingResources         []resource.Resource
+	ReturnGetResource                  resource.Resource
+	ReturnGetResourcePath              string
+	ReturnStageResource                *stubStagedResource
+	ReturnNewResolvePendingResourceOps [][]txn.Op
+
+	CallsForNewResolvePendingResourceOps map[string]string
 }
 
 func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
@@ -96,6 +100,25 @@ func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) 
 	}
 
 	return nil
+}
+
+func (s *stubPersistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
+	s.stub.AddCall("NewResolvePendingResourceOps", resID, pendingID)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if s.CallsForNewResolvePendingResourceOps == nil {
+		s.CallsForNewResolvePendingResourceOps = make(map[string]string)
+	}
+	s.CallsForNewResolvePendingResourceOps[resID] = pendingID
+
+	if len(s.ReturnNewResolvePendingResourceOps) == 0 {
+		return nil, nil
+	}
+	ops := s.ReturnNewResolvePendingResourceOps[0]
+	s.ReturnNewResolvePendingResourceOps = s.ReturnNewResolvePendingResourceOps[1:]
+	return ops, nil
 }
 
 type stubStagedResource struct {

@@ -297,7 +297,7 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	d := DeployCommand{}
 	args := []string{"local:dummy", "--resource", res1, "--resource", res2}
 
-	err = coretesting.InitCommand(envcmd.Wrap(&d), args)
+	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,

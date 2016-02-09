@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )
@@ -34,6 +35,10 @@ type Resources interface {
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
 	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
+
+	// NewResolvePendingResourcesOps generates mongo transaction operations
+	// to set the identified resources as active.
+	NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error)
 }
 
 var newResources func(Persistence) Resources
