@@ -41,3 +41,8 @@ type FormattedSvcResource struct {
 	usedYesNo        string
 	combinedOrigin   string
 }
+
+// FormattedUnitResource holds the formatted representation of a resource's info.
+type FormattedUnitResource struct {
+	FormattedSvcResource
+}

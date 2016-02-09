@@ -96,7 +96,7 @@ type SvcTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *SvcTabularSuite) TestFormatOkay(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 	res := resource.Resource{
 
 		Resource: charmresource.Resource{
@@ -118,6 +118,33 @@ func (s *SvcTabularSuite) TestFormatOkay(c *gc.C) {
 	c.Check(string(data), gc.Equals, `
 RESOURCE SUPPLIED BY REVISION COMMENT
 openjdk  charmstore  7        the java runtime
+`[1:])
+}
+
+func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
+	res := resource.Resource{
+
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "openjdk",
+				Comment: "the java runtime",
+			},
+			Origin:   charmresource.OriginStore,
+			Revision: 7,
+		},
+		Timestamp: time.Now(),
+	}
+
+	formatted := []FormattedUnitResource{
+		FormattedUnitResource{FormatSvcResource(res)},
+	}
+
+	data, err := FormatSvcTabular(formatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(string(data), gc.Equals, `
+RESOURCE REVISION COMMENT
+openjdk  7        the java runtime
 `[1:])
 }
 

@@ -8,6 +8,7 @@ import (
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -45,7 +46,7 @@ func (*ShowServiceSuite) TestInitGood(c *gc.C) {
 	s := ShowServiceCommand{}
 	err := s.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.service, gc.Equals, "foo")
+	c.Assert(s.target, gc.Equals, "foo")
 }
 
 func (*ShowServiceSuite) TestInitTooManyArgs(c *gc.C) {
@@ -62,10 +63,10 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "list-resources",
 		Aliases: []string{"resources"},
-		Args:    "service",
-		Purpose: "show the resources for a service",
+		Args:    "service-or-unit",
+		Purpose: "show the resources for a service or unit",
 		Doc: `
-This command shows the resources required by and those in use by an existing service in your model.
+This command shows the resources required by and those in use by an existing service or unit in your model.
 `,
 	})
 }
@@ -133,6 +134,58 @@ openjdk  charmstore  7                the java runtime
 website  upload      -                your website data
 rsc1234  charmstore  15               a big comment
 website2 Bill User   2012-12-12T12:12 awesome data
+
+`[1:])
+
+	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+}
+
+func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
+	data := []resource.ServiceResources{{
+		UnitResources: []resource.UnitResources{{
+			Tag: names.NewUnitTag("svc/0"),
+			Resources: []resource.Resource{
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:    "rsc1234",
+							Comment: "a big comment",
+						},
+						Origin:   charmresource.OriginStore,
+						Revision: 15,
+					},
+					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:    "website2",
+							Comment: "awesome data",
+						},
+						Origin: charmresource.OriginUpload,
+					},
+					Username:  "Bill User",
+					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				},
+			},
+		}},
+	}}
+	s.stubDeps.client.ReturnResources = data
+
+	cmd := &ShowServiceCommand{
+		deps: ShowServiceDeps{
+			NewClient: s.stubDeps.NewClient,
+		},
+	}
+
+	code, stdout, stderr := runCmd(c, cmd, "svc/0")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stderr, gc.Equals, "")
+
+	c.Check(stdout, gc.Equals, `
+RESOURCE REVISION         COMMENT
+rsc1234  15               a big comment
+website2 2012-12-12T12:12 awesome data
 
 `[1:])
 

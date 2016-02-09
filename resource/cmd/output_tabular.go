@@ -43,11 +43,17 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 
 // FormatSvcTabular returns a tabular summary of resources.
 func FormatSvcTabular(value interface{}) ([]byte, error) {
-	resources, valueConverted := value.([]FormattedSvcResource)
-	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", resources, value)
+	switch resources := value.(type) {
+	case []FormattedSvcResource:
+		return formatServiceTabular(resources), nil
+	case []FormattedUnitResource:
+		return formatUnitTabular(resources), nil
+	default:
+		return nil, errors.Errorf("expected value of type []FormattedSvcResource or []FormattedUnitResource, got %T", resources)
 	}
+}
 
+func formatServiceTabular(resources []FormattedSvcResource) []byte {
 	// TODO(ericsnow) sort the rows first?
 
 	var out bytes.Buffer
@@ -70,5 +76,30 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return out.Bytes()
+}
+
+func formatUnitTabular(resources []FormattedUnitResource) []byte {
+	// TODO(ericsnow) sort the rows first?
+
+	var out bytes.Buffer
+	// To format things into columns.
+	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+
+	// Write the header.
+	// We do not print a section label.
+	fmt.Fprintln(tw, "RESOURCE\tREVISION\tCOMMENT")
+
+	// Print each info to its own row.
+	for _, r := range resources {
+		// the column headers must be kept in sync with these.
+		fmt.Fprintf(tw, "%v\t%v\t%v\n",
+			r.Name,
+			r.combinedRevision,
+			r.Comment,
+		)
+	}
+	tw.Flush()
+
+	return out.Bytes()
 }
