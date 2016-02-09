@@ -547,8 +547,6 @@ func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenNotAlive(c *gc.C) {
 	s.ensureDeadAndAssertLifeIsDead(c, space)
 
 	s.ensureDeadAndAssertLifeIsDead(c, space)
-	// TODO(dimitern): With txn hooks, test the case when it gets dead between
-	// the doc.Life == Dead and runTransaction.
 }
 
 func (s *SpacesSuite) TestRemoveFailsIfStillAlive(c *gc.C) {

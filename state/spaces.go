@@ -5,11 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // Space represents the state of a juju network space.
