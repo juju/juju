@@ -2320,6 +2320,7 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 
 // WatchControllerStatusChanges starts and returns a StringsWatcher that
 // notifies when the status of a controller machine changes.
+// TODO(cherylj) Add unit tests for this, as per bug 1543408.
 func (st *State) WatchControllerStatusChanges() StringsWatcher {
 	return newcollectionWatcher(st, colWCfg{
 		col:    statusesC,
@@ -2346,7 +2347,6 @@ func makeControllerIdFilter(st *State) func(interface{}) bool {
 				machines = info.MachineIds
 			}
 			for _, machine := range machines {
-				// TODO (cherylj) Prepend controller UUID for exact match?
 				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
 					return true
 				}
