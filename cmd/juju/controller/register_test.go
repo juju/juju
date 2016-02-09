@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -96,7 +96,7 @@ func (s *RegisterSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Cont
 }
 
 func (s *RegisterSuite) encodeRegistrationData(c *gc.C, user string, secretKey []byte) string {
-	data, err := asn1.Marshal(jujucontroller.RegistrationInfo{
+	data, err := asn1.Marshal(jujuclient.RegistrationInfo{
 		User:      user,
 		Addrs:     []string{s.apiConnection.addr},
 		SecretKey: secretKey,

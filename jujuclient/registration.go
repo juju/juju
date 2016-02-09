@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package controller
+package jujuclient
 
 // RegistrationInfo contains the user/controller registration information
 // printed by "juju add-user", and consumed by "juju register".
