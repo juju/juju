@@ -31,6 +31,7 @@ type service struct {
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
 
 	// unit count will be assumed by the number of units associated.
+	Units_ units `yaml:"units"`
 
 	// relation count also assumed by the relation sequence
 
@@ -59,7 +60,7 @@ type ServiceArgs struct {
 }
 
 func newService(args ServiceArgs) *service {
-	return &service{
+	svc := &service{
 		Name_:               args.Tag.Id(),
 		Series_:             args.Series,
 		Subordinate_:        args.Subordinate,
@@ -71,6 +72,8 @@ func newService(args ServiceArgs) *service {
 		SettingsRefCount_:   args.SettingsRefCount,
 		LeadershipSettings_: args.LeadershipSettings,
 	}
+	svc.setUnits(nil)
+	return svc
 }
 
 // Tag impelements Service.
@@ -142,6 +145,29 @@ func (s *service) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
 }
 
+// Units impelements Service.
+func (s *service) Units() []Unit {
+	result := make([]Unit, len(s.Units_.Units_))
+	for i, u := range s.Units_.Units_ {
+		result[i] = u
+	}
+	return result
+}
+
+// AddUnit impelements Service.
+func (s *service) AddUnit(args UnitArgs) Unit {
+	u := newUnit(args)
+	s.Units_.Units_ = append(s.Units_.Units_, u)
+	return u
+}
+
+func (s *service) setUnits(unitList []*unit) {
+	s.Units_ = units{
+		Version: 1,
+		Units_:  unitList,
+	}
+}
+
 // Validate impelements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
@@ -149,6 +175,12 @@ func (s *service) Validate() error {
 	}
 	if s.Status_ == nil {
 		return errors.NotValidf("service %q missing status", s.Name_)
+	}
+	// All of the services units should also be valid.
+	for _, u := range s.Units() {
+		if err := u.Validate(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -207,6 +239,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"settings":            schema.StringMap(schema.Any()),
 		"settings-refcount":   schema.Int(),
 		"leadership-settings": schema.StringMap(schema.Any()),
+		"units":               schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
@@ -241,6 +274,12 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		return nil, errors.Trace(err)
 	}
 	result.Status_ = status
+
+	units, err := importUnits(valid["units"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.setUnits(units)
 
 	return result, nil
 }

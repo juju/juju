@@ -255,6 +255,38 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 }
 
+func (s *MigrationImportSuite) TestUnits(c *gc.C) {
+	exported, pwd := s.Factory.MakeUnitReturningPassword(c, nil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+
+	importedServices, err := newSt.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedServices, gc.HasLen, 1)
+
+	importedUnits, err := importedServices[0].AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedUnits, gc.HasLen, 1)
+	imported := importedUnits[0]
+
+	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
+	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+
+	exportedMachineId, err := exported.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	importedMachineId, err := imported.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedMachineId, gc.Equals, exportedMachineId)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

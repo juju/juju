@@ -1308,7 +1308,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+		unitName, unitOps, err := svc.addServiceUnitOps(serviceAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

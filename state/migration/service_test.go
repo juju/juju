@@ -50,12 +50,22 @@ func minimalServiceMap() map[interface{}]interface{} {
 		"leadership-settings": map[interface{}]interface{}{
 			"leader": true,
 		},
+		"units": map[interface{}]interface{}{
+			"version": 1,
+			"units": []interface{}{
+				minimalUnitMap(),
+			},
+		},
 	}
 }
 
 func minimalService() *service {
 	s := newService(minimalServiceArgs())
 	s.SetStatus(minimalStatusArgs())
+	u := s.AddUnit(minimalUnitArgs())
+	u.SetAgentStatus(minimalStatusArgs())
+	u.SetWorkloadStatus(minimalStatusArgs())
+	u.SetTools(minimalAgentToolsArgs())
 	return s
 }
 

@@ -159,6 +159,26 @@ func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
 	c.Assert(services, gc.HasLen, 3)
 }
 
+func (s *MigrationExportSuite) TestUnits(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	services := model.Services()
+	c.Assert(services, gc.HasLen, 1)
+
+	service := services[0]
+	units := service.Units()
+	c.Assert(units, gc.HasLen, 1)
+
+	exported := units[0]
+
+	c.Assert(exported.Name(), gc.Equals, unit.Name())
+	c.Assert(exported.Tag(), gc.Equals, unit.UnitTag())
+	c.Assert(exported.Validate(), jc.ErrorIsNil)
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token

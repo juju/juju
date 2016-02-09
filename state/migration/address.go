@@ -65,6 +65,22 @@ func (a *address) Origin() string {
 	return a.Origin_
 }
 
+func importAddresses(sourceList []interface{}) ([]*address, error) {
+	var result []*address
+	for i, value := range sourceList {
+		source, ok := value.(map[string]interface{})
+		if !ok {
+			return nil, errors.Errorf("unexpected value for address %d, %T", i, value)
+		}
+		addr, err := importAddress(source)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, addr)
+	}
+	return result, nil
+}
+
 // importAddress constructs a new Address from a map representing a serialised
 // Address instance.
 func importAddress(source map[string]interface{}) (*address, error) {

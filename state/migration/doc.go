@@ -19,3 +19,18 @@
 // contains a YAML serialised model description, version, and a collection
 // of binary files.
 package migration
+
+// NOTES:
+//
+// The following prechecks are to be made before attempting migration:
+//
+// - no agents in an error state
+// - nothing dying or dead; machine, service, unit, relation, storage, network etc
+// - no entries in the assignUnitC collection
+//   - these are units pending assignment
+// - no units agent status in an error state
+//   - workload error status is probably fine
+// - all units using the same charm and series as the service
+//   - no units with pending charm updates
+// - all units have ResolvedNone for resolved status
+//   - no pending hook execution

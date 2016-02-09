@@ -26,8 +26,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		instanceDataC,
 		machinesC,
 
-		// service
+		// service / unit
 		servicesC,
+		unitsC,
+
 		// settings reference counts are only used for services
 		settingsrefsC,
 	)
@@ -65,6 +67,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// number of units is changed. The Service doc has all we need
 		// for migratino.
 		minUnitsC,
+		// This is a transitory collection of units that need to be assigned
+		// to machines.
+		assignUnitC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -79,12 +84,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		rebootC,
 
 		// service / unit
-		assignUnitC,
 		charmsC,
 		leasesC,
 		openedPortsC,
 		"payloads",
-		unitsC,
 
 		// relation
 		relationsC,
@@ -288,6 +291,42 @@ func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
 		"RefCount",
 	)
 	s.AssertExportedFields(c, settingsRefsDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID itself isn't migrated
+		"DocID",
+		"Name",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Service is implicit in the migration structure through containment.
+		"Service",
+		// Series and CharmURL also come from the service.
+		"Series",
+		"CharmURL",
+		"Principal",
+		"Subordinates",
+		"MachineId",
+		// Resolved is not migrated as we check that all is good before we start.
+		"Resolved",
+		"Tools",
+		// Life isn't migrated as we only migrate live things.
+		"Life",
+		// TxnRevno isn't migrated.
+		"TxnRevno",
+		"PasswordHash",
+		// Obsolete and not migrated.
+		"Ports",
+		"PublicAddress",
+		"PrivateAddress",
+	)
+	todo := set.NewStrings(
+		"StorageAttachmentCount",
+	)
+
+	s.AssertExportedFields(c, unitDoc{}, fields.Union(todo))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

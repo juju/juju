@@ -272,15 +272,21 @@ func (e *exporter) services() error {
 		return errors.Trace(err)
 	}
 
+	units, err := e.readAllUnits()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, service := range services {
-		if err := e.addService(service, refcounts); err != nil {
+		serviceUnits := units[service.Name()]
+		if err := e.addService(service, refcounts, serviceUnits); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (e *exporter) addService(service *Service, refcounts map[string]int) error {
+func (e *exporter) addService(service *Service, refcounts map[string]int, units []*Unit) error {
 	settingsKey := service.settingsKey()
 	leadershipKey := leadershipSettingsKey(service.Name())
 
@@ -316,7 +322,66 @@ func (e *exporter) addService(service *Service, refcounts map[string]int) error 
 		return errors.Annotatef(err, "status for service %s", service.Name())
 	}
 	exService.SetStatus(statusArgs)
+
+	for _, unit := range units {
+		args := migration.UnitArgs{
+			Tag:          unit.UnitTag(),
+			Machine:      names.NewMachineTag(unit.doc.MachineId),
+			PasswordHash: unit.doc.PasswordHash,
+		}
+		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
+			args.Principal = names.NewUnitTag(principalName)
+		}
+		if subs := unit.SubordinateNames(); len(subs) > 0 {
+			for _, subName := range subs {
+				args.Subordinates = append(args.Subordinates, names.NewUnitTag(subName))
+			}
+		}
+		exUnit := exService.AddUnit(args)
+
+		// workload uses globalKey, agent uses globalAgentKey.
+		statusArgs, err := e.statusArgs(unit.globalKey())
+		if err != nil {
+			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
+		}
+		exUnit.SetWorkloadStatus(statusArgs)
+		statusArgs, err = e.statusArgs(unit.globalAgentKey())
+		if err != nil {
+			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
+		}
+		exUnit.SetAgentStatus(statusArgs)
+
+		tools, err := unit.AgentTools()
+		if err != nil {
+			// This means the tools aren't set, but they should be.
+			return errors.Trace(err)
+		}
+		exUnit.SetTools(migration.AgentToolsArgs{
+			Version: tools.Version,
+			URL:     tools.URL,
+			SHA256:  tools.SHA256,
+			Size:    tools.Size,
+		})
+	}
+
 	return nil
+}
+
+func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
+	unitsCollection, closer := e.st.getCollection(unitsC)
+	defer closer()
+
+	docs := []unitDoc{}
+	err := unitsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all units")
+	}
+	result := make(map[string][]*Unit)
+	for _, doc := range docs {
+		units := result[doc.Service]
+		result[doc.Service] = append(units, newUnit(e.st, &doc))
+	}
+	return result, nil
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {

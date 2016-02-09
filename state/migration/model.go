@@ -27,21 +27,16 @@ type ModelArgs struct {
 
 // NewModel returns a Model based on the args specified.
 func NewModel(args ModelArgs) Model {
-	return &model{
+	m := &model{
 		Version:             1,
 		Owner_:              args.Owner.Canonical(),
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
-		Users_: users{
-			Version: 1,
-		},
-		Machines_: machines{
-			Version: 1,
-		},
-		Services_: services{
-			Version: 1,
-		},
 	}
+	m.setUsers(nil)
+	m.setMachines(nil)
+	m.setServices(nil)
+	return m
 }
 
 // DeserializeModel constructs a Model from a serialized
