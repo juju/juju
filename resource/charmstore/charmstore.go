@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package charmstore
 
 import (
 	"github.com/juju/errors"
@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// CharmstoreClient has the charm store API methods needed by resource
-// state.
-type CharmstoreClient interface {
+// CharmResourceLister has the charm store API methods needed by
+// GetResources().
+type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
 	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
 
@@ -21,7 +21,9 @@ type CharmstoreClient interface {
 	Close() error
 }
 
-func getCharmstoreResources(client CharmstoreClient, cURL charm.URL, named map[string]resource.Resource) error {
+// GetResources retrieves the info from the charmstore for charm. The
+// provided resources are updated with the new info.
+func GetResources(client CharmstoreClient, cURL charm.URL, resources map[string]resource.Resource) error {
 	results, err := client.ListResources([]charm.URL{cURL})
 	if err != nil {
 		return errors.Trace(err)
