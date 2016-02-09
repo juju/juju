@@ -4,9 +4,7 @@
 package cmd
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -43,9 +41,8 @@ type UploadDeps struct {
 type UploadCommand struct {
 	deps UploadDeps
 	envcmd.EnvCommandBase
-	service       string
-	resourceFiles []resourceFile
-	resources     map[string]struct{}
+	service      string
+	resourceFile resourceFile
 }
 
 // NewUploadCommand returns a new command that lists resources defined
@@ -58,7 +55,7 @@ func NewUploadCommand(deps UploadDeps) *UploadCommand {
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "push-resource",
-		Args:    "service name=file [name2=file2 ...]",
+		Args:    "service name=file",
 		Purpose: "upload a file as a resource for a service",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be
@@ -83,12 +80,11 @@ func (c *UploadCommand) Init(args []string) error {
 	}
 	c.service = service
 
-	c.resources = make(map[string]struct{})
-
-	for _, arg := range args[1:] {
-		if err := c.addResourceFile(arg); err != nil {
-			return errors.Trace(err)
-		}
+	if err := c.addResourceFile(args[1]); err != nil {
+		return errors.Trace(err)
+	}
+	if err := cmd.CheckEmpty(args[2:]); err != nil {
+		return errors.NewBadRequest(err, "")
 	}
 
 	return nil
@@ -101,18 +97,12 @@ func (c *UploadCommand) addResourceFile(arg string) error {
 	if err != nil {
 		return errors.Annotatef(err, "bad resource arg %q", arg)
 	}
-	rf := resourceFile{
+	c.resourceFile = resourceFile{
 		service:  c.service,
 		name:     name,
 		filename: filename,
 	}
 
-	if _, ok := c.resources[rf.name]; ok {
-		msg := fmt.Sprintf("duplicate resource %q", rf.name)
-		return errors.NewAlreadyExists(nil, msg)
-	}
-	c.resourceFiles = append(c.resourceFiles, rf)
-	c.resources[rf.name] = struct{}{}
 	return nil
 }
 
@@ -124,27 +114,10 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	errs := []error{}
-
-	for _, rf := range c.resourceFiles {
-		// don't want to do a bulk upload since we're doing potentially large
-		// file uploads.
-		if err := c.upload(rf, apiclient); err != nil {
-			errs = append(errs, errors.Annotatef(err, "failed to upload resource %q", rf.name))
-		}
+	if err := c.upload(c.resourceFile, apiclient); err != nil {
+		return errors.Annotatef(err, "failed to upload resource %q", c.resourceFile.name)
 	}
-	switch len(errs) {
-	case 0:
-		return nil
-	case 1:
-		return errs[0]
-	default:
-		msgs := make([]string, len(errs))
-		for i := range errs {
-			msgs[i] = errs[i].Error()
-		}
-		return errors.Errorf(strings.Join(msgs, "\n"))
-	}
+	return nil
 }
 
 // upload opens the given file and calls the apiclient to upload it to the given
