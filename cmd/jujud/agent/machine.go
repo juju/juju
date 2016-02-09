@@ -1081,7 +1081,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			// workers.  It is possible that multiple cert changes
 			// come in before the apiserver is up to receive them.
 			// Specify a bigger buffer to prevent deadlock when
-			// the apiserver isn't up yet.
+			// the apiserver isn't up yet.  Use a size of 10 since we
+			// allow up to 7 controllers, and might also update the
+			// addresses of the local machine (127.0.0.1, ::1, etc).
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 10)

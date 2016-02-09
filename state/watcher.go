@@ -2233,6 +2233,7 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 
 // WatchStateServerStatusChanges starts and returns a StringsWatcher that
 // notifies when the status of a state server changes.
+// TODO(cherylj) Add unit tests for this, as per bug 1543408.
 func (st *State) WatchStateServerStatusChanges() StringsWatcher {
 	return newcollectionWatcher(st, colWCfg{
 		col:    statusesC,
