@@ -138,17 +138,19 @@ func (s *AddressSuite) TestNewAddressOnSpace(c *gc.C) {
 func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
 	addrs := network.NewAddressesOnSpace("bar", "0.2.3.4", "fc00::1")
 	c.Check(addrs, jc.DeepEquals, []network.Address{{
-		Value:       "0.2.3.4",
-		Type:        "ipv4",
-		Scope:       "public",
-		NetworkName: "",
-		SpaceName:   "bar",
+		Value:           "0.2.3.4",
+		Type:            "ipv4",
+		Scope:           "public",
+		NetworkName:     "",
+		SpaceName:       "bar",
+		SpaceProviderId: network.Id(""),
 	}, {
-		Value:       "fc00::1",
-		Type:        "ipv6",
-		Scope:       "local-cloud",
-		NetworkName: "",
-		SpaceName:   "bar",
+		Value:           "fc00::1",
+		Type:            "ipv6",
+		Scope:           "local-cloud",
+		NetworkName:     "",
+		SpaceName:       "bar",
+		SpaceProviderId: network.Id(""),
 	}})
 }
 
@@ -759,9 +761,10 @@ var stringTests = []struct {
 	str: "foo.com",
 }, {
 	addr: network.Address{
-		Type:  network.HostName,
-		Value: "foo.com",
-		Scope: network.ScopePublic,
+		Type:            network.HostName,
+		Value:           "foo.com",
+		Scope:           network.ScopePublic,
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com",
 }, {
@@ -774,19 +777,21 @@ var stringTests = []struct {
 	str: "public:foo.com@default",
 }, {
 	addr: network.Address{
-		Type:        network.HostName,
-		Value:       "foo.com",
-		Scope:       network.ScopePublic,
-		NetworkName: "netname",
+		Type:            network.HostName,
+		Value:           "foo.com",
+		Scope:           network.ScopePublic,
+		NetworkName:     "netname",
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com(netname)",
 }, {
 	addr: network.Address{
-		Type:        network.HostName,
-		Value:       "foo.com",
-		Scope:       network.ScopePublic,
-		NetworkName: "netname",
-		SpaceName:   "badlands",
+		Type:            network.HostName,
+		Value:           "foo.com",
+		Scope:           network.ScopePublic,
+		NetworkName:     "netname",
+		SpaceName:       "badlands",
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com(netname)@badlands",
 }}
