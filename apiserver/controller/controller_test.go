@@ -286,7 +286,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert1",
-					EntityTag:     names.NewUserTag("admin1"),
+					AuthTag:       names.NewUserTag("admin1"),
 					Password:      "secret1",
 				},
 			}, {
@@ -295,7 +295,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
-					EntityTag:     names.NewUserTag("admin2"),
+					AuthTag:       names.NewUserTag("admin2"),
 					Password:      "secret2",
 				},
 			},
@@ -326,7 +326,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(targetInfo.ControllerTag, gc.Equals, spec.TargetInfo.ControllerTag)
 		c.Check(targetInfo.Addrs, jc.SameContents, spec.TargetInfo.Addrs)
 		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
-		c.Check(targetInfo.EntityTag, gc.Equals, spec.TargetInfo.EntityTag)
+		c.Check(targetInfo.AuthTag, gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
 	}
 }
@@ -364,7 +364,7 @@ func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
-					EntityTag:     names.NewUserTag("admin"),
+					AuthTag:       names.NewUserTag("admin"),
 					Password:      "secret",
 				},
 			}, {

@@ -296,12 +296,12 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 	// Start the migration.
 	targetInfo := spec.TargetInfo
 	args := state.ModelMigrationSpec{
-		InitiatedBy: c.authorizer.GetAuthTag().Id(),
+		InitiatedBy: c.apiUser,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: targetInfo.ControllerTag,
 			Addrs:         targetInfo.Addrs,
 			CACert:        targetInfo.CACert,
-			EntityTag:     targetInfo.EntityTag,
+			AuthTag:       targetInfo.AuthTag,
 			Password:      targetInfo.Password,
 		},
 	}

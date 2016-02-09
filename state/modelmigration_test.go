@@ -41,12 +41,12 @@ func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
 
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.ModelMigrationSpec{
-		InitiatedBy: "admin",
+		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: s.State.ModelTag(),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
-			EntityTag:     names.NewUserTag("user"),
+			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
 		},
 	}
@@ -133,15 +133,9 @@ func (s *ModelMigrationSuite) TestSpecValidation(c *gc.C) {
 		tweakSpec    func(*state.ModelMigrationSpec)
 		errorPattern string
 	}{{
-		"empty InitiatedBy",
-		func(spec *state.ModelMigrationSpec) {
-			spec.InitiatedBy = ""
-		},
-		"InitiatedBy not valid",
-	}, {
 		"invalid InitiatedBy",
 		func(spec *state.ModelMigrationSpec) {
-			spec.InitiatedBy = "!"
+			spec.InitiatedBy = names.UserTag{}
 		},
 		"InitiatedBy not valid",
 	}, {

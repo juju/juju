@@ -68,7 +68,7 @@ type ModelMigrationTargetInfo struct {
 	ControllerTag names.ModelTag `json:"controller-tag"`
 	Addrs         []string       `json:"addrs"`
 	CACert        string         `json:"ca-cert"`
-	EntityTag     names.Tag      `json:"entity-tag"`
+	AuthTag       names.UserTag  `json:"auth-tag"`
 	Password      string         `json:"password"`
 }
 
