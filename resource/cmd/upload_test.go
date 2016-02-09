@@ -50,13 +50,6 @@ func (*UploadSuite) TestInitJustName(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (*UploadSuite) TestInitDuplicate(c *gc.C) {
-	var u UploadCommand
-
-	err := u.Init([]string{"foo", "foo=bar", "foo=baz"})
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsAlreadyExists)
-}
-
 func (*UploadSuite) TestInitNoName(c *gc.C) {
 	var u UploadCommand
 
@@ -76,11 +69,11 @@ func (*UploadSuite) TestInitGood(c *gc.C) {
 
 	err := u.Init([]string{"foo", "bar=baz"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.resourceFiles, gc.DeepEquals, []resourceFile{{
+	c.Assert(u.resourceFile, gc.DeepEquals, resourceFile{
 		service:  "foo",
 		name:     "bar",
 		filename: "baz",
-	}})
+	})
 	c.Assert(u.service, gc.Equals, "foo")
 }
 
@@ -88,17 +81,7 @@ func (*UploadSuite) TestInitTwoResources(c *gc.C) {
 	var u UploadCommand
 
 	err := u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.resourceFiles, gc.DeepEquals, []resourceFile{{
-		service:  "foo",
-		name:     "bar",
-		filename: "baz",
-	}, {
-		service:  "foo",
-		name:     "fizz",
-		filename: "buzz",
-	}})
-	c.Assert(u.service, gc.Equals, "foo")
+	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (s *UploadSuite) TestInfo(c *gc.C) {
@@ -124,15 +107,11 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 			NewClient:    s.stubDeps.NewClient,
 			OpenResource: s.stubDeps.OpenResource,
 		},
-		resourceFiles: []resourceFile{{
+		resourceFile: resourceFile{
 			service:  "svc",
 			name:     "foo",
 			filename: "bar",
-		}, {
-			service:  "svc",
-			name:     "baz",
-			filename: "bat",
-		}},
+		},
 		service: "svc",
 	}
 
@@ -144,15 +123,10 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 		"OpenResource",
 		"Upload",
 		"FileClose",
-		"OpenResource",
-		"Upload",
-		"FileClose",
 		"Close",
 	)
 	s.stub.CheckCall(c, 1, "OpenResource", "bar")
 	s.stub.CheckCall(c, 2, "Upload", "svc", "foo", file)
-	s.stub.CheckCall(c, 4, "OpenResource", "bat")
-	s.stub.CheckCall(c, 5, "Upload", "svc", "baz", file)
 }
 
 type stubUploadDeps struct {
