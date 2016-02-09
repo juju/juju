@@ -191,7 +191,7 @@ type ServicesDeploy struct {
 	Services []ServiceDeploy
 }
 
-// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+// ServiceDeploy holds the parameters for making the service Deploy call.
 type ServiceDeploy struct {
 	ServiceName string
 	Series      string
@@ -205,7 +205,7 @@ type ServiceDeploy struct {
 	Storage     map[string]storage.Constraints
 }
 
-// ServiceUpdate holds the parameters for making the ServiceUpdate call.
+// ServiceUpdate holds the parameters for making the service Update call.
 type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
@@ -225,19 +225,19 @@ type ServiceSetCharm struct {
 	ForceSeries bool   `json:"forceseries"`
 }
 
-// ServiceExpose holds the parameters for making the ServiceExpose call.
+// ServiceExpose holds the parameters for making the service Expose call.
 type ServiceExpose struct {
 	ServiceName string
 }
 
-// ServiceSet holds the parameters for a ServiceSet
+// ServiceSet holds the parameters for a service Set
 // command. Options contains the configuration data.
 type ServiceSet struct {
 	ServiceName string
 	Options     map[string]string
 }
 
-// ServiceUnset holds the parameters for a ServiceUnset
+// ServiceUnset holds the parameters for a service Unset
 // command. Options contains the option attribute names
 // to unset.
 type ServiceUnset struct {
@@ -245,13 +245,13 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet or
-// ServiceGetCharmURL calls.
+// ServiceGet holds parameters for making the Get or
+// GetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
 
-// ServiceGetResults holds results of the ServiceGet call.
+// ServiceGetResults holds results of the service Get call.
 type ServiceGetResults struct {
 	Service     string
 	Charm       string
@@ -259,17 +259,17 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
-// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+// ServiceCharmRelations holds parameters for making the service CharmRelations call.
 type ServiceCharmRelations struct {
 	ServiceName string
 }
 
-// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+// ServiceCharmRelationsResults holds the results of the service CharmRelations call.
 type ServiceCharmRelationsResults struct {
 	CharmRelations []string
 }
 
-// ServiceUnexpose holds parameters for the ServiceUnexpose call.
+// ServiceUnexpose holds parameters for the service Unexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
 }
@@ -319,7 +319,7 @@ type ResolvedResults struct {
 }
 
 // AddServiceUnitsResults holds the names of the units added by the
-// AddServiceUnits call.
+// AddUnits call.
 type AddServiceUnitsResults struct {
 	Units []string
 }
@@ -336,7 +336,7 @@ type DestroyServiceUnits struct {
 	UnitNames []string
 }
 
-// ServiceDestroy holds the parameters for making the ServiceDestroy call.
+// ServiceDestroy holds the parameters for making the service Destroy call.
 type ServiceDestroy struct {
 	ServiceName string
 }
@@ -779,4 +779,16 @@ type ModelInfo struct {
 	// for backward compatability. The other fields also have explicit
 	// matching serialization directives for the benefit of being explicit.
 	ControllerUUID string `json:"ServerUUID"`
+}
+
+// MeterStatusParam holds meter status information to be set for the specified tag.
+type MeterStatusParam struct {
+	Tag  string `json:"tag"`
+	Code string `json:"code"`
+	Info string `json:"info, omitempty"`
+}
+
+// MeterStatusParams holds parameters for making SetMeterStatus calls.
+type MeterStatusParams struct {
+	Statuses []MeterStatusParam `json:"statues"`
 }

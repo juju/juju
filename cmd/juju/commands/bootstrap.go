@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -394,13 +393,6 @@ to clean up the model.`[1:])
 	var metadataDir string
 	if c.MetadataSource != "" {
 		metadataDir = ctx.AbsPath(c.MetadataSource)
-	}
-
-	// TODO (wallyworld): 2013-09-20 bug 1227931
-	// We can set a custom tools data source instead of doing an
-	// unnecessary upload.
-	if environ.Config().Type() == provider.Local {
-		c.UploadTools = true
 	}
 
 	// Merge environ and bootstrap-specific constraints.

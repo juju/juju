@@ -30,7 +30,7 @@ var ErrNoModelSpecified = errors.New("no model specified")
 // GetDefaultModel returns the name of the Juju default model.
 // There is simple ordering for the default model.  Firstly check the
 // JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_HOME/current-environment file.  If neither are
+// set, look in the $JUJU_DATA/current-environment file.  If neither are
 // available, an empty string is returned; not having a default model
 // specified is not an error.
 func GetDefaultModel() (string, error) {

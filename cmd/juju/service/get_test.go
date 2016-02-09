@@ -73,14 +73,14 @@ func (s *GetSuite) SetUpTest(c *gc.C) {
 
 func (s *GetSuite) TestGetCommandInit(c *gc.C) {
 	// missing args
-	err := coretesting.InitCommand(service.NewGetCommand(s.fake), []string{})
+	err := coretesting.InitCommand(service.NewGetCommandForTest(s.fake), []string{})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 }
 
 func (s *GetSuite) TestGetConfig(c *gc.C) {
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
-		code := cmd.Main(service.NewGetCommand(s.fake), ctx, []string{t.service})
+		code := cmd.Main(service.NewGetCommandForTest(s.fake), ctx, []string{t.service})
 		c.Check(code, gc.Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		// round trip via goyaml to avoid being sucked into a quagmire of

@@ -66,8 +66,8 @@ func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	err := runValidateToolsMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `local provider does not support tools metadata validation`)
+	err := runValidateToolsMetadata(c, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
+	c.Check(err, gc.ErrorMatches, `maas provider does not support tools metadata validation`)
 }
 
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
