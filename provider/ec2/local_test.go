@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
@@ -1262,6 +1263,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
 		cfg.Name(), environs.PrepareForBootstrapParams{
 			Config: cfg,
 			Credentials: cloud.NewCredential(

@@ -16,6 +16,8 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -36,6 +38,12 @@ type Tests struct {
 	// used when preparing the environment.
 	// This is initialized by SetUpTest.
 	ConfigStore configstore.Storage
+
+	// ControllerStore holds the controller related informtion
+	// such as controllers, accounts, etc
+	// used when preparing the environment.
+	// This is initialized by SetUpSuite.
+	ControllerStore jujuclient.ControllerStore
 }
 
 // Open opens an instance of the testing environment.
@@ -64,7 +72,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 		CloudEndpoint: t.CloudEndpoint,
 		CloudRegion:   t.CloudRegion,
 	}
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, args.Config.Name(), args)
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, t.ControllerStore, args.Config.Name(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -76,6 +84,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 	t.ConfigStore = configstore.NewMem()
+	t.ControllerStore = jujuclienttesting.NewMemControllerStore()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

@@ -24,6 +24,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -208,6 +209,11 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 				CredentialsAttributes(attrs),
 			),
 		},
+		
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemControllerStore(),
+		cfg.Name(),
+		environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.(*joyentEnviron).Ecfg()

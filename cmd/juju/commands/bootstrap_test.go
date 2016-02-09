@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -302,6 +303,17 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(hasKey, jc.IsTrue)
 	c.Assert(prepareCalled, jc.IsTrue)
 	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{addrConnectedTo})
+
+	// Check controllers.yaml has controller
+	endpoint := info.APIEndpoint()
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	c.Assert(err, jc.ErrorIsNil)
+	controller, err := controllerStore.ControllerByName("peckham-controller")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controller.CACert, gc.Equals, endpoint.CACert)
+	c.Assert(controller.Servers, gc.DeepEquals, endpoint.Hostnames)
+	c.Assert(controller.APIEndpoints, gc.DeepEquals, endpoint.Addresses)
+	c.Assert(controller.ControllerUUID, gc.Equals, endpoint.ServerUUID)
 	return restore
 }
 
@@ -488,6 +500,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&environsPrepare, func(
 		environs.BootstrapContext,
 		configstore.Storage,
+		jujuclient.ControllerStore,
 		string,
 		environs.PrepareForBootstrapParams,
 	) (environs.Environ, error) {

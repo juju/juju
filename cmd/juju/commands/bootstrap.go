@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
@@ -338,8 +339,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), store, c.ControllerName,
+		modelcmd.BootstrapContext(ctx), store, controllerStore, c.ControllerName,
 		environs.PrepareForBootstrapParams{
 			Config:        cfg,
 			Credentials:   *credential,
@@ -613,5 +618,20 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	if err != nil {
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
 	}
+
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	if err != nil {
+		return errors.Annotate(err, "failed to access juju client cache")
+	}
+	err = controllerStore.UpdateController(c.ControllerName, jujuclient.ControllerDetails{
+		hosts,
+		endpoint.ServerUUID,
+		addrs,
+		endpoint.CACert,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }

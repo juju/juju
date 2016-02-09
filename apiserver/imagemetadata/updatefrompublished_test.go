@@ -20,6 +20,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
@@ -167,6 +168,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 		c.Assert(err, jc.ErrorIsNil)
 		env, err := environs.Prepare(
 			modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
+			jujuclienttesting.NewMemControllerStore(),
 			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
 		)
 		c.Assert(err, jc.ErrorIsNil)
