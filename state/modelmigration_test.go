@@ -202,6 +202,17 @@ func (s *ModelMigrationSuite) TestCreateMigrationRace(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "failed to create migration: already in progress")
 }
 
+func (s *ModelMigrationSuite) TestCreateMigrationWhenModelNotAlive(c *gc.C) {
+	// Set the hosted model to Dying.
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
+
+	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
+	c.Check(mig, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "failed to create migration: model is not alive")
+}
+
 func (s *ModelMigrationSuite) TestGet(c *gc.C) {
 	mig1, err := state.CreateModelMigration(s.State2, s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
