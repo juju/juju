@@ -47,9 +47,8 @@ func NewListCharmResourcesCommand(base CharmCommandBase) *ListCharmResourcesComm
 var listCharmResourcesDoc = `
 This command will report the resources for a charm in the charm store.
 
-<charm> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current series of "trusty", the following forms will be
-accepted:
+<charm> can be a charm URL, or an unambiguously condensed form of it,
+just like the deploy command. So the following forms will be accepted:
 
 For cs:trusty/mysql
   mysql
@@ -57,6 +56,9 @@ For cs:trusty/mysql
 
 For cs:~user/trusty/mysql
   cs:~user/mysql
+
+Where the series is not supplied, the series from your local host is used.
+Thus the above examples imply that the local series is trusty.
 `
 
 // Info implements cmd.Command.
