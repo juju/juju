@@ -25,7 +25,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -310,15 +309,7 @@ func prepareForBootstrap(
 		Config:        cfg,
 		CloudRegion:   "westus",
 		CloudEndpoint: "https://management.azure.com",
-		Credentials: cloud.NewCredential(
-			cloud.UserPassAuthType,
-			map[string]string{
-				"application-id":       "application-id",
-				"subscription-id":      "subscription-id",
-				"tenant-id":            "tenant-id",
-				"application-password": "application-password",
-			},
-		),
+		Credentials:   fakeUserPassCredential(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -459,11 +450,7 @@ func (s *environSuite) TestOpen(c *gc.C) {
 }
 
 func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
-	s.testLocationManagementURI(c, "West US", "api.azurestack.local")
-}
-
-func (s *environSuite) testLocationManagementURI(c *gc.C, location, host string) {
-	env := s.openEnviron(c) //, testing.Attrs{"location": location})
+	env := s.openEnviron(c)
 
 	sender := mocks.NewSender()
 	sender.EmitContent("{}")
@@ -472,7 +459,7 @@ func (s *environSuite) testLocationManagementURI(c *gc.C, location, host string)
 	env.AllInstances() // trigger a query
 
 	c.Assert(s.requests, gc.HasLen, 1)
-	c.Assert(s.requests[0].URL.Host, gc.Equals, host)
+	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {

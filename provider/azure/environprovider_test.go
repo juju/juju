@@ -50,18 +50,22 @@ func (s *environProviderSuite) testPrepareForBootstrapWithInternalConfig(c *gc.C
 	cfg := makeTestModelConfig(c, testing.Attrs{key: "whatever"})
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
 	_, err := s.provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
-		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.UserPassAuthType,
-			map[string]string{
-				"application-id":       "application-id",
-				"subscription-id":      "subscription-id",
-				"tenant-id":            "tenant-id",
-				"application-password": "application-password",
-			},
-		),
+		Config:      cfg,
+		Credentials: fakeUserPassCredential(),
 	})
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`internal config "%s" must not be specified`, key))
+}
+
+func fakeUserPassCredential() cloud.Credential {
+	return cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"application-id":       "application-id",
+			"subscription-id":      "subscription-id",
+			"tenant-id":            "tenant-id",
+			"application-password": "application-password",
+		},
+	)
 }
 
 func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
@@ -75,15 +79,7 @@ func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
 		Config:        cfg,
 		CloudRegion:   "westus",
 		CloudEndpoint: "https://api.azurestack.local",
-		Credentials: cloud.NewCredential(
-			cloud.UserPassAuthType,
-			map[string]string{
-				"application-id":       "application-id",
-				"subscription-id":      "subscription-id",
-				"tenant-id":            "tenant-id",
-				"application-password": "application-password",
-			},
-		),
+		Credentials:   fakeUserPassCredential(),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env, gc.NotNil)
