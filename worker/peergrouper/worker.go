@@ -446,7 +446,7 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 		// Don't add the machine unless it is "Started"
 		status, err := stm.Status()
 		if err != nil {
-			return false, fmt.Errorf("cannot get machine status: %q: %v", id, err)
+			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
 		if status.Status == state.StatusStarted {
 			logger.Tracef("machine %q has started, adding it to peergrouper list", id)
