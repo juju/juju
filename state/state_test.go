@@ -1917,9 +1917,9 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	bindings, err := svc.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, map[string]string{
-		"server":  network.DefaultSpace,
-		"client":  network.DefaultSpace,
-		"cluster": network.DefaultSpace,
+		"server":  "",
+		"client":  "",
+		"cluster": "",
 	})
 
 	// Removing the service also removes its bindings.
@@ -1927,8 +1927,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = svc.EndpointBindings()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state.AssertEndpointBindingsNotFoundForService(c, svc)
 }
 
 func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
@@ -1956,7 +1955,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	bindings, err := svc.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, map[string]string{
-		"server":  network.DefaultSpace, // inherited from defaults.
+		"server":  "", // inherited from defaults.
 		"client":  "client",
 		"cluster": "db",
 	})
@@ -1979,6 +1978,10 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		bindings:      map[string]string{"extra": "missing"},
 		expectedError: `unknown endpoint "extra" not valid`,
 	}, {
+		about:         "ensure network.DefaultSpace is not treated specially",
+		bindings:      map[string]string{"server": network.DefaultSpace},
+		expectedError: `unknown space "default" not valid`,
+	}, {
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
@@ -1999,12 +2002,8 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		bindings:      map[string]string{"server": "invalid"},
 		expectedError: `unknown space "invalid" not valid`,
 	}, {
-		about:         "known endpoint not bound to a space",
-		bindings:      map[string]string{"server": ""},
-		expectedError: `unbound endpoint "server" not valid`,
-	}, {
 		about:         "known endpoint bound correctly and an extra endpoint",
-		bindings:      map[string]string{"server": "db", "foo": network.DefaultSpace},
+		bindings:      map[string]string{"server": "db", "foo": ""},
 		expectedError: `unknown endpoint "foo" not valid`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)

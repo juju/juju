@@ -2354,15 +2354,17 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.base.machine0, err = s.base.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.base.State.AddSpace("internal", "internal", nil, false)
+	_, err = s.base.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.base.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	providerAddresses := []network.Address{
-		network.NewAddressOnSpace(network.DefaultSpace, "8.8.8.8"),
+		network.NewAddressOnSpace("public", "8.8.8.8"),
 		network.NewAddressOnSpace("", "8.8.4.4"),
 		network.NewAddressOnSpace("internal", "10.0.0.1"),
 		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace(network.DefaultSpace, "fc00::1"),
+		network.NewAddressOnSpace("", "fc00::1"),
 	}
 
 	err = s.base.machine0.SetProviderAddresses(providerAddresses...)
@@ -2394,6 +2396,10 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
+
+	err = s.base.machine1.SetProviderAddresses(providerAddresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
@@ -2411,17 +2417,26 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Machine: s.base.machine1,
 	})
 
-	// Create a FakeAuthorizer so we can check permissions,
-	// set up assuming unit 0 has logged in.
-	s.base.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.base.wordpressUnit.Tag(),
-	}
-
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.base.resources = common.NewResources()
 	s.base.AddCleanup(func(_ *gc.C) { s.base.resources.StopAll() })
 
+	s.setupUniterAPIForUnit(c, s.base.wordpressUnit)
+}
+
+func (s *uniterNetworkConfigSuite) TearDownTest(c *gc.C) {
+	s.base.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state.Unit) {
+	// Create a FakeAuthorizer so we can check permissions, set up assuming the
+	// given unit agent has logged in.
+	s.base.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: givenUnit.Tag(),
+	}
+
+	var err error
 	s.base.uniter, err = uniter.NewUniterAPIV3(
 		s.base.State,
 		s.base.resources,
@@ -2430,8 +2445,29 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *uniterNetworkConfigSuite) TestNetworkConfig(c *gc.C) {
+func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
+	rel := s.addRelationAndAssertInScope(c)
 
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: rel.Tag().String(), Unit: "invalid"},
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+		{Relation: "relation-42", Unit: s.base.wordpressUnit.Tag().String()},
+	}}
+
+	result, err := s.base.uniter.NetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
+		Results: []params.UnitNetworkConfigResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"relation-42" is not a valid relation tag`)},
+		},
+	})
+}
+
+func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) *state.Relation {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
 	rel := s.base.addRelation(c, "wordpress", "mysql")
@@ -2440,12 +2476,14 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfig(c *gc.C) {
 	err = wpRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, wpRelUnit, true)
+	return rel
+}
+
+func (s *uniterNetworkConfigSuite) TestNetworkConfigForExplicitlyBoundEndpoint(c *gc.C) {
+	rel := s.addRelationAndAssertInScope(c)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-42", Unit: "unit-foo-0"},
 		{Relation: rel.Tag().String(), Unit: s.base.wordpressUnit.Tag().String()},
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: "relation-42", Unit: s.base.wordpressUnit.Tag().String()},
 	}}
 
 	// For the relation "wordpress:db mysql:server" we expect to see only
@@ -2461,10 +2499,37 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
-			{Error: apiservertesting.ErrUnauthorized},
 			{Config: expectedConfig},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ServerError(`"relation-42" is not a valid relation tag`)},
+		},
+	})
+}
+
+func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c *gc.C) {
+	// Since wordpressUnit as explicit binding for "db", switch the API to
+	// mysqlUnit and check "mysql:server" uses the machine preferred private
+	// address.
+	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
+	rel := s.base.addRelation(c, "mysql", "wordpress")
+	mysqlRelUnit, err := rel.Unit(s.base.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, mysqlRelUnit, true)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: s.base.mysqlUnit.Tag().String()},
+	}}
+
+	privateAddress, err := s.base.machine1.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedConfig := []params.NetworkConfig{{Address: privateAddress.Value}}
+
+	result, err := s.base.uniter.NetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
+		Results: []params.UnitNetworkConfigResult{
+			{Config: expectedConfig},
 		},
 	})
 }

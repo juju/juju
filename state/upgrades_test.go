@@ -506,13 +506,9 @@ func (s *upgradesSuite) getServicesBindings(c *gc.C, services []*Service) map[st
 	currentBindings := make(map[string]map[string]string, len(services))
 	for i := range services {
 		serviceName := services[i].Name()
-		readBindings, err := services[i].EndpointBindings()
-		if err != nil && !errors.IsNotFound(err) {
+		serviceBindings, err := services[i].EndpointBindings()
+		if err != nil {
 			c.Fatalf("unexpected error getting service %q bindings: %v", serviceName, err)
-		}
-		serviceBindings := make(map[string]string, len(readBindings))
-		for key, value := range readBindings {
-			serviceBindings[key] = value
 		}
 		currentBindings[serviceName] = serviceBindings
 	}
@@ -523,52 +519,37 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 	services := s.setupAddDefaultEndpointBindingsToServices(c)
 	initialBindings := s.getServicesBindings(c, services)
 	wpAllDefaults := map[string]string{
-		"url":             network.DefaultSpace,
-		"logging-dir":     network.DefaultSpace,
-		"monitoring-port": network.DefaultSpace,
-		"db":              network.DefaultSpace,
-		"cache":           network.DefaultSpace,
+		"url":             "",
+		"logging-dir":     "",
+		"monitoring-port": "",
+		"db":              "",
+		"cache":           "",
 	}
 	msAllDefaults := map[string]string{
-		"server": network.DefaultSpace,
+		"server": "",
 	}
-	c.Assert(initialBindings, jc.DeepEquals, map[string]map[string]string{
-		"wp-no-bindings":      map[string]string{},
+	expectedInitialAndFinal := map[string]map[string]string{
+		"wp-no-bindings":      wpAllDefaults,
 		"wp-default-bindings": wpAllDefaults,
 		"wp-given-bindings": map[string]string{
 			"url":             "apps",
-			"logging-dir":     network.DefaultSpace,
-			"monitoring-port": network.DefaultSpace,
+			"logging-dir":     "",
+			"monitoring-port": "",
 			"db":              "db",
-			"cache":           network.DefaultSpace,
+			"cache":           "",
 		},
 
-		"ms-no-bindings":      map[string]string{},
+		"ms-no-bindings":      msAllDefaults,
 		"ms-default-bindings": msAllDefaults,
 		"ms-given-bindings": map[string]string{
 			"server": "db",
 		},
-	})
+	}
+	c.Assert(initialBindings, jc.DeepEquals, expectedInitialAndFinal)
 
 	assertFinalBindings := func() {
 		finalBindings := s.getServicesBindings(c, services)
-		c.Assert(finalBindings, jc.DeepEquals, map[string]map[string]string{
-			"wp-no-bindings":      wpAllDefaults,
-			"wp-default-bindings": wpAllDefaults,
-			"wp-given-bindings": map[string]string{
-				"url":             "apps",
-				"logging-dir":     network.DefaultSpace,
-				"monitoring-port": network.DefaultSpace,
-				"db":              "db",
-				"cache":           network.DefaultSpace,
-			},
-
-			"ms-no-bindings":      msAllDefaults,
-			"ms-default-bindings": msAllDefaults,
-			"ms-given-bindings": map[string]string{
-				"server": "db",
-			},
-		})
+		c.Assert(finalBindings, jc.DeepEquals, expectedInitialAndFinal)
 	}
 	err := AddDefaultEndpointBindingsToServices(s.state)
 	c.Assert(err, jc.ErrorIsNil)

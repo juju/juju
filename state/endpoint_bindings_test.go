@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -43,9 +42,9 @@ peers:
 	oldCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithOneOfEachRelationType, 1)
 	s.oldMeta = oldCharm.Meta()
 	s.oldDefaults = map[string]string{
-		"foo1": network.DefaultSpace,
-		"bar1": network.DefaultSpace,
-		"self": network.DefaultSpace,
+		"foo1": "",
+		"bar1": "",
+		"self": "",
 	}
 
 	const dummyCharmWithTwoOfEachRelationType = `
@@ -69,12 +68,12 @@ peers:
 	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationType, 2)
 	s.newMeta = newCharm.Meta()
 	s.newDefaults = map[string]string{
-		"foo1": network.DefaultSpace,
-		"foo2": network.DefaultSpace,
-		"bar2": network.DefaultSpace,
-		"bar3": network.DefaultSpace,
-		"self": network.DefaultSpace,
-		"me":   network.DefaultSpace,
+		"foo1": "",
+		"foo2": "",
+		"bar2": "",
+		"bar3": "",
+		"self": "",
+		"me":   "",
 	}
 
 	// Add some spaces to use in bindings, but notably NOT the default space, as
@@ -112,14 +111,14 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		meta: s.oldMeta,
 		updated: map[string]string{
 			"foo1": "client",
-			"bar1": network.DefaultSpace,
+			"bar1": "",
 			"self": "db",
 		},
 		removed: nil,
 	}, {
 		about: "oldMap overrides defaults, newMap overrides oldMap",
 		newMap: map[string]string{
-			"foo1": network.DefaultSpace,
+			"foo1": "",
 			"self": "db",
 			"bar1": "client",
 		},
@@ -129,7 +128,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1": network.DefaultSpace,
+			"foo1": "",
 			"bar1": "client",
 			"self": "db",
 		},
@@ -142,8 +141,8 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		oldMap: nil,
 		meta:   s.oldMeta,
 		updated: map[string]string{
-			"foo1": network.DefaultSpace,
-			"bar1": network.DefaultSpace,
+			"foo1": "",
+			"bar1": "",
 			"self": "db",
 		},
 		removed: nil,
@@ -156,8 +155,8 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1": network.DefaultSpace,
-			"bar1": network.DefaultSpace,
+			"foo1": "",
+			"bar1": "",
 			"self": "db",
 		},
 		removed: []string{"any-old-thing"},
@@ -171,11 +170,11 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		oldMap: s.copyMap(s.oldDefaults),
 		meta:   s.newMeta,
 		updated: map[string]string{
-			"foo1": network.DefaultSpace,
+			"foo1": "",
 			"foo2": "db",
-			"bar2": network.DefaultSpace,
+			"bar2": "",
 			"bar3": "db",
-			"self": network.DefaultSpace,
+			"self": "",
 			"me":   "client",
 		},
 		removed: []string{"bar1"},
