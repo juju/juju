@@ -1077,10 +1077,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
-			// workers.
+			// workers.  It is possible that multiple cert changes
+			// come in before the apiserver is up to receive them.
+			// Specify a bigger buffer to prevent deadlock when
+			// the apiserver isn't up yet.
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
-			certChangedChan := make(chan params.StateServingInfo, 1)
+			certChangedChan := make(chan params.StateServingInfo, 10)
 			// Each time aipserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			stateOpener := func() (*state.State, error) {
