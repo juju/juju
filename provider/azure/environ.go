@@ -275,14 +275,10 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 
 	// Initialise clients.
-	baseURI := "https://management.azure.com"
-	if strings.Contains(ecfg.location, "china") {
-		baseURI = "https://management.chinacloudapi.cn"
-	}
-	env.compute = compute.NewWithBaseURI(baseURI, env.config.subscriptionId)
-	env.resources = resources.NewWithBaseURI(baseURI, env.config.subscriptionId)
-	env.storage = storage.NewWithBaseURI(baseURI, env.config.subscriptionId)
-	env.network = network.NewWithBaseURI(baseURI, env.config.subscriptionId)
+	env.compute = compute.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
+	env.resources = resources.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
+	env.storage = storage.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
+	env.network = network.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
 	clients := map[string]*autorest.Client{
 		"azure.compute":   &env.compute.Client,
 		"azure.resources": &env.resources.Client,

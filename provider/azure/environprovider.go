@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -98,23 +99,36 @@ func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
 func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+
 	// Ensure that internal configuration is not specified, and then set
 	// what we can now. We only need to do this during bootstrap. Validate
 	// will check for changes later.
-	cfg := args.Config
-	unknownAttrs := cfg.UnknownAttrs()
+	unknownAttrs := args.Config.UnknownAttrs()
 	for _, key := range internalConfigAttributes {
 		if _, ok := unknownAttrs[key]; ok {
 			return nil, errors.Errorf(`internal config %q must not be specified`, key)
 		}
 	}
 
-	// Record the UUID that will be used for the controller environment.
-	cfg, err := cfg.Apply(map[string]interface{}{
-		configAttrControllerResourceGroup: resourceGroupName(cfg),
-	})
+	attrs := map[string]interface{}{
+		configAttrLocation: args.CloudRegion,
+		configAttrEndpoint: args.CloudEndpoint,
+
+		// Record the UUID that will be used for the controller
+		// model, which contains shared resources.
+		configAttrControllerResourceGroup: resourceGroupName(args.Config),
+	}
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		for k, v := range args.Credentials.Attributes() {
+			attrs[k] = v
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
-		return nil, errors.Annotate(err, "recording controller-resource-group")
+		return nil, errors.Annotate(err, "updating config")
 	}
 
 	env, err := prov.Open(cfg)

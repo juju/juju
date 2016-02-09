@@ -645,6 +645,9 @@ func gibToMib(g uint64) uint64 {
 // locationStorageEndpoint returns the hostname to supply to NewStorageClient
 // for the given location.
 func locationStorageEndpoint(location string) string {
+	// TODO(axw) we need a way of specifying the storage endpoint in
+	// clouds.yaml. The storage endpoint is not necessarily based on
+	// the resource manager endpoint.
 	if strings.Contains(location, "china") {
 		return "core.chinacloudapi.cn"
 	}

@@ -20,6 +20,7 @@ const (
 	configAttrTenantId           = "tenant-id"
 	configAttrAppPassword        = "application-password"
 	configAttrLocation           = "location"
+	configAttrEndpoint           = "endpoint"
 	configAttrStorageAccountType = "storage-account-type"
 
 	// The below bits are internal book-keeping things, rather than
@@ -44,6 +45,7 @@ const (
 
 var configFields = schema.Fields{
 	configAttrLocation:                schema.String(),
+	configAttrEndpoint:                schema.String(),
 	configAttrAppId:                   schema.String(),
 	configAttrSubscriptionId:          schema.String(),
 	configAttrTenantId:                schema.String(),
@@ -67,6 +69,7 @@ var requiredConfigAttributes = []string{
 	configAttrSubscriptionId,
 	configAttrTenantId,
 	configAttrLocation,
+	configAttrEndpoint,
 	configAttrControllerResourceGroup,
 }
 
@@ -89,6 +92,7 @@ type azureModelConfig struct {
 	token                   *azure.ServicePrincipalToken
 	subscriptionId          string
 	location                string // canonicalized
+	endpoint                string
 	storageAccount          string
 	storageAccountKey       string
 	storageAccountType      storage.AccountType
@@ -161,6 +165,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 	}
 
 	location := canonicalLocation(validated[configAttrLocation].(string))
+	endpoint := validated[configAttrEndpoint].(string)
 	appId := validated[configAttrAppId].(string)
 	subscriptionId := validated[configAttrSubscriptionId].(string)
 	tenantId := validated[configAttrTenantId].(string)
@@ -195,6 +200,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		token,
 		subscriptionId,
 		location,
+		endpoint,
 		storageAccount,
 		storageAccountKey,
 		storage.AccountType(storageAccountType),
