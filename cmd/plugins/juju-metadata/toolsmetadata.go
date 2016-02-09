@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -21,12 +21,12 @@ import (
 )
 
 func newToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&toolsMetadataCommand{})
+	return modelcmd.Wrap(&toolsMetadataCommand{})
 }
 
 // toolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type toolsMetadataCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	fetch       bool
 	metadataDir string
 	stream      string
@@ -39,7 +39,8 @@ generate-tools creates simplestreams tools metadata.
 
 This command works by scanning a directory for tools tarballs from which to generate
 simplestreams tools metadata. The working directory is specified using the -d argument
-(defaults to ~/.juju). The working directory is expected to contain a named subdirectory
+(defaults to $JUJU_DATA or if not defined $XDG_DATA_HOME/juju or if that is not defined
+~/.local/share/juju). The working directory is expected to contain a named subdirectory
 containing tools tarballs, and is where the resulting metadata is written.
 
 The stream for which metadata is generated is specified using the --stream parameter
@@ -96,7 +97,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = osenv.JujuHome()
+		c.metadataDir = osenv.JujuXDGDataHome()
 	} else {
 		c.metadataDir = context.AbsPath(c.metadataDir)
 	}

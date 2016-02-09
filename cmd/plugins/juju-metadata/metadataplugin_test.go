@@ -25,7 +25,7 @@ func Test(t *stdtesting.T) {
 }
 
 type MetadataSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&MetadataSuite{})
@@ -59,7 +59,7 @@ func badrun(c *gc.C, exit int, args ...string) string {
 
 	ps := exec.Command(os.Args[0], localArgs...)
 
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuXDGDataHomeEnvKey+"="+osenv.JujuXDGDataHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))

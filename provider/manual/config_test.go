@@ -15,7 +15,7 @@ import (
 )
 
 type configSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&configSuite{})
@@ -43,7 +43,7 @@ func MinimalConfig(c *gc.C) *config.Config {
 	return testConfig
 }
 
-func getEnvironConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
+func getModelConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := manualProvider{}.validate(testConfig, nil)
@@ -96,12 +96,12 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 
 func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
 	values := MinimalConfigValues()
-	testConfig := getEnvironConfig(c, values)
+	testConfig := getModelConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "hostname")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "")
 	values["bootstrap-host"] = "127.0.0.1"
 	values["bootstrap-user"] = "ubuntu"
-	testConfig = getEnvironConfig(c, values)
+	testConfig = getModelConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "127.0.0.1")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "ubuntu")
 }
@@ -114,7 +114,7 @@ func (s *configSuite) TestStorageCompat(c *gc.C) {
 	delete(values, "use-sshstorage")
 	cfg, err := config.New(config.UseDefaults, values)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig := newEnvironConfig(cfg, values)
+	envConfig := newModelConfig(cfg, values)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
 }

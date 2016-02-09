@@ -10,7 +10,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // CharmResourceLister has the charm store API methods needed by ShowCommand.
@@ -24,7 +24,7 @@ type CharmResourceLister interface {
 
 // ShowCommand implements the show-resources command.
 type ShowCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out   cmd.Output
 	charm string
 

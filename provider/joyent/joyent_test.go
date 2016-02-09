@@ -50,7 +50,7 @@ C+4FYwKBgQDE9yZTUpJjG2424z6bl/MHzwl5RB4pMronp0BbeVqPwhCBfj0W5I42
 )
 
 type providerSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	restoreTimeouts func()
 }
@@ -59,28 +59,28 @@ var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.AddCleanup(CreateTestKey(c))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":             "joyent test environment",
+		"name":             "joyent test model",
 		"type":             "joyent",
 		"sdc-user":         testUser,
 		"sdc-key-id":       testKeyFingerprint,

@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
 	internalclient "github.com/juju/juju/resource/api/private/client"
@@ -150,11 +150,11 @@ func (r resources) registerPublicCommands() {
 		client := newCharmstoreClient()
 		return &charmstoreClient{client}, nil
 	}
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewShowCommand(newShowAPIClient)
 	})
 
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
 				return r.newClient(c.NewAPIRoot)
@@ -166,7 +166,7 @@ func (r resources) registerPublicCommands() {
 
 	})
 
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
 				return r.newClient(c.NewAPIRoot)

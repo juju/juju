@@ -5,7 +5,7 @@ package proxyupdater
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/environment"
+	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
@@ -26,5 +26,5 @@ func newWorker(apiCaller base.APICaller) (worker.Worker, error) {
 	// TODO(fwereade): This shouldn't be an "environment" facade, it
 	// should be specific to the proxyupdater, and be watching for
 	// *proxy settings* changes, not just watching the "environment".
-	return New(environment.NewFacade(apiCaller), false)
+	return NewWorker(proxyupdater.NewFacade(apiCaller))
 }

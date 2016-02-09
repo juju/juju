@@ -29,7 +29,7 @@ Affinity Group
     then locate entities as close to each other as possible within a data-
     centre, as opposed to just being in the same data-centre.
 
-    We create an Affinty Group per environment called "juju-<envname>-ag".
+    We create an Affinty Group per model called "juju-<modelname>-ag".
 
 Cloud Service
 
@@ -88,17 +88,17 @@ Azure provider implementation
 
 Bootstrapping
 
-    Before the Azure provider can bootstrap an environment, it expects one and
+    Before the Azure provider can bootstrap a model, it expects one and
     only one thing to be pre-existing: a storage account; this storage account
-    is used for the environment's Storage() implementation. When the
-    environment is bootstrapped, the provider creates an affinity group and a
+    is used for the model's Storage() implementation. When the
+    model is bootstrapped, the provider creates an affinity group and a
     virtual network.
 
     The Azure provider now has two modes in which it can operate, configured at
     bootstrap time with the "availability-sets-enabled" boolean attribute. If it
     is true (henceforth "azure-mode"), then support for multiple Roles per Cloud-
     Service is enabled; otherwise there is a single Role per Cloud Service. By
-    default, we set availability-sets-enabled=true for new environments.
+    default, we set availability-sets-enabled=true for new model.
 
     Note: by setting availability-sets-enabled=false, you will gain the abililty
     to place units on any machine at the cost of losing Azure's SLA guarantees.
@@ -122,8 +122,8 @@ Starting instances
     Instances are deployed to the same Cloud Service as the other instances
     of its "Distribution Group" (a new Juju provisioning concept introduced
     to support azure-mode, Availability Zones, etc.), or a new Cloud Service
-    if the group is empty. For a state server, the Distribution Group is the
-    set of instances that contain other state server instances; for any other
+    if the group is empty. For a controller, the Distribution Group is the
+    set of instances that contain other controller instances; for any other
     instance, the Distribution Group is the set of instances that contain units
     of the same service that the instance is being provisioned for.  All new
     instances are added to the same Availability Set within the Cloud Service.
@@ -149,7 +149,7 @@ Exposing Services
     across each instance whose unit opens the port. Load balancing only takes
     effect when connecting to the public (Cloud Service) address.
 
-    In azure-mode, the state server and API server ports are automatically
+    In azure-mode, the controller and API server ports are automatically
     load-balanced. When HA Juju is enabled, this means that API client
     connections will be load balanced automatically by Azure.
 

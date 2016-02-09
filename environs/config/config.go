@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.config")
+var logger = loggo.GetLogger("juju.environs.local/share")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.
@@ -46,14 +46,14 @@ const (
 	// instance security groups.
 	FwNone = "none"
 
-	// DefaultStatePort is the default port the state server is listening on.
+	// DefaultStatePort is the default port the controller is listening on.
 	DefaultStatePort int = 37017
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
-	// contacting a state server, in seconds.
+	// contacting a controller, in seconds.
 	DefaultBootstrapSSHTimeout int = 600
 
 	// DefaultBootstrapSSHRetryDelay is the amount of time between
@@ -74,7 +74,7 @@ const (
 	DefaultNumaControlPolicy = false
 
 	// DefaultPreventDestroyEnvironment should not be used by default.
-	// Only prevent destroy-environment from running
+	// Only prevent destroy-model from running
 	// if user specifically requests it. Otherwise, let it run.
 	DefaultPreventDestroyEnvironment = false
 
@@ -144,7 +144,7 @@ const (
 	BlockKeyPrefix = "block-"
 
 	// PreventDestroyEnvironmentKey stores the value for this setting
-	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
+	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-model"
 
 	// PreventRemoveObjectKey stores the value for this setting
 	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
@@ -231,7 +231,7 @@ const (
 	HarvestUnknown
 	// HarvestDestroyed signifies that Juju should only harvest
 	// machines which have been explicitly released by the user
-	// through a destroy of a service/environment/unit.
+	// through a destroy of a service/model/unit.
 	HarvestDestroyed
 	// HarvestAll signifies that Juju should harvest both unknown and
 	// destroyed instances. ♫ Don't fear the reaper. ♫
@@ -356,8 +356,10 @@ const (
 //     ~/.ssh/id_dsa.pub
 //     ~/.ssh/id_rsa.pub
 //     ~/.ssh/identity.pub
-//     ~/.juju/<name>-cert.pem
-//     ~/.juju/<name>-private-key.pem
+//     ~/.local/share/juju/<name>-cert.pem
+//     ~/.local/share/juju/<name>-private-key.pem
+//
+// if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
@@ -441,7 +443,7 @@ func (c *Config) fillInDefaults() error {
 	// been verified yet.
 	name := c.asString("name")
 	if name == "" {
-		return fmt.Errorf("empty name in environment configuration")
+		return fmt.Errorf("empty name in model configuration")
 	}
 	err := maybeReadAttrFromFile(c.defined, "ca-cert", name+"-cert.pem")
 	if err != nil {
@@ -563,7 +565,7 @@ func Validate(cfg, old *Config) error {
 	// Check that mandatory fields are specified.
 	for _, attr := range mandatoryWithoutDefaults {
 		if _, ok := cfg.defined[attr]; !ok {
-			return fmt.Errorf("%s missing from environment configuration", attr)
+			return fmt.Errorf("%s missing from model configuration", attr)
 		}
 	}
 
@@ -574,19 +576,19 @@ func Validate(cfg, old *Config) error {
 			continue
 		}
 		if !allowEmpty(attr) {
-			return fmt.Errorf("empty %s in environment configuration", attr)
+			return fmt.Errorf("empty %s in model configuration", attr)
 		}
 	}
 
 	if strings.ContainsAny(cfg.mustString("name"), "/\\") {
-		return fmt.Errorf("environment name contains unsafe characters")
+		return fmt.Errorf("model name contains unsafe characters")
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
 	// it alone.
 	if v, ok := cfg.defined["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
-			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
+			return fmt.Errorf("invalid agent version in model configuration: %q", v)
 		}
 	}
 
@@ -700,8 +702,8 @@ func isEmpty(val interface{}) bool {
 //
 // The defined[attr+"-path"] key is always deleted.
 func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
-	if !osenv.IsJujuHomeSet() {
-		logger.Debugf("JUJU_HOME not set, not attempting to read file %q", defaultPath)
+	if !osenv.IsJujuXDGDataHomeSet() {
+		logger.Debugf("JUJU_DATA not set, not attempting to read file %q", defaultPath)
 		return nil
 	}
 	pathAttr := attr + "-path"
@@ -720,7 +722,7 @@ func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath str
 		return err
 	}
 	if !filepath.IsAbs(path) {
-		path = osenv.JujuHomePath(path)
+		path = osenv.JujuXDGDataHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -800,7 +802,7 @@ func (c *Config) DefaultSeries() (string, bool) {
 	return "", false
 }
 
-// StatePort returns the state server port for the environment.
+// StatePort returns the controller port for the environment.
 func (c *Config) StatePort() int {
 	return c.mustInt("state-port")
 }
@@ -818,7 +820,7 @@ func (c *Config) NumaCtlPreference() bool {
 	return DefaultNumaControlPolicy
 }
 
-// PreventDestroyEnvironment returns if destroy-environment
+// PreventDestroyEnvironment returns if destroy-model
 // should be blocked from proceeding, thus preventing the operation.
 func (c *Config) PreventDestroyEnvironment() bool {
 	if attrValue, ok := c.defined[PreventDestroyEnvironmentKey]; ok {
@@ -959,7 +961,7 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 	return opts
 }
 
-// CACert returns the certificate of the CA that signed the state server
+// CACert returns the certificate of the CA that signed the controller
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() (string, bool) {
 	if s, ok := c.defined["ca-cert"]; ok {
@@ -1454,16 +1456,16 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	return result, nil
 }
 
-// GenerateStateServerCertAndKey makes sure that the config has a CACert and
+// GenerateControllerCertAndKey makes sure that the config has a CACert and
 // CAPrivateKey, generates and returns new certificate and key.
-func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string, string, error) {
+func (cfg *Config) GenerateControllerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return "", "", fmt.Errorf("environment configuration has no ca-cert")
+		return "", "", fmt.Errorf("model configuration has no ca-cert")
 	}
 	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCAKey {
-		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
+		return "", "", fmt.Errorf("model configuration has no ca-private-key")
 	}
 	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
@@ -1585,31 +1587,31 @@ var configSchema = environschema.Fields{
 	},
 	AptFtpProxyKey: {
 		// TODO document acceptable format
-		Description: "The APT FTP proxy for the environment",
+		Description: "The APT FTP proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	AptHttpProxyKey: {
 		// TODO document acceptable format
-		Description: "The APT HTTP proxy for the environment",
+		Description: "The APT HTTP proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	AptHttpsProxyKey: {
 		// TODO document acceptable format
-		Description: "The APT HTTPS proxy for the environment",
+		Description: "The APT HTTPS proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"apt-mirror": {
 		// TODO document acceptable format
-		Description: "The APT mirror for the environment",
+		Description: "The APT mirror for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"authorized-keys": {
 		// TODO what to do about authorized-keys-path ?
-		Description: "Any authorized SSH public keys for the environment, as found in a ~/.ssh/authorized_keys file",
+		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1618,12 +1620,12 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	PreventAllChangesKey: {
-		Description: `Whether all changes to the environment will be prevented`,
+		Description: `Whether all changes to the model will be prevented`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	PreventDestroyEnvironmentKey: {
-		Description: `Whether the environment will be prevented from destruction`,
+		Description: `Whether the model will be prevented from destruction`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1645,13 +1647,13 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	"bootstrap-timeout": {
-		Description: "The amount of time to wait contacting a state server in seconds",
+		Description: "The amount of time to wait contacting a controller in seconds",
 		Type:        environschema.Tint,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	"ca-cert": {
-		Description: `The certificate of the CA that signed the state server certificate, in PEM format`,
+		Description: `The certificate of the CA that signed the controller certificate, in PEM format`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1660,7 +1662,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"ca-private-key": {
-		Description: `The private key of the CA that signed the state server certificate, in PEM format`,
+		Description: `The private key of the CA that signed the controller certificate, in PEM format`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1679,12 +1681,12 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	"development": {
-		Description: "Whether the environment is in development mode",
+		Description: "Whether the model is in development mode",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	"disable-network-management": {
-		Description: "Whether the provider should control networks (on MAAS environments, set to true for MAAS to control networks",
+		Description: "Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1713,7 +1715,7 @@ for a network port is enabled to one instance if any instance requires
 that port).
 
 'none' requests that no firewalling should be performed
-inside the environment. It's useful for clouds without support for either
+inside the model. It's useful for clouds without support for either
 global or per instance security groups.`,
 		Type: environschema.Tstring,
 		// Note that we need the empty value because it can
@@ -1723,17 +1725,17 @@ global or per instance security groups.`,
 		Group:     environschema.EnvironGroup,
 	},
 	FtpProxyKey: {
-		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY environment variable",
+		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY model variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	HttpProxyKey: {
-		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable",
+		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY model variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	HttpsProxyKey: {
-		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable",
+		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY model variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1776,7 +1778,7 @@ global or per instance security groups.`,
 		Type:        environschema.Tbool,
 	},
 	"name": {
-		Description: "The name of the current environment",
+		Description: "The name of the current model",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
 		Immutable:   true,
@@ -1827,7 +1829,7 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	SetNumaControlPolicyKey: {
-		Description: "Tune Juju state-server to work with NUMA if present (default false)",
+		Description: "Tune Juju controller to work with NUMA if present (default false)",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1837,7 +1839,7 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	StorageDefaultBlockSourceKey: {
-		Description: "The default block storage source for the environment",
+		Description: "The default block storage source for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1848,7 +1850,7 @@ global or per instance security groups.`,
 		Group:       environschema.EnvironGroup,
 	},
 	"test-mode": {
-		Description: `Whether the environment is intended for testing.
+		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false)`,
 		Type:  environschema.Tbool,
@@ -1865,14 +1867,14 @@ data of the store. (default false)`,
 		Group:       environschema.EnvironGroup,
 	},
 	"type": {
-		Description: "Type of environment, e.g. local, ec2",
+		Description: "Type of model, e.g. local, ec2",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	"uuid": {
-		Description: "The UUID of the environment",
+		Description: "The UUID of the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

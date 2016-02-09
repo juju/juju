@@ -21,7 +21,7 @@ import (
 )
 
 type PluginSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	oldPath string
 }
 
@@ -32,14 +32,14 @@ func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: tests use bash scrips, will be rewritten for windows")
 	}
-	suite.FakeJujuHomeSuite.SetUpTest(c)
+	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
 	os.Setenv("PATH", "/bin:"+gitjujutesting.HomePath())
 }
 
 func (suite *PluginSuite) TearDownTest(c *gc.C) {
 	os.Setenv("PATH", suite.oldPath)
-	suite.FakeJujuHomeSuite.TearDownTest(c)
+	suite.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (*PluginSuite) TestFindPlugins(c *gc.C) {
@@ -173,8 +173,8 @@ func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
 
 func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
-	output := badrun(c, 0, "foo", "-e", "myenv", "-p", "pluginarg")
-	expectedDebug := `foo -e myenv -p pluginarg\n.*env is:  myenv\n.*home is: .*\.juju\n`
+	output := badrun(c, 0, "foo", "-m", "myenv", "-p", "pluginarg")
+	expectedDebug := fmt.Sprintf(`foo %v myenv -p pluginarg\n.*env is:  myenv\n.*home is: .*\.local\/share\/juju\n`, "-m")
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
@@ -224,8 +224,8 @@ if [ "$1" = "--debug" ]; then
 fi
 
 echo {{.Name}} $*
-echo "env is: " $JUJU_ENV
-echo "home is: " $JUJU_HOME
+echo "env is: " $JUJU_MODEL
+echo "home is: " $JUJU_DATA
 exit {{.ExitStatus}}
 `
 

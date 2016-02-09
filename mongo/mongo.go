@@ -163,7 +163,7 @@ type EnsureServerParams struct {
 
 // EnsureServiceInstalled is a convenience method to [re]create
 // the mongo service.
-func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool) error {
+func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaControlPolicy bool) error {
 	mongoPath, err := Path()
 	if err != nil {
 		return errors.Annotate(err, "cannot get mongo path")
@@ -179,7 +179,7 @@ func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB in
 	}
 
 	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy)
-	svc, err := newService(ServiceName(namespace), svcConf)
+	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -199,10 +199,6 @@ func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB in
 //
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
-//
-// The namespace is a unique identifier to prevent multiple instances of mongo
-// on this machine from colliding. This should be empty unless using
-// the local provider.
 func EnsureServer(args EnsureServerParams) error {
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
@@ -261,7 +257,7 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 
 	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
-	svc, err := newService(ServiceName(args.Namespace), svcConf)
+	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return err
 	}
@@ -302,7 +298,7 @@ func EnsureServer(args EnsureServerParams) error {
 	return nil
 }
 
-// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju state server(s)
+// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
 func UpdateSSLKey(dataDir, cert, privateKey string) error {
 	certKey := cert + "\n" + privateKey
 	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)

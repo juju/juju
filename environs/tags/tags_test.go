@@ -19,16 +19,16 @@ type tagsSuite struct {
 var _ = gc.Suite(&tagsSuite{})
 
 func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
-	testResourceTags(c, testing.EnvironmentTag, nil, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
+	testResourceTags(c, testing.ModelTag, nil, map[string]string{
+		"juju-model-uuid": testing.ModelTag.Id(),
 	})
-	testResourceTags(c, names.NewEnvironTag(""), nil, map[string]string{
-		"juju-env-uuid": "",
+	testResourceTags(c, names.NewModelTag(""), nil, map[string]string{
+		"juju-model-uuid": "",
 	})
 }
 
 func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
-	testResourceTags(c, testing.EnvironmentTag, []tags.ResourceTagger{
+	testResourceTags(c, testing.ModelTag, []tags.ResourceTagger{
 		resourceTagger(func() (map[string]string, bool) {
 			return map[string]string{
 				"over":   "ridden",
@@ -51,14 +51,14 @@ func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
 			}, true
 		}),
 	}, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
-		"froman":        "egg",
-		"over":          "easy",
-		"extra":         "play",
+		"juju-model-uuid": testing.ModelTag.Id(),
+		"froman":          "egg",
+		"over":            "easy",
+		"extra":           "play",
 	})
 }
 
-func testResourceTags(c *gc.C, tag names.EnvironTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
+func testResourceTags(c *gc.C, tag names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
 	tags := tags.ResourceTags(tag, taggers...)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }

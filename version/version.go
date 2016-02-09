@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -36,8 +35,6 @@ var osReleaseFile = "/etc/os-release"
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = MustParse(version)
-
-var Compiler = runtime.Compiler
 
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])

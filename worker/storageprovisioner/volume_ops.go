@@ -19,7 +19,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		volumeParams = append(volumeParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.environConfig, ctx.config.StorageDir, volumeParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -128,7 +128,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.config.StorageDir, volumeAttachmentParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeAttachmentParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -194,7 +194,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 		return errors.Trace(err)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.environConfig, ctx.config.StorageDir, volumeParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -266,7 +266,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.config.StorageDir, volumeAttachmentParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeAttachmentParams,
 	)
 	if err != nil {
 		return errors.Trace(err)

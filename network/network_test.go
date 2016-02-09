@@ -94,13 +94,13 @@ var _ = gc.Suite(&NetworkSuite{})
 func (*NetworkSuite) TestInitializeFromConfig(c *gc.C) {
 	c.Check(network.PreferIPv6(), jc.IsFalse)
 
-	envConfig := testing.CustomEnvironConfig(c, testing.Attrs{
+	envConfig := testing.CustomModelConfig(c, testing.Attrs{
 		"prefer-ipv6": true,
 	})
 	network.SetPreferIPv6(envConfig.PreferIPv6())
 	c.Check(network.PreferIPv6(), jc.IsTrue)
 
-	envConfig = testing.CustomEnvironConfig(c, testing.Attrs{
+	envConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"prefer-ipv6": false,
 	})
 	network.SetPreferIPv6(envConfig.PreferIPv6())

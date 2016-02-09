@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-func isStateServer(icfg *instancecfg.InstanceConfig) bool {
+func isController(icfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(icfg.Jobs...)
 }
 
@@ -66,7 +66,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	if isStateServer(args.InstanceConfig) {
+	if isController(args.InstanceConfig) {
 		ports := network.PortRange{
 			FromPort: args.InstanceConfig.StateServingInfo.APIPort,
 			ToPort:   args.InstanceConfig.StateServingInfo.APIPort,
@@ -212,7 +212,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
 	metadata := make(map[string]string)
-	if isStateServer(args.InstanceConfig) {
+	if isController(args.InstanceConfig) {
 		metadata[metadataKeyIsState] = metadataValueTrue
 	} else {
 		metadata[metadataKeyIsState] = metadataValueFalse

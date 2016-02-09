@@ -19,7 +19,7 @@ type UnblockCommandSuite struct {
 }
 
 func (s *UnblockCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
 }
 
@@ -43,11 +43,11 @@ func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c, "destroy-environment", "change"), `.*can only specify block type.*`)
+	s.assertErrorMatches(c, s.runUnblockCommand(c, "destroy-model", "change"), `.*can only specify block type.*`)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdOperationWithSeparator(c *gc.C) {
-	s.assertErrorMatches(c, s.runUnblockCommand(c, "destroy-environment|"), `.*valid argument.*`)
+	s.assertErrorMatches(c, s.runUnblockCommand(c, "destroy-model|"), `.*valid argument.*`)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdUnknownJujuOperation(c *gc.C) {
@@ -59,9 +59,9 @@ func (s *UnblockCommandSuite) TestUnblockCmdUnknownOperation(c *gc.C) {
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.assertRunUnblock(c, "DESTROY-ENVIRONMENT")
+	s.assertRunUnblock(c, "DESTROY-MODEL")
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.assertRunUnblock(c, "destroy-environment")
+	s.assertRunUnblock(c, "destroy-model")
 }

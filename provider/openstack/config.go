@@ -187,7 +187,7 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 	}
 	cred := identity.CredentialsFromEnv()
-	format := "required environment variable not set for credentials attribute: %s"
+	format := "required model variable not set for credentials attribute: %s"
 	switch ecfg.authMode() {
 	case AuthUserPass, AuthLegacy:
 		if ecfg.username() == "" {
@@ -261,7 +261,7 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"The correct instance flavor is determined using constraints, globally specified\n"+
-				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
+				"when an model is bootstrapped, or individually when a charm is deployed.\n"+
 				"See 'juju help bootstrap' or 'juju help deploy'.",
 			"default-instance-type", defaultInstanceType)
 		logger.Warningf(msg)

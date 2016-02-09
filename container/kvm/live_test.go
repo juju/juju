@@ -137,7 +137,7 @@ func dummyConfig(c *gc.C) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":          "dummy",
-		"state-server":  false,
+		"controller":    false,
 		"agent-version": version.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

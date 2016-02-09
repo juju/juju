@@ -18,7 +18,7 @@ import (
 )
 
 type ValidateImageMetadataSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	metadataDir string
 }
 
@@ -59,8 +59,8 @@ func (s *ValidateImageMetadataSuite) TestInvalidProviderError(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	err := runValidateImageMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `local provider does not support image metadata validation`)
+	err := runValidateImageMetadata(c, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
+	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
 func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) error {
@@ -104,7 +104,7 @@ environments:
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
@@ -129,7 +129,7 @@ func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *g
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir, "-m", stream},
+		newValidateImageMetadataCommand(), ctx, []string{"-m", "ec2", "-d", s.metadataDir, "--stream", stream},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -153,12 +153,12 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		newValidateImageMetadataCommand(), ctx, []string{"-e", "ec2", "-d", s.metadataDir},
+		newValidateImageMetadataCommand(), ctx, []string{"-m", "ec2", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
 	errOut := ctx.Stderr.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `error: .*environment has no access-key or secret-key`)
+	c.Check(strippedOut, gc.Matches, `error: .*model has no access-key or secret-key`)
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {

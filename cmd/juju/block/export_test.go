@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
@@ -56,5 +56,5 @@ func (c *MockBlockClient) List() ([]params.Block, error) {
 }
 
 func NewUnblockCommandWithClient(client UnblockClientAPI) cmd.Command {
-	return envcmd.Wrap(&unblockCommand{client: client})
+	return modelcmd.Wrap(&unblockCommand{client: client})
 }

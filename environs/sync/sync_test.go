@@ -42,7 +42,7 @@ func TestPackage(t *testing.T) {
 }
 
 type syncSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	storage      storage.Storage
 	localStorage string
@@ -56,7 +56,7 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
 	// It's important that this be v1.8.x to match the test data.
@@ -87,7 +87,7 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 var tests = []struct {
@@ -106,32 +106,32 @@ var tests = []struct {
 		tools:       v180all,
 	},
 	{
-		description: "copy newest from the dummy environment",
+		description: "copy newest from the dummy model",
 		ctx:         &sync.SyncContext{},
 		tools:       v180all,
 	},
 	{
-		description: "copy matching dev from the dummy environment",
+		description: "copy matching dev from the dummy model",
 		ctx:         &sync.SyncContext{},
 		version:     version.MustParse("1.9.3"),
 		tools:       v190all,
 	},
 	{
-		description: "copy matching major, minor from the dummy environment",
+		description: "copy matching major, minor from the dummy model",
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       2,
 		tools:       []version.Binary{v320p64},
 	},
 	{
-		description: "copy matching major, minor dev from the dummy environment",
+		description: "copy matching major, minor dev from the dummy model",
 		ctx:         &sync.SyncContext{},
 		major:       3,
 		minor:       1,
 		tools:       []version.Binary{v310p64},
 	},
 	{
-		description: "copy all from the dummy environment",
+		description: "copy all from the dummy model",
 		ctx: &sync.SyncContext{
 			AllVersions: true,
 		},
@@ -205,7 +205,7 @@ var (
 
 type uploadSuite struct {
 	env environs.Environ
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	targetStorage storage.Storage
 }
@@ -214,7 +214,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
 	// Create a target storage.
@@ -233,7 +233,7 @@ func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {

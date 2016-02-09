@@ -58,7 +58,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 // of its choice, constrained to those of the available tools, and
 // returns the instance result, series, and a function that
 // must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial Juju state server.
+// the tools and installing the initial Juju controller.
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
 func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,

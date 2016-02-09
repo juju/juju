@@ -81,9 +81,6 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 	}
 	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
-		}
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -147,15 +144,7 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error,
 	}
 	results := new(params.ErrorResults)
 	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
-	if params.IsCodeNotImplemented(err) {
-		for _, batch := range batches {
-			err = u.AddMetrics(batch.Metrics)
-			if err != nil {
-				batchResults[batch.UUID] = errors.Annotate(err, "failed to send metric batch")
-			}
-		}
-		return batchResults, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Annotate(err, "failed to send metric batches")
 	}
 	for i, result := range results.Results {
@@ -464,44 +453,6 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
 		}},
 	}
 	err := u.st.facade.FacadeCall("ClosePorts", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// OpenPort sets the policy of the port with protocol and number to be
-// opened.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use OpenPorts instead.
-func (u *Unit) OpenPort(protocol string, number int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPorts{
-		Entities: []params.EntityPort{
-			{Tag: u.tag.String(), Protocol: protocol, Port: number},
-		},
-	}
-	err := u.st.facade.FacadeCall("OpenPort", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// ClosePort sets the policy of the port with protocol and number to
-// be closed.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use ClosePorts instead.
-func (u *Unit) ClosePort(protocol string, number int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPorts{
-		Entities: []params.EntityPort{
-			{Tag: u.tag.String(), Protocol: protocol, Port: number},
-		},
-	}
-	err := u.st.facade.FacadeCall("ClosePort", args, &result)
 	if err != nil {
 		return err
 	}

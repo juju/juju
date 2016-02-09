@@ -12,18 +12,23 @@ import (
 )
 
 type formattedStatus struct {
-	Environment       string                   `json:"environment"`
-	EnvironmentStatus *environmentStatus       `json:"environment-status,omitempty" yaml:"environment-status,omitempty"`
-	Machines          map[string]machineStatus `json:"machines"`
-	Services          map[string]serviceStatus `json:"services"`
-	Networks          map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+	Model       string                   `json:"model"`
+	ModelStatus *modelStatus             `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	Machines    map[string]machineStatus `json:"machines"`
+	Services    map[string]serviceStatus `json:"services"`
+	Networks    map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+}
+
+type formattedMachineStatus struct {
+	Model    string                   `json:"model"`
+	Machines map[string]machineStatus `json:"machines"`
 }
 
 type errorStatus struct {
 	StatusError string `json:"status-error" yaml:"status-error"`
 }
 
-type environmentStatus struct {
+type modelStatus struct {
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 
@@ -40,7 +45,7 @@ type machineStatus struct {
 	Id             string                   `json:"-" yaml:"-"`
 	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
 	Hardware       string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus       string                   `json:"state-server-member-status,omitempty" yaml:"state-server-member-status,omitempty"`
+	HAStatus       string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types

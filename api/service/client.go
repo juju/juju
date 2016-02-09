@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -23,12 +24,15 @@ var logger = loggo.GetLogger("juju.api.service")
 
 // Client allows access to the service API end point.
 type Client struct {
-	base.FacadeCaller
+	base.ClientFacade
+	st     api.Connection
+	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the service api.
-func NewClient(caller base.APICallCloser) *Client {
-	return &Client{base.NewFacadeCaller(caller, "Service")}
+func NewClient(st api.Connection) *Client {
+	frontend, backend := base.NewClientFacade(st, "Service")
+	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
 // SetMetricCredentials sets the metric credentials for the service specified.
@@ -38,25 +42,25 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 	}
 	p := params.ServiceMetricCredentials{creds}
 	results := new(params.ErrorResults)
-	err := c.FacadeCall("SetMetricCredentials", p, results)
+	err := c.facade.FacadeCall("SetMetricCredentials", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(results.OneError())
 }
 
-// EnvironmentUUID returns the environment UUID from the client connection.
-func (c *Client) EnvironmentUUID() string {
-	tag, err := c.RawAPICaller().EnvironTag()
+// ModelUUID returns the model UUID from the client connection.
+func (c *Client) ModelUUID() string {
+	tag, err := c.st.ModelTag()
 	if err != nil {
-		logger.Warningf("environ tag not an environ: %v", err)
+		logger.Warningf("model tag not an model: %v", err)
 		return ""
 	}
 	return tag.Id()
 }
 
-// ServiceDeployArgs holds the arguments to be sent to Client.ServiceDeploy.
-type ServiceDeployArgs struct {
+// DeployArgs holds the arguments to be sent to Client.ServiceDeploy.
+type DeployArgs struct {
 	// Url of the charm to deploy.
 	CharmURL string
 	// Name to give the service.
@@ -69,8 +73,6 @@ type ServiceDeployArgs struct {
 	ConfigYAML string
 	// Constraints on where units of this service may be placed.
 	Cons constraints.Value
-	// Specification of a specific machine to deploy to.
-	ToMachineSpec string
 	// Placement directives on where the machines for the unit must be created.
 	Placement []*instance.Placement
 	// Names of networks to deploy on.
@@ -82,57 +84,42 @@ type ServiceDeployArgs struct {
 	Resources map[string]string
 }
 
-// ServiceDeploy obtains the charm, either locally or from
-// the charm store, and deploys it. It allows the specification of
-// requested networks that must be present on the machines where the
-// service is deployed. Another way to specify networks to include/exclude
-// is using constraints. Placement directives, if provided, specify the
+// Deploy obtains the charm, either locally or from the charm store,
+// and deploys it. It allows the specification of requested networks
+// that must be present on the machines where the service is
+// deployed. Another way to specify networks to include/exclude is
+// using constraints. Placement directives, if provided, specify the
 // machine on which the charm is deployed.
-func (c *Client) ServiceDeploy(args ServiceDeployArgs) error {
-	apiArgs := params.ServicesDeploy{
+func (c *Client) Deploy(args DeployArgs) error {
+	deployArgs := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName:   args.ServiceName,
-			Series:        args.Series,
-			CharmUrl:      args.CharmURL,
-			NumUnits:      args.NumUnits,
-			ConfigYAML:    args.ConfigYAML,
-			Constraints:   args.Cons,
-			ToMachineSpec: args.ToMachineSpec,
-			Placement:     args.Placement,
-			Networks:      args.Networks,
-			Storage:       args.Storage,
-			Resources:     args.Resources,
+			ServiceName: args.ServiceName,
+			Series:      args.Series,
+			CharmUrl:    args.CharmURL,
+			NumUnits:    args.NumUnits,
+			ConfigYAML:  args.ConfigYAML,
+			Constraints: args.Cons,
+			Placement:   args.Placement,
+			Networks:    args.Networks,
+			Storage:     args.Storage,
+			Resources:   args.Resources,
 		}},
 	}
 	var results params.ErrorResults
 	var err error
-	if len(args.Placement) > 0 {
-		err = c.FacadeCall("ServicesDeployWithPlacement", apiArgs, &results)
-		if err != nil {
-			if params.IsCodeNotImplemented(err) {
-				return errors.Errorf("unsupported --to parameter %q", args.ToMachineSpec)
-			}
-			return err
-		}
-	} else {
-		err = c.FacadeCall("ServicesDeploy", apiArgs, &results)
-	}
+	err = c.facade.FacadeCall("Deploy", deployArgs, &results)
 	if err != nil {
 		return err
 	}
 	return results.OneError()
 }
 
-// ServiceGetCharmURL returns the charm URL the given service is
+// GetCharmURL returns the charm URL the given service is
 // running at present.
-func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
-	if c.BestAPIVersion() < 2 {
-		return nil, base.OldAgentError("ServiceGetCharmURL", "2.0")
-	}
-
+func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 	result := new(params.StringResult)
 	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.FacadeCall("ServiceGetCharmURL", args, result)
+	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
 		return nil, err
 	}
@@ -142,28 +129,124 @@ func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
 	return charm.ParseURL(result.Result)
 }
 
-// ServiceSetCharm sets the charm for a given service.
-func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, forceSeries, forceUnits bool) error {
-	if c.BestAPIVersion() < 2 {
-		return base.OldAgentError("ServiceSetCharm", "2.0")
-	}
-
+// SetCharm sets the charm for a given service.
+func (c *Client) SetCharm(serviceName string, charmUrl string, forceSeries, forceUnits bool) error {
 	args := params.ServiceSetCharm{
 		ServiceName: serviceName,
 		CharmUrl:    charmUrl,
 		ForceSeries: forceSeries,
 		ForceUnits:  forceUnits,
 	}
-	return c.FacadeCall("ServiceSetCharm", args, nil)
+	return c.facade.FacadeCall("SetCharm", args, nil)
 }
 
-// ServiceUpdate updates the service attributes, including charm URL,
+// Update updates the service attributes, including charm URL,
 // minimum number of units, settings and constraints.
-// TODO(frankban) deprecate redundant API calls that this supercedes.
-func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	if c.BestAPIVersion() < 2 {
-		return base.OldAgentError("ServiceUpdate", "2.0")
-	}
+func (c *Client) Update(args params.ServiceUpdate) error {
+	return c.facade.FacadeCall("Update", args, nil)
+}
 
-	return c.FacadeCall("ServiceUpdate", args, nil)
+// AddUnits adds a given number of units to a service using the specified
+// placement directives to assign units to machines.
+func (c *Client) AddUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
+	args := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+		Placement:   placement,
+	}
+	results := new(params.AddServiceUnitsResults)
+	err := c.facade.FacadeCall("AddUnits", args, results)
+	return results.Units, err
+}
+
+// DestroyUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyUnits(unitNames ...string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	return c.facade.FacadeCall("DestroyUnits", params, nil)
+}
+
+// Destroy destroys a given service.
+func (c *Client) Destroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
+	}
+	return c.facade.FacadeCall("Destroy", params, nil)
+}
+
+// GetConstraints returns the constraints for the given service.
+func (c *Client) GetConstraints(service string) (constraints.Value, error) {
+	results := new(params.GetConstraintsResults)
+	err := c.facade.FacadeCall("GetConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// SetConstraints specifies the constraints for the given service.
+func (c *Client) SetConstraints(service string, constraints constraints.Value) error {
+	params := params.SetConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return c.facade.FacadeCall("SetConstraints", params, nil)
+}
+
+// Expose changes the juju-managed firewall to expose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) Expose(service string) error {
+	params := params.ServiceExpose{ServiceName: service}
+	return c.facade.FacadeCall("Expose", params, nil)
+}
+
+// Unexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) Unexpose(service string) error {
+	params := params.ServiceUnexpose{ServiceName: service}
+	return c.facade.FacadeCall("Unexpose", params, nil)
+}
+
+// Get returns the configuration for the named service.
+func (c *Client) Get(service string) (*params.ServiceGetResults, error) {
+	var results params.ServiceGetResults
+	params := params.ServiceGet{ServiceName: service}
+	err := c.facade.FacadeCall("Get", params, &results)
+	return &results, err
+}
+
+// Set sets configuration options on a service.
+func (c *Client) Set(service string, options map[string]string) error {
+	p := params.ServiceSet{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.facade.FacadeCall("Set", p, nil)
+}
+
+// Unset resets configuration options on a service.
+func (c *Client) Unset(service string, options []string) error {
+	p := params.ServiceUnset{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.facade.FacadeCall("Unset", p, nil)
+}
+
+// CharmRelations returns the service's charms relation names.
+func (c *Client) CharmRelations(service string) ([]string, error) {
+	var results params.ServiceCharmRelationsResults
+	params := params.ServiceCharmRelations{ServiceName: service}
+	err := c.facade.FacadeCall("CharmRelations", params, &results)
+	return results.CharmRelations, err
+}
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.facade.FacadeCall("AddRelation", params, &addRelRes)
+	return &addRelRes, err
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	return c.facade.FacadeCall("DestroyRelation", params, nil)
 }

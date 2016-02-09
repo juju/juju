@@ -23,7 +23,7 @@ type ServingInfoSetterConfig struct {
 
 // ServingInfoSetterManifold defines a simple start function which
 // runs after the API connection has come up. If the machine agent is
-// a state server, it grabs the state serving info over the API and
+// a controller, it grabs the state serving info over the API and
 // records it to agent configuration, and then stops.
 func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifold {
 	return dependency.Manifold{

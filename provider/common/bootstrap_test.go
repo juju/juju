@@ -30,7 +30,7 @@ import (
 )
 
 type BootstrapSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 }
 
@@ -41,7 +41,7 @@ type cleaner interface {
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string) error {
 		return fmt.Errorf("mock connection failure to %s", host)
@@ -50,7 +50,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func newStorage(suite cleaner, c *gc.C) storage.Storage {
@@ -64,7 +64,7 @@ func minimalConfig(c *gc.C) *config.Config {
 	attrs := map[string]interface{}{
 		"name":            "whatever",
 		"type":            "anything, really",
-		"uuid":            coretesting.EnvironmentTag.Id(),
+		"uuid":            coretesting.ModelTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -106,8 +106,8 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 		expectedMcfg.Tags = map[string]string{
-			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-			"juju-is-state": "true",
+			"juju-model-uuid":    coretesting.ModelTag.Id(),
+			"juju-is-controller": "true",
 		}
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)

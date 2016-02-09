@@ -1,5 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package uniter
 
 import (
@@ -13,11 +14,9 @@ import (
 
 var (
 	NewSettings = newSettings
-	NewStateV0  = newStateV0
-	NewStateV1  = newStateV1
 )
 
-// PatchResponses changes the internal FacadeCaller to one that lets you return
+// PatchUnitResponse changes the internal FacadeCaller to one that lets you return
 // canned results. The responseFunc will get the 'response' interface object,
 // and can set attributes of it to fix the response to the caller.
 // It can also return an error to have the FacadeCall return an error. The expected

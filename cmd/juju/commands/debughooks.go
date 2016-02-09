@@ -9,15 +9,17 @@ import (
 	"sort"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/api/service"
+	"github.com/juju/juju/cmd/modelcmd"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 func newDebugHooksCommand() cmd.Command {
-	return envcmd.Wrap(&debugHooksCommand{})
+	return modelcmd.Wrap(&debugHooksCommand{})
 }
 
 // debugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -59,6 +61,18 @@ func (c *debugHooksCommand) Init(args []string) error {
 	return nil
 }
 
+type charmRelationsApi interface {
+	CharmRelations(serviceName string) ([]string, error)
+}
+
+func (c *debugHooksCommand) getServiceAPI() (charmRelationsApi, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.NewClient(root), nil
+}
+
 func (c *debugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
@@ -67,7 +81,11 @@ func (c *debugHooksCommand) validateHooks() error {
 	if err != nil {
 		return err
 	}
-	relations, err := c.apiClient.ServiceCharmRelations(service)
+	serviceApi, err := c.getServiceAPI()
+	if err != nil {
+		return err
+	}
+	relations, err := serviceApi.CharmRelations(service)
 	if err != nil {
 		return err
 	}

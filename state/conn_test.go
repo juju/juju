@@ -23,9 +23,9 @@ type ConnSuite struct {
 	relations    *mgo.Collection
 	services     *mgo.Collection
 	units        *mgo.Collection
-	stateServers *mgo.Collection
+	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
-	envTag       names.EnvironTag
+	modelTag     names.ModelTag
 }
 
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
@@ -36,7 +36,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 
 	cs.StateSuite.SetUpTest(c)
 
-	cs.envTag = cs.State.EnvironTag()
+	cs.modelTag = cs.State.ModelTag()
 
 	jujuDB := cs.MgoSuite.Session.DB("juju")
 	cs.annotations = jujuDB.C("annotations")
@@ -46,7 +46,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.relations = jujuDB.C("relations")
 	cs.services = jujuDB.C("services")
 	cs.units = jujuDB.C("units")
-	cs.stateServers = jujuDB.C("stateServers")
+	cs.controllers = jujuDB.C("controllers")
 
 	c.Log("SetUpTest done")
 }

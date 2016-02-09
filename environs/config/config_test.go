@@ -33,14 +33,14 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
 	loggo.ResetLoggers()
@@ -75,6 +75,8 @@ var testResourceTags = []string{"a=b", "c=", "d=e"}
 var testResourceTagsMap = map[string]string{
 	"a": "b", "c": "", "d": "e",
 }
+
+var quotedPathSeparator = regexp.QuoteMeta(string(os.PathSeparator))
 
 var configTests = []configTest{
 	{
@@ -331,7 +333,7 @@ var configTests = []configTest{
 			"name":         "my-name",
 			"ca-cert-path": "no-such-file",
 		},
-		err: fmt.Sprintf(`open .*\.juju%sno-such-file: .*`, regexp.QuoteMeta(string(os.PathSeparator))),
+		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
 	}, {
 		about:       "CA key specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -340,7 +342,7 @@ var configTests = []configTest{
 			"name":                "my-name",
 			"ca-private-key-path": "no-such-file",
 		},
-		err: fmt.Sprintf(`open .*\.juju%sno-such-file: .*`, regexp.QuoteMeta(string(os.PathSeparator))),
+		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
 	}, {
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
@@ -447,20 +449,20 @@ var configTests = []configTest{
 			"set-numa-control-policy": false,
 		},
 	}, {
-		about:       "block-destroy-environment on",
+		about:       "block-destroy-model on",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"block-destroy-environment": true,
+			"type":                "my-type",
+			"name":                "my-name",
+			"block-destroy-model": true,
 		},
 	}, {
-		about:       "block-destroy-environment off",
+		about:       "block-destroy-model off",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"block-destroy-environment": false,
+			"type":                "my-type",
+			"name":                "my-name",
+			"block-destroy-model": false,
 		},
 	}, {
 		about:       "block-remove-object on",
@@ -529,7 +531,7 @@ var configTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "2",
 		},
-		err: `invalid agent version in environment configuration: "2"`,
+		err: `invalid agent version in model configuration: "2"`,
 	}, {
 		about:       "Missing type",
 		useDefaults: config.UseDefaults,
@@ -544,7 +546,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"type": "",
 		},
-		err: "empty type in environment configuration",
+		err: "empty type in model configuration",
 	}, {
 		about:       "Missing name",
 		useDefaults: config.UseDefaults,
@@ -559,7 +561,7 @@ var configTests = []configTest{
 			"name": "foo/bar",
 			"type": "my-type",
 		},
-		err: "environment name contains unsafe characters",
+		err: "model name contains unsafe characters",
 	}, {
 		about:       "Bad name, no backslash",
 		useDefaults: config.UseDefaults,
@@ -567,7 +569,7 @@ var configTests = []configTest{
 			"name": "foo\\bar",
 			"type": "my-type",
 		},
-		err: "environment name contains unsafe characters",
+		err: "model name contains unsafe characters",
 	}, {
 		about:       "Empty name",
 		useDefaults: config.UseDefaults,
@@ -575,7 +577,7 @@ var configTests = []configTest{
 			"type": "my-type",
 			"name": "",
 		},
-		err: "empty name in environment configuration",
+		err: "empty name in model configuration",
 	}, {
 		about:       "Default firewall mode",
 		useDefaults: config.UseDefaults,
@@ -842,7 +844,7 @@ var configTests = []configTest{
 		about:       "No defaults: missing authorized-keys",
 		useDefaults: config.NoDefaults,
 		attrs:       sampleConfig.Delete("authorized-keys"),
-		err:         `authorized-keys missing from environment configuration`,
+		err:         `authorized-keys missing from model configuration`,
 	}, {
 		about:       "Config settings from juju 1.13.3 actual installation",
 		useDefaults: config.NoDefaults,
@@ -914,7 +916,7 @@ var configTests = []configTest{
 			"name": "my-name",
 			"uuid": "",
 		},
-		err: `empty uuid in environment configuration`,
+		err: `empty uuid in model configuration`,
 	},
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
@@ -1032,10 +1034,10 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 		{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-		{".juju/my-name-cert.pem", caCert},
-		{".juju/my-name-private-key.pem", caKey},
-		{".juju/cacert2.pem", caCert2},
-		{".juju/cakey2.pem", caKey2},
+		{".local/share/juju/my-name-cert.pem", caCert},
+		{".local/share/juju/my-name-private-key.pem", caKey},
+		{".local/share/juju/cacert2.pem", caCert2},
+		{".local/share/juju/cakey2.pem", caKey2},
 		{"othercert.pem", caCert3},
 		{"otherkey.pem", caKey3},
 	}
@@ -1130,8 +1132,8 @@ var emptyCertFilesTests = []configTest{
 
 func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".juju/my-name-cert.pem", ""},
-		{".juju/my-name-private-key.pem", ""},
+		{".local/share/juju/my-name-cert.pem", ""},
+		{".local/share/juju/my-name-private-key.pem", ""},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
@@ -1143,7 +1145,7 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 
 func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
 	// Server-side there is no juju home.
-	osenv.SetJujuHome("")
+	osenv.SetJujuXDGDataHome("")
 	attrs := testing.Attrs{
 		"type":            "my-type",
 		"name":            "my-name",
@@ -1274,7 +1276,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else if ok {
 		c.Check(cert, gc.HasLen, 0)
 		c.Assert(certPresent, jc.IsFalse)
-	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-cert.pem") {
+	} else if bool(test.useDefaults) && home.FileExists(".local/share/juju/my-name-cert.pem") {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, "my-name-cert.pem"))
 	} else {
@@ -1292,7 +1294,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else if ok {
 		c.Check(key, gc.HasLen, 0)
 		c.Assert(keyPresent, jc.IsFalse)
-	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-private-key.pem") {
+	} else if bool(test.useDefaults) && home.FileExists(".local/share/juju/my-name-private-key.pem") {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, "my-name-private-key.pem"))
 	} else {
@@ -1598,8 +1600,8 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
-		{".juju/myenv-cert.pem", caCert},
-		{".juju/myenv-private-key.pem", caKey},
+		{".local/share/juju/myenv-cert.pem", caCert},
+		{".local/share/juju/myenv-private-key.pem", caKey},
 	}...)
 }
 
@@ -1877,7 +1879,7 @@ func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
 	c.Assert(schema, gc.IsNil)
 }
 
-func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
+func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 	// Add a cert.
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
 
@@ -1890,14 +1892,14 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			"name": "test-no-certs",
 			"type": "dummy",
 		},
-		errMatch: "environment configuration has no ca-cert",
+		errMatch: "model configuration has no ca-cert",
 	}, {
 		configValues: map[string]interface{}{
 			"name":    "test-no-certs",
 			"type":    "dummy",
 			"ca-cert": testing.CACert,
 		},
-		errMatch: "environment configuration has no ca-private-key",
+		errMatch: "model configuration has no ca-private-key",
 	}, {
 		configValues: map[string]interface{}{
 			"name":           "test-no-certs",
@@ -1916,7 +1918,7 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	}} {
 		cfg, err := config.New(config.UseDefaults, test.configValues)
 		c.Assert(err, jc.ErrorIsNil)
-		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey(test.sanValues)
+		certPEM, keyPEM, err := cfg.GenerateControllerCertAndKey(test.sanValues)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 

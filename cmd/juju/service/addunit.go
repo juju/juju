@@ -12,12 +12,10 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -40,11 +38,6 @@ func (c *UnitCommandBase) Init(args []string) error {
 		return errors.New("--num-units must be a positive integer")
 	}
 	if c.PlacementSpec != "" {
-		// Older Juju versions just accept a single machine or container.
-		if IsMachineOrNewContainer(c.PlacementSpec) {
-			return nil
-		}
-		// Newer Juju versions accept a comma separated list of placement directives.
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
 		c.Placement = make([]*instance.Placement, len(placementSpecs))
 		for i, spec := range placementSpecs {
@@ -62,9 +55,12 @@ func (c *UnitCommandBase) Init(args []string) error {
 }
 
 func parsePlacement(spec string) (*instance.Placement, error) {
+	if spec == "" {
+		return nil, nil
+	}
 	placement, err := instance.ParsePlacement(spec)
 	if err == instance.ErrPlacementScopeMissing {
-		spec = "env-uuid" + ":" + spec
+		spec = "model-uuid" + ":" + spec
 		placement, err = instance.ParsePlacement(spec)
 	}
 	if err != nil {
@@ -73,48 +69,21 @@ func parsePlacement(spec string) (*instance.Placement, error) {
 	return placement, nil
 }
 
-// TODO(anastasiamac) 2014-10-20 Bug#1383116
-// This exists to provide more context to the user about
-// why they cannot allocate units to machine 0. Remove
-// this when the local provider's machine 0 is a container.
-// TODO(cherylj) Unexport CheckProvider once deploy is moved under service
-func (c *UnitCommandBase) CheckProvider(conf *config.Config) error {
-	isMachineZero := c.PlacementSpec == "0"
-	for _, p := range c.Placement {
-		isMachineZero = isMachineZero || (p.Scope == instance.MachineScope && p.Directive == "0")
-	}
-	if conf.Type() == provider.Local && isMachineZero {
-		return errors.New("machine 0 is the state server for a local environment and cannot host units")
-	}
-	return nil
-}
-
-// TODO(cherylj) Unexport GetClientConfig and make it a standard function
-// once deploy is moved under service
-var GetClientConfig = func(client ServiceAddUnitAPI) (*config.Config, error) {
-	// Separated into a variable for easy overrides
-	attrs, err := client.EnvironmentGet()
-	if err != nil {
-		return nil, err
-	}
-
-	return config.New(config.NoDefaults, attrs)
-}
-
-func newAddUnitCommand() cmd.Command {
-	return envcmd.Wrap(&addUnitCommand{})
+// NewAddUnitCommand returns a command that adds a unit[s] to a service.
+func NewAddUnitCommand() cmd.Command {
+	return modelcmd.Wrap(&addUnitCommand{})
 }
 
 // addUnitCommand is responsible adding additional units to a service.
 type addUnitCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	UnitCommandBase
 	ServiceName string
-	api         ServiceAddUnitAPI
+	api         serviceAddUnitAPI
 }
 
 const addUnitDoc = `
-Adding units to an existing service is a way to scale out an environment by
+Adding units to an existing service is a way to scale out a model by
 deploying more instances of a service.  Add-unit must be called on services that
 have already been deployed via juju deploy.
 
@@ -123,10 +92,10 @@ service units can be added to a specific existing machine using the --to
 argument.
 
 Examples:
- juju service add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
- juju service add-unit mysql --to 23       (Add a mysql unit to machine 23)
- juju service add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
- juju service add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
+ juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
+ juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
+ juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
+ juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
 
 func (c *addUnitCommand) Info() *cmd.Info {
@@ -135,6 +104,7 @@ func (c *addUnitCommand) Info() *cmd.Info {
 		Args:    "<service name>",
 		Purpose: "add one or more units of an already-deployed service",
 		Doc:     addUnitDoc,
+		Aliases: []string{"add-units"},
 	}
 }
 
@@ -156,25 +126,27 @@ func (c *addUnitCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-// ServiceAddUnitAPI defines the methods on the client API
+// serviceAddUnitAPI defines the methods on the client API
 // that the service add-unit command calls.
-type ServiceAddUnitAPI interface {
+type serviceAddUnitAPI interface {
 	Close() error
-	EnvironmentUUID() string
-	AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error)
-	AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error)
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelUUID() string
+	AddUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error)
 }
 
-func (c *addUnitCommand) getAPI() (ServiceAddUnitAPI, error) {
+func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
 }
 
 // Run connects to the environment specified on the command line
-// and calls AddServiceUnits for the given service.
+// and calls AddUnits for the given service.
 func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
@@ -182,37 +154,13 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	conf, err := GetClientConfig(apiclient)
-	if err != nil {
-		return err
-	}
-
-	if err := c.CheckProvider(conf); err != nil {
-		return err
-	}
-
 	for i, p := range c.Placement {
-		if p.Scope == "env-uuid" {
-			p.Scope = apiclient.EnvironmentUUID()
+		if p.Scope == "model-uuid" {
+			p.Scope = apiclient.ModelUUID()
 		}
 		c.Placement[i] = p
 	}
-	if len(c.Placement) > 0 {
-		_, err = apiclient.AddServiceUnitsWithPlacement(c.ServiceName, c.NumUnits, c.Placement)
-		if err == nil {
-			return nil
-		}
-		if !params.IsCodeNotImplemented(err) {
-			return block.ProcessBlockedError(err, block.BlockChange)
-		}
-	}
-	if c.PlacementSpec != "" && !IsMachineOrNewContainer(c.PlacementSpec) {
-		return errors.Errorf("unsupported --to parameter %q", c.PlacementSpec)
-	}
-	if c.PlacementSpec != "" && c.NumUnits > 1 {
-		return errors.New("this version of Juju does not support --num-units > 1 with --to")
-	}
-	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.PlacementSpec)
+	_, err = apiclient.AddUnits(c.ServiceName, c.NumUnits, c.Placement)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

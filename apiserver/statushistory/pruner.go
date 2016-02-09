@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("StatusHistory", 1, NewAPI)
+	common.RegisterStandardFacade("StatusHistory", 2, NewAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.statushistory")
@@ -34,7 +34,7 @@ func NewAPI(st *state.State, _ *common.Resources, auth common.Authorizer) (*API,
 // Prune endpoint removes status history entries until
 // only the N newest records per unit remain.
 func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
-	if !api.authorizer.AuthEnvironManager() {
+	if !api.authorizer.AuthModelManager() {
 		return common.ErrPerm
 	}
 	return state.PruneStatusHistory(api.st, p.MaxLogsPerEntity)

@@ -18,8 +18,8 @@ import (
 
 	apiblock "github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -40,15 +39,18 @@ var provisionalProviders = map[string]string{
 }
 
 const bootstrapDoc = `
-bootstrap starts a new environment of the current type (it will return an error
-if the environment has already been bootstrapped).  Bootstrapping an environment
-will provision a new machine in the environment and run the juju state server on
+bootstrap starts a new model of the current type (it will return an error
+if the model has already been bootstrapped).  Bootstrapping a model
+will provision a new machine in the model and run the juju controller on
 that machine.
 
-If constraints are specified in the bootstrap command, they will apply to the
-machine provisioned for the juju state server.  They will also be set as default
-constraints on the environment for all future machines, exactly as if the
-constraints were set with juju set-constraints.
+If boostrap-constraints are specified in the bootstrap command, 
+they will apply to the machine provisioned for the juju controller, 
+and any future controllers provisioned for HA.
+
+If constraints are specified, they will be set as the default constraints 
+on the model for all future workload machines, 
+exactly as if the constraints were set with juju set-constraints.
 
 It is possible to override constraints and the automatic machine selection
 algorithm by using the "--to" flag. The value associated with "--to" is a
@@ -58,15 +60,15 @@ For more information on placement directives, see "juju help placement".
 Bootstrap initialises the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has
-completed, you can run other juju commands against your environment. You can change
+completed, you can run other juju commands against your model. You can change
 the default timeout and retry delays used during the bootstrap by changing the
 following settings in your environments.yaml (all values represent number of seconds):
 
-    # How long to wait for a connection to the state server.
+    # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
-    # How long to wait between connection attempts to a state server address.
+    # How long to wait between connection attempts to a controller address.
     bootstrap-retry-delay: 5 # default: 5 seconds
-    # How often to refresh state server addresses from the API server.
+    # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
 Private clouds may need to specify their own custom image metadata, and
@@ -88,13 +90,13 @@ See Also:
 `
 
 func newBootstrapCommand() cmd.Command {
-	return envcmd.Wrap(&bootstrapCommand{})
+	return modelcmd.Wrap(&bootstrapCommand{})
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
 	BootstrapSeries       string
@@ -117,7 +119,7 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set model constraints")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "specify the series of the bootstrap machine")
 	if featureflag.Enabled(feature.ImageMetadata) {
@@ -126,7 +128,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the model if bootstrap fails")
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "upgrade to the latest patch release tools on first bootstrap")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
 }
@@ -200,7 +202,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var getEnvName = func(c *bootstrapCommand) string {
+var getModelName = func(c *bootstrapCommand) string {
 	return c.ConnectionName()
 }
 
@@ -210,9 +212,9 @@ var getEnvName = func(c *bootstrapCommand) string {
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
-	envName := getEnvName(c)
+	envName := getModelName(c)
 	if envName == "" {
-		return errors.Errorf("the name of the environment must be specified")
+		return errors.Errorf("the name of the model must be specified")
 	}
 	if err := checkProviderType(envName); errors.IsNotFound(err) {
 		// This error will get handled later.
@@ -231,9 +233,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil && cleanup != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n" +
-					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
-					"to clean up the environment.")
+				logger.Warningf("bootstrap failed but --keep-broken was specified so model is not being destroyed.\n" +
+					"When you are finished diagnosing the problem, remember to run juju destroy-model --force\n" +
+					"to clean up the model.")
 			} else {
 				handleBootstrapError(ctx, resultErr, cleanup)
 			}
@@ -242,7 +244,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Handle any errors from environFromName(...).
 	if err != nil {
-		return errors.Annotatef(err, "there was an issue examining the environment")
+		return errors.Annotatef(err, "there was an issue examining the model")
 	}
 
 	// Check to see if this environment is already bootstrapped. If it
@@ -251,10 +253,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// then we're in an unknown state.
 	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); nil != err {
 		if environs.ErrAlreadyBootstrapped == err {
-			logger.Warningf("This juju environment is already bootstrapped. If you want to start a new Juju\nenvironment, first run juju destroy-environment to clean up, or switch to an\nalternative environment.")
+			logger.Warningf("This juju model is already bootstrapped. If you want to start a new Juju\nmodel, first run juju destroy-model to clean up, or switch to an\nalternative model.")
 			return err
 		}
-		return errors.Annotatef(err, "cannot determine if environment is already bootstrapped.")
+		return errors.Annotatef(err, "cannot determine if model is already bootstrapped.")
 	}
 
 	// Block interruption during bootstrap. Providers may also
@@ -276,13 +278,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	// TODO (wallyworld): 2013-09-20 bug 1227931
-	// We can set a custom tools data source instead of doing an
-	// unnecessary upload.
-	if environ.Config().Type() == provider.Local {
-		c.UploadTools = true
-	}
-
 	// Merge environ and bootstrap-specific constraints.
 	constraintsValidator, err := environ.ConstraintsValidator()
 	if err != nil {
@@ -296,7 +291,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
-	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
+	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		EnvironConstraints:   c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
@@ -307,20 +302,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		MetadataDir:          metadataDir,
 	})
 	if err != nil {
-		return errors.Annotate(err, "failed to bootstrap environment")
+		return errors.Annotate(err, "failed to bootstrap model")
 	}
 	err = c.SetBootstrapEndpointAddress(environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
-	err = envcmd.SetCurrentEnvironment(ctx, envName)
+	err = modelcmd.SetCurrentModel(ctx, envName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait
-	// for the state server's machine agent to be ready to accept commands
+	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return c.waitForAgentInitialisation(ctx)
 }
@@ -332,7 +327,7 @@ var (
 )
 
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
@@ -340,8 +335,8 @@ func getBlockAPI(c *envcmd.EnvCommandBase) (block.BlockListAPI, error) {
 	return apiblock.NewClient(root), nil
 }
 
-// waitForAgentInitialisation polls the bootstrapped state server with a read-only
-// command which will fail until the state server is fully initialised.
+// waitForAgentInitialisation polls the bootstrapped controller with a read-only
+// command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
 	attempts := utils.AttemptStrategy{
@@ -350,7 +345,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 	}
 	var client block.BlockListAPI
 	for attempt := attempts.Start(); attempt.Next(); {
-		client, err = blockAPI(&c.EnvCommandBase)
+		client, err = blockAPI(&c.ModelCommandBase)
 		if err != nil {
 			return err
 		}
@@ -402,7 +397,7 @@ func checkProviderType(envName string) error {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	flag, ok := provisionalProviders[envType]
 	if ok && !featureflag.Enabled(flag) {
-		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell environment`
+		msg := `the %q provider is provisional in this version of Juju. To use it anyway, set JUJU_DEV_FEATURE_FLAGS="%s" in your shell model`
 		return errors.Errorf(msg, envType, flag)
 	}
 
@@ -447,7 +442,7 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	}
 	bootstrapInstance := instances[0]
 	cfg := environ.Config()
-	info, err := envcmd.ConnectionInfoForName(c.ConnectionName())
+	info, err := modelcmd.ConnectionInfoForName(c.ConnectionName())
 	if err != nil {
 		return errors.Annotate(err, "failed to get connection info")
 	}
