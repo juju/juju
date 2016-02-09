@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -27,6 +29,11 @@ func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
+	})
+
+	memcache := jujuclienttesting.NewMemControllerStore()
+	s.PatchValue(&jujuclient.DefaultControllerStore, func() (jujuclient.ControllerStore, error) {
+		return memcache, nil
 	})
 }
 
@@ -149,13 +156,16 @@ func (s *SwitchSimpleSuite) addTestController(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	info := store.CreateInfo("a-controller")
-	info.SetAPIEndpoint(configstore.APIEndpoint{
+
+	endpoint := configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
 		ServerUUID: "server-uuid",
-	})
+	}
+	info.SetAPIEndpoint(endpoint)
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
+	s.updateControllersFile(c, "a-controller", endpoint)
 }
 
 func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
@@ -168,5 +178,17 @@ func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
 		ModelUUID: "model-uuid",
 	})
 	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SwitchSimpleSuite) updateControllersFile(c *gc.C, name string, endpoint configstore.APIEndpoint) {
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	c.Assert(err, jc.ErrorIsNil)
+	err = controllerStore.UpdateController(name,
+		jujuclient.ControllerDetails{
+			[]string{"test.host.name"},
+			endpoint.ServerUUID,
+			endpoint.Addresses,
+			endpoint.CACert})
 	c.Assert(err, jc.ErrorIsNil)
 }

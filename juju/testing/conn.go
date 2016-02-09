@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -85,6 +86,7 @@ type JujuConnSuite struct {
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
 	ConfigStore        configstore.Storage
+	ControllerStore    jujuclient.ControllerStore
 	BackingState       *state.State // The State being used by the API server
 	RootDir            string       // The faked-up root directory.
 	LogDir             string
@@ -236,10 +238,15 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.ConfigStore = store
 
+	controllerStore, err := jujuclient.DefaultControllerStore()
+	c.Assert(err, jc.ErrorIsNil)
+	s.ControllerStore = controllerStore
+
 	ctx := testing.Context(c)
 	environ, err := environs.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ConfigStore,
+		s.ControllerStore,
 		"dummymodel",
 		environs.PrepareForBootstrapParams{
 			Config:      cfg,
@@ -292,6 +299,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
+	controller, err := s.ControllerStore.ControllerByName("dummymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
+	err = s.ControllerStore.UpdateController("dummymodel", *controller)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (anastasiamac 2016-02-08) START REMOVE with cache.yaml
 	info, err := s.ConfigStore.ReadInfo("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
@@ -299,6 +313,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	info.SetAPIEndpoint(endpoint)
 	err = info.Write()
 	c.Assert(err, jc.ErrorIsNil)
+	// END REMOVE with cache.yaml
 
 	// Make sure the jenv file has the local host ports.
 	c.Logf("jenv host ports: %#v", s.APIState.APIHostPorts())

@@ -1,0 +1,62 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package jujuclient
+
+// ControllerDetails holds controller details needed to connect to it.
+type ControllerDetails struct {
+	// Servers contains the addresses of hosts that form Juju controller cluster.
+	Servers []string `yaml:"servers,flow"`
+
+	// ControllerUUID is the unique ID for the controller.
+	ControllerUUID string `yaml:"uuid"`
+
+	// APIEndpoints is the collection of API endpoints running in this controller.
+	APIEndpoints []string `yaml:"api-endpoints,flow"`
+
+	// CACert is a security certificate for this controller.
+	CACert string `yaml:"ca-cert"`
+}
+
+// ControllersUpdater caches controllers.
+type ControllersUpdater interface {
+	// UpdateController adds given controller to the controllers.
+	// If controller does not exist in the given data, it will be added.
+	// If controller exists, it will be overwritten with new values.
+	// This assumes that there cannot be any 2 controllers with the same name.
+	UpdateController(name string, one ControllerDetails) error
+}
+
+// ControllersRemover removes controllers.
+type ControllersRemover interface {
+	// RemoveController removes controller with the given name from the controllers
+	// collection.
+	RemoveController(name string) error
+}
+
+// ControllersGetter gets controllers.
+type ControllersGetter interface {
+	// AllControllers gets all controllers.
+	AllControllers() (map[string]ControllerDetails, error)
+
+	// ControllerByName returns the controller with the specified name.
+	// If there exists no controller with the specified name, an
+	// error satisfying errors.IsNotFound will be returned.
+	ControllerByName(name string) (*ControllerDetails, error)
+}
+
+// ControllerStore has information related to controllers:
+// controllers details, accounts, models.
+// The model information is cached;
+// the controller and the account information is more persistent.
+type ControllerStore interface {
+
+	// Interfaces that deal with Controller.
+	//
+	// ControllersUpdater caches controllers.
+	ControllersUpdater
+	// ControllersRemover removes controllers.
+	ControllersRemover
+	// ControllersGetter gets controllers.
+	ControllersGetter
+}
