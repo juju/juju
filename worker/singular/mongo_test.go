@@ -29,9 +29,9 @@ type mongoSuite struct {
 	testing.BaseSuite
 }
 
-var enableUnreliableTests = flag.Bool("juju.unreliabletests", false, "enable unreliable and slow tests")
-
 var _ = gc.Suite(&mongoSuite{})
+
+var enableUnreliableTests = flag.Bool("juju.unreliabletests", false, "enable unreliable and slow tests")
 
 func (*mongoSuite) SetUpSuite(c *gc.C) {
 	if !*enableUnreliableTests {
