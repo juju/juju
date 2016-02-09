@@ -226,15 +226,16 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {
+		logger.Errorf("placeholder resource %q treated as not found", name)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
 	resourceReader, resSize, err := st.storage.Get(storagePath)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
 	if resSize != resourceInfo.Size {
 		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
