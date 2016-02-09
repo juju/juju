@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	resourcecmd "github.com/juju/juju/resource/cmd"
+	"github.com/juju/juju/resource/resourceexternal"
 	"github.com/juju/juju/storage"
 )
 
@@ -554,10 +554,11 @@ func (c *DeployCommand) handleResources(serviceName string, metaResources map[st
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourcecmd.DeployResources(serviceName, c.Resources, metaResources, api)
+	ids, err := resourceexternal.DeployResources(serviceName, c.Resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return ids, nil
 }
 

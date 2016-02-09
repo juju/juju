@@ -10,22 +10,21 @@ import (
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api/client"
-	"github.com/juju/juju/resource/api/server"
 )
+
+// DeployClient exposes the functionality of the resources API needed
+// for deploy.
+type DeployClient interface {
+	// AddPendingResources adds pending metadata for store-based resources.
+	AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error)
+	// AddPendingResource uploads data and metadata for a pending resource for the given service.
+	AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error)
+}
 
 // DeployResources uploads the bytes for the given files to the server and
 // creates pending resource metadata for the all resource mentioned in the
 // metadata. It returns a map of resource name to pending resource IDs.
-func DeployResources(serviceID string, files map[string]string, resources map[string]charmresource.Meta, conn api.Connection) (ids map[string]string, err error) {
-	client, err := newClient(conn)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func DeployResources(serviceID string, files map[string]string, resources map[string]charmresource.Meta, client DeployClient) (ids map[string]string, err error) {
 	d := deployUploader{
 		serviceID: serviceID,
 		client:    client,
@@ -34,20 +33,17 @@ func DeployResources(serviceID string, files map[string]string, resources map[st
 		osStat:    func(s string) error { _, err := os.Stat(s); return err },
 	}
 
-	return d.upload(files)
-}
-
-type uploadClient interface {
-	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error)
-	// AddPendingResource uploads data and metadata for a pending resource for the given service.
-	AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error)
+	ids, err = d.upload(files)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ids, nil
 }
 
 type deployUploader struct {
 	serviceID string
 	resources map[string]charmresource.Meta
-	client    uploadClient
+	client    DeployClient
 	osOpen    func(path string) (ReadSeekCloser, error)
 	osStat    func(path string) error
 }
@@ -170,18 +166,4 @@ func (d deployUploader) checkExpectedResources(provided map[string]string) error
 		return errors.Errorf("unrecognized resources: %s", strings.Join(unknown, ", "))
 	}
 	return nil
-}
-
-// newClient is mostly a copy of the newClient code in
-// component/all/resources.go.  It lives here because it simplifies this code
-// immensely.
-func newClient(conn api.Connection) (*client.Client, error) {
-	caller := base.NewFacadeCallerForVersion(conn, resource.ComponentName, server.Version)
-
-	cl, err := conn.HTTPClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// The apiCaller takes care of prepending /environment/<envUUID>.
-	return client.NewClient(caller, cl, conn), nil
 }
