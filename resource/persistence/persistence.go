@@ -255,7 +255,11 @@ func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]tx
 	if pendingID == "" {
 		return nil, errors.New("missing pending ID")
 	}
+
 	oldDoc, err := p.getOnePending(resID, pendingID)
+	if errors.IsNotFound(err) {
+		return nil, errors.NotFoundf("pending resource %q (%s)", resID, pendingID)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,6 +267,14 @@ func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]tx
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops := newResolvePendingResourceOps(pending)
+
+	exists := true
+	if _, err := p.getOne(resID); errors.IsNotFound(err) {
+		exists = false
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newResolvePendingResourceOps(pending, exists)
 	return ops, nil
 }
