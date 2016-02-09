@@ -111,10 +111,7 @@ type bootstrapCommand struct {
 	AutoUpgrade           bool
 	AgentVersionParam     string
 	AgentVersion          *version.Number
-	// NOTE(axw) This may go away in the near future. It is currently here
-	// to enable the unit tests as we have no way of providing additional
-	// configuration at bootstrap time otherwise.
-	Options map[string]interface{}
+	config                configFlag
 
 	ControllerName string
 	CredentialName string
@@ -144,7 +141,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "upgrade to the latest patch release tools on first bootstrap")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "the credentials to use when bootstrapping")
-	f.Var(optionFlag{&c.Options}, "o", "specify one or more model configuration options (-o k=v [-o k2=v2 ...])")
+	f.Var(&c.config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -290,13 +287,13 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if err != nil {
 			return errors.Annotatef(err, "detecting credentials for %q cloud provider", c.Cloud)
 		}
-		ctx.Verbosef("provider detected credentials: %v", detected)
+		logger.Tracef("provider detected credentials: %v", detected)
 		if len(detected) == 0 {
 			return errors.NotFoundf("credentials for cloud %q", c.Cloud)
 		}
 		credential = &detected[0]
 		regionName = c.Region
-		ctx.Verbosef("authenticating with %v", credential)
+		logger.Tracef("authenticating with %v", credential)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -325,11 +322,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		"type": cloud.Type,
 		"name": "admin",
 	}
-	// TODO(axw) when we have an agreed-upon spec/solution, we will want to
-	// read in configuration from disk here.
-	for k, v := range c.Options {
+	userConfigAttrs, err := c.config.ReadAttrs(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for k, v := range userConfigAttrs {
 		configAttrs[k] = v
 	}
+	logger.Debugf("preparing controller with config: %v", configAttrs)
 	cfg, err := config.New(config.UseDefaults, configAttrs)
 	if err != nil {
 		return errors.Annotate(err, "creating environment configuration")
