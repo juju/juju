@@ -81,19 +81,19 @@ type JujuConnSuite struct {
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
-	State           *state.State
-	Environ         environs.Environ
-	APIState        api.Connection
-	apiStates       []api.Connection // additional api.Connections to close on teardown
-	ConfigStore     configstore.Storage
-	ControllerStore jujuclient.ControllerStore
-	BackingState    *state.State // The State being used by the API server
-	RootDir         string       // The faked-up root directory.
-	LogDir          string
-	oldHome         string
-	oldJujuXDGDataHome     string
-	DummyConfig     testing.Attrs
-	Factory         *factory.Factory
+	State              *state.State
+	Environ            environs.Environ
+	APIState           api.Connection
+	apiStates          []api.Connection // additional api.Connections to close on teardown
+	ConfigStore        configstore.Storage
+	ControllerStore    jujuclient.ControllerStore
+	BackingState       *state.State // The State being used by the API server
+	RootDir            string       // The faked-up root directory.
+	LogDir             string
+	oldHome            string
+	oldJujuXDGDataHome string
+	DummyConfig        testing.Attrs
+	Factory            *factory.Factory
 }
 
 const AdminSecret = "dummy-secret"
