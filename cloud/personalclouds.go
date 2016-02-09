@@ -44,13 +44,13 @@ func ParseCloudMetadataFile(file string) (map[string]Cloud, error) {
 	if err != nil {
 		return nil, err
 	}
-	return clouds.Clouds, err
+	return clouds, err
 }
 
 // WritePersonalCloudMetadata marshals to YAMl and writes the cloud metadata
 // to the personal cloud file.
-func WritePersonalCloudMetadata(clouds *Clouds) error {
-	data, err := yaml.Marshal(clouds)
+func WritePersonalCloudMetadata(cloudsMap map[string]Cloud) error {
+	data, err := yaml.Marshal(clouds{cloudsMap})
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml cloud metadata")
 	}

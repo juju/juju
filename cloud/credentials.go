@@ -16,8 +16,9 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-// Credentials is a struct containing cloud credential information.
-type Credentials struct {
+// credentials is a struct containing cloud credential information,
+// used marshalling and unmarshalling.
+type credentials struct {
 	// Credentials is a map of cloud credentials, keyed on cloud name.
 	Credentials map[string]CloudCredential `yaml:"credentials"`
 }
@@ -212,7 +213,7 @@ func CredentialByName(
 	if err != nil {
 		return nil, "", "", errors.Annotate(err, "parsing credentials")
 	}
-	cloudCredentials, ok := credentials.Credentials[cloudName]
+	cloudCredentials, ok := credentials[cloudName]
 	if !ok {
 		return nil, "", "", errors.NotFoundf("credentials for cloud %q", cloudName)
 	}
@@ -238,7 +239,7 @@ func JujuCredentials() string {
 
 // ParseCredentials parses the given yaml bytes into Credentials, but does
 // not validate the credential attributes.
-func ParseCredentials(data []byte) (*Credentials, error) {
+func ParseCredentials(data []byte) (map[string]CloudCredential, error) {
 	var credentialsYAML struct {
 		Credentials map[string]interface{} `yaml:"credentials"`
 	}
@@ -246,7 +247,7 @@ func ParseCredentials(data []byte) (*Credentials, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml credentials")
 	}
-	credentials := Credentials{make(map[string]CloudCredential)}
+	credentials := make(map[string]CloudCredential)
 	for cloud, v := range credentialsYAML.Credentials {
 		v, err := cloudCredentialChecker{}.Coerce(
 			v, []string{"credentials." + cloud},
@@ -254,9 +255,18 @@ func ParseCredentials(data []byte) (*Credentials, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		credentials.Credentials[cloud] = v.(CloudCredential)
+		credentials[cloud] = v.(CloudCredential)
 	}
-	return &credentials, nil
+	return credentials, nil
+}
+
+// MarshalCredentials marshals the given credentials to YAML
+func MarshalCredentials(credentialsMap map[string]CloudCredential) ([]byte, error) {
+	data, err := yaml.Marshal(credentials{credentialsMap})
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot marshal credentials")
+	}
+	return data, nil
 }
 
 func copyStringMap(in map[string]string) map[string]string {

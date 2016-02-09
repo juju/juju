@@ -11,7 +11,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -27,41 +26,39 @@ type listCredentialsSuite struct {
 
 var _ = gc.Suite(&listCredentialsSuite{})
 
-var sampleCredentials = &jujucloud.Credentials{
-	Credentials: map[string]jujucloud.CloudCredential{
-		"aws": {
-			DefaultRegion:     "ap-southeast-2",
-			DefaultCredential: "down",
-			AuthCredentials: map[string]jujucloud.Credential{
-				"bob": jujucloud.NewCredential(
-					jujucloud.AccessKeyAuthType,
-					map[string]string{
-						"access-key": "key",
-						"secret-key": "secret",
-					},
-				),
-				"down": jujucloud.NewCredential(
-					jujucloud.OAuth2AuthType,
-					map[string]string{
-						"client-id":    "id",
-						"client-email": "email",
-						"private-key":  "key",
-					},
-				),
-			},
+var sampleCredentials = map[string]jujucloud.CloudCredential{
+	"aws": {
+		DefaultRegion:     "ap-southeast-2",
+		DefaultCredential: "down",
+		AuthCredentials: map[string]jujucloud.Credential{
+			"bob": jujucloud.NewCredential(
+				jujucloud.AccessKeyAuthType,
+				map[string]string{
+					"access-key": "key",
+					"secret-key": "secret",
+				},
+			),
+			"down": jujucloud.NewCredential(
+				jujucloud.OAuth2AuthType,
+				map[string]string{
+					"client-id":    "id",
+					"client-email": "email",
+					"private-key":  "key",
+				},
+			),
 		},
-		"azure": {
-			AuthCredentials: map[string]jujucloud.Credential{
-				"azhja": jujucloud.NewCredential(
-					jujucloud.UserPassAuthType,
-					map[string]string{
-						"application-id":       "app-id",
-						"application-password": "app-secret",
-						"subscription-id":      "subscription-id",
-						"tenant-id":            "tenant-id",
-					},
-				),
-			},
+	},
+	"azure": {
+		AuthCredentials: map[string]jujucloud.Credential{
+			"azhja": jujucloud.NewCredential(
+				jujucloud.UserPassAuthType,
+				map[string]string{
+					"application-id":       "app-id",
+					"application-password": "app-secret",
+					"subscription-id":      "subscription-id",
+					"tenant-id":            "tenant-id",
+				},
+			),
 		},
 	},
 }
@@ -75,8 +72,8 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 		osenv.SetJujuXDGDataHome(oldJujuXDGDataHome)
 	})
 
-	// Write $JUJU_HOME/credentials.yaml.
-	data, err := yaml.Marshal(sampleCredentials)
+	// Write $XDG_DATA_HOME/juju/credentials.yaml.
+	data, err := jujucloud.MarshalCredentials(sampleCredentials)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(s.jujuXDGDataHome, "credentials.yaml"), data, 0600)
 	c.Assert(err, jc.ErrorIsNil)

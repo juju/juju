@@ -21,17 +21,17 @@ var publicCloudNames = []string{
 	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma",
 }
 
-func parsePublicClouds(c *gc.C) *cloud.Clouds {
+func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {
 	clouds, err := cloud.ParseCloudMetadata([]byte(cloud.FallbackPublicCloudInfo))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds.Clouds, gc.HasLen, len(publicCloudNames))
+	c.Assert(clouds, gc.HasLen, len(publicCloudNames))
 	return clouds
 }
 
 func (s *cloudSuite) TestParseClouds(c *gc.C) {
 	clouds := parsePublicClouds(c)
 	var cloudNames []string
-	for name, _ := range clouds.Clouds {
+	for name, _ := range clouds {
 		cloudNames = append(cloudNames, name)
 	}
 	c.Assert(cloudNames, jc.SameContents, publicCloudNames)
@@ -39,7 +39,7 @@ func (s *cloudSuite) TestParseClouds(c *gc.C) {
 
 func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 	clouds := parsePublicClouds(c)
-	rackspace := clouds.Clouds["rackspace"]
+	rackspace := clouds["rackspace"]
 	c.Assert(rackspace.Type, gc.Equals, "openstack")
 	c.Assert(rackspace.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")
 	var regionNames []string
@@ -57,7 +57,7 @@ func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 
 func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	clouds := parsePublicClouds(c)
-	rackspace := clouds.Clouds["rackspace"]
+	rackspace := clouds["rackspace"]
 	c.Assert(rackspace.AuthTypes, jc.SameContents, []cloud.AuthType{"access-key", "userpass"})
 }
 

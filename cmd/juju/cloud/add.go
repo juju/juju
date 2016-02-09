@@ -97,5 +97,5 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 		personalClouds = make(map[string]cloud.Cloud)
 	}
 	personalClouds[c.Cloud] = newCloud
-	return cloud.WritePersonalCloudMetadata(&cloud.Clouds{Clouds: personalClouds})
+	return cloud.WritePersonalCloudMetadata(personalClouds)
 }

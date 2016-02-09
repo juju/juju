@@ -21,19 +21,17 @@ type personalCloudSuite struct {
 var _ = gc.Suite(&personalCloudSuite{})
 
 func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
-	clouds := cloud.Clouds{
-		Clouds: map[string]cloud.Cloud{
-			"homestack": cloud.Cloud{
-				Type:      "openstack",
-				AuthTypes: []cloud.AuthType{"userpass", "access-key"},
-				Endpoint:  "http://homestack",
-				Regions: map[string]cloud.Region{
-					"london": cloud.Region{Endpoint: "http://london/1.0"},
-				},
+	clouds := map[string]cloud.Cloud{
+		"homestack": cloud.Cloud{
+			Type:      "openstack",
+			AuthTypes: []cloud.AuthType{"userpass", "access-key"},
+			Endpoint:  "http://homestack",
+			Regions: map[string]cloud.Region{
+				"london": cloud.Region{Endpoint: "http://london/1.0"},
 			},
 		},
 	}
-	err := cloud.WritePersonalCloudMetadata(&clouds)
+	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
 	c.Assert(err, jc.ErrorIsNil)

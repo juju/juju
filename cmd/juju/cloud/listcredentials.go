@@ -38,6 +38,10 @@ Example:
    juju list-credentials aws
 `
 
+type credentialsMap struct {
+	Credentials map[string]jujucloud.CloudCredential `yaml:"credentials" json:"credentials"`
+}
+
 // NewListCredentialsCommand returns a command to list cloud credentials.
 func NewListCredentialsCommand() cmd.Command {
 	return &listCredentialsCommand{}
@@ -70,32 +74,29 @@ func (c *listCredentialsCommand) Init(args []string) error {
 }
 
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
-	var credentials *jujucloud.Credentials
+	var credentials map[string]jujucloud.CloudCredential
 	data, err := ioutil.ReadFile(jujucloud.JujuCredentials())
 	if err == nil {
 		credentials, err = jujucloud.ParseCredentials(data)
 		if err != nil {
 			return err
 		}
-		// TODO(axw) validate credentials
-	} else if os.IsNotExist(err) {
-		credentials = &jujucloud.Credentials{}
-	} else {
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 	if c.cloudName != "" {
-		for cloudName := range credentials.Credentials {
+		for cloudName := range credentials {
 			if cloudName != c.cloudName {
-				delete(credentials.Credentials, cloudName)
+				delete(credentials, cloudName)
 			}
 		}
 	}
-	return c.out.Write(ctxt, credentials)
+	return c.out.Write(ctxt, credentialsMap{credentials})
 }
 
 // formatCredentialsTabular returns a tabular summary of cloud information.
 func formatCredentialsTabular(value interface{}) ([]byte, error) {
-	credentials, ok := value.(*jujucloud.Credentials)
+	credentials, ok := value.(credentialsMap)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", credentials, value)
 	}

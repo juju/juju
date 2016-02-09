@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 )
@@ -16,27 +15,25 @@ type credentialsSuite struct{}
 
 var _ = gc.Suite(&credentialsSuite{})
 
-func (s *credentialsSuite) TestMarshallAccessKey(c *gc.C) {
-	creds := cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"aws": {
-				DefaultCredential: "default-cred",
-				DefaultRegion:     "us-west-2",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-						"access-key": "key",
-						"secret-key": "secret",
-					}),
-					// TODO(wallyworld) - add anther credential once goyaml.v2 supports inline MapSlice.
-					//"paul": &cloud.AccessKeyCredentials{
-					//	Key: "paulkey",
-					//	Secret: "paulsecret",
-					//},
-				},
+func (s *credentialsSuite) TestMarshalAccessKey(c *gc.C) {
+	creds := map[string]cloud.CloudCredential{
+		"aws": {
+			DefaultCredential: "default-cred",
+			DefaultRegion:     "us-west-2",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+					"access-key": "key",
+					"secret-key": "secret",
+				}),
+				// TODO(wallyworld) - add anther credential once goyaml.v2 supports inline MapSlice.
+				//"paul": &cloud.AccessKeyCredentials{
+				//	Key: "paulkey",
+				//	Secret: "paulsecret",
+				//},
 			},
 		},
 	}
-	out, err := yaml.Marshal(creds)
+	out, err := cloud.MarshalCredentials(creds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
 credentials:
@@ -50,23 +47,21 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshallOpenstackAccessKey(c *gc.C) {
-	creds := cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"openstack": {
-				DefaultCredential: "default-cred",
-				DefaultRegion:     "region-a",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-						"access-key":  "key",
-						"secret-key":  "secret",
-						"tenant-name": "tenant",
-					}),
-				},
+func (s *credentialsSuite) TestMarshalOpenstackAccessKey(c *gc.C) {
+	creds := map[string]cloud.CloudCredential{
+		"openstack": {
+			DefaultCredential: "default-cred",
+			DefaultRegion:     "region-a",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+					"access-key":  "key",
+					"secret-key":  "secret",
+					"tenant-name": "tenant",
+				}),
 			},
 		},
 	}
-	out, err := yaml.Marshal(creds)
+	out, err := cloud.MarshalCredentials(creds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
 credentials:
@@ -81,23 +76,21 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshallOpenstackUserPass(c *gc.C) {
-	creds := cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"openstack": {
-				DefaultCredential: "default-cred",
-				DefaultRegion:     "region-a",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-						"username":    "user",
-						"password":    "secret",
-						"tenant-name": "tenant",
-					}),
-				},
+func (s *credentialsSuite) TestMarshalOpenstackUserPass(c *gc.C) {
+	creds := map[string]cloud.CloudCredential{
+		"openstack": {
+			DefaultCredential: "default-cred",
+			DefaultRegion:     "region-a",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+					"username":    "user",
+					"password":    "secret",
+					"tenant-name": "tenant",
+				}),
 			},
 		},
 	}
-	out, err := yaml.Marshal(creds)
+	out, err := cloud.MarshalCredentials(creds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
 credentials:
@@ -112,24 +105,22 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshallAzureCredntials(c *gc.C) {
-	creds := cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"azure": {
-				DefaultCredential: "default-cred",
-				DefaultRegion:     "Central US",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-						"application-id":       "app-id",
-						"application-password": "app-secret",
-						"subscription-id":      "subscription-id",
-						"tenant-id":            "tenant-id",
-					}),
-				},
+func (s *credentialsSuite) TestMarshalAzureCredntials(c *gc.C) {
+	creds := map[string]cloud.CloudCredential{
+		"azure": {
+			DefaultCredential: "default-cred",
+			DefaultRegion:     "Central US",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+					"application-id":       "app-id",
+					"application-password": "app-secret",
+					"subscription-id":      "subscription-id",
+					"tenant-id":            "tenant-id",
+				}),
 			},
 		},
 	}
-	out, err := yaml.Marshal(creds)
+	out, err := cloud.MarshalCredentials(creds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
 credentials:
@@ -145,24 +136,22 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshallOAuth1(c *gc.C) {
-	creds := cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"maas": {
-				DefaultCredential: "default-cred",
-				DefaultRegion:     "region-default",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
-						"consumer-key":    "consumer-key",
-						"consumer-secret": "consumer-secret",
-						"access-token":    "access-token",
-						"token-secret":    "token-secret",
-					}),
-				},
+func (s *credentialsSuite) TestMarshalOAuth1(c *gc.C) {
+	creds := map[string]cloud.CloudCredential{
+		"maas": {
+			DefaultCredential: "default-cred",
+			DefaultRegion:     "region-default",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
+					"consumer-key":    "consumer-key",
+					"consumer-secret": "consumer-secret",
+					"access-token":    "access-token",
+					"token-secret":    "token-secret",
+				}),
 			},
 		},
 	}
-	out, err := yaml.Marshal(creds)
+	out, err := cloud.MarshalCredentials(creds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
 credentials:
@@ -178,23 +167,21 @@ credentials:
 `[1:])
 }
 
-func (s *credentialsSuite) TestMarshallOAuth2(c *gc.C) {
-	creds := cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"google": {
-				DefaultCredential: "default-cred",
-				DefaultRegion:     "West US",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{
-						"client-id":    "client-id",
-						"client-email": "client-email",
-						"private-key":  "secret",
-					}),
-				},
+func (s *credentialsSuite) TestMarshalOAuth2(c *gc.C) {
+	creds := map[string]cloud.CloudCredential{
+		"google": {
+			DefaultCredential: "default-cred",
+			DefaultRegion:     "West US",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{
+					"client-id":    "client-id",
+					"client-email": "client-email",
+					"private-key":  "secret",
+				}),
 			},
 		},
 	}
-	out, err := yaml.Marshal(creds)
+	out, err := cloud.MarshalCredentials(creds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
 credentials:
@@ -235,39 +222,37 @@ credentials:
       auth-type: access-key
       access-key: super
       secret-key: sekrit
-`[1:]), &cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"aws": cloud.CloudCredential{
-				DefaultCredential: "peter",
-				DefaultRegion:     "us-east-2",
-				AuthCredentials: map[string]cloud.Credential{
-					"peter": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-						"access-key": "key",
-						"secret-key": "secret",
-					}),
-				},
+`[1:]), map[string]cloud.CloudCredential{
+		"aws": cloud.CloudCredential{
+			DefaultCredential: "peter",
+			DefaultRegion:     "us-east-2",
+			AuthCredentials: map[string]cloud.Credential{
+				"peter": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+					"access-key": "key",
+					"secret-key": "secret",
+				}),
 			},
-			"aws-china": cloud.CloudCredential{
-				DefaultCredential: "zhu8jie",
-				AuthCredentials: map[string]cloud.Credential{
-					"zhu8jie": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-						"access-key": "key",
-						"secret-key": "secret",
-					}),
-					"sun5kong": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-						"access-key": "quay",
-						"secret-key": "sekrit",
-					}),
-				},
+		},
+		"aws-china": cloud.CloudCredential{
+			DefaultCredential: "zhu8jie",
+			AuthCredentials: map[string]cloud.Credential{
+				"zhu8jie": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+					"access-key": "key",
+					"secret-key": "secret",
+				}),
+				"sun5kong": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+					"access-key": "quay",
+					"secret-key": "sekrit",
+				}),
 			},
-			"aws-gov": cloud.CloudCredential{
-				DefaultRegion: "us-gov-west-1",
-				AuthCredentials: map[string]cloud.Credential{
-					"supersekrit": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-						"access-key": "super",
-						"secret-key": "sekrit",
-					}),
-				},
+		},
+		"aws-gov": cloud.CloudCredential{
+			DefaultRegion: "us-gov-west-1",
+			AuthCredentials: map[string]cloud.Credential{
+				"supersekrit": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+					"access-key": "super",
+					"secret-key": "sekrit",
+				}),
 			},
 		},
 	})
@@ -281,18 +266,16 @@ credentials:
   cloud-name:
     credential-name:
       auth-type: woop
-`[1:]), &cloud.Credentials{
-		Credentials: map[string]cloud.CloudCredential{
-			"cloud-name": cloud.CloudCredential{
-				AuthCredentials: map[string]cloud.Credential{
-					"credential-name": cloud.NewCredential("woop", nil),
-				},
+`[1:]), map[string]cloud.CloudCredential{
+		"cloud-name": cloud.CloudCredential{
+			AuthCredentials: map[string]cloud.Credential{
+				"credential-name": cloud.NewCredential("woop", nil),
 			},
 		},
 	})
 }
 
-func (s *credentialsSuite) testParseCredentials(c *gc.C, input []byte, expect *cloud.Credentials) {
+func (s *credentialsSuite) testParseCredentials(c *gc.C, input []byte, expect map[string]cloud.CloudCredential) {
 	output, err := cloud.ParseCredentials(input)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(output, jc.DeepEquals, expect)

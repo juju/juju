@@ -45,8 +45,9 @@ const (
 	EmptyAuthType AuthType = "empty"
 )
 
-// Clouds is a struct containing cloud definitions.
-type Clouds struct {
+// clouds is a struct containing cloud definitions, used for marshalling
+// and unmarshalling.
+type clouds struct {
 	// Clouds is a map of cloud definitions, keyed on cloud name.
 	Clouds map[string]Cloud `yaml:"clouds"`
 }
@@ -118,27 +119,27 @@ func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbac
 		if err != nil {
 			return nil, false, errors.Trace(err)
 		}
-		return clouds.Clouds, false, err
+		return clouds, false, err
 	}
 	clouds, err := ParseCloudMetadata([]byte(fallbackPublicCloudInfo))
-	return clouds.Clouds, true, err
+	return clouds, true, err
 }
 
 // ParseCloudMetadata parses the given yaml bytes into Clouds metadata.
-func ParseCloudMetadata(data []byte) (*Clouds, error) {
-	var metadata Clouds
+func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
+	var metadata clouds
 	err := yaml.Unmarshal(data, &metadata)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
 	metadata.denormaliseMetadata()
-	return &metadata, nil
+	return metadata.Clouds, nil
 }
 
 // To keep the metadata concise, attributes on the metadata struct which have the same value for each
 // item may be moved up to a higher level in the tree. denormaliseMetadata descends the tree
 // and fills in any missing attributes with values from a higher level.
-func (metadata *Clouds) denormaliseMetadata() {
+func (metadata *clouds) denormaliseMetadata() {
 	for _, cloud := range metadata.Clouds {
 		for name, region := range cloud.Regions {
 			r := region
@@ -162,7 +163,7 @@ func RegisterStructTags(vals ...interface{}) {
 }
 
 func init() {
-	RegisterStructTags(Clouds{}, Cloud{}, Region{})
+	RegisterStructTags(clouds{}, Cloud{}, Region{})
 }
 
 func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
