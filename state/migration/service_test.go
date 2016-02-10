@@ -28,15 +28,6 @@ func (s *ServiceSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-// TODO MAYBE: move this test into the slice serialization base.
-func (*ServiceSerializationSuite) TestServicesIsMap(c *gc.C) {
-	_, err := importServices(map[string]interface{}{
-		"version":  42,
-		"services": []interface{}{"hello"},
-	})
-	c.Check(err.Error(), gc.Equals, `services version schema check failed: services[0]: expected map, got string("hello")`)
-}
-
 func minimalServiceMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"name":      "ubuntu",

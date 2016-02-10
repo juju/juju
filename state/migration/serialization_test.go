@@ -58,3 +58,11 @@ func (s *SliceSerializationSuite) TestMissingSlice(c *gc.C) {
 	})
 	c.Check(err.Error(), gc.Equals, s.importName+" version schema check failed: "+s.sliceName+": expected list, got nothing")
 }
+
+func (s *SliceSerializationSuite) TestSliceNameIsMap(c *gc.C) {
+	_, err := s.importFunc(map[string]interface{}{
+		"version":   1,
+		s.sliceName: []interface{}{"hello"},
+	})
+	c.Check(err.Error(), gc.Equals, s.importName+" version schema check failed: "+s.sliceName+`[0]: expected map, got string("hello")`)
+}

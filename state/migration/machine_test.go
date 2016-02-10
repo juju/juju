@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package migration
@@ -28,15 +28,6 @@ func (s *MachineSerializationSuite) SetUpTest(c *gc.C) {
 	s.testFields = func(m map[string]interface{}) {
 		m["machines"] = []interface{}{}
 	}
-}
-
-// TODO MAYBE: move this test into the slice serialization base.
-func (*MachineSerializationSuite) TestMachinesIsMap(c *gc.C) {
-	_, err := importMachines(map[string]interface{}{
-		"version":  42,
-		"machines": []interface{}{"hello"},
-	})
-	c.Check(err.Error(), gc.Equals, `machines version schema check failed: machines[0]: expected map, got string("hello")`)
 }
 
 func minimalMachineMap(id string, containers ...interface{}) map[interface{}]interface{} {
