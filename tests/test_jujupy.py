@@ -897,8 +897,7 @@ class TestEnvJujuClient(ClientTest):
                 client.bootstrap(upload_tools=True)
             mock.assert_called_with(
                 'bootstrap', (
-                    '--upload-tools', '--constraints', 'mem=2G',
-                    '--agent-version', '2.0'),
+                    '--upload-tools', '--constraints', 'mem=2G'),
                 True)
 
     def test_bootstrap_args(self):
@@ -928,7 +927,7 @@ class TestEnvJujuClient(ClientTest):
             with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
-                                          'mem=2G', '--agent-version', '2.0'))
+                                          'mem=2G'))
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = SimpleEnvironment('foo', {})
@@ -937,7 +936,7 @@ class TestEnvJujuClient(ClientTest):
                                          bootstrap_series='angsty')
         self.assertEqual(args, (
             '--upload-tools', '--constraints', 'mem=2G',
-            '--agent-version', '2.0', '--bootstrap-series', 'angsty'))
+            '--bootstrap-series', 'angsty'))
 
     def test_create_environment_hypenated_controller(self):
         self.do_create_environment(
