@@ -329,6 +329,138 @@ UNIT RESOURCE REVISION         EXPECTED
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
+func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
+	data := []resource.ServiceResources{{
+		Resources: []resource.Resource{
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        "alpha",
+						Description: "a big comment",
+					},
+					Origin:   charmresource.OriginStore,
+					Revision: 15,
+				},
+				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+			},
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        "charlie",
+						Description: "awesome data",
+					},
+					Origin: charmresource.OriginUpload,
+				},
+				Username:  "Bill User",
+				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+			},
+			{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        "beta",
+						Description: "more data",
+					},
+					Origin: charmresource.OriginUpload,
+				},
+				Username:  "Bill User",
+				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+			},
+		},
+		UnitResources: []resource.UnitResources{
+			{
+				Tag: names.NewUnitTag("svc/10"),
+				Resources: []resource.Resource{
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "alpha",
+								Description: "a big comment",
+							},
+							Origin:   charmresource.OriginStore,
+							Revision: 10, // note the reivision is different for this unit
+						},
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "charlie",
+								Description: "awesome data",
+							},
+							Origin: charmresource.OriginUpload,
+						},
+						Username: "Bill User",
+						// note the different time
+						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
+					},
+					// note we're missing the beta resource for this unit
+				},
+			},
+			{
+				Tag: names.NewUnitTag("svc/5"),
+				Resources: []resource.Resource{
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "alpha",
+								Description: "a big comment",
+							},
+							Origin:   charmresource.OriginStore,
+							Revision: 10, // note the reivision is different for this unit
+						},
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "charlie",
+								Description: "awesome data",
+							},
+							Origin: charmresource.OriginUpload,
+						},
+						Username: "Bill User",
+						// note the different time
+						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "beta",
+								Description: "more data",
+							},
+							Origin: charmresource.OriginUpload,
+						},
+						Username:  "Bill User",
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					},
+				},
+			},
+		},
+	}}
+	s.stubDeps.client.ReturnResources = data
+
+	cmd := &ShowServiceCommand{
+		deps: ShowServiceDeps{
+			NewClient: s.stubDeps.NewClient,
+		},
+	}
+
+	code, stdout, stderr := runCmd(c, cmd, "svc/10", "--details")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stderr, gc.Equals, "")
+
+	c.Check(stdout, gc.Equals, `
+[Unit]
+UNIT RESOURCE REVISION         EXPECTED
+10   alpha    10               15
+10   beta     -                2012-12-12T12:12
+10   charlie  2011-11-11T11:11 2012-12-12T12:12
+
+`[1:])
+
+	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+}
+
 type stubShowServiceDeps struct {
 	stub   *testing.Stub
 	client *stubServiceClient

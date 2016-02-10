@@ -52,6 +52,8 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 		return formatUnitTabular(resources), nil
 	case []FormattedDetailResource:
 		return formatDetailTabular(resources), nil
+	case FormattedUnitDetails:
+		return formatUnitDetailTabular(resources), nil
 	default:
 		return nil, errors.Errorf("unexpected type for data: %T", resources)
 	}
@@ -116,14 +118,26 @@ func formatDetailTabular(resources []FormattedDetailResource) []byte {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
-	sort.Sort(byUnitID(resources))
-
 	var out bytes.Buffer
-
 	fmt.Fprintln(&out, "[Units]")
 
+	return formatDetails(&out, resources)
+}
+
+func formatUnitDetailTabular(resources FormattedUnitDetails) []byte {
+	// note that the unit resource can be a zero value here, to indicate that
+	// the unit has not downloaded that resource yet.
+
+	var out bytes.Buffer
+	fmt.Fprintln(&out, "[Unit]")
+
+	return formatDetails(&out, resources)
+}
+
+func formatDetails(out *bytes.Buffer, resources []FormattedDetailResource) []byte {
+	sort.Sort(byUnitID(resources))
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+	tw := tabwriter.NewWriter(out, 0, 1, 1, ' ', 0)
 
 	// Write the header.
 	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")

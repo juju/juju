@@ -53,3 +53,5 @@ type FormattedDetailResource struct {
 	Expected   FormattedSvcResource `json:"expected" yaml:"expected"`
 	unitNumber int
 }
+
+type FormattedUnitDetails []FormattedDetailResource

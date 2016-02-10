@@ -141,7 +141,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return c.out.Write(ctx, formatted)
+		return c.out.Write(ctx, FormattedUnitDetails(formatted))
 	}
 
 	resources, err := unitResources(unit, service, sr)
