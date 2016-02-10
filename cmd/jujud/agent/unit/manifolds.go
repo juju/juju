@@ -109,10 +109,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coincidence. Probably we ought to be making components that might
 		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
-				APICallerName:     APICallerName,
-				UpgradeWaiterName: util.UpgradeWaitNotRequired,
-			},
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The upgrader is a leaf worker that returns a specific error type

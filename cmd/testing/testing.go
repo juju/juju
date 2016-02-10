@@ -29,7 +29,7 @@ var FlagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 func BadRun(c *gc.C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--"}, args...)
 	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuXDGDataHomeEnvKey+"="+osenv.JujuXDGDataHome())
 	output, err := ps.CombinedOutput()
 	c.Logf("command output: %q", output)
 	if exit != 0 {

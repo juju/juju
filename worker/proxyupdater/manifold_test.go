@@ -18,7 +18,7 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	newCalled, writeSystemFiles bool
+	newCalled bool
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -26,63 +26,51 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.newCalled = false
 	s.PatchValue(&proxyup.NewWorker,
-		func(_ *apiproxyupdater.Facade, writeSystemFiles bool) (worker.Worker, error) {
+		func(_ *apiproxyupdater.Facade) (worker.Worker, error) {
 			s.newCalled = true
-			s.writeSystemFiles = writeSystemFiles
 			return nil, nil
 		},
 	)
 }
 
-func (s *ManifoldSuite) makeConfig(writeFunc func(agent.Config) bool) proxyup.ManifoldConfig {
-	return proxyup.ManifoldConfig{
-		PostUpgradeManifoldConfig: workertesting.PostUpgradeManifoldTestConfig(),
-		ShouldWriteProxyFiles:     writeFunc,
-	}
-}
-
 func (s *ManifoldSuite) TestMachineShouldWrite(c *gc.C) {
-	config := s.makeConfig(func(agent.Config) bool { return true })
+	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
 	_, err := workertesting.RunPostUpgradeManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.newCalled, jc.IsTrue)
-	c.Assert(s.writeSystemFiles, jc.IsTrue)
 }
 
 func (s *ManifoldSuite) TestMachineShouldntWrite(c *gc.C) {
-	config := s.makeConfig(func(agent.Config) bool { return false })
+	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
 	_, err := workertesting.RunPostUpgradeManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.newCalled, jc.IsTrue)
-	c.Assert(s.writeSystemFiles, jc.IsFalse)
 }
 
 func (s *ManifoldSuite) TestUnit(c *gc.C) {
-	config := s.makeConfig(nil)
+	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
 	_, err := workertesting.RunPostUpgradeManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.newCalled, jc.IsTrue)
-	c.Assert(s.writeSystemFiles, jc.IsFalse)
 }
 
 func (s *ManifoldSuite) TestNonAgent(c *gc.C) {
-	config := s.makeConfig(nil)
+	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
 	_, err := workertesting.RunPostUpgradeManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		nil)
 	c.Assert(err, gc.ErrorMatches, "unknown agent type:.+")
 	c.Assert(s.newCalled, jc.IsFalse)
-	c.Assert(s.writeSystemFiles, jc.IsFalse)
 }
 
 type fakeAgent struct {

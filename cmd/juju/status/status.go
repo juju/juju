@@ -51,12 +51,12 @@ There are a number of ways to format the status output:
            - MACHINES: total #, and # in each state.
            - UNITS: total #, and # in each state.
            - SERVICES: total #, and # exposed of each service.
-- tabular: Displays information in a tabular format in these sections:
+- tabular (DEFAULT): Displays information in a tabular format in these sections:
            - Machines: ID, STATE, DNS, INS-ID, SERIES, AZ
            - Services: NAME, EXPOSED, CHARM
            - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
              - Also displays subordinate units.
-- yaml (DEFAULT): Displays information on machines, services, and units
+- yaml: Displays information on machines, services, and units
                   in the yaml format.
 
 Note: AZ above is the cloud region's availability zone.

@@ -128,27 +128,13 @@ Machine agents additionally do the following:
   * Watch for contained LXC or KVM machines and provision/decommission them
     (`worker/provisioner`)
 
-*Almost* all machine agents have JobHostUnits -- the sole exception is the state
-server in a local model, which runs directly on the user's machine (not
-in a container); we don't want to pollute their day-to-day working model
-by deploying charms there (especially because the local provider is explicitly
-a development tool, and charms deployed there are disproportionately likely to
-be flawed or incomplete). Those that do run the `worker/deployer` code which
+All machine agents have JobHostUnits. These run the `worker/deployer` code which
 watches for units assigned to the machine, and deploys/recalls upstart configs
 for their respective unit agents as the units are assigned/removed. We expect
 the deployer implementation to change to just directly run the unit agents'
 workers in its own Runner.
 
-There remain a couple of abominations in which the machine agent looks up
-information it really shouldn't have access to -- ie the running provider type
--- and uses that information to decide whether to start other workers. These
-instances should be killed with fire if you get any opportunity to do so;
-basicaly all the information in agent config which *isn't* about contacting an
-API server represents a layering violation that (1) confuses us and slows us
-down and (2) just encourages worse layering violations as we progress.
-
-
-### controller Workers
+### Controller Workers
 
 Machines with JobManageModel also run a number of other workers, which do
 the following.

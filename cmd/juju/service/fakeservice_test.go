@@ -21,7 +21,7 @@ type fakeServiceAPI struct {
 	err         error
 }
 
-func (f *fakeServiceAPI) ServiceUpdate(args params.ServiceUpdate) error {
+func (f *fakeServiceAPI) Update(args params.ServiceUpdate) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -38,7 +38,7 @@ func (f *fakeServiceAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAPI) ServiceGet(service string) (*params.ServiceGetResults, error) {
+func (f *fakeServiceAPI) Get(service string) (*params.ServiceGetResults, error) {
 	if service != f.serviceName {
 		return nil, errors.NotFoundf("service %q", service)
 	}
@@ -59,7 +59,7 @@ func (f *fakeServiceAPI) ServiceGet(service string) (*params.ServiceGetResults, 
 	}, nil
 }
 
-func (f *fakeServiceAPI) ServiceSet(service string, options map[string]string) error {
+func (f *fakeServiceAPI) Set(service string, options map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -78,7 +78,7 @@ func (f *fakeServiceAPI) ServiceSet(service string, options map[string]string) e
 	return nil
 }
 
-func (f *fakeServiceAPI) ServiceUnset(service string, options []string) error {
+func (f *fakeServiceAPI) Unset(service string, options []string) error {
 	if f.err != nil {
 		return f.err
 	}

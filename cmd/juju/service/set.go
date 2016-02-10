@@ -95,10 +95,10 @@ func (c *setCommand) Init(args []string) error {
 // that the service set command calls.
 type serviceAPI interface {
 	Close() error
-	ServiceUpdate(args params.ServiceUpdate) error
-	ServiceGet(service string) (*params.ServiceGetResults, error)
-	ServiceSet(service string, options map[string]string) error
-	ServiceUnset(service string, options []string) error
+	Update(args params.ServiceUpdate) error
+	Get(service string) (*params.ServiceGetResults, error)
+	Set(service string, options map[string]string) error
+	Unset(service string, options []string) error
 }
 
 func (c *setCommand) getServiceAPI() (serviceAPI, error) {
@@ -125,12 +125,12 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		return block.ProcessBlockedError(apiclient.ServiceUpdate(params.ServiceUpdate{
+		return block.ProcessBlockedError(apiclient.Update(params.ServiceUpdate{
 			ServiceName:  c.ServiceName,
 			SettingsYAML: string(b),
 		}), block.BlockChange)
 	} else if c.SetDefault {
-		return block.ProcessBlockedError(apiclient.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
+		return block.ProcessBlockedError(apiclient.Unset(c.ServiceName, c.Options), block.BlockChange)
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
@@ -159,7 +159,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		settings[k] = nv
 	}
 
-	result, err := apiclient.ServiceGet(c.ServiceName)
+	result, err := apiclient.Get(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return block.ProcessBlockedError(apiclient.ServiceSet(c.ServiceName, settings), block.BlockChange)
+	return block.ProcessBlockedError(apiclient.Set(c.ServiceName, settings), block.BlockChange)
 }
 
 // readValue reads the value of an option out of the named file.
