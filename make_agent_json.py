@@ -37,51 +37,77 @@ def parse_args():
 
 class StanzaWriter:
 
-    def __init__(self, releases, arch, version, revision_build,
-                 tarfile, filename):
+    def __init__(self, releases, arch, version, tarfile, filename,
+                 revision_build=None, agent_stream=None):
         self.releases = releases
         self.arch = arch
         self.version = version
-        self.revision_build = revision_build
+        if agent_stream is None:
+            self.agent_stream = 'revision-build-{}'.format(revision_build)
+        else:
+            self.agent_stream = agent_stream
+        if revision_build is None:
+            self.agent_path = 'agent/{}/{}'.format(
+                version, os.path.basename(tarfile))
+        else:
+            self.agent_path = 'agent/revision-build-{}/{}'.format(
+                revision_build, os.path.basename(tarfile))
         self.tarfile = tarfile
         self.version_name = datetime.utcnow().strftime('%Y%m%d')
         self.filename = filename
 
     @classmethod
-    def for_ubuntu(cls, release, series, arch, version, revision_build,
-                   tarfile):
-        filename = 'revision-build-{}-{}-{}.json'.format(
-            revision_build, series, arch)
+    def for_ubuntu(cls, release, series, arch, version, tarfile,
+                   revision_build=None, agent_stream=None):
+        if revision_build is None:
+            filename = '{}-{}-{}-{}.json'.format(
+                agent_stream, version, series, arch)
+        else:
+            filename = 'revision-build-{}-{}-{}.json'.format(
+                revision_build, series, arch)
         return cls(
-            [(release, series)], arch, version, revision_build, tarfile,
-            filename)
+            [(release, series)], arch, version, tarfile, filename,
+            revision_build, agent_stream)
 
     @classmethod
-    def for_living_ubuntu(cls, arch, version, revision_build, tarfile):
-        filename = 'revision-build-ubuntu-{}.json'.format(arch)
+    def for_living_ubuntu(cls, arch, version, tarfile, revision_build=None,
+                          agent_stream=None):
+        if revision_build is None:
+            filename = '{}-{}-ubuntu-{}.json'.format(
+                    agent_stream, version, arch)
+        else:
+            filename = 'revision-build-{}-ubuntu-{}.json'.format(
+                    revision_build, arch)
         releases = [
             (juju_series.get_version(name), name) for name
             in juju_series.get_living_names()]
         return cls(
-            releases, arch, version, revision_build, tarfile, filename)
+            releases, arch, version, tarfile, filename, revision_build,
+            agent_stream)
 
     @classmethod
-    def for_windows(cls, version, revision_build, tarfile):
-        filename = 'revision-build-{}-windows.json'.format(
-            revision_build)
+    def for_windows(cls, version, tarfile, revision_build=None,
+                    agent_stream=None):
+        if revision_build is None:
+            filename = '{}-{}-windows.json'.format(agent_stream, version)
+        else:
+            filename = 'revision-build-{}-windows.json'.format(
+                revision_build)
         releases = [(r, r) for r in supported_windows_releases]
-        return cls(releases, 'amd64', version, revision_build, tarfile,
-                   filename)
+        return cls(releases, 'amd64', version, tarfile, filename,
+                   revision_build, agent_stream)
 
     @classmethod
-    def for_centos(cls, version, revision_build, tarfile):
-        filename = 'revision-build-{}-centos.json'.format(revision_build)
-        return cls([('centos7', 'centos7')], 'amd64', version, revision_build,
-                   tarfile, filename)
+    def for_centos(cls, version, tarfile, revision_build=None,
+                   agent_stream=None):
+        if revision_build is None:
+            filename = '{}-{}-centos.json'.format(agent_stream, version)
+        else:
+            filename = 'revision-build-{}-centos.json'.format(revision_build)
+        return cls([('centos7', 'centos7')], 'amd64', version, tarfile,
+                   filename, revision_build, agent_stream)
 
     def write_stanzas(self):
-        path = 'agent/revision-build-{}/{}'.format(
-            self.revision_build, os.path.basename(self.tarfile))
         with open(self.tarfile) as tarfile_fp:
             content = tarfile_fp.read()
         hashes = {}
@@ -89,20 +115,20 @@ class StanzaWriter:
             hash_obj = hashlib.new(hash_algorithm)
             hash_obj.update(content)
             hashes[hash_algorithm] = hash_obj.hexdigest()
-        stanzas = list(self.make_stanzas(path, hashes, len(content)))
+        stanzas = list(self.make_stanzas(hashes, len(content)))
         json_dump(stanzas, self.filename)
 
-    def make_stanzas(self, path, hashes, size):
+    def make_stanzas(self, hashes, size):
         for release, series in self.releases:
             stanza = {
-                'content_id': 'com.ubuntu.juju:revision-build-{}:tools'.format(
-                    self.revision_build),
+                'content_id': 'com.ubuntu.juju:{}:tools'.format(
+                    self.agent_stream),
                 'version_name': self.version_name,
                 'item_name': '{}-{}-{}'.format(self.version, series,
                                                self.arch),
                 'product_name': 'com.ubuntu.juju:{}:{}'.format(release,
                                                                self.arch),
-                'path': path,
+                'path': self.agent_path,
                 'arch': self.arch,
                 'version': self.version,
                 'format': 'products:1.0',
