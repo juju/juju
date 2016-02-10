@@ -156,7 +156,9 @@ func (p Persistence) StageResource(res resource.Resource, storagePath string) (*
 // SetResource sets the info for the resource.
 func (p Persistence) SetResource(res resource.Resource) error {
 	stored, err := p.getStored(res)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		stored = storedResource{Resource: res}
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
@@ -228,6 +230,9 @@ func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error
 
 func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 	doc, err := p.getOne(res.ID)
+	if errors.IsNotFound(err) {
+		err = errors.NotFoundf("resource %q", res.Name)
+	}
 	if err != nil {
 		return storedResource{}, errors.Trace(err)
 	}
@@ -250,7 +255,11 @@ func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]tx
 	if pendingID == "" {
 		return nil, errors.New("missing pending ID")
 	}
+
 	oldDoc, err := p.getOnePending(resID, pendingID)
+	if errors.IsNotFound(err) {
+		return nil, errors.NotFoundf("pending resource %q (%s)", resID, pendingID)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -258,6 +267,14 @@ func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]tx
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops := newResolvePendingResourceOps(pending)
+
+	exists := true
+	if _, err := p.getOne(resID); errors.IsNotFound(err) {
+		exists = false
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newResolvePendingResourceOps(pending, exists)
 	return ops, nil
 }

@@ -42,7 +42,7 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 		Name:        res.Name,
 		Type:        res.Type.String(),
 		Path:        res.Path,
-		Description: res.Comment,
+		Description: res.Description,
 		Revision:    res.Revision,
 		Origin:      res.Origin.String(),
 		Fingerprint: res.Fingerprint.String(), // ...the hex string.
@@ -59,7 +59,7 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		Name:             res.Name,
 		Type:             res.Type.String(),
 		Path:             res.Path,
-		Comment:          res.Comment,
+		Description:      res.Description,
 		Revision:         res.Revision,
 		Origin:           res.Origin.String(),
 		Fingerprint:      res.Fingerprint.String(),
@@ -79,7 +79,7 @@ func combinedRevision(r resource.Resource) string {
 		return fmt.Sprintf("%d", r.Revision)
 	case charmresource.OriginUpload:
 		if !r.Timestamp.IsZero() {
-			return r.Timestamp.Format("2006-02-01")
+			return r.Timestamp.Format("2006-02-01T15:04")
 		}
 	}
 	return "-"
@@ -88,6 +88,9 @@ func combinedRevision(r resource.Resource) string {
 func combinedOrigin(used bool, r resource.Resource) string {
 	if r.Origin == charmresource.OriginUpload && used && r.Username != "" {
 		return r.Username
+	}
+	if r.Origin == charmresource.OriginStore {
+		return "charmstore"
 	}
 	return r.Origin.String()
 }

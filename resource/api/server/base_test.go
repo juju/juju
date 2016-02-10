@@ -61,11 +61,12 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 type stubDataStore struct {
 	stub *testing.Stub
 
-	ReturnListResources      resource.ServiceResources
-	ReturnAddPendingResource string
-	ReturnGetResource        resource.Resource
-	ReturnGetPendingResource resource.Resource
-	ReturnSetResource        resource.Resource
+	ReturnListResources         resource.ServiceResources
+	ReturnAddPendingResource    string
+	ReturnGetResource           resource.Resource
+	ReturnGetPendingResource    resource.Resource
+	ReturnSetResource           resource.Resource
+	ReturnUpdatePendingResource resource.Resource
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
@@ -95,8 +96,8 @@ func (s *stubDataStore) GetResource(service, name string) (resource.Resource, er
 	return s.ReturnGetResource, nil
 }
 
-func (s *stubDataStore) GetPendingResource(service, pendingID string) (resource.Resource, error) {
-	s.stub.AddCall("GetPendingResource", service, pendingID)
+func (s *stubDataStore) GetPendingResource(service, name, pendingID string) (resource.Resource, error) {
+	s.stub.AddCall("GetPendingResource", service, name, pendingID)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.Resource{}, errors.Trace(err)
 	}
@@ -111,4 +112,13 @@ func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.
 	}
 
 	return s.ReturnSetResource, nil
+}
+
+func (s *stubDataStore) UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	s.stub.AddCall("UpdatePendingResource", serviceID, pendingID, userID, res, r)
+	if err := s.stub.NextErr(); err != nil {
+		return resource.Resource{}, errors.Trace(err)
+	}
+
+	return s.ReturnUpdatePendingResource, nil
 }

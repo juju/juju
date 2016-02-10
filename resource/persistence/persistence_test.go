@@ -249,6 +249,33 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	}})
 }
 
+func (s *PersistenceSuite) TestSetResourceNotFound(c *gc.C) {
+	servicename := "a-service"
+	res, doc := newResource(c, servicename, "spam")
+	s.base.ReturnOne = doc
+	expected := doc // a copy
+	expected.StoragePath = ""
+	p := NewPersistence(s.base)
+	notFound := errors.NewNotFound(nil, "")
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(notFound, nil, nil, ignoredErr)
+
+	err := p.SetResource(res.Resource)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"One",
+		"Run",
+		"RunTransaction",
+	)
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/spam",
+		Assert: txn.DocMissing,
+		Insert: &expected,
+	}})
+}
+
 func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"
@@ -268,6 +295,21 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}})
+}
+
+func (s *PersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
+	servicename := "a-service"
+	unitname := "a-service/0"
+	res, _ := newUnitResource(c, servicename, unitname, "eggs")
+	p := NewPersistence(s.base)
+	notFound := errors.NewNotFound(nil, "")
+	s.stub.SetErrors(notFound)
+
+	err := p.SetUnitResource("a-service/0", res)
+
+	s.stub.CheckCallNames(c, "One")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `resource "eggs" not found`)
 }
 
 func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
@@ -314,7 +356,7 @@ func (s *PersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	s.stub.CheckCallNames(c, "One")
 }
 
-func (s *PersistenceSuite) TestNewResourcePendingResourceOps(c *gc.C) {
+func (s *PersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc.C) {
 	pendingID := "some-unique-ID-001"
 	stored, expected := newResource(c, "a-service", "spam")
 	stored.PendingID = pendingID
@@ -327,7 +369,42 @@ func (s *PersistenceSuite) TestNewResourcePendingResourceOps(c *gc.C) {
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One")
+	s.stub.CheckCallNames(c, "One", "One")
+	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-service/spam#pending-some-unique-ID-001", &doc)
+	c.Check(ops, jc.DeepEquals, []txn.Op{{
+		C:      "resources",
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     expected.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     expected.DocID,
+		Assert: txn.DocMissing,
+		Insert: &expected,
+	}})
+}
+
+func (s *PersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
+	pendingID := "some-unique-ID-001"
+	stored, expected := newResource(c, "a-service", "spam")
+	stored.PendingID = pendingID
+	doc := expected // a copy
+	doc.DocID = pendingResourceID(stored.ID, pendingID)
+	doc.PendingID = pendingID
+	s.base.ReturnOne = doc
+	notFound := errors.NewNotFound(nil, "")
+	s.stub.SetErrors(nil, notFound)
+	p := NewPersistence(s.base)
+
+	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "One", "One")
 	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-service/spam#pending-some-unique-ID-001", &doc)
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
 		C:      "resources",
@@ -375,10 +452,10 @@ func newResource(c *gc.C, serviceID, name string) (storedResource, resourceDoc) 
 		ID:        res.ID,
 		ServiceID: res.ServiceID,
 
-		Name:    res.Name,
-		Type:    res.Type.String(),
-		Path:    res.Path,
-		Comment: res.Comment,
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Description: res.Description,
 
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,

@@ -6,6 +6,7 @@ package cmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -32,9 +33,9 @@ type ShowServiceDeps struct {
 type ShowServiceCommand struct {
 	modelcmd.ModelCommandBase
 
-	deps    ShowServiceDeps
-	out     cmd.Output
-	service string
+	deps   ShowServiceDeps
+	out    cmd.Output
+	target string
 }
 
 // NewShowServiceCommand returns a new command that lists resources defined
@@ -46,11 +47,12 @@ func NewShowServiceCommand(deps ShowServiceDeps) *ShowServiceCommand {
 // Info implements cmd.Command.Info.
 func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-service-resources",
-		Args:    "service",
-		Purpose: "show the resources for a service",
+		Name:    "list-resources",
+		Aliases: []string{"resources"},
+		Args:    "service-or-unit",
+		Purpose: "show the resources for a service or unit",
 		Doc: `
-This command shows the resources required by and those in use by an existing service in your model.
+This command shows the resources required by and those in use by an existing service or unit in your model.
 `,
 	}
 }
@@ -71,7 +73,7 @@ func (c *ShowServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.NewBadRequest(nil, "missing service name")
 	}
-	c.service = args[0]
+	c.target = args[0]
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.NewBadRequest(err, "")
 	}
@@ -86,7 +88,19 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	vals, err := apiclient.ListResources([]string{c.service})
+	var unit string
+	var service string
+	if names.IsValidService(c.target) {
+		service = c.target
+	} else {
+		service, err = names.UnitService(c.target)
+		if err != nil {
+			return errors.Errorf("%q is neither a service nor a unit", c.target)
+		}
+		unit = c.target
+	}
+
+	vals, err := apiclient.ListResources([]string{service})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,11 +108,46 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("bad data returned from server")
 	}
 	v := vals[0]
-	res := make([]FormattedSvcResource, len(v.Resources))
 
-	for i, r := range v.Resources {
+	if unit == "" {
+		return c.formatServiceResources(ctx, v.Resources)
+	}
+	resources, err := unitResources(unit, service, v)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return c.formatUnitResources(ctx, resources)
+}
+
+func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, resources []resource.Resource) error {
+	res := make([]FormattedSvcResource, len(resources))
+
+	for i, r := range resources {
 		res[i] = FormatSvcResource(r)
 	}
 
 	return c.out.Write(ctx, res)
+}
+
+func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, resources []resource.Resource) error {
+	res := make([]FormattedUnitResource, len(resources))
+
+	for i, r := range resources {
+		res[i] = FormattedUnitResource{FormatSvcResource(r)}
+	}
+
+	return c.out.Write(ctx, res)
+
+}
+
+func unitResources(unit, service string, v resource.ServiceResources) ([]resource.Resource, error) {
+	for _, res := range v.UnitResources {
+		if res.Tag.Id() == unit {
+			return res.Resources, nil
+		}
+	}
+	// TODO(natefinch): we need to differentiate between a unit with no
+	// resources and a unit that doesn't exist. This requires a serverside
+	// change.
+	return nil, nil
 }

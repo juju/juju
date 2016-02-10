@@ -138,7 +138,7 @@ func newUpdateResourceOps(stored storedResource) []txn.Op {
 //
 // We trust that the provided resource really is pending
 // and that it matches the existing doc with the same ID.
-func newResolvePendingResourceOps(pending storedResource) []txn.Op {
+func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op {
 	oldID := pendingResourceID(pending.ID, pending.PendingID)
 	newRes := pending
 	newRes.PendingID = ""
@@ -151,9 +151,11 @@ func newResolvePendingResourceOps(pending storedResource) []txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
-	// TODO(ericsnow) newInsertResourceOps() won't be right if the
-	// pending resource is replacing an existing one.
-	return append(ops, newInsertResourceOps(newRes)...)
+	if exists {
+		return append(ops, newUpdateResourceOps(newRes)...)
+	} else {
+		return append(ops, newInsertResourceOps(newRes)...)
+	}
 }
 
 // newUnitResourceDoc generates a doc that represents the given resource.
@@ -221,10 +223,10 @@ type resourceDoc struct {
 	ServiceID string `bson:"service-id"`
 	UnitID    string `bson:"unit-id"`
 
-	Name    string `bson:"name"`
-	Type    string `bson:"type"`
-	Path    string `bson:"path"`
-	Comment string `bson:"comment"`
+	Name        string `bson:"name"`
+	Type        string `bson:"type"`
+	Path        string `bson:"path"`
+	Description string `bson:"description"`
 
 	Origin      string `bson:"origin"`
 	Revision    int    `bson:"revision"`
@@ -255,10 +257,10 @@ func resource2doc(id string, stored storedResource) *resourceDoc {
 
 		ServiceID: res.ServiceID,
 
-		Name:    res.Name,
-		Type:    res.Type.String(),
-		Path:    res.Path,
-		Comment: res.Comment,
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Description: res.Description,
 
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,
@@ -308,10 +310,10 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 	res = resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    doc.Name,
-				Type:    resType,
-				Path:    doc.Path,
-				Comment: doc.Comment,
+				Name:        doc.Name,
+				Type:        resType,
+				Path:        doc.Path,
+				Description: doc.Description,
 			},
 			Origin:      origin,
 			Revision:    doc.Revision,

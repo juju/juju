@@ -153,8 +153,8 @@ type CharmResource struct {
 	// Path is where the resource will be stored.
 	Path string `json:"path"`
 
-	// Comment contains user-facing info about the resource.
-	Comment string `json:"comment,omitempty"`
+	// Description contains user-facing info about the resource.
+	Description string `json:"description,omitempty"`
 
 	// Origin is where the resource will come from.
 	Origin string `json:"origin"`

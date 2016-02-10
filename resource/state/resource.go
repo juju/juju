@@ -107,7 +107,7 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 }
 
 // GetPendingResource returns the resource data for the identified resource.
-func (st resourceState) GetPendingResource(serviceID, pendingID string) (resource.Resource, error) {
+func (st resourceState) GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error) {
 	var res resource.Resource
 
 	resources, err := st.persist.ListPendingResources(serviceID)
@@ -116,11 +116,11 @@ func (st resourceState) GetPendingResource(serviceID, pendingID string) (resourc
 	}
 
 	for _, res := range resources {
-		if res.PendingID == pendingID {
+		if res.Name == name && res.PendingID == pendingID {
 			return res, nil
 		}
 	}
-	return res, errors.NotFoundf("pending resource %q", pendingID)
+	return res, errors.NotFoundf("pending resource %q (%s)", name, pendingID)
 }
 
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
@@ -135,6 +135,33 @@ func (st resourceState) SetResource(serviceID, userID string, chRes charmresourc
 	}
 	return res, nil
 }
+
+// AddPendingResource stores the resource in the Juju model.
+func (st resourceState) AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
+	pendingID, err = st.newPendingID()
+	if err != nil {
+		return "", errors.Annotate(err, "could not generate resource ID")
+	}
+	logger.Tracef("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
+
+	if _, err := st.setResource(pendingID, serviceID, userID, chRes, r); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return pendingID, nil
+}
+
+// UpdatePendingResource stores the resource in the Juju model.
+func (st resourceState) UpdatePendingResource(serviceID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	logger.Tracef("updating pending resource %q (%s) for service %q", chRes.Name, pendingID, serviceID)
+	res, err := st.setResource(pendingID, serviceID, userID, chRes, r)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+	return res, nil
+}
+
+// TODO(ericsnow) Add ResolvePendingResource().
 
 func (st resourceState) setResource(pendingID, serviceID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
 	id := newResourceID(serviceID, chRes.Name)
@@ -201,23 +228,6 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	return nil
 }
 
-// AddPendingResource stores the resource in the Juju model.
-func (st resourceState) AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
-	pendingID, err = st.newPendingID()
-	if err != nil {
-		return "", errors.Annotate(err, "could not generate resource ID")
-	}
-	logger.Tracef("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
-
-	if _, err := st.setResource(pendingID, serviceID, userID, chRes, r); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return pendingID, nil
-}
-
-// TODO(ericsnow) Add ResolvePendingResource().
-
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
 func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
@@ -226,15 +236,16 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {
+		logger.Tracef("placeholder resource %q treated as not found", name)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
 	resourceReader, resSize, err := st.storage.Get(storagePath)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
 	if resSize != resourceInfo.Size {
 		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"

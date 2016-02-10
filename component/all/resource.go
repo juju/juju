@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/persistence"
-	"github.com/juju/juju/resource/resourceexternal"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
@@ -167,7 +167,7 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
-				return resourceexternal.NewAPIClient(c.NewAPIRoot)
+				return resourceadapters.NewAPIClient(c.NewAPIRoot)
 			},
 			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
 				return os.Open(s)
@@ -179,7 +179,7 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return resourceexternal.NewAPIClient(c.NewAPIRoot)
+				return resourceadapters.NewAPIClient(c.NewAPIRoot)
 			},
 		})
 	})
@@ -192,41 +192,7 @@ type charmstoreClient struct {
 }
 
 func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
-	// TODO(natefinch): this is all demo stuff and should go away afterward.
-	if len(charmURLs) != 1 || charmURLs[0].Name != "starsay" {
-		res := make([][]charmresource.Resource, len(charmURLs))
-		return res, nil
-	}
-	var fingerprint = []byte("123456789012345678901234567890123456789012345678")
-	fp, err := charmresource.NewFingerprint(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-	res := [][]charmresource.Resource{
-		{
-			{
-				Meta: charmresource.Meta{
-					Name:    "store-resource",
-					Type:    charmresource.TypeFile,
-					Path:    "filename.tgz",
-					Comment: "One line that is useful when operators need to push it.",
-				},
-				Origin:      charmresource.OriginStore,
-				Revision:    1,
-				Fingerprint: fp,
-				Size:        1,
-			},
-			{
-				Meta: charmresource.Meta{
-					Name:    "upload-resource",
-					Type:    charmresource.TypeFile,
-					Path:    "somename.xml",
-					Comment: "Who uses xml anymore?",
-				},
-				Origin: charmresource.OriginUpload,
-			},
-		},
-	}
+	res := make([][]charmresource.Resource, len(charmURLs))
 	return res, nil
 }
 

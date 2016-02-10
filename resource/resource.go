@@ -105,10 +105,18 @@ func (res Resource) TimestampGranular() time.Time {
 
 // RevisionString returns the human-readable revision for the resource.
 func (res Resource) RevisionString() string {
-	if res.Origin == resource.OriginUpload {
-		return res.TimestampGranular().String()
+	switch res.Origin {
+	case resource.OriginUpload:
+		if res.IsPlaceholder() {
+			return "-"
+		}
+		return res.TimestampGranular().UTC().String()
+	case resource.OriginStore:
+		return fmt.Sprintf("%d", res.Revision)
+	default:
+		// note: this should probably never happen.
+		return "-"
 	}
-	return fmt.Sprintf("%d", res.Revision)
 }
 
 // ServiceResources contains the list of resources for the service and all its
