@@ -46,7 +46,7 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 		Name:        res.Name,
 		Type:        res.Type.String(),
 		Path:        res.Path,
-		Comment:       res.Comment,
+		Description: res.Description,
 		Revision:    res.Revision,
 		Origin:      res.Origin.String(),
 		Fingerprint: res.Fingerprint.String(), // ...the hex string.
