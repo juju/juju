@@ -31,7 +31,7 @@ var ErrNoModelSpecified = errors.New("no model specified")
 // GetDefaultModel returns the name of the Juju default model.
 // There is simple ordering for the default model.  Firstly check the
 // JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_HOME/current-model file.  If neither are
+// set, look in the $JUJU_DATA/current-model file.  If neither are
 // available, read environments.yaml and use the default model therein.
 // If no default is specified in the environments file, an empty string is returned.
 // Not having a default model specified is not an error.

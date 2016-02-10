@@ -25,11 +25,6 @@ func (s *JujuXDGDataHomeSuite) TestStandardHome(c *gc.C) {
 	c.Assert(osenv.JujuXDGDataHome(), gc.Equals, testJujuXDGDataHome)
 }
 
-func (s *JujuXDGDataHomeSuite) TestLegacyHome(c *gc.C) {
-	s.PatchEnvironment("JUJU_HOME", "/some/path")
-	c.Assert(osenv.JujuXDGDataHomeDir(), gc.Equals, "/some/path")
-}
-
 func (s *JujuXDGDataHomeSuite) TestErrorHome(c *gc.C) {
 	// Invalid juju home leads to panic when retrieving.
 	f := func() { _ = osenv.JujuXDGDataHome() }
