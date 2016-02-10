@@ -452,10 +452,10 @@ func newResource(c *gc.C, serviceID, name string) (storedResource, resourceDoc) 
 		ID:        res.ID,
 		ServiceID: res.ServiceID,
 
-		Name:    res.Name,
-		Type:    res.Type.String(),
-		Path:    res.Path,
-		Comment: res.Comment,
+		Name:        res.Name,
+		Type:        res.Type.String(),
+		Path:        res.Path,
+		Description: res.Description,
 
 		Origin:      res.Origin.String(),
 		Revision:    res.Revision,

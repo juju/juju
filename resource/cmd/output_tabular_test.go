@@ -101,8 +101,8 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "openjdk",
-				Comment: "the java runtime",
+				Name:        "openjdk",
+				Description: "the java runtime",
 			},
 			Origin:   charmresource.OriginStore,
 			Revision: 7,
@@ -116,8 +116,8 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE SUPPLIED BY REVISION COMMENT
-openjdk  charmstore  7        the java runtime
+RESOURCE SUPPLIED BY REVISION
+openjdk  charmstore  7
 `[1:])
 }
 
@@ -126,8 +126,8 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "openjdk",
-				Comment: "the java runtime",
+				Name:        "openjdk",
+				Description: "the java runtime",
 			},
 			Origin:   charmresource.OriginStore,
 			Revision: 7,
@@ -143,8 +143,8 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE REVISION COMMENT
-openjdk  7        the java runtime
+RESOURCE REVISION
+openjdk  7
 `[1:])
 }
 
@@ -153,8 +153,8 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "openjdk",
-					Comment: "the java runtime",
+					Name:        "openjdk",
+					Description: "the java runtime",
 				},
 				Origin:   charmresource.OriginStore,
 				Revision: 7,
@@ -163,8 +163,8 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "website",
-					Comment: "your website data",
+					Name:        "website",
+					Description: "your website data",
 				},
 				Origin: charmresource.OriginUpload,
 			},
@@ -172,8 +172,8 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "openjdk2",
-					Comment: "another java runtime",
+					Name:        "openjdk2",
+					Description: "another java runtime",
 				},
 				Origin:   charmresource.OriginStore,
 				Revision: 8,
@@ -183,8 +183,8 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name:    "website2",
-					Comment: "your website data",
+					Name:        "website2",
+					Description: "your website data",
 				},
 				Origin: charmresource.OriginUpload,
 			},
@@ -203,11 +203,11 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(string(data), gc.Equals, `
-RESOURCE SUPPLIED BY REVISION         COMMENT
-openjdk  charmstore  7                the java runtime
-website  upload      -                your website data
-openjdk2 charmstore  8                another java runtime
-website2 Bill User   2012-12-12T12:12 your website data
+RESOURCE SUPPLIED BY REVISION
+openjdk  charmstore  7
+website  upload      -
+openjdk2 charmstore  8
+website2 Bill User   2012-12-12T12:12
 `[1:])
 }
 

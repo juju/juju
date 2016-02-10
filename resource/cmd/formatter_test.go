@@ -51,10 +51,10 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 	r := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "website",
-				Comment: "your website data",
-				Type:    charmresource.TypeFile,
-				Path:    "foobar",
+				Name:        "website",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
 			},
 			Revision:    5,
 			Origin:      charmresource.OriginStore,
@@ -79,7 +79,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Origin:           "store",
 		Fingerprint:      fp.String(),
 		Size:             10,
-		Comment:          r.Comment,
+		Description:      r.Description,
 		Timestamp:        r.Timestamp,
 		Username:         r.Username,
 		combinedRevision: "5",

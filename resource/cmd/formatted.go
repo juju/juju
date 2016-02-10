@@ -26,7 +26,7 @@ type FormattedSvcResource struct {
 	Name        string    `json:"name" yaml:"name"`
 	Type        string    `json:"type" yaml:"type"`
 	Path        string    `json:"path" yaml:"path"`
-	Comment     string    `json:"comment,omitempty" yaml:"comment,omitempty"`
+	Description string    `json:"description,omitempty" yaml:"description,omitempty"`
 	Revision    int       `json:"revision,omitempty" yaml:"revision,omitempty"`
 	Fingerprint string    `json:"fingerprint" yaml:"fingerprint"`
 	Size        int64     `json:"size" yaml:"size"`

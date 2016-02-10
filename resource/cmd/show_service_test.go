@@ -77,8 +77,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "openjdk",
-						Comment: "the java runtime",
+						Name:        "openjdk",
+						Description: "the java runtime",
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 7,
@@ -87,8 +87,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "website",
-						Comment: "your website data",
+						Name:        "website",
+						Description: "your website data",
 					},
 					Origin: charmresource.OriginUpload,
 				},
@@ -96,8 +96,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "rsc1234",
-						Comment: "a big comment",
+						Name:        "rsc1234",
+						Description: "a big description",
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
@@ -107,8 +107,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "website2",
-						Comment: "awesome data",
+						Name:        "website2",
+						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
 				},
@@ -129,11 +129,11 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE SUPPLIED BY REVISION         COMMENT
-openjdk  charmstore  7                the java runtime
-website  upload      -                your website data
-rsc1234  charmstore  15               a big comment
-website2 Bill User   2012-12-12T12:12 awesome data
+RESOURCE SUPPLIED BY REVISION
+openjdk  charmstore  7
+website  upload      -
+rsc1234  charmstore  15
+website2 Bill User   2012-12-12T12:12
 
 `[1:])
 
@@ -148,8 +148,8 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 				{
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
-							Name:    "rsc1234",
-							Comment: "a big comment",
+							Name:        "rsc1234",
+							Description: "a big description",
 						},
 						Origin:   charmresource.OriginStore,
 						Revision: 15,
@@ -159,8 +159,8 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 				{
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
-							Name:    "website2",
-							Comment: "awesome data",
+							Name:        "website2",
+							Description: "awesome data",
 						},
 						Origin: charmresource.OriginUpload,
 					},
@@ -183,9 +183,9 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-RESOURCE REVISION         COMMENT
-rsc1234  15               a big comment
-website2 2012-12-12T12:12 awesome data
+RESOURCE REVISION
+rsc1234  15
+website2 2012-12-12T12:12
 
 `[1:])
 

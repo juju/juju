@@ -62,16 +62,15 @@ func formatServiceTabular(resources []FormattedSvcResource) []byte {
 
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, "RESOURCE\tSUPPLIED BY\tREVISION\tCOMMENT")
+	fmt.Fprintln(tw, "RESOURCE\tSUPPLIED BY\tREVISION")
 
 	// Print each info to its own row.
 	for _, r := range resources {
 		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
+		fmt.Fprintf(tw, "%v\t%v\t%v\n",
 			r.Name,
 			r.combinedOrigin,
 			r.combinedRevision,
-			r.Comment,
 		)
 	}
 	tw.Flush()
@@ -88,15 +87,14 @@ func formatUnitTabular(resources []FormattedUnitResource) []byte {
 
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, "RESOURCE\tREVISION\tCOMMENT")
+	fmt.Fprintln(tw, "RESOURCE\tREVISION")
 
 	// Print each info to its own row.
 	for _, r := range resources {
 		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%v\t%v\t%v\n",
+		fmt.Fprintf(tw, "%v\t%v\n",
 			r.Name,
 			r.combinedRevision,
-			r.Comment,
 		)
 	}
 	tw.Flush()

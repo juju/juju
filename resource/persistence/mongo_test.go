@@ -32,10 +32,10 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need this!",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need this!",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    0,
@@ -59,10 +59,10 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		PendingID: "some-unique-ID",
 		ServiceID: serviceID,
 
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need this!",
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
 
 		Origin:      "upload",
 		Revision:    0,
@@ -241,10 +241,10 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 		ServiceID: serviceID,
 		PendingID: "some-unique-ID-001",
 
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need this!",
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
 
 		Origin:      "upload",
 		Revision:    0,
@@ -261,10 +261,10 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	c.Check(res, jc.DeepEquals, resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need this!",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need this!",
 			},
 			Origin:      charmresource.OriginUpload,
 			Revision:    0,
@@ -336,10 +336,10 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need this!",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need this!",
 			},
 			Origin:      charmresource.OriginStore,
 			Revision:    5,
@@ -364,10 +364,10 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 		ServiceID: serviceID,
 
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need this!",
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
 
 		Origin:      "store",
 		Revision:    5,
@@ -396,10 +396,10 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 
 		ServiceID: serviceID,
 
-		Name:    "spam",
-		Type:    "file",
-		Path:    "spam.tgz",
-		Comment: "you need this!",
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
 
 		Origin:      "store",
 		Revision:    5,
@@ -416,10 +416,10 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 	c.Check(res, jc.DeepEquals, resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "spam",
-				Type:    charmresource.TypeFile,
-				Path:    "spam.tgz",
-				Comment: "you need this!",
+				Name:        "spam",
+				Type:        charmresource.TypeFile,
+				Path:        "spam.tgz",
+				Description: "you need this!",
 			},
 			Origin:      charmresource.OriginStore,
 			Revision:    5,
