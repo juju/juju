@@ -21,10 +21,13 @@ type UploadDataStore interface {
 	GetResource(serviceID, name string) (resource.Resource, error)
 
 	// GetPendingResource returns the identified resource.
-	GetPendingResource(serviceID, pendingID string) (resource.Resource, error)
+	GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+
+	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
+	UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
 
 // TODO(ericsnow) Replace UploadedResource with resource.Opened.
@@ -34,6 +37,9 @@ type UploadDataStore interface {
 type UploadedResource struct {
 	// Service is the name of the service associated with the resource.
 	Service string
+
+	// PendingID is the resource-specific sub-ID for a pending resource.
+	PendingID string
 
 	// Resource is the information about the resource.
 	Resource charmresource.Resource
@@ -60,9 +66,17 @@ func (uh UploadHandler) HandleRequest(req *http.Request) (*api.UploadResult, err
 		return nil, errors.Trace(err)
 	}
 
-	stored, err := uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var stored resource.Resource
+	if uploaded.PendingID != "" {
+		stored, err = uh.Store.UpdatePendingResource(uploaded.Service, uploaded.PendingID, uh.Username, uploaded.Resource, uploaded.Data)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		stored, err = uh.Store.SetResource(uploaded.Service, uh.Username, uploaded.Resource, uploaded.Data)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	result := &api.UploadResult{
@@ -79,7 +93,7 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	}
 	var res resource.Resource
 	if uReq.PendingID != "" {
-		res, err = uh.Store.GetPendingResource(uReq.Service, uReq.PendingID)
+		res, err = uh.Store.GetPendingResource(uReq.Service, uReq.Name, uReq.PendingID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -96,9 +110,10 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 	}
 
 	uploaded := &UploadedResource{
-		Service:  uReq.Service,
-		Resource: chRes,
-		Data:     req.Body,
+		Service:   uReq.Service,
+		PendingID: uReq.PendingID,
+		Resource:  chRes,
+		Data:      req.Body,
 	}
 	return uploaded, nil
 }

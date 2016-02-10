@@ -138,7 +138,7 @@ func newUpdateResourceOps(stored storedResource) []txn.Op {
 //
 // We trust that the provided resource really is pending
 // and that it matches the existing doc with the same ID.
-func newResolvePendingResourceOps(pending storedResource) []txn.Op {
+func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op {
 	oldID := pendingResourceID(pending.ID, pending.PendingID)
 	newRes := pending
 	newRes.PendingID = ""
@@ -151,9 +151,11 @@ func newResolvePendingResourceOps(pending storedResource) []txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
-	// TODO(ericsnow) newInsertResourceOps() won't be right if the
-	// pending resource is replacing an existing one.
-	return append(ops, newInsertResourceOps(newRes)...)
+	if exists {
+		return append(ops, newUpdateResourceOps(newRes)...)
+	} else {
+		return append(ops, newInsertResourceOps(newRes)...)
+	}
 }
 
 // newUnitResourceDoc generates a doc that represents the given resource.

@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/persistence"
-	"github.com/juju/juju/resource/resourceexternal"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
@@ -167,7 +167,7 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewUploadCommand(cmd.UploadDeps{
 			NewClient: func(c *cmd.UploadCommand) (cmd.UploadClient, error) {
-				return resourceexternal.NewAPIClient(c.NewAPIRoot)
+				return resourceadapters.NewAPIClient(c.NewAPIRoot)
 			},
 			OpenResource: func(s string) (cmd.ReadSeekCloser, error) {
 				return os.Open(s)
@@ -179,7 +179,7 @@ func (r resources) registerPublicCommands() {
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
 		return cmd.NewShowServiceCommand(cmd.ShowServiceDeps{
 			NewClient: func(c *cmd.ShowServiceCommand) (cmd.ShowServiceClient, error) {
-				return resourceexternal.NewAPIClient(c.NewAPIRoot)
+				return resourceadapters.NewAPIClient(c.NewAPIRoot)
 			},
 		})
 	})

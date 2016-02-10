@@ -110,7 +110,7 @@ func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	res, err := st.GetPendingResource("a-service", "other-unique-id")
+	res, err := st.GetPendingResource("a-service", "eggs", "other-unique-id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListPendingResources")
@@ -317,6 +317,39 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
 	s.stub.CheckCall(c, 4, "Remove", path)
+}
+
+func (s *ResourceSuite) TestUpdatePendingResourceOkay(c *gc.C) {
+	expected := newUploadResource(c, "spam", "spamspamspam")
+	expected.PendingID = "some-unique-id"
+	expected.Timestamp = s.timestamp
+	chRes := expected.Resource
+	hash := chRes.Fingerprint.String()
+	path := "service-a-service/resources/spam-some-unique-id"
+	file := &stubReader{stub: s.stub}
+	st := NewState(s.raw)
+	st.currentTimestamp = s.now
+	s.stub.ResetCalls()
+
+	res, err := st.UpdatePendingResource("a-service", "some-unique-id", "a-user", chRes, file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"currentTimestamp",
+		"StageResource",
+		"PutAndCheckHash",
+		"Activate",
+	)
+	s.stub.CheckCall(c, 1, "StageResource", expected, path)
+	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
+	c.Check(res, jc.DeepEquals, resource.Resource{
+		Resource:  chRes,
+		ID:        "a-service/" + res.Name,
+		ServiceID: "a-service",
+		PendingID: "some-unique-id",
+		Username:  "a-user",
+		Timestamp: s.timestamp,
+	})
 }
 
 func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {

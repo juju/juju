@@ -28,10 +28,13 @@ type Resources interface {
 	GetResource(serviceID, name string) (resource.Resource, error)
 
 	// GetPendingResource returns the identified resource.
-	GetPendingResource(serviceID, pendingID string) (resource.Resource, error)
+	GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+
+	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
+	UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
 	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)

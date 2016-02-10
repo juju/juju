@@ -69,6 +69,32 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	})
 }
 
+func (s *UploadSuite) TestHandleRequestPending(c *gc.C) {
+	content := "<some data>"
+	res, _ := newResource(c, "spam", "a-user", content)
+	res.PendingID = "some-unique-id"
+	stored, _ := newResource(c, "spam", "", "")
+	stored.PendingID = "some-unique-id"
+	s.data.ReturnGetPendingResource = stored
+	s.data.ReturnUpdatePendingResource = res
+	uh := server.UploadHandler{
+		Username: "a-user",
+		Store:    s.data,
+	}
+	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req.URL.RawQuery += "&pendingid=some-unique-id"
+
+	result, err := uh.HandleRequest(req)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "GetPendingResource", "UpdatePendingResource")
+	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "spam", "some-unique-id")
+	s.stub.CheckCall(c, 1, "UpdatePendingResource", "a-service", "some-unique-id", "a-user", res.Resource, ioutil.NopCloser(body))
+	c.Check(result, jc.DeepEquals, &api.UploadResult{
+		Resource: api.Resource2API(res),
+	})
+}
+
 func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 	content := "<some data>"
 	stored, _ := newResource(c, "spam", "", "")
@@ -126,11 +152,12 @@ func (s *UploadSuite) TestReadResourcePending(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetPendingResource")
-	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "some-unique-id")
+	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "spam", "some-unique-id")
 	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
-		Service:  "a-service",
-		Resource: expected.Resource,
-		Data:     ioutil.NopCloser(body),
+		Service:   "a-service",
+		PendingID: "some-unique-id",
+		Resource:  expected.Resource,
+		Data:      ioutil.NopCloser(body),
 	})
 }
 

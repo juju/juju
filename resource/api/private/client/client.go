@@ -61,10 +61,10 @@ func (c *UnitFacadeClient) GetResource(resourceName string) (resource.Resource, 
 	var response *http.Response
 	req, err := api.NewHTTPDownloadRequest(resourceName)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Annotate(err, "failed to build API request")
 	}
 	if err := c.Do(req, nil, &response); err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+		return resource.Resource{}, nil, errors.Annotate(err, "HTTP request failed")
 	}
 
 	// HACK(katco): Combine this into one request?
@@ -89,7 +89,7 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 	}
 	if response.Error != nil {
 		err, _ := common.RestoreError(response.Error)
-		return resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Annotate(err, "request failed on server")
 	}
 
 	if len(response.Resources) != 1 {
@@ -97,11 +97,11 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 	}
 	if response.Resources[0].Error != nil {
 		err, _ := common.RestoreError(response.Error)
-		return resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Annotate(err, "request failed for resource")
 	}
 	res, err := api.API2Resource(response.Resources[0].Resource)
 	if err != nil {
-		return resource.Resource{}, errors.Trace(err)
+		return resource.Resource{}, errors.Annotate(err, "got bad data from API server")
 	}
 	return res, nil
 }
