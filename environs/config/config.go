@@ -1437,7 +1437,6 @@ var immutableAttributes = []string{
 	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
-	AutomaticallyRetryHooks,
 }
 
 var (
