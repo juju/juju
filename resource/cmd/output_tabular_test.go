@@ -210,10 +210,3 @@ openjdk2 charmstore  8
 website2 Bill User   2012-12-12T12:12
 `[1:])
 }
-
-func (s *SvcTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
-	bogus := "should have been something else"
-	_, err := FormatSvcTabular(bogus)
-
-	c.Check(err, gc.ErrorMatches, `unexpected type for data:.*`)
-}

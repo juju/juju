@@ -49,8 +49,8 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 		return formatServiceTabular(resources), nil
 	case []FormattedUnitResource:
 		return formatUnitTabular(resources), nil
-	case []FormattedDebugUnitResource:
-		return formatDebugUnitTabular(resources), nil
+	case []FormattedDetailResource:
+		return formatDetailTabular(resources), nil
 	default:
 		return nil, errors.Errorf("unexpected type for data: %T", resources)
 	}
@@ -105,8 +105,10 @@ func formatUnitTabular(resources []FormattedUnitResource) []byte {
 	return out.Bytes()
 }
 
-func formatDebugUnitTabular(resources []FormattedDebugUnitResource) []byte {
-	// TODO(ericsnow) sort the rows first?
+func formatDetailTabular(resources []FormattedDetailResource) []byte {
+	// note that the unit resource can be a zero value here, to indicate that
+	// the unit has not downloaded that resource yet.
+
 	sort.Sort(byUnitID(resources))
 
 	var out bytes.Buffer
@@ -128,7 +130,7 @@ func formatDebugUnitTabular(resources []FormattedDebugUnitResource) []byte {
 	return out.Bytes()
 }
 
-type byUnitID []FormattedDebugUnitResource
+type byUnitID []FormattedDetailResource
 
 func (b byUnitID) Len() int      { return len(b) }
 func (b byUnitID) Swap(i, j int) { b[i], b[j] = b[j], b[i] }

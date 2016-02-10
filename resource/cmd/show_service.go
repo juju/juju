@@ -33,10 +33,10 @@ type ShowServiceDeps struct {
 type ShowServiceCommand struct {
 	modelcmd.ModelCommandBase
 
-	Debug  bool
-	deps   ShowServiceDeps
-	out    cmd.Output
-	target string
+	Details bool
+	deps    ShowServiceDeps
+	out     cmd.Output
+	target  string
 }
 
 // NewShowServiceCommand returns a new command that lists resources defined
@@ -67,7 +67,7 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":      cmd.FormatJson,
 	})
 
-	f.BoolVar(&c.Debug, "details", false, "show detailed information about resources used by each unit.")
+	f.BoolVar(&c.Details, "details", false, "show detailed information about resources used by each unit.")
 }
 
 // Init implements cmd.Command.Init. It will return an error satisfying
@@ -118,18 +118,10 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
-	if c.Debug {
-		var formatted []FormattedDebugUnitResource
-		for _, ur := range sr.UnitResources {
-			unit := resourceMap(ur.Resources)
-			for _, svc := range sr.Resources {
-				u := unit[svc.Name]
-				f, err := FormatDebugUnitResource(ur.Tag, svc, u)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				formatted = append(formatted, f)
-			}
+	if c.Details {
+		formatted, err := detailedResources("", sr)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		return c.out.Write(ctx, formatted)
 	}
@@ -144,20 +136,10 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
-	if c.Debug {
-		var formatted []FormattedDebugUnitResource
-		for _, ur := range sr.UnitResources {
-			if unit == ur.Tag.Id() {
-				unit := resourceMap(ur.Resources)
-				for _, svc := range sr.Resources {
-					f, err := FormatDebugUnitResource(ur.Tag, svc, unit[svc.Name])
-					if err != nil {
-						return errors.Trace(err)
-					}
-					formatted = append(formatted, f)
-				}
-				break
-			}
+	if c.Details {
+		formatted, err := detailedResources(unit, sr)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		return c.out.Write(ctx, formatted)
 	}
@@ -174,6 +156,24 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 
 	return c.out.Write(ctx, res)
 
+}
+
+func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDetailResource, error) {
+	var formatted []FormattedDetailResource
+	for _, ur := range sr.UnitResources {
+		if unit == "" || unit == ur.Tag.Id() {
+			unit := resourceMap(ur.Resources)
+			for _, svc := range sr.Resources {
+				f, err := FormatDetailResource(ur.Tag, svc, unit[svc.Name])
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				formatted = append(formatted, f)
+			}
+			break
+		}
+	}
+	return formatted, nil
 }
 
 func unitResources(unit, service string, v resource.ServiceResources) ([]resource.Resource, error) {

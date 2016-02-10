@@ -77,13 +77,16 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	}
 }
 
-// FormatDebugUnitResource converts the resource info into a FormattedServiceResource.
-func FormatDebugUnitResource(tag names.UnitTag, svc, unit resource.Resource) (FormattedDebugUnitResource, error) {
+// FormatDetailResource converts the arguments into a FormattedServiceResource.
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (FormattedDetailResource, error) {
+	// note that the unit resource can be a zero value here, to indicate that
+	// the unit has not downloaded that resource yet.
+
 	unitNum, err := unitNum(tag)
 	if err != nil {
-		return FormattedDebugUnitResource{}, errors.Trace(err)
+		return FormattedDetailResource{}, errors.Trace(err)
 	}
-	return FormattedDebugUnitResource{
+	return FormattedDetailResource{
 		UnitID:     tag.Id(),
 		unitNumber: unitNum,
 		Unit:       FormatSvcResource(unit),

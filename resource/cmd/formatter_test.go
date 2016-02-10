@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -126,4 +127,106 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
 	}
 	f := FormatSvcResource(r)
 	c.Assert(f.combinedOrigin, gc.Equals, "upload")
+}
+
+var _ = gc.Suite(&DetailFormatterSuite{})
+
+type DetailFormatterSuite struct {
+	testing.IsolationSuite
+}
+
+func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "website",
+				Comment: "your website data",
+				Type:    charmresource.TypeFile,
+				Path:    "foobar",
+			},
+			Revision:    5,
+			Origin:      charmresource.OriginStore,
+			Fingerprint: fp,
+			Size:        10,
+		},
+		Username:  "Bill User",
+		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
+		ID:        "a-service/website",
+		ServiceID: "a-service",
+	}
+
+	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("other"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "website",
+				Comment: "your website data",
+				Type:    charmresource.TypeFile,
+				Path:    "foobar",
+			},
+			Revision:    7,
+			Origin:      charmresource.OriginStore,
+			Fingerprint: fp2,
+			Size:        15,
+		},
+		Username:  "Bill User",
+		Timestamp: time.Now(),
+		ID:        "a-service/website",
+		ServiceID: "a-service",
+	}
+	tag := names.NewUnitTag("a-service/55")
+
+	d, err := FormatDetailResource(tag, svc, unit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d, gc.Equals,
+		FormattedDetailResource{
+			unitNumber: 55,
+			UnitID:     "a-service/55",
+			Expected:   FormatSvcResource(svc),
+			Unit:       FormatSvcResource(unit),
+		},
+	)
+}
+
+func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "website",
+				Comment: "your website data",
+				Type:    charmresource.TypeFile,
+				Path:    "foobar",
+			},
+			Revision:    5,
+			Origin:      charmresource.OriginStore,
+			Fingerprint: fp,
+			Size:        10,
+		},
+		Username:  "Bill User",
+		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
+		ID:        "a-service/website",
+		ServiceID: "a-service",
+	}
+
+	unit := resource.Resource{}
+	tag := names.NewUnitTag("a-service/55")
+
+	d, err := FormatDetailResource(tag, svc, unit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d, gc.Equals,
+		FormattedDetailResource{
+			unitNumber: 55,
+			UnitID:     "a-service/55",
+			Expected:   FormatSvcResource(svc),
+			Unit:       FormatSvcResource(unit),
+		},
+	)
 }
