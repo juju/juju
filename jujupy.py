@@ -341,10 +341,12 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        args = ('--constraints', constraints,
-                '--agent-version', self.get_matching_agent_version())
+        args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
+        else:
+            args = args + ('--agent-version',
+                           self.get_matching_agent_version())
         if bootstrap_series is not None:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
