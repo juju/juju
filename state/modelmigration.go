@@ -294,6 +294,14 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
 	buildTxn := func(int) ([]txn.Op, error) {
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to load model")
+		}
+		if model.Life() != Alive {
+			return nil, errors.New("model is not alive")
+		}
+
 		if isActive, err := IsModelMigrationActive(st, modelUUID); err != nil {
 			return nil, errors.Trace(err)
 		} else if isActive {
@@ -337,7 +345,8 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 			Id:     modelUUID,
 			Assert: txn.DocMissing,
 			Insert: bson.M{"id": doc.Id},
-		}}, nil
+		}, model.assertAliveOp(),
+		}, nil
 	}
 	if err := st.run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")
