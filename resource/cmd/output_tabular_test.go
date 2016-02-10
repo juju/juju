@@ -96,7 +96,7 @@ type SvcTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *SvcTabularSuite) TestFormatOkay(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 	res := resource.Resource{
 
 		Resource: charmresource.Resource{
@@ -116,8 +116,35 @@ func (s *SvcTabularSuite) TestFormatOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
-RESOURCE ORIGIN REV USED COMMENT
-openjdk  store  7   yes  the java runtime
+RESOURCE SUPPLIED BY REVISION COMMENT
+openjdk  charmstore  7        the java runtime
+`[1:])
+}
+
+func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
+	res := resource.Resource{
+
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "openjdk",
+				Comment: "the java runtime",
+			},
+			Origin:   charmresource.OriginStore,
+			Revision: 7,
+		},
+		Timestamp: time.Now(),
+	}
+
+	formatted := []FormattedUnitResource{
+		FormattedUnitResource{FormatSvcResource(res)},
+	}
+
+	data, err := FormatSvcTabular(formatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(string(data), gc.Equals, `
+RESOURCE REVISION COMMENT
+openjdk  7        the java runtime
 `[1:])
 }
 
@@ -176,11 +203,11 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(string(data), gc.Equals, `
-RESOURCE ORIGIN    REV        USED COMMENT
-openjdk  store     7          no   the java runtime
-website  upload    -          no   your website data
-openjdk2 store     8          yes  another java runtime
-website2 Bill User 2012-12-12 yes  your website data
+RESOURCE SUPPLIED BY REVISION         COMMENT
+openjdk  charmstore  7                the java runtime
+website  upload      -                your website data
+openjdk2 charmstore  8                another java runtime
+website2 Bill User   2012-12-12T12:12 your website data
 `[1:])
 }
 

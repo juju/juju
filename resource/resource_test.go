@@ -140,3 +140,68 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `.*missing timestamp.*`)
 }
+
+func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "foo",
+				Type:    charmresource.TypeFile,
+				Path:    "foo.tgz",
+				Comment: "you need it",
+			},
+			Origin: charmresource.OriginUpload,
+		},
+		ServiceID: "svc",
+	}
+
+	err := res.Validate()
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(res.RevisionString(), gc.Equals, "-")
+}
+
+func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "foo",
+				Type:    charmresource.TypeFile,
+				Path:    "foo.tgz",
+				Comment: "you need it",
+			},
+			Origin: charmresource.OriginUpload,
+		},
+		ServiceID: "svc",
+		Username:  "a-user",
+		Timestamp: time.Date(2012, 7, 8, 15, 59, 5, 5, time.UTC),
+	}
+
+	err := res.Validate()
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(res.RevisionString(), gc.Equals, "2012-07-08 15:59:05 +0000 UTC")
+}
+
+func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
+	res := resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:    "foo",
+				Type:    charmresource.TypeFile,
+				Path:    "foo.tgz",
+				Comment: "you need it",
+			},
+			Origin:   charmresource.OriginStore,
+			Revision: 7,
+		},
+		ServiceID: "svc",
+		Username:  "a-user",
+		Timestamp: time.Date(2012, 7, 8, 15, 59, 5, 5, time.UTC),
+	}
+
+	err := res.Validate()
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(res.RevisionString(), gc.Equals, "7")
+}
