@@ -21,20 +21,21 @@ from utility import (
 
 log = logging.getLogger("assess_update_mongo")
 
-# The synlinks are shims while we wait for new packaging.
 DEP_SCRIPT = """\
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get install -y software-properties-common
 sudo apt-add-repository -y ppa:juju/experimental
 sudo apt-get update
-sudo apt-get install -y juju-mongodb2.6 juju-mongodb3.2 juju-mongo-tools3.2
-sudo ln -s /usr/lib/juju/mongodb2.6 /usr/lib/juju/mongo2.6
-sudo ln -s /usr/lib/juju/mongodb3.2 /usr/lib/juju/mongo3
+"""
+
+VERIFY_SCRIPT = """\
+ps ax | grep 'mongo3/bin/mongod --dbpath /var/lib/juju/db' | grep -v grep
 """
 
 
 def assess_update_mongo(client, series, bootstrap_host):
+    return_code = 1
     charm = 'local:{}/ubuntu'.format(series)
     log.info("Setting up test.")
     client.deploy(charm)
@@ -45,11 +46,15 @@ def assess_update_mongo(client, series, bootstrap_host):
     # Ubuntu.
     remote = remote_from_address(bootstrap_host, series=series)
     remote.run(DEP_SCRIPT)
+    # upgrade-mongo returns 0 if all is well. status will work but not
+    # explicitly show that mongo3 is running.
     client.upgrade_mongo()
-    # Wait for upgrade
-    # Verify mongo 3 runs on the server
-    # Check status.
+    client.show_status()
+    mongo_proc = remote.run(VERIFY_SCRIPT)
+    if '--port 37017' in mongo_proc and '--replSet juju' in mongo_proc:
+        return_code = 0
     log.info("Test complete.")
+    return return_code
 
 
 def parse_args(argv):
@@ -61,13 +66,18 @@ def parse_args(argv):
 
 
 def main(argv=None):
+    return_code = 1
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_update_mongo(
+        return_code = assess_update_mongo(
             bs_manager.client, args.series, bs_manager.bootstrap_host)
-    return 0
+    if return_code == 0:
+        log.info('TEST PASS')
+    else:
+        log.info('TEST FAIL')
+    return return_code
 
 
 if __name__ == '__main__':

@@ -9,8 +9,8 @@ from assess_update_mongo import (
     DEP_SCRIPT,
     parse_args,
     main,
+    VERIFY_SCRIPT,
 )
-from test_jujupy import FakePopen
 from tests import (
     parse_error,
     TestCase,
@@ -62,12 +62,24 @@ class TestMain(TestCase):
         mock_assess.assert_called_once_with(client, 'trusty', None)
 
 
+EG_MONGO3_PROC = (
+    "4709 ?        Ssl    0:11 /usr/lib/juju/mongo3/bin/mongod "
+    "--dbpath /var/lib/juju/db --sslOnNormalPorts "
+    "--sslPEMKeyFile /var/lib/juju/server.pem --sslPEMKeyPassword xxxxxxx "
+    "--port 37017 --syslog --journal --replSet juju --ipv6 --quiet "
+    "--oplogSize 512 --auth --keyFile /var/lib/juju/shared-secret "
+    "--noprealloc --smallfiles"
+)
+
+
 class TestAssess(TestCase):
 
     def test_update_mongo(self):
         mock_client = Mock(
-            spec=["juju", "wait_for_started", "deploy", "upgrade_mongo"])
+            spec=["juju", "wait_for_started", "deploy", "upgrade_mongo",
+                  "show_status"])
         mock_remote = Mock(spec=['run'])
+        mock_remote.run.side_effect = ('', EG_MONGO3_PROC)
         with patch('assess_update_mongo.remote_from_address',
                    autospec=True, return_value=mock_remote) as r_mock:
             assess_update_mongo(mock_client, 'trusty', '10.0.0.2')
@@ -75,5 +87,6 @@ class TestAssess(TestCase):
         mock_client.wait_for_started.assert_called_once_with()
         mock_client.upgrade_mongo.assert_called_once_with()
         r_mock.assert_called_once_with('10.0.0.2', series='trusty')
-        mock_remote.run.assert_called_once_with(DEP_SCRIPT)
+        mock_remote.run.assert_any_call(DEP_SCRIPT)
+        mock_remote.run.assert_any_call(VERIFY_SCRIPT)
         self.assertNotIn("TODO", self.log_stream.getvalue())
