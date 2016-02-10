@@ -13,6 +13,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -470,7 +471,7 @@ func (root *Root) testCall(c *gc.C, p testCallParams) {
 	err := p.client.Call(p.request(), stringVal{"arg"}, &r)
 	switch {
 	case p.retErr && p.testErr:
-		c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 			Message: p.errorMessage(),
 		})
 		c.Assert(r, gc.Equals, stringVal{})
@@ -610,7 +611,7 @@ func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 	// CodeNotImplemented.
 	var r stringVal
 	err := client.Call(rpc.Request{"InterfaceMethods", 0, "a99", "Call0r0"}, stringVal{"arg"}, &r)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "no such request - method InterfaceMethods.Call0r0 is not implemented",
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -637,7 +638,7 @@ func (*rpcSuite) TestCustomMethodFinderV0(c *gc.C) {
 	// Call1r1 is exposed in version 1, but not in version 0.
 	var r stringVal
 	err := client.Call(rpc.Request{"MultiVersion", 0, "a99", "Call1r1"}, stringVal{"arg"}, &r)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "no such request - method MultiVersion.Call1r1 is not implemented",
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -664,7 +665,7 @@ func (*rpcSuite) TestCustomMethodFinderV1(c *gc.C) {
 	// Call0r1 is exposed in version 0, but not in version 1.
 	var r stringVal
 	err := client.Call(rpc.Request{"MultiVersion", 1, "a99", "Call0r1"}, nil, &r)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "no such request - method MultiVersion(1).Call0r1 is not implemented",
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -692,7 +693,7 @@ func (*rpcSuite) TestCustomMethodFinderV2(c *gc.C) {
 	// in InterfaceMethods.
 	var r stringVal
 	err := client.Call(rpc.Request{"MultiVersion", 2, "a99", "Call0r1e"}, nil, &r)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `no such request - method MultiVersion(2).Call0r1e is not implemented`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -705,7 +706,7 @@ func (*rpcSuite) TestCustomMethodFinderUnknownVersion(c *gc.C) {
 	var r stringVal
 	// Unknown version 5
 	err := client.Call(rpc.Request{"MultiVersion", 5, "a99", "Call0r1"}, nil, &r)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown version (5) of interface "MultiVersion"`,
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -770,7 +771,7 @@ func (*rpcSuite) TestErrorCode(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `request error: message \(code\)`)
-	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
+	c.Assert(errors.Cause(err).(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
 }
 
 func (*rpcSuite) TestTransformErrors(c *gc.C) {
@@ -791,13 +792,13 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	// First, we don't transform methods we can't find.
 	err := client.Call(rpc.Request{"foo", 0, "", "bar"}, nil, nil)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "foo"`,
 		Code:    rpc.CodeNotImplemented,
 	})
 
 	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "NoMethod"}, nil, nil)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "no such request - method ErrorMethods.NoMethod is not implemented",
 		Code:    rpc.CodeNotImplemented,
 	})
@@ -805,7 +806,7 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	// We do transform any errors that happen from calling the RootMethod
 	// and beyond.
 	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "transformed: message",
 		Code:    "transformed: code",
 	})
@@ -816,7 +817,7 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 
 	root.errorInst = nil
 	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
-	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "transformed: no error methods",
 	})
 
@@ -839,7 +840,7 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 	go func() {
 		var r stringVal
 		err := client.Call(rpc.Request{"DelayedMethods", 0, "1", "Delay"}, nil, &r)
-		c.Check(err, gc.Equals, rpc.ErrShutdown)
+		c.Check(errors.Cause(err), gc.Equals, rpc.ErrShutdown)
 		done <- struct{}{}
 	}()
 	chanRead(c, ready, "DelayedMethods.Delay ready")
@@ -1045,7 +1046,7 @@ func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
 	err := client.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	err = client.Call(rpc.Request{"Foo", 0, "", "Bar"}, nil, nil)
-	c.Assert(err, gc.Equals, rpc.ErrShutdown)
+	c.Assert(errors.Cause(err), gc.Equals, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, jc.ErrorIsNil)
 }
