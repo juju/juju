@@ -35,6 +35,7 @@ ps ax | grep 'mongo3/bin/mongod --dbpath /var/lib/juju/db' | grep -v grep
 
 
 def assess_update_mongo(client, series, bootstrap_host):
+    log.info('series={}, bootstrap_host={}'.format(series, bootstrap_host))
     return_code = 1
     charm = 'local:{}/ubuntu'.format(series)
     log.info("Setting up test.")
@@ -50,9 +51,12 @@ def assess_update_mongo(client, series, bootstrap_host):
     # explicitly show that mongo3 is running.
     client.upgrade_mongo()
     client.show_status()
+    log.info("Checking bootstrap host for mongo3:")
     mongo_proc = remote.run(VERIFY_SCRIPT)
+    log.info(mongo_proc)
     if '--port 37017' in mongo_proc and '--replSet juju' in mongo_proc:
         return_code = 0
+    log.info("Controller upgraded to MongoDB 3.")
     log.info("Test complete.")
     return return_code
 
@@ -72,7 +76,9 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
         return_code = assess_update_mongo(
-            bs_manager.client, args.series, bs_manager.bootstrap_host)
+            bs_manager.client, args.series, bs_manager.known_hosts['0'])
+        log.info("Tearing down test.")
+    log.info("Teardown complete.")
     if return_code == 0:
         log.info('TEST PASS')
     else:

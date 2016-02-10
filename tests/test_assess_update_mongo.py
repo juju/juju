@@ -40,7 +40,7 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose",
-                "--series", "trusty"]
+                "--series", "trusty", "--bootstrap-host", "10.0.0.2"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_update_mongo.configure_logging",
@@ -58,8 +58,7 @@ class TestMain(TestCase):
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
-        # This should verify bs_manager.bootstrap_host was passed, not None.
-        mock_assess.assert_called_once_with(client, 'trusty', None)
+        mock_assess.assert_called_once_with(client, 'trusty', '10.0.0.2')
 
 
 EG_MONGO3_PROC = (
