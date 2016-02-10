@@ -4,8 +4,9 @@
 package rpc
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
@@ -26,11 +27,10 @@ type RequestError struct {
 }
 
 func (e *RequestError) Error() string {
-	m := "request error: " + e.Message
 	if e.Code != "" {
-		m += " (" + e.Code + ")"
+		return e.Message + " (" + e.Code + ")"
 	}
-	return m
+	return e.Message
 }
 
 func (e *RequestError) ErrorCode() string {
@@ -124,11 +124,7 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		}
 		call.done()
 	}
-	if err != nil {
-		logger.Errorf("error handling response: %v", err)
-	}
-
-	return err
+	return errors.Annotate(err, "error handling response")
 }
 
 func (call *Call) done() {
@@ -142,15 +138,25 @@ func (call *Call) done() {
 	}
 }
 
-// Call invokes the named action on the object of the given type with
-// the given id.  The returned values will be stored in response, which
-// should be a pointer.  If the action fails remotely, the returned
-// error will be of type RequestError.  The params value may be nil if
-// no parameters are provided; the response value may be nil to indicate
-// that any result should be discarded.
+// Call invokes the named action on the object of the given type with the given
+// id. The returned values will be stored in response, which should be a pointer.
+// If the action fails remotely, the error will have a cause of type RequestError.
+// The params value may be nil if no parameters are provided; the response value
+// may be nil to indicate that any result should be discarded.
 func (conn *Conn) Call(req Request, params, response interface{}) error {
 	call := <-conn.Go(req, params, response, make(chan *Call, 1)).Done
-	return call.Error
+	switch call.Error.(type) {
+	case *RequestError:
+		// TODO(dfc) many callers assert the error.Error() value has a
+		// "request error: " prefix. Rather than encoding this text in
+		// the .Error() string value itself, use Annotate. This lets callers
+		// unwrap the error if needed to assert it by type or value or
+		// test its expected string value if required. The latter behaviour
+		// should be removed.
+		return errors.Annotate(call.Error, "request error")
+	default:
+		return errors.Trace(call.Error)
+	}
 }
 
 // Go invokes the request asynchronously.  It returns the Call structure representing
