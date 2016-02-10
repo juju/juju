@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
@@ -25,11 +27,12 @@ import (
 )
 
 type resolverSuite struct {
-	stub        testing.Stub
-	charmURL    *charm.URL
-	remoteState remotestate.Snapshot
-	opFactory   operation.Factory
-	resolver    resolver.Resolver
+	stub          testing.Stub
+	charmModified time.Time
+	charmURL      *charm.URL
+	remoteState   remotestate.Snapshot
+	opFactory     operation.Factory
+	resolver      resolver.Resolver
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
@@ -39,9 +42,11 @@ var _ = gc.Suite(&resolverSuite{})
 
 func (s *resolverSuite) SetUpTest(c *gc.C) {
 	s.stub = testing.Stub{}
+	s.charmModified = time.Now().UTC()
 	s.charmURL = charm.MustParseURL("cs:precise/mysql-2")
 	s.remoteState = remotestate.Snapshot{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 	}
 	s.opFactory = operation.NewFactory(operation.FactoryParams{})
 
@@ -75,7 +80,8 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 // local state.
 func (s *resolverSuite) TestStartedNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: false,
@@ -90,7 +96,8 @@ func (s *resolverSuite) TestStartedNotInstalled(c *gc.C) {
 // uninstalled local state is an install hook operation.
 func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: false,
@@ -105,7 +112,8 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -130,7 +138,8 @@ func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
 func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -173,7 +182,8 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 	s.clearResolved = func() error { return nil }
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -198,7 +208,8 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModified: s.charmModified,
+		CharmURL:      s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
