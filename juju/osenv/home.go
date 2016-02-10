@@ -61,11 +61,6 @@ func JujuXDGDataHomePath(names ...string) string {
 func JujuXDGDataHomeDir() string {
 	JujuXDGDataHomeDir := os.Getenv(JujuXDGDataHomeEnvKey)
 	if JujuXDGDataHomeDir == "" {
-		// TODO(wallyworld) - remove this legacy support when CI is updated
-		legacyHomeDir := os.Getenv("JUJU_HOME")
-		if legacyHomeDir != "" {
-			return legacyHomeDir
-		}
 		if runtime.GOOS == "windows" {
 			JujuXDGDataHomeDir = jujuXDGDataHomeWin()
 		} else {

@@ -585,7 +585,7 @@ func (s *JujuConnSuite) ConfDir() string {
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
+		panic("SetUpTest has not been called; will not overwrite $JUJU_DATA/environments.yaml")
 	}
 	path := osenv.JujuXDGDataHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
