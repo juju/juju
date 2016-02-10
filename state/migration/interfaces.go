@@ -96,9 +96,11 @@ type Machine interface {
 	// StatusHistory() []Status
 
 	// TODO:
-	// Status, status history
+	// status history
 	// Storage
-	// Units
+
+	NetworkPorts() []NetworkPorts
+	AddNetworkPorts(NetworkPortsArgs) NetworkPorts
 
 	// THINKING: Validate() error to make sure the machine has
 	// enough stuff set, like tools, and addresses etc.
@@ -113,6 +115,18 @@ type Machine interface {
 	// network interfaces
 	// port docs
 	// machine filesystems
+}
+
+type NetworkPorts interface {
+	NetworkName() string
+	OpenPorts() []PortRange
+}
+
+type PortRange interface {
+	UnitName() string
+	FromPort() int
+	ToPort() int
+	Protocol() string
 }
 
 // CloudInstance holds information particular to a machine
