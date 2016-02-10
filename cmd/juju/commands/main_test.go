@@ -213,8 +213,10 @@ var commandNames = []string{
 	"cached-images",
 	"change-user-password",
 	"charm",
-	"create-environment",
-	"create-model", // alias for create-environment
+	"collect-metrics",
+	"create-backup",
+	"create-budget",
+	"create-model",
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",

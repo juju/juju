@@ -227,7 +227,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags  = []string{"config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade"}
+	charmOnlyFlags  = []string{"config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade", "resource"}
 	bundleOnlyFlags = []string{}
 )
 
@@ -271,7 +271,6 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-
 	return c.UnitCommandBase.Init(args)
 }
 
@@ -405,9 +404,10 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		ctx.Infof("deployment of bundle %q completed", bundlePath)
 		return nil
 	}
-
 	// Handle a charm.
-
+	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
+		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
+	}
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -545,6 +545,15 @@ func (c *DeployCommand) deployCharm(
 			return err
 		}
 	}
+
+	defer func() {
+		for _, step := range c.Steps {
+			err = step.RunPost(state, httpClient, ctx, deployInfo, rErr)
+			if err != nil {
+				rErr = err
+			}
+		}
+	}()
 
 	ids, err := c.handleResources(serviceName, charmInfo.Meta.Resources)
 	if err != nil {
