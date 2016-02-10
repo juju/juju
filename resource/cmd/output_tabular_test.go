@@ -215,5 +215,5 @@ func (s *SvcTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
 	_, err := FormatSvcTabular(bogus)
 
-	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
+	c.Check(err, gc.ErrorMatches, `unexpected type for data:.*`)
 }

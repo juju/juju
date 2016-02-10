@@ -6,6 +6,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/juju/errors"
@@ -48,8 +49,10 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 		return formatServiceTabular(resources), nil
 	case []FormattedUnitResource:
 		return formatUnitTabular(resources), nil
+	case []FormattedDebugUnitResource:
+		return formatDebugUnitTabular(resources), nil
 	default:
-		return nil, errors.Errorf("expected value of type []FormattedSvcResource or []FormattedUnitResource, got %T", resources)
+		return nil, errors.Errorf("unexpected type for data: %T", resources)
 	}
 }
 
@@ -100,4 +103,39 @@ func formatUnitTabular(resources []FormattedUnitResource) []byte {
 	tw.Flush()
 
 	return out.Bytes()
+}
+
+func formatDebugUnitTabular(resources []FormattedDebugUnitResource) []byte {
+	// TODO(ericsnow) sort the rows first?
+	sort.Sort(byUnitID(resources))
+
+	var out bytes.Buffer
+	// To format things into columns.
+	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+
+	// Write the header.
+	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")
+
+	for _, r := range resources {
+		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
+			r.unitNumber,
+			r.Unit.Name,
+			r.Unit.combinedRevision,
+			r.Expected.combinedRevision,
+		)
+	}
+	tw.Flush()
+	return out.Bytes()
+}
+
+type byUnitID []FormattedDebugUnitResource
+
+func (b byUnitID) Len() int      { return len(b) }
+func (b byUnitID) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+
+func (b byUnitID) Less(i, j int) bool {
+	if b[i].unitNumber != b[j].unitNumber {
+		return b[i].unitNumber < b[j].unitNumber
+	}
+	return b[i].Unit.Name < b[j].Unit.Name
 }

@@ -33,6 +33,7 @@ type ShowServiceDeps struct {
 type ShowServiceCommand struct {
 	modelcmd.ModelCommandBase
 
+	Debug  bool
 	deps   ShowServiceDeps
 	out    cmd.Output
 	target string
@@ -65,6 +66,8 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":      cmd.FormatYaml,
 		"json":      cmd.FormatJson,
 	})
+
+	f.BoolVar(&c.Debug, "details", false, "show detailed information about resources used by each unit.")
 }
 
 // Init implements cmd.Command.Init. It will return an error satisfying
@@ -108,28 +111,60 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("bad data returned from server")
 	}
 	v := vals[0]
-
 	if unit == "" {
-		return c.formatServiceResources(ctx, v.Resources)
+		return c.formatServiceResources(ctx, v)
 	}
-	resources, err := unitResources(unit, service, v)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return c.formatUnitResources(ctx, resources)
+	return c.formatUnitResources(ctx, unit, service, v)
 }
 
-func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, resources []resource.Resource) error {
-	res := make([]FormattedSvcResource, len(resources))
+func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
+	if c.Debug {
+		var formatted []FormattedDebugUnitResource
+		expected := resourceMap(sr.Resources)
+		for _, ur := range sr.UnitResources {
+			for _, res := range ur.Resources {
+				f, err := FormatDebugUnitResource(ur.Tag, expected[res.Name], res)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				formatted = append(formatted, f)
+			}
+		}
+		return c.out.Write(ctx, formatted)
+	}
 
-	for i, r := range resources {
+	res := make([]FormattedSvcResource, len(sr.Resources))
+
+	for i, r := range sr.Resources {
 		res[i] = FormatSvcResource(r)
 	}
 
 	return c.out.Write(ctx, res)
 }
 
-func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, resources []resource.Resource) error {
+func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
+	if c.Debug {
+		var formatted []FormattedDebugUnitResource
+		expected := resourceMap(sr.Resources)
+		for _, ur := range sr.UnitResources {
+			if unit == ur.Tag.Id() {
+				for _, res := range ur.Resources {
+					f, err := FormatDebugUnitResource(ur.Tag, expected[res.Name], res)
+					if err != nil {
+						return errors.Trace(err)
+					}
+					formatted = append(formatted, f)
+				}
+				break
+			}
+		}
+		return c.out.Write(ctx, formatted)
+	}
+
+	resources, err := unitResources(unit, service, sr)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	res := make([]FormattedUnitResource, len(resources))
 
 	for i, r := range resources {
@@ -150,4 +185,12 @@ func unitResources(unit, service string, v resource.ServiceResources) ([]resourc
 	// resources and a unit that doesn't exist. This requires a serverside
 	// change.
 	return nil, nil
+}
+
+func resourceMap(resources []resource.Resource) map[string]resource.Resource {
+	m := make(map[string]resource.Resource, len(resources))
+	for _, res := range resources {
+		m[res.Name] = res
+	}
+	return m
 }

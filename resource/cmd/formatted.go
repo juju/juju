@@ -46,3 +46,10 @@ type FormattedSvcResource struct {
 type FormattedUnitResource struct {
 	FormattedSvcResource
 }
+
+type FormattedDebugUnitResource struct {
+	UnitID     string               `json:"unitID" yaml:"unitID"`
+	Unit       FormattedSvcResource `json:"unit" yaml:"unit"`
+	Expected   FormattedSvcResource `json:"expected" yaml:"expected"`
+	unitNumber int
+}
