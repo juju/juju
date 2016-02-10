@@ -117,7 +117,7 @@ func (suite *providerSuite) addNode(jsonText string) instance.Id {
 func (suite *providerSuite) getInstance(systemId string) *maasInstance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{&node}
+	return &maasInstance{&node, nil}
 }
 
 func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {

@@ -16,6 +16,7 @@ import (
 
 type maasInstance struct {
 	maasObject *gomaasapi.MAASObject
+	environ    *maasEnviron
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
