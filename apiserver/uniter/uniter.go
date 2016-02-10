@@ -1286,6 +1286,66 @@ func (u *UniterAPIV3) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 	return result, nil
 }
 
+func (u *UniterAPIV3) HookRetryStrategy(args params.Entities) (params.BoolResults, error) {
+	results := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.BoolResults{}, errors.Trace(err)
+	}
+	config, configErr := u.st.ModelConfig()
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			if configErr == nil {
+				results.Results[i].Result = config.AutomaticallyRetryHooks()
+				err = nil
+			} else {
+				err = configErr
+			}
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (u *UniterAPIV3) WatchHookRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			watch := u.st.WatchForModelConfigChanges()
+			// Consume the initial event. Technically, API calls to Watch
+			// 'transmit' the initial event in the Watch response. But
+			// NotifyWatchers have no state to transmit.
+			if _, ok := <-watch.Changes(); ok {
+				results.Results[i].NotifyWatcherId = u.resources.Register(watch)
+				err = nil
+			} else {
+				err = watcher.EnsureErr(watch)
+			}
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
 func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }

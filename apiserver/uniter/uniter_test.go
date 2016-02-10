@@ -2202,6 +2202,73 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) setHookRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
+	err := s.State.UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(envConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
+}
+
+func (s *uniterSuite) testHookRetryStrategy(c *gc.C, expected bool) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.HookRetryStrategy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: expected},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestHookRetryStrategyDefault(c *gc.C) {
+	s.testHookRetryStrategy(c, true)
+}
+
+func (s *uniterSuite) TestHookRetryStrategySetFalse(c *gc.C) {
+	s.setHookRetryStrategy(c, false)
+	s.testHookRetryStrategy(c, false)
+}
+
+func (s *uniterSuite) TestWatchHookRetryStrategy(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.WatchHookRetryStrategy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	s.setHookRetryStrategy(c, false)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuite
 	*commontesting.ModelWatcherTest
