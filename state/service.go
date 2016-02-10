@@ -39,6 +39,7 @@ type serviceDoc struct {
 	Series            string     `bson:"series"`
 	Subordinate       bool       `bson:"subordinate"`
 	CharmURL          *charm.URL `bson:"charmurl"`
+	CharmModified     time.Time  `bson:"charmmodified"`
 	ForceCharm        bool       `bson:"forcecharm"`
 	Life              Life       `bson:"life"`
 	UnitCount         int        `bson:"unitcount"`
@@ -286,6 +287,13 @@ func (s *Service) IsPrincipal() bool {
 	return !s.doc.Subordinate
 }
 
+// CharmModified returns the most recent modification timestamp
+// for the service's charm. A zero value indicates that the charm
+// has never been modified.
+func (s *Service) CharmModified() time.Time {
+	return s.doc.CharmModified
+}
+
 // CharmURL returns the service's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {
@@ -521,7 +529,11 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 			C:      servicesC,
 			Id:     s.doc.DocID,
 			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
+			Update: bson.D{{"$set", bson.D{
+				{"charmurl", ch.URL()},
+				{"forcecharm", forceUnits},
+				{"charmmodifed", time.Now().UTC()},
+			}}},
 		},
 	}...)
 	// Add any extra peer relations that need creation.
