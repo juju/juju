@@ -22,6 +22,7 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 	// TODO(ericsnow) sort the rows first?
 
 	var out bytes.Buffer
+
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
@@ -60,6 +61,9 @@ func formatServiceTabular(resources []FormattedSvcResource) []byte {
 	// TODO(ericsnow) sort the rows first?
 
 	var out bytes.Buffer
+
+	fmt.Fprintln(&out, "[Service]")
+
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
@@ -85,6 +89,9 @@ func formatUnitTabular(resources []FormattedUnitResource) []byte {
 	// TODO(ericsnow) sort the rows first?
 
 	var out bytes.Buffer
+
+	fmt.Fprintln(&out, "[Unit]")
+
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
@@ -112,6 +119,9 @@ func formatDetailTabular(resources []FormattedDetailResource) []byte {
 	sort.Sort(byUnitID(resources))
 
 	var out bytes.Buffer
+
+	fmt.Fprintln(&out, "[Units]")
+
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 

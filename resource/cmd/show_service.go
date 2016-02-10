@@ -162,15 +162,17 @@ func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDe
 	var formatted []FormattedDetailResource
 	for _, ur := range sr.UnitResources {
 		if unit == "" || unit == ur.Tag.Id() {
-			unit := resourceMap(ur.Resources)
+			units := resourceMap(ur.Resources)
 			for _, svc := range sr.Resources {
-				f, err := FormatDetailResource(ur.Tag, svc, unit[svc.Name])
+				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name])
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
 				formatted = append(formatted, f)
 			}
-			break
+			if unit != "" {
+				break
+			}
 		}
 	}
 	return formatted, nil

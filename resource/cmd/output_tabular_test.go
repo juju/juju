@@ -116,6 +116,7 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
+[Service]
 RESOURCE SUPPLIED BY REVISION
 openjdk  charmstore  7
 `[1:])
@@ -143,6 +144,7 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
+[Unit]
 RESOURCE REVISION
 openjdk  7
 `[1:])
@@ -203,6 +205,7 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(string(data), gc.Equals, `
+[Service]
 RESOURCE SUPPLIED BY REVISION
 openjdk  charmstore  7
 website  upload      -
