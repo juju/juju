@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -82,6 +83,12 @@ func (s *Service) Refresh() error {
 	}
 	s.life = life
 	return nil
+}
+
+// CharmModified indicates the last time the charm, or any part of it,
+// changed in some way.
+func (s *Service) CharmModified() (time.Time, error) {
+	return time.Time{}, errors.NotImplementedf("")
 }
 
 // CharmURL returns the service's charm URL, and whether units should

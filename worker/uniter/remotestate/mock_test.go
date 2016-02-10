@@ -5,6 +5,7 @@ package remotestate_test
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -237,10 +238,15 @@ type mockService struct {
 	tag                   names.ServiceTag
 	life                  params.Life
 	curl                  *charm.URL
+	charmModified         time.Time
 	forceUpgrade          bool
 	serviceWatcher        *mockNotifyWatcher
 	leaderSettingsWatcher *mockNotifyWatcher
 	relationsWatcher      *mockStringsWatcher
+}
+
+func (s *mockService) CharmModified() (time.Time, error) {
+	return s.charmModified, nil
 }
 
 func (s *mockService) CharmURL() (*charm.URL, bool, error) {
