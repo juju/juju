@@ -120,10 +120,11 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
 	if c.Debug {
 		var formatted []FormattedDebugUnitResource
-		expected := resourceMap(sr.Resources)
 		for _, ur := range sr.UnitResources {
-			for _, res := range ur.Resources {
-				f, err := FormatDebugUnitResource(ur.Tag, expected[res.Name], res)
+			unit := resourceMap(ur.Resources)
+			for _, svc := range sr.Resources {
+				u := unit[svc.Name]
+				f, err := FormatDebugUnitResource(ur.Tag, svc, u)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -145,11 +146,11 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
 	if c.Debug {
 		var formatted []FormattedDebugUnitResource
-		expected := resourceMap(sr.Resources)
 		for _, ur := range sr.UnitResources {
 			if unit == ur.Tag.Id() {
-				for _, res := range ur.Resources {
-					f, err := FormatDebugUnitResource(ur.Tag, expected[res.Name], res)
+				unit := resourceMap(ur.Resources)
+				for _, svc := range sr.Resources {
+					f, err := FormatDebugUnitResource(ur.Tag, svc, unit[svc.Name])
 					if err != nil {
 						return errors.Trace(err)
 					}

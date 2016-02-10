@@ -119,7 +119,7 @@ func formatDebugUnitTabular(resources []FormattedDebugUnitResource) []byte {
 	for _, r := range resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
 			r.unitNumber,
-			r.Unit.Name,
+			r.Expected.Name,
 			r.Unit.combinedRevision,
 			r.Expected.combinedRevision,
 		)
@@ -137,5 +137,5 @@ func (b byUnitID) Less(i, j int) bool {
 	if b[i].unitNumber != b[j].unitNumber {
 		return b[i].unitNumber < b[j].unitNumber
 	}
-	return b[i].Unit.Name < b[j].Unit.Name
+	return b[i].Expected.Name < b[j].Expected.Name
 }
