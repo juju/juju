@@ -239,7 +239,7 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {
-		logger.Errorf("placeholder resource %q treated as not found", name)
+		logger.Tracef("placeholder resource %q treated as not found", name)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
