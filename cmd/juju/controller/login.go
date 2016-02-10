@@ -247,10 +247,7 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails modelcmd.ServerFile, ap
 		return nil, errors.Trace(err)
 	}
 
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to access juju client cache")
-	}
+	controllerStore := jujuclient.NewFileClientStore()
 	err = controllerStore.UpdateController(c.Name, jujuclient.ControllerDetails{
 		addrs,
 		controllerTag.Id(),

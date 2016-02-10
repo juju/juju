@@ -305,8 +305,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	// Check controllers.yaml has controller
 	endpoint := info.APIEndpoint()
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerStore := jujuclient.NewFileClientStore()
 	controller, err := controllerStore.ControllerByName("peckham-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.CACert, gc.Equals, endpoint.CACert)

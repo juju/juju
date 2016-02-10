@@ -201,7 +201,7 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage, con
 
 func (s *NewAPIClientSuite) TestNewAPIClientFromName(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	controllerStore := defaultControllerStore(c)
+	controllerStore := jujuclient.NewFileClientStore()
 	s.bootstrapEnv(c, defaultConfigStore(c), controllerStore)
 	apiclient, err := juju.NewAPIClientFromName("my-controller", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -678,12 +678,6 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	return store
-}
-
-func defaultControllerStore(c *gc.C) jujuclient.ControllerStore {
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	c.Assert(err, jc.ErrorIsNil)
-	return controllerStore
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {

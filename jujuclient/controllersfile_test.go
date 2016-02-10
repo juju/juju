@@ -14,31 +14,49 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type FileSuite struct {
+type ControllersFileSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&FileSuite{})
+var _ = gc.Suite(&ControllersFileSuite{})
 
-func (s *FileSuite) TestWriteFile(c *gc.C) {
+const testControllersYAML = `
+controllers:
+  local.aws-test:
+    servers: [instance-1-2-4.useast.aws.com]
+    uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    ca-cert: this-is-aws-test-ca-cert
+  local.mallards:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+  local.mark-test-prodstack:
+    servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
+    uuid: this-is-a-uuid
+    api-endpoints: [this-is-one-of-many-api-endpoints]
+    ca-cert: this-is-a-ca-cert
+`
+
+func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
 	writeTestControllersFile(c)
 	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("controllers.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, testControllersYAML[1:])
 }
 
-func (s *FileSuite) TestReadNoFile(c *gc.C) {
+func (s *ControllersFileSuite) TestReadNoFile(c *gc.C) {
 	controllers, err := jujuclient.ReadControllersFile("nohere.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers, gc.IsNil)
 }
 
-func (s *FileSuite) TestReadEmptyFile(c *gc.C) {
+func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("controllers.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerStore := jujuclient.NewFileClientStore()
 	controllers, err := controllerStore.AllControllers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers, gc.IsNil)
@@ -61,7 +79,7 @@ func writeTestControllersFile(c *gc.C) map[string]jujuclient.ControllerDetails {
 	return controllers
 }
 
-func (s *FileSuite) TestParseControllerMetadata(c *gc.C) {
+func (s *ControllersFileSuite) TestParseControllerMetadata(c *gc.C) {
 	controllers := parseControllers(c)
 	var names []string
 	for name, _ := range controllers {
@@ -71,7 +89,7 @@ func (s *FileSuite) TestParseControllerMetadata(c *gc.C) {
 		[]string{"local.mark-test-prodstack", "local.mallards", "local.aws-test"})
 }
 
-func (s *FileSuite) TestParseControllerMetadataError(c *gc.C) {
+func (s *ControllersFileSuite) TestParseControllerMetadataError(c *gc.C) {
 	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
 	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.controllersCollection")
 	c.Assert(controllers, gc.IsNil)
