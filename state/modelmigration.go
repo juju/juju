@@ -52,11 +52,11 @@ type modelMigDoc struct {
 	// server's TLS certificate.
 	TargetCACert string `bson:"target-cacert"`
 
-	// TargetEntityTag holds a string representation of the tag to
+	// TargetAuthTag holds a string representation of the tag to
 	// authenticate to the target controller with.
-	TargetEntityTag string `bson:"target-entity"`
+	TargetAuthTag string `bson:"target-entity"`
 
-	// TargetPassword holds the password to use with TargetEntityTag
+	// TargetPassword holds the password to use with TargetAuthTag
 	// when authenticating.
 	TargetPassword string `bson:"target-password"`
 }
@@ -155,7 +155,7 @@ func (mig *ModelMigration) InitiatedBy() string {
 // TargetInfo returns the details required to connect to the
 // migration's target controller.
 func (mig *ModelMigration) TargetInfo() (*migration.TargetInfo, error) {
-	entityTag, err := names.ParseTag(mig.doc.TargetEntityTag)
+	authTag, err := names.ParseUserTag(mig.doc.TargetAuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -163,7 +163,7 @@ func (mig *ModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		ControllerTag: names.NewModelTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
-		EntityTag:     entityTag,
+		AuthTag:       authTag,
 		Password:      mig.doc.TargetPassword,
 	}, nil
 }
@@ -265,14 +265,14 @@ func (mig *ModelMigration) Refresh() error {
 // ModelMigrationSpec holds the information required to create an
 // ModelMigration instance.
 type ModelMigrationSpec struct {
-	InitiatedBy string
+	InitiatedBy names.UserTag
 	TargetInfo  migration.TargetInfo
 }
 
 // Validate returns an error if the ModelMigrationSpec contains bad
 // data. Nil is returned otherwise.
 func (spec *ModelMigrationSpec) Validate() error {
-	if !names.IsValidUser(spec.InitiatedBy) {
+	if !names.IsValidUser(spec.InitiatedBy.Id()) {
 		return errors.NotValidf("InitiatedBy")
 	}
 	return spec.TargetInfo.Validate()
@@ -309,11 +309,11 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 		doc = modelMigDoc{
 			Id:               id,
 			ModelUUID:        modelUUID,
-			InitiatedBy:      spec.InitiatedBy,
+			InitiatedBy:      spec.InitiatedBy.Id(),
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
 			TargetAddrs:      spec.TargetInfo.Addrs,
 			TargetCACert:     spec.TargetInfo.CACert,
-			TargetEntityTag:  spec.TargetInfo.EntityTag.String(),
+			TargetAuthTag:    spec.TargetInfo.AuthTag.String(),
 			TargetPassword:   spec.TargetInfo.Password,
 		}
 		statusDoc = modelMigStatusDoc{

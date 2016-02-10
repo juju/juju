@@ -28,11 +28,11 @@ type TargetInfo struct {
 	// the target API server's certificate, in PEM format.
 	CACert string
 
-	// EntityTag holds the entity to authenticate with to the target
+	// AuthTag holds the user tag to authenticate with to the target
 	// controller.
-	EntityTag names.Tag
+	AuthTag names.UserTag
 
-	// Password holds the password to use with TargetEntityTag.
+	// Password holds the password to use with AuthTag.
 	Password string
 }
 
@@ -57,8 +57,8 @@ func (info *TargetInfo) Validate() error {
 		return errors.NotValidf("empty CACert")
 	}
 
-	if info.EntityTag.Id() == "" {
-		return errors.NotValidf("empty EntityTag")
+	if info.AuthTag.Id() == "" {
+		return errors.NotValidf("empty AuthTag")
 	}
 
 	if info.Password == "" {
