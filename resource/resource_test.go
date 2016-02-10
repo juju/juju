@@ -152,6 +152,7 @@ func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
 			},
 			Origin: charmresource.OriginUpload,
 		},
+		ServiceID: "svc",
 	}
 
 	err := res.Validate()
@@ -171,6 +172,7 @@ func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
 			},
 			Origin: charmresource.OriginUpload,
 		},
+		ServiceID: "svc",
 		Username:  "a-user",
 		Timestamp: time.Date(2012, 7, 8, 15, 59, 5, 5, time.UTC),
 	}
@@ -193,6 +195,7 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 			Origin:   charmresource.OriginStore,
 			Revision: 7,
 		},
+		ServiceID: "svc",
 		Username:  "a-user",
 		Timestamp: time.Date(2012, 7, 8, 15, 59, 5, 5, time.UTC),
 	}
