@@ -166,6 +166,18 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
+// TimestampResults holds multiple results with a timestamp in each.
+type TimestampResults struct {
+	Results []TimestampResult
+}
+
+// TimestampResult holds the result of an API call that returns a
+// timestamp or an error.
+type TimestampResult struct {
+	Error     *Error
+	Timestamp time.Time
+}
+
 // Settings holds relation settings names and values.
 type Settings map[string]string
 

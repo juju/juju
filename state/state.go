@@ -1270,12 +1270,13 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
-		DocID:         serviceID,
-		Name:          args.Name,
+		DocID:       serviceID,
+		Name:        args.Name,
 		ModelUUID:     env.UUID(),
-		Series:        args.Series,
-		Subordinate:   args.Charm.Meta().Subordinate,
-		CharmURL:      args.Charm.URL(),
+		Series:      args.Series,
+		Subordinate: args.Charm.Meta().Subordinate,
+		CharmURL:    args.Charm.URL(),
+		// We leave CharmModified unset, indicating "never".
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      args.Owner,

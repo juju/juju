@@ -88,7 +88,24 @@ func (s *Service) Refresh() error {
 // CharmModified indicates the last time the charm, or any part of it,
 // changed in some way.
 func (s *Service) CharmModified() (time.Time, error) {
-	return time.Time{}, errors.NotImplementedf("")
+	var results params.TimestampResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag.String()}},
+	}
+	err := s.st.facade.FacadeCall("CharmModified", args, &results)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if len(results.Results) != 1 {
+		return time.Time{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	if results.Results[0].Error != nil {
+		return time.Time{}, result.Error
+	}
+
+	timestamp := results.Results[0].Timestamp
+	return timestamp, nil
 }
 
 // CharmURL returns the service's charm URL, and whether units should

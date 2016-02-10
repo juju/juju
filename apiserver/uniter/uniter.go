@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -554,6 +555,55 @@ func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults,
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// CharmModified returns the most recent charm modification timestamp
+// for all given units or services.
+func (u *uniterBaseAPI) CharmModified(args params.Entities) (params.TimestampResults, error) {
+	results := params.TimestampResults{
+		Results: make([]params.TimestampResult, len(args.Entities)),
+	}
+
+	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	canAccess, err := accessUnitOrService()
+	if err != nil {
+		return results, err
+	}
+	for i, entity := range args.Entities {
+		timestamp, err := u.charmModified(entity.Tag, canAccess)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Timestamp = timestamp
+	}
+	return results, nil
+}
+
+func (u *uniterBaseAPI) charmModified(tagStr string, canAccess func(names.Tag) bool) (time.Time, error) {
+	tag, err := names.ParseTag(tagStr)
+	if err != nil {
+		return common.ErrPerm
+	}
+	if canAccess(tag) {
+		return time.Time{}, common.ErrPerm
+	}
+	unitOrService, err := u.st.FindEntity(tag)
+	if err != nil {
+		return time.Time{}, err
+	}
+	var service *state.Service
+	switch entity := unitOrService.(type) {
+	case *state.Service:
+		service = entity
+	case *state.Unit:
+		service, err = entity.Service()
+		if err != nil {
+			return time.Time{}, err
+		}
+	}
+	timestamp := service.CharmModified()
+	return timestamp, nil
 }
 
 // CharmURL returns the charm URL for all given units or services.
