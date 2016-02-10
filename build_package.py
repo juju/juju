@@ -18,6 +18,7 @@ DEBS_NOT_FOUND = 3
 
 # This constant defines the location of the base source package branch.
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
+DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju-core2-default'
 
 
 # This constant defines the status of the series supported by CI and Releases.
@@ -500,8 +501,7 @@ def get_args(argv=None):
         '--gpgcmd', default=None,
         help="Path to a gpg signing command to make signed packages.")
     src_parser.add_argument(
-        '--branch', default=DEFAULT_SPB,
-        help="The base/previous source package branch.")
+        '--branch', help="The base/previous source package branch.")
     src_parser.add_argument(
         '--upatch', default='1', help="The Ubuntu patch number.")
     src_parser.add_argument('tar_file', help="The release tar file.")
@@ -524,6 +524,13 @@ def get_args(argv=None):
     args = parser.parse_args(argv[1:])
     if getattr(args, 'series', None) and args.series == 'LIVING':
         args.series = juju_series.get_living_names()
+    if args.command == 'source' and args.branch is None:
+        tarfile_name = os.path.basename(args.tar_file)
+        version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
+        if version.startswith('2.'):
+            args.branch = DEFAULT_SPB2
+        else:
+            args.branch = DEFAULT_SPB
     return args
 
 

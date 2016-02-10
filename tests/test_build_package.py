@@ -22,6 +22,7 @@ from build_package import (
     CREATE_SPB_TEMPLATE,
     DEBS_NOT_FOUND,
     DEFAULT_SPB,
+    DEFAULT_SPB2,
     get_args,
     juju_series,
     main,
@@ -168,10 +169,10 @@ class BuildPackageTestCase(unittest.TestCase):
         shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
         with patch.dict('os.environ', shell_env):
             args = get_args(
-                ['prog', 'source', 'my.tar.gz', '~/workspace', 'trusty',
+                ['prog', 'source', 'my_1.25.0.tar.gz', '~/workspace', 'trusty',
                  '123', '456'])
         self.assertEqual('source', args.command)
-        self.assertEqual('my.tar.gz', args.tar_file)
+        self.assertEqual('my_1.25.0.tar.gz', args.tar_file)
         self.assertEqual('~/workspace', args.location)
         self.assertEqual('trusty', args.series)
         self.assertEqual(['123', '456'], args.bugs)
@@ -181,6 +182,26 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(DEFAULT_SPB, args.branch)
         self.assertEqual('1', args.upatch)
         self.assertFalse(args.verbose)
+
+    def test_get_args_source_default_spb2_branch(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args = get_args(
+                ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace', 'trusty',
+                 '123', '456'])
+        self.assertEqual('source', args.command)
+        self.assertEqual('my_2.0-a.tar.gz', args.tar_file)
+        self.assertEqual(DEFAULT_SPB2, args.branch)
+
+    def test_get_args_source_with_branch(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args = get_args(
+                ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace', 'trusty',
+                 '123', '456', '--branch', '~/my-branch'])
+        self.assertEqual('source', args.command)
+        self.assertEqual('my_2.0-a.tar.gz', args.tar_file)
+        self.assertEqual('~/my-branch', args.branch)
 
     def test_get_args_source_with_living(self):
         with patch('build_package.juju_series.get_living_names', autospec=True,
