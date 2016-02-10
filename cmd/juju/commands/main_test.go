@@ -288,6 +288,8 @@ var commandNames = []string{
 	"show-action-status",
 	"show-budget",
 	"show-cloud",
+	"show-controller",
+	"show-controllers",
 	"show-machine",
 	"show-machines",
 	"show-status",
