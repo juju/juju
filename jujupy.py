@@ -250,6 +250,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient
         elif re.match('^2\.0-alpha1', version):
             client_class = EnvJujuClient2A1
+        elif re.match('^2\.0-alpha2', version):
+            client_class = EnvJujuClient2A2
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
@@ -323,7 +325,7 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
-        env['JUJU_HOME'] = self.env.juju_home
+        env['JUJU_DATA'] = self.env.juju_home
         return env
 
     def add_ssh_machines(self, machines):
@@ -346,10 +348,12 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        args = ('--constraints', constraints,
-                '--agent-version', self.get_matching_agent_version())
+        args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
+        else:
+            args = args + ('--agent-version',
+                           self.get_matching_agent_version())
         if bootstrap_series is not None:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
@@ -648,6 +652,10 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
                               timeout=timeout, start=start)
 
+    @staticmethod
+    def get_controller_member_status(info_dict):
+        return info_dict.get('controller-member-status')
+
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
@@ -656,7 +664,7 @@ class EnvJujuClient:
                 status = self.get_status()
                 states = {}
                 for machine, info in status.iter_machines():
-                    status = info.get('state-server-member-status')
+                    status = self.get_controller_member_status(info)
                     if status is None:
                         continue
                     states.setdefault(status, []).append(machine)
@@ -867,6 +875,23 @@ class EnvJujuClient:
         self.juju('add-subnet', (subnet, space))
 
 
+class EnvJujuClient2A2(EnvJujuClient):
+    """Drives Juju 2.0-alpha2 clients."""
+
+    def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        env['JUJU_HOME'] = self.env.juju_home
+        env['JUJU_DATA'] = self.env.juju_home
+        return env
+
+
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
 
@@ -896,6 +921,18 @@ class EnvJujuClient2A1(EnvJujuClient):
         # -e flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+    def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        env['JUJU_HOME'] = self.env.juju_home
+        return env
 
     def remove_service(self, service):
         self.juju('destroy-service', (service,))
@@ -933,6 +970,10 @@ class EnvJujuClient2A1(EnvJujuClient):
 
     def enable_ha(self):
         self.juju('ensure-availability', ('-n', '3'))
+
+    @staticmethod
+    def get_controller_member_status(info_dict):
+        return info_dict.get('state-server-member-status')
 
     def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.
@@ -1276,6 +1317,7 @@ def _temp_env(new_config, parent=None, set_home=True):
         with context:
             if set_home:
                 os.environ['JUJU_HOME'] = temp_juju_home
+                os.environ['JUJU_DATA'] = temp_juju_home
             yield temp_juju_home
 
 
