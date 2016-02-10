@@ -135,7 +135,7 @@ def move_create_parent(source, target):
 
 def make_windows_agent(dest_debs, agent_stream, release):
     source = os.path.join(
-        dest_debs, 'juju-{}-win8-amd64.tgz'.format(release))
+        dest_debs, 'juju-{}-win2012-amd64.tgz'.format(release))
     target = os.path.join(
         dest_debs, 'juju-{}-windows-amd64.tgz'.format(release))
     shutil.copy2(source, target)
