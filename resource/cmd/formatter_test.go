@@ -142,10 +142,10 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	svc := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "website",
-				Comment: "your website data",
-				Type:    charmresource.TypeFile,
-				Path:    "foobar",
+				Name:        "website",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
 			},
 			Revision:    5,
 			Origin:      charmresource.OriginStore,
@@ -164,10 +164,10 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	unit := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "website",
-				Comment: "your website data",
-				Type:    charmresource.TypeFile,
-				Path:    "foobar",
+				Name:        "website",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
 			},
 			Revision:    7,
 			Origin:      charmresource.OriginStore,
@@ -200,10 +200,10 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	svc := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:    "website",
-				Comment: "your website data",
-				Type:    charmresource.TypeFile,
-				Path:    "foobar",
+				Name:        "website",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
 			},
 			Revision:    5,
 			Origin:      charmresource.OriginStore,

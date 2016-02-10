@@ -198,8 +198,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "alpha",
-						Comment: "a big comment",
+						Name:        "alpha",
+						Description: "a big comment",
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
@@ -209,8 +209,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "charlie",
-						Comment: "awesome data",
+						Name:        "charlie",
+						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
 				},
@@ -220,8 +220,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 			{
 				Resource: charmresource.Resource{
 					Meta: charmresource.Meta{
-						Name:    "beta",
-						Comment: "more data",
+						Name:        "beta",
+						Description: "more data",
 					},
 					Origin: charmresource.OriginUpload,
 				},
@@ -236,8 +236,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
-								Name:    "alpha",
-								Comment: "a big comment",
+								Name:        "alpha",
+								Description: "a big comment",
 							},
 							Origin:   charmresource.OriginStore,
 							Revision: 10, // note the reivision is different for this unit
@@ -247,8 +247,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
-								Name:    "charlie",
-								Comment: "awesome data",
+								Name:        "charlie",
+								Description: "awesome data",
 							},
 							Origin: charmresource.OriginUpload,
 						},
@@ -265,8 +265,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
-								Name:    "alpha",
-								Comment: "a big comment",
+								Name:        "alpha",
+								Description: "a big comment",
 							},
 							Origin:   charmresource.OriginStore,
 							Revision: 10, // note the reivision is different for this unit
@@ -276,8 +276,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
-								Name:    "charlie",
-								Comment: "awesome data",
+								Name:        "charlie",
+								Description: "awesome data",
 							},
 							Origin: charmresource.OriginUpload,
 						},
@@ -288,8 +288,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					{
 						Resource: charmresource.Resource{
 							Meta: charmresource.Meta{
-								Name:    "beta",
-								Comment: "more data",
+								Name:        "beta",
+								Description: "more data",
 							},
 							Origin: charmresource.OriginUpload,
 						},
