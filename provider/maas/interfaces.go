@@ -174,10 +174,20 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, spacesMap map
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddress(link.IPAddress)
-			spaceId, _ := spacesMap[string(sub.Space)]
-			nicInfo.Address.SpaceProviderId = spaceId.ProviderId
+			spaceId, ok := spacesMap[string(sub.Space)]
+			if !ok {
+				// The space we found is not recognised, no
+				// provider id available.
+				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
+			} else {
 
-			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
+				nicInfo.Address.SpaceProviderId = spaceId.ProviderId
+			}
+
+			gwAddr := network.NewAddress(sub.GatewayIP)
+			if ok {
+				gwAddr.SpaceProviderId = spaceId.ProviderId
+			}
 			nicInfo.GatewayAddress = gwAddr
 
 			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
