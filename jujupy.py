@@ -197,6 +197,14 @@ class EnvJujuClient:
         "East Asia", "Brazil South", "Australia Southeast", "South India",
         "Central US", "East US",
         ])
+    _rackspace_regions = {
+        'DFW': 'Dallas-Fort Worth',
+        'ORD': 'Chicago',
+        'IAD': 'Northern Virginia',
+        'LON': 'London',
+        'SYD': 'Sydney',
+        'HKG': 'Hong Kong',
+    }
 
     @classmethod
     def get_version(cls, juju_path=None):
@@ -367,16 +375,20 @@ class EnvJujuClient:
         }.get(substrate, substrate)
         if substrate == 'azure':
             region = self._azure_regions[self.env.config['location']]
+        elif substrate == 'rackspace':
+            region = self._rackspace_regions[self.env.config['region']]
         elif substrate == 'joyent':
             matcher = re.compile('https://(.*).api.joyentcloud.com')
             region = matcher.match(self.env.config['sdc-url']).group(1)
         else:
             region = self.env.config['region']
+        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
+        # Model CLI specification
+        if cloud == 'aws' and region == 'cn-north-1':
+            cloud = 'aws-china'
         cloud_region = '{}/{}'.format(cloud, region)
         args = ['--constraints', constraints, self.env.environment,
                 cloud_region, '--config', config_filename]
-        if region == 'cn-north-1':
-            args.extend(['--credential', 'cn'])
         if upload_tools:
             args.append('--upload-tools')
         else:
