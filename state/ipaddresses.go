@@ -45,6 +45,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 		Value:     addr.Value,
 		Type:      string(addr.Type),
 		Scope:     string(addr.Scope),
+		SpaceName: string(addr.SpaceName),
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
@@ -176,6 +177,7 @@ type ipaddressDoc struct {
 	Type        string       `bson:"type"`
 	Scope       string       `bson:"networkscope,omitempty"`
 	State       AddressState `bson:"state"`
+	SpaceName   string       `bson:"spacename,omitempty"`
 }
 
 // Life returns whether the IP address is Alive, Dying or Dead.

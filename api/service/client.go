@@ -61,24 +61,29 @@ func (c *Client) ModelUUID() string {
 
 // DeployArgs holds the arguments to be sent to Client.ServiceDeploy.
 type DeployArgs struct {
-	// Url of the charm to deploy.
+	// CharmURL is the URL of the charm to deploy.
 	CharmURL string
-	// Name to give the service.
+	// ServiceName is the name to give the service.
 	ServiceName string
 	// Series to be used for the machine.
 	Series string
-	// Number of units to deploy.
+	// NumUnits is the number of units to deploy.
 	NumUnits int
-	// A YAML string that overrides the default config.yml.
+	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
-	// Constraints on where units of this service may be placed.
+	// Cons contains constraints on where units of this service may be
+	// placed.
 	Cons constraints.Value
-	// Placement directives on where the machines for the unit must be created.
+	// Placement directives on where the machines for the unit must be
+	// created.
 	Placement []*instance.Placement
-	// Names of networks to deploy on.
+	// Networks contains names of networks to deploy on.
 	Networks []string
-	// Constraints specifying how storage should be handled.
+	// Storage contains Constraints specifying how storage should be
+	// handled.
 	Storage map[string]storage.Constraints
+	// EndpointBindings
+	EndpointBindings map[string]string
 	// Collection of resource names for the service, with the value being the
 	// unique ID of a pre-uploaded resources in storage.
 	Resources map[string]string
@@ -93,16 +98,17 @@ type DeployArgs struct {
 func (c *Client) Deploy(args DeployArgs) error {
 	deployArgs := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName: args.ServiceName,
-			Series:      args.Series,
-			CharmUrl:    args.CharmURL,
-			NumUnits:    args.NumUnits,
-			ConfigYAML:  args.ConfigYAML,
-			Constraints: args.Cons,
-			Placement:   args.Placement,
-			Networks:    args.Networks,
-			Storage:     args.Storage,
-			Resources:   args.Resources,
+			ServiceName:      args.ServiceName,
+			Series:           args.Series,
+			CharmUrl:         args.CharmURL,
+			NumUnits:         args.NumUnits,
+			ConfigYAML:       args.ConfigYAML,
+			Constraints:      args.Cons,
+			Placement:        args.Placement,
+			Networks:         args.Networks,
+			Storage:          args.Storage,
+			EndpointBindings: args.EndpointBindings,
+			Resources:        args.Resources,
 		}},
 	}
 	var results params.ErrorResults

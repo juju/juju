@@ -1,14 +1,14 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networker_test
+package networkingcommon_test
 
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }
