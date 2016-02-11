@@ -163,7 +163,7 @@ func (s *ModelsSuite) TestRemoveModel(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ModelsSuite) TestRemoveControllerRemovesmodels(c *gc.C) {
+func (s *ModelsSuite) TestRemoveControllerRemovesModels(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
 	err := store.RemoveController("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
