@@ -1,4 +1,4 @@
-Boostrapping an environment
+Boostrapping a model
 
 When you first start looking at the bootstrap process it all seems to be a convoluted mess. However there is method to our madness.
 
@@ -6,16 +6,16 @@ Bootstrapping starts with the CLI command `bootstrap`.  That is found in
    cmd/juju/bootstrap.go
 
 The first step of bootstrap is to create an Environ instance which is named.
-This Environ instance has the environment configuration (the *config.Config instance).
-Initially this will check in the default config store, which is $JUJU_HOME/environments.
-This calls through to environs.PrepareForName in environs/open.go.  This makes sure the the
-environment configuration contains an admin secret, a CA cert, and a UUID.
+This Environ instance has the model configuration (the *config.Config instance).
+Initially this will check in the default config store, which is $JUJU_HOME/models.
+This calls through to environs.PrepareForName in environs/open.go.  This makes sure that the
+model configuration contains an admin secret, a CA cert, and a UUID.
 
-It is at this time that the initial .jenv file is written out to $JUJU_HOME/environments.
+It is at this time that the initial .jenv file is written out to $JUJU_DATA/models.
 
 Further checks are then done as part of the bootstrap command:
  * validating the constaints
- * checking to make sure the environment is already bootstrapped
+ * checking to make sure the model is already bootstrapped
 
 The code then moves on to the Bootstrap function defined in environs/bootstrap/bootstrap.go.
 
@@ -24,7 +24,7 @@ bootstrap.Bootstrap starts with sanity checks:
  * there is an admin-secret
  * that there is at least one authorised SSH key
  * that there is a CA Cert and CA Key
- * that the environment storage is writable (by writing the bootstrap-init file)
+ * that the model storage is writable (by writing the bootstrap-init file)
  * finds available tools
    - locate tools available externally (matching constraints)
    - determine which tools can be built and uploaded to make up shortfall in above
@@ -59,7 +59,7 @@ The common finalizer function does the following:
    * checks for admin-secret
    * creates a password hash using the utils.CompatSalt
    * uses this password hash for both the APIInfo and MongoInfo passwords.
-   * creates the state server cert and key
+   * creates the controller cert and key
    * strips the admin-secret and server ca-private-key from the config
      * this step is probably not needed any more
  * calls common.FinishBootstrap
@@ -78,6 +78,6 @@ jujud bootstrap-state
  * generates a (long) shared secret for mongo
  * mongo is then started
  * the database is then initialized (state.Initialize)
- * copies the tools into environment storage
+ * copies the tools into model storage
    - also clones the tools for each series of the same OS
      (for the time being at least, while each series' tools are equivalent)

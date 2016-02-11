@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api/client"
 	internalclient "github.com/juju/juju/payload/api/private/client"
@@ -59,7 +59,7 @@ func (c payloads) registerPublicFacade() {
 		return
 	}
 
-	const version = 0
+	const version = 1
 	common.RegisterStandardFacade(
 		payload.ComponentName,
 		version,
@@ -96,7 +96,7 @@ func (c payloads) registerPublicCommands() {
 		return
 	}
 
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return status.NewListCommand(c.newListAPIClient)
 	})
 }

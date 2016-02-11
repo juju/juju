@@ -25,7 +25,7 @@ import (
 )
 
 type KillSuite struct {
-	DestroySuite
+	baseDestroySuite
 }
 
 var _ = gc.Suite(&KillSuite{})
@@ -50,18 +50,18 @@ func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
-	_, err := s.runKillCommand(c, "environment", "whoops")
+	_, err := s.runKillCommand(c, "model", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 	_, err := s.runKillCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: environment "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo" not found`)
 }
 
 func (s *KillSuite) TestKillNonControllerEnvFails(c *gc.C) {
 	_, err := s.runKillCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju environment destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju model destroy to destroy it")
 }
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
@@ -93,24 +93,6 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
 	checkControllerExistsInStore(c, "test3", s.store)
-}
-
-func (s *KillSuite) TestKillFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{Message: "DestroyController", Code: params.CodeNotImplemented}
-	_, err := s.runKillCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "test1", s.store)
-}
-
-func (s *KillSuite) TestClientKillDestroysControllerWithAPIError(c *gc.C) {
-	s.api.err = &params.Error{Message: "DestroyController", Code: params.CodeNotImplemented}
-	s.clientapi.err = errors.New("some destroy error")
-	ctx, err := s.runKillCommand(c, "test1", "-y")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
-	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
@@ -183,7 +165,7 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *KillSuite) TestControllerStatus(c *gc.C) {
-	s.api.allEnvs = []base.UserEnvironment{
+	s.api.allEnvs = []base.UserModel{
 		{Name: "admin",
 			UUID:  "123",
 			Owner: names.NewUserTag("admin").String(),
@@ -196,11 +178,11 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		},
 	}
 
-	s.api.envStatus = make(map[string]base.EnvironmentStatus)
+	s.api.envStatus = make(map[string]base.ModelStatus)
 	for _, env := range s.api.allEnvs {
 		owner, err := names.ParseUserTag(env.Owner)
 		c.Assert(err, jc.ErrorIsNil)
-		s.api.envStatus[env.UUID] = base.EnvironmentStatus{
+		s.api.envStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
 			Life:               params.Dying,
 			HostedMachineCount: 2,
@@ -253,7 +235,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 		8,
 	}
 	out := controller.FmtCtrStatus(data)
-	c.Assert(out, gc.Equals, "Waiting on 3 environments, 20 machines, 8 services")
+	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 services")
 }
 
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // UploadClient has the API client methods needed by UploadCommand.
@@ -40,7 +40,7 @@ type UploadDeps struct {
 // UploadCommand implements the upload command.
 type UploadCommand struct {
 	deps UploadDeps
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	service      string
 	resourceFile resourceFile
 }

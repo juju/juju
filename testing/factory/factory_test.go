@@ -89,7 +89,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
 	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
-	_, err = s.State.EnvironmentUser(user.UserTag())
+	_, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -109,7 +109,7 @@ func (s *factorySuite) TestMakeUserInvalidCreator(c *gc.C) {
 	c.Assert(saved, gc.IsNil)
 }
 
-func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
+func (s *factorySuite) TestMakeUserNoModelUser(c *gc.C) {
 	username := "bob"
 	displayName := "Bob the Builder"
 	creator := names.NewLocalUserTag("eric")
@@ -119,85 +119,85 @@ func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
 		DisplayName: displayName,
 		Creator:     creator,
 		Password:    password,
-		NoEnvUser:   true,
+		NoModelUser: true,
 	})
 
 	_, err := s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnvironmentUser(user.UserTag())
+	_, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
-	envUser := s.Factory.MakeEnvUser(c, nil)
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+func (s *factorySuite) TestMakeModelUserNil(c *gc.C) {
+	modelUser := s.Factory.MakeModelUser(c, nil)
+	saved, err := s.State.ModelUser(modelUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
-	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
-	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
-	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
+	c.Assert(saved.UserName(), gc.Equals, modelUser.UserName())
+	c.Assert(saved.DisplayName(), gc.Equals, modelUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, modelUser.CreatedBy())
 }
 
-func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123", NoEnvUser: true})
-	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+func (s *factorySuite) TestMakeModelUserPartialParams(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123", NoModelUser: true})
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User: "foobar123"})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(modelUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
-	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
-	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+	c.Assert(saved.DisplayName(), gc.Equals, modelUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, modelUser.CreatedBy())
 }
 
-func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
+func (s *factorySuite) TestMakeModelUserParams(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	s.Factory.MakeUser(c, &factory.UserParams{
-		Name:      "foobar",
-		Creator:   names.NewUserTag("createdby"),
-		NoEnvUser: true,
+		Name:        "foobar",
+		Creator:     names.NewUserTag("createdby"),
+		NoModelUser: true,
 	})
 
-	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User:        "foobar",
 		CreatedBy:   names.NewUserTag("createdby"),
 		DisplayName: "Foo Bar",
 	})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(modelUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
 	c.Assert(saved.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
 }
 
-func (s *factorySuite) TestMakeEnvUserInvalidCreatedBy(c *gc.C) {
+func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
 	invalidFunc := func() {
-		s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 			User:      "bob",
 			CreatedBy: names.NewMachineTag("0"),
 		})
 	}
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.EnvironmentUser(names.NewLocalUserTag("bob"))
+	saved, err := s.State.ModelUser(names.NewLocalUserTag("bob"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(saved, gc.IsNil)
 }
 
-func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
+func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {
 	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
-	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User:        "foobar@ubuntuone",
 		DisplayName: "Foo Bar",
 		CreatedBy:   creator.UserTag(),
 	})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	saved, err := s.State.ModelUser(modelUser.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.ModelTag().Id(), gc.Equals, modelUser.ModelTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
 	c.Assert(saved.DisplayName(), gc.Equals, "Foo Bar")
 	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Canonical())
@@ -228,7 +228,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	series := "quantal"
-	jobs := []state.MachineJob{state.JobManageEnviron}
+	jobs := []state.MachineJob{state.JobManageModel}
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
@@ -507,44 +507,44 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
 }
 
-func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
-	st := s.Factory.MakeEnvironment(c, nil)
+func (s *factorySuite) TestMakeModelNil(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	re := regexp.MustCompile(`^testenv-\d+$`)
 	c.Assert(re.MatchString(env.Name()), jc.IsTrue)
-	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
-	origEnv, err := s.State.Environment()
+	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
+	origEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
 
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "trusty")
 }
 
-func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
+func (s *factorySuite) TestMakeModel(c *gc.C) {
 	owner := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "owner",
 	})
-	params := &factory.EnvParams{
+	params := &factory.ModelParams{
 		Name:        "foo",
 		Owner:       owner.UserTag(),
 		ConfigAttrs: testing.Attrs{"default-series": "precise"},
 	}
 
-	st := s.Factory.MakeEnvironment(c, params)
+	st := s.Factory.MakeModel(c, params)
 	defer st.Close()
 
-	env, err := st.Environment()
+	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Name(), gc.Equals, "foo")
-	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
 	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
 
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "precise")
 }

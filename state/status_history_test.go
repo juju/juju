@@ -27,7 +27,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistory(c *gc.C) {
 	// test (that injects a usable clock dependency, apart from anything else,
 	// and checks that we do our best to maintain a usable span of history
 	// rather than an arbitrary limit per entity. And isn't O(N) on status
-	// count in the environment).
+	// count in the model).
 
 	const count = 3
 	units := make([]*state.Unit, count)

@@ -9,6 +9,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // CharmCommandBase exposes the functionality of charmcmd.CommandBase
@@ -27,9 +29,9 @@ type CharmResourceLister interface {
 	Close() error
 }
 
-// ListCharmResourcesCommand implements the "juju charm list-resources" command.
+// ShowCommand implements the show-resources command.
 type ListCharmResourcesCommand struct {
-	cmd.CommandBase
+	modelcmd.ModelCommandBase
 	CharmCommandBase
 	out   cmd.Output
 	charm string

@@ -43,11 +43,11 @@ func (e *Environs) Names() (names []string) {
 func validateEnvironmentKind(rawEnviron map[string]interface{}) error {
 	kind, _ := rawEnviron["type"].(string)
 	if kind == "" {
-		return fmt.Errorf("environment %q has no type", rawEnviron["name"])
+		return fmt.Errorf("model %q has no type", rawEnviron["name"])
 	}
 	p, _ := Provider(kind)
 	if p == nil {
-		return fmt.Errorf("environment %q has an unknown provider type %q", rawEnviron["name"], kind)
+		return fmt.Errorf("model %q has an unknown provider type %q", rawEnviron["name"], kind)
 	}
 	return nil
 }
@@ -68,12 +68,12 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	if name == "" {
 		name = envs.Default
 		if name == "" {
-			return nil, errors.New("no default environment found")
+			return nil, errors.New("no default model found")
 		}
 	}
 	attrs, ok := envs.rawEnvirons[name]
 	if !ok {
-		return nil, errors.NotFoundf("environment %q", name)
+		return nil, errors.NotFoundf("model %q", name)
 	}
 	if err := validateEnvironmentKind(attrs); err != nil {
 		return nil, errors.Trace(err)
@@ -96,7 +96,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	if oldType, _ := attrs["type"].(string); oldType == "null" {
 		logger.Warningf(
 			"Provider type \"null\" has been renamed to \"manual\".\n" +
-				"Please update your environment configuration.",
+				"Please update your model configuration.",
 		)
 	}
 	// lxc-use-clone has been renamed to lxc-clone
@@ -272,7 +272,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	}
 
 	if raw.Default != "" && raw.Environments[raw.Default] == nil {
-		return nil, errors.Errorf("default environment %q does not exist", raw.Default)
+		return nil, errors.Errorf("default model %q does not exist", raw.Default)
 	}
 	if raw.Default == "" {
 		// If there's a single environment, then we get the default
@@ -294,7 +294,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 
 func environsPath(path string) string {
 	if path == "" {
-		path = osenv.JujuHomePath("environments.yaml")
+		path = osenv.JujuXDGDataHomePath("environments.yaml")
 	}
 	return path
 }
@@ -313,7 +313,7 @@ func IsNoEnv(err error) bool {
 // ReadEnvirons reads the juju environments.yaml file
 // and returns the result of running ParseEnvironments
 // on the file's contents.
-// If path is empty, $HOME/.juju/environments.yaml is used.
+// If path is empty, $HOME/.local/share/juju/environments.yaml is used.
 func ReadEnvirons(path string) (*Environs, error) {
 	environsFilepath := environsPath(path)
 	data, err := ioutil.ReadFile(environsFilepath)
@@ -369,7 +369,7 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("environment configuration has no agent-version")
+		return nil, fmt.Errorf("model configuration has no agent-version")
 	}
 	return cfg, nil
 }

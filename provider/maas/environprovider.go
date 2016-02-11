@@ -25,7 +25,7 @@ var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 var providerInstance maasEnvironProvider
 
 func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Debugf("opening environment %q.", cfg.Name())
+	logger.Debugf("opening model %q.", cfg.Name())
 	env, err := NewEnviron(cfg)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ maas:
     # maas-server bootstrap ssh connection options
     #
 
-    # bootstrap-timeout time to wait contacting a state server, in seconds.
+    # bootstrap-timeout time to wait contacting a controller, in seconds.
     bootstrap-timeout: 1800
 
     # Whether or not to refresh the list of available updates for an

@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.plugins.metadata")
 
 var metadataDoc = `
 Juju metadata is used to find the correct image and tools when bootstrapping a
-Juju environment.
+Juju model.
 `
 
 // Main registers subcommands for the juju-metadata executable, and hands over control
@@ -33,7 +33,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
-	if err := juju.InitJujuHome(); err != nil {
+	if err := juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}

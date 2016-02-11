@@ -15,7 +15,9 @@ type statusFormatter struct {
 	isoTime   bool
 }
 
-func newStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+// NewStatusFormatter takes stored model information (params.FullStatus) and populates
+// the statusFormatter struct used in various status formatting methods
+func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
 		relations: make(map[int]params.RelationStatus),
@@ -32,12 +34,12 @@ func (sf *statusFormatter) format() formattedStatus {
 		return formattedStatus{}
 	}
 	out := formattedStatus{
-		Environment: sf.status.EnvironmentName,
-		Machines:    make(map[string]machineStatus),
-		Services:    make(map[string]serviceStatus),
+		Model:    sf.status.ModelName,
+		Machines: make(map[string]machineStatus),
+		Services: make(map[string]serviceStatus),
 	}
 	if sf.status.AvailableVersion != "" {
-		out.EnvironmentStatus = &environmentStatus{
+		out.ModelStatus = &modelStatus{
 			AvailableVersion: sf.status.AvailableVersion,
 		}
 	}
@@ -53,6 +55,29 @@ func (sf *statusFormatter) format() formattedStatus {
 			out.Networks = make(map[string]networkStatus)
 		}
 		out.Networks[k] = sf.formatNetwork(n)
+	}
+	return out
+}
+
+// MachineFormat takes stored model information (params.FullStatus) and formats machine status info.
+func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineStatus {
+	if sf.status == nil {
+		return formattedMachineStatus{}
+	}
+	out := formattedMachineStatus{
+		Model:    sf.status.ModelName,
+		Machines: make(map[string]machineStatus),
+	}
+	for k, m := range sf.status.Machines {
+		if len(machineId) != 0 {
+			for i := 0; i < len(machineId); i++ {
+				if m.Id == machineId[i] {
+					out.Machines[k] = sf.formatMachine(m)
+				}
+			}
+		} else {
+			out.Machines[k] = sf.formatMachine(m)
+		}
 	}
 	return out
 }
@@ -82,7 +107,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	}
 
 	for _, job := range machine.Jobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}

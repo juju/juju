@@ -38,36 +38,36 @@ func (s *SingularSuite) TestClaimBadLease(c *gc.C) {
 
 func (s *SingularSuite) TestClaimBadHolder(c *gc.C) {
 	claimer := s.State.SingularClaimer()
-	err := claimer.Claim(s.envTag.Id(), "unit-foo-1", time.Minute)
+	err := claimer.Claim(s.modelTag.Id(), "unit-foo-1", time.Minute)
 	c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "unit-foo-1": expected machine tag`)
 }
 
 func (s *SingularSuite) TestClaimBadDuration(c *gc.C) {
 	claimer := s.State.SingularClaimer()
-	err := claimer.Claim(s.envTag.Id(), "machine-123", 0)
+	err := claimer.Claim(s.modelTag.Id(), "machine-123", 0)
 	c.Check(err, gc.ErrorMatches, `cannot claim lease for 0: non-positive`)
 }
 
 func (s *SingularSuite) TestClaim(c *gc.C) {
 	claimer := s.State.SingularClaimer()
-	err := claimer.Claim(s.envTag.Id(), "machine-123", time.Minute)
+	err := claimer.Claim(s.modelTag.Id(), "machine-123", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = claimer.Claim(s.envTag.Id(), "machine-123", time.Minute)
+	err = claimer.Claim(s.modelTag.Id(), "machine-123", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = claimer.Claim(s.envTag.Id(), "machine-456", time.Minute)
+	err = claimer.Claim(s.modelTag.Id(), "machine-456", time.Minute)
 	c.Assert(err, gc.Equals, lease.ErrClaimDenied)
 }
 
 func (s *SingularSuite) TestExpire(c *gc.C) {
 	claimer := s.State.SingularClaimer()
-	err := claimer.Claim(s.envTag.Id(), "machine-123", time.Minute)
+	err := claimer.Claim(s.modelTag.Id(), "machine-123", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wait := make(chan error)
 	go func() {
-		wait <- claimer.WaitUntilExpired(s.envTag.Id())
+		wait <- claimer.WaitUntilExpired(s.modelTag.Id())
 	}()
 	select {
 	case err := <-wait:
@@ -83,6 +83,6 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 		c.Fatalf("never expired")
 	}
 
-	err = claimer.Claim(s.envTag.Id(), "machine-456", time.Minute)
+	err = claimer.Claim(s.modelTag.Id(), "machine-456", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }

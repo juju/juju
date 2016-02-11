@@ -277,20 +277,20 @@ type ensureStateWorker struct{}
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
-		addStateServerMachine(c, ctx.st)
+		addControllerMachine(c, ctx.st)
 	}
 	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
 
-func addStateServerMachine(c *gc.C, st *state.State) {
-	// The AddStateServerMachine call will update the API host ports
+func addControllerMachine(c *gc.C, st *state.State) {
+	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
 	// can download charms from the API server.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	testing.AddStateServerMachine(c, st)
+	testing.AddControllerMachine(c, st)
 	err = st.SetAPIHostPorts(apiHostPorts)
 	c.Assert(err, gc.IsNil)
 }
@@ -376,7 +376,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := storage.NewStorage(ctx.st.EnvironUUID(), ctx.st.MongoSession())
+	storage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
@@ -1376,7 +1376,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

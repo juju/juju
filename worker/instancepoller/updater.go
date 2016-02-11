@@ -187,18 +187,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 		if pollInstance {
 			instInfo, err := pollInstanceInfo(context, m)
 			if err != nil && !params.IsCodeNotProvisioned(err) {
-				// If the provider doesn't implement Addresses/Status now,
-				// it never will until we're upgraded, so don't bother
-				// asking any more. We could use less resources
-				// by taking down the entire worker, but this is easier for now
-				// (and hopefully the local provider will implement
-				// Addresses/Status in the not-too-distant future),
-				// so we won't need to worry about this case at all.
-				if params.IsCodeNotImplemented(err) {
-					pollInterval = 365 * 24 * time.Hour
-				} else {
-					return err
-				}
+				return err
 			}
 			machineStatus := params.StatusPending
 			if err == nil {
@@ -248,6 +237,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
+		// TODO (anastasiamac 2016-02-01) This does not look like it needs to be removed now.
 		if params.IsCodeNotImplemented(err) {
 			return instInfo, err
 		}

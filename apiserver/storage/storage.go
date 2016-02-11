@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Storage", 1, NewAPI)
+	common.RegisterStandardFacade("Storage", 2, NewAPI)
 }
 
 // API implements the storage interface and is the concrete
@@ -308,7 +308,7 @@ func filterPools(
 }
 
 func (a *API) allProviders() ([]storage.ProviderType, error) {
-	envName, err := a.storage.EnvName()
+	envName, err := a.storage.ModelName()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting env name")
 	}
@@ -338,9 +338,9 @@ func (a *API) validateNameCriteria(names []string) error {
 }
 
 func (a *API) validateProviderCriteria(providers []string) error {
-	envName, err := a.storage.EnvName()
+	envName, err := a.storage.ModelName()
 	if err != nil {
-		return errors.Annotate(err, "getting environment name")
+		return errors.Annotate(err, "getting model name")
 	}
 	for _, p := range providers {
 		if !registry.IsProviderSupported(envName, storage.ProviderType(p)) {

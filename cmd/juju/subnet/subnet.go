@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/subnets"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 )
@@ -108,7 +108,7 @@ func NewSuperCommand() cmd.Command {
 // SubnetCommandBase is the base type embedded into all subnet
 // subcommands.
 type SubnetCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api SubnetAPI
 }
 

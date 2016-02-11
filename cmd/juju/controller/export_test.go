@@ -8,13 +8,8 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
-)
-
-var (
-	SetConfigSpecialCaseDefaults = setConfigSpecialCaseDefaults
-	UserCurrent                  = &userCurrent
 )
 
 // NewListCommandForTest returns a ListCommand with the configstore provided
@@ -25,25 +20,25 @@ func NewListCommandForTest(cfgStore configstore.Storage) *listCommand {
 	}
 }
 
-type CreateEnvironmentCommand struct {
-	*createEnvironmentCommand
+type CreateModelCommand struct {
+	*createModelCommand
 }
 
-// NewCreateEnvironmentCommandForTest returns a CreateEnvironmentCommand with
+// NewCreateModelCommandForTest returns a CreateModelCommand with
 // the api provided as specified.
-func NewCreateEnvironmentCommandForTest(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) (cmd.Command, *CreateEnvironmentCommand) {
-	c := &createEnvironmentCommand{
+func NewCreateModelCommandForTest(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) (cmd.Command, *CreateModelCommand) {
+	c := &createModelCommand{
 		api:          api,
 		configParser: parser,
 	}
-	return envcmd.WrapController(c), &CreateEnvironmentCommand{c}
+	return modelcmd.WrapController(c), &CreateModelCommand{c}
 }
 
-// NewEnvironmentsCommandForTest returns a EnvironmentsCommand with the API
+// NewModelsCommandForTest returns a EnvironmentsCommand with the API
 // and userCreds provided as specified.
-func NewEnvironmentsCommandForTest(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
-	return envcmd.WrapController(&environmentsCommand{
-		envAPI:    envAPI,
+func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
+	return modelcmd.WrapController(&environmentsCommand{
+		modelAPI:  modelAPI,
 		sysAPI:    sysAPI,
 		userCreds: userCreds,
 	})
@@ -58,25 +53,25 @@ func NewLoginCommandForTest(apiOpen api.OpenFunc, getUserManager GetUserManagerF
 	}
 }
 
-type UseEnvironmentCommand struct {
-	*useEnvironmentCommand
+type UseModelCommand struct {
+	*useModelCommand
 }
 
-// NewUseEnvironmentCommandForTest returns a UseEnvironmentCommand with the
+// NewUseModelCommandForTest returns a UseModelCommand with the
 // API and userCreds provided as specified.
-func NewUseEnvironmentCommandForTest(api UseEnvironmentAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseEnvironmentCommand) {
-	c := &useEnvironmentCommand{
+func NewUseModelCommandForTest(api UseModelAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseModelCommand) {
+	c := &useModelCommand{
 		api:       api,
 		userCreds: userCreds,
 		endpoint:  endpoint,
 	}
-	return envcmd.WrapController(c), &UseEnvironmentCommand{c}
+	return modelcmd.WrapController(c), &UseModelCommand{c}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
 // function used to open the API connection mocked out.
 func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
-	return envcmd.WrapController(&removeBlocksCommand{
+	return modelcmd.WrapController(&removeBlocksCommand{
 		api: api,
 	})
 }
@@ -84,7 +79,7 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
 func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return envcmd.Wrap(
+	return modelcmd.Wrap(
 		&destroyCommand{
 			destroyCommandBase: destroyCommandBase{
 				api:       api,
@@ -92,8 +87,8 @@ func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientA
 				apierr:    apierr,
 			},
 		},
-		envcmd.EnvSkipFlags,
-		envcmd.EnvSkipDefault,
+		modelcmd.ModelSkipFlags,
+		modelcmd.ModelSkipDefault,
 	)
 }
 
@@ -119,7 +114,7 @@ func NewKillCommandForTest(
 // NewListBlocksCommandForTest returns a ListBlocksCommand with the controller
 // endpoint mocked out.
 func NewListBlocksCommandForTest(api listBlocksAPI, apierr error) cmd.Command {
-	return envcmd.WrapController(&listBlocksCommand{
+	return modelcmd.WrapController(&listBlocksCommand{
 		api:    api,
 		apierr: apierr,
 	})

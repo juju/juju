@@ -12,74 +12,78 @@ import (
 	"github.com/juju/utils"
 )
 
-// jujuHome stores the path to the juju configuration
+// jujuXDGDataHome stores the path to the juju configuration
 // folder, which is only meaningful when running the juju
-// CLI tool, and is typically defined by $JUJU_HOME or
-// $HOME/.juju as default.
+// CLI tool, and is typically defined by $JUJU_DATA or
+// $XDG_DATA_HOME/juju or ~/.local/share/juju as default if none
+// of the aforementioned variables are defined.
 var (
-	jujuHomeMu sync.Mutex
-	jujuHome   string
+	jujuXDGDataHomeMu sync.Mutex
+	jujuXDGDataHome   string
 )
 
-// SetJujuHome sets the value of juju home and
+// SetJujuXDGDataHome sets the value of juju home and
 // returns the current one.
-func SetJujuHome(newJujuHome string) string {
-	jujuHomeMu.Lock()
-	defer jujuHomeMu.Unlock()
+func SetJujuXDGDataHome(newJujuXDGDataHomeHome string) string {
+	jujuXDGDataHomeMu.Lock()
+	defer jujuXDGDataHomeMu.Unlock()
 
-	oldJujuHome := jujuHome
-	jujuHome = newJujuHome
-	return oldJujuHome
+	oldJujuXDGDataHomeHome := jujuXDGDataHome
+	jujuXDGDataHome = newJujuXDGDataHomeHome
+	return oldJujuXDGDataHomeHome
 }
 
-// JujuHome returns the current juju home.
-func JujuHome() string {
-	jujuHomeMu.Lock()
-	defer jujuHomeMu.Unlock()
-	if jujuHome == "" {
+// JujuXDGDataHome returns the current juju home.
+func JujuXDGDataHome() string {
+	jujuXDGDataHomeMu.Lock()
+	defer jujuXDGDataHomeMu.Unlock()
+	if jujuXDGDataHome == "" {
 		panic("juju home hasn't been initialized")
 	}
-	return jujuHome
+	return jujuXDGDataHome
 }
 
-// IsJujuHomeSet is a way to check if SetJuuHome has been called.
-func IsJujuHomeSet() bool {
-	jujuHomeMu.Lock()
-	defer jujuHomeMu.Unlock()
-	return jujuHome != ""
+// IsJujuXDGDataHomeSet is a way to check if SetJuuHome has been called.
+func IsJujuXDGDataHomeSet() bool {
+	jujuXDGDataHomeMu.Lock()
+	defer jujuXDGDataHomeMu.Unlock()
+	return jujuXDGDataHome != ""
 }
 
-// JujuHomePath returns the path to a file in the
+// JujuXDGDataHomePath returns the path to a file in the
 // current juju home.
-func JujuHomePath(names ...string) string {
-	all := append([]string{JujuHome()}, names...)
+func JujuXDGDataHomePath(names ...string) string {
+	all := append([]string{JujuXDGDataHome()}, names...)
 	return filepath.Join(all...)
 }
 
-// JujuHomeDir returns the directory where juju should store application-specific files
-func JujuHomeDir() string {
-	JujuHomeDir := os.Getenv(JujuHomeEnvKey)
-	if JujuHomeDir == "" {
+// JujuXDGDataHomeDir returns the directory where juju should store application-specific files
+func JujuXDGDataHomeDir() string {
+	JujuXDGDataHomeDir := os.Getenv(JujuXDGDataHomeEnvKey)
+	if JujuXDGDataHomeDir == "" {
 		if runtime.GOOS == "windows" {
-			JujuHomeDir = jujuHomeWin()
+			JujuXDGDataHomeDir = jujuXDGDataHomeWin()
 		} else {
-			JujuHomeDir = jujuHomeLinux()
+			JujuXDGDataHomeDir = jujuXDGDataHomeLinux()
 		}
 	}
-	return JujuHomeDir
+	return JujuXDGDataHomeDir
 }
 
-// jujuHomeLinux returns the directory where juju should store application-specific files on Linux.
-func jujuHomeLinux() string {
-	home := utils.Home()
-	if home == "" {
-		return ""
+// jujuXDGDataHomeLinux returns the directory where juju should store application-specific files on Linux.
+func jujuXDGDataHomeLinux() string {
+	xdgConfig := os.Getenv(XDGDataHome)
+	if xdgConfig != "" {
+		return filepath.Join(xdgConfig, "juju")
 	}
-	return filepath.Join(home, ".juju")
+	// If xdg config home is not defined, the standard indicates that its default value
+	// is $HOME/.local/share
+	home := utils.Home()
+	return filepath.Join(home, ".local/share", "juju")
 }
 
-// jujuHomeWin returns the directory where juju should store application-specific files on Windows.
-func jujuHomeWin() string {
+// jujuXDGDataHomeWin returns the directory where juju should store application-specific files on Windows.
+func jujuXDGDataHomeWin() string {
 	appdata := os.Getenv("APPDATA")
 	if appdata == "" {
 		return ""

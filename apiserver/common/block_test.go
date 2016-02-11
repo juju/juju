@@ -23,16 +23,16 @@ type mockBlock struct {
 
 func (m mockBlock) Id() string { return "" }
 
-func (m mockBlock) Tag() (names.Tag, error) { return names.NewEnvironTag("mocktesting"), nil }
+func (m mockBlock) Tag() (names.Tag, error) { return names.NewModelTag("mocktesting"), nil }
 
 func (m mockBlock) Type() state.BlockType { return m.t }
 
 func (m mockBlock) Message() string { return m.m }
 
-func (m mockBlock) EnvUUID() string { return "" }
+func (m mockBlock) ModelUUID() string { return "" }
 
 type blockCheckerSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	aBlock                  state.Block
 	destroy, remove, change state.Block
 
@@ -42,7 +42,7 @@ type blockCheckerSuite struct {
 var _ = gc.Suite(&blockCheckerSuite{})
 
 func (s *blockCheckerSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.destroy = mockBlock{t: state.DestroyBlock, m: "Mock BLOCK testing: DESTROY"}
 	s.remove = mockBlock{t: state.RemoveBlock, m: "Mock BLOCK testing: REMOVE"}
 	s.change = mockBlock{t: state.ChangeBlock, m: "Mock BLOCK testing: CHANGE"}

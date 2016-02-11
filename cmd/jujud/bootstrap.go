@@ -87,9 +87,9 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
+	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
-	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "environ-constraints", "initial environment constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "constraints", "initial constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -99,7 +99,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
-		return cmdutil.RequiredError("env-config")
+		return cmdutil.RequiredError("model-config")
 	}
 	if c.InstanceId == "" {
 		return cmdutil.RequiredError("instance-id")
@@ -129,7 +129,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	jobs := agentConfig.Jobs()
 	if len(jobs) == 0 {
 		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
+			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
 			multiwatcher.JobManageNetworking,
 		}
@@ -180,7 +180,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Generate a private SSH key for the state servers, and add
+	// When machine addresses are reported from state, they have
+	// duplicates removed.  We should do the same here so that
+	// there is not unnecessary churn in the mongo replicaset.
+	// TODO (cherylj) Add explicit unit tests for this - tracked
+	// by bug #1544158.
+	addrs = network.MergedAddresses([]network.Address{}, addrs)
+
+	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.
 	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
@@ -223,7 +230,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Initialise state, and store any agent config (e.g. password) changes.
 	envCfg, err = env.Config().Apply(newConfigAttrs)
 	if err != nil {
-		return errors.Annotate(err, "failed to update environment config")
+		return errors.Annotate(err, "failed to update model config")
 	}
 	var st *state.State
 	var m *state.Machine
@@ -251,7 +258,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agent.BootstrapMachineConfig{
 				Addresses:            addrs,
 				BootstrapConstraints: c.BootstrapConstraints,
-				EnvironConstraints:   c.EnvironConstraints,
+				ModelConstraints:     c.EnvironConstraints,
 				Jobs:                 jobs,
 				InstanceId:           instanceId,
 				Characteristics:      c.Hardware,
@@ -278,7 +285,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			return err
 		}
 
-		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
+		stor := newStateStorage(st.ModelUUID(), st.MongoSession())
 		if err := c.storeCustomImageMetadata(stor); err != nil {
 			return err
 		}
@@ -430,7 +437,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 		}
 		defer f.Close()
 		relpath = filepath.ToSlash(relpath)
-		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
+		logger.Debugf("storing %q in model storage (%d bytes)", relpath, info.Size())
 		return stor.Put(relpath, f, info.Size())
 	})
 }
@@ -439,7 +446,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata reads the custom image metadata from disk,
-// and saves it in state server.
+// and saves it in controller.
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))

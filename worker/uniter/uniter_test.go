@@ -111,7 +111,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		func() {
 			defer s.Reset(c)
-			env, err := s.State.Environment()
+			env, err := s.State.Model()
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := &context{
 				s:                      s,
@@ -1696,7 +1696,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		charmDirGuard:          &mockCharmDirGuard{},
 	}
 
-	addStateServerMachine(c, ctx.st)
+	addControllerMachine(c, ctx.st)
 
 	// Create the subordinate service.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")

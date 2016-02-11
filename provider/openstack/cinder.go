@@ -55,12 +55,12 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	}
 	uuid, ok := environConfig.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,
 		envName:        environConfig.Name(),
-		envUUID:        uuid,
+		modelUUID:      uuid,
 	}
 	return source, nil
 }
@@ -99,7 +99,7 @@ func (p *cinderProvider) Dynamic() bool {
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
 	envName        string // non unique, informational only
-	envUUID        string
+	modelUUID      string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -161,8 +161,8 @@ func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
 	}
 	volumeIds := make([]string, 0, len(cinderVolumes))
 	for _, volume := range cinderVolumes {
-		envUUID, ok := volume.Metadata[tags.JujuEnv]
-		if !ok || envUUID != s.envUUID {
+		modelUUID, ok := volume.Metadata[tags.JujuModel]
+		if !ok || modelUUID != s.modelUUID {
 			continue
 		}
 		volumeIds = append(volumeIds, cinderToJujuVolumeInfo(&volume).VolumeId)

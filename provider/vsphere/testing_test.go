@@ -59,11 +59,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.initEnv(c)
 	s.setUpHttpProxy(c)
 	s.FakeMetadataServer()
-	osenv.SetJujuHome(c.MkDir())
+	osenv.SetJujuXDGDataHome(c.MkDir())
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
-	cfg, err := testing.EnvironConfig(c).Apply(ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)

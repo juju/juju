@@ -12,7 +12,7 @@ import (
 )
 
 // CacheFile represents the YAML structure of the file
-// $JUJU_HOME/environments/cache.yaml
+// $JUJU_DATA/environments/cache.yaml
 type CacheFile struct {
 	// Server maps the name of the server to the server-uuid
 	Server map[string]ServerUser `yaml:"server-user"`
@@ -31,7 +31,7 @@ type ServerUser struct {
 }
 
 // ServerData holds the end point details for the API servers running
-// in the state server environment.
+// in the controller environment.
 type ServerData struct {
 	APIEndpoints    []string `yaml:"api-endpoints"`
 	ServerHostnames []string `yaml:"server-hostnames,omitempty"`
@@ -44,9 +44,9 @@ type ServerData struct {
 // EnvironmentData represents a single environment running in a Juju
 // Environment Server.
 type EnvironmentData struct {
-	User            string `yaml:"user"`
-	EnvironmentUUID string `yaml:"env-uuid"`
-	ServerUUID      string `yaml:"server-uuid"`
+	User       string `yaml:"user"`
+	ModelUUID  string `yaml:"model-uuid"`
+	ServerUUID string `yaml:"server-uuid"`
 }
 
 // All synchronisation locking is expected to be done outside the
@@ -90,19 +90,19 @@ func (cache CacheFile) readInfo(envName string) (*environInfo, error) {
 	if envData, ok := cache.Environment[envName]; ok {
 		srvData, ok = cache.ServerData[envData.ServerUUID]
 		if !ok {
-			return nil, errors.Errorf("missing server data for environment %q", envName)
+			return nil, errors.Errorf("missing server data for model %q", envName)
 		}
 		info.user = envData.User
-		info.environmentUUID = envData.EnvironmentUUID
+		info.environmentUUID = envData.ModelUUID
 		info.serverUUID = envData.ServerUUID
 	} else {
 		srvUser, ok := cache.Server[envName]
 		if !ok {
-			return nil, errors.NotFoundf("environment %q", envName)
+			return nil, errors.NotFoundf("model %q", envName)
 		}
 		srvData, ok = cache.ServerData[srvUser.ServerUUID]
 		if !ok {
-			return nil, errors.Errorf("missing server data for environment %q", envName)
+			return nil, errors.Errorf("missing server data for model %q", envName)
 		}
 		info.user = srvUser.User
 		info.serverUUID = srvUser.ServerUUID
@@ -148,9 +148,9 @@ func (cache *CacheFile) updateInfo(info *environInfo) error {
 	// Only add environment entries if the environmentUUID was specified
 	if info.environmentUUID != "" {
 		cache.Environment[info.name] = EnvironmentData{
-			User:            info.user,
-			EnvironmentUUID: info.environmentUUID,
-			ServerUUID:      info.serverUUID,
+			User:       info.user,
+			ModelUUID:  info.environmentUUID,
+			ServerUUID: info.serverUUID,
 		}
 	}
 
@@ -175,19 +175,19 @@ func (cache *CacheFile) removeInfo(info *environInfo) error {
 		cache.cleanupAllServerReferences(srvUser.ServerUUID)
 		return nil
 	}
-	envUser, envFound := cache.Environment[info.name]
+	modelUser, envFound := cache.Environment[info.name]
 	if !envFound {
-		return errors.New("environment info has already been removed")
+		return errors.New("model info has already been removed")
 	}
-	serverUUID := envUser.ServerUUID
+	serverUUID := modelUser.ServerUUID
 
 	delete(cache.Environment, info.name)
 	delete(cache.Server, info.name)
 	// Look to see if there are any other environments using the serverUUID.
 	// If there aren't, then we also clean up the server data, otherwise we
 	// need to leave the server data there.
-	for _, envUser := range cache.Environment {
-		if envUser.ServerUUID == serverUUID {
+	for _, modelUser := range cache.Environment {
+		if modelUser.ServerUUID == serverUUID {
 			return nil
 		}
 	}
@@ -197,8 +197,8 @@ func (cache *CacheFile) removeInfo(info *environInfo) error {
 
 func (cache *CacheFile) cleanupAllServerReferences(serverUUID string) {
 	// NOTE: it is safe in Go to remove elements from a map while iterating.
-	for name, envUser := range cache.Environment {
-		if envUser.ServerUUID == serverUUID {
+	for name, modelUser := range cache.Environment {
+		if modelUser.ServerUUID == serverUUID {
 			delete(cache.Environment, name)
 		}
 	}

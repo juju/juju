@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/storage"
 )
@@ -78,7 +79,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServicesDeploy")
+		c.Assert(request, gc.Equals, "Deploy")
 		args, ok := a.(params.ServicesDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Services, gc.HasLen, 1)
@@ -88,7 +89,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		c.Assert(args.Services[0].NumUnits, gc.Equals, 2)
 		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
 		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		c.Assert(args.Services[0].ToMachineSpec, gc.Equals, "machineSpec")
+		c.Assert(args.Services[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
 		c.Assert(args.Services[0].Networks, gc.DeepEquals, []string{"neta"})
 		c.Assert(args.Services[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
 		c.Assert(args.Services[0].Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
@@ -98,20 +99,19 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		return nil
 	})
 
-	args := service.ServiceDeployArgs{
-		CharmURL:      "charmURL",
-		ServiceName:   "serviceA",
-		Series:        "series",
-		NumUnits:      2,
-		ConfigYAML:    "configYAML",
-		Cons:          constraints.MustParse("mem=4G"),
-		ToMachineSpec: "machineSpec",
-		Placement:     nil,
-		Networks:      []string{"neta"},
-		Storage:       map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
-		Resources:     map[string]string{"foo": "bar"},
+	args := service.DeployArgs{
+		CharmURL:    "charmURL",
+		ServiceName: "serviceA",
+		Series:      "series",
+		NumUnits:    2,
+		ConfigYAML:  "configYAML",
+		Cons:        constraints.MustParse("mem=4G"),
+		Placement:   []*instance.Placement{{"scope", "directive"}},
+		Networks:    []string{"neta"},
+		Storage:     map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		Resources:   map[string]string{"foo": "bar"},
 	}
-	err := s.client.ServiceDeploy(args)
+	err := s.client.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -120,7 +120,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServiceGetCharmURL")
+		c.Assert(request, gc.Equals, "GetCharmURL")
 		args, ok := a.(params.ServiceGet)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ServiceName, gc.Equals, "service")
@@ -129,7 +129,7 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 		result.Result = "curl"
 		return nil
 	})
-	curl, err := s.client.ServiceGetCharmURL("service")
+	curl, err := s.client.GetCharmURL("service")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
 	c.Assert(called, jc.IsTrue)
@@ -139,7 +139,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "ServiceSetCharm")
+		c.Assert(request, gc.Equals, "SetCharm")
 		args, ok := a.(params.ServiceSetCharm)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ServiceName, gc.Equals, "service")
@@ -148,7 +148,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
 	})
-	err := s.client.ServiceSetCharm("service", "charmURL", true, true)
+	err := s.client.SetCharm("service", "charmURL", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

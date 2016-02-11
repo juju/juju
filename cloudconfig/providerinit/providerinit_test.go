@@ -37,12 +37,12 @@ import (
 )
 
 // dummySampleConfig returns the dummy sample config without
-// the state server configured.
+// the controller configured.
 // This function also exists in environs/config_test
 // Maybe place it in dummy and export it?
 func dummySampleConfig() testing.Attrs {
 	return dummy.SampleConfig().Merge(testing.Attrs{
-		"state-server": false,
+		"controller": false,
 	})
 }
 
@@ -140,7 +140,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 		"authorized-keys": "we-are-the-keys",
 		"admin-secret":    "lisboan-pork",
 		"agent-version":   "1.2.3",
-		"state-server":    false,
+		"controller":      false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,7 +155,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
 	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
-		EnvironTag: testing.EnvironmentTag,
+		ModelTag: testing.ModelTag,
 	})
 	c.Check(icfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
@@ -184,17 +184,17 @@ func (s *CloudInitSuite) TestUserData(c *gc.C) {
 	s.testUserData(c, "quantal", false)
 }
 
-func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
+func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
 	s.testUserData(c, "quantal", true)
 }
 
-func (s *CloudInitSuite) TestStateServerUserDataPrecise(c *gc.C) {
+func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
 	s.testUserData(c, "precise", true)
 }
 
 func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
-	testJujuHome := c.MkDir()
-	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
+	testJujuXDGDataHome := c.MkDir()
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(testJujuXDGDataHome))
 	// Use actual series paths instead of local defaults
 	logDir := must(paths.LogDir(series))
 	metricsSpoolDir := must(paths.MetricsSpoolDir(series))
@@ -207,7 +207,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	allJobs := []multiwatcher.MachineJob{
-		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 		multiwatcher.JobManageNetworking,
 	}
@@ -225,11 +225,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 			Tag:      names.NewMachineTag("10"),
 		},
 		APIInfo: &api.Info{
-			Addrs:      []string{"127.0.0.1:1234"},
-			Password:   "pw2",
-			CACert:     "CA CERT\n" + testing.CACert,
-			Tag:        names.NewMachineTag("10"),
-			EnvironTag: testing.EnvironmentTag,
+			Addrs:    []string{"127.0.0.1:1234"},
+			Password: "pw2",
+			CACert:   "CA CERT\n" + testing.CACert,
+			Tag:      names.NewMachineTag("10"),
+			ModelTag: testing.ModelTag,
 		},
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
@@ -357,11 +357,11 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 			},
 		},
 		APIInfo: &api.Info{
-			Addrs:      []string{"state-addr.testing.invalid:54321"},
-			Password:   "bletch",
-			CACert:     "CA CERT\n" + testing.CACert,
-			Tag:        names.NewMachineTag("10"),
-			EnvironTag: testing.EnvironmentTag,
+			Addrs:    []string{"state-addr.testing.invalid:54321"},
+			Password: "bletch",
+			CACert:   "CA CERT\n" + testing.CACert,
+			Tag:      names.NewMachineTag("10"),
+			ModelTag: testing.ModelTag,
 		},
 		MachineAgentServiceName: "jujud-machine-10",
 		DataDir:                 dataDir,

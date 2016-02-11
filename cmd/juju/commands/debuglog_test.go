@@ -13,12 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
 type DebugLogSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&DebugLogSuite{})
@@ -95,7 +95,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 	} {
 		c.Logf("test %v", i)
 		command := &debugLogCommand{}
-		err := testing.InitCommand(envcmd.Wrap(command), test.args)
+		err := testing.InitCommand(modelcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.params, jc.DeepEquals, test.expected)

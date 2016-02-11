@@ -26,14 +26,11 @@ func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
 		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: multiwatcher.JobManageEnviron,
-		want: state.JobManageEnviron,
+		name: multiwatcher.JobManageModel,
+		want: state.JobManageModel,
 	}, {
 		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
-	}, {
-		name: multiwatcher.JobManageStateDeprecated,
-		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",
 		want: -1,

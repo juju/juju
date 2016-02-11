@@ -182,10 +182,10 @@ func collFactory(st *State, collName string) func() (mongo.Collection, func()) {
 	}
 }
 
-// WatchEnvironments returns a StringsWatcher that notifies of changes
-// to the lifecycles of all environments.
-func (st *State) WatchEnvironments() StringsWatcher {
-	return newLifecycleWatcher(st, environmentsC, nil, nil, nil)
+// WatchModels returns a StringsWatcher that notifies of changes
+// to the lifecycles of all models.
+func (st *State) WatchModels() StringsWatcher {
+	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
 // WatchIPAddresses returns a StringsWatcher that notifies of changes to the
@@ -194,19 +194,19 @@ func (st *State) WatchIPAddresses() StringsWatcher {
 	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
 }
 
-// WatchEnvironVolumes returns a StringsWatcher that notifies of changes to
-// the lifecycles of all environment-scoped volumes.
-func (st *State) WatchEnvironVolumes() StringsWatcher {
-	return st.watchEnvironMachineStorage(volumesC)
+// WatchModelVolumes returns a StringsWatcher that notifies of changes to
+// the lifecycles of all model-scoped volumes.
+func (st *State) WatchModelVolumes() StringsWatcher {
+	return st.watchModelMachinestorage(volumesC)
 }
 
-// WatchEnvironFilesystems returns a StringsWatcher that notifies of changes
-// to the lifecycles of all environment-scoped filesystems.
-func (st *State) WatchEnvironFilesystems() StringsWatcher {
-	return st.watchEnvironMachineStorage(filesystemsC)
+// WatchModelFilesystems returns a StringsWatcher that notifies of changes
+// to the lifecycles of all model-scoped filesystems.
+func (st *State) WatchModelFilesystems() StringsWatcher {
+	return st.watchModelMachinestorage(filesystemsC)
 }
 
-func (st *State) watchEnvironMachineStorage(collection string) StringsWatcher {
+func (st *State) watchModelMachinestorage(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -249,17 +249,17 @@ func (st *State) watchMachineStorage(m names.MachineTag, collection string) Stri
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
 func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
-	return st.watchEnvironMachineStorageAttachments(volumeAttachmentsC)
+	return st.watchModelMachinestorageAttachments(volumeAttachmentsC)
 }
 
 // WatchEnvironFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
 func (st *State) WatchEnvironFilesystemAttachments() StringsWatcher {
-	return st.watchEnvironMachineStorageAttachments(filesystemAttachmentsC)
+	return st.watchModelMachinestorageAttachments(filesystemAttachmentsC)
 }
 
-func (st *State) watchEnvironMachineStorageAttachments(collection string) StringsWatcher {
+func (st *State) watchModelMachinestorageAttachments(collection string) StringsWatcher {
 	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -305,7 +305,7 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to
-// the lifecycles of the services in the environment.
+// the lifecycles of the services in the model.
 func (st *State) WatchServices() StringsWatcher {
 	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv, nil)
 }
@@ -363,9 +363,9 @@ func (s *Service) WatchRelations() StringsWatcher {
 	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
 }
 
-// WatchEnvironMachines returns a StringsWatcher that notifies of changes to
-// the lifecycles of the machines (but not containers) in the environment.
-func (st *State) WatchEnvironMachines() StringsWatcher {
+// WatchModelMachines returns a StringsWatcher that notifies of changes to
+// the lifecycles of the machines (but not containers) in the model.
+func (st *State) WatchModelMachines() StringsWatcher {
 	members := bson.D{{"$or", []bson.D{
 		{{"containertype", ""}},
 		{{"containertype", bson.D{{"$exists", false}}}},
@@ -1249,23 +1249,23 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	}
 }
 
-// EnvironConfigWatcher observes changes to the
-// environment configuration.
-type EnvironConfigWatcher struct {
+// ModelConfigWatcher observes changes to the
+// model configuration.
+type ModelConfigWatcher struct {
 	commonWatcher
 	out chan *config.Config
 }
 
-var _ Watcher = (*EnvironConfigWatcher)(nil)
+var _ Watcher = (*ModelConfigWatcher)(nil)
 
-// WatchEnvironConfig returns a watcher for observing changes
-// to the environment configuration.
-func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
-	return newEnvironConfigWatcher(st)
+// WatchModelConfig returns a watcher for observing changes
+// to the model configuration.
+func (st *State) WatchModelConfig() *ModelConfigWatcher {
+	return newModelConfigWatcher(st)
 }
 
-func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
-	w := &EnvironConfigWatcher{
+func newModelConfigWatcher(s *State) *ModelConfigWatcher {
+	w := &ModelConfigWatcher{
 		commonWatcher: commonWatcher{st: s},
 		out:           make(chan *config.Config),
 	}
@@ -1277,15 +1277,15 @@ func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
 	return w
 }
 
-// Changes returns a channel that will receive the new environment
+// Changes returns a channel that will receive the new model
 // configuration when a change is detected. Note that multiple changes may
 // be observed as a single event in the channel.
-func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
+func (w *ModelConfigWatcher) Changes() <-chan *config.Config {
 	return w.out
 }
 
-func (w *EnvironConfigWatcher) loop() (err error) {
-	sw := w.st.watchSettings(environGlobalKey)
+func (w *ModelConfigWatcher) loop() (err error) {
+	sw := w.st.watchSettings(modelGlobalKey)
 	defer sw.Stop()
 	out := w.out
 	out = nil
@@ -1395,9 +1395,9 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
-// WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
-func (st *State) WatchStateServerInfo() NotifyWatcher {
-	return newEntityWatcher(st, stateServersC, environGlobalKey)
+// WatchControllerInfo returns a NotifyWatcher for the controllers collection
+func (st *State) WatchControllerInfo() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, modelGlobalKey)
 }
 
 // Watch returns a watcher for observing changes to a machine.
@@ -1422,9 +1422,9 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
-// Watch returns a watcher for observing changes to an environment.
-func (e *Environment) Watch() NotifyWatcher {
-	return newEntityWatcher(e.st, environmentsC, e.doc.UUID)
+// Watch returns a watcher for observing changes to an model.
+func (e *Model) Watch() NotifyWatcher {
+	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade
@@ -1439,11 +1439,11 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
 }
 
-// WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
-// Config to change. This differs from WatchEnvironConfig in that the watcher
+// WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
+// Config to change. This differs from WatchModelConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
-func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, st.docID(environGlobalKey))
+func (st *State) WatchForModelConfigChanges() NotifyWatcher {
+	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
 }
 
 // WatchForUnitAssignment watches for new services that request units to be
@@ -1455,7 +1455,7 @@ func (st *State) WatchForUnitAssignment() StringsWatcher {
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {
-	return newEntityWatcher(st, stateServersC, apiHostPortsKey)
+	return newEntityWatcher(st, controllersC, apiHostPortsKey)
 }
 
 // WatchStorageAttachment returns a watcher for observing changes
@@ -2044,7 +2044,7 @@ func inCollectionOp(key string, ids ...string) bson.D {
 }
 
 // localIdInCollectionOp is a special form of inCollectionOp that just
-// converts id's to their env-uuid prefixed form.
+// converts id's to their model-uuid prefixed form.
 func localIdInCollectionOp(st *State, localIds ...string) bson.D {
 	ids := make([]string, len(localIds))
 	for i, id := range localIds {
@@ -2098,7 +2098,7 @@ type colWCfg struct {
 // with the given collection and filter function
 func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
 	// Always ensure that there is at least filtering on the
-	// environment in place.
+	// model in place.
 	if cfg.filter == nil {
 		cfg.filter = st.isForStateEnv
 	} else {
@@ -2230,7 +2230,7 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // and to account for the potential overlap between the id's that were
 // pending before the watcher started, and the new id's detected by the
 // watcher.
-// Additionally, mergeIds strips the environment UUID prefix from the id
+// Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
 func (w *collectionWatcher) mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
 	return mergeIds(st, changes, updates, w.idconv)
@@ -2244,7 +2244,7 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool, idconv
 		}
 
 		// Strip off the env UUID prefix. We only expect ids for a
-		// single environment.
+		// single model.
 		id, err := st.strictLocalID(id)
 		if err != nil {
 			return errors.Annotatef(err, "collection watcher")
@@ -2316,6 +2316,47 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 		filter: makeIdFilter(st, actionMarker, receivers...),
 		idconv: actionNotificationIdToActionId,
 	})
+}
+
+// WatchControllerStatusChanges starts and returns a StringsWatcher that
+// notifies when the status of a controller machine changes.
+// TODO(cherylj) Add unit tests for this, as per bug 1543408.
+func (st *State) WatchControllerStatusChanges() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{
+		col:    statusesC,
+		filter: makeControllerIdFilter(st),
+	})
+}
+
+func makeControllerIdFilter(st *State) func(interface{}) bool {
+	initialInfo, err := st.ControllerInfo()
+	if err != nil {
+		return nil
+	}
+	machines := initialInfo.MachineIds
+	return func(key interface{}) bool {
+		switch key.(type) {
+		case string:
+			info, err := st.ControllerInfo()
+			if err != nil {
+				// Most likely, things will be killed and
+				// restarted if we hit this error.  Just use
+				// the machine list we knew about last time.
+				logger.Debugf("unable to get controller info: %v", err)
+			} else {
+				machines = info.MachineIds
+			}
+			for _, machine := range machines {
+				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
+					return true
+				}
+			}
+		default:
+			watchLogger.Errorf("key is not type string, got %T", key)
+		}
+		return false
+	}
+
 }
 
 // WatchActionResults starts and returns a StringsWatcher that

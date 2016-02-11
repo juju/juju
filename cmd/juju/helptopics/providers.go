@@ -4,7 +4,6 @@
 package helptopics
 
 const (
-	LocalProvider     = helpProviderStart + helpLocalProvider + helpProviderEnd
 	OpenstackProvider = helpProviderStart + helpOpenstackProvider + helpProviderEnd
 	EC2Provider       = helpProviderStart + helpEC2Provider + helpProviderEnd
 	HPCloud           = helpProviderStart + helpHPCloud + helpProviderEnd
@@ -17,8 +16,10 @@ Start by generating a generic configuration file for Juju, using the command:
 
   juju init
 
-This will create the '~/.juju/' directory (or $JUJU_HOME, if set) if it doesn't
-already exist and generate a file, 'environments.yaml' in that directory.
+This will create the $JUJU_DATA directory, if set, otherwise it will try
+$XDG_DATA_HOME/juju if said variable is set or finally default to
+~/.local/share/juju if it doesn't already exist and generate a file, 
+'environments.yaml' in that directory.
 `
 const helpProviderEnd = `
 See Also:
@@ -26,63 +27,6 @@ See Also:
   juju help init
   juju help bootstrap
 
-`
-
-const helpLocalProvider = `
-The local provider is a Linux-only Juju environment that uses LXC containers as
-a virtual cloud on the local machine.  Because of this, lxc and mongodb are
-required for the local provider to work. All of these dependencies are tracked
-in the 'juju-local' package. You can install that with:
-
-  sudo apt-get update
-  sudo apt-get install juju-local
-
-After that you might get error for SSH authorised/public key not found. ERROR
-SSH authorised/public key not found.
-
-  ssh-keygen -t rsa
-
-Now you need to tell Juju to use the local provider and then bootstrap:
-
-  juju switch local
-  juju bootstrap
-
-The first time this runs it might take a bit, as it's doing a netinstall for
-the container, it's around a 300 megabyte download. Subsequent bootstraps
-should be much quicker. You'll be asked for your 'sudo' password, which is
-needed because only root can create LXC containers. When you need to destroy
-the environment, do 'juju destroy-environment local' and you could be asked
-for your 'sudo' password again.
-
-You deploy charms from the charm store using the following commands:
-
-  juju deploy mysql
-  juju deploy wordpress
-  juju add-relation wordpress mysql
-
-For Ubuntu deployments, the local provider will prefer to use lxc-clone to create
-the machines for the trusty OS series and later.
-A 'template' container is created with the name
-  juju-<series>-template
-where <series> is the OS series, for example 'juju-trusty-template'.
-You can override the use of clone by specifying
-  lxc-clone: true
-or
-  lxc-clone: false
-in the configuration for your local provider.  If you have the main container
-directory mounted on a btrfs partition, then the clone will be using btrfs
-snapshots to create the containers. This means that clones use up much
-less disk space.  If you do not have btrfs, lxc will attempt to use aufs
-(an overlay type filesystem). You can explicitly ask Juju to create
-full containers and not overlays by specifying the following in the provider
-configuration:
-  lxc-clone-aufs: false
-
-
-References:
-
-  http://askubuntu.com/questions/65359/how-do-i-configure-juju-for-local-usage
-  https://juju.ubuntu.com/docs/getting-started.html
 `
 
 const helpOpenstackProvider = `
@@ -118,7 +62,7 @@ Here's an example OpenStack configuration:
     # Usually set via the env variable OS_REGION_NAME, but can be specified here
     # region: <your region>
 
-If you have set the described OS_* environment variables, you only need "type:".
+If you have set the described OS_* model variables, you only need "type:".
 References:
 
   http://juju.ubuntu.com/docs/provider-configuration-openstack.html
@@ -126,7 +70,7 @@ References:
 
 Placement directives:
 
-  OpenStack environments support the following placement directives for use
+  OpenStack models support the following placement directives for use
   with "juju bootstrap" and "juju add-machine":
 
     zone=<availability-zone-name>
@@ -145,9 +89,9 @@ provider check these questions out for provider-specific information:
 `
 
 const helpEC2Provider = `
-Configuring the EC2 environment requires telling Juju about your AWS access key
+Configuring the EC2 model requires telling Juju about your AWS access key
 and secret key. To do this, you can either set the 'AWS_ACCESS_KEY_ID' and
-'AWS_SECRET_ACCESS_KEY' environment variables[1] (as usual for other EC2 tools)
+'AWS_SECRET_ACCESS_KEY' model variables[1] (as usual for other EC2 tools)
 or you can add access-key and secret-key options to your environments.yaml.
 These are already in place in the generated config, you just need to uncomment
 them out. For example:
@@ -169,7 +113,7 @@ And that's it, you're ready to go!
 
 Placement directives:
 
-  EC2 environments support the following placement directives for use with
+  EC2 models support the following placement directives for use with
   "juju bootstrap" and "juju add-machine":
 
     zone=<availability-zone-name>
@@ -193,7 +137,7 @@ More information:
 
 const helpHPCloud = `
 HP Cloud is an Openstack cloud provider.  To deploy to it, use an openstack
-environment type for Juju, which would look something like this:
+model type for Juju, which would look something like this:
 
   sample_hpcloud:
     type: openstack
@@ -210,7 +154,7 @@ See the online help for more information:
 `
 
 const helpAzureProvider = `
-A generic Windows Azure environment looks like this:
+A generic Windows Azure model looks like this:
 
   sample_azure:
     type: azure
@@ -271,7 +215,7 @@ See the online help for more information:
 `
 
 const helpMAASProvider = `
-A generic MAAS environment looks like this:
+A generic MAAS model looks like this:
 
   sample_maas:
     type: maas
@@ -282,7 +226,7 @@ The API key can be obtained from the preferences page in the MAAS web UI.
 
 Placement directives:
 
-  MAAS environments support the following placement directives for use with
+  MAAS models support the following placement directives for use with
   "juju bootstrap" and "juju add-machine":
 
     zone=<physical-zone-name>

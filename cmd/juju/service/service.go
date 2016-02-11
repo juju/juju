@@ -4,32 +4,8 @@
 package service
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 )
 
+// Logger for all commands in the service package
 var logger = loggo.GetLogger("juju.cmd.juju.service")
-
-const commandDoc = `
-"juju service" provides commands to manage Juju services.
-`
-
-// NewSuperCommand creates the service supercommand and registers the
-// subcommands that it supports.
-func NewSuperCommand() cmd.Command {
-	environmentCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:        "service",
-		Doc:         commandDoc,
-		UsagePrefix: "juju",
-		Purpose:     "manage services",
-	})
-
-	environmentCmd.Register(newAddUnitCommand())
-	environmentCmd.Register(newServiceGetConstraintsCommand())
-	environmentCmd.Register(newServiceSetConstraintsCommand())
-	environmentCmd.Register(newGetCommand())
-	environmentCmd.Register(NewSetCommand())
-	environmentCmd.Register(newUnsetCommand())
-
-	return environmentCmd
-}

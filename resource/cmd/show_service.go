@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 )
 
@@ -31,7 +31,7 @@ type ShowServiceDeps struct {
 
 // ShowServiceCommand implements the upload command.
 type ShowServiceCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 
 	deps   ShowServiceDeps
 	out    cmd.Output

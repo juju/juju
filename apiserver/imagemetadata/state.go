@@ -13,7 +13,7 @@ type metadataAcess interface {
 	FindMetadata(cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	SaveMetadata([]cloudimagemetadata.Metadata) error
 	DeleteMetadata(imageId string) error
-	EnvironConfig() (*config.Config, error)
+	ModelConfig() (*config.Config, error)
 }
 
 var getState = func(st *state.State) metadataAcess {

@@ -22,19 +22,19 @@ func TestAll(t *testing.T) {
 }
 
 type BaseStorageSuite struct {
-	jujutesting.FakeJujuHomeSuite
+	jujutesting.FakeJujuXDGDataHomeSuite
 
 	command cmd.Command
 }
 
 func (s *BaseStorageSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.command = storage.NewSuperCommand()
 }
 
 func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 type SubStorageSuite struct {
@@ -48,14 +48,14 @@ func (s *SubStorageSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
 	})
-	os.Setenv(osenv.JujuEnvEnvKey, "testing")
+	os.Setenv(osenv.JujuModelEnvKey, "testing")
 	info := memstore.CreateInfo("testing")
 	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"127.0.0.1:12345"},
-		Hostnames:   []string{"localhost:12345"},
-		CACert:      jujutesting.CACert,
-		EnvironUUID: "env-uuid",
+		Addresses: []string{"127.0.0.1:12345"},
+		Hostnames: []string{"localhost:12345"},
+		CACert:    jujutesting.CACert,
+		ModelUUID: jujutesting.ModelTag.Id(),
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     "user-test",

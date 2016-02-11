@@ -25,7 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -55,9 +55,9 @@ import (
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.juju/environments.yaml
+//     RootDir/home/ubuntu/.local/share/juju/environments.yaml
 //         The dummy environments.yaml file, holding
-//         a default environment named "dummyenv"
+//         a default environment named "dummymodel"
 //         which uses the "dummy" environment type.
 //     RootDir/var/lib/juju
 //         An empty directory returned as DataDir - the
@@ -69,46 +69,46 @@ type JujuConnSuite struct {
 	// added to the suite's environment configuration.
 	ConfigAttrs map[string]interface{}
 
-	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
+	// TODO: JujuConnSuite should not be concerned both with JUJU_DATA and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
 	gitjujutesting.MgoSuite
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
-	State        *state.State
-	Environ      environs.Environ
-	APIState     api.Connection
-	apiStates    []api.Connection // additional api.Connections to close on teardown
-	ConfigStore  configstore.Storage
-	BackingState *state.State // The State being used by the API server
-	RootDir      string       // The faked-up root directory.
-	LogDir       string
-	oldHome      string
-	oldJujuHome  string
-	DummyConfig  testing.Attrs
-	Factory      *factory.Factory
+	State              *state.State
+	Environ            environs.Environ
+	APIState           api.Connection
+	apiStates          []api.Connection // additional api.Connections to close on teardown
+	ConfigStore        configstore.Storage
+	BackingState       *state.State // The State being used by the API server
+	RootDir            string       // The faked-up root directory.
+	LogDir             string
+	oldHome            string
+	oldJujuXDGDataHome string
+	DummyConfig        testing.Attrs
+	Factory            *factory.Factory
 }
 
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
@@ -118,7 +118,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 
@@ -130,7 +130,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.ControllerEnvironment()
+	env, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Owner()
 }
@@ -146,7 +146,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-	apiInfo.EnvironTag = s.State.EnvironTag()
+	apiInfo.ModelTag = s.State.ModelTag()
 	return apiInfo
 }
 
@@ -217,22 +217,26 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	utils.SetHome(home)
-	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".juju"))
-	err = os.Mkdir(osenv.JujuHome(), 0777)
+
+	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(filepath.Join(home, ".local", "share", "juju"))
+	err = os.MkdirAll(osenv.JujuXDGDataHome(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "")
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
+	s.writeSampleConfig(c, osenv.JujuXDGDataHomePath("environments.yaml"))
 
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
+	err = ioutil.WriteFile(osenv.JujuXDGDataHomePath("dummymodel-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
+	err = ioutil.WriteFile(osenv.JujuXDGDataHomePath("dummymodel-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
@@ -240,10 +244,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ConfigStore = store
 
 	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(ctx), s.ConfigStore)
+	environ, err := environs.PrepareFromName("dummymodel", modelcmd.BootstrapContext(ctx), s.ConfigStore)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -272,7 +276,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
-	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -287,7 +291,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
-	info, err := s.ConfigStore.ReadInfo("dummyenv")
+	info, err := s.ConfigStore.ReadInfo("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}
@@ -363,21 +367,21 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
-	environUUID, ok := config.UUID()
+	modelUUID, ok := config.UUID()
 	if !ok {
-		return nil, fmt.Errorf("cannot connect without environment UUID")
+		return nil, fmt.Errorf("cannot connect without model UUID")
 	}
-	environTag := names.NewEnvironTag(environUUID)
+	modelTag := names.NewModelTag(modelUUID)
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
-	st, err := state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(environTag, mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -400,7 +404,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -414,7 +418,7 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 			secretAttrs[k] = v
 		}
 	}
-	return st.UpdateEnvironConfig(secretAttrs, nil, nil)
+	return st.UpdateModelConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -485,7 +489,7 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 		return nil, err
 	}
 
-	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
@@ -511,7 +515,7 @@ func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
 	}
 	whole := map[string]interface{}{
 		"environments": map[string]interface{}{
-			"dummyenv": attrs,
+			"dummymodel": attrs,
 		},
 	}
 	data, err := goyaml.Marshal(whole)
@@ -559,7 +563,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 
 	dummy.Reset()
 	utils.SetHome(s.oldHome)
-	osenv.SetJujuHome(s.oldJujuHome)
+	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }
@@ -581,9 +585,9 @@ func (s *JujuConnSuite) ConfDir() string {
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
+		panic("SetUpTest has not been called; will not overwrite $JUJU_DATA/environments.yaml")
 	}
-	path := osenv.JujuHomePath("environments.yaml")
+	path := osenv.JujuXDGDataHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
 	if err != nil {
 		panic(err)
@@ -638,7 +642,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
-			Environment:       s.State.EnvironTag(),
+			Model:             s.State.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config
@@ -647,6 +651,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

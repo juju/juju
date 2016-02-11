@@ -30,55 +30,55 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AllEnvironments allows controller administrators to get the list of all the
-// environments in the controller.
-func (c *Client) AllEnvironments() ([]base.UserEnvironment, error) {
-	var environments params.UserEnvironmentList
-	err := c.facade.FacadeCall("AllEnvironments", nil, &environments)
+// AllModels allows controller administrators to get the list of all the
+// models in the controller.
+func (c *Client) AllModels() ([]base.UserModel, error) {
+	var models params.UserModelList
+	err := c.facade.FacadeCall("AllModels", nil, &models)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]base.UserEnvironment, len(environments.UserEnvironments))
-	for i, env := range environments.UserEnvironments {
-		owner, err := names.ParseUserTag(env.OwnerTag)
+	result := make([]base.UserModel, len(models.UserModels))
+	for i, model := range models.UserModels {
+		owner, err := names.ParseUserTag(model.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
 		}
-		result[i] = base.UserEnvironment{
-			Name:           env.Name,
-			UUID:           env.UUID,
+		result[i] = base.UserModel{
+			Name:           model.Name,
+			UUID:           model.UUID,
 			Owner:          owner.Canonical(),
-			LastConnection: env.LastConnection,
+			LastConnection: model.LastConnection,
 		}
 	}
 	return result, nil
 }
 
-// EnvironmentConfig returns all environment settings for the
-// controller environment.
-func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
-	result := params.EnvironmentConfigResults{}
-	err := c.facade.FacadeCall("EnvironmentConfig", nil, &result)
+// ModelConfig returns all model settings for the
+// controller model.
+func (c *Client) ModelConfig() (map[string]interface{}, error) {
+	result := params.ModelConfigResults{}
+	err := c.facade.FacadeCall("ModelConfig", nil, &result)
 	return result.Config, err
 }
 
-// DestroyController puts the controller environment into a "dying" state,
-// and removes all non-manager machine instances. Underlying DestroyEnvironment
+// DestroyController puts the controller model into a "dying" state,
+// and removes all non-manager machine instances. Underlying DestroyModel
 // calls will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroyController(destroyEnvs bool) error {
+func (c *Client) DestroyController(destroyModels bool) error {
 	args := params.DestroyControllerArgs{
-		DestroyEnvironments: destroyEnvs,
+		DestroyModels: destroyModels,
 	}
 	return c.facade.FacadeCall("DestroyController", args, nil)
 }
 
-// ListBlockedEnvironments returns a list of all environments within the controller
+// ListBlockedModels returns a list of all models within the controller
 // which have at least one block in place.
-func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
-	result := params.EnvironmentBlockInfoList{}
-	err := c.facade.FacadeCall("ListBlockedEnvironments", nil, &result)
-	return result.Environments, err
+func (c *Client) ListBlockedModels() ([]params.ModelBlockInfo, error) {
+	result := params.ModelBlockInfoList{}
+	err := c.facade.FacadeCall("ListBlockedModels", nil, &result)
+	return result.Models, err
 }
 
 // RemoveBlocks removes all the blocks in the controller.
@@ -87,43 +87,43 @@ func (c *Client) RemoveBlocks() error {
 	return c.facade.FacadeCall("RemoveBlocks", args, nil)
 }
 
-// WatchAllEnv returns an AllEnvWatcher, from which you can request
-// the Next collection of Deltas (for all environments).
-func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
+// WatchAllModels returns an AllWatcher, from which you can request
+// the Next collection of Deltas (for all models).
+func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
 	info := new(api.WatchAll)
-	if err := c.facade.FacadeCall("WatchAllEnvs", nil, info); err != nil {
+	if err := c.facade.FacadeCall("WatchAllModels", nil, info); err != nil {
 		return nil, err
 	}
-	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
+	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }
 
-// EnvironmentStatus returns a status summary for each environment tag passed in.
-func (c *Client) EnvironmentStatus(tags ...names.EnvironTag) ([]base.EnvironmentStatus, error) {
-	result := params.EnvironmentStatusResults{}
-	envs := make([]params.Entity, len(tags))
+// ModelStatus returns a status summary for each model tag passed in.
+func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
+	result := params.ModelStatusResults{}
+	models := make([]params.Entity, len(tags))
 	for i, tag := range tags {
-		envs[i] = params.Entity{Tag: tag.String()}
+		models[i] = params.Entity{Tag: tag.String()}
 	}
 	req := params.Entities{
-		Entities: envs,
+		Entities: models,
 	}
-	if err := c.facade.FacadeCall("EnvironmentStatus", req, &result); err != nil {
+	if err := c.facade.FacadeCall("ModelStatus", req, &result); err != nil {
 		return nil, err
 	}
 
-	results := make([]base.EnvironmentStatus, len(result.Results))
+	results := make([]base.ModelStatus, len(result.Results))
 	for i, r := range result.Results {
-		env, err := names.ParseEnvironTag(r.EnvironTag)
+		model, err := names.ParseModelTag(r.ModelTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "EnvironTag %q at position %d", r.EnvironTag, i)
+			return nil, errors.Annotatef(err, "ModelTag %q at position %d", r.ModelTag, i)
 		}
 		owner, err := names.ParseUserTag(r.OwnerTag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
 		}
 
-		results[i] = base.EnvironmentStatus{
-			UUID:               env.Id(),
+		results[i] = base.ModelStatus{
+			UUID:               model.Id(),
 			Life:               r.Life,
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,

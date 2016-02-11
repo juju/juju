@@ -112,16 +112,16 @@ func (st *mockState) DeleteMetadata(imageId string) error {
 	return st.deleteMetadata(imageId)
 }
 
-func (st *mockState) EnvironConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig() (*config.Config, error) {
 	st.Stub.MethodCall(st, environConfig)
 	return st.environConfig()
 }
 
 func testConfig(c *gc.C) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":         "mock",
-		"state-server": true,
-		"state-id":     "1",
+		"type":       "mock",
+		"controller": true,
+		"state-id":   "1",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

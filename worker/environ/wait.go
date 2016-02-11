@@ -39,7 +39,7 @@ func WaitForEnviron(w watcher.NotifyWatcher, getter ConfigGetter, abort <-chan s
 			if !ok {
 				return nil, errors.New("environ config watch closed")
 			}
-			config, err := getter.EnvironConfig()
+			config, err := getter.ModelConfig()
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot read environ config")
 			}
