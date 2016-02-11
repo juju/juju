@@ -273,11 +273,12 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"ForceCharm",
 		"Exposed",
 		"MinUnits",
+		"MetricCredentials",
+		// UnitCount is handled by the number of units for the exported service.
+		"UnitCount",
 	)
 	todo := set.NewStrings(
-		"UnitCount",
 		"RelationCount",
-		"MetricCredentials",
 	)
 	s.AssertExportedFields(c, serviceDoc{}, fields.Union(todo))
 }
