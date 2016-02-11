@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -273,7 +274,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Get the credentials and region name.
-	credential, regionName, err := c.getCredentials(c.Cloud, cloud)
+	credential, regionName, err := c.getCredentials(ctx, c.Cloud, cloud)
 	if errors.IsNotFound(err) && c.CredentialName == "" {
 		// No credential was explicitly specified, and no credential
 		// was found in credentials.yaml; have the provider detect
@@ -438,6 +439,7 @@ to clean up the model.`[1:])
 }
 
 func (c *bootstrapCommand) getCredentials(
+	ctx *cmd.Context,
 	cloudName string,
 	cloud *jujucloud.Cloud,
 ) (_ *jujucloud.Credential, region string, _ error) {
@@ -454,14 +456,23 @@ func (c *bootstrapCommand) getCredentials(
 		regionName = defaultRegion
 	}
 
-	// Validate credential by checking schemas supported by the provider.
+	readFile := func(f string) ([]byte, error) {
+		f, err := utils.NormalizePath(f)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ioutil.ReadFile(ctx.AbsPath(f))
+	}
+
+	// Finalize credential against schemas supported by the provider.
 	provider, err := environs.Provider(cloud.Type)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	if err := jujucloud.ValidateCredential(
-		*credential, provider.CredentialSchemas(),
-	); err != nil {
+	credential, err = jujucloud.FinalizeCredential(
+		*credential, provider.CredentialSchemas(), readFile,
+	)
+	if err != nil {
 		return nil, "", errors.Annotatef(
 			err, "validating %q credential for cloud %q",
 			credentialName, cloudName,
