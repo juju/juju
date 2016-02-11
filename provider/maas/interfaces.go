@@ -103,7 +103,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
-func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, spacesMap map[string]network.SpaceInfo) ([]network.InterfaceInfo, error) {
+func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, spacesMap map[string]network.Id) ([]network.InterfaceInfo, error) {
 
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
@@ -181,19 +181,19 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, spacesMap map
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
 			} else {
 
-				nicInfo.Address.SpaceProviderId = spaceId.ProviderId
+				nicInfo.Address.SpaceProviderId = spaceId
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
 			if ok {
-				gwAddr.SpaceProviderId = spaceId.ProviderId
+				gwAddr.SpaceProviderId = spaceId
 			}
 			nicInfo.GatewayAddress = gwAddr
 
 			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
 			if ok {
 				for i := range nicInfo.DNSServers {
-					nicInfo.DNSServers[i].SpaceProviderId = spaceId.ProviderId
+					nicInfo.DNSServers[i].SpaceProviderId = spaceId
 				}
 			}
 			nicInfo.MTU = sub.VLAN.MTU
@@ -218,7 +218,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spacesMap, err := environ.fetchSpaces()
+	spacesMap, err := environ.fetchSpaceIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

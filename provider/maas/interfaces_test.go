@@ -536,7 +536,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		ExtraConfig:       nil,
 	}}
 
-	infos, err := maasObjectNetworkInterfaces(&obj)
+	infos, err := maasObjectNetworkInterfaces(&obj, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }

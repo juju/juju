@@ -61,10 +61,10 @@ var (
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
-	FetchSpaces              = fetchSpaces
+	FetchSpaces              = fetchSpaceIds
 )
 
-func fetchSpaces(spaces gomaasapi.MAASObject) (map[string]network.SpaceInfo, error) {
+func fetchSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
 	spacesJson, err := spaces.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -73,7 +73,7 @@ func fetchSpaces(spaces gomaasapi.MAASObject) (map[string]network.SpaceInfo, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spacesMap := make(map[string]network.SpaceInfo)
+	spacesMap := make(map[string]network.Id)
 	for _, spaceJson := range spacesArray {
 		spaceMap, err := spaceJson.GetMap()
 		if err != nil {
@@ -88,10 +88,7 @@ func fetchSpaces(spaces gomaasapi.MAASObject) (map[string]network.SpaceInfo, err
 			return nil, errors.Trace(err)
 		}
 		providerId := network.Id(strconv.Itoa(int(providerIdRaw)))
-		spacesMap[name] = network.SpaceInfo{
-			Name:       name,
-			ProviderId: providerId,
-		}
+		spacesMap[name] = providerId
 	}
 	return spacesMap, nil
 }
@@ -901,7 +898,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 
 		if environ.supportsNetworkDeploymentUbuntu {
-			spacesMap, err := environ.fetchSpaces()
+			spacesMap, err := environ.fetchSpaceIds()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1892,9 +1889,11 @@ func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
 	return json.GetArray()
 }
 
-func (environ *maasEnviron) fetchSpaces() (map[string]network.SpaceInfo, error) {
+// fetchSpaceIds fetches the spaces from MAAS and builds a map of space name to
+// id.
+func (environ *maasEnviron) fetchSpaceIds() (map[string]network.Id, error) {
 	spaces := environ.getMAASClient().GetSubObject("spaces")
-	return fetchSpaces(spaces)
+	return fetchSpaceIds(spaces)
 }
 
 // Spaces returns all the spaces, that have subnets, known to the provider.

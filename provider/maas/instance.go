@@ -125,7 +125,7 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 		return nil, errors.Annotate(err, "getting instance details")
 	}
 
-	spacesMap, err := mi.environ.fetchSpaces()
+	spacesMap, err := mi.environ.fetchSpaceIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
