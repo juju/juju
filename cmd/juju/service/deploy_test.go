@@ -840,8 +840,9 @@ type serviceInfo struct {
 	endpointBindings map[string]string
 }
 
-// assertDeployedServiceBindings checks that services were deployed into the expected spaces.
-// It is separate to assertServicesDeployed because it is only relevant to one test.
+// assertDeployedServiceBindings checks that services were deployed into the
+// expected spaces. It is separate to assertServicesDeployed because it is only
+// relevant to a couple of tests.
 func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1060,6 +1061,31 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
 }
 
+func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-1", "wordpress")
+	err = runDeploy(c, "cs:quantal/wordpress-1", "--bind", "db=db public")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"wordpress": {charm: "cs:quantal/wordpress-1"},
+	})
+	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
+		"wordpress": {
+			endpointBindings: map[string]string{
+				"cache":           "public",
+				"url":             "public",
+				"logging-dir":     "public",
+				"monitoring-port": "public",
+				"db":              "db",
+			},
+		},
+	})
+}
+
 func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	setter := &testMetricCredentialsSetter{
 		assert: func(serviceName string, data []byte) {},
@@ -1104,11 +1130,11 @@ func (s *ParseBindSuite) TestBindParseOK(c *gc.C) {
 	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"foo": "a", "bar": "b"})
 }
 
-func (s *ParseBindSuite) TestBindParseDefault(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "default"}
+func (s *ParseBindSuite) TestBindParseServiceDefault(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "service-default"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"": "default"})
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"": "service-default"})
 }
 
 func (s *ParseBindSuite) TestBindParseNoEndpoint(c *gc.C) {

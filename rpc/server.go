@@ -534,8 +534,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
 			err = &serverError{
-				Message: err.Error(),
-				Code:    CodeNotImplemented,
+				error: err,
 			}
 		} else {
 			err = transformErrors(err)
@@ -577,12 +576,11 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 	}
 }
 
-type serverError RequestError
-
-func (e *serverError) Error() string {
-	return e.Message
+type serverError struct {
+	error
 }
 
 func (e *serverError) ErrorCode() string {
-	return e.Code
+	// serverError only knows one error code.
+	return CodeNotImplemented
 }

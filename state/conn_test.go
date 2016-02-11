@@ -5,11 +5,14 @@ package state_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 )
 
 // ConnSuite provides the infrastructure for all other
@@ -98,4 +101,19 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 // given YAML string and adds it to the state, using the given revision.
 func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revsion int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revsion)
+}
+
+// NewStateForModelNamed returns an new model with the given modelName, which
+// has a unique UUID, and does not need to be closed when the test completes.
+func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.State {
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": modelName,
+		"uuid": utils.MustNewUUID().String(),
+	})
+	otherOwner := names.NewLocalUserTag("test-admin")
+	_, otherState, err := s.State.NewModel(cfg, otherOwner)
+
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { otherState.Close() })
+	return otherState
 }

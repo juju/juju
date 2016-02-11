@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/provider"
@@ -143,11 +143,11 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		// Existing bindings are preserved.
 		"server":  "db",
 		"client":  "client",
-		"cluster": network.DefaultSpace, // inherited from defaults in AddService.
-		// New endpoints use defaults.
-		"foo":  network.DefaultSpace,
-		"baz":  network.DefaultSpace,
-		"just": network.DefaultSpace,
+		"cluster": "", // inherited from defaults in AddService.
+		// New endpoints use empty defaults.
+		"foo":  "",
+		"baz":  "",
+		"just": "",
 	})
 }
 
@@ -162,7 +162,7 @@ func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
 
 	initialBindings := map[string]string{
 		"$pull":     "db",
-		"$set.foo":  network.DefaultSpace,
+		"$set.foo":  "",
 		"cli ent .": "client",
 		".":         "db",
 	}
@@ -199,10 +199,10 @@ peers:
 	c.Assert(err, jc.ErrorIsNil)
 	expectedBindings := map[string]string{
 		"cli ent .": "client",
-		"foo":       network.DefaultSpace,
-		"$":         network.DefaultSpace,
+		"foo":       "",
+		"$":         "",
 		".":         "db",
-		"$set.foo":  network.DefaultSpace,
+		"$set.foo":  "",
 		"$pull":     "db",
 	}
 	c.Check(readBindings, jc.DeepEquals, expectedBindings)
@@ -213,11 +213,11 @@ peers:
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedBindings = map[string]string{
-		"ser$ver2":  network.DefaultSpace,
-		"cli ent 2": network.DefaultSpace,
-		"$":         network.DefaultSpace,
+		"ser$ver2":  "",
+		"cli ent 2": "",
+		"$":         "",
 		".":         "db",
-		"$set.foo":  network.DefaultSpace,
+		"$set.foo":  "",
 		"$pull":     "db",
 	}
 	c.Check(readBindings, jc.DeepEquals, expectedBindings)
@@ -729,9 +729,9 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	oldBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(oldBindings, jc.DeepEquals, map[string]string{
-		"server":  network.DefaultSpace,
-		"kludge":  network.DefaultSpace,
-		"cluster": network.DefaultSpace,
+		"server":  "",
+		"kludge":  "",
+		"cluster": "",
 	})
 	_, err = s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -772,11 +772,11 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(newBindings, jc.DeepEquals, map[string]string{
 					"server":  "db", // from the first change.
-					"foo":     network.DefaultSpace,
-					"client":  network.DefaultSpace,
-					"baz":     network.DefaultSpace,
+					"foo":     "",
+					"client":  "",
+					"baz":     "",
 					"cluster": "admin", // from the second change.
-					"just":    network.DefaultSpace,
+					"just":    "",
 				})
 			},
 		},
@@ -2228,9 +2228,37 @@ func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *sta
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	bindings, err := service.EndpointBindings()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(bindings, gc.IsNil)
+	state.AssertEndpointBindingsNotFoundForService(c, service)
+}
+
+func (s *ServiceSuite) TestEndpointBindingsReturnsDefaultsWhenNotFound(c *gc.C) {
+	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
+	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
+	state.RemoveEndpointBindingsForService(c, service)
+
+	s.assertServiceHasOnlyDefaultEndpointBindings(c, service)
+}
+
+func (s *ServiceSuite) assertServiceHasOnlyDefaultEndpointBindings(c *gc.C, service *state.Service) {
+	charm, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+
+	knownEndpoints := set.NewStrings()
+	combinedEndpoints, err := state.CombinedCharmRelations(charm.Meta())
+	c.Assert(err, jc.ErrorIsNil)
+	for endpoint, _ := range combinedEndpoints {
+		knownEndpoints.Add(endpoint)
+	}
+
+	setBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(setBindings, gc.NotNil)
+
+	for endpoint, space := range setBindings {
+		c.Check(endpoint, gc.Not(gc.Equals), "")
+		c.Check(knownEndpoints.Contains(endpoint), jc.IsTrue)
+		c.Check(space, gc.Equals, "", gc.Commentf("expected empty space for endpoint %q, got %q", endpoint, space))
+	}
 }
 
 func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
@@ -2239,14 +2267,7 @@ func (s *ServiceSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
 	service := s.AddTestingServiceWithBindings(c, "yoursql", ch, nil)
 
-	setBindings, err := service.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setBindings, jc.DeepEquals, map[string]string{
-		"server":  network.DefaultSpace,
-		"client":  network.DefaultSpace,
-		"cluster": network.DefaultSpace,
-	})
-
+	s.assertServiceHasOnlyDefaultEndpointBindings(c, service)
 	s.assertServiceRemovedWithItsBindings(c, service)
 }
 
@@ -2267,7 +2288,7 @@ func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings, jc.DeepEquals, map[string]string{
 		"server":  "db",
-		"client":  network.DefaultSpace,
+		"client":  "",
 		"cluster": "ha",
 	})
 
@@ -2289,7 +2310,7 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	effectiveOld := map[string]string{
 		"kludge":  "db",
 		"client":  "db",
-		"cluster": network.DefaultSpace,
+		"cluster": "",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
 
@@ -2301,13 +2322,39 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	effectiveNew := map[string]string{
 		// These two should be preserved from oldCharm.
 		"client":  "db",
-		"cluster": network.DefaultSpace,
+		"cluster": "",
 		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": network.DefaultSpace,
-		// All the remaining are new and use the default.
-		"foo":  network.DefaultSpace,
-		"baz":  network.DefaultSpace,
-		"just": network.DefaultSpace,
+		"server": "",
+		// All the remaining are new and use the empty default.
+		"foo":  "",
+		"baz":  "",
+		"just": "",
+	}
+	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
+
+	s.assertServiceRemovedWithItsBindings(c, service)
+}
+
+func (s *ServiceSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
+	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
+	service := s.AddTestingServiceWithBindings(c, "theirsql", oldCharm, nil)
+	state.RemoveEndpointBindingsForService(c, service)
+
+	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
+	err := service.SetCharm(newCharm, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	setBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	effectiveNew := map[string]string{
+		// The following two exist for both oldCharm and newCharm.
+		"client":  "",
+		"cluster": "",
+		// "kludge" is missing in newMeta, "server" is new and gets the default.
+		"server": "",
+		// All the remaining are new and use the empty default.
+		"foo":  "",
+		"baz":  "",
+		"just": "",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 

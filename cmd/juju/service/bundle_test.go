@@ -194,10 +194,10 @@ deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 		},
 		"wordpress": {
 			endpointBindings: map[string]string{
-				"cache":           "default",
+				"cache":           "",
 				"url":             "public",
-				"logging-dir":     "default",
-				"monitoring-port": "default",
+				"logging-dir":     "",
+				"monitoring-port": "",
 				"db":              "db",
 			},
 		},

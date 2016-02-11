@@ -585,7 +585,7 @@ func (s *JujuConnSuite) ConfDir() string {
 // WriteConfig writes a juju config file to the "home" directory.
 func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
-		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
+		panic("SetUpTest has not been called; will not overwrite $JUJU_DATA/environments.yaml")
 	}
 	path := osenv.JujuXDGDataHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
@@ -609,22 +609,23 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return s.AddTestingServiceWithNetworks(c, name, ch, nil)
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch})
+}
+
+func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddServiceArgs) *state.Service {
+	c.Assert(s.State, gc.NotNil)
+	args.Owner = s.AdminUserTag(c).String()
+	service, err := s.State.AddService(args)
+	c.Assert(err, jc.ErrorIsNil)
+	return service
 }
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
-	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Storage: storage})
-	c.Assert(err, jc.ErrorIsNil)
-	return service
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch, Storage: storage})
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
-	c.Assert(s.State, gc.NotNil)
-	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Networks: networks})
-	c.Assert(err, jc.ErrorIsNil)
-	return service
+func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Service {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch, EndpointBindings: bindings})
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {

@@ -49,7 +49,9 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	bindings := map[string]string{
 		"db": "internal",
 	}
-	_, err := s.State.AddSpace("internal", "internal", nil, false)
+	_, err := s.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a machine, a service and add a unit so we can log in as

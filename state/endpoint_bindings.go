@@ -11,8 +11,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/network"
 )
 
 // endpointBindingsDoc represents how a service endpoints are bound to spaces.
@@ -157,7 +155,7 @@ func createEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string, newMeta *charm.Meta) (txn.Op, error) {
 	// Fetch existing bindings.
 	existingMap, txnRevno, err := readEndpointBindings(st, key)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return txn.Op{}, errors.Trace(err)
 	}
 
@@ -193,12 +191,16 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	if len(update) == 0 {
 		return txn.Op{}, jujutxn.ErrNoOperations
 	}
-	return txn.Op{
+	updateOp := txn.Op{
 		C:      endpointBindingsC,
 		Id:     key,
-		Assert: bson.D{{"txn-revno", txnRevno}},
 		Update: update,
-	}, nil
+	}
+	if existingMap != nil {
+		// Only assert existing haven't changed when they actually exist.
+		updateOp.Assert = bson.D{{"txn-revno", txnRevno}}
+	}
+	return updateOp, nil
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
@@ -247,10 +249,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		return errors.Trace(err)
 	}
 
-	// TODO(dimitern): Do not treat the default space specially here, this is
-	// temporary only to reduce the fallout across state tests and will be fixed
-	// in a follow-up.
-	spacesNamesSet := set.NewStrings(network.DefaultSpace)
+	spacesNamesSet := set.NewStrings()
 	for _, space := range spaces {
 		spacesNamesSet.Add(space.Name())
 	}
@@ -262,9 +261,6 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	endpointsNamesSet := set.NewStrings()
 	for name := range allRelations {
 		endpointsNamesSet.Add(name)
-		if space, _ := bindings[name]; space == "" {
-			return errors.NotValidf("unbound endpoint %q", name)
-		}
 	}
 
 	// Ensure there are no unknown endpoints and/or spaces specified.
@@ -276,7 +272,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		if !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if !spacesNamesSet.Contains(space) {
+		if space != "" && !spacesNamesSet.Contains(space) {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -284,7 +280,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 }
 
 // defaultEndpointBindingsForCharm populates a bindings map containing each
-// endpoint of the given charm metadata bound to the default space.
+// endpoint of the given charm metadata bound to an empty space.
 func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
 	allRelations, err := CombinedCharmRelations(charmMeta)
 	if err != nil {
@@ -292,7 +288,7 @@ func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, 
 	}
 	bindings := make(map[string]string, len(allRelations))
 	for name := range allRelations {
-		bindings[name] = network.DefaultSpace
+		bindings[name] = ""
 	}
 	return bindings, nil
 }
