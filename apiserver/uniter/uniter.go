@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -557,11 +556,11 @@ func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults,
 	return result, nil
 }
 
-// CharmModified returns the most recent charm modification timestamp
+// CharmModifiedVersion returns the most recent charm modification timestamp
 // for all given units or services.
-func (u *uniterBaseAPI) CharmModified(args params.Entities) (params.TimestampResults, error) {
-	results := params.TimestampResults{
-		Results: make([]params.TimestampResult, len(args.Entities)),
+func (u *uniterBaseAPI) CharmModifiedVersion(args params.Entities) (params.IntResults, error) {
+	results := params.IntResults{
+		Results: make([]params.IntResult, len(args.Entities)),
 	}
 
 	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
@@ -570,27 +569,27 @@ func (u *uniterBaseAPI) CharmModified(args params.Entities) (params.TimestampRes
 		return results, err
 	}
 	for i, entity := range args.Entities {
-		timestamp, err := u.charmModified(entity.Tag, canAccess)
+		ver, err := u.charmModifiedVersion(entity.Tag, canAccess)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Timestamp = timestamp
+		results.Results[i].Value = ver
 	}
 	return results, nil
 }
 
-func (u *uniterBaseAPI) charmModified(tagStr string, canAccess func(names.Tag) bool) (time.Time, error) {
+func (u *uniterBaseAPI) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
 	tag, err := names.ParseTag(tagStr)
 	if err != nil {
-		return common.ErrPerm
+		return -1, common.ErrPerm
 	}
 	if canAccess(tag) {
-		return time.Time{}, common.ErrPerm
+		return -1, common.ErrPerm
 	}
 	unitOrService, err := u.st.FindEntity(tag)
 	if err != nil {
-		return time.Time{}, err
+		return -1, err
 	}
 	var service *state.Service
 	switch entity := unitOrService.(type) {
@@ -599,11 +598,10 @@ func (u *uniterBaseAPI) charmModified(tagStr string, canAccess func(names.Tag) b
 	case *state.Unit:
 		service, err = entity.Service()
 		if err != nil {
-			return time.Time{}, err
+			return -1, err
 		}
 	}
-	timestamp := service.CharmModified()
-	return timestamp, nil
+	return service.CharmModifiedVersion(), nil
 }
 
 // CharmURL returns the charm URL for all given units or services.

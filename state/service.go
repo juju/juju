@@ -33,22 +33,22 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
-	DocID             string     `bson:"_id"`
-	Name              string     `bson:"name"`
-	ModelUUID         string     `bson:"model-uuid"`
-	Series            string     `bson:"series"`
-	Subordinate       bool       `bson:"subordinate"`
-	CharmURL          *charm.URL `bson:"charmurl"`
-	CharmModified     time.Time  `bson:"charmmodified"`
-	ForceCharm        bool       `bson:"forcecharm"`
-	Life              Life       `bson:"life"`
-	UnitCount         int        `bson:"unitcount"`
-	RelationCount     int        `bson:"relationcount"`
-	Exposed           bool       `bson:"exposed"`
-	MinUnits          int        `bson:"minunits"`
-	OwnerTag          string     `bson:"ownertag"`
-	TxnRevno          int64      `bson:"txn-revno"`
-	MetricCredentials []byte     `bson:"metric-credentials"`
+	DocID                string     `bson:"_id"`
+	Name                 string     `bson:"name"`
+	ModelUUID            string     `bson:"model-uuid"`
+	Series               string     `bson:"series"`
+	Subordinate          bool       `bson:"subordinate"`
+	CharmURL             *charm.URL `bson:"charmurl"`
+	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
+	ForceCharm           bool       `bson:"forcecharm"`
+	Life                 Life       `bson:"life"`
+	UnitCount            int        `bson:"unitcount"`
+	RelationCount        int        `bson:"relationcount"`
+	Exposed              bool       `bson:"exposed"`
+	MinUnits             int        `bson:"minunits"`
+	OwnerTag             string     `bson:"ownertag"`
+	TxnRevno             int64      `bson:"txn-revno"`
+	MetricCredentials    []byte     `bson:"metric-credentials"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -287,11 +287,10 @@ func (s *Service) IsPrincipal() bool {
 	return !s.doc.Subordinate
 }
 
-// CharmModified returns the most recent modification timestamp
-// for the service's charm. A zero value indicates that the charm
-// has never been modified.
-func (s *Service) CharmModified() time.Time {
-	return s.doc.CharmModified
+// CharmModifiedVersion increases whenever the service's charm is changed in any
+// way.
+func (s *Service) CharmModifiedVersion() int {
+	return s.doc.CharmModifiedVersion
 }
 
 // CharmURL returns the service's charm URL, and whether units should upgrade
