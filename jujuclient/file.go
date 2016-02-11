@@ -85,7 +85,7 @@ func (s *store) unlock(lock *fslock.Lock) {
 	}
 }
 
-// AllControllers implements ControllersGetter.AllControllers.
+// AllControllers implements ControllersGetter.
 func (s *store) AllControllers() (map[string]ControllerDetails, error) {
 	lock, err := s.lock("read-all-controllers")
 	if err != nil {
@@ -95,7 +95,7 @@ func (s *store) AllControllers() (map[string]ControllerDetails, error) {
 	return ReadControllersFile(JujuControllersPath())
 }
 
-// ControllerByName implements ControllersGetter.ControllerByName.
+// ControllerByName implements ControllersGetter.
 func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 	if err := ValidateControllerName(name); err != nil {
 		return nil, errors.Trace(err)
@@ -117,7 +117,7 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 	return nil, errors.NotFoundf("controller %s", name)
 }
 
-// UpdateController implements ControllersUpdater.UpdateController.
+// UpdateController implements ControllersUpdater.
 func (s *store) UpdateController(name string, details ControllerDetails) error {
 	if err := ValidateControllerName(name); err != nil {
 		return errors.Trace(err)
@@ -145,7 +145,7 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 	return WriteControllersFile(all)
 }
 
-// RemoveController implements ControllersRemover.RemoveController
+// RemoveController implements ControllersRemover
 func (s *store) RemoveController(name string) error {
 	if err := ValidateControllerName(name); err != nil {
 		return errors.Trace(err)
@@ -170,6 +170,18 @@ func (s *store) RemoveController(name string) error {
 	if _, ok := controllerModels[name]; ok {
 		delete(controllerModels, name)
 		if err := WriteModelsFile(controllerModels); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Remove accounts for the controller.
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, ok := controllerAccounts[name]; ok {
+		delete(controllerAccounts, name)
+		if err := WriteAccountsFile(controllerAccounts); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -219,7 +231,7 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 	return errors.Trace(WriteModelsFile(controllerModels))
 }
 
-// CurrentModel implements ModelUpdater.
+// SetCurrentModel implements ModelUpdater.
 func (s *store) SetCurrentModel(controllerName, modelName string) error {
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
@@ -361,4 +373,188 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 		models.CurrentModel = ""
 	}
 	return errors.Trace(WriteModelsFile(controllerModels))
+}
+
+// UpdateAccount implements AccountUpdater.
+func (s *store) UpdateAccount(controllerName, accountName string, details AccountDetails) error {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountDetails(details); err != nil {
+		return errors.Trace(err)
+	}
+
+	lock, err := s.lock("update-account")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.unlock(lock)
+
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if controllerAccounts == nil {
+		controllerAccounts = make(map[string]*ControllerAccounts)
+	}
+	accounts, ok := controllerAccounts[controllerName]
+	if !ok {
+		accounts = &ControllerAccounts{
+			Accounts: make(map[string]AccountDetails),
+		}
+		controllerAccounts[controllerName] = accounts
+	}
+	if oldDetails, ok := accounts.Accounts[accountName]; ok && details == oldDetails {
+		return nil
+	}
+
+	accounts.Accounts[accountName] = details
+	return errors.Trace(WriteAccountsFile(controllerAccounts))
+}
+
+// SetCurrentAccount implements AccountUpdater.
+func (s *store) SetCurrentAccount(controllerName, accountName string) error {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
+		return errors.Trace(err)
+	}
+
+	lock, err := s.lock("set-current-account")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.unlock(lock)
+
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accounts, ok := controllerAccounts[controllerName]
+	if !ok {
+		return errors.NotFoundf("controller %s", controllerName)
+	}
+	if accounts.CurrentAccount == accountName {
+		return nil
+	}
+	if _, ok := accounts.Accounts[accountName]; !ok {
+		return errors.NotFoundf("account %s:%s", controllerName, accountName)
+	}
+
+	accounts.CurrentAccount = accountName
+	return errors.Trace(WriteAccountsFile(controllerAccounts))
+}
+
+// AllAccounts implements AccountGetter.
+func (s *store) AllAccounts(controllerName string) (map[string]AccountDetails, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lock, err := s.lock("read-all-accounts")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer s.unlock(lock)
+
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	accounts, ok := controllerAccounts[controllerName]
+	if !ok {
+		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
+	}
+	return accounts.Accounts, nil
+}
+
+// CurrentAccount implements AccountGetter.
+func (s *store) CurrentAccount(controllerName string) (string, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	lock, err := s.lock("read-current-account")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer s.unlock(lock)
+
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	accounts, ok := controllerAccounts[controllerName]
+	if !ok || accounts.CurrentAccount == "" {
+		return "", errors.NotFoundf("current account for controller %s", controllerName)
+	}
+	return accounts.CurrentAccount, nil
+}
+
+// AccountByName implements AccountGetter.
+func (s *store) AccountByName(controllerName, accountName string) (*AccountDetails, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lock, err := s.lock("account-by-name")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer s.unlock(lock)
+
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	accounts, ok := controllerAccounts[controllerName]
+	if !ok {
+		return nil, errors.NotFoundf("controller %s", controllerName)
+	}
+	details, ok := accounts.Accounts[accountName]
+	if !ok {
+		return nil, errors.NotFoundf("account %s:%s", controllerName, accountName)
+	}
+	return &details, nil
+}
+
+// RemoveAccount implements AccountRemover.
+func (s *store) RemoveAccount(controllerName, accountName string) error {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
+		return errors.Trace(err)
+	}
+
+	lock, err := s.lock("remove-account")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.unlock(lock)
+
+	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accounts, ok := controllerAccounts[controllerName]
+	if !ok {
+		return errors.NotFoundf("controller %s", controllerName)
+	}
+	if _, ok := accounts.Accounts[accountName]; !ok {
+		return errors.NotFoundf("account %s:%s", controllerName, accountName)
+	}
+
+	delete(accounts.Accounts, accountName)
+	if accounts.CurrentAccount == accountName {
+		accounts.CurrentAccount = ""
+	}
+	return errors.Trace(WriteAccountsFile(controllerAccounts))
 }

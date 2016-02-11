@@ -25,6 +25,15 @@ type ModelDetails struct {
 	ModelUUID string `yaml:"uuid"`
 }
 
+// AccountDetails holds details of an account.
+type AccountDetails struct {
+	// User is the username for the account.
+	User string `yaml:"user"`
+
+	// Password is the password for the account.
+	Password string `yaml:"password,omitempty"`
+}
+
 // ControllerUpdater stores controller details.
 type ControllerUpdater interface {
 	// UpdateController adds the given controller to the controller
@@ -98,6 +107,51 @@ type ModelGetter interface {
 	ModelByName(controllerName, modelName string) (*ModelDetails, error)
 }
 
+// AccountUpdater stores account details.
+type AccountUpdater interface {
+	// UpdateAccount adds the given account to the account collection.
+	//
+	// If the account does not already exist, it will be added.
+	// Otherwise, it will be overwritten with the new details.
+	UpdateAccount(controllerName, accountName string, details AccountDetails) error
+
+	// SetCurrentAccount sets the name of the current account for
+	// the specified controller. If there exists no account with
+	// the specified names, an error satisfing errors.IsNotFound
+	// will be returned.
+	SetCurrentAccount(controllerName, accountName string) error
+}
+
+// AccountRemover removes accounts.
+type AccountRemover interface {
+	// RemoveAccount removes the account with the given controller and account
+	// names from the accounts collection. If there is no account with the
+	// specified names, an errors satisfying errors.IsNotFound will be
+	// returned.
+	RemoveAccount(controllerName, accountName string) error
+}
+
+// AccountGetter gets accounts.
+type AccountGetter interface {
+	// AllAccounts gets all accounts for the specified controller.
+	//
+	// If there is no controller with the specified name, or
+	// no accounts cached for the controller, an error satisfying
+	// errors.IsNotFound will be returned.
+	AllAccounts(controllerName string) (map[string]AccountDetails, error)
+
+	// CurrentAccount returns the name of the current account for
+	// the specified controller. If there is no current account
+	// for the controller, an error satisfying errors.IsNotFound
+	// is returned.
+	CurrentAccount(controllerName string) (string, error)
+
+	// AccountByName returns the account with the specified controller
+	// and account names. If there exists no account with the specified
+	// names, an error satisfying errors.IsNotFound will be returned.
+	AccountByName(controllerName, accountName string) (*AccountDetails, error)
+}
+
 // ControllerStore is an amalgamation of ControllerUpdater, ControllerRemover,
 // and ControllerGetter.
 type ControllerStore interface {
@@ -113,8 +167,16 @@ type ModelStore interface {
 	ModelGetter
 }
 
-// ClientStore is an amalgamation of ControllerStore and ModelStore.
+// AccountStore is an amalgamation of AccountUpdater, AccountRemover, and AccountGetter.
+type AccountStore interface {
+	AccountUpdater
+	AccountRemover
+	AccountGetter
+}
+
+// ClientStore is an amalgamation of AccountStore, ControllerStore, and ModelStore.
 type ClientStore interface {
+	AccountStore
 	ControllerStore
 	ModelStore
 }
