@@ -294,7 +294,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 
 func environsPath(path string) string {
 	if path == "" {
-		path = osenv.JujuHomePath("environments.yaml")
+		path = osenv.JujuXDGDataHomePath("environments.yaml")
 	}
 	return path
 }
@@ -313,7 +313,7 @@ func IsNoEnv(err error) bool {
 // ReadEnvirons reads the juju environments.yaml file
 // and returns the result of running ParseEnvironments
 // on the file's contents.
-// If path is empty, $HOME/.juju/environments.yaml is used.
+// If path is empty, $HOME/.local/share/juju/environments.yaml is used.
 func ReadEnvirons(path string) (*Environs, error) {
 	environsFilepath := environsPath(path)
 	data, err := ioutil.ReadFile(environsFilepath)

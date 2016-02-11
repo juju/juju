@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -27,6 +28,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -203,7 +205,7 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	// Add the charm, so the url will exist and a new revision will be
-	// picked in ServiceDeploy.
+	// picked in service Deploy.
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	dirPath := testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
@@ -1024,6 +1026,24 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
 	c.Assert(called, jc.IsFalse)
+}
+
+func (s *DeploySuite) TestDeployFlags(c *gc.C) {
+	command := DeployCommand{}
+	flagSet := gnuflag.NewFlagSet(command.Info().Name, gnuflag.ContinueOnError)
+	command.SetFlags(flagSet)
+	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
+	// Add to the slice below if a new flag is introduced which is valid for
+	// both charms and bundles.
+	charmAndBundleFlags := []string{"repository", "storage"}
+	var allFlags []string
+	flagSet.VisitAll(func(flag *gnuflag.Flag) {
+		allFlags = append(allFlags, flag.Name)
+	})
+	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
+	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
+	sort.Strings(declaredFlags)
+	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
 }
 
 func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {

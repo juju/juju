@@ -1,14 +1,14 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package local_test
+package modelmigration_test
 
 import (
-	testing "testing"
+	"testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

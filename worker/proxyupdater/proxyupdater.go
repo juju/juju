@@ -51,7 +51,6 @@ type proxyWorker struct {
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
 
-	writeSystemFiles bool
 	// The whole point of the first value is to make sure that the the files
 	// are written out the first time through, even if they are the same as
 	// "last" time, as the initial value for last time is the zeroed struct.
@@ -64,13 +63,11 @@ type proxyWorker struct {
 }
 
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
-// process; and, if writeSystemFiles is true, for the whole machine.
-var NewWorker = func(api *apiproxyupdater.Facade, writeSystemFiles bool) (worker.Worker, error) {
-	logger.Debugf("write system files: %v", writeSystemFiles)
+// process and for the whole machine.
+var NewWorker = func(api *apiproxyupdater.Facade) (worker.Worker, error) {
 	envWorker := &proxyWorker{
-		api:              api,
-		writeSystemFiles: writeSystemFiles,
-		first:            true,
+		api:   api,
+		first: true,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: envWorker,
@@ -82,22 +79,15 @@ var NewWorker = func(api *apiproxyupdater.Facade, writeSystemFiles bool) (worker
 }
 
 func (w *proxyWorker) writeEnvironmentFile() error {
-	// Writing the environment file is handled by executing the script for two
-	// primary reasons:
+	// Writing the environment file is handled by executing the script:
 	//
-	// 1: In order to have the local provider specify the environment settings
-	// for the machine agent running on the host, this worker needs to run,
-	// but it shouldn't be touching any files on the disk.  If however there is
-	// an ubuntu user, it will. This shouldn't be a problem.
-	//
-	// 2: On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
+	// On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
 	// the situation where the ubuntu user has been created as a part of the
 	// manual provisioning process, the user will exist, and will not have the
 	// same uid/gid as the default cloud image.
 	//
-	// It is easier to shell out to check both these things, and is also the
-	// same way that the file is written in the cloud-init process, so
-	// consistency FTW.
+	// It is easier to shell out to check, and is also the same way that the file
+	// is written in the cloud-init process, so consistency FTW.
 	filePath := path.Join(ProxyDirectory, ProxyFile)
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
@@ -157,11 +147,9 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
-		if w.writeSystemFiles {
-			if err := w.writeEnvironment(); err != nil {
-				// It isn't really fatal, but we should record it.
-				logger.Errorf("error writing proxy environment file: %v", err)
-			}
+		if err := w.writeEnvironment(); err != nil {
+			// It isn't really fatal, but we should record it.
+			logger.Errorf("error writing proxy environment file: %v", err)
 		}
 	}
 }
@@ -173,7 +161,7 @@ func getPackageCommander() (commands.PackageCommander, error) {
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {
-	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
+	if aptSettings != w.aptProxy || w.first {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		paccmder, err := getPackageCommander()
 		if err != nil {

@@ -13,7 +13,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newGetCommand() cmd.Command {
+// NewGetCommand returns a command used to get service attributes.
+func NewGetCommand() cmd.Command {
 	return modelcmd.Wrap(&getCommand{})
 }
 
@@ -30,7 +31,7 @@ The command output includes the service and charm names, a detailed list of all 
 settings for <service>, including the setting name, whether it uses the default value
 or not ("default: true"), description (if set), type, and current value. Example:
 
-$ juju service get wordpress
+$ juju get-config wordpress
 
 charm: wordpress
 service: wordpress
@@ -55,10 +56,11 @@ default value. It does not indicate the default value for the setting.
 
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get",
+		Name:    "get-config",
 		Args:    "<service>",
 		Purpose: "get service configuration options",
 		Doc:     getDoc,
+		Aliases: []string{"get-configs"},
 	}
 }
 
@@ -82,7 +84,7 @@ func (c *getCommand) Init(args []string) error {
 // that the service get command calls.
 type getServiceAPI interface {
 	Close() error
-	ServiceGet(service string) (*params.ServiceGetResults, error)
+	Get(service string) (*params.ServiceGetResults, error)
 }
 
 func (c *getCommand) getAPI() (getServiceAPI, error) {
@@ -105,7 +107,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	results, err := apiclient.ServiceGet(c.ServiceName)
+	results, err := apiclient.Get(c.ServiceName)
 	if err != nil {
 		return err
 	}
