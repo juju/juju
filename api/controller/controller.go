@@ -134,23 +134,26 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 	return results, nil
 }
 
-// InitiateModelMigration attempts to start a migration for the specified model.
+// InitiateModelMigration attempts to start a migration for the
+// specified model, returning the migration's ID.
 //
 // The API server supports starting multiple migrations in one request
 // but we don't need that at the client side yet (and may never) so
 // this call just supports starting one migration at a time.
-func (c *Client) InitiateModelMigration(spec params.ModelMigrationSpec) (params.InitiateModelMigrationResult, error) {
-	emptyResult := params.InitiateModelMigrationResult{}
-
+func (c *Client) InitiateModelMigration(spec params.ModelMigrationSpec) (string, error) {
 	args := params.InitiateModelMigrationArgs{
 		Specs: []params.ModelMigrationSpec{spec},
 	}
-	results := params.InitiateModelMigrationResults{}
-	if err := c.facade.FacadeCall("InitiateModelMigration", args, &results); err != nil {
-		return emptyResult, errors.Trace(err)
+	response := params.InitiateModelMigrationResults{}
+	if err := c.facade.FacadeCall("InitiateModelMigration", args, &response); err != nil {
+		return "", errors.Trace(err)
 	}
-	if len(results.Results) != 1 {
-		return emptyResult, errors.New("unexpected number of results returned")
+	if len(response.Results) != 1 {
+		return "", errors.New("unexpected number of results returned")
 	}
-	return results.Results[0], nil
+	result := response.Results[0]
+	if result.Error != nil {
+		return "", errors.Trace(result.Error)
+	}
+	return result.Id, nil
 }
