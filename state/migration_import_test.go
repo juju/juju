@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/testing/factory"
@@ -32,9 +33,22 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
+func (s *MigrationImportSuite) importModel(c *gc.C) (*state.Model, *state.State) {
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	newEnv, newSt, err := s.State.Import(in)
+	c.Assert(err, jc.ErrorIsNil)
+	return newEnv, newSt
+}
+
 func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
+
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,14 +129,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
 	delta := s.newModelUser(c, "delta@external", true, time.Time{})
 
-	out, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
-
-	newEnv, newSt, err := s.State.Import(in)
-	c.Assert(err, jc.ErrorIsNil)
+	newEnv, newSt := s.importModel(c)
 	defer newSt.Close()
 
 	// Check the import values of the users.
@@ -172,15 +179,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allMachines, gc.HasLen, 2)
 
-	out, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
-
-	_, newSt, err := s.State.Import(in)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%#v", newSt)
+	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
 	importedMachines, err := newSt.AllMachines()
@@ -221,14 +220,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allServices, gc.HasLen, 1)
 
-	out, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
-
-	_, newSt, err := s.State.Import(in)
-	c.Assert(err, jc.ErrorIsNil)
+	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
 	importedServices, err := newSt.AllServices()
@@ -258,14 +250,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, nil)
 
-	out, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
-
-	_, newSt, err := s.State.Import(in)
-	c.Assert(err, jc.ErrorIsNil)
+	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
 	importedServices, err := newSt.AllServices()
@@ -285,6 +270,29 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	importedMachineId, err := imported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedMachineId, gc.Equals, exportedMachineId)
+}
+
+func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	err := unit.OpenPorts("tcp", 1234, 2345)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer newSt.Close()
+
+	// Even though the opened ports document is stored with the
+	// machine, the only way to easily access it is through the units.
+	imported, err := newSt.Unit(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	ports, err := imported.OpenedPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ports, gc.HasLen, 1)
+	c.Assert(ports[0], gc.Equals, network.PortRange{
+		FromPort: 1234,
+		ToPort:   2345,
+		Protocol: "tcp",
+	})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

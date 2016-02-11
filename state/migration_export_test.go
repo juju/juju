@@ -179,6 +179,27 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 }
 
+func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	err := unit.OpenPorts("tcp", 1234, 2345)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	machines := model.Machines()
+	c.Assert(machines, gc.HasLen, 1)
+
+	ports := machines[0].NetworkPorts()
+	c.Assert(ports, gc.HasLen, 1)
+
+	network := ports[0]
+	c.Assert(network.NetworkName(), gc.Equals, "juju-public")
+	opened := network.OpenPorts()
+	c.Assert(opened, gc.HasLen, 1)
+	c.Assert(opened[0].UnitName(), gc.Equals, unit.Name())
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token

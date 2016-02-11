@@ -197,6 +197,10 @@ func (i *importer) machine(m migration.Machine) error {
 
 	// 4. gather prereqs and machine op, run ops.
 	ops := append(prereqOps, machineOp)
+
+	// 5. add any ops that we may need to add the opened ports information.
+	ops = append(ops, i.machinePortsOps(m)...)
+
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
@@ -209,6 +213,35 @@ func (i *importer) machine(m migration.Machine) error {
 		}
 	}
 	return nil
+}
+
+func (i *importer) machinePortsOps(m migration.Machine) []txn.Op {
+	var result []txn.Op
+	machineId := m.Id()
+
+	for _, ports := range m.NetworkPorts() {
+		networkName := ports.NetworkName()
+		doc := &portsDoc{
+			MachineID:   machineId,
+			NetworkName: networkName,
+		}
+		for _, opened := range ports.OpenPorts() {
+			doc.Ports = append(doc.Ports, PortRange{
+				UnitName: opened.UnitName(),
+				FromPort: opened.FromPort(),
+				ToPort:   opened.ToPort(),
+				Protocol: opened.Protocol(),
+			})
+		}
+		result = append(result, txn.Op{
+			C:      openedPortsC,
+			Id:     portsGlobalKey(machineId, networkName),
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+	}
+
+	return result
 }
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst migration.CloudInstance) txn.Op {
