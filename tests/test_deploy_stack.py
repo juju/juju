@@ -25,6 +25,7 @@ from deploy_stack import (
     assess_upgrade,
     boot_context,
     BootstrapManager,
+    check_token,
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
@@ -59,6 +60,7 @@ from jujupy import (
 from remote import (
     _Remote,
     remote_from_address,
+    SSHRemote,
 )
 from tests import (
     FakeHomeTestCase,
@@ -191,6 +193,67 @@ class DeployStackTestCase(FakeHomeTestCase):
                       'juju_command_times.json')) as out_file:
                 file_data = json.load(out_file)
         self.assertEqual(file_data, expected)
+
+    def test_check_token(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient(env, None, None)
+        remote = SSHRemote(client, 'unit', None, series='xenial')
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(remote, 'run', autospec=True,
+                              return_value='token') as rr_mock:
+                check_token(client, 'token', timeout=0)
+        rr_mock.assert_called_once_with(GET_TOKEN_SCRIPT)
+        self.assertTrue(remote.use_juju_ssh)
+        self.assertEqual(
+            ['INFO Retrieving token.',
+             "INFO Token matches expected 'token'"],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_not_found(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient(env, None, None)
+        remote = SSHRemote(client, 'unit', None, series='xenial')
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(remote, 'run', autospec=True,
+                              return_value='') as rr_mock:
+                with patch.object(remote, 'get_address',
+                                  autospec=True) as ga_mock:
+                    with self.assertRaisesRegexp(ValueError, "Token is ''"):
+                        check_token(client, 'token', timeout=0)
+        self.assertEqual(2, rr_mock.call_count)
+        rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
+        ga_mock.assert_called_once_with()
+        self.assertFalse(remote.use_juju_ssh)
+        self.assertEqual(
+            ['INFO Retrieving token.'],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_not_found_juju_ssh_broken(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient(env, None, None)
+        remote = SSHRemote(client, 'unit', None, series='xenial')
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(remote, 'run', autospec=True,
+                              side_effect=['', 'token']) as rr_mock:
+                with patch.object(remote, 'get_address',
+                                  autospec=True) as ga_mock:
+                    with self.assertRaisesRegexp(ValueError,
+                                                 "Token is 'token'"):
+                        check_token(client, 'token', timeout=0)
+        self.assertEqual(2, rr_mock.call_count)
+        rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
+        ga_mock.assert_called_once_with()
+        self.assertFalse(remote.use_juju_ssh)
+        self.assertEqual(
+            ['INFO Retrieving token.',
+             "INFO Token matches expected 'token'",
+             'ERROR juju ssh to unit is broken.'],
+            self.log_stream.getvalue().splitlines())
+
+    log_level = logging.DEBUG
 
 
 class DumpEnvLogsTestCase(FakeHomeTestCase):
@@ -408,7 +471,11 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
         self.assertEqual(2, co.call_count)
         self.assertEqual(
-            ['WARNING Could not allow access to the juju logs:',
+            ['DEBUG ssh -o User ubuntu -o UserKnownHostsFile /dev/null -o '
+             'StrictHostKeyChecking no -o PasswordAuthentication no 10.10.0.1 '
+             'sudo chmod -Rf go+r /var/log/cloud-init*.log /var/log/juju/*.log'
+             ' /var/lib/juju/containers/juju-*-lxc-*/',
+             'WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',
              'WARNING None'],

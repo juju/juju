@@ -124,6 +124,7 @@ class SSHRemote(_Remote):
     def run(self, command):
         """Run a command on the remote machine."""
         if self.use_juju_ssh:
+            logging.debug('juju ssh {}'.format(self.unit))
             try:
                 return self.client.get_juju_output("ssh", self.unit, command,
                                                    timeout=self.timeout)
@@ -136,6 +137,7 @@ class SSHRemote(_Remote):
         args = ["ssh"]
         args.extend(self._ssh_opts)
         args.extend([self.address, command])
+        logging.debug(' '.join(str(i) for i in args))
         return self._run_subprocess(args)
 
     def copy(self, destination_dir, source_globs):
