@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
 
@@ -54,20 +55,8 @@ func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts
 	return st, nil
 }
 
-// NewAPIClientFromName returns an api.Client connected to the API Server for
-// the named environment. If envName is "", the default environment
-// will be used.
-func NewAPIClientFromName(envName string, bClient *httpbakery.Client) (*api.Client, error) {
-	st, err := newAPIClient(envName, bClient)
-	if err != nil {
-		return nil, err
-	}
-	return st.Client(), nil
-}
-
 // NewAPIFromName returns an api.State connected to the API Server for
-// the named environment. If envName is "", the default environment will
-// be used.
+// the named environment.
 func NewAPIFromName(envName string, bClient *httpbakery.Client) (api.Connection, error) {
 	return newAPIClient(envName, bClient)
 }
@@ -79,7 +68,8 @@ func newAPIClient(envName string, bClient *httpbakery.Client) (api.Connection, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := newAPIFromStore(envName, store, defaultAPIOpen, bClient)
+	controllerStore := jujuclient.NewFileClientStore()
+	st, err := newAPIFromStore(envName, store, controllerStore, defaultAPIOpen, bClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -96,27 +86,9 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 	return addrConnectedTo[0], nil
 }
 
-// newAPIFromStore implements the bulk of NewAPIClientFromName
-// but is separate for testing purposes.
-func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
-	// Try to read the default environment configuration file.
-	// If it doesn't exist, we carry on in case
-	// there's some environment info for that environment.
-	// This enables people to copy environment files
-	// into their .local/share/juju/environments directory and have
-	// them be directly useful with no further configuration changes.
-	envs, err := environs.ReadEnvirons("")
-	if err == nil {
-		if envName == "" {
-			envName = envs.Default
-		}
-		if envName == "" {
-			return nil, fmt.Errorf("no default model found")
-		}
-	} else if !environs.IsNoEnv(err) {
-		return nil, err
-	}
-
+// newAPIFromStore implements the bulk of NewAPIFromName but is separate for
+// testing purposes.
+func newAPIFromStore(envName string, store configstore.Storage, controllerStore jujuclient.ControllerStore, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
 	// Try to connect to the API concurrently using two different
 	// possible sources of truth for the API endpoint. Our
 	// preference is for the API endpoint cached in the API info,
@@ -127,10 +99,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	// found from the provider. We only start to make that
 	// connection after some suitable delay, so that in the
 	// hopefully usual case, we will make the connection to the API
-	// and never hit the provider. By preference we use provider
-	// attributes from the config store, but for backward
-	// compatibility reasons, we fall back to information from
-	// ReadEnvirons if that does not exist.
+	// and never hit the provider.
 	chooseError := func(err0, err1 error) error {
 		if err0 == nil {
 			return err1
@@ -144,11 +113,11 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	try := parallel.NewTry(0, chooseError)
 
 	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	var delay time.Duration
-	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
+	if len(info.APIEndpoint().Addresses) > 0 {
 		logger.Debugf(
 			"trying cached API connection settings - endpoints %v",
 			info.APIEndpoint().Addresses,
@@ -163,7 +132,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getConfig(info, envs, envName)
+		cfg, err := getConfig(info, envName)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +164,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 			// Cache the connection settings only if we used the
 			// environment config, but any errors are just logged
 			// as warnings, because they're not fatal.
-			err = cacheAPIInfo(st, info, cachedInfo.cachedInfo)
+			err = cacheAPIInfo(st, info, controllerStore, cachedInfo.cachedInfo)
 			if err != nil {
 				logger.Warningf("cannot cache API connection settings: %v", err.Error())
 			} else {
@@ -218,7 +187,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	if controllerTag, err := st.ControllerTag(); err == nil {
 		serverUUID = controllerTag.Id()
 	}
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, modelUUID, serverUUID); localerr != nil {
+	if localerr := cacheChangedAPIInfo(info, controllerStore, st.APIHostPorts(), addrConnectedTo, modelUUID, serverUUID); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -320,22 +289,15 @@ func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan stru
 }
 
 // getConfig looks for configuration info on the given environment
-func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName string) (*config.Config, error) {
-	if info != nil && len(info.BootstrapConfig()) > 0 {
-		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-		if err != nil {
-			logger.Warningf("failed to parse bootstrap-config: %v", err)
-		}
-		return cfg, err
+func getConfig(info configstore.EnvironInfo, modelName string) (*config.Config, error) {
+	if len(info.BootstrapConfig()) == 0 {
+		return nil, errors.NotFoundf("model %q", modelName)
 	}
-	if envs != nil {
-		cfg, err := envs.Config(envName)
-		if err != nil && !errors.IsNotFound(err) {
-			logger.Warningf("failed to get config for model %q: %v", envName, err)
-		}
-		return cfg, err
+	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+	if err != nil {
+		logger.Warningf("failed to parse bootstrap-config: %v", err)
 	}
-	return nil, errors.NotFoundf("model %q", envName)
+	return cfg, err
 }
 
 func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error) {
@@ -356,7 +318,7 @@ func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error)
 // cacheAPIInfo updates the local environment settings (.jenv file)
 // with the provided apiInfo, assuming we've just successfully
 // connected to the API server.
-func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
+func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, controllerStore jujuclient.ControllerStore, apiInfo *api.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
 	var modelUUID string
 	if names.IsValidModel(apiInfo.ModelTag.Id()) {
@@ -386,6 +348,11 @@ func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.
 	if addrsChanged {
 		endpoint.Addresses = addrs
 		endpoint.Hostnames = hostnames
+
+		// Only want to update controller file if connection details have changed.
+		if err := updateControllerInfo(controllerStore, info.APIEndpoint(), endpoint); err != nil {
+			return errors.Annotate(err, "could not update controller details")
+		}
 	}
 	info.SetAPIEndpoint(endpoint)
 	tag, ok := apiInfo.Tag.(names.UserTag)
@@ -400,6 +367,32 @@ func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.
 		Password: apiInfo.Password,
 	})
 	return info.Write()
+}
+
+// updateControllerInfo should only be called when connection details have changed.
+func updateControllerInfo(controllerStore jujuclient.ControllerStore, existing, new configstore.APIEndpoint) error {
+	// Look up controller using its uuid.
+	all, err := controllerStore.AllControllers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var controllerDetails jujuclient.ControllerDetails
+	var controllerName string
+	for name, details := range all {
+		if details.ControllerUUID == existing.ServerUUID {
+			controllerDetails = details
+			controllerName = name
+			break
+		}
+	}
+	if controllerName == "" {
+		return errors.NotFoundf("controller name with uuid %v", existing.ServerUUID)
+	}
+
+	controllerDetails.Servers = new.Hostnames
+	controllerDetails.APIEndpoints = new.Addresses
+	return controllerStore.UpdateController(controllerName, controllerDetails)
 }
 
 var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {
@@ -509,7 +502,7 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, modelUUID, serverUUID string) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, controllerStore jujuclient.ControllerStore, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, modelUUID, serverUUID string) error {
 	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
 	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
 	endpoint := info.APIEndpoint()
@@ -534,6 +527,11 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 	if err := info.Write(); err != nil {
 		return err
 	}
+
+	if err := updateControllerInfo(controllerStore, info.APIEndpoint(), endpoint); err != nil {
+		return errors.Trace(err)
+	}
+
 	logger.Infof("updated API connection settings cache - endpoints %v", endpoint.Addresses)
 	return nil
 }

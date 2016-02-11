@@ -173,6 +173,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
 		{"--log-file", logpath, "--debug", "switch"}, // global flags before
@@ -192,6 +193,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 
 var commandNames = []string{
 	"action",
+	"add-cloud",
 	"add-machine",
 	"add-machines",
 	"add-relation",
@@ -229,7 +231,6 @@ var commandNames = []string{
 	"enable-ha",
 	"enable-user",
 	"expose",
-	"generate-config", // alias for init
 	"get-config",
 	"get-configs",
 	"get-constraints",
@@ -240,12 +241,13 @@ var commandNames = []string{
 	"help-tool",
 	"import-ssh-key",
 	"import-ssh-keys",
-	"init",
 	"kill-controller",
 	"list-actions",
 	"list-all-blocks",
 	"list-budgets",
+	"list-clouds",
 	"list-controllers",
+	"list-credentials",
 	"list-machine",
 	"list-machines",
 	"list-models",
@@ -260,6 +262,7 @@ var commandNames = []string{
 	"machine",
 	"machines",
 	"publish",
+	"register",
 	"remove-all-blocks",
 	"remove-machine",
 	"remove-machines",
@@ -288,6 +291,7 @@ var commandNames = []string{
 	"show-action-output",
 	"show-action-status",
 	"show-budget",
+	"show-cloud",
 	"show-machine",
 	"show-machines",
 	"show-status",

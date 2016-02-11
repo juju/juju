@@ -53,6 +53,12 @@ func NewLoginCommandForTest(apiOpen api.OpenFunc, getUserManager GetUserManagerF
 	}
 }
 
+// NewRegisterCommandForTest returns a RegisterCommand with the function used
+// to open the API connection mocked out.
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot}
+}
+
 type UseModelCommand struct {
 	*useModelCommand
 }
@@ -79,7 +85,7 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
 func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return modelcmd.Wrap(
+	return modelcmd.WrapController(
 		&destroyCommand{
 			destroyCommandBase: destroyCommandBase{
 				api:       api,
@@ -87,8 +93,8 @@ func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientA
 				apierr:    apierr,
 			},
 		},
-		modelcmd.ModelSkipFlags,
-		modelcmd.ModelSkipDefault,
+		modelcmd.ControllerSkipFlags,
+		modelcmd.ControllerSkipDefault,
 	)
 }
 

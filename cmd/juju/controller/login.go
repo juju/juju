@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
 
@@ -245,6 +246,18 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails modelcmd.ServerFile, ap
 	if err = controllerInfo.Write(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	controllerStore := jujuclient.NewFileClientStore()
+	err = controllerStore.UpdateController(c.Name, jujuclient.ControllerDetails{
+		addrs,
+		controllerTag.Id(),
+		addrs,
+		serverDetails.CACert,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return controllerInfo, nil
 }
 

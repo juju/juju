@@ -285,7 +285,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	// override any model settings the user may have specified.
 	// If the client does specify this setting, it will only ever be
 	// true. False indicates the client doesn't care and we should use
-	// what's specified in the environments.yaml file.
+	// what's specified in the environment config.
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false

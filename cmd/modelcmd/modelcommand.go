@@ -15,13 +15,11 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.cmd.modelcmd")
+var logger = loggo.GetLogger("juju.cmd.envcmd")
 
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
@@ -31,13 +29,12 @@ var ErrNoModelSpecified = errors.New("no model specified")
 // GetDefaultModel returns the name of the Juju default model.
 // There is simple ordering for the default model.  Firstly check the
 // JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_DATA/current-model file.  If neither are
-// available, read environments.yaml and use the default model therein.
-// If no default is specified in the environments file, an empty string is returned.
-// Not having a default model specified is not an error.
+// set, look in the $JUJU_DATA/current-environment file.  If neither are
+// available, an empty string is returned; not having a default model
+// specified is not an error.
 func GetDefaultModel() (string, error) {
-	if defaultModel := os.Getenv(osenv.JujuModelEnvKey); defaultModel != "" {
-		return defaultModel, nil
+	if defaultEnv := os.Getenv(osenv.JujuModelEnvKey); defaultEnv != "" {
+		return defaultEnv, nil
 	}
 	if currentModel, err := ReadCurrentModel(); err != nil {
 		return "", errors.Trace(err)
@@ -49,14 +46,7 @@ func GetDefaultModel() (string, error) {
 	} else if currentController != "" {
 		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
 	}
-	models, err := environs.ReadEnvirons("")
-	if environs.IsNoEnv(err) {
-		// That's fine, not an error here.
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-	return models.Default, nil
+	return "", nil
 }
 
 // ModelCommand extends cmd.Command with a SetModelName method.
@@ -66,7 +56,7 @@ type ModelCommand interface {
 	// SetModelName is called prior to the wrapped command's Init method
 	// with the active model name. The model name is guaranteed
 	// to be non-empty at entry of Init.
-	SetModelName(envName string)
+	SetModelName(modelName string)
 
 	// ModelName returns the name of the model.
 	ModelName() string
@@ -83,7 +73,7 @@ type ModelCommandBase struct {
 
 	// ModelName will very soon be package visible only as we want to be able
 	// to specify an model in multiple ways, and not always referencing
-	// a file on disk based on the ModelName or the environemnts.yaml file.
+	// a file on disk based on the ModelName.
 	modelName string
 
 	// opener is the strategy used to open the API connection.
@@ -94,8 +84,8 @@ type ModelCommandBase struct {
 }
 
 // SetModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelName(envName string) {
-	c.modelName = envName
+func (c *ModelCommandBase) SetModelName(modelName string) {
+	c.modelName = modelName
 }
 
 // ModelName implements the ModelCommand interface.
@@ -144,36 +134,6 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 		opener = NewPassthroughOpener(c.JujuCommandBase.NewAPIRoot)
 	}
 	return opener.Open(c.modelName)
-}
-
-// Config returns the configuration for the environment; obtaining bootstrap
-// information from the API if necessary.  If callers already have an active
-// client API connection, it will be used.  Otherwise, a new API connection will
-// be used if necessary.
-func (c *ModelCommandBase) Config(store configstore.Storage, client ModelGetter) (*config.Config, error) {
-	if c.modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
-	}
-	cfg, _, err := environs.ConfigForName(c.modelName, store)
-	if err == nil {
-		return cfg, nil
-	} else if !environs.IsEmptyConfig(err) {
-		return nil, errors.Trace(err)
-	}
-
-	if client == nil {
-		client, err = c.NewModelGetter()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer client.Close()
-	}
-
-	bootstrapCfg, err := client.ModelGet()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return config.New(config.NoDefaults, bootstrapCfg)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -227,17 +187,6 @@ func (c *ModelCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndp
 	return info.APIEndpoint(), nil
 }
 
-// ConnectionWriter defines the methods needed to write information about
-// a given connection.  This is a subset of the methods in the interface
-// defined in configstore.EnvironInfo.
-type ConnectionWriter interface {
-	Write() error
-	SetAPICredentials(configstore.APICredentials)
-	SetAPIEndpoint(configstore.APIEndpoint)
-	SetBootstrapConfig(map[string]interface{})
-	Location() string
-}
-
 var endpointRefresher = func(c *ModelCommandBase) (io.Closer, error) {
 	return c.NewAPIRoot()
 }
@@ -251,30 +200,17 @@ var getConfigStore = func() (configstore.Storage, error) {
 }
 
 // ConnectionInfoForName reads the environment information for the named
-// environment (envName) and returns it.
-func ConnectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+// environment (modelName) and returns it.
+func ConnectionInfoForName(modelName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := store.ReadInfo(envName)
+	info, err := store.ReadInfo(modelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return info, nil
-}
-
-// ConnectionWriter returns an instance that is able to be used
-// to record information about the connection.  When the connection
-// is determined through either command line parameters or environment
-// variables, an error is returned.
-func (c *ModelCommandBase) ConnectionWriter() (ConnectionWriter, error) {
-	// TODO: when accessing with just command line params or environment
-	// variables, this should error.
-	if c.modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
-	}
-	return ConnectionInfoForName(c.modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.
@@ -298,7 +234,7 @@ func ModelSkipFlags(w *modelCommandWrapper) {
 // ModelSkipDefault instructs the wrapper not to
 // use the default model.
 func ModelSkipDefault(w *modelCommandWrapper) {
-	w.useDefaultEnvironment = false
+	w.useDefaultModel = false
 }
 
 // EnvAPIOpener instructs the underlying environment command to use a
@@ -315,10 +251,10 @@ func EnvAPIOpener(opener APIOpener) WrapEnvOption {
 // before it is returned.
 func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 	wrapper := &modelCommandWrapper{
-		ModelCommand:          c,
-		skipFlags:             false,
-		useDefaultEnvironment: true,
-		allowEmptyEnv:         false,
+		ModelCommand:    c,
+		skipFlags:       false,
+		useDefaultModel: true,
+		allowEmptyEnv:   false,
 	}
 	for _, option := range options {
 		option(wrapper)
@@ -329,31 +265,31 @@ func Wrap(c ModelCommand, options ...WrapEnvOption) cmd.Command {
 type modelCommandWrapper struct {
 	ModelCommand
 
-	skipFlags             bool
-	useDefaultEnvironment bool
-	allowEmptyEnv         bool
-	envName               string
+	skipFlags       bool
+	useDefaultModel bool
+	allowEmptyEnv   bool
+	modelName       string
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
-		f.StringVar(&w.envName, "m", "", "juju model to operate in")
-		f.StringVar(&w.envName, "model", "", "")
+		f.StringVar(&w.modelName, "m", "", "juju model to operate in")
+		f.StringVar(&w.modelName, "model", "", "")
 	}
 	w.ModelCommand.SetFlags(f)
 }
 
 func (w *modelCommandWrapper) Init(args []string) error {
 	if !w.skipFlags {
-		if w.envName == "" && w.useDefaultEnvironment {
+		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.
-			defaultEnv, err := GetDefaultModel()
+			defaultModel, err := GetDefaultModel()
 			if err != nil {
 				return err
 			}
-			w.envName = defaultEnv
+			w.modelName = defaultModel
 		}
-		if w.envName == "" && !w.useDefaultEnvironment {
+		if w.modelName == "" && !w.useDefaultModel {
 			if w.allowEmptyEnv {
 				return w.ModelCommand.Init(args)
 			} else {
@@ -361,7 +297,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 			}
 		}
 	}
-	w.SetModelName(w.envName)
+	w.SetModelName(w.modelName)
 	return w.ModelCommand.Init(args)
 }
 
@@ -395,27 +331,4 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 type ModelGetter interface {
 	ModelGet() (map[string]interface{}, error)
 	Close() error
-}
-
-// GetEnvironmentVersion retrieves the environment's agent-version
-// value from an API client.
-func GetEnvironmentVersion(client ModelGetter) (version.Number, error) {
-	noVersion := version.Number{}
-	attrs, err := client.ModelGet()
-	if err != nil {
-		return noVersion, errors.Annotate(err, "unable to retrieve model config")
-	}
-	vi, found := attrs["agent-version"]
-	if !found {
-		return noVersion, errors.New("version not found in model config")
-	}
-	vs, ok := vi.(string)
-	if !ok {
-		return noVersion, errors.New("invalid model version type in config")
-	}
-	v, err := version.Parse(vs)
-	if err != nil {
-		return noVersion, errors.Annotate(err, "unable to parse model version")
-	}
-	return v, nil
 }

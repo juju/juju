@@ -183,7 +183,7 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		return errors.Trace(err)
 	}
 	if creatingForSelf {
-		// update the cached details with the environment uuid
+		// update the cached details with the model uuid
 		endpoint.ModelUUID = env.UUID
 		info.SetAPIEndpoint(endpoint)
 		if err := info.Write(); err != nil {

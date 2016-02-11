@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/environs/manual"
 )
 
-type manualProvider struct{}
+type manualProvider struct {
+	environProviderCredentials
+}
 
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)
@@ -43,7 +45,8 @@ func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config
 	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
 }
 
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
 		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}
@@ -146,35 +149,6 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 		return nil, err
 	}
 	return cfg.Apply(envConfig.attrs)
-}
-
-func (_ manualProvider) BoilerplateConfig() string {
-	return `
-manual:
-    type: manual
-    # bootstrap-host holds the host name of the machine where the
-    # bootstrap machine agent will be started.
-    bootstrap-host: somehost.example.com
-
-    # bootstrap-user specifies the user to authenticate as when
-    # connecting to the bootstrap machine. It defaults to
-    # the current user.
-    # bootstrap-user: joebloggs
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of false is set so that Juju
-    # does not subsume any other way the system might be
-    # maintained.
-    #
-    # enable-os-upgrade: false
-
-`[1:]
 }
 
 func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {

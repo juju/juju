@@ -39,6 +39,9 @@ type Credentials struct {
 	// config used in the OAuth-wrapping network transport.
 	ClientID string
 
+	// ProjectID is the GCE project's ID that these credentials relate to.
+	ProjectID string
+
 	// ClientEmail is the email address associatd with the GCE account.
 	// It is used to generate a new OAuth token to use in the
 	// OAuth-wrapping network transport.
@@ -61,6 +64,8 @@ func NewCredentials(values map[string]string) (*Credentials, error) {
 			creds.ClientID = v
 		case OSEnvClientEmail:
 			creds.ClientEmail = v
+		case OSEnvProjectID:
+			creds.ProjectID = v
 		case OSEnvPrivateKey:
 			creds.PrivateKey = []byte(v)
 		default:
@@ -90,8 +95,6 @@ func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	delete(values, "type")
-	delete(values, "private_key_id")
 	creds, err := NewCredentials(values)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -115,16 +118,16 @@ func parseJSONKey(jsonKey []byte) (map[string]string, error) {
 	switch keyType {
 	case jsonKeyTypeServiceAccount:
 		for k, v := range data {
+			delete(data, k)
 			switch k {
 			case "private_key":
 				data[OSEnvPrivateKey] = v
-				delete(data, k)
 			case "client_email":
 				data[OSEnvClientEmail] = v
-				delete(data, k)
 			case "client_id":
 				data[OSEnvClientID] = v
-				delete(data, k)
+			case "project_id":
+				data[OSEnvProjectID] = v
 			}
 		}
 	default:
@@ -151,6 +154,7 @@ func (gc Credentials) Values() map[string]string {
 		OSEnvClientID:    gc.ClientID,
 		OSEnvClientEmail: gc.ClientEmail,
 		OSEnvPrivateKey:  string(gc.PrivateKey),
+		OSEnvProjectID:   gc.ProjectID,
 	}
 }
 

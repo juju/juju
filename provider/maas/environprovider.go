@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -18,7 +19,9 @@ import (
 // Logger for the MAAS provider.
 var logger = loggo.GetLogger("juju.provider.maas")
 
-type maasEnvironProvider struct{}
+type maasEnvironProvider struct {
+	environProviderCredentials
+}
 
 var _ environs.EnvironProvider = (*maasEnvironProvider)(nil)
 
@@ -56,8 +59,27 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 	return cfg.Apply(attrs)
 }
 
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	// For MAAS, the endpoint from the cloud definition defines the MAAS server.
+	attrs := map[string]interface{}{
+		"maas-server": args.CloudEndpoint,
+	}
+	// Add the credentials.
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.OAuth1AuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		for k, v := range credentialAttrs {
+			attrs[k] = v
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -83,49 +105,6 @@ func verifyCredentials(env *maasEnviron) error {
 Please ensure the credentials are correct.`)
 	}
 	return nil
-}
-
-// Boilerplate config YAML.  Don't mess with the indentation or add newlines!
-var boilerplateYAML = `
-# https://juju.ubuntu.com/docs/config-maas.html
-maas:
-    type: maas
-
-    # maas-server specifies the location of the MAAS server. It must
-    # specify the base path.
-    #
-    maas-server: 'http://192.168.1.1/MAAS/'
-
-    # maas-oauth holds the OAuth credentials from MAAS.
-    #
-    maas-oauth: '<add your OAuth credentials from MAAS here>'
-
-    # maas-server bootstrap ssh connection options
-    #
-
-    # bootstrap-timeout time to wait contacting a controller, in seconds.
-    bootstrap-timeout: 1800
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-
-`[1:]
-
-// BoilerplateConfig is specified in the EnvironProvider interface.
-func (maasEnvironProvider) BoilerplateConfig() string {
-	return boilerplateYAML
 }
 
 // SecretAttrs is specified in the EnvironProvider interface.

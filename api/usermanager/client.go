@@ -32,9 +32,9 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // AddUser creates a new local user in the juju server.
-func (c *Client) AddUser(username, displayName, password string) (names.UserTag, error) {
+func (c *Client) AddUser(username, displayName, password string) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
-		return names.UserTag{}, fmt.Errorf("invalid user name %q", username)
+		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
 	}
 	userArgs := params.AddUsers{
 		Users: []params.AddUser{{Username: username, DisplayName: displayName, Password: password}},
@@ -42,22 +42,21 @@ func (c *Client) AddUser(username, displayName, password string) (names.UserTag,
 	var results params.AddUserResults
 	err := c.facade.FacadeCall("AddUser", userArgs, &results)
 	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
+		return names.UserTag{}, nil, errors.Trace(err)
 	}
 	if count := len(results.Results); count != 1 {
 		logger.Errorf("expected 1 result, got %#v", results)
-		return names.UserTag{}, errors.Errorf("expected 1 result, got %d", count)
+		return names.UserTag{}, nil, errors.Errorf("expected 1 result, got %d", count)
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return names.UserTag{}, errors.Trace(result.Error)
+		return names.UserTag{}, nil, errors.Trace(result.Error)
 	}
 	tag, err := names.ParseUserTag(result.Tag)
 	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
+		return names.UserTag{}, nil, errors.Trace(err)
 	}
-	logger.Infof("created user %s", result.Tag)
-	return tag, nil
+	return tag, result.SecretKey, nil
 }
 
 func (c *Client) userCall(username string, methodCall string) error {

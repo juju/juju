@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -382,8 +383,18 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
+		credentialAttrs := make(map[string]string, len(attrs))
+		for k, v := range attrs.Delete("type", "control-dir") {
+			credentialAttrs[k] = fmt.Sprintf("%v", v)
+		}
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
+		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+			Config: testConfig,
+			Credentials: cloud.NewCredential(
+				cloud.UserPassAuthType,
+				credentialAttrs,
+			),
+		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()

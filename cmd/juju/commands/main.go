@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -35,6 +37,8 @@ import (
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.commands")
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -146,7 +150,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newDebugHooksCommand())
 
 	// Configuration commands.
-	r.Register(newInitCommand())
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
@@ -246,6 +249,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListCommand())
 	r.Register(controller.NewListBlocksCommand())
 	r.Register(controller.NewLoginCommand())
+	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewUseModelCommand())
 
@@ -253,6 +257,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(metricsdebug.New())
 	r.Register(metricsdebug.NewCollectMetricsCommand())
 	r.Register(setmeterstatus.New())
+
+	// Manage clouds and credentials
+	r.Register(cloud.NewListCloudsCommand())
+	r.Register(cloud.NewShowCloudCommand())
+	r.Register(cloud.NewAddCloudCommand())
+	r.Register(cloud.NewListCredentialsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

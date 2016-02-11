@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -454,9 +455,10 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"broken":   "",
-	"secret":   "pork",
-	"state-id": schema.Omit,
+	"broken":     "",
+	"secret":     "pork",
+	"state-id":   schema.Omit,
+	"controller": false,
 }
 
 type environConfig struct {
@@ -502,6 +504,18 @@ func (p *environProvider) Schema() environschema.Fields {
 		panic(err)
 	}
 	return fields
+}
+
+func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
+}
+
+func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
+	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
+}
+
+func (*environProvider) DetectRegions() (map[string]cloud.Region, error) {
+	return map[string]cloud.Region{"dummy": {}}, nil
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
@@ -566,7 +580,8 @@ func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*conf
 	return cfg, nil
 }
 
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err
@@ -615,17 +630,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 		"secret": ecfg.secret(),
 	}, nil
 }
-
-func (*environProvider) BoilerplateConfig() string {
-	return `
-# Fake configuration for dummy provider.
-dummy:
-    type: dummy
-
-`[1:]
-}
-
-var errBroken = errors.New("broken model")
 
 // Override for testing - the data directory with which the state api server is initialised.
 var DataDir = ""

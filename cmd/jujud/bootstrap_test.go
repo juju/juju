@@ -835,7 +835,9 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
+	env, err := provider.PrepareForBootstrap(nullContext(), environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
