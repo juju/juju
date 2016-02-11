@@ -37,6 +37,9 @@ type unit struct {
 
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
+
+	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
+	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Service in the Model.
@@ -47,6 +50,9 @@ type UnitArgs struct {
 	Principal    names.UnitTag
 	Subordinates []names.UnitTag
 
+	MeterStatusCode string
+	MeterStatusInfo string
+
 	// TODO: storage attachment count
 }
 
@@ -56,11 +62,13 @@ func newUnit(args UnitArgs) *unit {
 		subordinates = append(subordinates, s.Id())
 	}
 	return &unit{
-		Name_:         args.Tag.Id(),
-		Machine_:      args.Machine.Id(),
-		PasswordHash_: args.PasswordHash,
-		Principal_:    args.Principal.Id(),
-		Subordinates_: subordinates,
+		Name_:            args.Tag.Id(),
+		Machine_:         args.Machine.Id(),
+		PasswordHash_:    args.PasswordHash,
+		Principal_:       args.Principal.Id(),
+		Subordinates_:    subordinates,
+		MeterStatusCode_: args.MeterStatusCode,
+		MeterStatusInfo_: args.MeterStatusInfo,
 	}
 }
 
@@ -99,6 +107,16 @@ func (u *unit) Subordinates() []names.UnitTag {
 		subordinates = append(subordinates, names.NewUnitTag(s))
 	}
 	return subordinates
+}
+
+// MeterStatusCode implements Unit.
+func (u *unit) MeterStatusCode() string {
+	return u.MeterStatusCode_
+}
+
+// MeterStatusInfo implements Unit.
+func (u *unit) MeterStatusInfo() string {
+	return u.MeterStatusInfo_
 }
 
 // Tools implements Unit.
@@ -212,10 +230,15 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 
 		"password-hash": schema.String(),
 		"tools":         schema.StringMap(schema.Any()),
+
+		"meter-status-code": schema.String(),
+		"meter-status-info": schema.String(),
 	}
 	defaults := schema.Defaults{
-		"principal":    "",
-		"subordinates": schema.Omit,
+		"principal":         "",
+		"subordinates":      schema.Omit,
+		"meter-status-code": "",
+		"meter-status-info": "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -228,10 +251,12 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 	// contains fields of the right type.
 
 	result := &unit{
-		Name_:         valid["name"].(string),
-		Machine_:      valid["machine"].(string),
-		Principal_:    valid["principal"].(string),
-		PasswordHash_: valid["password-hash"].(string),
+		Name_:            valid["name"].(string),
+		Machine_:         valid["machine"].(string),
+		Principal_:       valid["principal"].(string),
+		PasswordHash_:    valid["password-hash"].(string),
+		MeterStatusCode_: valid["meter-status-code"].(string),
+		MeterStatusInfo_: valid["meter-status-info"].(string),
 	}
 
 	if subordinates, ok := valid["subordinates"]; ok {

@@ -187,8 +187,9 @@ type Unit interface {
 	Principal() names.UnitTag
 	Subordinates() []names.UnitTag
 
-	// TODO: opened ports
-	// TODO: meter status
+	MeterStatusCode() string
+	MeterStatusInfo() string
+
 	// TODO: storage
 
 	Tools() AgentTools

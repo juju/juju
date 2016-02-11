@@ -68,6 +68,8 @@ func (s *UnitSerializationSuite) completeUnit() *unit {
 			names.NewUnitTag("sub1/0"),
 			names.NewUnitTag("sub2/0"),
 		},
+		MeterStatusCode: "meter code",
+		MeterStatusInfo: "meter info",
 	}
 	unit := newUnit(args)
 	unit.SetAgentStatus(minimalStatusArgs())
@@ -88,7 +90,8 @@ func (s *UnitSerializationSuite) TestNewUnit(c *gc.C) {
 		names.NewUnitTag("sub1/0"),
 		names.NewUnitTag("sub2/0"),
 	})
-
+	c.Assert(unit.MeterStatusCode(), gc.Equals, "meter code")
+	c.Assert(unit.MeterStatusInfo(), gc.Equals, "meter info")
 	c.Assert(unit.Tools(), gc.NotNil)
 	c.Assert(unit.WorkloadStatus(), gc.NotNil)
 	c.Assert(unit.AgentStatus(), gc.NotNil)
