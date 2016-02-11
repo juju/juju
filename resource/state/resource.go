@@ -230,9 +230,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
-	serviceID := unit.ServiceName()
-
+func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
@@ -250,6 +248,20 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	if resSize != resourceInfo.Size {
 		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+	}
+
+	return resourceInfo, resourceReader, nil
+}
+
+// OpenResourceForUnit returns metadata about the resource and
+// a reader for the resource. The resource is associated with
+// the unit once the reader is completely exhausted.
+func (st resourceState) OpenResourceForUnit(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	serviceID := unit.ServiceName()
+
+	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
 	resourceReader = unitSetter{

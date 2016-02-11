@@ -387,28 +387,23 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	s.persist.ReturnGetResource = opened.Resource
 	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
 	s.storage.ReturnGet = opened.Content()
-	unit := &fakeUnit{"foo/0", "a-service"}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	info, reader, err := st.OpenResource(unit, "spam")
+	info, reader, err := st.OpenResource("a-service", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetResource", "Get")
 	s.stub.CheckCall(c, 1, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
-
-	b, err := ioutil.ReadAll(reader)
-	// note ioutil.ReadAll converts EOF to nil
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(b, gc.DeepEquals, []byte(data))
+	c.Check(reader, gc.Equals, opened.ReadCloser)
 }
 
 func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	_, _, err := st.OpenResource("a-service", "spam")
 
 	s.stub.CheckCallNames(c, "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -421,7 +416,7 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	_, _, err := st.OpenResource("a-service", "spam")
 
 	s.stub.CheckCallNames(c, "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -437,7 +432,69 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	_, _, err := st.OpenResource("a-service", "spam")
+
+	s.stub.CheckCallNames(c, "GetResource", "Get")
+	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
+}
+
+func (s *ResourceSuite) TestOpenResourceForUnitOkay(c *gc.C) {
+	data := "some data"
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", data)
+	s.persist.ReturnGetResource = opened.Resource
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
+	s.storage.ReturnGet = opened.Content()
+	unit := &fakeUnit{"foo/0", "a-service"}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	info, reader, err := st.OpenResourceForUnit(unit, "spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "GetResource", "Get")
+	s.stub.CheckCall(c, 1, "Get", "service-a-service/resources/spam")
+	c.Check(info, jc.DeepEquals, opened.Resource)
+
+	b, err := ioutil.ReadAll(reader)
+	// note ioutil.ReadAll converts EOF to nil
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(b, gc.DeepEquals, []byte(data))
+}
+
+func (s *ResourceSuite) TestOpenResourceForUnitNotFound(c *gc.C) {
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResourceForUnit(fakeUnit{"foo/0", "a-service"}, "spam")
+
+	s.stub.CheckCallNames(c, "GetResource")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ResourceSuite) TestOpenResourceForUnitPlaceholder(c *gc.C) {
+	res := resourcetesting.NewPlaceholderResource(c, "spam", "a-service")
+	s.persist.ReturnGetResource = res
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResourceForUnit(fakeUnit{"foo/0", "a-service"}, "spam")
+
+	s.stub.CheckCallNames(c, "GetResource")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ResourceSuite) TestOpenResourceForUnitSizeMismatch(c *gc.C) {
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	s.persist.ReturnGetResource = opened.Resource
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
+	content := opened.Content()
+	content.Size += 1
+	s.storage.ReturnGet = content
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResourceForUnit(fakeUnit{"foo/0", "a-service"}, "spam")
 
 	s.stub.CheckCallNames(c, "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
