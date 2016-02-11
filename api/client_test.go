@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -510,7 +511,10 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in a bad environment UUID should fail with a known error
 	info.EnvironTag = names.NewEnvironTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown environment: "dead-beef-123456"`,
+		Code:    "not found",
+	})
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
 }

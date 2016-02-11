@@ -4,12 +4,14 @@
 package apiserver_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -53,7 +55,10 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 
 	client := apiState.Client()
 	_, err = client.GetEnvironmentConstraints()
-	c.Assert(err, gc.ErrorMatches, `logged in to server, no environment, "Client" not supported`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `logged in to server, no environment, "Client" not supported`,
+		Code:    "not supported",
+	})
 }
 
 func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) {

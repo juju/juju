@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
@@ -61,7 +62,10 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 
 	_, err := st.Agent().StateServingInfo()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
 }
 
 func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
@@ -84,7 +88,10 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 	_, err := st.Agent().IsMaster()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
 }
 
 type machineSuite struct {

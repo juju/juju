@@ -69,24 +69,6 @@ func ErrCode(err error) string {
 	return ""
 }
 
-// ClientError maps errors returned from an RPC call into local errors with
-// appropriate values.
-func ClientError(err error) error {
-	switch err := errors.Cause(err).(type) {
-	case *rpc.RequestError:
-		// We use our own error type rather than rpc.ServerError
-		// because we don't want the code or the "server error" prefix
-		// within the error message. Also, it's best not to make clients
-		// know that we're using the rpc package.
-		return &Error{
-			Message: err.Message,
-			Code:    err.Code,
-		}
-	default:
-		return err
-	}
-}
-
 func IsCodeActionNotAvailable(err error) bool {
 	return ErrCode(err) == CodeActionNotAvailable
 }
