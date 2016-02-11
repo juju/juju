@@ -60,7 +60,11 @@ type accountsCollection struct {
 	ControllerAccounts map[string]*ControllerAccounts `yaml:"controllers"`
 }
 
+// ControllerAccounts stores per-controller account information.
 type ControllerAccounts struct {
-	Accounts       map[string]AccountDetails `yaml:"accounts"`
-	CurrentAccount string                    `yaml:"current-account,omitempty"`
+	// Accounts is the collection of accounts for the controller.
+	Accounts map[string]AccountDetails `yaml:"accounts"`
+
+	// CurrentAccount is the name of the active account for the controller.
+	CurrentAccount string `yaml:"current-account,omitempty"`
 }

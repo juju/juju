@@ -61,7 +61,13 @@ type modelsCollection struct {
 	ControllerModels map[string]*ControllerModels `yaml:"controllers"`
 }
 
+// ControllerAccounts stores per-controller model information.
 type ControllerModels struct {
-	Models       map[string]ModelDetails `yaml:"models"`
-	CurrentModel string                  `yaml:"current-model,omitempty"`
+	// Models is the collection of models for the controller. This should
+	// be treated as a cache only, and not the complete set of models for
+	// the controller.
+	Models map[string]ModelDetails `yaml:"models"`
+
+	// CurrentModel is the name of the active model for the controller.
+	CurrentModel string `yaml:"current-model,omitempty"`
 }
