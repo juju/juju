@@ -148,12 +148,11 @@ func (s *uniterResolver) nextOpConflicted(
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
 	}
 	if remoteState.ForceCharmUpgrade && localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
-	}
-	// TODO(ericsnow) Drop this case as soon as CharmModifiedVersion worked right.
-	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+		if *localState.CharmURL != *remoteState.CharmURL {
+			logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+		} else {
+			logger.Debugf("Charm modified from revision %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
+		}
 		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
 	return nil, resolver.ErrWaiting
@@ -171,11 +170,6 @@ func (s *uniterResolver) nextOpHookError(
 	}
 
 	if remoteState.ForceCharmUpgrade && localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		return opFactory.NewUpgrade(remoteState.CharmURL)
-	}
-	// TODO(ericsnow) Drop this case as soon as CharmModifiedVersion worked right.
-	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
 		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
@@ -263,11 +257,6 @@ func (s *uniterResolver) nextOp(
 	}
 
 	if localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		return opFactory.NewUpgrade(remoteState.CharmURL)
-	}
-	// TODO(ericsnow) Drop this case as soon as CharmModifiedVersion worked right.
-	if *localState.CharmURL != *remoteState.CharmURL {
 		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}

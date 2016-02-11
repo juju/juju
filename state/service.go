@@ -293,6 +293,8 @@ func (s *Service) CharmModifiedVersion() int {
 	return s.doc.CharmModifiedVersion
 }
 
+
+
 // CharmURL returns the service's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {

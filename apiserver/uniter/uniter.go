@@ -556,8 +556,8 @@ func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults,
 	return result, nil
 }
 
-// CharmModifiedVersion returns the most recent charm modification timestamp
-// for all given units or services.
+// CharmModifiedVersion returns the most CharmModifiedVersion for all given
+// units or services.
 func (u *uniterBaseAPI) CharmModifiedVersion(args params.Entities) (params.IntResults, error) {
 	results := params.IntResults{
 		Results: make([]params.IntResult, len(args.Entities)),
@@ -600,6 +600,8 @@ func (u *uniterBaseAPI) charmModifiedVersion(tagStr string, canAccess func(names
 		if err != nil {
 			return -1, err
 		}
+	default:
+		return -1, errors.BadRequestf("type %t does not have a CharmModifiedVersion", entity)
 	}
 	return service.CharmModifiedVersion(), nil
 }
