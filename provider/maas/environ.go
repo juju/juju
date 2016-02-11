@@ -63,6 +63,14 @@ var (
 	DeploymentStatusCall     = deploymentStatusCall
 )
 
+func fetchSpaces(spaces gomaasapi.MAASObject) (map[network.Id]network.SpaceInfo, error) {
+	spacesJson, err := space.CallGet("", nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return nil, nil
+}
+
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
 	return err
