@@ -181,16 +181,6 @@ func (ctx *apiContext) newAPIRoot(name string) (api.Connection, error) {
 	return juju.NewAPIFromName(name, ctx.client)
 }
 
-// newAPIClient returns an api.Client connecte to the API server
-// for the named system or model.
-func (ctx *apiContext) newAPIClient(name string) (*api.Client, error) {
-	root, err := ctx.newAPIRoot(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return root.Client(), nil
-}
-
 // httpClient returns an http.Client that contains the loaded
 // persistent cookie jar.
 func (ctx *apiContext) httpClient() *http.Client {

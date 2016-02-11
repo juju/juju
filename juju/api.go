@@ -55,16 +55,6 @@ func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts
 	return st, nil
 }
 
-// NewAPIClientFromName returns an api.Client connected to the API Server for
-// the named environment.
-func NewAPIClientFromName(envName string, bClient *httpbakery.Client) (*api.Client, error) {
-	st, err := newAPIClient(envName, bClient)
-	if err != nil {
-		return nil, err
-	}
-	return st.Client(), nil
-}
-
 // NewAPIFromName returns an api.State connected to the API Server for
 // the named environment.
 func NewAPIFromName(envName string, bClient *httpbakery.Client) (api.Connection, error) {
@@ -96,8 +86,8 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 	return addrConnectedTo[0], nil
 }
 
-// newAPIFromStore implements the bulk of NewAPIClientFromName
-// but is separate for testing purposes.
+// newAPIFromStore implements the bulk of NewAPIFromName but is separate for
+// testing purposes.
 func newAPIFromStore(envName string, store configstore.Storage, controllerStore jujuclient.ControllerStore, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
 	// Try to connect to the API concurrently using two different
 	// possible sources of truth for the API endpoint. Our

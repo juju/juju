@@ -599,12 +599,8 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	}
 	endpoint.Addresses = addrs
 	endpoint.Hostnames = hosts
-	writer, err := c.ConnectionWriter()
-	if err != nil {
-		return errors.Annotate(err, "failed to get connection writer")
-	}
-	writer.SetAPIEndpoint(endpoint)
-	err = writer.Write()
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
 	if err != nil {
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
 	}
