@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -164,4 +166,37 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		Owner:              "dummy-admin@local",
 		Life:               params.Alive,
 	}})
+}
+
+func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	_, err := state.GetModelMigration(st)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	targetInfo := params.ModelMigrationTargetInfo{
+		ControllerTag: names.NewModelTag(utils.MustNewUUID().String()).String(),
+		Addrs:         []string{"1.2.3.4:5"},
+		CACert:        "cert",
+		AuthTag:       names.NewUserTag("someone").String(),
+		Password:      "secret",
+	}
+	spec := params.ModelMigrationSpec{
+		ModelTag:   st.ModelTag().String(),
+		TargetInfo: targetInfo,
+	}
+
+	controller := s.OpenAPI(c)
+	result, err := controller.InitiateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedId := st.ModelUUID() + ":0"
+	c.Assert(result, gc.Equals, params.InitiateModelMigrationResult{
+		ModelTag: st.ModelTag().String(),
+		Id:       expectedId,
+	})
+
+	mig, err := state.GetModelMigration(st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mig.Id(), gc.Equals, expectedId)
 }

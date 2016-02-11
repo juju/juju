@@ -133,3 +133,24 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 	}
 	return results, nil
 }
+
+// InitiateModelMigration attempts to start a migration for the specified model.
+//
+// The API server supports starting multiple migrations in one request
+// but we don't need that at the client side yet (and may never) so
+// this call just supports starting one migration at a time.
+func (c *Client) InitiateModelMigration(spec params.ModelMigrationSpec) (params.InitiateModelMigrationResult, error) {
+	emptyResult := params.InitiateModelMigrationResult{}
+
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{spec},
+	}
+	results := params.InitiateModelMigrationResults{}
+	if err := c.facade.FacadeCall("InitiateModelMigration", args, &results); err != nil {
+		return emptyResult, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return emptyResult, errors.New("unexpected number of results returned")
+	}
+	return results.Results[0], nil
+}
