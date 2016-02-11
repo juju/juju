@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd.envcmd")
@@ -188,17 +187,6 @@ func (c *ModelCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndp
 	return info.APIEndpoint(), nil
 }
 
-// ConnectionWriter defines the methods needed to write information about
-// a given connection.  This is a subset of the methods in the interface
-// defined in configstore.EnvironInfo.
-type ConnectionWriter interface {
-	Write() error
-	SetAPICredentials(configstore.APICredentials)
-	SetAPIEndpoint(configstore.APIEndpoint)
-	SetBootstrapConfig(map[string]interface{})
-	Location() string
-}
-
 var endpointRefresher = func(c *ModelCommandBase) (io.Closer, error) {
 	return c.NewAPIRoot()
 }
@@ -223,19 +211,6 @@ func ConnectionInfoForName(modelName string) (configstore.EnvironInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	return info, nil
-}
-
-// ConnectionWriter returns an instance that is able to be used
-// to record information about the connection.  When the connection
-// is determined through either command line parameters or environment
-// variables, an error is returned.
-func (c *ModelCommandBase) ConnectionWriter() (ConnectionWriter, error) {
-	// TODO: when accessing with just command line params or environment
-	// variables, this should error.
-	if c.modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
-	}
-	return ConnectionInfoForName(c.modelName)
 }
 
 // ConnectionName returns the name of the connection if there is one.
@@ -356,27 +331,4 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 type ModelGetter interface {
 	ModelGet() (map[string]interface{}, error)
 	Close() error
-}
-
-// GetModelVersion retrieves the models's agent-version
-// value from an API client.
-func GetModelVersion(client ModelGetter) (version.Number, error) {
-	noVersion := version.Number{}
-	attrs, err := client.ModelGet()
-	if err != nil {
-		return noVersion, errors.Annotate(err, "unable to retrieve model config")
-	}
-	vi, found := attrs["agent-version"]
-	if !found {
-		return noVersion, errors.New("version not found in model config")
-	}
-	vs, ok := vi.(string)
-	if !ok {
-		return noVersion, errors.New("invalid model version type in config")
-	}
-	v, err := version.Parse(vs)
-	if err != nil {
-		return noVersion, errors.Annotate(err, "unable to parse model version")
-	}
-	return v, nil
 }

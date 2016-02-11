@@ -199,23 +199,6 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage, con
 	c.Logf("store: %#v", store)
 }
 
-func (s *NewAPIClientSuite) TestNewAPIClientFromName(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	controllerStore := jujuclient.NewFileClientStore()
-	s.bootstrapEnv(c, defaultConfigStore(c), controllerStore)
-	apiclient, err := juju.NewAPIClientFromName("my-controller", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiclient.Close()
-	assertEnvironmentName(c, apiclient, "only") // name from sample config
-
-	// This should not have updated controllers collection -
-	// only updates are written by api. The actual addition of a controller
-	// to collection is done via bootstrap or login.
-	foundController, err := controllerStore.ControllerByName("my-controller")
-	c.Assert(err, gc.ErrorMatches, "controller my-controller not found")
-	c.Assert(foundController, gc.IsNil)
-}
-
 func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 	controllerStore := newControllerStore("noconfig", dummyStoreInfo)

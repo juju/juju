@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type ModelCommandSuite struct {
@@ -208,75 +207,6 @@ type closer struct{}
 
 func (*closer) Close() error {
 	return nil
-}
-
-type EnvironmentVersionSuite struct {
-	fake *fakeEnvGetter
-}
-
-var _ = gc.Suite(&EnvironmentVersionSuite{})
-
-type fakeEnvGetter struct {
-	agentVersion interface{}
-	err          error
-	results      map[string]interface{}
-	closeCalled  bool
-	getCalled    bool
-}
-
-func (g *fakeEnvGetter) ModelGet() (map[string]interface{}, error) {
-	g.getCalled = true
-	if g.err != nil {
-		return nil, g.err
-	} else if g.results != nil {
-		return g.results, nil
-	} else if g.agentVersion == nil {
-		return map[string]interface{}{}, nil
-	} else {
-		return map[string]interface{}{
-			"agent-version": g.agentVersion,
-		}, nil
-	}
-}
-
-func (g *fakeEnvGetter) Close() error {
-	g.closeCalled = true
-	return nil
-}
-
-func (s *EnvironmentVersionSuite) SetUpTest(*gc.C) {
-	s.fake = new(fakeEnvGetter)
-}
-
-func (s *EnvironmentVersionSuite) TestApiCallFails(c *gc.C) {
-	s.fake.err = errors.New("boom")
-	_, err := modelcmd.GetModelVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "unable to retrieve model config: boom")
-}
-
-func (s *EnvironmentVersionSuite) TestNoVersion(c *gc.C) {
-	_, err := modelcmd.GetModelVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "version not found in model config")
-}
-
-func (s *EnvironmentVersionSuite) TestInvalidVersionType(c *gc.C) {
-	s.fake.agentVersion = 99
-	_, err := modelcmd.GetModelVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "invalid model version type in config")
-}
-
-func (s *EnvironmentVersionSuite) TestInvalidVersion(c *gc.C) {
-	s.fake.agentVersion = "a.b.c"
-	_, err := modelcmd.GetModelVersion(s.fake)
-	c.Assert(err, gc.ErrorMatches, "unable to parse model version: .+")
-}
-
-func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
-	vs := "1.22.1"
-	s.fake.agentVersion = vs
-	v, err := modelcmd.GetModelVersion(s.fake)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(v.Compare(version.MustParse(vs)), gc.Equals, 0)
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})
