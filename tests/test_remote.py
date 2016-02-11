@@ -17,6 +17,7 @@ from remote import (
     remote_from_address,
     remote_from_unit,
     WinRmRemote,
+    _SSLSession,
 )
 import tests
 from utility import (
@@ -298,3 +299,16 @@ class TestRemote(tests.FakeHomeTestCase):
         with temp_dir() as dest:
             with self.assertRaises(ValueError):
                 WinRmRemote._encoded_copy_to_dir(dest, output)
+
+
+class TestSSLSession(tests.TestCase):
+
+    def test_create(self):
+        certs = "a-key", "a-cert"
+        session = _SSLSession("0.0.0.0", certs)
+        self.assertEqual(session.url, "https://0.0.0.0:5986/wsman")
+        self.assertIsInstance(session.protocol, winrm.Protocol)
+        transport = session.protocol.transport
+        self.assertEqual(transport._cert_key_pem, "a-key")
+        self.assertEqual(transport._cert_pem, "a-cert")
+        self.assertEqual(transport._server_cert_validation, "ignore")
