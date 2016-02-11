@@ -128,13 +128,15 @@ func (s CredentialSchema) Finalize(
 			newAttrs[name] = resultMap[name].(string)
 			continue
 		}
-		if _, ok := resultMap[name]; ok {
+		if fieldVal, ok := resultMap[name]; ok {
 			if _, ok := resultMap[field.FileAttr]; ok {
 				return nil, errors.NotValidf(
 					"specifying both %q and %q",
 					name, field.FileAttr,
 				)
 			}
+			newAttrs[name] = fieldVal.(string)
+			continue
 		}
 		fieldVal, ok := resultMap[field.FileAttr]
 		if !ok {

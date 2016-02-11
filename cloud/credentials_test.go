@@ -328,6 +328,7 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
 		cloud.UserPassAuthType,
 		map[string]string{
 			"key-file": "path",
+			"quay":     "value",
 		},
 	)
 	schema := cloud.CredentialSchema{
@@ -335,6 +336,9 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
 			Description: "key credential",
 			Hidden:      true,
 			FileAttr:    "key-file",
+		},
+		"quay": {
+			FileAttr: "quay-file",
 		},
 	}
 	readFile := func(s string) ([]byte, error) {
@@ -345,7 +349,10 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
 		cloud.UserPassAuthType: schema,
 	}, readFile)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{"key": "file-value"})
+	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+		"key":  "file-value",
+		"quay": "value",
+	})
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialFileEmpty(c *gc.C) {

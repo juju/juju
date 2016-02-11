@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,7 +49,14 @@ func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authTyp
 			}
 		}
 		err := validate(reducedAttrs)
-		c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
+		field := schema[excludedKey]
+		if field.FileAttr != "" {
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+				`either %q or %q must be specified`, excludedKey, field.FileAttr),
+			)
+		} else {
+			c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
+		}
 	}
 }
 
