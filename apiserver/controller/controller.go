@@ -281,13 +281,18 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 }
 
 func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec) (string, error) {
+	modelTag, err := names.ParseModelTag(spec.ModelTag)
+	if err != nil {
+		return "", errors.Annotate(err, "model tag")
+	}
+
 	// Ensure the model exists.
-	if _, err := c.state.GetModel(spec.ModelTag); err != nil {
+	if _, err := c.state.GetModel(modelTag); err != nil {
 		return "", errors.Annotate(err, "unable to read model")
 	}
 
 	// Get State for model.
-	hostedState, err := c.state.ForModel(spec.ModelTag)
+	hostedState, err := c.state.ForModel(modelTag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -295,13 +300,23 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 
 	// Start the migration.
 	targetInfo := spec.TargetInfo
+
+	controllerTag, err := names.ParseModelTag(targetInfo.ControllerTag)
+	if err != nil {
+		return "", errors.Annotate(err, "controller tag")
+	}
+	authTag, err := names.ParseUserTag(targetInfo.AuthTag)
+	if err != nil {
+		return "", errors.Annotate(err, "auth tag")
+	}
+
 	args := state.ModelMigrationSpec{
 		InitiatedBy: c.apiUser,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: targetInfo.ControllerTag,
+			ControllerTag: controllerTag,
 			Addrs:         targetInfo.Addrs,
 			CACert:        targetInfo.CACert,
-			AuthTag:       targetInfo.AuthTag,
+			AuthTag:       authTag,
 			Password:      targetInfo.Password,
 		},
 	}
