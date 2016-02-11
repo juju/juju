@@ -59,6 +59,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		"txns",
 		"txns.log",
 
+		// We don't import any of the migration collections.
+		modelMigrationsC,
+		modelMigrationStatusC,
+		modelMigrationsActiveC,
+
 		// The container ref document is primarily there to keep track
 		// of a particular machine's containers. The migration format
 		// uses object containment for this purpose.
