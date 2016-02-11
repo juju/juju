@@ -102,6 +102,7 @@ func cacheTestEnvConfig(c *gc.C) {
 		"default-series":            "raring",
 		"location":                  "West US",
 		"endpoint":                  "https://management.azure.com",
+		"storage-endpoint":          "https://core.windows.net",
 		"subscription-id":           "foo",
 		"application-id":            "bar",
 		"application-password":      "baz",

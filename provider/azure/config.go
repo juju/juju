@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/azure"
@@ -21,6 +22,7 @@ const (
 	configAttrAppPassword        = "application-password"
 	configAttrLocation           = "location"
 	configAttrEndpoint           = "endpoint"
+	configAttrStorageEndpoint    = "storage-endpoint"
 	configAttrStorageAccountType = "storage-account-type"
 
 	// The below bits are internal book-keeping things, rather than
@@ -46,6 +48,7 @@ const (
 var configFields = schema.Fields{
 	configAttrLocation:                schema.String(),
 	configAttrEndpoint:                schema.String(),
+	configAttrStorageEndpoint:         schema.String(),
 	configAttrAppId:                   schema.String(),
 	configAttrSubscriptionId:          schema.String(),
 	configAttrTenantId:                schema.String(),
@@ -70,6 +73,7 @@ var requiredConfigAttributes = []string{
 	configAttrTenantId,
 	configAttrLocation,
 	configAttrEndpoint,
+	configAttrStorageEndpoint,
 	configAttrControllerResourceGroup,
 }
 
@@ -93,6 +97,7 @@ type azureModelConfig struct {
 	subscriptionId          string
 	location                string // canonicalized
 	endpoint                string
+	storageEndpoint         string
 	storageAccount          string
 	storageAccountKey       string
 	storageAccountType      storage.AccountType
@@ -166,6 +171,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 
 	location := canonicalLocation(validated[configAttrLocation].(string))
 	endpoint := validated[configAttrEndpoint].(string)
+	storageEndpoint := validated[configAttrStorageEndpoint].(string)
 	appId := validated[configAttrAppId].(string)
 	subscriptionId := validated[configAttrSubscriptionId].(string)
 	tenantId := validated[configAttrTenantId].(string)
@@ -187,6 +193,12 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		)
 	}
 
+	// The Azure storage code wants the endpoint host only, not the URL.
+	storageEndpointURL, err := url.Parse(storageEndpoint)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing storage endpoint URL")
+	}
+
 	token, err := azure.NewServicePrincipalToken(
 		appId, appPassword, tenantId,
 		azure.AzureResourceManagerScope,
@@ -201,6 +213,7 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		subscriptionId,
 		location,
 		endpoint,
+		storageEndpointURL.Host,
 		storageAccount,
 		storageAccountKey,
 		storage.AccountType(storageAccountType),

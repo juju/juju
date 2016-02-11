@@ -345,10 +345,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	environ, err := environsPrepare(
 		modelcmd.BootstrapContext(ctx), store, controllerStore, c.ControllerName,
 		environs.PrepareForBootstrapParams{
-			Config:        cfg,
-			Credentials:   *credential,
-			CloudRegion:   regionName,
-			CloudEndpoint: region.Endpoint,
+			Config:               cfg,
+			Credentials:          *credential,
+			CloudRegion:          regionName,
+			CloudEndpoint:        region.Endpoint,
+			CloudStorageEndpoint: region.StorageEndpoint,
 		},
 	)
 	if err != nil {

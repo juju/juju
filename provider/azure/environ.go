@@ -420,6 +420,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	vmExtensionClient := compute.VirtualMachineExtensionsClient{env.compute}
 	subscriptionId := env.config.subscriptionId
 	imageStream := env.config.ImageStream()
+	storageEndpoint := env.config.storageEndpoint
 	storageAccountName := env.config.storageAccount
 	instanceTypes, err := env.getInstanceTypesLocked()
 	if err != nil {
@@ -481,9 +482,9 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		args.DistributionGroup,
 		env.Instances,
 		apiPortPtr, internalNetworkSubnet, nsgID,
-		storageAccountName, networkClient,
-		vmClient, availabilitySetClient,
-		vmExtensionClient,
+		storageEndpoint, storageAccountName,
+		networkClient, vmClient,
+		availabilitySetClient, vmExtensionClient,
 	)
 	if err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
@@ -523,7 +524,7 @@ func createVirtualMachine(
 	instancesFunc func([]instance.Id) ([]instance.Instance, error),
 	apiPort *int,
 	internalNetworkSubnet *network.Subnet,
-	nsgID, storageAccountName string,
+	nsgID, storageEndpoint, storageAccountName string,
 	networkClient network.ManagementClient,
 	vmClient compute.VirtualMachinesClient,
 	availabilitySetClient compute.AvailabilitySetsClient,
@@ -532,7 +533,7 @@ func createVirtualMachine(
 
 	storageProfile, err := newStorageProfile(
 		vmName, instanceConfig.Series,
-		instanceSpec, location, storageAccountName,
+		instanceSpec, storageEndpoint, storageAccountName,
 	)
 	if err != nil {
 		return compute.VirtualMachine{}, errors.Annotate(err, "creating storage profile")
@@ -696,7 +697,7 @@ func newStorageProfile(
 	vmName string,
 	series string,
 	instanceSpec *instances.InstanceSpec,
-	location, storageAccountName string,
+	storageEndpoint, storageAccountName string,
 ) (*compute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
 
@@ -709,7 +710,7 @@ func newStorageProfile(
 	sku := urnParts[2]
 	version := urnParts[3]
 
-	osDisksRoot := osDiskVhdRoot(location, storageAccountName)
+	osDisksRoot := osDiskVhdRoot(storageEndpoint, storageAccountName)
 	osDiskName := vmName
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr(osDiskName),

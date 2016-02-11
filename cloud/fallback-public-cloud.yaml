@@ -52,48 +52,68 @@ clouds:
     regions:
       Central US:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       East US:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       East US 2:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       North Central US:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       South Central US:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       West US:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       North Europe:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       West Europe:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       East Asia:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Southeast Asia:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Japan East:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Japan West:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Brazil South:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Australia East:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Australia Southeast:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       Central India:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       South India:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
       West India:
         endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
   azure-china:
     type: azure
     auth-types: [ userpass ]
     regions:
       China East:
         endpoint: https://management.chinacloudapi.cn
+        storage-endpoint: https://core.chinacloudapi.cn
       China North:
         endpoint: https://management.chinacloudapi.cn
+        storage-endpoint: https://core.chinacloudapi.cn
   rackspace:
     type: openstack
     auth-types: [ access-key, userpass ]
