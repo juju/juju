@@ -28,14 +28,6 @@ func (s *UnitSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (*UnitSerializationSuite) TestUnitsIsMap(c *gc.C) {
-	_, err := importUnits(map[string]interface{}{
-		"version": 42,
-		"units":   []interface{}{"hello"},
-	})
-	c.Check(err.Error(), gc.Equals, `units version schema check failed: units[0]: expected map, got string("hello")`)
-}
-
 func minimalUnitMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"name":            "ubuntu/0",

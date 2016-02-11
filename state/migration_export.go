@@ -115,6 +115,16 @@ func (e *exporter) machines() error {
 	for _, data := range instData {
 		instances[data.MachineId] = data
 	}
+
+	// Read all the open ports documents.
+	openedPorts, closer := e.st.getCollection(openedPortsC)
+	defer closer()
+	var portsData []portsDoc
+	if err := openedPorts.Find(nil).All(&portsData); err != nil {
+		return errors.Annotate(err, "opened ports")
+	}
+	e.logger.Debugf("found %d openedPorts docs", len(portsData))
+
 	// We are iterating through a flat list of machines, but the migration
 	// model stores the nesting. The AllMachines method assures us that the
 	// machines are returned in an order so the parent will always before
@@ -133,7 +143,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances)
+		exMachine, err := e.newMachine(exParent, machine, instances, portsData)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -145,7 +155,7 @@ func (e *exporter) machines() error {
 	return nil
 }
 
-func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, instances map[string]instanceData) (migration.Machine, error) {
+func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc) (migration.Machine, error) {
 	args := migration.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -210,7 +220,31 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 		Size:    tools.Size,
 	})
 
+	for _, args := range e.networkPortsArgsForMachine(machine.Id(), portsData) {
+		exMachine.AddNetworkPorts(args)
+	}
+
 	return exMachine, nil
+}
+
+func (e *exporter) networkPortsArgsForMachine(machineId string, portsData []portsDoc) []migration.NetworkPortsArgs {
+	var result []migration.NetworkPortsArgs
+	for _, doc := range portsData {
+		// Don't bother including a network if there are no ports open on it.
+		if doc.MachineID == machineId && len(doc.Ports) > 0 {
+			args := migration.NetworkPortsArgs{NetworkName: doc.NetworkName}
+			for _, p := range doc.Ports {
+				args.OpenPorts = append(args.OpenPorts, migration.PortRangeArgs{
+					UnitName: p.UnitName,
+					FromPort: p.FromPort,
+					ToPort:   p.ToPort,
+					Protocol: p.Protocol,
+				})
+			}
+			result = append(result, args)
+		}
+	}
+	return result
 }
 
 func (e *exporter) newAddressArgsSlice(a []address) []migration.AddressArgs {

@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package migration
@@ -14,6 +14,7 @@ import (
 
 type MachineSerializationSuite struct {
 	SliceSerializationSuite
+	PortRangeCheck
 }
 
 var _ = gc.Suite(&MachineSerializationSuite{})
@@ -28,15 +29,6 @@ func (s *MachineSerializationSuite) SetUpTest(c *gc.C) {
 	s.testFields = func(m map[string]interface{}) {
 		m["machines"] = []interface{}{}
 	}
-}
-
-// TODO MAYBE: move this test into the slice serialization base.
-func (*MachineSerializationSuite) TestMachinesIsMap(c *gc.C) {
-	_, err := importMachines(map[string]interface{}{
-		"version":  42,
-		"machines": []interface{}{"hello"},
-	})
-	c.Check(err.Error(), gc.Equals, `machines version schema check failed: machines[0]: expected map, got string("hello")`)
 }
 
 func minimalMachineMap(id string, containers ...interface{}) map[interface{}]interface{} {
@@ -172,6 +164,51 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 	c.Assert(machines, jc.DeepEquals, expected)
 }
 
+func (s *MachineSerializationSuite) addNetworkPorts(m Machine) []NetworkPortsArgs {
+	args := []NetworkPortsArgs{
+		{
+			NetworkName: "storage",
+			OpenPorts: []PortRangeArgs{
+				{
+					UnitName: "magic/0",
+					FromPort: 1234,
+					ToPort:   2345,
+					Protocol: "tcp",
+				},
+			},
+		}, {
+			NetworkName: "workload",
+			OpenPorts: []PortRangeArgs{
+				{
+					UnitName: "unicorn/0",
+					FromPort: 80,
+					ToPort:   80,
+					Protocol: "tcp",
+				},
+			},
+		},
+	}
+	m.AddNetworkPorts(args[0])
+	m.AddNetworkPorts(args[1])
+	return args
+}
+
+func (s *MachineSerializationSuite) TestNetworkPorts(c *gc.C) {
+	m := newMachine(s.machineArgs("42"))
+	args := s.addNetworkPorts(m)
+	ports := m.NetworkPorts()
+	c.Assert(ports, gc.HasLen, 2)
+	storage, workload := ports[0], ports[1]
+	c.Assert(storage.NetworkName(), gc.Equals, "storage")
+	c.Assert(workload.NetworkName(), gc.Equals, "workload")
+	opened := storage.OpenPorts()
+	c.Assert(opened, gc.HasLen, 1)
+	s.AssertPortRange(c, opened[0], args[0].OpenPorts[0])
+	opened = workload.OpenPorts()
+	c.Assert(opened, gc.HasLen, 1)
+	s.AssertPortRange(c, opened[0], args[1].OpenPorts[0])
+}
+
 func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	// TODO: need to fully specify a machine.
 	args := s.machineArgs("0")
@@ -181,6 +218,7 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	m.SetTools(minimalAgentToolsArgs())
 	m.SetStatus(minimalStatusArgs())
 	m.SetInstance(minimalCloudInstanceArgs())
+	s.addNetworkPorts(m)
 
 	// Just use one set of address args for both machine and provider.
 	addrArgs := []AddressArgs{

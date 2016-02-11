@@ -54,14 +54,6 @@ func (*UserSerializationSuite) TestUnknownVersion(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
 }
 
-func (*UserSerializationSuite) TestUsersIsMap(c *gc.C) {
-	_, err := importUsers(map[string]interface{}{
-		"version": 42,
-		"users":   []interface{}{"hello"},
-	})
-	c.Check(err.Error(), gc.Equals, `users version schema check failed: users[0]: expected map, got string("hello")`)
-}
-
 func (*UserSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	lastConn := time.Date(2016, 1, 15, 12, 0, 0, 0, time.UTC)
 	initial := users{
