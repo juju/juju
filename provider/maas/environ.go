@@ -901,8 +901,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 
 		if environ.supportsNetworkDeploymentUbuntu {
+			spacesMap, err := environ.fetchSpaces()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode)
+			interfaces, err = maasObjectNetworkInterfaces(startedNode, spacesMap)
 		} else {
 			// Use the legacy approach.
 			interfaces, err = environ.setupNetworks(inst)
