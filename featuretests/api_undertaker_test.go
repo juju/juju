@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -32,7 +34,10 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 		c.Assert(undertakerClient, gc.NotNil)
 
 		_, err := undertakerClient.ModelInfo()
-		c.Assert(err, gc.ErrorMatches, "permission denied")
+		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+			Message: "permission denied",
+			Code:    "unauthorized access",
+		})
 	}
 }
 

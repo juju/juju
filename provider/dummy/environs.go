@@ -234,10 +234,11 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu             sync.Mutex
-	ops            chan<- Operation
-	statePolicy    state.Policy
-	supportsSpaces bool
+	mu                     sync.Mutex
+	ops                    chan<- Operation
+	statePolicy            state.Policy
+	supportsSpaces         bool
+	supportsSpaceDiscovery bool
 	// We have one state for each environment name.
 	state      map[int]*environState
 	maxStateId int
@@ -321,6 +322,7 @@ func Reset() {
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 	providerInstance.supportsSpaces = true
+	providerInstance.supportsSpaceDiscovery = false
 }
 
 func (state *environState) destroy() {
@@ -401,6 +403,17 @@ func SetSupportsSpaces(supports bool) bool {
 	defer p.mu.Unlock()
 	current := p.supportsSpaces
 	p.supportsSpaces = supports
+	return current
+}
+
+// SetSupportsSpaceDiscovery allows to enable and disable
+// SupportsSpaceDiscovery for tests.
+func SetSupportsSpaceDiscovery(supports bool) bool {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	current := p.supportsSpaceDiscovery
+	p.supportsSpaceDiscovery = supports
 	return current
 }
 
@@ -1052,6 +1065,51 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
+		return false, err
+	}
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.supportsSpaceDiscovery {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Spaces is specified on environs.Networking.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	if err := env.checkBroken("Spaces"); err != nil {
+		return []network.SpaceInfo{}, err
+	}
+	return []network.SpaceInfo{{
+		ProviderId: network.Id("foo"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("1"),
+			AvailabilityZones: []string{"zone1"},
+		}, {
+			ProviderId:        network.Id("2"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		ProviderId: network.Id("Another Foo 99!"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("3"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		ProviderId: network.Id("foo-"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("4"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		ProviderId: network.Id("---"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("5"),
+			AvailabilityZones: []string{"zone1"},
+		}}}}, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {
@@ -1253,6 +1311,12 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
+	p := &providerInstance
+	if p.supportsSpaceDiscovery {
+		// Space discovery needs more subnets to work with.
+		return env.subnetsForSpaceDiscovery(estate)
+	}
+
 	allSubnets := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
@@ -1334,6 +1398,38 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 		Env:        env.name,
 		InstanceId: instId,
 		SubnetIds:  subnetIds,
+		Info:       result,
+	}
+	return result, nil
+}
+
+func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.SubnetInfo, error) {
+	result := []network.SubnetInfo{{
+		ProviderId:        network.Id("1"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.1.0/24",
+	}, {
+		ProviderId:        network.Id("2"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.2.0/24",
+		VLANTag:           1,
+	}, {
+		ProviderId:        network.Id("3"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.3.0/24",
+	}, {
+		ProviderId:        network.Id("4"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.4.0/24",
+	}, {
+		ProviderId:        network.Id("5"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.5.0/24",
+	}}
+	estate.ops <- OpSubnets{
+		Env:        env.name,
+		InstanceId: instance.UnknownId,
+		SubnetIds:  []network.Id{},
 		Info:       result,
 	}
 	return result, nil

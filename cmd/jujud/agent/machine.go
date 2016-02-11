@@ -79,15 +79,16 @@ import (
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
-	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/resumer"
@@ -116,7 +117,8 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newNetworker             = networker.NewNetworker
+	newMachiner              = machiner.NewMachiner
+	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
@@ -326,6 +328,10 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+
+	// Used to signal that spaces have been discovered.
+	discoveringSpaces      chan struct{}
+	discoveringSpacesMutex sync.Mutex
 
 	loopDeviceManager looputil.LoopDeviceManager
 }
@@ -674,13 +680,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
-	var isModelManager, isNetworkManager bool
+	var isModelManager bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageModel:
 			isModelManager = true
-		case multiwatcher.JobManageNetworking:
-			isNetworkManager = true
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -724,22 +728,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 		return w, nil
 
-	})
-
-	// Check if the network management is disabled.
-	disableNetworkManagement, _ := modelConfig.DisableNetworkManagement()
-	if disableNetworkManagement {
-		logger.Infof("network management is disabled")
-	}
-
-	// Start networker depending on configuration and job.
-	intrusiveMode := isNetworkManager && !disableNetworkManagement
-	runner.StartWorker("networker", func() (worker.Worker, error) {
-		w, err := newNetworker(apiConn.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start networker worker")
-		}
-		return w, nil
 	})
 
 	// Perform the operations needed to set up hosting for containers.
@@ -993,10 +981,19 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
-			// workers.
+			// workers.  It is possible that multiple cert changes
+			// come in before the apiserver is up to receive them.
+			// Specify a bigger buffer to prevent deadlock when
+			// the apiserver isn't up yet.  Use a size of 10 since we
+			// allow up to 7 controllers, and might also update the
+			// addresses of the local machine (127.0.0.1, ::1, etc).
+			//
+			// TODO(cherylj/waigani) Remove this workaround when
+			// certupdater and apiserver can properly manage dependencies
+			// through the dependency engine.
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
-			certChangedChan := make(chan params.StateServingInfo, 1)
+			certChangedChan := make(chan params.StateServingInfo, 10)
 			// Each time aipserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			stateOpener := func() (*state.State, error) {
@@ -1179,6 +1176,19 @@ func (a *MachineAgent) startEnvWorkers(
 		w, err := newAddresser(apiSt.Addresser())
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start addresser worker")
+		}
+		return w, nil
+	})
+	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
+		a.discoveringSpacesMutex.Lock()
+		defer a.discoveringSpacesMutex.Unlock()
+		w, discoveringSpaces := newDiscoverSpaces(apiSt.DiscoverSpaces())
+		if a.discoveringSpaces == nil {
+			// If the discovery channel has not been set, set it here. If
+			// it has been set then the worker has been restarted and we
+			// should *not* signal that discovery has restarted as this
+			// will block the api.
+			a.discoveringSpaces = discoveringSpaces
 		}
 		return w, nil
 	})
@@ -1382,7 +1392,44 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
+	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
+		return err
+	}
 	return a.limitLoginsDuringUpgrade(req)
+}
+
+// limitLoginsUntilSpacesDiscovered will prevent logins from clients until
+// space discovery is completed.
+func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
+	a.discoveringSpacesMutex.Lock()
+	defer a.discoveringSpacesMutex.Unlock()
+	if a.discoveringSpaces == nil {
+		// Space discovery not started.
+		return nil
+	}
+	select {
+	case <-a.discoveringSpaces:
+		logger.Debugf("space discovery completed - client login unblocked")
+		return nil
+	default:
+		// Space discovery still in progress.
+	}
+	err := errors.New("space discovery still in progress")
+	authTag, parseErr := names.ParseTag(req.AuthTag)
+	if parseErr != nil {
+		return errors.Annotatef(err, "could not parse auth tag")
+	}
+	switch authTag := authTag.(type) {
+	case names.UserTag:
+		// use a restricted API mode
+		return err
+	case names.MachineTag:
+		if authTag == a.Tag() {
+			// allow logins from the local machine
+			return nil
+		}
+	}
+	return err
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes

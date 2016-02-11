@@ -545,7 +545,7 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 		Id:      id,
 		Action:  method,
 	}, args, response)
-	return params.ClientError(err)
+	return errors.Trace(err)
 }
 
 func (s *state) Close() error {
