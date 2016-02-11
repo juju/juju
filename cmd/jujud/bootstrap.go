@@ -214,8 +214,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
 		// We cannot set wired tiger as the storage because mongo
 		// shipped with ubuntu lacks js.
-		if mongo.BinariesAvailable(mongo.Mongo30) {
-			config.SetMongoVersion(mongo.Mongo30)
+		if mongo.BinariesAvailable(mongo.Mongo30wt) {
+			config.SetMongoVersion(mongo.Mongo30wt)
 		} else {
 			config.SetMongoVersion(mongo.Mongo24)
 		}

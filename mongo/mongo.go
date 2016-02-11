@@ -50,8 +50,8 @@ var (
 type StorageEngine string
 
 const (
-	// MMAPIV2 is the default storage engine in mongo db up to 3.x
-	MMAPIV2 StorageEngine = "mmapiv2"
+	// MMAPV2 is the default storage engine in mongo db up to 3.x
+	MMAPV1 StorageEngine = "mmapv1"
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
 	// Upgrading is a special case where mongo is being upgraded.
@@ -109,8 +109,8 @@ func NewVersion(v string) (Version, error) {
 	}
 	if len(parts) == 2 {
 		switch StorageEngine(parts[1]) {
-		case MMAPIV2:
-			version.StorageEngine = MMAPIV2
+		case MMAPV1:
+			version.StorageEngine = MMAPV1
 		case WiredTiger:
 			version.StorageEngine = WiredTiger
 		case Upgrading:
@@ -156,19 +156,19 @@ var (
 	Mongo24 = Version{Major: 2,
 		Minor:         4,
 		Patch:         "",
-		StorageEngine: MMAPIV2,
+		StorageEngine: MMAPV1,
 	}
 	// Mongo26 represents juju-mongodb26 2.6.x
 	Mongo26 = Version{Major: 2,
 		Minor:         6,
 		Patch:         "",
-		StorageEngine: MMAPIV2,
+		StorageEngine: MMAPV1,
 	}
 	// Mongo30 represents juju-mongodb3 3.x.x
 	Mongo30 = Version{Major: 3,
 		Minor:         0,
 		Patch:         "",
-		StorageEngine: MMAPIV2,
+		StorageEngine: MMAPV1,
 	}
 	// Mongo30wt represents juju-mongodb3 3.x.x with wiredTiger storage.
 	Mongo30wt = Version{Major: 3,
@@ -636,7 +636,9 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 
 	} else {
 		args = append(args, "--noprealloc", "--smallfiles")
-
+	}
+	if version == Mongo30 {
+		args = append(args, "--storageEngine", "mmapv1")
 	}
 
 	cmd := exec.Command(mongoPath, args...)

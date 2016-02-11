@@ -415,13 +415,13 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "2.6/mmapiv2", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "2.6/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartService"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapiv2", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 	}
 
@@ -490,7 +490,7 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", tempDir, "", "69", "0", "false", "2.6/mmapiv2", "true"},
+		[]string{"mongo.EnsureServiceInstalled", tempDir, "", "69", "0", "false", "2.6/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartServiceFail"},
@@ -557,7 +557,7 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"SatisfyPrerequisites"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapiv2", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 	}
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
