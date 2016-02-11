@@ -79,62 +79,62 @@ func newService(args ServiceArgs) *service {
 	return svc
 }
 
-// Tag impelements Service.
+// Tag implements Service.
 func (s *service) Tag() names.ServiceTag {
 	return names.NewServiceTag(s.Name_)
 }
 
-// Name impelements Service.
+// Name implements Service.
 func (s *service) Name() string {
 	return s.Name_
 }
 
-// Series impelements Service.
+// Series implements Service.
 func (s *service) Series() string {
 	return s.Series_
 }
 
-// Subordinate impelements Service.
+// Subordinate implements Service.
 func (s *service) Subordinate() bool {
 	return s.Subordinate_
 }
 
-// CharmURL impelements Service.
+// CharmURL implements Service.
 func (s *service) CharmURL() string {
 	return s.CharmURL_
 }
 
-// ForceCharm impelements Service.
+// ForceCharm implements Service.
 func (s *service) ForceCharm() bool {
 	return s.ForceCharm_
 }
 
-// Exposed impelements Service.
+// Exposed implements Service.
 func (s *service) Exposed() bool {
 	return s.Exposed_
 }
 
-// MinUnits impelements Service.
+// MinUnits implements Service.
 func (s *service) MinUnits() int {
 	return s.MinUnits_
 }
 
-// Settings impelements Service.
+// Settings implements Service.
 func (s *service) Settings() map[string]interface{} {
 	return s.Settings_
 }
 
-// SettingsRefCount impelements Service.
+// SettingsRefCount implements Service.
 func (s *service) SettingsRefCount() int {
 	return s.SettingsRefCount_
 }
 
-// LeadershipSettings impelements Service.
+// LeadershipSettings implements Service.
 func (s *service) LeadershipSettings() map[string]interface{} {
 	return s.LeadershipSettings_
 }
 
-// MetricsCredentials impelements Service.
+// MetricsCredentials implements Service.
 func (s *service) MetricsCredentials() []byte {
 	// Here we are explicitly throwing away any decode error. We check that
 	// the creds can be decoded when we parse the incoming data, or we encode
@@ -144,7 +144,7 @@ func (s *service) MetricsCredentials() []byte {
 	return creds
 }
 
-// Status impelements Service.
+// Status implements Service.
 func (s *service) Status() Status {
 	// To avoid typed nils check nil here.
 	if s.Status_ == nil {
@@ -153,12 +153,12 @@ func (s *service) Status() Status {
 	return s.Status_
 }
 
-// SetStatus impelements Service.
+// SetStatus implements Service.
 func (s *service) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
 }
 
-// Units impelements Service.
+// Units implements Service.
 func (s *service) Units() []Unit {
 	result := make([]Unit, len(s.Units_.Units_))
 	for i, u := range s.Units_.Units_ {
@@ -167,7 +167,7 @@ func (s *service) Units() []Unit {
 	return result
 }
 
-// AddUnit impelements Service.
+// AddUnit implements Service.
 func (s *service) AddUnit(args UnitArgs) Unit {
 	u := newUnit(args)
 	s.Units_.Units_ = append(s.Units_.Units_, u)
@@ -181,7 +181,7 @@ func (s *service) setUnits(unitList []*unit) {
 	}
 }
 
-// Validate impelements Service.
+// Validate implements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
 		return errors.NotValidf("missing name")
