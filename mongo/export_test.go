@@ -23,7 +23,6 @@ var (
 	RuntimeGOOS    = &runtimeGOOS
 	AvailSpace     = &availSpace
 	MinOplogSizeMB = &minOplogSizeMB
-	MaxOplogSizeMB = &maxOplogSizeMB
 	PreallocFile   = &preallocFile
 
 	DefaultOplogSize  = defaultOplogSize

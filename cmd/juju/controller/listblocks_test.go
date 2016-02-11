@@ -16,7 +16,7 @@ import (
 )
 
 type ListBlocksSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	api      *fakeListBlocksAPI
 	apierror error
 }
@@ -36,7 +36,7 @@ func (f *fakeListBlocksAPI) ListBlockedModels() ([]params.ModelBlockInfo, error)
 }
 
 func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.apierror = nil
 	s.api = &fakeListBlocksAPI{
 		blocks: []params.ModelBlockInfo{

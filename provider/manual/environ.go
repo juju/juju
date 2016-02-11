@@ -236,7 +236,7 @@ exit 0
 			agent.UninstallAgentFile,
 		)),
 		terminationworker.TerminationSignal,
-		mongo.ServiceName(""),
+		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)

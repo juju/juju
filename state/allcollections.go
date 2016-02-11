@@ -91,6 +91,22 @@ func allCollections() collectionSchema {
 		// Life and its UUID.
 		modelsC: {global: true},
 
+		// This collection is holds the parameters for model migrations.
+		modelMigrationsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
+
+		// This collection tracks the progress of model migrations.
+		modelMigrationStatusC: {global: true},
+
+		// This collection records the model migrations which
+		// are currently in progress. It is used to ensure that only
+		// one model migration document exists per environment.
+		modelMigrationsActiveC: {global: true},
+
 		// This collection holds user information that's not specific to any
 		// one model.
 		usersC: {
@@ -358,6 +374,7 @@ const (
 	cloudimagemetadataC      = "cloudimagemetadata"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
+	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	instanceDataC            = "instanceData"
@@ -369,6 +386,10 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
+	modelMigrationStatusC    = "modelmigrations.status"
+	modelMigrationsActiveC   = "modelmigrations.active"
+	modelMigrationsC         = "modelmigrations"
+	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	networkInterfacesC       = "networkinterfaces"
@@ -383,23 +404,21 @@ const (
 	servicesC                = "services"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
-	controllersC             = "controllers"
+	spacesC                  = "spaces"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"
 	storageAttachmentsC      = "storageattachments"
 	storageConstraintsC      = "storageconstraints"
 	storageInstancesC        = "storageinstances"
 	subnetsC                 = "subnets"
-	spacesC                  = "spaces"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"
 	unitsC                   = "units"
 	upgradeInfoC             = "upgradeInfo"
+	userLastLoginC           = "userLastLogin"
 	usermodelnameC           = "usermodelname"
 	usersC                   = "users"
-	userLastLoginC           = "userLastLogin"
-	modelUserLastConnectionC = "modelUserLastConnection"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)

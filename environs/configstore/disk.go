@@ -41,9 +41,9 @@ const (
 var lockTimeout = 5 * time.Second
 
 // Default returns disk-based environment config storage
-// rooted at JujuHome.
+// rooted at JujuXDGDataHome.
 var Default = func() (Storage, error) {
-	return NewDisk(osenv.JujuHome())
+	return NewDisk(osenv.JujuXDGDataHome())
 }
 
 type diskStore struct {

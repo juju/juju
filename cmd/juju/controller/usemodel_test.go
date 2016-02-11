@@ -28,7 +28,7 @@ const (
 )
 
 type UseModelSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	api      *fakeModelMgrAPIClient
 	creds    configstore.APICredentials
 	endpoint configstore.APIEndpoint
@@ -37,7 +37,7 @@ type UseModelSuite struct {
 var _ = gc.Suite(&UseModelSuite{})
 
 func (s *UseModelSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)

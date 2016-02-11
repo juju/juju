@@ -19,7 +19,7 @@ type UnblockCommandSuite struct {
 }
 
 func (s *UnblockCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
 }
 

@@ -69,8 +69,8 @@ func NewServiceGetConstraintsCommand() cmd.Command {
 
 type serviceConstraintsAPI interface {
 	Close() error
-	GetServiceConstraints(string) (constraints.Value, error)
-	SetServiceConstraints(string, constraints.Value) error
+	GetConstraints(string) (constraints.Value, error)
+	SetConstraints(string, constraints.Value) error
 }
 
 type serviceConstraintsCommand struct {
@@ -135,7 +135,7 @@ func (c *serviceGetConstraintsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	cons, err := apiclient.GetServiceConstraints(c.ServiceName)
+	cons, err := apiclient.GetConstraints(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -182,6 +182,6 @@ func (c *serviceSetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	}
 	defer apiclient.Close()
 
-	err = apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
+	err = apiclient.SetConstraints(c.ServiceName, c.Constraints)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

@@ -43,6 +43,18 @@ func (s *DeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
 }
 
+func (s *DeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	_, err := runDeployCommand(c, "bundle/wordpress-simple", "--config", "config.yaml")
+	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --config.")
+	_, err = runDeployCommand(c, "bundle/wordpress-simple", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: -n.")
+	_, err = runDeployCommand(c, "bundle/wordpress-simple", "--series", "trusty", "--force")
+	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --force, --series.")
+}
+
 func (s *DeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")

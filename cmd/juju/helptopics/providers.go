@@ -4,7 +4,6 @@
 package helptopics
 
 const (
-	LocalProvider     = helpProviderStart + helpLocalProvider + helpProviderEnd
 	OpenstackProvider = helpProviderStart + helpOpenstackProvider + helpProviderEnd
 	EC2Provider       = helpProviderStart + helpEC2Provider + helpProviderEnd
 	HPCloud           = helpProviderStart + helpHPCloud + helpProviderEnd
@@ -17,8 +16,10 @@ Start by generating a generic configuration file for Juju, using the command:
 
   juju init
 
-This will create the '~/.juju/' directory (or $JUJU_HOME, if set) if it doesn't
-already exist and generate a file, 'environments.yaml' in that directory.
+This will create the $JUJU_DATA directory, if set, otherwise it will try
+$XDG_DATA_HOME/juju if said variable is set or finally default to
+~/.local/share/juju if it doesn't already exist and generate a file, 
+'environments.yaml' in that directory.
 `
 const helpProviderEnd = `
 See Also:
@@ -26,63 +27,6 @@ See Also:
   juju help init
   juju help bootstrap
 
-`
-
-const helpLocalProvider = `
-The local provider is a Linux-only Juju model that uses LXC containers as
-a virtual cloud on the local machine.  Because of this, lxc and mongodb are
-required for the local provider to work. All of these dependencies are tracked
-in the 'juju-local' package. You can install that with:
-
-  sudo apt-get update
-  sudo apt-get install juju-local
-
-After that you might get error for SSH authorised/public key not found. ERROR
-SSH authorised/public key not found.
-
-  ssh-keygen -t rsa
-
-Now you need to tell Juju to use the local provider and then bootstrap:
-
-  juju switch local
-  juju bootstrap
-
-The first time this runs it might take a bit, as it's doing a netinstall for
-the container, it's around a 300 megabyte download. Subsequent bootstraps
-should be much quicker. You'll be asked for your 'sudo' password, which is
-needed because only root can create LXC containers. When you need to destroy
-the model, do 'juju destroy-model local' and you could be asked
-for your 'sudo' password again.
-
-You deploy charms from the charm store using the following commands:
-
-  juju deploy mysql
-  juju deploy wordpress
-  juju add-relation wordpress mysql
-
-For Ubuntu deployments, the local provider will prefer to use lxc-clone to create
-the machines for the trusty OS series and later.
-A 'template' container is created with the name
-  juju-<series>-template
-where <series> is the OS series, for example 'juju-trusty-template'.
-You can override the use of clone by specifying
-  lxc-clone: true
-or
-  lxc-clone: false
-in the configuration for your local provider.  If you have the main container
-directory mounted on a btrfs partition, then the clone will be using btrfs
-snapshots to create the containers. This means that clones use up much
-less disk space.  If you do not have btrfs, lxc will attempt to use aufs
-(an overlay type filesystem). You can explicitly ask Juju to create
-full containers and not overlays by specifying the following in the provider
-configuration:
-  lxc-clone-aufs: false
-
-
-References:
-
-  http://askubuntu.com/questions/65359/how-do-i-configure-juju-for-local-usage
-  https://juju.ubuntu.com/docs/getting-started.html
 `
 
 const helpOpenstackProvider = `
