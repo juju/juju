@@ -161,15 +161,16 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 			ServiceName: args.ServiceName,
 			Series:      args.Series,
 			// TODO(dfc) ServiceOwner should be a tag
-			ServiceOwner:   owner,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			Placement:      args.Placement,
-			Networks:       requestedNetworks,
-			Storage:        args.Storage,
-			Resources:      args.Resources,
+			ServiceOwner:     owner,
+			Charm:            ch,
+			NumUnits:         args.NumUnits,
+			ConfigSettings:   settings,
+			Constraints:      args.Constraints,
+			Placement:        args.Placement,
+			Networks:         requestedNetworks,
+			Storage:          args.Storage,
+			EndpointBindings: args.EndpointBindings,
+			Resources:        args.Resources,
 		})
 	return errors.Trace(err)
 }

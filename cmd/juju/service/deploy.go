@@ -61,6 +61,7 @@ type DeployCommand struct {
 	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
+	BindToSpaces string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -76,7 +77,9 @@ type DeployCommand struct {
 	// Resources is a map of resource name to filename to be uploaded on deploy.
 	Resources map[string]string
 
-	Steps   []DeployStep
+	Bindings map[string]string
+	Steps    []DeployStep
+
 	flagSet *gnuflag.FlagSet
 }
 
@@ -227,7 +230,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags  = []string{"config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade", "resource"}
+	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade", "resource"}
 	bundleOnlyFlags = []string{}
 )
 
@@ -246,6 +249,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configure service endpoint bindings to spaces")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -270,6 +274,10 @@ func (c *DeployCommand) Init(args []string) error {
 		return errors.New("no charm or bundle specified")
 	default:
 		return cmd.CheckEmpty(args[2:])
+	}
+	err := c.parseBind()
+	if err != nil {
+		return err
 	}
 	return c.UnitCommandBase.Init(args)
 }
@@ -561,16 +569,17 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	params := serviceDeployParams{
-		charmURL:    curl.String(),
-		serviceName: serviceName,
-		series:      series,
-		numUnits:    numUnits,
-		configYAML:  string(configYAML),
-		constraints: c.Constraints,
-		placement:   c.Placement,
-		networks:    c.Networks,
-		storage:     c.Storage,
-		resources:   ids,
+		charmURL:      curl.String(),
+		serviceName:   serviceName,
+		series:        series,
+		numUnits:      numUnits,
+		configYAML:    string(configYAML),
+		constraints:   c.Constraints,
+		placement:     c.Placement,
+		networks:      c.Networks,
+		storage:       c.Storage,
+		spaceBindings: c.Bindings,
+		resources:     ids,
 	}
 	if err := deployer.serviceDeploy(params); err != nil {
 		return err
@@ -606,17 +615,62 @@ func (c *DeployCommand) handleResources(serviceName string, metaResources map[st
 	return ids, nil
 }
 
+const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<relation-name>=<space>] [<relation2-name>=<space2>] ...]'. "
+
+// parseBind parses the --bind option. Valid forms are:
+// * relation-name=space-name
+// * space-name
+// * The above in a space separated list to specify multiple bindings,
+//   e.g. "rel1=space1 rel2=space2 space3"
+func (c *DeployCommand) parseBind() error {
+	bindings := make(map[string]string)
+	if c.BindToSpaces == "" {
+		return nil
+	}
+
+	for _, s := range strings.Split(c.BindToSpaces, " ") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+
+		v := strings.Split(s, "=")
+		var endpoint, space string
+		switch len(v) {
+		case 1:
+			endpoint = ""
+			space = v[0]
+		case 2:
+			if v[0] == "" {
+				return errors.New(parseBindErrorPrefix + "Found = without relation name. Use a lone space name to set the default.")
+			}
+			endpoint = v[0]
+			space = v[1]
+		default:
+			return errors.New(parseBindErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
+		}
+
+		if !names.IsValidSpace(space) {
+			return errors.New(parseBindErrorPrefix + "Space name invalid.")
+		}
+		bindings[endpoint] = space
+	}
+	c.Bindings = bindings
+	return nil
+}
+
 type serviceDeployParams struct {
-	charmURL    string
-	serviceName string
-	series      string
-	numUnits    int
-	configYAML  string
-	constraints constraints.Value
-	placement   []*instance.Placement
-	networks    string
-	storage     map[string]storage.Constraints
-	resources   map[string]string
+	charmURL      string
+	serviceName   string
+	series        string
+	numUnits      int
+	configYAML    string
+	constraints   constraints.Value
+	placement     []*instance.Placement
+	networks      string
+	storage       map[string]storage.Constraints
+	spaceBindings map[string]string
+	resources     map[string]string
 }
 
 type serviceDeployer struct {
@@ -654,6 +708,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		args.placement,
 		[]string{},
 		args.storage,
+		args.spaceBindings,
 		args.resources,
 	}
 

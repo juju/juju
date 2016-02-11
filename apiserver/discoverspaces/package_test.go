@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networker_test
+package discoverspaces_test
 
 import (
 	stdtesting "testing"
@@ -9,6 +9,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func Test(t *stdtesting.T) {
+func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
