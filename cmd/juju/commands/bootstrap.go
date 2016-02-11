@@ -338,10 +338,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	controllerStore := jujuclient.NewFileClientStore()
 	environ, err := environsPrepare(
 		modelcmd.BootstrapContext(ctx), store, controllerStore, c.ControllerName,
 		environs.PrepareForBootstrapParams{
@@ -612,10 +609,7 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
 	}
 
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	if err != nil {
-		return errors.Annotate(err, "failed to access juju client cache")
-	}
+	controllerStore := jujuclient.NewFileClientStore()
 	err = controllerStore.UpdateController(c.ControllerName, jujuclient.ControllerDetails{
 		hosts,
 		endpoint.ServerUUID,

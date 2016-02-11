@@ -238,9 +238,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.ConfigStore = store
 
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	c.Assert(err, jc.ErrorIsNil)
-	s.ControllerStore = controllerStore
+	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
 	environ, err := environs.Prepare(

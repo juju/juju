@@ -3,9 +3,10 @@
 
 package jujuclient
 
-// ControllerDetails holds controller details needed to connect to it.
+// ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
-	// Servers contains the addresses of hosts that form Juju controller cluster.
+	// Servers contains the addresses of hosts that form the Juju controller
+	// cluster.
 	Servers []string `yaml:"servers,flow"`
 
 	// ControllerUUID is the unique ID for the controller.
@@ -18,45 +19,102 @@ type ControllerDetails struct {
 	CACert string `yaml:"ca-cert"`
 }
 
-// ControllersUpdater caches controllers.
-type ControllersUpdater interface {
-	// UpdateController adds given controller to the controllers.
-	// If controller does not exist in the given data, it will be added.
-	// If controller exists, it will be overwritten with new values.
-	// This assumes that there cannot be any 2 controllers with the same name.
-	UpdateController(name string, one ControllerDetails) error
+// ModelDetails holds details of a model.
+type ModelDetails struct {
+	// ModelUUID holds the details of a model.
+	ModelUUID string `yaml:"uuid"`
 }
 
-// ControllersRemover removes controllers.
-type ControllersRemover interface {
-	// RemoveController removes controller with the given name from the controllers
+// ControllerUpdater stores controller details.
+type ControllerUpdater interface {
+	// UpdateController adds the given controller to the controller
 	// collection.
-	RemoveController(name string) error
+	//
+	// If the controller does not already exist, it will be added.
+	// Otherwise, it will be overwritten with the new details.
+	UpdateController(controllerName string, details ControllerDetails) error
 }
 
-// ControllersGetter gets controllers.
-type ControllersGetter interface {
+// ControllerRemover removes controllers.
+type ControllerRemover interface {
+	// RemoveController removes the controller with the given name from the
+	// controllers collection.
+	RemoveController(controllerName string) error
+}
+
+// ControllerGetter gets controllers.
+type ControllerGetter interface {
 	// AllControllers gets all controllers.
 	AllControllers() (map[string]ControllerDetails, error)
 
 	// ControllerByName returns the controller with the specified name.
-	// If there exists no controller with the specified name, an
-	// error satisfying errors.IsNotFound will be returned.
-	ControllerByName(name string) (*ControllerDetails, error)
+	// If there exists no controller with the specified name, an error
+	// satisfying errors.IsNotFound will be returned.
+	ControllerByName(controllerName string) (*ControllerDetails, error)
 }
 
-// ControllerStore has information related to controllers:
-// controllers details, accounts, models.
-// The model information is cached;
-// the controller and the account information is more persistent.
-type ControllerStore interface {
-
-	// Interfaces that deal with Controller.
+// ModelUpdater stores model details.
+type ModelUpdater interface {
+	// UpdateModel adds the given model to the model collection.
 	//
-	// ControllersUpdater caches controllers.
-	ControllersUpdater
-	// ControllersRemover removes controllers.
-	ControllersRemover
-	// ControllersGetter gets controllers.
-	ControllersGetter
+	// If the model does not already exist, it will be added.
+	// Otherwise, it will be overwritten with the new details.
+	UpdateModel(controllerName, modelName string, details ModelDetails) error
+
+	// SetCurrentModel sets the name of the current model for
+	// the specified controller. If there exists no model with
+	// the specified names, an error satisfing errors.IsNotFound
+	// will be returned.
+	SetCurrentModel(controllerName, modelName string) error
+}
+
+// ModelRemover removes models.
+type ModelRemover interface {
+	// RemoveModel removes the model with the given controller and model
+	// names from the models collection. If there is no model with the
+	// specified names, an errors satisfying errors.IsNotFound will be
+	// returned.
+	RemoveModel(controllerName, modelName string) error
+}
+
+// ModelGetter gets models.
+type ModelGetter interface {
+	// AllModels gets all models for the specified controller.
+	//
+	// If there is no controller with the specified name, or
+	// no models cached for the controller, an error satisfying
+	// errors.IsNotFound will be returned.
+	AllModels(controllerName string) (map[string]ModelDetails, error)
+
+	// CurrentModel returns the name of the current model for
+	// the specified controller. If there is no current model
+	// for the controller, an error satisfying errors.IsNotFound
+	// is returned.
+	CurrentModel(controllerName string) (string, error)
+
+	// ModelByName returns the model with the specified controller
+	// and model names. If there exists no model with the specified
+	// names, an error satisfying errors.IsNotFound will be returned.
+	ModelByName(controllerName, modelName string) (*ModelDetails, error)
+}
+
+// ControllerStore is an amalgamation of ControllerUpdater, ControllerRemover,
+// and ControllerGetter.
+type ControllerStore interface {
+	ControllerUpdater
+	ControllerRemover
+	ControllerGetter
+}
+
+// ModelStore is an amalgamation of ModelUpdater, ModelRemover, and ModelGetter.
+type ModelStore interface {
+	ModelUpdater
+	ModelRemover
+	ModelGetter
+}
+
+// ClientStore is an amalgamation of ControllerStore and ModelStore.
+type ClientStore interface {
+	ControllerStore
+	ModelStore
 }

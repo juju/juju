@@ -10,22 +10,28 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type ControllersSuite struct {
-	baseControllersSuite
-
-	store jujuclient.ControllerStore
+	testing.FakeJujuXDGDataHomeSuite
+	store          jujuclient.ControllerStore
+	controllerName string
+	controller     jujuclient.ControllerDetails
 }
 
 var _ = gc.Suite(&ControllersSuite{})
 
 func (s *ControllersSuite) SetUpTest(c *gc.C) {
-	s.baseControllersSuite.SetUpTest(c)
-
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	c.Assert(err, jc.ErrorIsNil)
-	s.store = controllerStore
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.store = jujuclient.NewFileClientStore()
+	s.controllerName = "test.controller"
+	s.controller = jujuclient.ControllerDetails{
+		[]string{"test.server.hostname"},
+		"test.uuid",
+		[]string{"test.api.endpoint"},
+		"test.ca.cert",
+	}
 }
 
 func (s *ControllersSuite) TestControllerMetadataNone(c *gc.C) {

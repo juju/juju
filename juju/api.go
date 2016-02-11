@@ -78,11 +78,7 @@ func newAPIClient(envName string, bClient *httpbakery.Client) (api.Connection, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerStore, err := jujuclient.DefaultControllerStore()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+	controllerStore := jujuclient.NewFileClientStore()
 	st, err := newAPIFromStore(envName, store, controllerStore, defaultAPIOpen, bClient)
 	if err != nil {
 		return nil, errors.Trace(err)
