@@ -187,6 +187,13 @@ class EnvJujuClient:
     # default-series is always forced to match --bootstrap-series.
     bootstrap_replaces = frozenset(['agent-version'])
 
+    # What feature flags have existed that CI used.
+    known_feature_flags = frozenset([
+        'actions', 'jes', 'address-allocation', 'cloudsigma'])
+
+    # What feature flags are used by this version of the juju client.
+    used_feature_flags = frozenset(['address-allocation'])
+
     _show_status = 'show-status'
 
     @classmethod
@@ -194,6 +201,16 @@ class EnvJujuClient:
         if juju_path is None:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
+
+    def enable_feature(self, flag):
+        """Enable juju feature by setting the given flag.
+
+        New versions of juju with the feature enabled by default will silently
+        allow this call, but will not export the environment variable.
+        """
+        if flag not in self.known_feature_flags:
+            raise ValueError('Unknown feature flag: %r' % (flag,))
+        self.feature_flags.add(flag)
 
     def get_jes_command(self):
         """For Juju 2.0, this is always kill-controller."""
@@ -275,7 +292,10 @@ class EnvJujuClient:
             debug = self.debug
         if cls is None:
             cls = self.__class__
-        return cls(env, version, full_path, debug=debug)
+        other = cls(env, version, full_path, debug=debug)
+        other.feature_flags.update(
+            self.feature_flags.intersection(other.used_feature_flags))
+        return other
 
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
@@ -309,6 +329,7 @@ class EnvJujuClient:
         self.version = version
         self.full_path = full_path
         self.debug = debug
+        self.feature_flags = set()
         if env is not None:
             if juju_home is None:
                 if env.juju_home is None:
@@ -327,6 +348,9 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
+        flags = self.feature_flags.intersection(self.used_feature_flags)
+        if flags:
+            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
         env['JUJU_DATA'] = self.env.juju_home
         return env
 
@@ -887,14 +911,10 @@ class EnvJujuClient2A2(EnvJujuClient):
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
-        Juju's directory must be in the PATH to support plugins.
+        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
         """
-        env = dict(os.environ)
-        if self.full_path is not None:
-            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
-                                          os.pathsep, env['PATH'])
+        env = super(EnvJujuClient2A2, self)._shell_environ()
         env['JUJU_HOME'] = self.env.juju_home
-        env['JUJU_DATA'] = self.env.juju_home
         return env
 
 
@@ -931,13 +951,11 @@ class EnvJujuClient2A1(EnvJujuClient):
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
-        Juju's directory must be in the PATH to support plugins.
+        For 2.0-alpha1 and earlier set only JUJU_HOME and not JUJU_DATA.
         """
-        env = dict(os.environ)
-        if self.full_path is not None:
-            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
-                                          os.pathsep, env['PATH'])
+        env = super(EnvJujuClient2A1, self)._shell_environ()
         env['JUJU_HOME'] = self.env.juju_home
+        del env['JUJU_DATA']
         return env
 
     def remove_service(self, service):
@@ -1138,37 +1156,24 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
 class EnvJujuClient22(EnvJujuClient1X):
 
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
+    used_feature_flags = frozenset(['actions'])
 
-        Juju's directory must be in the PATH to support plugins.
-        """
-        env = super(EnvJujuClient22, self)._shell_environ()
-        env[JUJU_DEV_FEATURE_FLAGS] = 'actions'
-        return env
+    def __init__(self, *args, **kwargs):
+        super(EnvJujuClient22, self).__init__(*args, **kwargs)
+        self.feature_flags.add('actions')
 
 
 class EnvJujuClient26(EnvJujuClient1X):
     """Drives Juju 2.6-series clients."""
 
+    used_feature_flags = frozenset(['address-allocation', 'cloudsigma', 'jes'])
+
     def __init__(self, *args, **kwargs):
         super(EnvJujuClient26, self).__init__(*args, **kwargs)
-        self._use_jes = False
-        self._use_container_address_allocation = False
-
-    def clone(self, env=None, version=None, full_path=None, debug=None,
-              cls=None):
-        """Create a clone of this EnvJujuClient.
-
-        By default, the class, environment, version, full_path, and debug
-        settings will match the original, but each can be overridden.
-        """
-        client = super(EnvJujuClient26, self).clone(env, version, full_path,
-                                                    debug, cls)
-        client._use_jes = self._use_jes
-        client._use_container_address_allocation = (
-            self._use_container_address_allocation)
-        return client
+        if self.env is None or self.env.config is None:
+            return
+        if self.env.config.get('type') == 'cloudsigma':
+            self.feature_flags.add('cloudsigma')
 
     def enable_jes(self):
         """Enable JES if JES is optional.
@@ -1178,38 +1183,22 @@ class EnvJujuClient26(EnvJujuClient1X):
         :raises: JESNotSupported when JES is not supported; Juju does not have
             the 'system kill' command when the JES feature flag is set.
         """
-        if self._use_jes:
+
+        if 'jes' in self.feature_flags:
             return
         if self.is_jes_enabled():
             raise JESByDefault()
-        self._use_jes = True
+        self.feature_flags.add('jes')
         if not self.is_jes_enabled():
-            self._use_jes = False
+            self.feature_flags.remove('jes')
             raise JESNotSupported()
 
     def disable_jes(self):
-        self._use_jes = False
+        if 'jes' in self.feature_flags:
+            self.feature_flags.remove('jes')
 
     def enable_container_address_allocation(self):
-        self._use_container_address_allocation = True
-
-    def _get_feature_flags(self):
-        if self.env.config.get('type') == 'cloudsigma':
-            yield 'cloudsigma'
-        if self._use_jes is True:
-            yield 'jes'
-        if self._use_container_address_allocation:
-            yield 'address-allocation'
-
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
-
-        Juju's directory must be in the PATH to support plugins.
-        """
-        env = super(EnvJujuClient26, self)._shell_environ()
-        feature_flags = self._get_feature_flags()
-        env[JUJU_DEV_FEATURE_FLAGS] = ','.join(feature_flags)
-        return env
+        self.feature_flags.add('address-allocation')
 
 
 class EnvJujuClient25(EnvJujuClient26):
@@ -1219,12 +1208,10 @@ class EnvJujuClient25(EnvJujuClient26):
 class EnvJujuClient24(EnvJujuClient25):
     """Similar to EnvJujuClient25, but lacking JES support."""
 
+    used_feature_flags = frozenset(['cloudsigma'])
+
     def enable_jes(self):
         raise JESNotSupported()
-
-    def _get_feature_flags(self):
-        if self.env.config.get('type') == 'cloudsigma':
-            yield 'cloudsigma'
 
     def add_ssh_machines(self, machines):
         for machine in machines:
