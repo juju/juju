@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"encoding/base64"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/schema"
@@ -29,14 +31,12 @@ type service struct {
 	Settings_           map[string]interface{} `yaml:"settings"`
 	SettingsRefCount_   int                    `yaml:"settings-refcount"`
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
+	MetricsCredentials_ string                 `yaml:"metrics-creds,omitempty"`
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
 	// relation count also assumed by the relation sequence
-
-	// TODO: confirm with casey if these are needed
-	//	MetricsCredentials []byte `yaml:"metrics-creds"`
 
 	// Requested Networks
 	// Constraints
@@ -57,9 +57,11 @@ type ServiceArgs struct {
 	Settings           map[string]interface{}
 	SettingsRefCount   int
 	LeadershipSettings map[string]interface{}
+	MetricsCredentials []byte
 }
 
 func newService(args ServiceArgs) *service {
+	creds := base64.StdEncoding.EncodeToString(args.MetricsCredentials)
 	svc := &service{
 		Name_:               args.Tag.Id(),
 		Series_:             args.Series,
@@ -71,6 +73,7 @@ func newService(args ServiceArgs) *service {
 		Settings_:           args.Settings,
 		SettingsRefCount_:   args.SettingsRefCount,
 		LeadershipSettings_: args.LeadershipSettings,
+		MetricsCredentials_: creds,
 	}
 	svc.setUnits(nil)
 	return svc
@@ -129,6 +132,16 @@ func (s *service) SettingsRefCount() int {
 // LeadershipSettings impelements Service.
 func (s *service) LeadershipSettings() map[string]interface{} {
 	return s.LeadershipSettings_
+}
+
+// MetricsCredentials impelements Service.
+func (s *service) MetricsCredentials() []byte {
+	// Here we are explicitly throwing away any decode error. We check that
+	// the creds can be decoded when we parse the incoming data, or we encode
+	// an incoming byte array, so in both cases, we know that the stored creds
+	// can be decoded.
+	creds, _ := base64.StdEncoding.DecodeString(s.MetricsCredentials_)
+	return creds
 }
 
 // Status impelements Service.
@@ -239,14 +252,16 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"settings":            schema.StringMap(schema.Any()),
 		"settings-refcount":   schema.Int(),
 		"leadership-settings": schema.StringMap(schema.Any()),
+		"metrics-creds":       schema.String(),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
-		"subordinate": false,
-		"force-charm": false,
-		"exposed":     false,
-		"min-units":   int64(0),
+		"subordinate":   false,
+		"force-charm":   false,
+		"exposed":       false,
+		"min-units":     int64(0),
+		"metrics-creds": "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -268,6 +283,14 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 	result.Settings_ = valid["settings"].(map[string]interface{})
 	result.SettingsRefCount_ = int(valid["settings-refcount"].(int64))
 	result.LeadershipSettings_ = valid["leadership-settings"].(map[string]interface{})
+
+	encodedCreds := valid["metrics-creds"].(string)
+	// The model stores the creds encoded, but we want to make sure that
+	// we are storing something that can be decoded.
+	if _, err := base64.StdEncoding.DecodeString(encodedCreds); err != nil {
+		return nil, errors.Annotate(err, "metrics credentials not valid")
+	}
+	result.MetricsCredentials_ = encodedCreds
 
 	status, err := importStatus(valid["status"].(map[string]interface{}))
 	if err != nil {

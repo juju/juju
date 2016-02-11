@@ -165,6 +165,7 @@ type Service interface {
 	Settings() map[string]interface{}
 	SettingsRefCount() int
 	LeadershipSettings() map[string]interface{}
+	MetricsCredentials() []byte
 
 	Status() Status
 	SetStatus(StatusArgs)
