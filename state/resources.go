@@ -37,7 +37,10 @@ type Resources interface {
 	UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error)
+
+	// OpenResourceForUnit returns the metadata for a resource and a reader for the resource.
+	OpenResourceForUnit(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 
 	// NewResolvePendingResourcesOps generates mongo transaction operations
 	// to set the identified resources as active.
