@@ -239,9 +239,11 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"One",
 		"Run",
+		"IncCharmModifiedVersionOps",
 		"RunTransaction",
 	)
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 2, "IncCharmModifiedVersionOps", servicename)
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -266,9 +268,10 @@ func (s *PersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"One",
 		"Run",
+		"IncCharmModifiedVersionOps",
 		"RunTransaction",
 	)
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,

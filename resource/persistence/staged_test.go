@@ -106,8 +106,9 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCall(c, 1, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -127,8 +128,9 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "IncCharmModifiedVersionOps", "RunTransaction", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCall(c, 1, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -138,7 +140,8 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocExists,

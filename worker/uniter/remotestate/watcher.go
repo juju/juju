@@ -478,14 +478,14 @@ func (w *RemoteStateWatcher) serviceChanged() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	touched, err := w.service.CharmModified()
+	ver, err := w.service.CharmModifiedVersion()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	w.mu.Lock()
 	w.current.CharmURL = url
 	w.current.ForceCharmUpgrade = force
-	w.current.CharmModified = touched
+	w.current.CharmModifiedVersion = ver
 	w.mu.Unlock()
 	return nil
 }

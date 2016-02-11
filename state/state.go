@@ -1276,7 +1276,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		Series:      args.Series,
 		Subordinate: args.Charm.Meta().Subordinate,
 		CharmURL:    args.Charm.URL(),
-		// We leave CharmModified unset, indicating "never".
+		// We leave CharmModifiedVersion unset, indicating "never".
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      args.Owner,

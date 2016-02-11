@@ -4,8 +4,6 @@
 package remotestate
 
 import (
-	"time"
-
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -26,9 +24,9 @@ type Snapshot struct {
 	// states of each of the unit's storage attachments.
 	Storage map[names.StorageTag]StorageSnapshot
 
-	// CharmModified indicates the last time the charm,
-	// or any part of it, was changed in some way.
-	CharmModified time.Time
+	// CharmModifiedVersion is increased whenever the service's charm was
+	// changed in some way.
+	CharmModifiedVersion int
 
 	// CharmURL is the charm URL that the unit is
 	// expected to run.

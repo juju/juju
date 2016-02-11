@@ -4,8 +4,6 @@
 package resolver
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -56,9 +54,9 @@ type Resolver interface {
 type LocalState struct {
 	operation.State
 
-	// CharmModified indicates the last time the charm,
-	// or any part of it, was changed in some way.
-	CharmModified time.Time
+	// CharmModifiedVersion increases any time the charm,
+	// or any part of it, is changed in some way.
+	CharmModifiedVersion int
 
 	// CharmURL reports the currently installed charm URL. This is set
 	// by the committing of deploy (install/upgrade) ops.

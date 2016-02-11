@@ -4,8 +4,6 @@
 package remotestate
 
 import (
-	"time"
-
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -37,7 +35,7 @@ type Unit interface {
 }
 
 type Service interface {
-	CharmModified() (time.Time, error)
+	CharmModifiedVersion() (int, error)
 	CharmURL() (*charm.URL, bool, error)
 	Life() params.Life
 	Refresh() error

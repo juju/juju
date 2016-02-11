@@ -174,6 +174,8 @@ func (change stateChange) apply(state State) *State {
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
 	state.StatusSet = state.StatusSet || change.HasRunStatusSet
+	// TODO(natefinch): Do we need to set CharmModifiedVersion here too? It's
+	// currently set in the operation wrapper in uniter/resolver/opfactory.go
 	return &state
 }
 
