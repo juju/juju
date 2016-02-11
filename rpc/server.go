@@ -4,12 +4,12 @@
 package rpc
 
 import (
-	"fmt"
 	"io"
 	"reflect"
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -527,7 +527,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Unlock()
 
 	if methodFinder == nil {
-		return boundRequest{}, fmt.Errorf("no service")
+		return boundRequest{}, errors.New("no service")
 	}
 	caller, err := methodFinder.FindMethod(
 		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
