@@ -180,6 +180,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// When machine addresses are reported from state, they have
+	// duplicates removed.  We should do the same here so that
+	// there is not unnecessary churn in the mongo replicaset.
+	// TODO (cherylj) Add explicit unit tests for this - tracked
+	// by bug #1544158.
+	addrs = network.MergedAddresses([]network.Address{}, addrs)
+
 	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.

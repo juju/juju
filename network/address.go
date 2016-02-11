@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // Private network ranges for IPv4 and IPv6.
@@ -618,4 +619,26 @@ func ResolvableHostnames(addrs []Address) []Address {
 		resolveableAddrs = append(resolveableAddrs, addr)
 	}
 	return resolveableAddrs
+}
+
+// MergedAddresses provides a single list of addresses without duplicates
+// suitable for returning as an address list for a machine.
+// TODO (cherylj) Add explicit unit tests - tracked with bug #1544158
+func MergedAddresses(machineAddresses, providerAddresses []Address) []Address {
+	merged := make([]Address, 0, len(providerAddresses)+len(machineAddresses))
+	providerValues := set.NewStrings()
+	for _, address := range providerAddresses {
+		// Older versions of Juju may have stored an empty address so ignore it here.
+		if address.Value == "" || providerValues.Contains(address.Value) {
+			continue
+		}
+		providerValues.Add(address.Value)
+		merged = append(merged, address)
+	}
+	for _, address := range machineAddresses {
+		if !providerValues.Contains(address.Value) {
+			merged = append(merged, address)
+		}
+	}
+	return merged
 }
