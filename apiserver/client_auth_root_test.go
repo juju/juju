@@ -4,10 +4,11 @@
 package apiserver
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/testing/factory"
-	"reflect"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

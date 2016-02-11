@@ -48,7 +48,7 @@ import (
 )
 
 type BootstrapSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
@@ -59,13 +59,13 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -85,6 +85,10 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+		if s.mockBlockClient.discoveringSpacesError > 0 {
+			s.mockBlockClient.discoveringSpacesError -= 1
+			return nil, errors.New("space discovery still in progress")
+		}
 		return s.mockBlockClient, nil
 	})
 
@@ -93,30 +97,31 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 	dummy.Reset()
 }
 
 type mockBlockClient struct {
-	retry_count int
-	num_retries int
+	retryCount             int
+	numRetries             int
+	discoveringSpacesError int
 }
 
 func (c *mockBlockClient) List() ([]params.Block, error) {
-	c.retry_count += 1
-	if c.retry_count == 5 {
+	c.retryCount += 1
+	if c.retryCount == 5 {
 		return nil, fmt.Errorf("upgrade in progress")
 	}
-	if c.num_retries < 0 {
+	if c.numRetries < 0 {
 		return nil, fmt.Errorf("other error")
 	}
-	if c.retry_count < c.num_retries {
+	if c.retryCount < c.numRetries {
 		return nil, fmt.Errorf("upgrade in progress")
 	}
 	return []params.Block{}, nil
@@ -136,8 +141,8 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 	for _, t := range []struct {
-		num_retries int
-		err         string
+		numRetries int
+		err        string
 	}{
 		{0, ""},                    // agent ready immediately
 		{2, ""},                    // agent ready after 2 polls
@@ -146,27 +151,42 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	} {
 		for _, modelFlag := range s.modelFlags {
 
-			resetJujuHome(c, "devenv")
+			resetJujuXDGDataHome(c, "devenv")
 
-			s.mockBlockClient.num_retries = t.num_retries
-			s.mockBlockClient.retry_count = 0
+			s.mockBlockClient.numRetries = t.numRetries
+			s.mockBlockClient.retryCount = 0
 			_, err := coretesting.RunCommand(c, newBootstrapCommand(), modelFlag, "devenv", "--auto-upgrade")
 			if t.err == "" {
 				c.Check(err, jc.ErrorIsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.err)
 			}
-			expectedRetries := t.num_retries
-			if t.num_retries <= 0 {
+			expectedRetries := t.numRetries
+			if t.numRetries <= 0 {
 				expectedRetries = 1
 			}
 			// Only retry maximum of bootstrapReadyPollCount times.
 			if expectedRetries > 5 {
 				expectedRetries = 5
 			}
-			c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
+			c.Check(s.mockBlockClient.retryCount, gc.Equals, expectedRetries)
 		}
 	}
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
+	defaultSeriesVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+	resetJujuXDGDataHome(c, "devenv")
+
+	s.mockBlockClient.discoveringSpacesError = 2
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-m", "devenv", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
@@ -195,7 +215,7 @@ type bootstrapTest struct {
 }
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, envName string) {
-	env := resetJujuHome(c, envName)
+	env := resetJujuXDGDataHome(c, envName)
 	s.PatchValue(&series.HostSeries, func() string { return config.PreferredSeries(env.Config()) })
 	s.patchVersion(c)
 }
@@ -212,7 +232,7 @@ func (s *BootstrapSuite) patchVersion(c *gc.C) {
 func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	env := resetJujuHome(c, "peckham")
+	env := resetJujuXDGDataHome(c, "peckham")
 
 	// Although we're testing PrepareEndpointsForCaching interactions
 	// separately in the juju package, here we just ensure it gets
@@ -461,7 +481,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	jenvFile := testing.HomePath(".juju", "models", "cache.yaml")
+	jenvFile := testing.JujuXDGDataHomePath("models", "cache.yaml")
 	err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -575,7 +595,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
-	env := resetJujuHome(c, "devenv")
+	env := resetJujuXDGDataHome(c, "devenv")
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
@@ -614,7 +634,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 
 func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
-	resetJujuHome(c, "devenv")
+	resetJujuXDGDataHome(c, "devenv")
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -629,7 +649,7 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 }
 
 func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string) {
-	resetJujuHome(c, "devenv")
+	resetJujuXDGDataHome(c, "devenv")
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -657,7 +677,7 @@ func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
-	resetJujuHome(c, "devenv")
+	resetJujuXDGDataHome(c, "devenv")
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -673,7 +693,7 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
-	env := resetJujuHome(c, "peckham")
+	env := resetJujuXDGDataHome(c, "peckham")
 
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
@@ -699,7 +719,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) environs
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	return resetJujuHome(c, "devenv")
+	return resetJujuXDGDataHome(c, "devenv")
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
@@ -751,7 +771,7 @@ Building tools to upload (1.7.3.1-raring-%s)
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
-		resetJujuHome(c, "devenv")
+		resetJujuXDGDataHome(c, "devenv")
 		s.patchVersion(c)
 
 		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv", "--auto-upgrade")
@@ -776,7 +796,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
-		resetJujuHome(c, "devenv")
+		resetJujuXDGDataHome(c, "devenv")
 		s.patchVersion(c)
 
 		opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), modelFlag, "brokenenv", "--keep-broken", "--auto-upgrade")
@@ -814,9 +834,9 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 	return source
 }
 
-// resetJujuHome restores an new, clean Juju home environment without tools.
-func resetJujuHome(c *gc.C, envName string) environs.Environ {
-	jenvDir := testing.HomePath(".juju", "models")
+// resetJujuXDGDataHome restores an new, clean Juju home environment without tools.
+func resetJujuXDGDataHome(c *gc.C, envName string) environs.Environ {
+	jenvDir := testing.JujuXDGDataHomePath("models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 	coretesting.WriteEnvironments(c, modelConfig)

@@ -181,12 +181,9 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 }
 
 func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
-	for _, ctype := range instance.ContainerTypes {
-		/* LXD isn't available on go 1.2 */
-		if ctype == instance.LXD && strings.HasPrefix(runtime.Version(), "go1.2") {
-			continue
-		}
-
+	// Specifically ignore LXD here, if present in instance.ContainerTypes.
+	containerTypes := []instance.ContainerType{instance.LXC, instance.KVM}
+	for _, ctype := range containerTypes {
 		// create a machine to host the container.
 		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 			Series:      coretesting.FakeDefaultSeries,
@@ -194,7 +191,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 			Constraints: s.defaultConstraints,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+		err = m.SetSupportedContainers(containerTypes)
 		c.Assert(err, jc.ErrorIsNil)
 		current := version.Binary{
 			Number: version.Current,

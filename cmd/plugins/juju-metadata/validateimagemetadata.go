@@ -42,7 +42,7 @@ validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either ~/.juju/environments.yaml, the -m option, or JUJU_MODEL.
+the usual way from either ~/.local/share/juju/environments.yaml, the -m option, or JUJU_MODEL.
 Series, Region, and Endpoint are the key attributes.
 
 The key model attributes may be overridden using command arguments, so

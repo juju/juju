@@ -6,8 +6,6 @@
 package lxdclient
 
 import (
-	"path"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
@@ -56,7 +54,11 @@ var lxdLoadConfig = lxd.LoadConfig
 func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	logger.Debugf("loading LXD client config from %q", configDir)
 
-	cfg, err := lxdLoadConfig(path.Join(configDir, "config.yml"))
+	// This will go away once LoadConfig takes a dirname argument.
+	origDirname := updateLXDVars(configDir)
+	defer updateLXDVars(origDirname)
+
+	cfg, err := lxdLoadConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

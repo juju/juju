@@ -30,7 +30,7 @@ import (
 )
 
 type ToolsMetadataSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	env              environs.Environ
 	publicStorageDir string
 }
@@ -38,7 +38,7 @@ type ToolsMetadataSuite struct {
 var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.AddCleanup(func(*gc.C) {
 		dummy.Reset()
 		loggo.ResetLoggers()
@@ -118,7 +118,7 @@ var expectedOutputDirectoryLegacyReleased = "No stream specified, defaulting to 
 var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemplate, "released", "released")
 
 func (s *ToolsMetadataSuite) TestGenerateLegacyRelease(c *gc.C) {
-	metadataDir := osenv.JujuHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHome() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
@@ -306,7 +306,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
 	}
-	metadataDir := osenv.JujuHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHome() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--stream", "released"})

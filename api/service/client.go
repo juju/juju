@@ -75,18 +75,20 @@ func (c *Client) Deploy(
 	placement []*instance.Placement,
 	networks []string,
 	storage map[string]storage.Constraints,
+	bindings map[string]string,
 ) error {
 	args := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName: serviceName,
-			Series:      series,
-			CharmUrl:    charmURL,
-			NumUnits:    numUnits,
-			ConfigYAML:  configYAML,
-			Constraints: cons,
-			Placement:   placement,
-			Networks:    networks,
-			Storage:     storage,
+			ServiceName:      serviceName,
+			Series:           series,
+			CharmUrl:         charmURL,
+			NumUnits:         numUnits,
+			ConfigYAML:       configYAML,
+			Constraints:      cons,
+			Placement:        placement,
+			Networks:         networks,
+			Storage:          storage,
+			EndpointBindings: bindings,
 		}},
 	}
 	var results params.ErrorResults

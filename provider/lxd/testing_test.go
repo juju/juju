@@ -14,6 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	lxdlib "github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -123,6 +124,8 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	s.PatchValue(&lxdlib.ConfigDir, c.MkDir())
 
 	s.initEnv(c)
 	s.initInst(c)

@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.config")
+var logger = loggo.GetLogger("juju.environs.local/share")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.
@@ -179,6 +179,10 @@ const (
 
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
+
+	// AutomaticallyRetryHooks determines whether the uniter will
+	// automatically retry a hook that has failed
+	AutomaticallyRetryHooks = "automatically-retry-hooks"
 
 	//
 	// Deprecated Settings Attributes
@@ -356,8 +360,10 @@ const (
 //     ~/.ssh/id_dsa.pub
 //     ~/.ssh/id_rsa.pub
 //     ~/.ssh/identity.pub
-//     ~/.juju/<name>-cert.pem
-//     ~/.juju/<name>-private-key.pem
+//     ~/.local/share/juju/<name>-cert.pem
+//     ~/.local/share/juju/<name>-private-key.pem
+//
+// if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
 //
 // The required keys (after any files have been read) are "name",
 // "type" and "authorized-keys", all of type string.  Additional keys
@@ -700,8 +706,8 @@ func isEmpty(val interface{}) bool {
 //
 // The defined[attr+"-path"] key is always deleted.
 func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
-	if !osenv.IsJujuHomeSet() {
-		logger.Debugf("JUJU_HOME not set, not attempting to read file %q", defaultPath)
+	if !osenv.IsJujuXDGDataHomeSet() {
+		logger.Debugf("JUJU_DATA not set, not attempting to read file %q", defaultPath)
 		return nil
 	}
 	pathAttr := attr + "-path"
@@ -720,7 +726,7 @@ func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath str
 		return err
 	}
 	if !filepath.IsAbs(path) {
-		path = osenv.JujuHomePath(path)
+		path = osenv.JujuXDGDataHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -1068,6 +1074,16 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// AutomaticallyRetryHooks returns whether we should automatically retry hooks.
+// By default this should be true.
+func (c *Config) AutomaticallyRetryHooks() bool {
+	if val, ok := c.defined["automatically-retry-hooks"].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
 // ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
@@ -1307,6 +1323,9 @@ var alwaysOptional = schema.Defaults{
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
+
+	// AutomaticallyRetryHooks is assumed to be true if missing
+	AutomaticallyRetryHooks: schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1888,5 +1907,11 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,
+	},
+	AutomaticallyRetryHooks: {
+		Description: "Determines whether the uniter should automatically retry failed hooks",
+		Type:        environschema.Tbool,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
 	},
 }
