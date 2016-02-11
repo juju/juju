@@ -18,6 +18,8 @@ type networkPorts struct {
 	OpenPorts_   *portRanges `yaml:"open-ports"`
 }
 
+// NetworkPortsArgs is an argument struct used to add a set of opened port
+// ranges to a machine.
 type NetworkPortsArgs struct {
 	NetworkName string
 	OpenPorts   []PortRangeArgs
@@ -131,6 +133,8 @@ type portRange struct {
 	Protocol_ string `yaml:"protocol"`
 }
 
+// PortRangeArgs is an argument struct used to create a PortRange. This is
+// only done as part of creating NetworkPorts for a Machine.
 type PortRangeArgs struct {
 	UnitName string
 	FromPort int
