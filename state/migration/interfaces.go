@@ -117,11 +117,15 @@ type Machine interface {
 	// machine filesystems
 }
 
+// NetworkPorts represents a collection of port ranges that are open on
+// a particular network. NetworkPorts are always associated with a Machine.
 type NetworkPorts interface {
 	NetworkName() string
 	OpenPorts() []PortRange
 }
 
+// PortRange represents one or more contiguous ports opened by a particular
+// Unit.
 type PortRange interface {
 	UnitName() string
 	FromPort() int
