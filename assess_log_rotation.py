@@ -32,14 +32,30 @@ class LogRotateError(Exception):
         super(LogRotateError, self).__init__(message)
 
 
+def test_debug_log(client, timeout=180):
+    """After doing log rotation, we should be able to see debug-log output."""
+    out = client.get_juju_output("debug-log", "--lines=1000", "--limit=1000",
+                                 timeout=timeout)
+    content = out.splitlines()
+    if len(content) != 1000:
+        raise LogRotateError(
+            "We expected 1000 lines of output, got {}".format(len(content)))
+
+
 def test_unit_rotation(client):
     """Tests unit log rotation."""
+    # TODO: as part of testing that when a unit sending lots of logs triggers
+    # unit log rotation, we should also test that all-machines.log and future
+    # logsink.log get rotated.
+    # It would also be possible to test that the logs database doesn't grow too
+    # large.
     test_rotation(client,
                   "/var/log/juju/unit-fill-logs-0.log",
                   "unit-fill-logs-0",
                   "fill-unit",
                   "unit-size",
                   "megs=300")
+    # TODO: either call test_debug_log here or add a new assess entry for it.
 
 
 def test_machine_rotation(client):
