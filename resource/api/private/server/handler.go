@@ -125,7 +125,8 @@ func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWrite
 
 // HandleDownload implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) HandleDownload(st UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
-	return HandleDownload(req, handleDownloadDeps{
+	name := api.ExtractDownloadRequest(req)
+	return HandleDownload(name, handleDownloadDeps{
 		DownloadDataStore: st,
 		CharmstoreOpener:  deps,
 	})

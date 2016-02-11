@@ -27,8 +27,7 @@ type DownloadDataStore interface {
 }
 
 // HandleDownload handles a resource download request.
-func HandleDownload(req *http.Request, deps HandleDownloadDeps) (resource.Resource, io.ReadCloser, error) {
-	name := deps.ExtractDownloadRequest(req)
+func HandleDownload(name string, deps HandleDownloadDeps) (resource.Resource, io.ReadCloser, error) {
 	res, resourceReader, err := deps.OpenResource(name)
 	if errors.IsNotFound(err) {
 		res, resourceReader, err = openFromCharmstore(name, deps, err)
