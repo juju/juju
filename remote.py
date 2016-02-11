@@ -137,7 +137,7 @@ class SSHRemote(_Remote):
         args = ["ssh"]
         args.extend(self._ssh_opts)
         args.extend([self.address, command])
-        logging.debug(' '.join(str(i) for i in args))
+        logging.debug(' '.join(utility.quote(i) for i in args))
         return self._run_subprocess(args)
 
     def copy(self, destination_dir, source_globs):
@@ -303,6 +303,6 @@ class WinRmRemote(_Remote):
                 # Just defense against path traversal bugs, should never reach.
                 raise ValueError("path not filename {!r}".format(filename))
             with open(os.path.join(destination_dir, filename), "wb") as f:
-                f.write(zlib.decompress(output[mid+1:end].decode("base64"),
+                f.write(zlib.decompress(output[mid + 1:end].decode("base64"),
                                         -zlib.MAX_WBITS))
             start = end + 1

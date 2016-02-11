@@ -125,7 +125,8 @@ def check_token(client, token, timeout=120):
             result = remote.cat("%ProgramData%\\dummy-sink\\token")
         else:
             result = remote.run(GET_TOKEN_SCRIPT)
-        result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
+        token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
+        result = token_pattern.match(result).group(1)
         if result == token:
             logging.info("Token matches expected %r", result)
             return
@@ -136,7 +137,7 @@ def check_token(client, token, timeout=120):
                 remote.get_address()
                 remote.use_juju_ssh = False
                 result = remote.run(GET_TOKEN_SCRIPT)
-                result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
+                result = token_pattern.match(result).group(1)
                 if result == token:
                     logging.info("Token matches expected %r", result)
                     logging.error("juju ssh to unit is broken.")

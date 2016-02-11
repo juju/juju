@@ -471,10 +471,10 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
         self.assertEqual(2, co.call_count)
         self.assertEqual(
-            ['DEBUG ssh -o User ubuntu -o UserKnownHostsFile /dev/null -o '
-             'StrictHostKeyChecking no -o PasswordAuthentication no 10.10.0.1 '
-             'sudo chmod -Rf go+r /var/log/cloud-init*.log /var/log/juju/*.log'
-             ' /var/lib/juju/containers/juju-*-lxc-*/',
+            ["DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
+             "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
+             "10.10.0.1 'sudo chmod -Rf go+r /var/log/cloud-init*.log "
+             "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',
