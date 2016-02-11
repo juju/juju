@@ -4,6 +4,9 @@
 package testing
 
 import (
+	"fmt"
+
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +31,14 @@ func AssertProviderAuthTypes(c *gc.C, p environs.EnvironProvider, expectedAuthTy
 func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authType cloud.AuthType, attrs map[string]string) {
 	schema, ok := p.CredentialSchemas()[authType]
 	c.Assert(ok, jc.IsTrue, gc.Commentf("missing schema for %q auth-type", authType))
-	err := schema.Validate(attrs)
+	validate := func(attrs map[string]string) error {
+		_, err := schema.Finalize(attrs, func(string) ([]byte, error) {
+			return nil, errors.NotSupportedf("reading files")
+		})
+		return err
+	}
+
+	err := validate(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for excludedKey := range attrs {
@@ -38,8 +48,15 @@ func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authTyp
 				reducedAttrs[key] = value
 			}
 		}
-		err := schema.Validate(reducedAttrs)
-		c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
+		err := validate(reducedAttrs)
+		field := schema[excludedKey]
+		if field.FileAttr != "" {
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+				`either %q or %q must be specified`, excludedKey, field.FileAttr),
+			)
+		} else {
+			c.Assert(err, gc.ErrorMatches, excludedKey+": expected string, got nothing")
+		}
 	}
 }
 

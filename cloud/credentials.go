@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -75,32 +76,85 @@ func NewEmptyCredential() Credential {
 // are specific to cloud providers.
 type CredentialSchema map[string]CredentialAttr
 
-// ValidateCredential validates a credential against the provided credential
-// schemas. If there is no schema with the matching auth-type, and error
-// satisfying errors.IsNotSupported will be returned.
-func ValidateCredential(credential Credential, schemas map[AuthType]CredentialSchema) error {
+// FinalizeCredential finalizes a credential by matching it with one of the
+// provided credential schemas, and reading any file attributes into their
+// corresponding non-file attributes. This will also validate the credential.
+//
+// If there is no schema with the matching auth-type, and error satisfying
+// errors.IsNotSupported will be returned.
+func FinalizeCredential(
+	credential Credential,
+	schemas map[AuthType]CredentialSchema,
+	readFile func(string) ([]byte, error),
+) (*Credential, error) {
 	schema, ok := schemas[credential.authType]
 	if !ok {
-		return errors.NotSupportedf("auth-type %q", credential.authType)
+		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
 	}
-	return schema.Validate(credential.attributes)
+	attrs, err := schema.Finalize(credential.attributes, readFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &Credential{credential.authType, attrs}, nil
 }
 
-// Validate validates the given credential attributes against the credential
-// schema.
-func (s CredentialSchema) Validate(attrs map[string]string) error {
+// Finalize finalizes the given credential attributes against the credential
+// schema. If the attributes are invalid, Finalize will return an error.
+//
+// An updated attribute map will be returned, having any file attributes
+// deleted, and replaced by their non-file counterparts with the values set
+// to the contents of the files.
+func (s CredentialSchema) Finalize(
+	attrs map[string]string,
+	readFile func(string) ([]byte, error),
+) (map[string]string, error) {
 	checker, err := s.schemaChecker()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	m := make(map[string]interface{})
 	for k, v := range attrs {
 		m[k] = v
 	}
-	if _, err := checker.Coerce(m, nil); err != nil {
-		return errors.Trace(err)
+	result, err := checker.Coerce(m, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil
+
+	resultMap := result.(map[string]interface{})
+	newAttrs := make(map[string]string)
+	for name, field := range s {
+		if field.FileAttr == "" {
+			newAttrs[name] = resultMap[name].(string)
+			continue
+		}
+		if fieldVal, ok := resultMap[name]; ok {
+			if _, ok := resultMap[field.FileAttr]; ok {
+				return nil, errors.NotValidf(
+					"specifying both %q and %q",
+					name, field.FileAttr,
+				)
+			}
+			newAttrs[name] = fieldVal.(string)
+			continue
+		}
+		fieldVal, ok := resultMap[field.FileAttr]
+		if !ok {
+			return nil, errors.NewNotValid(nil, fmt.Sprintf(
+				"either %q or %q must be specified",
+				name, field.FileAttr,
+			))
+		}
+		data, err := readFile(fieldVal.(string))
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading file for %q", name)
+		}
+		if len(data) == 0 {
+			return nil, errors.NotValidf("empty file for %q", name)
+		}
+		newAttrs[name] = string(data)
+	}
+	return newAttrs, nil
 }
 
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
@@ -110,8 +164,25 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Description: field.Description,
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
-			Mandatory:   true,
+			Mandatory:   field.FileAttr == "",
 			Secret:      field.Hidden,
+		}
+	}
+	// TODO(axw) add support to environschema for attributes whose values
+	// can be read in from a file.
+	for _, field := range s {
+		if field.FileAttr == "" {
+			continue
+		}
+		if _, ok := fields[field.FileAttr]; ok {
+			return nil, errors.Errorf("duplicate field %q", field.FileAttr)
+		}
+		fields[field.FileAttr] = environschema.Attr{
+			Description: field.Description + " (file)",
+			Type:        environschema.Tstring,
+			Group:       environschema.AccountGroup,
+			Mandatory:   false,
+			Secret:      false,
 		}
 	}
 	schemaFields, schemaDefaults, err := fields.ValidationSchema()
@@ -131,6 +202,11 @@ type CredentialAttr struct {
 	// when being entered interactively. Regardless of this, all credential
 	// attributes are provided only to the Juju controllers.
 	Hidden bool
+
+	// FileAttr is the name of an attribute that may be specified instead
+	// of this one, which points to a file that will be read in and its
+	// value used for this attribute.
+	FileAttr string
 }
 
 type cloudCredentialChecker struct{}

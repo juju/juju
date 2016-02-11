@@ -260,7 +260,7 @@ credentials:
 
 func (s *credentialsSuite) TestParseCredentialsUnknownAuthType(c *gc.C) {
 	// Unknown auth-type is not validated by ParseCredentials.
-	// Validation is deferred to ValidateCredential.
+	// Validation is deferred to FinalizeCredential.
 	s.testParseCredentials(c, []byte(`
 credentials:
   cloud-name:
@@ -304,7 +304,7 @@ func (s *credentialsSuite) testParseCredentialsError(c *gc.C, input []byte, expe
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
-func (s *credentialsSuite) TestValidateCredential(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredential(c *gc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{
@@ -317,13 +317,107 @@ func (s *credentialsSuite) TestValidateCredential(c *gc.C) {
 			Hidden:      true,
 		},
 	}
-	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
-	})
+	}, readFileNotSupported)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *credentialsSuite) TestValidateCredentialInvalid(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"key-file": "path",
+			"quay":     "value",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Hidden:      true,
+			FileAttr:    "key-file",
+		},
+		"quay": {
+			FileAttr: "quay-file",
+		},
+	}
+	readFile := func(s string) ([]byte, error) {
+		c.Assert(s, gc.Equals, "path")
+		return []byte("file-value"), nil
+	}
+	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, readFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+		"key":  "file-value",
+		"quay": "value",
+	})
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialFileEmpty(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"key-file": "path",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Hidden:      true,
+			FileAttr:    "key-file",
+		},
+	}
+	readFile := func(string) ([]byte, error) {
+		return nil, nil
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, readFile)
+	c.Assert(err, gc.ErrorMatches, `empty file for "key" not valid`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialFileAttrNeither(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Hidden:      true,
+			FileAttr:    "key-file",
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, readFileNotSupported)
+	c.Assert(err, gc.ErrorMatches, `either "key" or "key-file" must be specified`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialFileAttrBoth(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"key":      "value",
+			"key-file": "path",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Hidden:      true,
+			FileAttr:    "key-file",
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, readFileNotSupported)
+	c.Assert(err, gc.ErrorMatches, `specifying both "key" and "key-file" not valid`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialInvalid(c *gc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{},
@@ -334,9 +428,9 @@ func (s *credentialsSuite) TestValidateCredentialInvalid(c *gc.C) {
 			Hidden:      true,
 		},
 	}
-	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
-	})
+	}, readFileNotSupported)
 	c.Assert(err, gc.ErrorMatches, "key: expected string, got nothing")
 }
 
@@ -345,7 +439,13 @@ func (s *credentialsSuite) TestValidateCredentialNotSupported(c *gc.C) {
 		cloud.OAuth2AuthType,
 		map[string]string{},
 	)
-	err := cloud.ValidateCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{})
+	_, err := cloud.FinalizeCredential(
+		cred, map[cloud.AuthType]cloud.CredentialSchema{}, readFileNotSupported,
+	)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(err, gc.ErrorMatches, `auth-type "oauth2" not supported`)
+}
+
+func readFileNotSupported(f string) ([]byte, error) {
+	return nil, errors.NotSupportedf("reading file %q", f)
 }
