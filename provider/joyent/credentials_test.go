@@ -34,17 +34,17 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 
 func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
-		"sdc-user":         "sdc-user",
-		"sdc-key-id":       "sdc-key-id",
-		"manta-user":       "manta-user",
-		"manta-key-id":     "manta-key-id",
-		"private-key-path": "private-key-path",
-		"algorithm":        "algorithm",
+		"sdc-user":     "sdc-user",
+		"sdc-key-id":   "sdc-key-id",
+		"manta-user":   "manta-user",
+		"manta-key-id": "manta-key-id",
+		"private-key":  "private-key",
+		"algorithm":    "algorithm",
 	})
 }
 
 func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
-	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "private-key")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
