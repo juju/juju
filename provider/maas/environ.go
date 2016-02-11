@@ -61,14 +61,39 @@ var (
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
+	FetchSpaces              = fetchSpaces
 )
 
-func fetchSpaces(spaces gomaasapi.MAASObject) (map[network.Id]network.SpaceInfo, error) {
-	spacesJson, err := space.CallGet("", nil)
+func fetchSpaces(spaces gomaasapi.MAASObject) (map[string]network.SpaceInfo, error) {
+	spacesJson, err := spaces.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return nil, nil
+	spacesArray, err := spacesJson.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spacesMap := make(map[string]network.SpaceInfo)
+	for _, spaceJson := range spacesArray {
+		spaceMap, err := spaceJson.GetMap()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name, err := spaceMap["name"].GetString()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerIdRaw, err := spaceMap["id"].GetFloat64()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerId := network.Id(strconv.Itoa(int(providerIdRaw)))
+		spacesMap[name] = network.SpaceInfo{
+			Name:       name,
+			ProviderId: providerId,
+		}
+	}
+	return spacesMap, nil
 }
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -1861,6 +1886,11 @@ func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
 		return nil, errors.Trace(err)
 	}
 	return json.GetArray()
+}
+
+func (environ *maasEnviron) fetchSpaces() (map[string]network.SpaceInfo, error) {
+	spaces := environ.getMAASClient().GetSubObject("spaces")
+	return fetchSpaces(spaces)
 }
 
 // Spaces returns all the spaces, that have subnets, known to the provider.
