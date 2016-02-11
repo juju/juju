@@ -25,6 +25,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// machine
 		instanceDataC,
 		machinesC,
+		openedPortsC,
 
 		// service / unit
 		servicesC,
@@ -86,7 +87,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// service / unit
 		charmsC,
 		leasesC,
-		openedPortsC,
 		"payloads",
 
 		// relation
@@ -327,6 +327,23 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 	)
 
 	s.AssertExportedFields(c, unitDoc{}, fields.Union(todo))
+}
+
+func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID itself isn't migrated
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// MachineId is implicit in the migration structure through containment.
+		"MachineID",
+		"NetworkName",
+		"Ports",
+		// TxnRevno isn't migrated.
+		"TxnRevno",
+	)
+	s.AssertExportedFields(c, portsDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
