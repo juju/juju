@@ -35,30 +35,41 @@ func newResourceHandler(httpCtxt httpContext) http.Handler {
 }
 
 func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
-	return internalserver.NewLegacyHTTPHandler(
-		func(req *http.Request) (internalserver.UnitDataStore, error) {
-			st, ent, err := httpCtxt.stateForRequestAuthenticatedAgent(req)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			resources, err := st.Resources()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+	extraDeps := &unitResourcesDeps{httpCtxt: httpCtxt}
+	deps := internalserver.NewLegacyHTTPHandlerDeps(extraDeps, extraDeps)
+	return internalserver.NewLegacyHTTPHandler(deps)
+}
 
-			unit, ok := ent.(resource.Unit)
-			if !ok {
-				logger.Criticalf("unexpected type: %T", ent)
-				return nil, errors.Errorf("unexpected type: %T", ent)
-			}
+type unitResourcesDeps struct {
+	httpCtxt httpContext
+}
 
-			st2 := &resourceUnitState{
-				unit:  unit,
-				state: resources,
-			}
-			return st2, nil
-		},
-	)
+func (unitResourcesDeps) NewCharmstoreClient() (internalserver.CharmstoreClient, error) {
+	// TODO(ericsnow) finish
+	return nil, errors.NotImplementedf("")
+}
+
+func (deps unitResourcesDeps) Connect(req *http.Request) (internalserver.UnitDataStore, error) {
+	st, ent, err := deps.httpCtxt.stateForRequestAuthenticatedAgent(req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	resources, err := st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	unit, ok := ent.(resource.Unit)
+	if !ok {
+		logger.Criticalf("unexpected type: %T", ent)
+		return nil, errors.Errorf("unexpected type: %T", ent)
+	}
+
+	st2 := &resourceUnitState{
+		unit:  unit,
+		state: resources,
+	}
+	return st2, nil
 }
 
 // resourceUnitState is an implementation of resource/api/private/server.UnitDataStore.
@@ -70,6 +81,11 @@ type resourceUnitState struct {
 // ListResources implements resource/api/private/server.UnitDataStore.
 func (s *resourceUnitState) ListResources() (resource.ServiceResources, error) {
 	return s.state.ListResources(s.unit.ServiceName())
+}
+
+// GetResource implements resource/api/private/server.UnitDataStore.
+func (s *resourceUnitState) GetResource(name string) (resource.Resource, error) {
+	return s.state.GetResource(s.unit.ServiceName(), name)
 }
 
 // OpenResource implements resource/api/private/server.UnitDataStore.

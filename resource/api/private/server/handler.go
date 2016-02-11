@@ -26,12 +26,20 @@ type LegacyHTTPHandler struct {
 	LegacyHTTPHandlerDeps
 }
 
+// UnitDatastoreOpener exposes the functionality for connection to Juju state.
+type UnitDatastoreOpener interface {
+	// Connect opens a connection to state resources.
+	Connect(*http.Request) (UnitDataStore, error)
+}
+
 // LegacyHTTPHandlerDeps exposes the external dependencies
 // of LegacyHTTPHandler.
 type LegacyHTTPHandlerDeps interface {
-	// Connect opens a connection to state resources.
-	Connect(*http.Request) (UnitDataStore, error)
+	baseLegacyHTTPHandlerDeps
+	UnitDatastoreOpener
+}
 
+type baseLegacyHTTPHandlerDeps interface {
 	// UpdateDownloadResponse updates the HTTP response with the info
 	// from the resource.
 	UpdateDownloadResponse(http.ResponseWriter, resource.Resource)
@@ -46,11 +54,16 @@ type LegacyHTTPHandlerDeps interface {
 	Copy(io.Writer, io.Reader) error
 }
 
-// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
-func NewLegacyHTTPHandler(connect func(*http.Request) (UnitDataStore, error)) *LegacyHTTPHandler {
-	deps := &legacyHTTPHandlerDeps{
-		connect: connect,
+// NewLegacyHTTPHandlerDeps returns an implementation of LegacyHTTPHandlerDeps.
+func NewLegacyHTTPHandlerDeps(dsOpener UnitDatastoreOpener, csOpener CharmstoreOpener) LegacyHTTPHandlerDeps {
+	return &legacyHTTPHandlerDeps{
+		UnitDatastoreOpener: dsOpener,
+		CharmstoreOpener:    csOpener,
 	}
+}
+
+// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
+func NewLegacyHTTPHandler(deps LegacyHTTPHandlerDeps) *LegacyHTTPHandler {
 	return &LegacyHTTPHandler{
 		LegacyHTTPHandlerDeps: deps,
 	}
@@ -94,13 +107,10 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	}
 }
 
+// legacyHTTPHandlerDeps is a partial implementation of LegacyHandlerDeps.
 type legacyHTTPHandlerDeps struct {
-	connect func(*http.Request) (UnitDataStore, error)
-}
-
-// Connect implements LegacyHTTPHandlerDeps.
-func (deps legacyHTTPHandlerDeps) Connect(req *http.Request) (UnitDataStore, error) {
-	return deps.connect(req)
+	UnitDatastoreOpener
+	CharmstoreOpener
 }
 
 // SendHTTPError implements LegacyHTTPHandlerDeps.
@@ -117,6 +127,7 @@ func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWrite
 func (deps legacyHTTPHandlerDeps) HandleDownload(st UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
 	return HandleDownload(req, handleDownloadDeps{
 		DownloadDataStore: st,
+		CharmstoreOpener:  deps,
 	})
 }
 

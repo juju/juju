@@ -46,15 +46,17 @@ func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
 	s.store.ReturnOpenResource = opened
 	s.deps.ReturnConnect = s.store
-	h := server.NewLegacyHTTPHandler(s.deps.Connect)
+	deps := server.NewLegacyHTTPHandlerDeps(s.deps, nil)
+	h := server.NewLegacyHTTPHandler(deps)
 	req, err := api.NewHTTPDownloadRequest("spam")
 	c.Assert(err, jc.ErrorIsNil)
-	req.URL, err = url.ParseRequestURI("https://api:17017/units/eggs/1/resources/spam?:resource=spam")
+	req.URL, err = url.ParseRequestURI("https://api:17018/units/eggs/1/resources/spam?:resource=spam")
 	c.Assert(err, jc.ErrorIsNil)
 	resp := &fakeResponseWriter{
 		stubResponseWriter: s.resp,
 	}
 
+	c.Logf("%#v", opened.ReadCloser)
 	h.ServeHTTP(resp, req)
 
 	resp.checkWritten(c, "some data", http.Header{
@@ -65,7 +67,7 @@ func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestNewLegacyHTTPHandler(c *gc.C) {
-	h := server.NewLegacyHTTPHandler(s.deps.Connect)
+	h := server.NewLegacyHTTPHandler(s.deps)
 
 	s.stub.CheckNoCalls(c)
 	c.Check(h, gc.NotNil)

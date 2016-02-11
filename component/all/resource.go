@@ -271,6 +271,11 @@ func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, er
 	return ds.resources.ListResources(ds.unit.ServiceName())
 }
 
+// GetResource implements resource/api/private/server.UnitDataStore.
+func (ds *resourcesUnitDataStore) GetResource(name string) (resource.Resource, error) {
+	return ds.resources.GetResource(ds.unit.ServiceName(), name)
+}
+
 // OpenResource implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
 	return ds.resources.OpenResource(ds.unit, name)
