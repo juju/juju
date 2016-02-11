@@ -281,21 +281,21 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	args := params.InitiateModelMigrationArgs{
 		Specs: []params.ModelMigrationSpec{
 			{
-				ModelTag: st1.ModelTag(),
+				ModelTag: st1.ModelTag().String(),
 				TargetInfo: params.ModelMigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert1",
-					AuthTag:       names.NewUserTag("admin1"),
+					AuthTag:       names.NewUserTag("admin1").String(),
 					Password:      "secret1",
 				},
 			}, {
-				ModelTag: st2.ModelTag(),
+				ModelTag: st2.ModelTag().String(),
 				TargetInfo: params.ModelMigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
-					AuthTag:       names.NewUserTag("admin2"),
+					AuthTag:       names.NewUserTag("admin2").String(),
 					Password:      "secret2",
 				},
 			},
@@ -312,7 +312,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 
 		c.Check(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
-		expectedId := spec.ModelTag.Id() + ":0"
+		expectedId := st.ModelUUID() + ":0"
 		c.Check(result.Id, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
@@ -323,10 +323,10 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(targetInfo.ControllerTag, gc.Equals, spec.TargetInfo.ControllerTag)
+		c.Check(targetInfo.ControllerTag.String(), gc.Equals, spec.TargetInfo.ControllerTag)
 		c.Check(targetInfo.Addrs, jc.SameContents, spec.TargetInfo.Addrs)
 		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
-		c.Check(targetInfo.AuthTag, gc.Equals, spec.TargetInfo.AuthTag)
+		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
 	}
 }
@@ -339,7 +339,7 @@ func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
 	// Kick off the migration with missing details.
 	args := params.InitiateModelMigrationArgs{
 		Specs: []params.ModelMigrationSpec{{
-			ModelTag: st.ModelTag(),
+			ModelTag: st.ModelTag().String(),
 			// TargetInfo missing
 		}},
 	}
@@ -349,7 +349,7 @@ func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
 	c.Check(result.Id, gc.Equals, "")
-	c.Check(result.Error, gc.ErrorMatches, ".+ not valid")
+	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 
 func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
@@ -359,12 +359,12 @@ func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
 	args := params.InitiateModelMigrationArgs{
 		Specs: []params.ModelMigrationSpec{
 			{
-				ModelTag: st.ModelTag(),
+				ModelTag: st.ModelTag().String(),
 				TargetInfo: params.ModelMigrationTargetInfo{
 					ControllerTag: randomModelTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
-					AuthTag:       names.NewUserTag("admin"),
+					AuthTag:       names.NewUserTag("admin").String(),
 					Password:      "secret",
 				},
 			}, {
@@ -376,13 +376,14 @@ func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
-	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag())
+	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag().String())
 	c.Check(out.Results[0].Error, gc.IsNil)
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
 }
 
-func randomModelTag() names.ModelTag {
-	return names.NewModelTag(utils.MustNewUUID().String())
+func randomModelTag() string {
+	uuid := utils.MustNewUUID().String()
+	return names.NewModelTag(uuid).String()
 }

@@ -3,8 +3,6 @@
 
 package params
 
-import "github.com/juju/names"
-
 // DestroyControllerArgs holds the arguments for destroying a controller.
 type DestroyControllerArgs struct {
 	// DestroyModels specifies whether or not the hosted models
@@ -58,18 +56,18 @@ type InitiateModelMigrationArgs struct {
 // ModelMigrationSpec holds the details required to start the
 // migration of a single model.
 type ModelMigrationSpec struct {
-	ModelTag   names.ModelTag           `json:"model-tag"`
+	ModelTag   string                   `json:"model-tag"`
 	TargetInfo ModelMigrationTargetInfo `json:"target-info"`
 }
 
 // ModelMigrationTargetInfo holds the details required to connect to
 // and authenticate with a remote controller for model migration.
 type ModelMigrationTargetInfo struct {
-	ControllerTag names.ModelTag `json:"controller-tag"`
-	Addrs         []string       `json:"addrs"`
-	CACert        string         `json:"ca-cert"`
-	AuthTag       names.UserTag  `json:"auth-tag"`
-	Password      string         `json:"password"`
+	ControllerTag string   `json:"controller-tag"`
+	Addrs         []string `json:"addrs"`
+	CACert        string   `json:"ca-cert"`
+	AuthTag       string   `json:"auth-tag"`
+	Password      string   `json:"password"`
 }
 
 // InitiateModelMigrationResults is used to return the result of one
@@ -81,7 +79,7 @@ type InitiateModelMigrationResults struct {
 // InitiateModelMigrationResult is used to return the result of one
 // model migration initiation attempt.
 type InitiateModelMigrationResult struct {
-	ModelTag names.ModelTag `json:"model-tag"`
-	Error    *Error         `json:"error"`
-	Id       string         `json:"id"` // the ID for the migration attempt
+	ModelTag string `json:"model-tag"`
+	Error    *Error `json:"error"`
+	Id       string `json:"id"` // the ID for the migration attempt
 }
