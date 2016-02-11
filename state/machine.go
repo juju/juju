@@ -46,11 +46,18 @@ const (
 	JobManageNetworking
 )
 
-var jobNames = map[MachineJob]multiwatcher.MachineJob{
-	JobHostUnits:        multiwatcher.JobHostUnits,
-	JobManageModel:      multiwatcher.JobManageModel,
-	JobManageNetworking: multiwatcher.JobManageNetworking,
-}
+var (
+	jobNames = map[MachineJob]multiwatcher.MachineJob{
+		JobHostUnits:        multiwatcher.JobHostUnits,
+		JobManageModel:      multiwatcher.JobManageModel,
+		JobManageNetworking: multiwatcher.JobManageNetworking,
+	}
+	jobMigrationValue = map[MachineJob]string{
+		JobHostUnits:        "host-units",
+		JobManageModel:      "api-server",
+		JobManageNetworking: "manage-networking",
+	}
+)
 
 // AllJobs returns all supported machine jobs.
 func AllJobs() []MachineJob {
@@ -76,6 +83,15 @@ func paramsJobsFromJobs(jobs []MachineJob) []multiwatcher.MachineJob {
 		jujuJobs[i] = machineJob.ToParams()
 	}
 	return jujuJobs
+}
+
+// MigrationValue converts the state job into a useful human readable
+// string for model migration.
+func (job MachineJob) MigrationValue() string {
+	if value, ok := jobMigrationValue[job]; ok {
+		return value
+	}
+	return "unknown"
 }
 
 func (job MachineJob) String() string {
