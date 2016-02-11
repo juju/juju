@@ -59,7 +59,7 @@ func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	inst := maasInstance{&obj, s.makeEnviron()}
 
 	expected := []network.Address{
 		network.NewScopedAddress("testing.invalid", network.ScopePublic),
@@ -100,11 +100,11 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 			"ip_addresses": [ "anything", "foo", "0.1.2.3" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	inst := maasInstance{&obj, s.makeEnviron()}
 	// Since gomaasapi treats "interface_set" specially and the only way to
 	// change it is via SetNodeNetworkLink(), which in turn does not allow you
 	// to specify ip_address, we need to patch the call which gets a fresh copy
-	// of the node details from the test server to avoid manging the
+	// of the node details from the test server to avoid mangling the
 	// interface_set we used above.
 	s.PatchValue(&refreshMAASObject, func(mo *gomaasapi.MAASObject) (gomaasapi.MAASObject, error) {
 		return *mo, nil
@@ -130,7 +130,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 		"system_id": "system_id"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	inst := maasInstance{&obj, s.makeEnviron()}
 
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +147,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		"ip_addresses": "incompatible"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	inst := maasInstance{&obj, s.makeEnviron()}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -160,7 +160,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		"ip_addresses": [42]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	inst := maasInstance{&obj, s.makeEnviron()}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)

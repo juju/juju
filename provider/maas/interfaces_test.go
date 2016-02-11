@@ -438,6 +438,14 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
+	spacesMap := make(map[string]network.Id)
+	spacesMap["default"] = network.Id("3")
+	spacesMap["nonexistent"] = network.Id("0")
+	newAddressOnSpaceWithId := func(space string, id network.Id, address string) network.Address {
+		newAddress := network.NewAddressOnSpace(space, address)
+		newAddress.SpaceProviderId = id
+		return newAddress
+	}
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -528,15 +536,15 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("storage", "10.250.19.103"),
+		Address:           newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("storage", "10.250.19.2"),
+		GatewayAddress:    newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
 		ExtraConfig:       nil,
 	}}
 
-	infos, err := maasObjectNetworkInterfaces(&obj, nil)
+	infos, err := maasObjectNetworkInterfaces(&obj, spacesMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
