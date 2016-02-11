@@ -419,7 +419,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
                    return_value=fake_popen) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
-        self.assertFalse(client._use_jes)
+        self.assertNotIn('jes', client.feature_flags)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'))
 
@@ -431,7 +431,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
                    return_value=FakePopen('', '', 0)) as po_mock:
             with self.assertRaises(JESNotSupported):
                 client.enable_jes()
-        self.assertFalse(client._use_jes)
+        self.assertNotIn('jes', client.feature_flags)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             0)
@@ -449,7 +449,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
                 FakePopen('', '', 0),
                 FakePopen(SYSTEM, '', 0)]) as po_mock:
             client.enable_jes()
-        self.assertTrue(client._use_jes)
+        self.assertIn('jes', client.feature_flags)
         assert_juju_call(
             self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
             0)
@@ -463,15 +463,15 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        client._use_jes = True
+        client.feature_flags.add('jes')
         client.disable_jes()
-        self.assertIs(False, client._use_jes)
+        self.assertNotIn('jes', client.feature_flags)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        client._use_jes = True
+        client.feature_flags.add('jes')
         env = client._shell_environ()
         self.assertIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
@@ -479,7 +479,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {'type': 'cloudsigma'}),
             '1.25-foobar', 'path')
-        client._use_jes = True
+        client.feature_flags.add('jes')
         env = client._shell_environ()
         flags = env[JUJU_DEV_FEATURE_FLAGS].split(",")
         self.assertItemsEqual(['cloudsigma', 'jes'], flags)
@@ -513,19 +513,29 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client2 = client1.clone()
         self.assertIsNot(client1, client2)
         self.assertIs(self.client_class, type(client2))
-        self.assertIs(False, client2._use_jes)
-        self.assertIs(False, client2._use_container_address_allocation)
+        self.assertEqual(set(), client2.feature_flags)
 
     def test_clone_enabled(self):
         client1 = self.client_class(
             SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
-        client1._use_jes = True
-        client1._use_container_address_allocation = True
+        client1.enable_feature('jes')
+        client1.enable_feature('address-allocation')
         client2 = client1.clone()
         self.assertIsNot(client1, client2)
         self.assertIs(self.client_class, type(client2))
-        self.assertIs(True, client2._use_jes)
-        self.assertIs(True, client2._use_container_address_allocation)
+        self.assertEqual(
+            set(['jes', 'address-allocation']),
+            client2.feature_flags)
+
+    def test_clone_old_feature(self):
+        client1 = self.client_class(
+            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
+        client1.enable_feature('actions')
+        client1.enable_feature('address-allocation')
+        client2 = client1.clone()
+        self.assertIsNot(client1, client2)
+        self.assertIs(self.client_class, type(client2))
+        self.assertEqual(set(['address-allocation']), client2.feature_flags)
 
 
 class TestEnvJujuClient25(TestEnvJujuClient26):
@@ -804,6 +814,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client1.version, client2.version)
         self.assertEqual(client1.full_path, client2.full_path)
         self.assertIs(client1.debug, client2.debug)
+        self.assertEqual(client1.feature_flags, client2.feature_flags)
 
     def test_clone_changed(self):
         client1 = EnvJujuClient(SimpleEnvironment('foo'), '1.27', 'full/path',
@@ -816,6 +827,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('1.28', client2.version)
         self.assertEqual('other/path', client2.full_path)
         self.assertIs(False, client2.debug)
+        self.assertEqual(client1.feature_flags, client2.feature_flags)
 
     def test_get_cache_path(self):
         client = EnvJujuClient(SimpleEnvironment('foo', juju_home='/foo/'),
@@ -2169,6 +2181,19 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'juju') as juju_mock:
             client.upgrade_mongo()
         juju_mock.assert_called_once_with('upgrade-mongo', ())
+
+    def test_enable_feature(self):
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        self.assertEqual(set(), client.feature_flags)
+        client.enable_feature('actions')
+        self.assertEqual(set(['actions']), client.feature_flags)
+
+    def test_enable_feature_invalid(self):
+        client = EnvJujuClient(SimpleEnvironment('bar', {}), None, '/foo')
+        self.assertEqual(set(), client.feature_flags)
+        with self.assertRaises(ValueError) as ctx:
+            client.enable_feature('nomongo')
+        self.assertEqual(str(ctx.exception), "Unknown feature flag: 'nomongo'")
 
 
 class TestEnvJujuClient2A2(TestCase):

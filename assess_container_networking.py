@@ -417,7 +417,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
-    bs_manager.client.enable_container_address_allocation()
+    bs_manager.client.enable_feature('address-allocation')
     with cleaned_bootstrap_context(bs_manager, args) as ctx:
         assess_container_networking(bs_manager.client, args.machine_type)
     return ctx.return_code
