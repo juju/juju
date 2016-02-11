@@ -189,6 +189,15 @@ class EnvJujuClient:
 
     _show_status = 'show-status'
 
+    # These may need to be updated occasionally.
+    _azure_regions = dict((r.lower().replace(' ', ''), r) for r in [
+        "Japan East", "Japan West", "South Central US", "West US",
+        "Australia East", "Central India", "North Europe", "West Europe",
+        "West India", "North Central US", "Southeast Asia", "East US 2",
+        "East Asia", "Brazil South", "Australia Southeast", "South India",
+        "Central US", "East US",
+        ])
+
     @classmethod
     def get_version(cls, juju_path=None):
         if juju_path is None:
@@ -351,10 +360,23 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        type_region = '{}/{}'.format(
-                self.env.config['type'], self.env.config['region'])
+        substrate = self.env.config['type']
+        cloud = {
+            'ec2': 'aws',
+            'gce': 'google',
+        }.get(substrate, substrate)
+        if substrate == 'azure':
+            region = self._azure_regions[self.env.config['location']]
+        elif substrate == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            region = matcher.match(self.env.config['sdc-url']).group(1)
+        else:
+            region = self.env.config['region']
+        cloud_region = '{}/{}'.format(cloud, region)
         args = ['--constraints', constraints, self.env.environment,
-                type_region, '--config', config_filename]
+                cloud_region, '--config', config_filename]
+        if region == 'cn-north-1':
+            args.extend(['--credential', 'cn'])
         if upload_tools:
             args.append('--upload-tools')
         else:
@@ -376,7 +398,10 @@ class EnvJujuClient:
         # Strip unneeded variables.
         config_dict = dict((k,v) for k,v in config_dict.items() if k not in {
             'sdc-url', 'sdc-key-id', 'sdc-user', 'manta-user', 'manta-key-id',
-            'region', 'name', 'private-key', 'type',
+            'region', 'name', 'private-key', 'type', 'access-key',
+            'secret-key', 'subscription-id',
+            'application-id', 'application-password', 'location', 'tenant-id',
+            'password', 'tenant-name', 'username',
             })
         with temp_yaml_file(config_dict) as config_filename:
             import shutil
@@ -910,6 +935,11 @@ class EnvJujuClient2A2(EnvJujuClient):
         env['JUJU_DATA'] = self.env.juju_home
         return env
 
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
+        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
+        self.juju('bootstrap', args, self.env.needs_sudo())
+
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
@@ -928,7 +958,7 @@ class EnvJujuClient2A2(EnvJujuClient):
         return args
 
 
-class EnvJujuClient2A1(EnvJujuClient):
+class EnvJujuClient2A1(EnvJujuClient2A2):
     """Drives Juju 2.0-alpha1 clients."""
 
     _show_status = 'status'
