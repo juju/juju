@@ -253,6 +253,8 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, nil)
+	err := exported.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
@@ -274,6 +276,9 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	importedMachineId, err := imported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedMachineId, gc.Equals, exportedMachineId)
+	meterStatus, err := imported.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 }
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {

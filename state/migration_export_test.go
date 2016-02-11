@@ -164,6 +164,8 @@ func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
+	err := unit.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,6 +182,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Name(), gc.Equals, unit.Name())
 	c.Assert(exported.Tag(), gc.Equals, unit.UnitTag())
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
+	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
+	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
 }
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {

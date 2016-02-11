@@ -311,16 +311,21 @@ func (e *exporter) services() error {
 		return errors.Trace(err)
 	}
 
+	meterStatus, err := e.readAllMeterStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, service := range services {
 		serviceUnits := units[service.Name()]
-		if err := e.addService(service, refcounts, serviceUnits); err != nil {
+		if err := e.addService(service, refcounts, serviceUnits, meterStatus); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (e *exporter) addService(service *Service, refcounts map[string]int, units []*Unit) error {
+func (e *exporter) addService(service *Service, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc) error {
 	settingsKey := service.settingsKey()
 	leadershipKey := leadershipSettingsKey(service.Name())
 
@@ -359,10 +364,18 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	exService.SetStatus(statusArgs)
 
 	for _, unit := range units {
+		agentKey := unit.globalAgentKey()
+		unitMeterStatus, found := meterStatus[agentKey]
+		if !found {
+			return errors.Errorf("missing meter status for unit %s", unit.Name())
+		}
+
 		args := migration.UnitArgs{
-			Tag:          unit.UnitTag(),
-			Machine:      names.NewMachineTag(unit.doc.MachineId),
-			PasswordHash: unit.doc.PasswordHash,
+			Tag:             unit.UnitTag(),
+			Machine:         names.NewMachineTag(unit.doc.MachineId),
+			PasswordHash:    unit.doc.PasswordHash,
+			MeterStatusCode: unitMeterStatus.Code,
+			MeterStatusInfo: unitMeterStatus.Info,
 		}
 		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
 			args.Principal = names.NewUnitTag(principalName)
@@ -380,7 +393,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
 		}
 		exUnit.SetWorkloadStatus(statusArgs)
-		statusArgs, err = e.statusArgs(unit.globalAgentKey())
+		statusArgs, err = e.statusArgs(agentKey)
 		if err != nil {
 			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
 		}
@@ -415,6 +428,23 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	for _, doc := range docs {
 		units := result[doc.Service]
 		result[doc.Service] = append(units, newUnit(e.st, &doc))
+	}
+	return result, nil
+}
+
+func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
+	meterStatuses, closer := e.st.getCollection(meterStatusC)
+	defer closer()
+
+	docs := []meterStatusDoc{}
+	err := meterStatuses.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all meter status docs")
+	}
+	e.logger.Debugf("found %d meter status docs", len(docs))
+	result := make(map[string]*meterStatusDoc)
+	for _, doc := range docs {
+		result[e.st.localID(doc.DocID)] = &doc
 	}
 	return result, nil
 }

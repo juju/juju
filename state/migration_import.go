@@ -462,8 +462,10 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 		unitDoc:           udoc,
 		agentStatusDoc:    agentStatusDoc,
 		workloadStatusDoc: workloadStatusDoc,
-		// TODO: meter status
-		meterStatusDoc: &meterStatusDoc{Code: MeterNotSet.String()},
+		meterStatusDoc: &meterStatusDoc{
+			Code: u.MeterStatusCode(),
+			Info: u.MeterStatusInfo(),
+		},
 	})
 
 	if err := i.st.runTransaction(ops); err != nil {
