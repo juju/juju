@@ -15,6 +15,7 @@ import re
 from shutil import rmtree
 import subprocess
 import sys
+from tempfile import NamedTemporaryFile
 import time
 
 import yaml
@@ -167,6 +168,14 @@ class VersionsNotUpdated(StatusNotMet):
 class WorkloadsNotReady(StatusNotMet):
 
     _fmt = 'Workloads not ready in {env}.'
+
+
+@contextmanager
+def temp_yaml_file(yaml_dict):
+    with NamedTemporaryFile(suffix='.yaml') as config_file:
+        yaml.safe_dump(yaml_dict, config_file)
+        config_file.flush()
+        yield config_file.name
 
 
 class EnvJujuClient:
@@ -332,7 +341,8 @@ class EnvJujuClient:
                 pause(30)
                 self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, config_filename,
+                           bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -341,18 +351,39 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        args = ('--constraints', constraints,
-                '--agent-version', self.get_matching_agent_version())
+        type_region = '{}/{}'.format(
+                self.env.config['type'], self.env.config['region'])
+        args = ['--constraints', constraints, self.env.environment,
+                type_region, '--config', config_filename]
         if upload_tools:
-            args = ('--upload-tools',) + args
+            args.append('--upload-tools')
+        else:
+            args.extend(['--agent-version', self.get_matching_agent_version()])
+
         if bootstrap_series is not None:
-            args = args + ('--bootstrap-series', bootstrap_series)
-        return args
+            args.extend(['--bootstrap-series', bootstrap_series])
+        return tuple(args)
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
+
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
+        config_path = os.path.join(self.env.juju_home, 'config.yaml')
+        config_dict = make_safe_config(self)
+        # Strip unneeded variables.
+        config_dict = dict((k,v) for k,v in config_dict.items() if k not in {
+            'sdc-url', 'sdc-key-id', 'sdc-user', 'manta-user', 'manta-key-id',
+            'region', 'name', 'private-key', 'type',
+            })
+        with temp_yaml_file(config_dict) as config_filename:
+            import shutil
+            shutil.copy2(config_filename, config_path)
+            args = self.get_bootstrap_args(
+                upload_tools, config_filename, bootstrap_series)
+            self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
@@ -879,6 +910,23 @@ class EnvJujuClient2A2(EnvJujuClient):
         env['JUJU_DATA'] = self.env.juju_home
         return env
 
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+        """Return the bootstrap arguments for the substrate."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        args = ('--constraints', constraints,
+                '--agent-version', self.get_matching_agent_version())
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        if bootstrap_series is not None:
+            args = args + ('--bootstrap-series', bootstrap_series)
+        return args
+
 
 class EnvJujuClient2A1(EnvJujuClient):
     """Drives Juju 2.0-alpha1 clients."""
@@ -1326,6 +1374,9 @@ def make_jes_home(juju_home, dir_name, config):
         rmtree(home_path)
     os.makedirs(home_path)
     dump_environments_yaml(home_path, config)
+    import shutil
+    shutil.copy2(os.path.join(juju_home, 'credentials.yaml'),
+                 os.path.join(home_path, 'credentials.yaml'))
     yield home_path
 
 
