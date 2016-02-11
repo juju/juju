@@ -1141,25 +1141,6 @@ func (m *Machine) SetInstanceInfo(
 	return m.SetProvisioned(id, nonce, characteristics)
 }
 
-func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
-	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	providerValues := set.NewStrings()
-	for _, address := range providerAddresses {
-		// Older versions of Juju may have stored an empty address so ignore it here.
-		if address.Value == "" || providerValues.Contains(address.Value) {
-			continue
-		}
-		providerValues.Add(address.Value)
-		merged = append(merged, address.networkAddress())
-	}
-	for _, address := range machineAddresses {
-		if !providerValues.Contains(address.Value) {
-			merged = append(merged, address.networkAddress())
-		}
-	}
-	return merged
-}
-
 // Addresses returns any hostnames and ips associated with a machine,
 // determined both by the machine itself, and by asking the provider.
 //
@@ -1168,7 +1149,7 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 // Provider-reported addresses always come before machine-reported
 // addresses. Duplicates are removed.
 func (m *Machine) Addresses() (addresses []network.Address) {
-	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
+	return network.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
 }
 
 func containsAddress(addresses []address, address address) bool {

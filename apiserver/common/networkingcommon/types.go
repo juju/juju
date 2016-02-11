@@ -1,9 +1,11 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package networkingcommon
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -18,7 +20,7 @@ import (
 type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
-	ProviderId() string
+	ProviderId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -42,7 +44,7 @@ type BackingSubnet interface {
 //   empty for MAAS as zones are orthogonal to networks).
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId string
+	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -113,7 +115,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name string, Subnets []string, Public bool) error
+	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
@@ -123,4 +125,26 @@ type NetworkBacking interface {
 
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
+}
+
+func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
+	cidr := subnet.CIDR()
+	vlantag := subnet.VLANTag()
+	providerid := subnet.ProviderId()
+	zones := subnet.AvailabilityZones()
+	status := subnet.Status()
+	var spaceTag names.SpaceTag
+	if subnet.SpaceName() != "" {
+		spaceTag = names.NewSpaceTag(subnet.SpaceName())
+	}
+
+	return params.Subnet{
+		CIDR:       cidr,
+		VLANTag:    vlantag,
+		ProviderId: string(providerid),
+		Zones:      zones,
+		Status:     status,
+		SpaceTag:   spaceTag.String(),
+		Life:       subnet.Life(),
+	}
 }
