@@ -488,9 +488,9 @@ func (i *importer) makeServiceDoc(s migration.Service) (*serviceDoc, error) {
 		Life:        Alive,
 		UnitCount:   len(s.Units()),
 		// RelationCount:  TODO,
-		Exposed:  s.Exposed(),
-		MinUnits: s.MinUnits(),
-		// MetricCredentials: TODO,
+		Exposed:           s.Exposed(),
+		MinUnits:          s.MinUnits(),
+		MetricCredentials: s.MetricsCredentials(),
 	}, nil
 }
 

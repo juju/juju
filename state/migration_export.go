@@ -348,6 +348,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 		Settings:           serviceSettingsDoc.Settings,
 		SettingsRefCount:   refCount,
 		LeadershipSettings: leadershipSettingsDoc.Settings,
+		MetricsCredentials: service.doc.MetricCredentials,
 	}
 	exService := e.model.AddService(args)
 	// Find the current service status.

@@ -213,6 +213,8 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	err = service.SetMetricCredentials([]byte("sekrit"))
+	c.Assert(err, jc.ErrorIsNil)
 	// Expose the service.
 	c.Assert(service.SetExposed(), jc.ErrorIsNil)
 
@@ -233,6 +235,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(imported.ServiceTag(), gc.Equals, exported.ServiceTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
+	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 
 	exportedConfig, err := exported.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,6 +248,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	importedLeaderSettings, err := imported.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
+
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {

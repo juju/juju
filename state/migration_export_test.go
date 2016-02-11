@@ -126,6 +126,8 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	err = service.SetMetricCredentials([]byte("sekrit"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,6 +147,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
 	})
+	c.Assert(exported.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
