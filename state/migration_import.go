@@ -462,8 +462,10 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 		unitDoc:           udoc,
 		agentStatusDoc:    agentStatusDoc,
 		workloadStatusDoc: workloadStatusDoc,
-		// TODO: meter status
-		meterStatusDoc: &meterStatusDoc{Code: MeterNotSet.String()},
+		meterStatusDoc: &meterStatusDoc{
+			Code: u.MeterStatusCode(),
+			Info: u.MeterStatusInfo(),
+		},
 	})
 
 	if err := i.st.runTransaction(ops); err != nil {
@@ -488,9 +490,9 @@ func (i *importer) makeServiceDoc(s migration.Service) (*serviceDoc, error) {
 		Life:        Alive,
 		UnitCount:   len(s.Units()),
 		// RelationCount:  TODO,
-		Exposed:  s.Exposed(),
-		MinUnits: s.MinUnits(),
-		// MetricCredentials: TODO,
+		Exposed:           s.Exposed(),
+		MinUnits:          s.MinUnits(),
+		MetricCredentials: s.MetricsCredentials(),
 	}, nil
 }
 

@@ -213,6 +213,8 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	err = service.SetMetricCredentials([]byte("sekrit"))
+	c.Assert(err, jc.ErrorIsNil)
 	// Expose the service.
 	c.Assert(service.SetExposed(), jc.ErrorIsNil)
 
@@ -233,6 +235,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(imported.ServiceTag(), gc.Equals, exported.ServiceTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
+	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 
 	exportedConfig, err := exported.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,10 +248,13 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	importedLeaderSettings, err := imported.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
+
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, nil)
+	err := exported.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
@@ -270,6 +276,9 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	importedMachineId, err := imported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedMachineId, gc.Equals, exportedMachineId)
+	meterStatus, err := imported.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 }
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {

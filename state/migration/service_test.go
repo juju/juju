@@ -41,6 +41,7 @@ func minimalServiceMap() map[interface{}]interface{} {
 		"leadership-settings": map[interface{}]interface{}{
 			"leader": true,
 		},
+		"metrics-creds": "c2Vrcml0", // base64 encoded
 		"units": map[interface{}]interface{}{
 			"version": 1,
 			"units": []interface{}{
@@ -72,6 +73,7 @@ func minimalServiceArgs() ServiceArgs {
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
+		MetricsCredentials: []byte("sekrit"),
 	}
 }
 
@@ -91,6 +93,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
+		MetricsCredentials: []byte("sekrit"),
 	}
 	service := newService(args)
 
@@ -105,6 +108,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	c.Assert(service.Settings(), jc.DeepEquals, args.Settings)
 	c.Assert(service.SettingsRefCount(), gc.Equals, 1)
 	c.Assert(service.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
+	c.Assert(service.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
 }
 
 func (s *ServiceSerializationSuite) TestMinimalServiceValid(c *gc.C) {

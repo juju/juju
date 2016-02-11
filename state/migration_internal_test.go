@@ -30,6 +30,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// service / unit
 		servicesC,
 		unitsC,
+		meterStatusC, // red / green status for metrics of units
 
 		// settings reference counts are only used for services
 		settingsrefsC,
@@ -127,9 +128,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		statusesHistoryC,
 
 		// uncategorised
-		meterStatusC,    // red / green status for metrics / charms
 		metricsManagerC, // should really be copied across
-
 	)
 
 	envCollections := set.NewStrings()
@@ -278,11 +277,12 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"ForceCharm",
 		"Exposed",
 		"MinUnits",
+		"MetricCredentials",
+		// UnitCount is handled by the number of units for the exported service.
+		"UnitCount",
 	)
 	todo := set.NewStrings(
-		"UnitCount",
 		"RelationCount",
-		"MetricCredentials",
 	)
 	s.AssertExportedFields(c, serviceDoc{}, fields.Union(todo))
 }
@@ -349,6 +349,19 @@ func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
 		"TxnRevno",
 	)
 	s.AssertExportedFields(c, portsDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestMeterStatusDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID itself isn't migrated
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		"Code",
+		"Info",
+	)
+	s.AssertExportedFields(c, meterStatusDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

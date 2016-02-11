@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"encoding/base64"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/schema"
@@ -29,14 +31,12 @@ type service struct {
 	Settings_           map[string]interface{} `yaml:"settings"`
 	SettingsRefCount_   int                    `yaml:"settings-refcount"`
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
+	MetricsCredentials_ string                 `yaml:"metrics-creds,omitempty"`
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
 	// relation count also assumed by the relation sequence
-
-	// TODO: confirm with casey if these are needed
-	//	MetricsCredentials []byte `yaml:"metrics-creds"`
 
 	// Requested Networks
 	// Constraints
@@ -57,9 +57,11 @@ type ServiceArgs struct {
 	Settings           map[string]interface{}
 	SettingsRefCount   int
 	LeadershipSettings map[string]interface{}
+	MetricsCredentials []byte
 }
 
 func newService(args ServiceArgs) *service {
+	creds := base64.StdEncoding.EncodeToString(args.MetricsCredentials)
 	svc := &service{
 		Name_:               args.Tag.Id(),
 		Series_:             args.Series,
@@ -71,67 +73,78 @@ func newService(args ServiceArgs) *service {
 		Settings_:           args.Settings,
 		SettingsRefCount_:   args.SettingsRefCount,
 		LeadershipSettings_: args.LeadershipSettings,
+		MetricsCredentials_: creds,
 	}
 	svc.setUnits(nil)
 	return svc
 }
 
-// Tag impelements Service.
+// Tag implements Service.
 func (s *service) Tag() names.ServiceTag {
 	return names.NewServiceTag(s.Name_)
 }
 
-// Name impelements Service.
+// Name implements Service.
 func (s *service) Name() string {
 	return s.Name_
 }
 
-// Series impelements Service.
+// Series implements Service.
 func (s *service) Series() string {
 	return s.Series_
 }
 
-// Subordinate impelements Service.
+// Subordinate implements Service.
 func (s *service) Subordinate() bool {
 	return s.Subordinate_
 }
 
-// CharmURL impelements Service.
+// CharmURL implements Service.
 func (s *service) CharmURL() string {
 	return s.CharmURL_
 }
 
-// ForceCharm impelements Service.
+// ForceCharm implements Service.
 func (s *service) ForceCharm() bool {
 	return s.ForceCharm_
 }
 
-// Exposed impelements Service.
+// Exposed implements Service.
 func (s *service) Exposed() bool {
 	return s.Exposed_
 }
 
-// MinUnits impelements Service.
+// MinUnits implements Service.
 func (s *service) MinUnits() int {
 	return s.MinUnits_
 }
 
-// Settings impelements Service.
+// Settings implements Service.
 func (s *service) Settings() map[string]interface{} {
 	return s.Settings_
 }
 
-// SettingsRefCount impelements Service.
+// SettingsRefCount implements Service.
 func (s *service) SettingsRefCount() int {
 	return s.SettingsRefCount_
 }
 
-// LeadershipSettings impelements Service.
+// LeadershipSettings implements Service.
 func (s *service) LeadershipSettings() map[string]interface{} {
 	return s.LeadershipSettings_
 }
 
-// Status impelements Service.
+// MetricsCredentials implements Service.
+func (s *service) MetricsCredentials() []byte {
+	// Here we are explicitly throwing away any decode error. We check that
+	// the creds can be decoded when we parse the incoming data, or we encode
+	// an incoming byte array, so in both cases, we know that the stored creds
+	// can be decoded.
+	creds, _ := base64.StdEncoding.DecodeString(s.MetricsCredentials_)
+	return creds
+}
+
+// Status implements Service.
 func (s *service) Status() Status {
 	// To avoid typed nils check nil here.
 	if s.Status_ == nil {
@@ -140,12 +153,12 @@ func (s *service) Status() Status {
 	return s.Status_
 }
 
-// SetStatus impelements Service.
+// SetStatus implements Service.
 func (s *service) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
 }
 
-// Units impelements Service.
+// Units implements Service.
 func (s *service) Units() []Unit {
 	result := make([]Unit, len(s.Units_.Units_))
 	for i, u := range s.Units_.Units_ {
@@ -154,7 +167,7 @@ func (s *service) Units() []Unit {
 	return result
 }
 
-// AddUnit impelements Service.
+// AddUnit implements Service.
 func (s *service) AddUnit(args UnitArgs) Unit {
 	u := newUnit(args)
 	s.Units_.Units_ = append(s.Units_.Units_, u)
@@ -168,7 +181,7 @@ func (s *service) setUnits(unitList []*unit) {
 	}
 }
 
-// Validate impelements Service.
+// Validate implements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
 		return errors.NotValidf("missing name")
@@ -239,14 +252,16 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"settings":            schema.StringMap(schema.Any()),
 		"settings-refcount":   schema.Int(),
 		"leadership-settings": schema.StringMap(schema.Any()),
+		"metrics-creds":       schema.String(),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
-		"subordinate": false,
-		"force-charm": false,
-		"exposed":     false,
-		"min-units":   int64(0),
+		"subordinate":   false,
+		"force-charm":   false,
+		"exposed":       false,
+		"min-units":     int64(0),
+		"metrics-creds": "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -268,6 +283,14 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 	result.Settings_ = valid["settings"].(map[string]interface{})
 	result.SettingsRefCount_ = int(valid["settings-refcount"].(int64))
 	result.LeadershipSettings_ = valid["leadership-settings"].(map[string]interface{})
+
+	encodedCreds := valid["metrics-creds"].(string)
+	// The model stores the creds encoded, but we want to make sure that
+	// we are storing something that can be decoded.
+	if _, err := base64.StdEncoding.DecodeString(encodedCreds); err != nil {
+		return nil, errors.Annotate(err, "metrics credentials not valid")
+	}
+	result.MetricsCredentials_ = encodedCreds
 
 	status, err := importStatus(valid["status"].(map[string]interface{}))
 	if err != nil {

@@ -169,6 +169,7 @@ type Service interface {
 	Settings() map[string]interface{}
 	SettingsRefCount() int
 	LeadershipSettings() map[string]interface{}
+	MetricsCredentials() []byte
 
 	Status() Status
 	SetStatus(StatusArgs)
@@ -190,8 +191,9 @@ type Unit interface {
 	Principal() names.UnitTag
 	Subordinates() []names.UnitTag
 
-	// TODO: opened ports
-	// TODO: meter status
+	MeterStatusCode() string
+	MeterStatusInfo() string
+
 	// TODO: storage
 
 	Tools() AgentTools
