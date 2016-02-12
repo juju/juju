@@ -45,14 +45,13 @@ func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 	var regionNames []string
 	for name, region := range rackspace.Regions {
 		regionNames = append(regionNames, name)
-		if name == "London" {
+		if name == "LON" {
 			c.Assert(region.Endpoint, gc.Equals, "https://lon.identity.api.rackspacecloud.com/v2.0")
 		} else {
 			c.Assert(region.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")
 		}
 	}
-	c.Assert(regionNames, jc.SameContents,
-		[]string{"Dallas-Fort Worth", "Chicago", "Northern Virginia", "London", "Sydney", "Hong Kong"})
+	c.Assert(regionNames, jc.SameContents, []string{"DFW", "ORD", "IAD", "LON", "SYD", "HKG"})
 }
 
 func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {

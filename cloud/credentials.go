@@ -264,7 +264,8 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 // specified cloud, optionally specifying a credential name. If no credential
 // name is specified, then use the default credential for the cloud if one has
 // been specified. The credential name is returned also, in case the default
-// credential is used.
+// credential is used. If there is only one credential, it is implicitly the
+// default.
 //
 // If there exists no matching credentials, an error satisfying
 // errors.IsNotFound will be returned.
@@ -297,6 +298,10 @@ func CredentialByName(
 	if credentialName == "" {
 		// No credential specified, so use the default for the cloud.
 		credentialName = cloudCredentials.DefaultCredential
+		if credentialName == "" && len(cloudCredentials.AuthCredentials) == 1 {
+			for credentialName = range cloudCredentials.AuthCredentials {
+			}
+		}
 	}
 	credential, ok := cloudCredentials.AuthCredentials[credentialName]
 	if !ok {
