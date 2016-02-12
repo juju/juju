@@ -16,11 +16,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/voidspace/gomaasapi"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/voidspace/gomaasapi"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 

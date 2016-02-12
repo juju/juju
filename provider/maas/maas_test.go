@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/voidspace/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/voidspace/gomaasapi"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
