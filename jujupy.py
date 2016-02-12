@@ -457,15 +457,10 @@ class EnvJujuClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
-        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
-        self.juju('bootstrap', args, self.env.needs_sudo())
-
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
-        """Bootstrap a controller."""
         config_path = os.path.join(self.env.juju_home, 'config.yaml')
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
-        config_dict = dict((k,v) for k,v in config_dict.items() if k not in {
+        config_dict = dict((k, v) for k, v in config_dict.items() if k not in {
             'sdc-url', 'sdc-key-id', 'sdc-user', 'manta-user', 'manta-key-id',
             'region', 'name', 'private-key', 'type', 'access-key',
             'secret-key', 'subscription-id',

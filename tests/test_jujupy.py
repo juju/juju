@@ -681,7 +681,7 @@ class FakePopen(object):
 @contextmanager
 def forced_temp_file():
     with NamedTemporaryFile() as temp_file:
-        with patch.object(EnvJujuClient, 'juju') as mock:
+        with patch.object(EnvJujuClient, 'juju'):
             with patch('jujupy.NamedTemporaryFile',
                        return_value=temp_file):
                 with patch.object(temp_file, '__exit__'):
@@ -916,7 +916,7 @@ class TestEnvJujuClient(ClientTest):
         env = SimpleEnvironment('foo', {'type': 'foo'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
-            with forced_temp_file() as config_file:
+            with forced_temp_file():
                 with patch.object(client, 'juju') as mock:
                     client.bootstrap(upload_tools=True)
             mock.assert_called_with(
