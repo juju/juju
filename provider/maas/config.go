@@ -16,6 +16,15 @@ import (
 )
 
 var configSchema = environschema.Fields{
+	"maas-server": {
+		Description: "maas-server specifies the location of the MAAS server. It must specify the base path.",
+		Type:        environschema.Tstring,
+		Example:     "http://192.168.1.1/MAAS/",
+	},
+	"maas-oauth": {
+		Description: "maas-oauth holds the OAuth credentials from MAAS.",
+		Type:        environschema.Tstring,
+	},
 	"maas-agent-name": {
 		Description: "maas-agent-name is an optional UUID to group the instances acquired from MAAS, to support multiple models per MAAS user.",
 		Type:        environschema.Tstring,
