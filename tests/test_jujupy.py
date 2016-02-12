@@ -938,7 +938,7 @@ class TestEnvJujuClient(ClientTest):
                                           'mem=2G', '--agent-version', '2.0'))
 
     def test_get_bootstrap_args_bootstrap_series(self):
-        env = SimpleEnvironment('foo', {})
+        env = SimpleEnvironment('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=True,
                                          config_filename='config',

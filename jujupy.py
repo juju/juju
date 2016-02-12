@@ -192,23 +192,6 @@ class EnvJujuClient:
 
     _show_status = 'show-status'
 
-    # These may need to be updated occasionally.
-    _azure_regions = dict((r.lower().replace(' ', ''), r) for r in [
-        "Japan East", "Japan West", "South Central US", "West US",
-        "Australia East", "Central India", "North Europe", "West Europe",
-        "West India", "North Central US", "Southeast Asia", "East US 2",
-        "East Asia", "Brazil South", "Australia Southeast", "South India",
-        "Central US", "East US",
-        ])
-    _rackspace_regions = {
-        'DFW': 'Dallas-Fort Worth',
-        'ORD': 'Chicago',
-        'IAD': 'Northern Virginia',
-        'LON': 'London',
-        'SYD': 'Sydney',
-        'HKG': 'Hong Kong',
-    }
-
     @classmethod
     def get_version(cls, juju_path=None):
         if juju_path is None:
@@ -322,8 +305,14 @@ class EnvJujuClient:
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
+    @staticmethod
+    def _get_env(env):
+        if isinstance(env, SimpleEnvironment):
+            env = JujuData.from_env(env)
+        return env
+
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
-        self.env = env
+        self.env = self._get_env(env)
         if version == '2.0-alpha2-fake-wrapper':
             version = '2.0-alpha1-juju-wrapped'
         self.version = version
@@ -393,9 +382,7 @@ class EnvJujuClient:
         if provider == 'azure':
             if 'tenant-id' not in self.env.config:
                 raise ValueError('Non-ARM Azure not supported.')
-            return self._azure_regions[self.env.config['location']]
-        elif provider == 'rackspace':
-            return self._rackspace_regions[self.env.config['region']]
+            return self.env.config['location']
         elif provider == 'joyent':
             matcher = re.compile('https://(.*).api.joyentcloud.com')
             return matcher.match(self.env.config['sdc-url']).group(1)
@@ -427,7 +414,7 @@ class EnvJujuClient:
         args = ['--constraints', constraints, self.env.environment,
                 cloud_region, '--config', config_filename]
         if upload_tools:
-            args.append('--upload-tools')
+            args.insert(0, '--upload-tools')
         else:
             args.extend(['--agent-version', self.get_matching_agent_version()])
 
@@ -971,6 +958,10 @@ class EnvJujuClient:
 class EnvJujuClient2A2(EnvJujuClient):
     """Drives Juju 2.0-alpha2 clients."""
 
+    @staticmethod
+    def _get_env(env):
+        return env
+
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
@@ -1506,7 +1497,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     # Always bootstrap a matching environment.
     jenv_path = get_jenv_path(juju_home, client.env.environment)
     if permanent:
-        context = make_jes_home(juju_home, client.env.environment, new_config)
+        context = client.env.make_jes_home(
+            juju_home, client.env.environment, new_config)
     else:
         context = _temp_env(new_config, juju_home, set_home)
     with context as temp_juju_home:
@@ -1699,6 +1691,10 @@ class SimpleEnvironment:
 
     @classmethod
     def from_config(cls, name):
+        return cls._from_config(name)
+
+    @classmethod
+    def _from_config(cls, name):
         config, selected = get_selected_environment(name)
         if name is None:
             name = selected
@@ -1706,6 +1702,52 @@ class SimpleEnvironment:
 
     def needs_sudo(self):
         return self.local
+
+    @contextmanager
+    def make_jes_home(self, juju_home, dir_name, new_config):
+        home_path = jes_home_path(juju_home, dir_name)
+        if os.path.exists(home_path):
+            rmtree(home_path)
+        os.makedirs(home_path)
+        self.dump_files(juju_home, home_path, new_config)
+        yield home_path
+
+    def dump_files(self, juju_home, home_path, config):
+        dump_environments_yaml(home_path, config)
+
+
+class JujuData(SimpleEnvironment):
+
+    def __init__(self, environment, config=None, juju_home=None):
+        if juju_home is None:
+            juju_home = get_juju_home()
+        super(JujuData, self).__init__(environment, config, juju_home)
+        self.credentials = {}
+        self.clouds = {}
+
+    @classmethod
+    def from_env(cls, env):
+        juju_data = cls(env.environment, env.config, env.juju_home)
+        juju_data.load_yaml()
+        return juju_data
+
+    def load_yaml(self):
+        with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
+            self.credentials = yaml.safe_load(f)
+        with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
+            self.clouds = yaml.safe_load(f)
+
+    @classmethod
+    def from_config(cls, name):
+        juju_data = cls._from_config(name)
+        juju_data.load_yaml()
+        return juju_data
+
+    def dump_files(self, juju_home, home_path, config):
+        with open(os.path.join(home_path, 'credentials.yaml'), 'w') as f:
+            yaml.safe_dump(self.credentials, f)
+        with open(os.path.join(home_path, 'clouds.yaml'), 'w') as f:
+            yaml.safe_dump(self.clouds, f)
 
 
 class GroupReporter:
