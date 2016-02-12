@@ -121,7 +121,23 @@ func formatDetailTabular(resources []FormattedDetailResource) []byte {
 	var out bytes.Buffer
 	fmt.Fprintln(&out, "[Units]")
 
-	return formatDetails(&out, resources)
+	sort.Sort(byUnitID(resources))
+	// To format things into columns.
+	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+
+	// Write the header.
+	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")
+
+	for _, r := range resources {
+		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
+			r.unitNumber,
+			r.Expected.Name,
+			r.Unit.combinedRevision,
+			r.Expected.combinedRevision,
+		)
+	}
+	tw.Flush()
+	return out.Bytes()
 }
 
 func formatUnitDetailTabular(resources FormattedUnitDetails) []byte {
@@ -131,20 +147,15 @@ func formatUnitDetailTabular(resources FormattedUnitDetails) []byte {
 	var out bytes.Buffer
 	fmt.Fprintln(&out, "[Unit]")
 
-	return formatDetails(&out, resources)
-}
-
-func formatDetails(out *bytes.Buffer, resources []FormattedDetailResource) []byte {
 	sort.Sort(byUnitID(resources))
 	// To format things into columns.
-	tw := tabwriter.NewWriter(out, 0, 1, 1, ' ', 0)
+	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
 	// Write the header.
-	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")
+	fmt.Fprintln(tw, "RESOURCE\tREVISION\tEXPECTED")
 
 	for _, r := range resources {
-		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
-			r.unitNumber,
+		fmt.Fprintf(tw, "%v\t%v\t%v\n",
 			r.Expected.Name,
 			r.Unit.combinedRevision,
 			r.Expected.combinedRevision,

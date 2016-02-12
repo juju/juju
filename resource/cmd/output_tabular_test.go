@@ -137,7 +137,7 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 	}
 
 	formatted := []FormattedUnitResource{
-		FormattedUnitResource{FormatSvcResource(res)},
+		FormattedUnitResource(FormatSvcResource(res)),
 	}
 
 	data, err := FormatSvcTabular(formatted)
@@ -214,8 +214,89 @@ website2 Bill User   2012-12-12T12:12
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
 	_, err := FormatSvcTabular(bogus)
 	c.Check(err, gc.ErrorMatches, `unexpected type for data: string`)
+}
+
+var _ = gc.Suite(&DetailsTabularSuite{})
+
+type DetailsTabularSuite struct {
+	testing.IsolationSuite
+}
+
+func (s *DetailsTabularSuite) TestFormatDetailsOkay(c *gc.C) {
+	data := []FormattedDetailResource{
+		{
+			UnitID:     "svc/10",
+			unitNumber: 10,
+			Unit:       fakeFmtSvcRes("data", "1"),
+			Expected:   fakeFmtSvcRes("data", "1"),
+		},
+		{
+			UnitID:     "svc/5",
+			unitNumber: 5,
+			Unit:       fakeFmtSvcRes("config", "2"),
+			Expected:   fakeFmtSvcRes("config", "3"),
+		},
+	}
+
+	output, err := FormatSvcTabular(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(string(output), gc.Equals, `
+[Units]
+UNIT RESOURCE REVISION EXPECTED
+5    config   combRev2 combRev3
+10   data     combRev1 combRev1
+`[1:])
+}
+
+func (s *DetailsTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
+	data := FormattedUnitDetails{
+		{
+			UnitID:     "svc/10",
+			unitNumber: 10,
+			Unit:       fakeFmtSvcRes("data", "1"),
+			Expected:   fakeFmtSvcRes("data", "1"),
+		},
+		{
+			UnitID:     "svc/10",
+			unitNumber: 10,
+			Unit:       fakeFmtSvcRes("config", "2"),
+			Expected:   fakeFmtSvcRes("config", "3"),
+		},
+	}
+
+	output, err := FormatSvcTabular(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(string(output), gc.Equals, `
+[Unit]
+RESOURCE REVISION EXPECTED
+config   combRev2 combRev3
+data     combRev1 combRev1
+`[1:])
+}
+
+func fakeFmtSvcRes(name, suffix string) FormattedSvcResource {
+	return FormattedSvcResource{
+		ID:               "ID" + suffix,
+		ServiceID:        "svc",
+		Name:             name,
+		Type:             "Type" + suffix,
+		Path:             "Path + suffix",
+		Description:      "Desc" + suffix,
+		Revision:         1,
+		Fingerprint:      "Fingerprint" + suffix,
+		Size:             1,
+		Origin:           "Origin" + suffix,
+		Used:             true,
+		Timestamp:        time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+		Username:         "Username" + suffix,
+		combinedRevision: "combRev" + suffix,
+		usedYesNo:        "usedYesNo" + suffix,
+		combinedOrigin:   "combOrig" + suffix,
+	}
 }

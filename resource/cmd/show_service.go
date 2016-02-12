@@ -151,7 +151,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 	res := make([]FormattedUnitResource, len(resources))
 
 	for i, r := range resources {
-		res[i] = FormattedUnitResource{FormatSvcResource(r)}
+		res[i] = FormattedUnitResource(FormatSvcResource(r))
 	}
 
 	return c.out.Write(ctx, res)

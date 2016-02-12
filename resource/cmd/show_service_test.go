@@ -451,10 +451,10 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit]
-UNIT RESOURCE REVISION         EXPECTED
-10   alpha    10               15
-10   beta     -                2012-12-12T12:12
-10   charlie  2011-11-11T11:11 2012-12-12T12:12
+RESOURCE REVISION         EXPECTED
+alpha    10               15
+beta     -                2012-12-12T12:12
+charlie  2011-11-11T11:11 2012-12-12T12:12
 
 `[1:])
 

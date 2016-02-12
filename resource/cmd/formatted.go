@@ -43,10 +43,10 @@ type FormattedSvcResource struct {
 }
 
 // FormattedUnitResource holds the formatted representation of a resource's info.
-type FormattedUnitResource struct {
-	FormattedSvcResource
-}
+type FormattedUnitResource FormattedSvcResource
 
+// FormattedDetailResource is the data for a single line of tabular output for
+// juju resources <service> --details.
 type FormattedDetailResource struct {
 	UnitID     string               `json:"unitID" yaml:"unitID"`
 	Unit       FormattedSvcResource `json:"unit" yaml:"unit"`
@@ -54,4 +54,6 @@ type FormattedDetailResource struct {
 	unitNumber int
 }
 
+// FormattedDetailResource is the data for the tabular output for juju resources
+// <unit> --details.
 type FormattedUnitDetails []FormattedDetailResource
