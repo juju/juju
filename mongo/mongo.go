@@ -242,18 +242,23 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	return false, nil
 }
 
-// SelectPeerAddress returns the address to use as the
-// mongo replica set peer address by selecting it from the given addresses. If
-// no addresses are available an empty string is returned.
+// SelectPeerAddress returns the address to use as the mongo replica set peer
+// address by selecting it from the given addresses. If no addresses are
+// available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
-	addr, _ := network.SelectInternalAddress(addrs, true)
+	logger.Debugf("selecting mongo peer address from %+v", addrs)
+	// ScopeMachineLocal addresses are OK if we can't pick by space, also the
+	// second bool return is ignored intentionally.
+	addr, _ := network.SelectControllerAddress(addrs, true)
 	return addr.Value
 }
 
-// SelectPeerHostPort returns the HostPort to use as the
-// mongo replica set peer by selecting it from the given hostPorts.
+// SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
+// by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	return network.SelectInternalHostPort(hostPorts, true)
+	logger.Debugf("selecting mongo peer hostPort from %+v", hostPorts)
+	// ScopeMachineLocal addresses are OK if we can't pick by space.
+	return network.SelectControllerHostPort(hostPorts, true)
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
@@ -359,10 +364,6 @@ type EnsureServerParams struct {
 //
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
-//
-// The namespace is a unique identifier to prevent multiple instances of mongo
-// on this machine from colliding. This should be empty unless using
-// the local provider.
 func EnsureServer(args EnsureServerParams) error {
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
@@ -421,7 +422,7 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 
 	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, args.Version, true)
-	svc, err := newService(ServiceName(args.Namespace), svcConf)
+	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return err
 	}

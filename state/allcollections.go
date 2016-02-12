@@ -91,6 +91,22 @@ func allCollections() collectionSchema {
 		// Life and its UUID.
 		modelsC: {global: true},
 
+		// This collection is holds the parameters for model migrations.
+		modelMigrationsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
+
+		// This collection tracks the progress of model migrations.
+		modelMigrationStatusC: {global: true},
+
+		// This collection records the model migrations which
+		// are currently in progress. It is used to ensure that only
+		// one model migration document exists per environment.
+		modelMigrationsActiveC: {global: true},
+
 		// This collection holds user information that's not specific to any
 		// one model.
 		usersC: {
@@ -277,16 +293,29 @@ func allCollections() collectionSchema {
 		},
 		openedPortsC:       {},
 		requestedNetworksC: {},
-		subnetsC: {
+		spacesC: {
 			indexes: []mgo.Index{{
-				// TODO(dimitern): make unique per-model, not globally.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support spaces, it can be empty, hence both
+				// unique and sparse.
+				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
 			}},
 		},
+		subnetsC: {
+			indexes: []mgo.Index{{
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support subnets, it can be empty, hence both
+				// unique and sparse.
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		endpointBindingsC: {},
 
 		// -----
 
@@ -301,6 +330,10 @@ func allCollections() collectionSchema {
 		// This collection holds information associated with charm payloads.
 		// See payload/persistence/mongo.go.
 		"payloads": {},
+
+		// This collection holds information associated with charm resources.
+		// See resource/persistence/mongo.go.
+		"resources": {},
 
 		// -----
 
@@ -327,7 +360,6 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "globalkey"},
 			}},
 		},
-		spacesC: {},
 
 		// This collection holds information about cloud image metadata.
 		cloudimagemetadataC: {},
@@ -358,6 +390,7 @@ const (
 	cloudimagemetadataC      = "cloudimagemetadata"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
+	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	instanceDataC            = "instanceData"
@@ -369,6 +402,10 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
+	modelMigrationStatusC    = "modelmigrations.status"
+	modelMigrationsActiveC   = "modelmigrations.active"
+	modelMigrationsC         = "modelmigrations"
+	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	networkInterfacesC       = "networkinterfaces"
@@ -381,26 +418,26 @@ const (
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
 	servicesC                = "services"
+	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
-	controllersC             = "controllers"
+	spacesC                  = "spaces"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"
 	storageAttachmentsC      = "storageattachments"
 	storageConstraintsC      = "storageconstraints"
 	storageInstancesC        = "storageinstances"
 	subnetsC                 = "subnets"
-	spacesC                  = "spaces"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"
 	unitsC                   = "units"
 	upgradeInfoC             = "upgradeInfo"
+	userLastLoginC           = "userLastLogin"
 	usermodelnameC           = "usermodelname"
 	usersC                   = "users"
-	userLastLoginC           = "userLastLogin"
-	modelUserLastConnectionC = "modelUserLastConnection"
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)
+	// "resources" (see resource/persistence/mongo.go)
 )

@@ -32,6 +32,11 @@ type Storage interface {
 	// Put stores data from reader at path, namespaced to the model.
 	Put(path string, r io.Reader, length int64) error
 
+	// PutAndCheckHash stores data from reader at path, namespaced to
+	// the model. It also ensures the stored data has the correct
+	// hash.
+	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
+
 	// Remove removes data at path, namespaced to the model.
 	Remove(path string) error
 }
@@ -67,6 +72,12 @@ func (s stateStorage) Put(path string, r io.Reader, length int64) error {
 	session, ms := s.blobstore()
 	defer session.Close()
 	return ms.PutForBucket(s.modelUUID, path, r, length)
+}
+
+func (s stateStorage) PutAndCheckHash(path string, r io.Reader, length int64, hash string) error {
+	session, ms := s.blobstore()
+	defer session.Close()
+	return ms.PutForBucketAndCheckHash(s.modelUUID, path, r, length, hash)
 }
 
 func (s stateStorage) Remove(path string) error {

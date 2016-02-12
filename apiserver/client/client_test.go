@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -651,7 +651,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			about: "unknown charm",
 			charm: "wordpress",
 			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found`,
+			err:   `charm "cs:missing/one-1" not found \(not found\)`,
 		},
 	}
 
@@ -804,7 +804,7 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 
 type clientRepoSuite struct {
 	baseSuite
-	apiservertesting.CharmStoreSuite
+	testing.CharmStoreSuite
 }
 
 var _ = gc.Suite(&clientRepoSuite{})
@@ -1338,7 +1338,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
-	// This will cause a machine add to fail due to an unsupported container.
+	// This will cause a add-machine to fail due to an unsupported container.
 	apiParams[2].ContainerType = instance.KVM
 	apiParams[2].ParentId = host.Id()
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1366,7 +1366,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			Addrs: params.FromNetworkAddresses(addrs),
 		}
 	}
-	// This will cause the last machine add to fail.
+	// This will cause the last add-machine to fail.
 	apiParams[2].Nonce = ""
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1727,6 +1727,14 @@ func (s *clientSuite) assertBlockedErrorAndLiveliness(
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
 	assertLife(c, living4, state.Alive)
+}
+
+func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }
 
 func (s *clientSuite) TestBlockRemoveDestroyMachines(c *gc.C) {

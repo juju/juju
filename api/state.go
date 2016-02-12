@@ -17,13 +17,13 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
@@ -284,12 +284,6 @@ func (st *state) Resumer() *resumer.API {
 	return resumer.NewAPI(st)
 }
 
-// Networker returns a version of the state that provides functionality
-// required by the networker worker.
-func (st *state) Networker() networker.State {
-	return networker.NewState(st)
-}
-
 // Provisioner returns a version of the state that provides functionality
 // required by the provisioner worker.
 func (st *state) Provisioner() *provisioner.State {
@@ -351,6 +345,11 @@ func (st *state) Deployer() *deployer.State {
 // Addresser returns access to the Addresser API.
 func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
+}
+
+// DiscoverSpaces returns access to the DiscoverSpacesAPI.
+func (st *state) DiscoverSpaces() *discoverspaces.API {
+	return discoverspaces.NewAPI(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API

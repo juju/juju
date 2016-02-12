@@ -32,7 +32,7 @@ import (
 )
 
 type MainSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -40,9 +40,8 @@ var _ = gc.Suite(&MainSuite{})
 func deployHelpText() string {
 	return cmdtesting.HelpText(service.NewDeployCommand(), "juju deploy")
 }
-
-func setHelpText() string {
-	return cmdtesting.HelpText(service.NewSetCommand(), "juju service set")
+func setconfigHelpText() string {
+	return cmdtesting.HelpText(service.NewSetCommand(), "juju set-config")
 }
 
 func syncToolsHelpText() string {
@@ -58,7 +57,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
 	// setting the flags (which is needed for the help text) it is accessing
-	// osenv.JujuHome(), which panics if SetJujuHome has not been called.
+	// osenv.JujuXDGDataHome(), which panics if SetJujuXDGDataHome has not been called.
 	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
@@ -106,20 +105,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju help set-config shows the default help without global options",
-		args:    []string{"help", "set-config"},
-		code:    0,
-		out:     setHelpText(),
-	}, {
 		summary: "juju --help set-config shows the same help as 'help set-config'",
 		args:    []string{"--help", "set-config"},
 		code:    0,
-		out:     setHelpText(),
+		out:     setconfigHelpText(),
 	}, {
 		summary: "juju set-config --help shows the same help as 'help set-config'",
 		args:    []string{"set-config", "--help"},
 		code:    0,
-		out:     setHelpText(),
+		out:     setconfigHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
@@ -199,28 +193,35 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 var commandNames = []string{
 	"action",
 	"add-machine",
+	"add-machines",
 	"add-relation",
+	"add-ssh-key",
+	"add-ssh-keys",
 	"add-unit",
+	"add-units",
+	"agree",
+	"allocate",
 	"api-endpoints",
 	"api-info",
 	"add-space",
 	"add-storage",
 	"add-subnet",
 	"add-user",
-	"authorised-keys", // alias for authorized-keys
-	"authorized-keys",
 	"backups",
 	"block",
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
+	"charm",
+	"collect-metrics",
 	"create-backup",
+	"create-budget",
 	"create-model",
 	"debug-hooks",
 	"debug-log",
+	"debug-metrics",
 	"deploy",
 	"destroy-controller",
-	"destroy-machine",
 	"destroy-model",
 	"destroy-relation",
 	"destroy-service",
@@ -231,44 +232,65 @@ var commandNames = []string{
 	"expose",
 	"generate-config", // alias for init
 	"get-config",
+	"get-configs",
 	"get-constraints",
 	"get-model-config",
 	"get-model-constraints",
 	"get-user-credentials",
 	"help",
 	"help-tool",
+	"import-ssh-key",
+	"import-ssh-keys",
 	"init",
 	"kill-controller",
 	"list-actions",
 	"list-all-blocks",
+	"list-budgets",
 	"list-controllers",
+	"list-machine",
+	"list-machines",
 	"list-models",
+	"list-plans",
 	"list-shares",
+	"list-ssh-key",
+	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
 	"list-users",
 	"login",
 	"machine",
+	"machines",
 	"publish",
 	"remove-all-blocks",
-	"remove-machine",  // alias for destroy-machine
+	"remove-machine",
+	"remove-machines",
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
-	"remove-unit",     // alias for destroy-unit
+	"remove-ssh-key",
+	"remove-ssh-keys",
+	"remove-unit", // alias for destroy-unit
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",
 	"run",
 	"run-action",
 	"scp",
-	"service",
+	"set-budget",
 	"set-config",
+	"set-configs",
 	"set-constraints",
+	"set-meter-status",
 	"set-model-config",
 	"set-model-constraints",
+	"set-plan",
 	"share-model",
+	"ssh-key",
+	"ssh-keys",
 	"show-action-output",
 	"show-action-status",
+	"show-budget",
+	"show-machine",
+	"show-machines",
 	"show-status",
 	"show-storage",
 	"show-user",
@@ -280,11 +302,10 @@ var commandNames = []string{
 	"subnet",
 	"switch",
 	"sync-tools",
-	"terminate-machine", // alias for destroy-machine
 	"use-model",
 	"unblock",
 	"unexpose",
-	"unset",
+	"update-allocation",
 	"unset-model-config",
 	"unshare-model",
 	"upgrade-charm",
@@ -293,7 +314,7 @@ var commandNames = []string{
 }
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
@@ -360,7 +381,6 @@ var topicNames = []string{
 	"glossary",
 	"hpcloud-provider",
 	"juju",
-	"local-provider",
 	"logging",
 	"maas-provider",
 	"openstack-provider",
@@ -374,7 +394,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -403,7 +423,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 

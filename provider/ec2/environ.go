@@ -239,6 +239,11 @@ func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {
@@ -1071,6 +1076,12 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 	logger.Tracef("found subnet with info %#v", info)
 	return info, nil
 
+}
+
+// Spaces is not implemented by the ec2 provider as we don't currently have
+// provider level spaces.
+func (e *environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("Spaces")
 }
 
 // Subnets returns basic information about the specified subnets known

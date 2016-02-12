@@ -116,13 +116,13 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPIV2, err := uniter.NewUniterAPIV3(
+	uniterAPIV3, err := uniter.NewUniterAPIV3(
 		s.State,
 		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.uniter = uniterAPIV2
+	s.uniter = uniterAPIV3
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -2339,4 +2339,197 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 		_, err = s.State.MetricBatch(uuid)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
+}
+
+type uniterNetworkConfigSuite struct {
+	base uniterSuite // not embedded so it doesn't run all tests.
+}
+
+var _ = gc.Suite(&uniterNetworkConfigSuite{})
+
+func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
+	s.base.JujuConnSuite.SetUpTest(c)
+
+	var err error
+	s.base.machine0, err = s.base.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.base.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.base.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	providerAddresses := []network.Address{
+		network.NewAddressOnSpace("public", "8.8.8.8"),
+		network.NewAddressOnSpace("", "8.8.4.4"),
+		network.NewAddressOnSpace("internal", "10.0.0.1"),
+		network.NewAddressOnSpace("internal", "10.0.0.2"),
+		network.NewAddressOnSpace("", "fc00::1"),
+	}
+
+	err = s.base.machine0.SetProviderAddresses(providerAddresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.base.machine0.SetInstanceInfo("i-am", "fake_nonce", nil, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	factory := jujuFactory.NewFactory(s.base.State)
+	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-3",
+	})
+	s.base.wordpress, err = s.base.State.AddService(state.AddServiceArgs{
+		Name:  "wordpress",
+		Charm: s.base.wpCharm,
+		Owner: s.base.AdminUserTag(c).String(),
+		EndpointBindings: map[string]string{
+			"db": "internal",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.base.wordpress,
+		Machine: s.base.machine0,
+	})
+
+	s.base.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+
+	err = s.base.machine1.SetProviderAddresses(providerAddresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "mysql",
+	})
+	s.base.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+		Name:    "mysql",
+		Charm:   mysqlCharm,
+		Creator: s.base.AdminUserTag(c),
+	})
+	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.base.wordpress,
+		Machine: s.base.machine0,
+	})
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.base.mysql,
+		Machine: s.base.machine1,
+	})
+
+	// Create the resource registry separately to track invocations to
+	// Register.
+	s.base.resources = common.NewResources()
+	s.base.AddCleanup(func(_ *gc.C) { s.base.resources.StopAll() })
+
+	s.setupUniterAPIForUnit(c, s.base.wordpressUnit)
+}
+
+func (s *uniterNetworkConfigSuite) TearDownTest(c *gc.C) {
+	s.base.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state.Unit) {
+	// Create a FakeAuthorizer so we can check permissions, set up assuming the
+	// given unit agent has logged in.
+	s.base.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: givenUnit.Tag(),
+	}
+
+	var err error
+	s.base.uniter, err = uniter.NewUniterAPIV3(
+		s.base.State,
+		s.base.resources,
+		s.base.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
+	rel := s.addRelationAndAssertInScope(c)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: rel.Tag().String(), Unit: "invalid"},
+		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
+		{Relation: "relation-42", Unit: s.base.wordpressUnit.Tag().String()},
+	}}
+
+	result, err := s.base.uniter.NetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
+		Results: []params.UnitNetworkConfigResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"relation-42" is not a valid relation tag`)},
+		},
+	})
+}
+
+func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) *state.Relation {
+	// Add a relation between wordpress and mysql and enter scope with
+	// mysqlUnit.
+	rel := s.base.addRelation(c, "wordpress", "mysql")
+	wpRelUnit, err := rel.Unit(s.base.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, wpRelUnit, true)
+	return rel
+}
+
+func (s *uniterNetworkConfigSuite) TestNetworkConfigForExplicitlyBoundEndpoint(c *gc.C) {
+	rel := s.addRelationAndAssertInScope(c)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: s.base.wordpressUnit.Tag().String()},
+	}}
+
+	// For the relation "wordpress:db mysql:server" we expect to see only
+	// addresses bound to the "internal" space, where the "db" endpoint itself
+	// is bound to.
+	expectedConfig := []params.NetworkConfig{{
+		Address: "10.0.0.1",
+	}, {
+		Address: "10.0.0.2",
+	}}
+
+	result, err := s.base.uniter.NetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
+		Results: []params.UnitNetworkConfigResult{
+			{Config: expectedConfig},
+		},
+	})
+}
+
+func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c *gc.C) {
+	// Since wordpressUnit as explicit binding for "db", switch the API to
+	// mysqlUnit and check "mysql:server" uses the machine preferred private
+	// address.
+	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
+	rel := s.base.addRelation(c, "mysql", "wordpress")
+	mysqlRelUnit, err := rel.Unit(s.base.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, mysqlRelUnit, true)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: s.base.mysqlUnit.Tag().String()},
+	}}
+
+	privateAddress, err := s.base.machine1.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedConfig := []params.NetworkConfig{{Address: privateAddress.Value}}
+
+	result, err := s.base.uniter.NetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
+		Results: []params.UnitNetworkConfigResult{
+			{Config: expectedConfig},
+		},
+	})
 }

@@ -24,7 +24,7 @@ func RegisterCommand(newCommand func() cmd.Command) {
 	registeredCommands = append(registeredCommands, newCommand)
 }
 
-// RegisterCommand adds the provided func to the set of those that will
+// RegisterEnvCommand adds the provided func to the set of those that will
 // be called when the juju command runs. Each returned command will be
 // wrapped in envCmdWrapper, which is what gets registered with the
 // "juju" supercommand.
