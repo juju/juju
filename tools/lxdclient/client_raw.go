@@ -113,7 +113,7 @@ type rawContainerMethods interface {
 	// snapshots
 	RestoreSnapshot(container string, snapshotName string, stateful bool) (*lxd.Response, error)
 	Snapshot(container string, snapshotName string, stateful bool) (*lxd.Response, error)
-	ListSnapshots(container string) ([]string, error)
+	ListSnapshots(container string) ([]shared.SnapshotState, error)
 }
 
 type rawProfileMethods interface {

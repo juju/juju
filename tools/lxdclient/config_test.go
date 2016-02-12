@@ -67,14 +67,6 @@ func (s *configSuite) TestWithDefaultsMissingDirname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("path.Clean of dirname is %s (dirname is %s)", path.Clean(updated.Dirname), updated.Dirname)
-
-	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace: "my-ns",
-		// TODO(ericsnow)  This will change on Windows once the LXD
-		// code is cross-platform.
-		Dirname: "/.config/lxc", // IsolationSuite sets $HOME to "".
-		Remote:  s.remote,
-	})
 }
 
 func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {

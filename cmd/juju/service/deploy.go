@@ -59,6 +59,7 @@ type DeployCommand struct {
 	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
+	BindToSpaces string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -71,7 +72,10 @@ type DeployCommand struct {
 	// the storage name defined in that service's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
-	Steps []DeployStep
+	Bindings map[string]string
+	Steps    []DeployStep
+
+	flagSet *gnuflag.FlagSet
 }
 
 const deployDoc = `
@@ -89,7 +93,7 @@ For cs:~user/trusty/mysql
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
-  
+
 The current series for charms is determined first by the default-series model
 setting, followed by the preferred series for the charm in the charm store.
 
@@ -210,7 +214,16 @@ func (c *DeployCommand) Info() *cmd.Info {
 	}
 }
 
+var (
+	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
+	// whether we are deploying a charm or a bundle.
+	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade"}
+	bundleOnlyFlags = []string{}
+)
+
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
+	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
+	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
@@ -222,9 +235,11 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configure service endpoint bindings to spaces")
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
+	c.flagSet = f
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -244,6 +259,10 @@ func (c *DeployCommand) Init(args []string) error {
 		return errors.New("no charm or bundle specified")
 	default:
 		return cmd.CheckEmpty(args[2:])
+	}
+	err := c.parseBind()
+	if err != nil {
+		return err
 	}
 	return c.UnitCommandBase.Init(args)
 }
@@ -366,6 +385,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	// Handle a bundle.
 	if bundleData != nil {
+		if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
+			return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
+		}
 		if err := deployBundle(
 			bundleData, client, &deployer, csClient,
 			repoPath, conf, ctx, c.BundleStorage,
@@ -376,6 +398,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return nil
 	}
 	// Handle a charm.
+	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
+		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
+	}
 	// Get the series to use.
 	series, message, err := charmSeries(c.Series, charmOrBundleURL.Series, supportedSeries, c.Force, conf)
 	if charm.IsUnsupportedSeriesError(err) {
@@ -533,6 +558,7 @@ func (c *DeployCommand) deployCharm(
 		c.Placement,
 		c.Networks,
 		c.Storage,
+		c.Bindings,
 	}); err != nil {
 		return err
 	}
@@ -549,16 +575,61 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
+const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<relation-name>=<space>] [<relation2-name>=<space2>] ...]'. "
+
+// parseBind parses the --bind option. Valid forms are:
+// * relation-name=space-name
+// * space-name
+// * The above in a space separated list to specify multiple bindings,
+//   e.g. "rel1=space1 rel2=space2 space3"
+func (c *DeployCommand) parseBind() error {
+	bindings := make(map[string]string)
+	if c.BindToSpaces == "" {
+		return nil
+	}
+
+	for _, s := range strings.Split(c.BindToSpaces, " ") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+
+		v := strings.Split(s, "=")
+		var endpoint, space string
+		switch len(v) {
+		case 1:
+			endpoint = ""
+			space = v[0]
+		case 2:
+			if v[0] == "" {
+				return errors.New(parseBindErrorPrefix + "Found = without relation name. Use a lone space name to set the default.")
+			}
+			endpoint = v[0]
+			space = v[1]
+		default:
+			return errors.New(parseBindErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
+		}
+
+		if !names.IsValidSpace(space) {
+			return errors.New(parseBindErrorPrefix + "Space name invalid.")
+		}
+		bindings[endpoint] = space
+	}
+	c.Bindings = bindings
+	return nil
+}
+
 type serviceDeployParams struct {
-	charmURL    string
-	serviceName string
-	series      string
-	numUnits    int
-	configYAML  string
-	constraints constraints.Value
-	placement   []*instance.Placement
-	networks    string
-	storage     map[string]storage.Constraints
+	charmURL      string
+	serviceName   string
+	series        string
+	numUnits      int
+	configYAML    string
+	constraints   constraints.Value
+	placement     []*instance.Placement
+	networks      string
+	storage       map[string]storage.Constraints
+	spaceBindings map[string]string
 }
 
 type serviceDeployer struct {
@@ -595,6 +666,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		args.placement,
 		[]string{},
 		args.storage,
+		args.spaceBindings,
 	)
 }
 
@@ -635,4 +707,25 @@ func (s *metricsCredentialsAPIImpl) Close() error {
 
 var getMetricCredentialsAPI = func(state api.Connection) (metricCredentialsAPI, error) {
 	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
+}
+
+// getFlags returns the flags with the given names. Only flags that are set and
+// whose name is included in flagNames are included.
+func getFlags(flagSet *gnuflag.FlagSet, flagNames []string) []string {
+	flags := make([]string, 0, flagSet.NFlag())
+	flagSet.Visit(func(flag *gnuflag.Flag) {
+		for _, name := range flagNames {
+			if flag.Name == name {
+				flags = append(flags, flagWithMinus(name))
+			}
+		}
+	})
+	return flags
+}
+
+func flagWithMinus(name string) string {
+	if len(name) > 1 {
+		return "--" + name
+	}
+	return "-" + name
 }
