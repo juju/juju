@@ -149,22 +149,26 @@ func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
 func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
 	s.startWorker()
-	var err error
-	var spaces []*state.Space
 	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err = s.State.AllSpaces()
-		if err != nil {
-			break
+		var found bool
+		select {
+		case <-s.spacesDiscovered:
+			// The channel was closed so discovery has completed.
+			found = true
 		}
-		if len(spaces) == 4 {
-			// All spaces have been created.
+		if found {
 			break
 		}
 		if !a.HasNext() {
-			c.Fatalf("spaces not imported")
+			c.Fatalf("discovery not completed")
 		}
 	}
+
+	var err error
+	var spaces []*state.Space
+	spaces, err = s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, gc.HasLen, 4)
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "foo",
 		ProviderId: network.Id("foo"),
@@ -212,7 +216,9 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
-		c.Check(len(subnets), gc.Equals, len(expected.Subnets))
+		if !c.Check(len(subnets), gc.Equals, len(expected.Subnets)) {
+			continue
+		}
 		for i, subnet := range subnets {
 			expectedSubnet := expected.Subnets[i]
 			c.Check(subnet.ProviderId(), gc.Equals, expectedSubnet.ProviderId)
