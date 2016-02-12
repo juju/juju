@@ -175,16 +175,13 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	_, err := state.GetModelMigration(st)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
-	targetInfo := params.ModelMigrationTargetInfo{
-		ControllerTag: randomModelTag(),
-		Addrs:         []string{"1.2.3.4:5"},
-		CACert:        "cert",
-		AuthTag:       names.NewUserTag("someone").String(),
-		Password:      "secret",
-	}
-	spec := params.ModelMigrationSpec{
-		ModelTag:   st.ModelTag().String(),
-		TargetInfo: targetInfo,
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            st.ModelUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
 	}
 
 	controller := s.OpenAPI(c)
@@ -200,16 +197,13 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
-	targetInfo := params.ModelMigrationTargetInfo{
-		ControllerTag: randomModelTag(),
-		Addrs:         []string{"1.2.3.4:5"},
-		CACert:        "cert",
-		AuthTag:       names.NewUserTag("someone").String(),
-		Password:      "secret",
-	}
-	spec := params.ModelMigrationSpec{
-		ModelTag:   randomModelTag(), // Model doesn't exist.
-		TargetInfo: targetInfo,
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            randomUUID(), // Model doesn't exist.
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
 	}
 
 	controller := s.OpenAPI(c)
@@ -218,7 +212,6 @@ func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
 }
 
-func randomModelTag() string {
-	uuid := utils.MustNewUUID().String()
-	return names.NewModelTag(uuid).String()
+func randomUUID() string {
+	return utils.MustNewUUID().String()
 }

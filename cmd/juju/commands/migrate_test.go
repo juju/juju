@@ -7,11 +7,10 @@ import (
 	"errors"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
@@ -67,15 +66,14 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
-	c.Check(s.api.specSeen, jc.DeepEquals, &params.ModelMigrationSpec{
-		ModelTag: names.NewModelTag(sourceModelUUID).String(),
-		TargetInfo: params.ModelMigrationTargetInfo{
-			ControllerTag: names.NewModelTag(targetControllerUUID).String(),
-			Addrs:         []string{"1.2.3.4:5"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("admin").String(),
-			Password:      "secret",
-		}})
+	c.Check(s.api.specSeen, jc.DeepEquals, &controller.ModelMigrationSpec{
+		ModelUUID:            sourceModelUUID,
+		TargetControllerUUID: targetControllerUUID,
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "admin",
+		TargetPassword:       "secret",
+	})
 }
 
 func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
@@ -112,10 +110,10 @@ func (s *MigrateSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error)
 }
 
 type fakeMigrateAPI struct {
-	specSeen *params.ModelMigrationSpec
+	specSeen *controller.ModelMigrationSpec
 }
 
-func (a *fakeMigrateAPI) InitiateModelMigration(spec params.ModelMigrationSpec) (string, error) {
+func (a *fakeMigrateAPI) InitiateModelMigration(spec controller.ModelMigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
 }

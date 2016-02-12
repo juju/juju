@@ -134,15 +134,35 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 	return results, nil
 }
 
+// ModelMigrationSpec holds the details required to start the
+// migration of a single model.
+type ModelMigrationSpec struct {
+	ModelUUID            string
+	TargetControllerUUID string
+	TargetAddrs          []string
+	TargetCACert         string
+	TargetUser           string
+	TargetPassword       string
+}
+
 // InitiateModelMigration attempts to start a migration for the
 // specified model, returning the migration's ID.
 //
 // The API server supports starting multiple migrations in one request
 // but we don't need that at the client side yet (and may never) so
 // this call just supports starting one migration at a time.
-func (c *Client) InitiateModelMigration(spec params.ModelMigrationSpec) (string, error) {
+func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error) {
 	args := params.InitiateModelMigrationArgs{
-		Specs: []params.ModelMigrationSpec{spec},
+		Specs: []params.ModelMigrationSpec{{
+			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
+			TargetInfo: params.ModelMigrationTargetInfo{
+				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				Addrs:         spec.TargetAddrs,
+				CACert:        spec.TargetCACert,
+				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
+				Password:      spec.TargetPassword,
+			},
+		}},
 	}
 	response := params.InitiateModelMigrationResults{}
 	if err := c.facade.FacadeCall("InitiateModelMigration", args, &response); err != nil {

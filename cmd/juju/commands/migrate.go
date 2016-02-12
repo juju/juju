@@ -6,9 +6,8 @@ package commands
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -26,7 +25,7 @@ type migrateCommand struct {
 }
 
 type migrateAPI interface {
-	InitiateModelMigration(spec params.ModelMigrationSpec) (string, error)
+	InitiateModelMigration(spec controller.ModelMigrationSpec) (string, error)
 }
 
 const migrateDoc = `
@@ -103,20 +102,18 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	targetEndpoint := targetInfo.APIEndpoint()
 	targetCreds := targetInfo.APICredentials()
 
-	args := params.ModelMigrationSpec{
-		ModelTag: names.NewModelTag(modelUUID).String(),
-		TargetInfo: params.ModelMigrationTargetInfo{
-			ControllerTag: names.NewModelTag(targetEndpoint.ModelUUID).String(),
-			Addrs:         targetEndpoint.Addresses,
-			CACert:        targetEndpoint.CACert,
-			AuthTag:       names.NewUserTag(targetCreds.User).String(),
-			Password:      targetCreds.Password,
-		},
-	}
-
 	api, err := c.getAPI()
 	if err != nil {
 		return err
+	}
+
+	args := controller.ModelMigrationSpec{
+		ModelUUID:            modelUUID,
+		TargetControllerUUID: targetEndpoint.ModelUUID,
+		TargetAddrs:          targetEndpoint.Addresses,
+		TargetCACert:         targetEndpoint.CACert,
+		TargetUser:           targetCreds.User,
+		TargetPassword:       targetCreds.Password,
 	}
 	id, err := api.InitiateModelMigration(args)
 	if err != nil {
