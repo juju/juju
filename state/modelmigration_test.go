@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
@@ -39,11 +40,13 @@ func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
 	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
+	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+
 	// Plausible migration arguments to test with.
 	s.stdSpec = state.ModelMigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: s.State.ModelTag(),
+			ControllerTag: targetControllerTag,
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
@@ -205,6 +208,15 @@ func (s *ModelMigrationSuite) TestCreateMigrationWhenModelNotAlive(c *gc.C) {
 	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
 	c.Check(mig, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "failed to create migration: model is not alive")
+}
+
+func (s *ModelMigrationSuite) TestMigrationToSameController(c *gc.C) {
+	spec := s.stdSpec
+	spec.TargetInfo.ControllerTag = s.State.ModelTag()
+
+	mig, err := state.CreateModelMigration(s.State2, spec)
+	c.Check(mig, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "model already attached to target controller")
 }
 
 func (s *ModelMigrationSuite) TestGet(c *gc.C) {
