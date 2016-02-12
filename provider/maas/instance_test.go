@@ -4,10 +4,12 @@
 package maas
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
-	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/voidspace/gomaasapi"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -18,6 +20,33 @@ type instanceTest struct {
 }
 
 var _ = gc.Suite(&instanceTest{})
+
+func defaultSubnet() gomaasapi.CreateSubnet {
+	var s gomaasapi.CreateSubnet
+	s.DNSServers = []string{"192.168.1.2"}
+	s.Name = "maas-eth0"
+	s.Space = "space-0"
+	s.GatewayIP = "192.168.1.1"
+	s.CIDR = "192.168.1.0/24"
+	s.ID = 1
+	return s
+}
+
+func (s *instanceTest) subnetJSON(subnet gomaasapi.CreateSubnet) *bytes.Buffer {
+	var out bytes.Buffer
+	err := json.NewEncoder(&out).Encode(subnet)
+	if err != nil {
+		panic(err)
+	}
+	return &out
+}
+
+func (s *instanceTest) SetUpTest(c *gc.C) {
+	s.providerSuite.SetUpTest(c)
+
+	// Create a subnet so that the spaces cache will be populated.
+	s.testMAASObject.TestServer.NewSubnet(s.subnetJSON(defaultSubnet()))
+}
 
 func (s *instanceTest) TestId(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`

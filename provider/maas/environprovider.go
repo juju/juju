@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
+	"github.com/voidspace/gomaasapi"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 

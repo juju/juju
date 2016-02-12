@@ -6,7 +6,7 @@ package maas
 import (
 	"strings"
 
-	"github.com/juju/gomaasapi"
+	"github.com/voidspace/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

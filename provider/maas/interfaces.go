@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
+	"github.com/voidspace/gomaasapi"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/instance"
