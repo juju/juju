@@ -50,68 +50,68 @@ clouds:
     type: azure
     auth-types: [ userpass ]
     regions:
-      Central US:
+      centralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      East US:
+      eastus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      East US 2:
+      eastus2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      North Central US:
+      northcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      South Central US:
+      southcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      West US:
+      westus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      North Europe:
+      northeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      West Europe:
+      westeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      East Asia:
+      eastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Southeast Asia:
+      southeastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Japan East:
+      japaneast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Japan West:
+      japanwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Brazil South:
+      brazilsouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Australia East:
+      australiaeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Australia Southeast:
+      australiasoutheast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      Central India:
+      centralindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      South India:
+      southindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-      West India:
+      westindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
   azure-china:
     type: azure
     auth-types: [ userpass ]
     regions:
-      China East:
+      chinaeast:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
-      China North:
+      chinanorth:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
   rackspace:
@@ -119,17 +119,17 @@ clouds:
     auth-types: [ access-key, userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
-      Dallas-Fort Worth:
+      DFW:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      Chicago:
+      ORD:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      Northern Virginia:
+      IAD:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      London:
+      LON:
         endpoint: https://lon.identity.api.rackspacecloud.com/v2.0
-      Sydney:
+      SYD:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      Hong Kong:
+      HKG:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
   joyent:
     type: joyent
