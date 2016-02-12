@@ -11,6 +11,7 @@ import socket
 import StringIO
 import subprocess
 import sys
+from tempfile import NamedTemporaryFile
 from textwrap import dedent
 import types
 
@@ -677,6 +678,16 @@ class FakePopen(object):
         return self._code
 
 
+@contextmanager
+def forced_temp_file():
+    with NamedTemporaryFile() as temp_file:
+        with patch.object(EnvJujuClient, 'juju'):
+            with patch('jujupy.NamedTemporaryFile',
+                       return_value=temp_file):
+                with patch.object(temp_file, '__exit__'):
+                    yield temp_file
+
+
 class TestEnvJujuClient(ClientTest):
 
     def test_no_duplicate_env(self):
@@ -866,14 +877,16 @@ class TestEnvJujuClient(ClientTest):
             full)
 
     def test_bootstrap_maas(self):
-        env = SimpleEnvironment('maas')
+        env = SimpleEnvironment('maas', {'type': 'foo'})
         with patch.object(EnvJujuClient, 'juju') as mock:
             client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
-                client.bootstrap()
+                with forced_temp_file() as config_file:
+                    client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64',
-                              '--agent-version', '2.0'), False)
+                'bootstrap', (
+                    '--constraints', 'mem=2G arch=amd64',
+                    '--agent-version', '2.0', '--config', config_file.name))
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
@@ -885,32 +898,27 @@ class TestEnvJujuClient(ClientTest):
                 client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1',
                                       '--agent-version', '2.0'), False)
 
-    def test_bootstrap_non_sudo(self):
-        env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient, 'juju') as mock:
-            client = EnvJujuClient(env, '2.0-zeta1', None)
-            with patch.object(client.env, 'needs_sudo', lambda: False):
+    def test_bootstrap(self):
+        env = SimpleEnvironment('foo', {'type': 'bar'})
+        with forced_temp_file() as config_file:
+            with patch.object(EnvJujuClient, 'juju') as mock:
+                client = EnvJujuClient(env, '2.0-zeta1', None)
                 client.bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G',
-                              '--agent-version', '2.0'), False)
-
-    def test_bootstrap_sudo(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient(env, '2.0-zeta1', None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G',
-                              '--agent-version', '2.0'), True)
+                mock.assert_called_with(
+                    'bootstrap', ('--constraints', 'mem=2G',
+                                  '--agent-version', '2.0',
+                                  '--config', config_file.name))
+                config_file.seek(0)
+                config = yaml.safe_load(config_file)
+        self.assertEqual(make_safe_config(client), config)
 
     def test_bootstrap_upload_tools(self):
-        env = SimpleEnvironment('foo')
+        env = SimpleEnvironment('foo', {'type': 'foo'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap(upload_tools=True)
+            with forced_temp_file():
+                with patch.object(client, 'juju') as mock:
+                    client.bootstrap(upload_tools=True)
             mock.assert_called_with(
                 'bootstrap', (
                     '--upload-tools', '--constraints', 'mem=2G'),
@@ -946,9 +954,10 @@ class TestEnvJujuClient(ClientTest):
                                           'mem=2G'))
 
     def test_get_bootstrap_args_bootstrap_series(self):
-        env = SimpleEnvironment('foo', {})
+        env = SimpleEnvironment('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=True,
+                                         config_filename='config',
                                          bootstrap_series='angsty')
         self.assertEqual(args, (
             '--upload-tools', '--constraints', 'mem=2G',
@@ -2207,6 +2216,15 @@ class TestEnvJujuClient2A2(TestCase):
         # For transition, supply both.
         self.assertEqual(env['JUJU_HOME'], 'asdf')
         self.assertEqual(env['JUJU_DATA'], 'asdf')
+
+    def test_get_bootstrap_args_bootstrap_series(self):
+        env = SimpleEnvironment('foo', {})
+        client = EnvJujuClient2A2(env, '2.0-zeta1', 'path', 'home')
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         bootstrap_series='angsty')
+        self.assertEqual(args, (
+            '--upload-tools', '--constraints', 'mem=2G',
+            '--agent-version', '2.0', '--bootstrap-series', 'angsty'))
 
 
 class TestEnvJujuClient1X(ClientTest):
