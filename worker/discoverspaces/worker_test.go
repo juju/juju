@@ -164,9 +164,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 		}
 	}
 
-	var err error
-	var spaces []*state.Space
-	spaces, err = s.State.AllSpaces()
+	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces, gc.HasLen, 4)
 	expectedSpaces := []network.SpaceInfo{{
