@@ -3,6 +3,8 @@
 
 from __future__ import print_function
 
+__metaclass__ = type
+
 import argparse
 import logging
 import sys
@@ -15,9 +17,6 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
 )
-
-
-__metaclass__ = type
 
 
 log = logging.getLogger("assess_update_mongo")
