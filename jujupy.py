@@ -12,10 +12,7 @@ from itertools import chain
 import logging
 import os
 import re
-from shutil import (
-    copy2,
-    rmtree,
-    )
+from shutil import rmtree
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -456,7 +453,6 @@ class EnvJujuClient:
 
     @contextmanager
     def _bootstrap_config(self):
-        config_path = os.path.join(self.env.juju_home, 'config.yaml')
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
         config_dict = dict((k, v) for k, v in config_dict.items() if k not in {

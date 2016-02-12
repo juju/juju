@@ -901,7 +901,7 @@ class TestEnvJujuClient(ClientTest):
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G cpu-cores=1', 'joyent',
                     'joyent/foo', '--config', config_file.name,
-                     '--agent-version', '2.0'), include_e=False)
+                    '--agent-version', '2.0'), include_e=False)
 
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -964,8 +964,8 @@ class TestEnvJujuClient(ClientTest):
                 with client.bootstrap_async(upload_tools=True):
                     mock.assert_called_with(
                         client, 'bootstrap', (
-                        '--upload-tools', '--constraints', 'mem=2G', 'foo',
-                        'bar/baz', '--config', config_file.name))
+                            '--upload-tools', '--constraints', 'mem=2G',
+                            'foo', 'bar/baz', '--config', config_file.name))
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
