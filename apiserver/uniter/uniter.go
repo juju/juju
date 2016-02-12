@@ -1,4 +1,5 @@
 // Copyright 2015 Canonical Ltd.
+// Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package uniter implements the API interface used by the uniter worker.
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1284,6 +1286,80 @@ func (u *UniterAPIV3) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// HookRetryStrategy returns HookRetryStrategyResults that can be used by the uniter to configure
+// how hooks get retried.
+func (u *UniterAPIV3) HookRetryStrategy(args params.Entities) (params.HookRetryStrategyResults, error) {
+	results := params.HookRetryStrategyResults{
+		Results: make([]params.HookRetryStrategyResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.HookRetryStrategyResults{}, errors.Trace(err)
+	}
+	config, configErr := u.st.ModelConfig()
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			if configErr == nil {
+				// Right now the only real configurable value is ShouldRetry,
+				// which is taken from the environment
+				// The rest are hardcoded
+				results.Results[i].Result = &params.HookRetryStrategy{
+					ShouldRetry:     config.AutomaticallyRetryHooks(),
+					MinRetryTime:    5 * time.Second,
+					MaxRetryTime:    5 * time.Minute,
+					JitterRetryTime: true,
+					RetryTimeFactor: 2,
+				}
+				err = nil
+			} else {
+				err = configErr
+			}
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// WatchHookRetryStrategy watches for changes to the environment. Currently we only allow
+// changes to the boolean that determines whether hooks should be retried or not.
+func (u *UniterAPIV3) WatchHookRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			watch := u.st.WatchForModelConfigChanges()
+			// Consume the initial event. Technically, API calls to Watch
+			// 'transmit' the initial event in the Watch response. But
+			// NotifyWatchers have no state to transmit.
+			if _, ok := <-watch.Changes(); ok {
+				results.Results[i].NotifyWatcherId = u.resources.Register(watch)
+				err = nil
+			} else {
+				err = watcher.EnsureErr(watch)
+			}
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
 }
 
 func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {

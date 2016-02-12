@@ -1,4 +1,5 @@
 // Copyright 2013 Canonical Ltd.
+// Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -709,6 +710,95 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
+}
+
+func (s *unitSuite) TestHookRetryStrategyError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 1)
+			return fmt.Errorf("boo")
+		},
+	)
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, gc.ErrorMatches, "boo")
+	c.Assert(retryStrategy, gc.Equals, params.HookRetryStrategy{})
+}
+
+func (s *unitSuite) TestHookRetryStrategyMultipleResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 2)
+			return nil
+		},
+	)
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(retryStrategy, gc.Equals, params.HookRetryStrategy{})
+}
+
+func (s *unitSuite) TestHookRetryStrategySuccess(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 1)
+			result.Results[0].Result = &params.HookRetryStrategy{
+				ShouldRetry: true,
+			}
+			return nil
+		},
+	)
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retryStrategy.ShouldRetry, jc.IsTrue)
+}
+
+func (s *unitSuite) TestHookRetryStrategyResultError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
+		func(results interface{}) error {
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 1)
+			result.Results[0].Result = &params.HookRetryStrategy{}
+			result.Results[0].Error = &params.Error{
+				Message: "swoosh",
+				Code:    params.CodeNotAssigned,
+			}
+			return nil
+		},
+	)
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, gc.ErrorMatches, "swoosh")
+	c.Assert(retryStrategy, gc.Equals, params.HookRetryStrategy{})
+}
+
+func (s *uniterSuite) setHookRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestWatchHookRetryStrategy(c *gc.C) {
+	w, err := s.apiUnit.WatchHookRetryStrategy()
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event
+	wc.AssertOneChange()
+
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retryStrategy.ShouldRetry, jc.IsTrue)
+
+	s.setHookRetryStrategy(c, false)
+	wc.AssertOneChange()
+
+	// No change
+	s.setHookRetryStrategy(c, false)
+	wc.AssertNoChange()
+
+	retryStrategy, err = s.apiUnit.HookRetryStrategy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retryStrategy.ShouldRetry, jc.IsFalse)
 }
 
 func (s *unitSuite) patchNewState(
