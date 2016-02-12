@@ -384,9 +384,7 @@ class EnvJujuClient:
                 self.juju('add-machine', ('ssh:' + machine,))
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
-        with open(os.path.join(self.env.juju_home, 'clouds.yaml')) as f:
-            cly = yaml.load(f)
-        for cloud, cloud_config in cly['clouds'].items():
+        for cloud, cloud_config in self.env.clouds['clouds'].items():
             if cloud_config['type'] != cloud_type:
                 continue
             if cloud_config['endpoint'] == endpoint:
