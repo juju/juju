@@ -714,49 +714,51 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 func (s *unitSuite) TestHookRetryStrategyError(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
 		func(results interface{}) error {
-			result := results.(*params.BoolResults)
-			result.Results = make([]params.BoolResult, 1)
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 1)
 			return fmt.Errorf("boo")
 		},
 	)
-	retry, err := s.apiUnit.HookRetryStrategy()
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
 	c.Assert(err, gc.ErrorMatches, "boo")
-	c.Assert(retry, jc.IsFalse)
+	c.Assert(retryStrategy, gc.Equals, params.HookRetryStrategy{})
 }
 
 func (s *unitSuite) TestHookRetryStrategyMultipleResults(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
 		func(results interface{}) error {
-			result := results.(*params.BoolResults)
-			result.Results = make([]params.BoolResult, 2)
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 2)
 			return nil
 		},
 	)
-	retry, err := s.apiUnit.HookRetryStrategy()
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
-	c.Assert(retry, jc.IsFalse)
+	c.Assert(retryStrategy, gc.Equals, params.HookRetryStrategy{})
 }
 
 func (s *unitSuite) TestHookRetryStrategySuccess(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
 		func(results interface{}) error {
-			result := results.(*params.BoolResults)
-			result.Results = make([]params.BoolResult, 1)
-			result.Results[0].Result = true
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 1)
+			result.Results[0].Result = &params.HookRetryStrategy{
+				ShouldRetry: true,
+			}
 			return nil
 		},
 	)
-	retry, err := s.apiUnit.HookRetryStrategy()
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retry, jc.IsTrue)
+	c.Assert(retryStrategy.ShouldRetry, jc.IsTrue)
 }
 
 func (s *unitSuite) TestHookRetryStrategyResultError(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "HookRetryStrategy",
 		func(results interface{}) error {
-			result := results.(*params.BoolResults)
-			result.Results = make([]params.BoolResult, 1)
-			result.Results[0].Result = true
+			result := results.(*params.HookRetryStrategyResults)
+			result.Results = make([]params.HookRetryStrategyResult, 1)
+			result.Results[0].Result = &params.HookRetryStrategy{}
 			result.Results[0].Error = &params.Error{
 				Message: "swoosh",
 				Code:    params.CodeNotAssigned,
@@ -764,9 +766,9 @@ func (s *unitSuite) TestHookRetryStrategyResultError(c *gc.C) {
 			return nil
 		},
 	)
-	retry, err := s.apiUnit.HookRetryStrategy()
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
 	c.Assert(err, gc.ErrorMatches, "swoosh")
-	c.Assert(retry, jc.IsFalse)
+	c.Assert(retryStrategy, gc.Equals, params.HookRetryStrategy{})
 }
 
 func (s *uniterSuite) setHookRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
@@ -782,9 +784,9 @@ func (s *unitSuite) TestWatchHookRetryStrategy(c *gc.C) {
 	// Initial event
 	wc.AssertOneChange()
 
-	retry, err := s.apiUnit.HookRetryStrategy()
+	retryStrategy, err := s.apiUnit.HookRetryStrategy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retry, jc.IsTrue)
+	c.Assert(retryStrategy.ShouldRetry, jc.IsTrue)
 
 	s.setHookRetryStrategy(c, false)
 	wc.AssertOneChange()
@@ -793,9 +795,9 @@ func (s *unitSuite) TestWatchHookRetryStrategy(c *gc.C) {
 	s.setHookRetryStrategy(c, false)
 	wc.AssertNoChange()
 
-	retry, err = s.apiUnit.HookRetryStrategy()
+	retryStrategy, err = s.apiUnit.HookRetryStrategy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retry, jc.IsFalse)
+	c.Assert(retryStrategy.ShouldRetry, jc.IsFalse)
 }
 
 func (s *unitSuite) patchNewState(

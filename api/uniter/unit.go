@@ -711,27 +711,28 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 }
 
 // HookRetryStrategy returns the configuration for the agent specified by the agentTag.
-func (u *Unit) HookRetryStrategy() (bool, error) {
-	var results params.BoolResults
+func (u *Unit) HookRetryStrategy() (params.HookRetryStrategy, error) {
+	var results params.HookRetryStrategyResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("HookRetryStrategy", args, &results)
 	if err != nil {
-		return false, errors.Trace(err)
+		return params.HookRetryStrategy{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return params.HookRetryStrategy{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return false, errors.Trace(result.Error)
+		return params.HookRetryStrategy{}, errors.Trace(result.Error)
 	}
-	return result.Result, nil
+	return *result.Result, nil
 }
 
 // WatchHookRetryStrategy returns a notify watcher that looks for changes in the
 // hook retry config for the agent specified by agentTag
+// Right now only the boolean that decides whether we retry can be modified.
 func (u *Unit) WatchHookRetryStrategy() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1286,13 +1287,15 @@ func (u *UniterAPIV3) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 	return result, nil
 }
 
-func (u *UniterAPIV3) HookRetryStrategy(args params.Entities) (params.BoolResults, error) {
-	results := params.BoolResults{
-		Results: make([]params.BoolResult, len(args.Entities)),
+// HookRetryStrategy returns HookRetryStrategyResults that can be used by the uniter to configure
+// how hooks get retried.
+func (u *UniterAPIV3) HookRetryStrategy(args params.Entities) (params.HookRetryStrategyResults, error) {
+	results := params.HookRetryStrategyResults{
+		Results: make([]params.HookRetryStrategyResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.BoolResults{}, errors.Trace(err)
+		return params.HookRetryStrategyResults{}, errors.Trace(err)
 	}
 	config, configErr := u.st.ModelConfig()
 	for i, entity := range args.Entities {
@@ -1304,7 +1307,16 @@ func (u *UniterAPIV3) HookRetryStrategy(args params.Entities) (params.BoolResult
 		err = common.ErrPerm
 		if canAccess(tag) {
 			if configErr == nil {
-				results.Results[i].Result = config.AutomaticallyRetryHooks()
+				// Right now the only real configurable value is ShouldRetry,
+				// which is taken from the environment
+				// The rest are hardcoded
+				results.Results[i].Result = &params.HookRetryStrategy{
+					ShouldRetry:     config.AutomaticallyRetryHooks(),
+					MinRetryTime:    5 * time.Second,
+					MaxRetryTime:    5 * time.Minute,
+					JitterRetryTime: true,
+					RetryTimeFactor: 2,
+				}
 				err = nil
 			} else {
 				err = configErr
@@ -1315,6 +1327,8 @@ func (u *UniterAPIV3) HookRetryStrategy(args params.Entities) (params.BoolResult
 	return results, nil
 }
 
+// WatchHookRetryStrategy watches for changes to the environment. Currently we only allow
+// changes to the boolean that determines whether hooks should be retried or not.
 func (u *UniterAPIV3) WatchHookRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -1346,6 +1360,7 @@ func (u *UniterAPIV3) WatchHookRetryStrategy(args params.Entities) (params.Notif
 	}
 	return results, nil
 }
+
 func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }

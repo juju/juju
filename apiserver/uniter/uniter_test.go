@@ -2210,7 +2210,7 @@ func (s *uniterSuite) setHookRetryStrategy(c *gc.C, automaticallyRetryHooks bool
 	c.Assert(envConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
 }
 
-func (s *uniterSuite) testHookRetryStrategy(c *gc.C, expected bool) {
+func (s *uniterSuite) testHookRetryStrategy(c *gc.C, expected params.HookRetryStrategy) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -2218,22 +2218,34 @@ func (s *uniterSuite) testHookRetryStrategy(c *gc.C, expected bool) {
 	}}
 	result, err := s.uniter.HookRetryStrategy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
+	c.Assert(result, jc.DeepEquals, params.HookRetryStrategyResults{
+		Results: []params.HookRetryStrategyResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: expected},
+			{Result: &expected},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
 
 func (s *uniterSuite) TestHookRetryStrategyDefault(c *gc.C) {
-	s.testHookRetryStrategy(c, true)
+	s.testHookRetryStrategy(c, params.HookRetryStrategy{
+		ShouldRetry:     true,
+		MinRetryTime:    5 * time.Second,
+		MaxRetryTime:    5 * time.Minute,
+		JitterRetryTime: true,
+		RetryTimeFactor: 2,
+	})
 }
 
 func (s *uniterSuite) TestHookRetryStrategySetFalse(c *gc.C) {
 	s.setHookRetryStrategy(c, false)
-	s.testHookRetryStrategy(c, false)
+	s.testHookRetryStrategy(c, params.HookRetryStrategy{
+		ShouldRetry:     false,
+		MinRetryTime:    5 * time.Second,
+		MaxRetryTime:    5 * time.Minute,
+		JitterRetryTime: true,
+		RetryTimeFactor: 2,
+	})
 }
 
 func (s *uniterSuite) TestWatchHookRetryStrategy(c *gc.C) {

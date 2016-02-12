@@ -641,3 +641,24 @@ type SingularClaim struct {
 type SingularClaims struct {
 	Claims []SingularClaim `json:"Claims"`
 }
+
+// HookRetryStrategy holds the necessary information to configure hook retries.
+type HookRetryStrategy struct {
+	ShouldRetry     bool
+	MinRetryTime    time.Duration
+	MaxRetryTime    time.Duration
+	JitterRetryTime bool
+	RetryTimeFactor int
+}
+
+// HookRetryStrategyResult holds a HookRetryStrategy or an error.
+type HookRetryStrategyResult struct {
+	Error  *Error
+	Result *HookRetryStrategy
+}
+
+// HookRetryStrategyResults holds the bulk operation result of an API call
+// that returns a HookRetryStrategy or an error.
+type HookRetryStrategyResults struct {
+	Results []HookRetryStrategyResult
+}
