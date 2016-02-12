@@ -15,7 +15,6 @@ from mock import (
 from jujupy import (
     EnvJujuClient,
     JujuData,
-    SimpleEnvironment,
     )
 from run_deployer import (
     apply_condition,

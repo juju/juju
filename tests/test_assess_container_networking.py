@@ -9,6 +9,7 @@ from mock import (
 
 from jujupy import (
     EnvJujuClient,
+    JujuData,
     SimpleEnvironment,
     Status,
 )
@@ -151,7 +152,7 @@ class JujuMock:
 class TestContainerNetworking(TestCase):
     def setUp(self):
         self.client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
 
         self.juju_mock = JujuMock()
         self.ssh_mock = Mock()
