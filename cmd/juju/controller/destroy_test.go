@@ -30,7 +30,7 @@ type DestroySuite struct {
 var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	api       *fakeDestroyAPI
 	clientapi *fakeDestroyAPIClient
 	store     configstore.Storage
@@ -113,7 +113,7 @@ func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 }
 
 func (s *baseDestroySuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{

@@ -260,11 +260,12 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 	}
 	// Deploy the service.
 	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
-		charmURL:    ch,
-		serviceName: p.Service,
-		configYAML:  configYAML,
-		constraints: cons,
-		storage:     storageConstraints,
+		charmURL:      ch,
+		serviceName:   p.Service,
+		configYAML:    configYAML,
+		constraints:   cons,
+		storage:       storageConstraints,
+		spaceBindings: p.EndpointBindings,
 	}); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
 		return nil
@@ -280,19 +281,19 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 	}
 	// Update service configuration.
 	if configYAML != "" {
-		if err := h.serviceClient.ServiceUpdate(params.ServiceUpdate{
+		if err := h.serviceClient.Update(params.ServiceUpdate{
 			ServiceName:  p.Service,
 			SettingsYAML: configYAML,
 		}); err != nil {
 			// This should never happen as possible errors are already returned
-			// by the ServiceDeploy call above.
+			// by the service Deploy call above.
 			return errors.Annotatef(err, "cannot update options for service %q", p.Service)
 		}
 		h.log.Infof("configuration updated for service %s", p.Service)
 	}
 	// Update service constraints.
 	if p.Constraints != "" {
-		if err := h.serviceClient.SetServiceConstraints(p.Service, cons); err != nil {
+		if err := h.serviceClient.SetConstraints(p.Service, cons); err != nil {
 			// This should never happen, as the bundle is already verified.
 			return errors.Annotatef(err, "cannot update constraints for service %q", p.Service)
 		}
@@ -431,7 +432,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		}
 		placementArg = append(placementArg, placement)
 	}
-	r, err := h.serviceClient.AddServiceUnits(service, 1, placementArg)
+	r, err := h.serviceClient.AddUnits(service, 1, placementArg)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add unit for service %q", service)
 	}
@@ -456,7 +457,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 // exposeService exposes a service.
 func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) error {
 	service := resolve(p.Service, h.results)
-	if err := h.serviceClient.ServiceExpose(service); err != nil {
+	if err := h.serviceClient.Expose(service); err != nil {
 		return errors.Annotatef(err, "cannot expose service %s", service)
 	}
 	h.log.Infof("service %s exposed", service)
@@ -675,7 +676,7 @@ func resolve(placeholder string, results map[string]string) string {
 // This function returns an error if the existing charm and the target one are
 // incompatible, meaning an upgrade from one to the other is not allowed.
 func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id string) error {
-	existing, err := client.ServiceGetCharmURL(service)
+	existing, err := client.GetCharmURL(service)
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve info for service %q", service)
 	}
@@ -690,7 +691,7 @@ func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id s
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
-	if err := client.ServiceSetCharm(service, id, false, false); err != nil {
+	if err := client.SetCharm(service, id, false, false); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)

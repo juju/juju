@@ -203,26 +203,25 @@ func (f *fakeRunCommand) createTempDir() (string, error) {
 	return "/fake/temp/dir", nil
 }
 
-func (f *fakeRunCommand) startService(string) error {
+func (f *fakeRunCommand) startService() error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.StartService"})
 	return nil
 }
-func (f *fakeRunCommand) stopService(string) error {
+func (f *fakeRunCommand) stopService() error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.StopService"})
 	return nil
 }
-func (f *fakeRunCommand) reStartService(string) error {
+func (f *fakeRunCommand) reStartService() error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.ReStartService"})
 	return nil
 }
-func (f *fakeRunCommand) reStartServiceFail(string) error {
+func (f *fakeRunCommand) reStartServiceFail() error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.ReStartServiceFail"})
 	return errors.New("failing restart")
 }
-func (f *fakeRunCommand) ensureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version mongo.Version, auth bool) error {
+func (f *fakeRunCommand) ensureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version mongo.Version, auth bool) error {
 	ran := []string{"mongo.EnsureServiceInstalled",
 		dataDir,
-		namespace,
 		strconv.Itoa(statePort),
 		strconv.Itoa(oplogSizeMB),
 		strconv.FormatBool(setNumaControlPolicy),
@@ -374,7 +373,6 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
-		namespace:      "",
 		configFilePath: testAgentConfig,
 		tmpDir:         "/fake/temp/dir",
 
@@ -415,16 +413,15 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "2.6/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "2.6/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartService"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.0/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 	}
-
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
 	c.Assert(session.ranClose, gc.Equals, 2)
 	c.Assert(db.ranAction, gc.Equals, "authSchemaUpgrade")
@@ -448,7 +445,6 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
-		namespace:      "",
 		configFilePath: testAgentConfig,
 		tmpDir:         "/fake/temp/dir",
 
@@ -490,7 +486,7 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", tempDir, "", "69", "0", "false", "2.6/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", tempDir, "69", "0", "false", "2.6/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartServiceFail"},
@@ -523,7 +519,6 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
-		namespace:      "",
 		configFilePath: testAgentConfig,
 		tmpDir:         "/fake/temp/dir",
 
@@ -557,7 +552,7 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"SatisfyPrerequisites"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "", "69", "0", "false", "3.0/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.0/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 	}
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)

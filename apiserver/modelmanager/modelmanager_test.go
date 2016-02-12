@@ -20,7 +20,6 @@ import (
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/joyent"
-	_ "github.com/juju/juju/provider/local"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
@@ -152,11 +151,6 @@ func (s *modelManagerSuite) TestRestrictedProviderFields(c *gc.C) {
 			provider: "joyent",
 			expected: []string{
 				"type", "ca-cert", "state-port", "api-port"},
-		}, {
-			provider: "local",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port",
-				"container", "network-bridge", "root-dir", "proxy-ssh"},
 		}, {
 			provider: "maas",
 			expected: []string{

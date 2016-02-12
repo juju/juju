@@ -113,7 +113,7 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 }
 
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI, false)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	err = worker.Stop(updater)
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +154,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI, true)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -169,7 +169,7 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI, true)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
@@ -194,7 +194,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 
 	proxySettings, _ := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI, true)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
@@ -208,17 +208,4 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 	assertEnv("https_proxy", proxySettings.Https)
 	assertEnv("ftp_proxy", proxySettings.Ftp)
 	assertEnv("no_proxy", proxySettings.NoProxy)
-}
-
-func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
-	proxySettings, _ := s.updateConfig(c)
-
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI, false)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(updater)
-	s.waitForPostSetup(c)
-
-	s.waitProxySettings(c, proxySettings)
-	c.Assert(pacconfig.AptProxyConfigFile, jc.DoesNotExist)
-	c.Assert(s.proxyFile, jc.DoesNotExist)
 }

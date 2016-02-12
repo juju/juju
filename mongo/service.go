@@ -19,7 +19,7 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
-	serviceName    = "juju-db"
+	ServiceName    = "juju-db"
 	serviceTimeout = 300 // 5 minutes
 
 	// SharedSecretFile is the name of the Mongo shared secret file
@@ -71,50 +71,17 @@ var discoverService = func(name string) (mongoService, error) {
 // configuration is present.
 var IsServiceInstalled = isServiceInstalled
 
-func isServiceInstalled(namespace string) (bool, error) {
-	svc, err := discoverService(ServiceName(namespace))
+func isServiceInstalled() (bool, error) {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	return svc.Installed()
 }
 
-// StopService will stop mongodb service.
-func StopService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return svc.Stop()
-}
-
-// StartService will start mongodb service.
-func StartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return svc.Start()
-}
-
-// ReStartService will stop and then start mongodb service.
-func ReStartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := svc.Stop(); err != nil {
-		return errors.Trace(err)
-	}
-	if err := svc.Start(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // RemoveService removes the mongoDB init service from this machine.
-func RemoveService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func RemoveService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,13 +94,37 @@ func RemoveService(namespace string) error {
 	return nil
 }
 
-// ServiceName returns the name of the init service config for mongo using
-// the given namespace.
-func ServiceName(namespace string) string {
-	if namespace != "" {
-		return fmt.Sprintf("%s-%s", serviceName, namespace)
+// StopService will stop mongodb service.
+func StopService() error {
+	svc, err := discoverService(ServiceName)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return serviceName
+	return svc.Stop()
+}
+
+// StartService will start mongodb service.
+func StartService() error {
+	svc, err := discoverService(ServiceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return svc.Start()
+}
+
+// ReStartService will stop and then start mongodb service.
+func ReStartService() error {
+	svc, err := discoverService(ServiceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Stop(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Start(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func sslKeyPath(dataDir string) string {
@@ -199,7 +190,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 
 // EnsureServiceInstalled is a convenience method to [re]create
 // the mongo service.
-func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version Version, auth bool) error {
+func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version Version, auth bool) error {
 	mongoPath, err := Path(version)
 	if err != nil {
 		return errors.Annotate(err, "cannot get mongo path")
@@ -215,7 +206,7 @@ func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB in
 	}
 
 	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy, version, auth)
-	svc, err := newService(ServiceName(namespace), svcConf)
+	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -55,5 +55,5 @@ func (c *unexposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.ServiceUnexpose(c.ServiceName), block.BlockChange)
+	return block.ProcessBlockedError(client.Unexpose(c.ServiceName), block.BlockChange)
 }

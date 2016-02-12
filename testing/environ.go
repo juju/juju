@@ -122,43 +122,43 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
-// FakeJujuHomeSuite isolates the user's home directory and
+// FakeJujuXDGDataHomeSuite isolates the user's home directory and
 // sets up a Juju home with a sample environment and certificate.
-type FakeJujuHomeSuite struct {
+type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
 	gitjujutesting.FakeHomeSuite
-	oldJujuHome string
+	oldJujuXDGDataHome string
 }
 
-func (s *FakeJujuHomeSuite) SetUpSuite(c *gc.C) {
+func (s *FakeJujuXDGDataHomeSuite) SetUpSuite(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
 }
 
-func (s *FakeJujuHomeSuite) TearDownSuite(c *gc.C) {
+func (s *FakeJujuXDGDataHomeSuite) TearDownSuite(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 }
 
-func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
+func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
-	jujuHome := gitjujutesting.HomePath(".juju")
-	err := os.Mkdir(jujuHome, 0700)
+	jujuXDGDataHome := gitjujutesting.JujuXDGDataHomePath()
+	err := os.MkdirAll(jujuXDGDataHome, 0700)
 	c.Assert(err, jc.ErrorIsNil)
-	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
+	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
 }
 
-func (s *FakeJujuHomeSuite) TearDownTest(c *gc.C) {
-	osenv.SetJujuHome(s.oldJujuHome)
+func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
+	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.FakeHomeSuite.TearDownTest(c)
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered.
-func (s *FakeJujuHomeSuite) AssertConfigParameterUpdated(c *gc.C, key, value string) {
+func (s *FakeJujuXDGDataHomeSuite) AssertConfigParameterUpdated(c *gc.C, key, value string) {
 	s.PatchEnvironment(key, value)
 }
 
@@ -170,13 +170,13 @@ func MakeSampleJujuHome(c *gc.C) {
 // WriteEnvironments creates an environments file with envConfig and certs
 // from certNames.
 func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
-	envs := osenv.JujuHomePath("environments.yaml")
+	envs := osenv.JujuXDGDataHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, name := range certNames {
-		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
+		err := ioutil.WriteFile(osenv.JujuXDGDataHomePath(name+"-cert.pem"), []byte(CACert), 0600)
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
+		err = ioutil.WriteFile(osenv.JujuXDGDataHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
