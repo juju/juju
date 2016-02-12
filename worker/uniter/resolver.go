@@ -46,7 +46,6 @@ func (s *uniterResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	if remoteState.Life == params.Dead || localState.Stopped {
 		return nil, resolver.ErrTerminate
 	}
@@ -151,7 +150,7 @@ func (s *uniterResolver) nextOpConflicted(
 		if *localState.CharmURL != *remoteState.CharmURL {
 			logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
 		} else {
-			logger.Debugf("Charm modified from revision %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
+			logger.Debugf("charm modified from revision %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
 		}
 		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
@@ -257,7 +256,6 @@ func (s *uniterResolver) nextOp(
 	}
 
 	if localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 

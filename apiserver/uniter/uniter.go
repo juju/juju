@@ -584,7 +584,7 @@ func (u *uniterBaseAPI) charmModifiedVersion(tagStr string, canAccess func(names
 	if err != nil {
 		return -1, common.ErrPerm
 	}
-	if canAccess(tag) {
+	if !canAccess(tag) {
 		return -1, common.ErrPerm
 	}
 	unitOrService, err := u.st.FindEntity(tag)
