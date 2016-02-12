@@ -161,6 +161,26 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	})
 }
 
+func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
+	f := &fakeDeployer{State: s.State}
+
+	_, err := juju.DeployService(f,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			EndpointBindings: map[string]string{
+				"":   "public",
+				"db": "db",
+			},
+			Resources: map[string]string{"foo": "bar"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+}
+
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{

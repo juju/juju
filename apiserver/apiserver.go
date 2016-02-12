@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -354,6 +355,12 @@ func (srv *Server) run() {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
+	handleAll(mux, "/model/:modeluuid"+resourceapi.HTTPEndpointPattern,
+		newResourceHandler(httpCtxt),
+	)
+	handleAll(mux, "/model/:modeluuid/units/:unit/resources/:resource",
+		newUnitResourceHandler(httpCtxt),
+	)
 	handleAll(mux, "/model/:modeluuid/logsink",
 		newLogSinkHandler(httpCtxt, srv.logDir))
 	handleAll(mux, "/model/:modeluuid/log",
