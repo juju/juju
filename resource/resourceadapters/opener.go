@@ -45,9 +45,7 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 }
 
 func (ro resourceOpener) newCSOps(cURL *charm.URL) (charmstore.Operations, error) {
-	deps := &charmstoreOpener{
-	//...
-	}
+	deps := newCharmstoreOpener(cURL)
 	cache := &charmstoreEntityCache{
 		st:        ro.st,
 		userID:    ro.userID,
