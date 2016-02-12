@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync/atomic"
 
 	"github.com/juju/names"
