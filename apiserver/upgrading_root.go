@@ -4,8 +4,6 @@
 package apiserver
 
 import (
-	"errors"
-
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/rpc"
@@ -21,8 +19,6 @@ type upgradingRoot struct {
 func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
 	return &upgradingRoot{finder}
 }
-
-var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
 	"FullStatus",     // for "juju status"
@@ -47,7 +43,7 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 		return nil, err
 	}
 	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
-		return nil, inUpgradeError
+		return nil, UpgradeInProgressError
 	}
 	return caller, nil
 }

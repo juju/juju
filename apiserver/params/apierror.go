@@ -90,8 +90,7 @@ const (
 // the given error, or the empty string if there
 // is none.
 func ErrCode(err error) string {
-	err = errors.Cause(err)
-	if err, _ := err.(rpc.ErrorCoder); err != nil {
+	if err, ok := errors.Cause(err).(rpc.ErrorCoder); ok {
 		return err.ErrorCode()
 	}
 	return ""

@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/version"
 )
 
@@ -301,15 +303,18 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
 	})
+	logger.Debugf("finished Bootstrap: %v", err)
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 	err = c.SetBootstrapEndpointAddress(environ)
+	logger.Debugf("finished SetBootstapEndpointAddress: %v", err)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
 	err = modelcmd.SetCurrentModel(ctx, envName)
+	logger.Debugf("finished SetCurrentModel: %v", err)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -330,7 +335,7 @@ var (
 func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return apiblock.NewClient(root), nil
 }
@@ -339,6 +344,7 @@ func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
+	logger.Debugf("waiting for agent initalisation")
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
@@ -356,26 +362,31 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		}
 		_, err = client.List()
 		client.Close()
-		if err == nil {
+		switch errors.Cause(err) {
+		case nil:
 			ctx.Infof("Bootstrap complete")
 			return nil
-		}
-		// As the API server is coming up, it goes through a number of steps.
-		// Initially the upgrade steps run, but the api server allows some
-		// calls to be processed during the upgrade, but not the list blocks.
-		// It is also possible that the underlying database causes connections
-		// to be dropped as it is initialising, or reconfiguring. These can
-		// lead to EOF or "connection is shut down" error messages. We skip
-		// these too, hoping that things come back up before the end of the
-		// retry poll count.
-		errorMessage := err.Error()
-		if strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error()) ||
-			strings.HasSuffix(errorMessage, "EOF") ||
-			strings.HasSuffix(errorMessage, "connection is shut down") {
-			ctx.Infof("Waiting for API to become available")
+		case io.EOF, rpc.ErrShutdown:
+			// It is possible that the underlying database causes connections
+			// to be dropped as it is initialising, or reconfiguring. These can
+			// lead to EOF or "connection is shut down" error messages. We skip
+			// these too, hoping that things come back up before the end of the
+			// retry poll count.
+			ctx.Infof("Waiting for API to become available: %v", err)
 			continue
 		}
-		return err
+		switch err := errors.Cause(err).(type) {
+		case *rpc.RequestError:
+			if err.Code == params.CodeUpgradeInProgress {
+				// As the API server is coming up, it goes through a number of steps.
+				// Initially the upgrade steps run, but the api server allows some
+				// calls to be processed during the upgrade, but not the list blocks.
+				continue
+			}
+		default:
+			logger.Debugf("unknown error during bootstrap: %T %#v\n%s", err, err, errors.ErrorStack(err))
+		}
+		break
 	}
 	return err
 }
