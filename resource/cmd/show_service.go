@@ -33,7 +33,7 @@ type ShowServiceDeps struct {
 type ShowServiceCommand struct {
 	modelcmd.ModelCommandBase
 
-	Details bool
+	details bool
 	deps    ShowServiceDeps
 	out     cmd.Output
 	target  string
@@ -67,7 +67,7 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":      cmd.FormatJson,
 	})
 
-	f.BoolVar(&c.Details, "details", false, "show detailed information about resources used by each unit.")
+	f.BoolVar(&c.details, "details", false, "show detailed information about resources used by each unit.")
 }
 
 // Init implements cmd.Command.Init. It will return an error satisfying
@@ -118,7 +118,7 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
-	if c.Details {
+	if c.details {
 		formatted, err := detailedResources("", sr)
 		if err != nil {
 			return errors.Trace(err)
@@ -136,7 +136,7 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
-	if c.Details {
+	if c.details {
 		formatted, err := detailedResources(unit, sr)
 		if err != nil {
 			return errors.Trace(err)
