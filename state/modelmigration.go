@@ -288,6 +288,9 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 	if err := spec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := checkTargetController(st, spec.TargetInfo.ControllerTag); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	now := GetClock().Now().UnixNano()
 	modelUUID := st.ModelUUID()
@@ -357,6 +360,17 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 		statusDoc: statusDoc,
 		st:        st,
 	}, nil
+}
+
+func checkTargetController(st *State, targetControllerTag names.ModelTag) error {
+	currentController, err := st.ControllerModel()
+	if err != nil {
+		return errors.Annotate(err, "failed to load existing controller model")
+	}
+	if targetControllerTag == currentController.ModelTag() {
+		return errors.New("model already attached to target controller")
+	}
+	return nil
 }
 
 // GetModelMigration returns the most recent ModelMigration for a
