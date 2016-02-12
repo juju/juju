@@ -14,6 +14,7 @@ from mock import (
 
 from jujupy import (
     EnvJujuClient,
+    JujuData,
     SimpleEnvironment,
     )
 from run_deployer import (
@@ -75,7 +76,7 @@ class TestMain(tests.FakeHomeTestCase):
 
     def test_basic_args(self):
         args = ['bundles', 'an-env', '/bin/juju', 'logs', 'deployer-env']
-        env = SimpleEnvironment('an-env')
+        env = JujuData('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
         with patch('jujupy.SimpleEnvironment.from_config',
                    return_value=env) as e_mock:
