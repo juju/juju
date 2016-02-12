@@ -59,8 +59,12 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 func init() {
+	dummyProvider, err := environs.Provider("dummy")
+	if err != nil {
+		panic(err)
+	}
 	environs.RegisterProvider("no-cloud-region-detection", noCloudRegionDetectionProvider{})
-	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{})
+	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
 }
 
@@ -813,9 +817,22 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegionDetection(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
-	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "no-cloud-regions")
-	c.Assert(err, gc.ErrorMatches, `detecting regions for "no-cloud-regions" cloud provider: regions not found`)
+	ctx, err := coretesting.RunCommand(
+		c, newBootstrapCommand(), "ctrl", "no-cloud-regions",
+		"--config", "default-series=precise",
+	)
+	c.Check(coretesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
+	resetJujuXDGDataHome(c)
+	ctx, err := coretesting.RunCommand(
+		c, newBootstrapCommand(), "ctrl", "dummy-cloud-without-regions",
+		"--config", "default-series=precise",
+	)
+	c.Check(coretesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on dummy-cloud-without-regions(.|\n)*")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
@@ -913,6 +930,8 @@ clouds:
         regions:
             region-1:
             region-2:
+    dummy-cloud-without-regions:
+        type: dummy
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
