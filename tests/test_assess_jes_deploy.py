@@ -31,7 +31,7 @@ class TestJES(unittest.TestCase):
         client = self.client_class(
             SimpleEnvironment.from_config('baz'),
             '1.25-foobar', 'path')
-        client._use_jes = True
+        client.enable_feature('jes')
         return client
 
     @patch('assess_jes_deploy.get_random_string', autospec=True)
@@ -131,7 +131,7 @@ class TestJES(unittest.TestCase):
             by_version_func):
         env = SimpleEnvironment('env', {'type': 'any'})
         old_client = EnvJujuClient25(env, None, '/a/path')
-        old_client._use_jes = True
+        old_client.enable_feature('jes')
         new_client = make_hosted_env_client(old_client, 'test')
 
         self.assertEqual(by_version_func.call_count, 0)
@@ -139,7 +139,7 @@ class TestJES(unittest.TestCase):
         self.assertEqual(new_client.env.config, {'type': 'any'})
         self.assertEqual(new_client.full_path, '/a/path')
         self.assertIs(new_client.debug, False)
-        self.assertIs(new_client._use_jes, True)
+        self.assertIn('jes', new_client.feature_flags)
 
     @patch('assess_jes_deploy.EnvJujuClient.by_version')
     def test_make_hosted_env_client_jes_by_default(
@@ -149,7 +149,7 @@ class TestJES(unittest.TestCase):
         env = SimpleEnvironment('env', {'type': 'any'})
         old_client = EnvJujuClient(env, None, '/a/path')
         new_client = make_hosted_env_client(old_client, 'test')
-        self.assertIs(False, hasattr(new_client, '_use_jes'))
+        self.assertNotIn('jes', new_client.feature_flags)
 
 
 class TestHostedEnvironment(unittest.TestCase):

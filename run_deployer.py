@@ -33,6 +33,8 @@ def parse_args(argv=None):
     parser.add_argument('bundle_path',
                         help='URL or path to a bundle')
     add_basic_testing_arguments(parser)
+    parser.add_argument('--allow-native-deploy', action='store_true',
+                        help='Let juju 2 use native bundle deploying.')
     parser.add_argument('--bundle-name', default=None,
                         help='Name of the bundle to deploy.')
     parser.add_argument('--health-cmd', default=None,
@@ -42,7 +44,10 @@ def parse_args(argv=None):
                         help='unit_name:<conditions>'
                         ' One or more of the following conditions to apply'
                         ' to the given unit_name: clock_skew.')
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.allow_native_deploy and args.bundle_name:
+        parser.error('cannot supply bundle name with native juju deploying')
+    return args
 
 
 def check_health(cmd_path, env_name='', environ=None):
@@ -90,7 +95,10 @@ def apply_condition(client, condition):
 
 def assess_deployer(args, client):
     """Run juju-deployer, based on command line configuration values."""
-    client.deployer(args.bundle_path, args.bundle_name)
+    if args.allow_native_deploy:
+        client.deploy_bundle(args.bundle_path)
+    else:
+        client.deployer(args.bundle_path, args.bundle_name)
     client.wait_for_workloads()
     if args.health_cmd:
         environ = client._shell_environ()

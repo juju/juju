@@ -422,14 +422,13 @@ class TestMain(FakeHomeTestCase):
 
     def test_bootstrap_required(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        client = Mock(spec=["bootstrap", "enable_container_address_allocation",
-                            "is_jes_enabled"])
+        client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
         with patch("assess_container_networking.assess_container_networking",
                    autospec=True) as mock_assess:
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.DEBUG):
                     ret = jcnet.main(argv)
-        client.enable_container_address_allocation.assert_called_once_with()
+        client.enable_feature.assert_called_once_with('address-allocation')
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
@@ -439,9 +438,8 @@ class TestMain(FakeHomeTestCase):
     def test_clean_existing_env(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
-        client = Mock(spec=["enable_container_address_allocation", "env",
-                            "get_status", "is_jes_enabled", "wait_for",
-                            "wait_for_started"])
+        client = Mock(spec=["enable_feature", "env", "get_status",
+                            "is_jes_enabled", "wait_for", "wait_for_started"])
         client.get_status.return_value = Status.from_text("""
             machines:
                 "0":
@@ -452,7 +450,7 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
-        client.enable_container_address_allocation.assert_called_once_with()
+        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.env.environment, "an-env-mod")
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 0)
@@ -462,9 +460,8 @@ class TestMain(FakeHomeTestCase):
     def test_clean_missing_env(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
-        client = Mock(spec=["bootstrap", "enable_container_address_allocation",
-                            "env", "get_status", "is_jes_enabled", "wait_for",
-                            "wait_for_started"])
+        client = Mock(spec=["bootstrap", "enable_feature", "env", "get_status",
+                            "is_jes_enabled", "wait_for", "wait_for_started"])
         client.get_status.side_effect = [
             Exception("Timeout"),
             Status.from_text("""
@@ -478,7 +475,7 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
-        client.enable_container_address_allocation.assert_called_once_with()
+        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.env.environment, "an-env-mod")
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual(
@@ -491,9 +488,8 @@ class TestMain(FakeHomeTestCase):
     def test_final_clean_fails(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
-        client = Mock(spec=["enable_container_address_allocation", "env",
-                            "get_status", "is_jes_enabled", "wait_for",
-                            "wait_for_started"])
+        client = Mock(spec=["enable_feature", "env", "get_status",
+                            "is_jes_enabled", "wait_for", "wait_for_started"])
         client.get_status.side_effect = [
             Status.from_text("""
                 machines:
@@ -507,7 +503,7 @@ class TestMain(FakeHomeTestCase):
             with self.patch_bootstrap_manager() as mock_bc:
                 with self.patch_main(argv, client, logging.INFO):
                     ret = jcnet.main(argv)
-        client.enable_container_address_allocation.assert_called_once_with()
+        client.enable_feature.assert_called_once_with('address-allocation')
         self.assertEqual(client.env.environment, "an-env-mod")
         self.assertEqual(
             "INFO Could not clean existing env: Timeout\n",

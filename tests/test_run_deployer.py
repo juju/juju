@@ -39,6 +39,7 @@ class TestParseArgs(tests.TestCase):
         self.assertEqual(args.juju_bin, 'new/bin/juju')
         self.assertEqual(args.logs, '/tmp/logs')
         self.assertEqual(args.temp_env_name, 'test_job')
+        self.assertEqual(args.allow_native_deploy, False)
         self.assertEqual(args.bundle_name, None)
         self.assertEqual(args.health_cmd, None)
         self.assertEqual(args.keep_env, False)
@@ -49,6 +50,25 @@ class TestParseArgs(tests.TestCase):
         self.assertEqual(args.verbose, logging.INFO)
         self.assertEqual(args.upgrade, False)
         self.assertEqual(args.upgrade_condition, None)
+
+    def test_allow_native_bundle(self):
+        args = parse_args(['./bundle/path', 'an_env', './juju', './logs',
+                           'temp_env', '--allow-native-deploy'])
+        self.assertEqual(args.bundle_path, './bundle/path')
+        self.assertEqual(args.env, 'an_env')
+        self.assertEqual(args.juju_bin, './juju')
+        self.assertEqual(args.logs, './logs')
+        self.assertEqual(args.temp_env_name, 'temp_env')
+        self.assertEqual(args.allow_native_deploy, True)
+
+    def test_native_bundle_no_name(self):
+        with tests.parse_error(self) as stderr:
+            parse_args(['./bundle/path', 'an_env', './juju', './logs',
+                        'temp_env', '--allow-native-deploy',
+                        '--bundle-name', 'specific_bundle'])
+        self.assertRegexpMatches(
+            stderr.getvalue(),
+            'error: cannot supply bundle name with native juju deploying$')
 
 
 class TestMain(tests.FakeHomeTestCase):
@@ -71,12 +91,24 @@ class TestMain(tests.FakeHomeTestCase):
 
 class TestAssessDeployer(tests.TestCase):
 
+    @staticmethod
+    def make_args(temp_env_name='foo', env='bar', series=None, agent_url=None,
+                  agent_stream=None, juju_bin='', logs=None, keep_env=False,
+                  health_cmd=None, debug=False, bundle_path='bundle.yaml',
+                  bundle_name='bu', verbose=logging.INFO, region=None,
+                  upgrade=False, upgrade_condition=None,
+                  allow_native_deploy=False):
+        return Namespace(
+            temp_env_name=temp_env_name, env=env, series=series,
+            agent_url=agent_url, agent_stream=agent_stream, juju_bin=juju_bin,
+            logs=logs, keep_env=keep_env, health_cmd=health_cmd, debug=debug,
+            bundle_path=bundle_path, bundle_name=bundle_name, verbose=verbose,
+            region=region, upgrade=upgrade,
+            allow_native_deploy=allow_native_deploy,
+            upgrade_condition=upgrade_condition)
+
     def test_health(self):
-        args = Namespace(
-            temp_env_name='foo', env='bar', series=None, agent_url=None,
-            agent_stream=None, juju_bin='', logs=None, keep_env=False,
-            health_cmd='/tmp/check', debug=False, bundle_path='bundle.yaml',
-            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=False)
+        args = self.make_args(health_cmd='/tmp/check')
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.check_health', autospec=True) as ch_mock:
             assess_deployer(args, client_mock)
@@ -86,12 +118,7 @@ class TestAssessDeployer(tests.TestCase):
         ch_mock.assert_called_once_with('/tmp/check', 'foo', environ)
 
     def test_upgrade(self):
-        args = Namespace(
-            temp_env_name='foo', env='bar', series=None, agent_url=None,
-            agent_stream=None, juju_bin='new/juju', logs=None, keep_env=False,
-            health_cmd=None, debug=False, bundle_path='bundle.yaml',
-            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True,
-            upgrade_condition=[])
+        args = self.make_args(juju_bin='new/juju', upgrade=True)
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             assess_deployer(args, client_mock)
@@ -102,12 +129,8 @@ class TestAssessDeployer(tests.TestCase):
             client_mock.wait_for_workloads.call_args_list, [call()] * 2)
 
     def test_upgrade_and_health(self):
-        args = Namespace(
-            temp_env_name='foo', env='bar', series=None, agent_url=None,
-            agent_stream=None, juju_bin='new/juju', logs=None, keep_env=False,
-            health_cmd='/tmp/check', debug=False, bundle_path='bundle.yaml',
-            bundle_name='bu', verbose=logging.INFO, region=None, upgrade=True,
-            upgrade_condition=[])
+        args = self.make_args(health_cmd='/tmp/check', juju_bin='new/juju',
+                              upgrade=True)
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             with patch('run_deployer.check_health', autospec=True) as ch_mock:
@@ -124,10 +147,8 @@ class TestAssessDeployer(tests.TestCase):
     @patch('run_deployer.SimpleEnvironment.from_config')
     @patch('run_deployer.boot_context', autospec=True)
     def test_run_deployer_upgrade(self, *args):
-        args = Namespace(
-            env='foo', juju_bin='baz/juju', logs=None, temp_env_name='foo_t',
-            bundle_path='bundle.yaml', bundle_name='bundle',
-            health_cmd=None, debug=False, upgrade=True,
+        args = self.make_args(
+            juju_bin='baz/juju', upgrade=True,
             upgrade_condition=['bla/0:clock_skew', 'foo/1:fill_disk'])
         client = FakeJujuClient()
         with patch('run_deployer.EnvJujuClient.by_version',
@@ -141,6 +162,13 @@ class TestAssessDeployer(tests.TestCase):
             [call(client, 'bla/0:clock_skew'),
              call(client, 'foo/1:fill_disk')])
         au_mock.assert_called_once_with(client, 'baz/juju')
+
+    def test_allow_native_deploy(self):
+        args = self.make_args(allow_native_deploy=True)
+        client_mock = Mock(spec=EnvJujuClient)
+        assess_deployer(args, client_mock)
+        client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
+        client_mock.wait_for_workloads.assert_called_once_with()
 
 
 class FakeRemote():

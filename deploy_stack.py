@@ -107,10 +107,11 @@ GET_TOKEN_SCRIPT = """
           sleep 1
         done
         cat /var/run/dummy-sink/token
+        sleep 2
     """
 
 
-def check_token(client, token):
+def check_token(client, token, timeout=120):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
@@ -124,11 +125,22 @@ def check_token(client, token):
             result = remote.cat("%ProgramData%\\dummy-sink\\token")
         else:
             result = remote.run(GET_TOKEN_SCRIPT)
-        result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
+        token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
+        result = token_pattern.match(result).group(1)
         if result == token:
             logging.info("Token matches expected %r", result)
             return
-        if time.time() - start > 120:
+        if time.time() - start > timeout:
+            if not remote.is_windows() and remote.use_juju_ssh:
+                # 'juju ssh' didn't error, but try raw ssh to verify
+                # the result is the same.
+                remote.get_address()
+                remote.use_juju_ssh = False
+                result = remote.run(GET_TOKEN_SCRIPT)
+                result = token_pattern.match(result).group(1)
+                if result == token:
+                    logging.info("Token matches expected %r", result)
+                    logging.error("juju ssh to unit is broken.")
             raise ValueError('Token is %r' % result)
         logging.info("Found token %r expected %r", result, token)
         time.sleep(5)
