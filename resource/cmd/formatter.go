@@ -5,10 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
+	"github.com/juju/names"
 )
 
 type charmResourcesFormatter struct {
@@ -73,6 +77,23 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	}
 }
 
+// FormatDetailResource converts the arguments into a FormattedServiceResource.
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (FormattedDetailResource, error) {
+	// note that the unit resource can be a zero value here, to indicate that
+	// the unit has not downloaded that resource yet.
+
+	unitNum, err := unitNum(tag)
+	if err != nil {
+		return FormattedDetailResource{}, errors.Trace(err)
+	}
+	return FormattedDetailResource{
+		UnitID:     tag.Id(),
+		unitNumber: unitNum,
+		Unit:       FormatSvcResource(unit),
+		Expected:   FormatSvcResource(svc),
+	}, nil
+}
+
 func combinedRevision(r resource.Resource) string {
 	switch r.Origin {
 	case charmresource.OriginStore:
@@ -100,4 +121,16 @@ func usedYesNo(used bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+func unitNum(unit names.UnitTag) (int, error) {
+	vals := strings.SplitN(unit.Id(), "/", 2)
+	if len(vals) != 2 {
+		return 0, errors.Errorf("%q is not a valid unit ID", unit.Id())
+	}
+	num, err := strconv.Atoi(vals[1])
+	if err != nil {
+		return 0, errors.Annotatef(err, "%q is not a valid unit ID", unit.Id())
+	}
+	return num, nil
 }
