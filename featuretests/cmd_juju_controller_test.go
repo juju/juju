@@ -5,8 +5,6 @@ package featuretests
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -71,33 +68,6 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 		"dummymodel  dummy-admin@local  just now\n"+
 		"new-model   dummy-admin@local  never connected\n"+
 		"\n")
-}
-
-func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoModelUser: true,
-		Password:    "super-secret",
-	})
-	apiInfo := s.APIInfo(c)
-	serverFile := modelcmd.ServerFile{
-		Addresses: apiInfo.Addrs,
-		CACert:    apiInfo.CACert,
-		Username:  user.Name(),
-		Password:  "super-secret",
-	}
-	serverFilePath := filepath.Join(c.MkDir(), "server.yaml")
-	content, err := goyaml.Marshal(serverFile)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(serverFilePath, []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.run(c, "login", "--server", serverFilePath, "just-a-controller")
-
-	// Make sure that the saved server details are sufficient to connect
-	// to the api server.
-	api, err := juju.NewAPIFromName("just-a-controller", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	api.Close()
 }
 
 func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
