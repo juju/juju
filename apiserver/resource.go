@@ -6,7 +6,6 @@
 package apiserver
 
 import (
-	"io"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -18,10 +17,33 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type resourcesHandlerDeps struct {
+	httpCtxt httpContext
+}
+
+func (deps resourcesHandlerDeps) ConnectForUser(req *http.Request) (*state.State, state.Entity, error) {
+	return deps.httpCtxt.stateForRequestAuthenticatedUser(req)
+}
+
+func (deps resourcesHandlerDeps) ConnectForUnitAgent(req *http.Request) (*state.State, *state.Unit, error) {
+	st, ent, err := deps.httpCtxt.stateForRequestAuthenticatedAgent(req)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	unit, ok := ent.(*state.Unit)
+	if !ok {
+		logger.Criticalf("unexpected type: %T", ent)
+		return nil, nil, errors.Errorf("unexpected type: %T", ent)
+	}
+	return st, unit, nil
+}
+
 func newResourceHandler(httpCtxt httpContext) http.Handler {
+	deps := resourcesHandlerDeps{httpCtxt}
 	return server.NewLegacyHTTPHandler(
 		func(req *http.Request) (server.DataStore, names.Tag, error) {
-			st, entity, err := httpCtxt.stateForRequestAuthenticatedUser(req)
+			st, entity, err := deps.ConnectForUser(req)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -35,60 +57,9 @@ func newResourceHandler(httpCtxt httpContext) http.Handler {
 }
 
 func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
-	extraDeps := &unitResourcesDeps{httpCtxt: httpCtxt}
-	deps := internalserver.NewLegacyHTTPHandlerDeps(extraDeps, extraDeps)
+	extractor := resourceadapters.APIHTTPRequestExtractor{
+		Deps: &resourcesHandlerDeps{httpCtxt},
+	}
+	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
 	return internalserver.NewLegacyHTTPHandler(deps)
-}
-
-type unitResourcesDeps struct {
-	httpCtxt httpContext
-}
-
-func (unitResourcesDeps) NewCharmstoreClient() (internalserver.CharmstoreClient, error) {
-	// TODO(ericsnow) finish
-	return nil, errors.NotImplementedf("")
-}
-
-func (deps unitResourcesDeps) Connect(req *http.Request) (internalserver.UnitDataStore, error) {
-	st, ent, err := deps.httpCtxt.stateForRequestAuthenticatedAgent(req)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	resources, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unit, ok := ent.(resource.Unit)
-	if !ok {
-		logger.Criticalf("unexpected type: %T", ent)
-		return nil, errors.Errorf("unexpected type: %T", ent)
-	}
-
-	st2 := &resourceUnitState{
-		unit:  unit,
-		state: resources,
-	}
-	return st2, nil
-}
-
-// resourceUnitState is an implementation of resource/api/private/server.UnitDataStore.
-type resourceUnitState struct {
-	state state.Resources
-	unit  resource.Unit
-}
-
-// ListResources implements resource/api/private/server.UnitDataStore.
-func (s *resourceUnitState) ListResources() (resource.ServiceResources, error) {
-	return s.state.ListResources(s.unit.ServiceName())
-}
-
-// GetResource implements resource/api/private/server.UnitDataStore.
-func (s *resourceUnitState) GetResource(name string) (resource.Resource, error) {
-	return s.state.GetResource(s.unit.ServiceName(), name)
-}
-
-// OpenResource implements resource/api/private/server.UnitDataStore.
-func (s *resourceUnitState) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return s.state.OpenResource(s.unit, name)
 }
