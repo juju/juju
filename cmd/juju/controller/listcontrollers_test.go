@@ -33,9 +33,9 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.createMemClientStore(c)
 	s.assertListControllers(c, `
 CONTROLLER       MODEL  USER  SERVER
-abc                           
-controller.name               
-test1                         
+abc
+controller.name
+test1
 
 `[1:])
 }
@@ -68,7 +68,7 @@ func (s *ListControllersSuite) TestListControllersAccessStoreErr(c *gc.C) {
 
 func (s *ListControllersSuite) TestListControllersReadFromStoreErr(c *gc.C) {
 	msg := "fail getting all controllers"
-	s.store = &mockStore{msg}
+	s.store = jujuclienttesting.StubStore{msg}
 	s.assertListControllersFailed(c, fmt.Sprintf("failed to list controllers in jujuclient store: %v", msg))
 }
 
@@ -79,13 +79,11 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedArg(c *gc.C) {
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedFlag(c *gc.C) {
 	s.createMemClientStore(c)
-	// m (model) is not a valid flag for this command \o/
 	s.assertListControllersFailed(c, `flag provided but not defined: -m`, "-m", "my.world")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C) {
 	s.createMemClientStore(c)
-	// model is not a valid option flag for this command \o/
 	s.assertListControllersFailed(c, `flag provided but not defined: --model`, "--model", "still.my.world")
 }
 
@@ -132,28 +130,4 @@ func (s *ListControllersSuite) createMemClientStore(c *gc.C) {
 			})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-}
-
-type mockStore struct {
-	msg string
-}
-
-// AllControllers implements ControllersGetter.AllControllers
-func (c *mockStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
-	return nil, errors.New(c.msg)
-}
-
-// ControllerByName implements ControllersGetter.ControllerByName
-func (c *mockStore) ControllerByName(name string) (*jujuclient.ControllerDetails, error) {
-	panic("not for test")
-}
-
-// UpdateController implements ControllersUpdater.UpdateController
-func (c *mockStore) UpdateController(name string, one jujuclient.ControllerDetails) error {
-	panic("not for test")
-}
-
-// RemoveController implements ControllersRemover.RemoveController
-func (c *mockStore) RemoveController(name string) error {
-	panic("not for test")
 }
