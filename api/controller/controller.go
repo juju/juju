@@ -145,6 +145,30 @@ type ModelMigrationSpec struct {
 	TargetPassword       string
 }
 
+// Validate performs sanity checks on the migration configuration it
+// holds.
+func (s *ModelMigrationSpec) Validate() error {
+	if !names.IsValidModel(s.ModelUUID) {
+		return errors.NotValidf("model UUID")
+	}
+	if !names.IsValidModel(s.TargetControllerUUID) {
+		return errors.NotValidf("controller UUID")
+	}
+	if len(s.TargetAddrs) < 1 {
+		return errors.NotValidf("empty target API addresses")
+	}
+	if s.TargetCACert == "" {
+		return errors.NotValidf("empty target CA cert")
+	}
+	if !names.IsValidUser(s.TargetUser) {
+		return errors.NotValidf("target user")
+	}
+	if s.TargetPassword == "" {
+		return errors.NotValidf("empty target password")
+	}
+	return nil
+}
+
 // InitiateModelMigration attempts to start a migration for the
 // specified model, returning the migration's ID.
 //
@@ -152,6 +176,9 @@ type ModelMigrationSpec struct {
 // but we don't need that at the client side yet (and may never) so
 // this call just supports starting one migration at a time.
 func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error) {
+	if err := spec.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
 	args := params.InitiateModelMigrationArgs{
 		Specs: []params.ModelMigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
