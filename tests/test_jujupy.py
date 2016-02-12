@@ -2591,12 +2591,13 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_get_juju_output_stderr(self):
         env = SimpleEnvironment('foo')
-        fake_popen = FakePopen(None, 'Hello!', 1)
+        fake_popen = FakePopen('Hello', 'Error!', 1)
         client = EnvJujuClient1X(env, None, None)
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
-        self.assertEqual(exc.exception.stderr, 'Hello!')
+        self.assertEqual(exc.exception.output, 'Hello')
+        self.assertEqual(exc.exception.stderr, 'Error!')
 
     def test_get_juju_output_accepts_timeout(self):
         env = SimpleEnvironment('foo')

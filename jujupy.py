@@ -438,7 +438,7 @@ class EnvJujuClient:
             if proc.returncode != 0:
                 log.debug(sub_error)
                 e = subprocess.CalledProcessError(
-                    proc.returncode, args[0], sub_error)
+                    proc.returncode, args[0], sub_output)
                 e.stderr = sub_error
                 if (
                     'Unable to connect to environment' in sub_error or
