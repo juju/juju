@@ -14,6 +14,7 @@ from assess_log_rotation import (
 )
 from jujupy import (
     EnvJujuClient,
+    JujuData,
     _temp_env as temp_env,
     yaml_loads,
     )
@@ -181,7 +182,8 @@ class TestMakeClientFromArgs(TestCase):
                                autospec=True, return_value=''):
                         with patch('assess_log_rotation.tear_down',
                                    autospec=True, return_value='') as td_func:
-                            yield td_func
+                            with patch.object(JujuData, 'load_yaml'):
+                                yield td_func
 
     def test_defaults(self):
         with self.make_client_cxt() as td_func:
