@@ -27,13 +27,13 @@ func TestPackage(t *stdtesting.T) {
 var _ = gc.Suite(&datasourceSuite{})
 
 type datasourceSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	stor    storage.Storage
 	baseURL string
 }
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)

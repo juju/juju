@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -63,7 +64,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
-	if err = juju.InitJujuHome(); err != nil {
+	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
@@ -83,7 +84,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Name:                "juju",
 		Doc:                 jujuDoc,
 		MissingCallback:     RunPlugin,
-		UserAliasesFilename: osenv.JujuHomePath("aliases"),
+		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
 	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
@@ -158,6 +159,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
+	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())

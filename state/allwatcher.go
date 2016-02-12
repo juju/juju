@@ -140,7 +140,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
-		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
+		Addresses:                network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses)),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,
 		HasVote:                  m.HasVote,

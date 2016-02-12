@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/juju/names"
@@ -182,4 +183,9 @@ func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
 func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 	r := TestingApiRoot(st)
 	return newAboutToRestoreRoot(r)
+}
+
+// Addr returns the address that the server is listening on.
+func (srv *Server) Addr() *net.TCPAddr {
+	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }

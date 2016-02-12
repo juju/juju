@@ -7,4 +7,4 @@
 package testing_test
 
 var home = "/home/eric"
-var jujuHome = "/home/eric"
+var jujuXDGDataHome = "/home/eric"

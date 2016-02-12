@@ -59,7 +59,7 @@ func (c *removeUnitCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *removeUnitCommand) getAPI() (ServiceRemoveAPI, error) {
+func (c *removeUnitCommand) getAPI() (ServiceAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

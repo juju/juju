@@ -18,13 +18,13 @@ import (
 )
 
 type SwitchSimpleSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
 func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuXDGDataHomePath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
@@ -38,7 +38,7 @@ func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
 		c.Skip("bug 1496997: os.Chmod doesn't exist on windows, checking this on one platform is sufficent to test this case")
 	}
 
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuXDGDataHomePath("environments.yaml")
 	err := os.Chmod(envPath, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addTestController(c)
@@ -53,7 +53,7 @@ func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.JujuXDGDataHomePath("environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, newSwitchCommand())
@@ -93,7 +93,7 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentModel(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-model", "fubar"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{"./local/share/juju/current-model", "fubar"})
 	os.Setenv("JUJU_MODEL", "using-model")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)

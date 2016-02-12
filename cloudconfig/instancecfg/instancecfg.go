@@ -399,9 +399,13 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(series.HostSeries()))
 
+// DefaultBridgePrefix is the prefix for all network bridge device
+// name used for LXC and KVM containers.
+const DefaultBridgePrefix = "br-"
+
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
-const DefaultBridgeName = "juju-br0"
+const DefaultBridgeName = DefaultBridgePrefix + "eth0"
 
 // NewInstanceConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
