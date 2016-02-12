@@ -1726,6 +1726,23 @@ func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
 }
 
+func (s *ConfigSuite) TestAutoHookRetryDefault(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
+}
+
+func (s *ConfigSuite) TestAutoHookRetryFalseEnv(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{
+		"automatically-retry-hooks": "false"})
+	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, false)
+}
+
+func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{
+		"automatically-retry-hooks": "true"})
+	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
+}
+
 func (s *ConfigSuite) TestCloudImageBaseURL(c *gc.C) {
 	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{})

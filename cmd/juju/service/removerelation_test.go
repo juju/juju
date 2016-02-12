@@ -4,11 +4,13 @@
 package service
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/common"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
@@ -51,11 +53,17 @@ func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
 
 	// Destroy a relation that used to exist.
 	err = runRemoveRelation(c, "riak", "logging")
-	c.Assert(err, gc.ErrorMatches, `relation "logging:info riak:juju-info" not found`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `relation "logging:info riak:juju-info" not found`,
+		Code:    "not found",
+	})
 
 	// Invalid removes.
 	err = runRemoveRelation(c, "ping", "pong")
-	c.Assert(err, gc.ErrorMatches, `service "ping" not found`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `service "ping" not found`,
+		Code:    "not found",
+	})
 	err = runRemoveRelation(c, "riak")
 	c.Assert(err, gc.ErrorMatches, `a relation must involve two services`)
 }
