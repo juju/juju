@@ -12,7 +12,10 @@ from itertools import chain
 import logging
 import os
 import re
-from shutil import rmtree
+from shutil import (
+    copy2,
+    rmtree,
+    )
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -358,6 +361,57 @@ class EnvJujuClient:
                 pause(30)
                 self.juju('add-machine', ('ssh:' + machine,))
 
+    def find_matching_maas(self, endpoint):
+        with open(os.path.join(self.env.juju_home, 'clouds.yaml')) as f:
+            cly = yaml.load(f)
+        for cloud, cloud_config in cly['clouds'].items():
+            if cloud_config['type'] != 'maas':
+                continue
+            if cloud_config['endpoint'] == endpoint:
+                return cloud
+        raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def find_matching_openstack(self, endpoint):
+        with open(os.path.join(self.env.juju_home, 'clouds.yaml')) as f:
+            cly = yaml.load(f)
+        for cloud, cloud_config in cly['clouds'].items():
+            if cloud_config['type'] != 'openstack':
+                continue
+            if cloud_config['endpoint'] == endpoint:
+                return cloud
+        raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def get_cloud_region(self):
+        provider = self.env.config['type']
+        cloud = {
+            'ec2': 'aws',
+            'gce': 'google',
+        }.get(provider, provider)
+        if provider == 'azure':
+            region = self._azure_regions[self.env.config['location']]
+        elif provider == 'rackspace':
+            region = self._rackspace_regions[self.env.config['region']]
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            region = matcher.match(self.env.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            region = 'localhost'
+        elif provider == 'maas':
+            cloud = self.find_matching_maas(self.env.config['maas-server'])
+            region = None
+        elif provider == 'openstack':
+            cloud = self.find_matching_openstack(self.env.config['auth-url'])
+            region = self.env.config['region']
+        else:
+            region = self.env.config['region']
+        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
+        # Model CLI specification
+        if cloud == 'aws' and region == 'cn-north-1':
+            cloud = 'aws-china'
+        if region is None:
+            return cloud
+        return '{}/{}'.format(cloud, region)
+
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
@@ -368,25 +422,7 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        substrate = self.env.config['type']
-        cloud = {
-            'ec2': 'aws',
-            'gce': 'google',
-        }.get(substrate, substrate)
-        if substrate == 'azure':
-            region = self._azure_regions[self.env.config['location']]
-        elif substrate == 'rackspace':
-            region = self._rackspace_regions[self.env.config['region']]
-        elif substrate == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            region = matcher.match(self.env.config['sdc-url']).group(1)
-        else:
-            region = self.env.config['region']
-        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
-        # Model CLI specification
-        if cloud == 'aws' and region == 'cn-north-1':
-            cloud = 'aws-china'
-        cloud_region = '{}/{}'.format(cloud, region)
+        cloud_region = self.get_cloud_region()
         args = ['--constraints', constraints, self.env.environment,
                 cloud_region, '--config', config_filename]
         if upload_tools:
@@ -413,11 +449,11 @@ class EnvJujuClient:
             'region', 'name', 'private-key', 'type', 'access-key',
             'secret-key', 'subscription-id',
             'application-id', 'application-password', 'location', 'tenant-id',
-            'password', 'tenant-name', 'username',
+            'password', 'tenant-name', 'username', 'maas-server',
+            'maas-oauth', 'control-bucket',
             })
         with temp_yaml_file(config_dict) as config_filename:
-            import shutil
-            shutil.copy2(config_filename, config_path)
+            copy2(config_filename, config_path)
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
             self.juju('bootstrap', args, include_e=False)
@@ -1416,9 +1452,9 @@ def make_jes_home(juju_home, dir_name, config):
         rmtree(home_path)
     os.makedirs(home_path)
     dump_environments_yaml(home_path, config)
-    import shutil
-    shutil.copy2(os.path.join(juju_home, 'credentials.yaml'),
-                 os.path.join(home_path, 'credentials.yaml'))
+    for filename in ['credentials.yaml', 'clouds.yaml']:
+        copy2(os.path.join(juju_home, filename),
+              os.path.join(home_path, filename))
     yield home_path
 
 
