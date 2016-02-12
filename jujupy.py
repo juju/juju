@@ -336,7 +336,8 @@ class EnvJujuClient:
 
     @staticmethod
     def _get_env(env):
-        if isinstance(env, SimpleEnvironment):
+        if not isinstance(env, JujuData) and isinstance(env,
+                                                        SimpleEnvironment):
             env = JujuData.from_env(env)
         return env
 
@@ -419,7 +420,7 @@ class EnvJujuClient:
             return matcher.match(self.env.config['sdc-url']).group(1)
         elif provider == 'lxd':
             return 'localhost'
-        elif provider == 'maas':
+        elif provider in ('maas', 'manual'):
             return None
         else:
             return self.env.config['region']
@@ -453,8 +454,8 @@ class EnvJujuClient:
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
-        """Bootstrap a controller."""
+    @contextmanager
+    def _bootstrap_config(self):
         config_path = os.path.join(self.env.juju_home, 'config.yaml')
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
@@ -467,18 +468,24 @@ class EnvJujuClient:
             'maas-oauth', 'control-bucket',
             })
         with temp_yaml_file(config_dict) as config_filename:
-            copy2(config_filename, config_path)
+            yield config_filename
+
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
+        with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
-    def bootstrap_async(self, upload_tools=False):
-        args = self.get_bootstrap_args(upload_tools)
-        with self.juju_async('bootstrap', args):
-            yield
-            log.info('Waiting for bootstrap of {}.'.format(
-                self.env.environment))
+    def bootstrap_async(self, upload_tools=False, bootstrap_series=None):
+        with self._bootstrap_config() as config_filename:
+            args = self.get_bootstrap_args(
+                upload_tools, config_filename, bootstrap_series)
+            with self.juju_async('bootstrap', args):
+                yield
+                log.info('Waiting for bootstrap of {}.'.format(
+                    self.env.environment))
 
     def create_environment(self, controller_client, config_file):
         self.juju('create-model', (
@@ -1009,6 +1016,14 @@ class EnvJujuClient2A2(EnvJujuClient):
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
+    @contextmanager
+    def bootstrap_async(self, upload_tools=False):
+        args = self.get_bootstrap_args(upload_tools)
+        with self.juju_async('bootstrap', args):
+            yield
+            log.info('Waiting for bootstrap of {}.'.format(
+                self.env.environment))
+
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
@@ -1447,9 +1462,6 @@ def make_jes_home(juju_home, dir_name, config):
         rmtree(home_path)
     os.makedirs(home_path)
     dump_environments_yaml(home_path, config)
-    for filename in ['credentials.yaml', 'clouds.yaml']:
-        copy2(os.path.join(juju_home, filename),
-              os.path.join(home_path, filename))
     yield home_path
 
 
