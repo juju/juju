@@ -63,6 +63,7 @@ from jujupy import (
     tear_down,
     temp_bootstrap_env,
     _temp_env as temp_env,
+    temp_yaml_file,
     uniquify_local,
     UpgradeMongoNotSupported,
 )
@@ -406,6 +407,14 @@ class CloudSigmaTest:
             'asdf')
         env = client._shell_environ()
         self.assertEqual(env['JUJU_HOME'], 'asdf')
+
+
+class TestTempYamlFile(TestCase):
+
+    def test_temp_yaml_file(self):
+        with temp_yaml_file({'foo': 'bar'}) as yaml_file:
+            with open(yaml_file) as f:
+                self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
 
 
 class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
