@@ -4639,6 +4639,15 @@ class TestSimpleEnvironment(TestCase):
         env = SimpleEnvironment('foo', juju_home='baz')
         self.assertEqual('baz', env.juju_home)
 
+    def test_dump_yaml(self):
+        env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
+        with temp_dir() as path:
+            env.dump_yaml(path, {'foo': 'bar'})
+            self.assertItemsEqual(
+                ['environments.yaml'], os.listdir(path))
+            with open(os.path.join(path, 'environments.yaml')) as f:
+                self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
+
 
 class TestJujuData(TestCase):
 
@@ -4726,6 +4735,32 @@ class TestJujuData(TestCase):
     def test_get_region_manual(self):
         self.assertIs(None, JujuData('foo', {
             'type': 'manual', 'region': 'bar'}, 'home').get_region())
+
+    def test_dump_yaml(self):
+        cloud_dict = {'clouds': {'foo': {}}}
+        credential_dict = {'credential': {'bar': {}}}
+        data = JujuData('baz', {'type': 'qux'}, 'home')
+        data.clouds = dict(cloud_dict)
+        data.credentials = dict(credential_dict)
+        with temp_dir() as path:
+            data.dump_yaml(path, {})
+            self.assertItemsEqual(
+                ['clouds.yaml', 'credentials.yaml'], os.listdir(path))
+            with open(os.path.join(path, 'clouds.yaml')) as f:
+                self.assertEqual(cloud_dict, yaml.safe_load(f))
+            with open(os.path.join(path, 'credentials.yaml')) as f:
+                self.assertEqual(credential_dict, yaml.safe_load(f))
+
+    def test_load_yaml(self):
+        cloud_dict = {'clouds': {'foo': {}}}
+        credential_dict = {'credential': {'bar': {}}}
+        with temp_dir() as path:
+            with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
+                yaml.safe_dump(cloud_dict, f)
+            with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
+                yaml.safe_dump(credential_dict, f)
+            data = JujuData('baz', {'type': 'qux'}, path)
+            data.load_yaml()
 
 
 class TestGroupReporter(TestCase):

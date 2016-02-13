@@ -1683,11 +1683,11 @@ class SimpleEnvironment:
         if os.path.exists(home_path):
             rmtree(home_path)
         os.makedirs(home_path)
-        self.dump_files(juju_home, home_path, new_config)
+        self.dump_yaml(home_path, new_config)
         yield home_path
 
-    def dump_files(self, juju_home, home_path, config):
-        dump_environments_yaml(home_path, config)
+    def dump_yaml(self, path, config):
+        dump_environments_yaml(path, config)
 
 
 class JujuData(SimpleEnvironment):
@@ -1717,10 +1717,10 @@ class JujuData(SimpleEnvironment):
         juju_data.load_yaml()
         return juju_data
 
-    def dump_files(self, juju_home, home_path, config):
-        with open(os.path.join(home_path, 'credentials.yaml'), 'w') as f:
+    def dump_yaml(self, path, config):
+        with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
-        with open(os.path.join(home_path, 'clouds.yaml'), 'w') as f:
+        with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
             yaml.safe_dump(self.clouds, f)
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
