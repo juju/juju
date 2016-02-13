@@ -335,6 +335,7 @@ class EnvJujuClient:
     def _get_env(env):
         if not isinstance(env, JujuData) and isinstance(env,
                                                         SimpleEnvironment):
+            # FIXME: JujuData should be used from the start.
             env = JujuData.from_env(env)
         return env
 
@@ -994,8 +995,11 @@ class EnvJujuClient:
 class EnvJujuClient2A2(EnvJujuClient):
     """Drives Juju 2.0-alpha2 clients."""
 
-    @staticmethod
-    def _get_env(env):
+    @classmethod
+    def _get_env(cls, env):
+        if isinstance(env, JujuData):
+            raise ValueError(
+                'JujuData cannot be used with {}'.format(cls.__name__))
         return env
 
     def _shell_environ(self):

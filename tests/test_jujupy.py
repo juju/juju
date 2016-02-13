@@ -704,6 +704,16 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, '1.25', 'full_path')
         self.assertIs(env, client.env)
 
+    def test_convert_to_juju_data(self):
+        env = SimpleEnvironment('foo', {'type': 'bar'}, 'baz')
+        with patch.object(JujuData, 'load_yaml') as ly_mock:
+            client = EnvJujuClient(env, '1.25', 'full_path')
+            client.env.load_yaml.assert_called_once_with()
+        self.assertIsInstance(client.env, JujuData)
+        self.assertEqual(client.env.environment, 'foo')
+        self.assertEqual(client.env.config, {'type': 'bar'})
+        self.assertEqual(client.env.juju_home, 'baz')
+
     def test_get_version(self):
         value = ' 5.6 \n'
         with patch('subprocess.check_output', return_value=value) as vsn:
@@ -2227,6 +2237,12 @@ class TestEnvJujuClient(ClientTest):
 
 
 class TestEnvJujuClient2A2(TestCase):
+
+    def test_raise_on_juju_data(self):
+        env = JujuData('foo', {'type': 'bar'}, 'baz')
+        with self.assertRaisesRegexp(ValueError,
+                'JujuData cannot be used with EnvJujuClient2A2'):
+            client = EnvJujuClient2A2(env, '1.25', 'full_path')
 
     def test__shell_environ_juju_home(self):
         client = EnvJujuClient2A2(
