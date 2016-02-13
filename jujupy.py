@@ -1434,16 +1434,6 @@ def get_cache_path(juju_home, models=False):
     return os.path.join(root, 'cache.yaml')
 
 
-@contextmanager
-def make_jes_home(juju_home, dir_name, config):
-    home_path = jes_home_path(juju_home, dir_name)
-    if os.path.exists(home_path):
-        rmtree(home_path)
-    os.makedirs(home_path)
-    dump_environments_yaml(home_path, config)
-    yield home_path
-
-
 def make_safe_config(client):
     config = dict(client.env.config)
     if 'agent-version' in client.bootstrap_replaces:

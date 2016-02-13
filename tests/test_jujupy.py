@@ -54,7 +54,6 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
     make_client,
-    make_jes_home,
     make_safe_config,
     parse_new_state_server_from_error,
     SimpleEnvironment,
@@ -959,6 +958,12 @@ class TestEnvJujuClient(ClientTest):
                     'test-mode': True,
                     'tools-metadata-url': 'steve',
                     }, yaml.safe_load(f))
+
+    def test_get_cloud_region(self):
+        self.assertEqual(
+            'foo/bar', EnvJujuClient.get_cloud_region('foo', 'bar'))
+        self.assertEqual(
+            'foo', EnvJujuClient.get_cloud_region('foo', None))
 
     def test_bootstrap_maas(self):
         env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
@@ -3940,28 +3945,6 @@ class TestGetCachePath(TestCase):
         self.assertEqual(path, '/home/jrandom/foo/models/cache.yaml')
 
 
-class TestMakeJESHome(TestCase):
-
-    def test_make_jes_home(self):
-        with temp_dir() as juju_home:
-            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
-                pass
-            with open(get_environments_path(jes_home)) as env_file:
-                env = yaml.safe_load(env_file)
-        self.assertEqual(env, {'baz': 'qux'})
-        self.assertEqual(jes_home, jes_home_path(juju_home, 'bar'))
-
-    def test_clean_existing(self):
-        with temp_dir() as juju_home:
-            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
-                foo_path = os.path.join(jes_home, 'foo')
-                with open(foo_path, 'w') as foo:
-                    foo.write('foo')
-                self.assertTrue(os.path.isfile(foo_path))
-            with make_jes_home(juju_home, 'bar', {'baz': 'qux'}) as jes_home:
-                self.assertFalse(os.path.exists(foo_path))
-
-
 def stub_bootstrap(client):
     jenv_path = get_jenv_path(client.env.juju_home, 'qux')
     os.mkdir(os.path.dirname(jenv_path))
@@ -4703,6 +4686,29 @@ class TestSimpleEnvironment(TestCase):
         self.assertIs(None, env.juju_home)
         env = SimpleEnvironment('foo', juju_home='baz')
         self.assertEqual('baz', env.juju_home)
+
+    def test_make_jes_home(self):
+        with temp_dir() as juju_home:
+            with SimpleEnvironment('foo').make_jes_home(
+                    juju_home, 'bar', {'baz': 'qux'}) as jes_home:
+                pass
+            with open(get_environments_path(jes_home)) as env_file:
+                env = yaml.safe_load(env_file)
+        self.assertEqual(env, {'baz': 'qux'})
+        self.assertEqual(jes_home, jes_home_path(juju_home, 'bar'))
+
+    def test_make_jes_home_clean_existing(self):
+        env = SimpleEnvironment('foo')
+        with temp_dir() as juju_home:
+            with env.make_jes_home(juju_home, 'bar',
+                                   {'baz': 'qux'}) as jes_home:
+                foo_path = os.path.join(jes_home, 'foo')
+                with open(foo_path, 'w') as foo:
+                    foo.write('foo')
+                self.assertTrue(os.path.isfile(foo_path))
+            with env.make_jes_home(juju_home, 'bar',
+                                   {'baz': 'qux'}) as jes_home:
+                self.assertFalse(os.path.exists(foo_path))
 
     def test_dump_yaml(self):
         env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
