@@ -74,7 +74,7 @@ clouds:
 func (s *addSuite) TestAddBadFilename(c *gc.C) {
 	addCmd := cloud.NewAddCloudCommand()
 	_, err := testing.RunCommand(c, addCmd, "cloud", "somefile.yaml")
-	c.Assert(err, gc.ErrorMatches, "open somefile.yaml: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "open somefile.yaml: .*")
 }
 
 func (s *addSuite) TestAddBadCloudName(c *gc.C) {
