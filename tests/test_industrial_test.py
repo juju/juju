@@ -50,6 +50,7 @@ from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
     get_timeout_prefix,
+    JujuData,
     SimpleEnvironment,
     Status,
     _temp_env,
@@ -65,6 +66,7 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
+    forced_temp_file,
     )
 from test_substrate import (
     get_aws_env,
@@ -79,6 +81,11 @@ from utility import (
 
 
 __metaclass__ = type
+
+
+def get_aws_juju_data():
+    aws_env = get_aws_env()
+    return JujuData(aws_env.environment, aws_env.config)
 
 
 class JujuPyTestCase(FakeHomeTestCase):
@@ -1147,7 +1154,8 @@ class FakeEnvJujuClient(EnvJujuClient):
 
     def __init__(self, name='steve'):
         super(FakeEnvJujuClient, self).__init__(
-            SimpleEnvironment(name, {'type': 'fake'}), '1.2', '/jbin/juju')
+            JujuData(name, {'type': 'fake', 'region': 'regionx'}),
+            '1.2', '/jbin/juju')
 
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):
@@ -1165,10 +1173,12 @@ class TestBootstrapAttempt(JujuPyTestCase):
         boot_iter = iter_steps_validate_info(self, bootstrap, client)
         self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         with patch('subprocess.Popen') as popen_mock:
-            self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
+            with forced_temp_file() as config_file:
+                self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         assert_juju_call(self, popen_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-m', 'steve',
-            '--constraints', 'mem=2G', '--agent-version', '1.2'))
+            'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+            'steve', 'fake/regionx', '--config', config_file.name,
+            '--agent-version', '1.2'))
         statuses = [
             {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
             {'machines': {'0': {'agent-state': 'started'}}, 'services': {}},
@@ -1765,11 +1775,13 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                              puj_iterator.next())
         with patch('subprocess.Popen') as po_mock:
-            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
-                             puj_iterator.next())
+            with forced_temp_file() as config_file:
+                self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                                 puj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (
-            'juju', '--show-log', 'bootstrap', '-m', 'steve', '--constraints',
-            'mem=2G', '--agent-version', 'foo'))
+            'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+            'steve', 'fake/regionx', '--config', config_file.name,
+            '--agent-version', 'foo'))
         po_mock.return_value.wait.return_value = 0
         self.assertEqual(puj_iterator.next(),
                          {'test_id': 'prepare-upgrade-juju'})
@@ -1913,18 +1925,18 @@ class TestMaybeWriteJson(TestCase):
 class TestMakeSubstrate(JujuPyTestCase):
 
     def test_make_substrate_manager_no_support(self):
-        client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
+        client = EnvJujuClient(JujuData('foo', {'type': 'foo'}),
                                '', '')
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(substrate, None)
 
     def test_make_substrate_no_requirements(self):
-        client = EnvJujuClient(get_aws_env(), '', '')
+        client = EnvJujuClient(get_aws_juju_data(), '', '')
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(type(substrate), AWSAccount)
 
     def test_make_substrate_manager_unsatisifed_requirements(self):
-        client = EnvJujuClient(get_aws_env(), '', '')
+        client = EnvJujuClient(get_aws_juju_data(), '', '')
         with make_substrate_manager(client, ['foo']) as substrate:
             self.assertIs(substrate, None)
         with make_substrate_manager(
@@ -1932,7 +1944,7 @@ class TestMakeSubstrate(JujuPyTestCase):
             self.assertIs(substrate, None)
 
     def test_make_substrate_satisfied_requirements(self):
-        client = EnvJujuClient(get_aws_env(), '', '')
+        client = EnvJujuClient(get_aws_juju_data(), '', '')
         with make_substrate_manager(
                 client, ['iter_security_groups']) as substrate:
             self.assertIs(type(substrate), AWSAccount)

@@ -13,6 +13,7 @@ from assess_jes_deploy import (
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient25,
+    JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
 )
@@ -146,9 +147,10 @@ class TestJES(unittest.TestCase):
             self,
             by_version_func):
 
-        env = SimpleEnvironment('env', {'type': 'any'})
+        env = JujuData('env', {'type': 'any'})
         old_client = EnvJujuClient(env, None, '/a/path')
-        new_client = make_hosted_env_client(old_client, 'test')
+        with patch.object(JujuData, 'load_yaml'):
+            new_client = make_hosted_env_client(old_client, 'test')
         self.assertNotIn('jes', new_client.feature_flags)
 
 

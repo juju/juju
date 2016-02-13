@@ -478,7 +478,7 @@ class EnvJujuClient:
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
-            with self.juju_async('bootstrap', args):
+            with self.juju_async('bootstrap', args, include_e=False):
                 yield
                 log.info('Waiting for bootstrap of {}.'.format(
                     self.env.environment))
