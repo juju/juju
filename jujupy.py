@@ -382,47 +382,6 @@ class EnvJujuClient:
                 pause(30)
                 self.juju('add-machine', ('ssh:' + machine,))
 
-    def find_endpoint_cloud(self, cloud_type, endpoint):
-        for cloud, cloud_config in self.env.clouds['clouds'].items():
-            if cloud_config['type'] != cloud_type:
-                continue
-            if cloud_config['endpoint'] == endpoint:
-                return cloud
-        raise LookupError('No such endpoint: {}'.format(endpoint))
-
-    def get_cloud(self):
-        provider = self.env.config['type']
-        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
-        # Model CLI specification
-        if provider == 'ec2' and self.env.config['region'] == 'cn-north-1':
-            return 'aws-china'
-        if provider not in ('maas', 'openstack'):
-            return {
-                'ec2': 'aws',
-                'gce': 'google',
-            }.get(provider, provider)
-        if provider == 'maas':
-            endpoint = self.env.config['maas-server']
-        elif provider == 'openstack':
-            endpoint = self.env.config['auth-url']
-        return self.find_endpoint_cloud(provider, endpoint)
-
-    def get_region(self):
-        provider = self.env.config['type']
-        if provider == 'azure':
-            if 'tenant-id' not in self.env.config:
-                raise ValueError('Non-ARM Azure not supported.')
-            return self.env.config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self.env.config['sdc-url']).group(1)
-        elif provider == 'lxd':
-            return 'localhost'
-        elif provider in ('maas', 'manual'):
-            return None
-        else:
-            return self.env.config['region']
-
     @staticmethod
     def get_cloud_region(cloud, region):
         if region is None:
@@ -439,8 +398,8 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        cloud_region = self.get_cloud_region(self.get_cloud(),
-                                             self.get_region())
+        cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                             self.env.get_region())
         args = ['--constraints', constraints, self.env.environment,
                 cloud_region, '--config', config_filename]
         if upload_tools:
@@ -1763,6 +1722,47 @@ class JujuData(SimpleEnvironment):
             yaml.safe_dump(self.credentials, f)
         with open(os.path.join(home_path, 'clouds.yaml'), 'w') as f:
             yaml.safe_dump(self.clouds, f)
+
+    def find_endpoint_cloud(self, cloud_type, endpoint):
+        for cloud, cloud_config in self.clouds['clouds'].items():
+            if cloud_config['type'] != cloud_type:
+                continue
+            if cloud_config['endpoint'] == endpoint:
+                return cloud
+        raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def get_cloud(self):
+        provider = self.config['type']
+        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
+        # Model CLI specification
+        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
+            return 'aws-china'
+        if provider not in ('maas', 'openstack'):
+            return {
+                'ec2': 'aws',
+                'gce': 'google',
+            }.get(provider, provider)
+        if provider == 'maas':
+            endpoint = self.config['maas-server']
+        elif provider == 'openstack':
+            endpoint = self.config['auth-url']
+        return self.find_endpoint_cloud(provider, endpoint)
+
+    def get_region(self):
+        provider = self.config['type']
+        if provider == 'azure':
+            if 'tenant-id' not in self.config:
+                raise ValueError('Non-ARM Azure not supported.')
+            return self.config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            return 'localhost'
+        elif provider in ('maas', 'manual'):
+            return None
+        else:
+            return self.config['region']
 
 
 class GroupReporter:

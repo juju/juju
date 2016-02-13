@@ -706,7 +706,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_convert_to_juju_data(self):
         env = SimpleEnvironment('foo', {'type': 'bar'}, 'baz')
-        with patch.object(JujuData, 'load_yaml') as ly_mock:
+        with patch.object(JujuData, 'load_yaml'):
             client = EnvJujuClient(env, '1.25', 'full_path')
             client.env.load_yaml.assert_called_once_with()
         self.assertIsInstance(client.env, JujuData)
@@ -2240,9 +2240,9 @@ class TestEnvJujuClient2A2(TestCase):
 
     def test_raise_on_juju_data(self):
         env = JujuData('foo', {'type': 'bar'}, 'baz')
-        with self.assertRaisesRegexp(ValueError,
-                'JujuData cannot be used with EnvJujuClient2A2'):
-            client = EnvJujuClient2A2(env, '1.25', 'full_path')
+        with self.assertRaisesRegexp(
+                ValueError, 'JujuData cannot be used with EnvJujuClient2A2'):
+            EnvJujuClient2A2(env, '1.25', 'full_path')
 
     def test__shell_environ_juju_home(self):
         client = EnvJujuClient2A2(
@@ -4638,6 +4638,94 @@ class TestSimpleEnvironment(TestCase):
         self.assertIs(None, env.juju_home)
         env = SimpleEnvironment('foo', juju_home='baz')
         self.assertEqual('baz', env.juju_home)
+
+
+class TestJujuData(TestCase):
+
+    def test_get_cloud_random_provider(self):
+        self.assertEqual(
+            'bar', JujuData('foo', {'type': 'bar'}, 'home').get_cloud())
+
+    def test_get_cloud_ec2(self):
+        self.assertEqual(
+            'aws', JujuData('foo', {'type': 'ec2', 'region': 'bar'},
+                            'home').get_cloud())
+        self.assertEqual(
+            'aws-china', JujuData('foo', {
+                'type': 'ec2', 'region': 'cn-north-1'
+                }, 'home').get_cloud())
+
+    def test_get_cloud_gce(self):
+        self.assertEqual(
+            'google', JujuData('foo', {'type': 'gce', 'region': 'bar'},
+                               'home').get_cloud())
+
+    def test_get_cloud_maas(self):
+        data = JujuData('foo', {'type': 'maas', 'maas-server': 'bar'}, 'home')
+        data.clouds = {'clouds': {
+            'baz': {'type': 'maas', 'endpoint': 'bar'},
+            'qux': {'type': 'maas', 'endpoint': 'qux'},
+            }}
+        self.assertEqual('baz', data.get_cloud())
+
+    def test_get_cloud_maas_wrong_type(self):
+        data = JujuData('foo', {'type': 'maas', 'maas-server': 'bar'}, 'home')
+        data.clouds = {'clouds': {
+            'baz': {'type': 'foo', 'endpoint': 'bar'},
+            }}
+        with self.assertRaisesRegexp(LookupError, 'No such endpoint: bar'):
+            self.assertEqual(data.get_cloud())
+
+    def test_get_cloud_openstack(self):
+        data = JujuData('foo', {'type': 'openstack', 'auth-url': 'bar'},
+                        'home')
+        data.clouds = {'clouds': {
+            'baz': {'type': 'openstack', 'endpoint': 'bar'},
+            'qux': {'type': 'openstack', 'endpoint': 'qux'},
+            }}
+        self.assertEqual('baz', data.get_cloud())
+
+    def test_get_cloud_openstack_wrong_type(self):
+        data = JujuData('foo', {'type': 'openstack', 'auth-url': 'bar'},
+                        'home')
+        data.clouds = {'clouds': {
+            'baz': {'type': 'maas', 'endpoint': 'bar'},
+            }}
+        with self.assertRaisesRegexp(LookupError, 'No such endpoint: bar'):
+            data.get_cloud()
+
+    def test_get_region(self):
+        self.assertEqual(
+            'bar', JujuData('foo', {'type': 'foo', 'region': 'bar'},
+                            'home').get_region())
+
+    def test_get_region_old_azure(self):
+        with self.assertRaisesRegexp(
+                ValueError, 'Non-ARM Azure not supported.'):
+            JujuData('foo', {'type': 'azure', 'location': 'bar'},
+                     'home').get_region()
+
+    def test_get_region_azure_arm(self):
+        self.assertEqual('bar', JujuData('foo', {
+            'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
+            'home').get_region())
+
+    def test_get_region_joyent(self):
+        self.assertEqual('bar', JujuData('foo', {
+            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
+            'home').get_region())
+
+    def test_get_region_lxd(self):
+        self.assertEqual('localhost', JujuData('foo', {'type': 'lxd'},
+                                               'home').get_region())
+
+    def test_get_region_maas(self):
+        self.assertIs(None, JujuData('foo', {'type': 'maas', 'region': 'bar'},
+                                     'home').get_region())
+
+    def test_get_region_manual(self):
+        self.assertIs(None, JujuData('foo', {
+            'type': 'manual', 'region': 'bar'}, 'home').get_region())
 
 
 class TestGroupReporter(TestCase):
