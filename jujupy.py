@@ -416,12 +416,32 @@ class EnvJujuClient:
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
         config_dict = dict((k, v) for k, v in config_dict.items() if k not in {
-            'sdc-url', 'sdc-key-id', 'sdc-user', 'manta-user', 'manta-key-id',
-            'region', 'name', 'private-key', 'type', 'access-key',
-            'secret-key', 'subscription-id',
-            'application-id', 'application-password', 'location', 'tenant-id',
-            'password', 'tenant-name', 'username', 'maas-server',
-            'maas-oauth', 'control-bucket',
+            'access-key',
+            'application-id',
+            'application-password',
+            'auth-url',
+            'client-email',
+            'client-id',
+            'control-bucket',
+            'location',
+            'maas-oauth',
+            'maas-server',
+            'manta-key-id',
+            'manta-user',
+            'name',
+            'password',
+            'private-key',
+            'region',
+            'sdc-key-id',
+            'sdc-url',
+            'sdc-user',
+            'secret-key',
+            'storage-account-name',
+            'subscription-id',
+            'tenant-id',
+            'tenant-name',
+            'type',
+            'username',
             })
         with temp_yaml_file(config_dict) as config_filename:
             yield config_filename

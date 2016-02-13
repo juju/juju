@@ -895,6 +895,71 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'action', 'bar', '-m', 'foo', 'baz', 'qux'),
             full)
 
+    def test__bootstrap_config(self):
+        env = JujuData('foo', {
+            'access-key': 'foo',
+            'admin-secret': 'foo',
+            'agent-metadata-url': 'frank',
+            'agent-stream': 'foo',
+            'application-id': 'foo',
+            'application-password': 'foo',
+            'auth-url': 'foo',
+            'authorized-keys': 'foo',
+            'availability-sets-enabled': 'foo',
+            'bootstrap-timeout': 'foo',
+            'bootstrap-user': 'foo',
+            'client-email': 'foo',
+            'client-id': 'foo',
+            'container': 'foo',
+            'control-bucket': 'foo',
+            'default-series': 'foo',
+            'development': False,
+            'enable-os-upgrade': 'foo',
+            'image-metadata-url': 'foo',
+            'location': 'foo',
+            'maas-oauth': 'foo',
+            'maas-server': 'foo',
+            'manta-key-id': 'foo',
+            'manta-user': 'foo',
+            'name': 'foo',
+            'password': 'foo',
+            'prefer-ipv6': 'foo',
+            'private-key': 'foo',
+            'region': 'foo',
+            'sdc-key-id': 'foo',
+            'sdc-url': 'foo',
+            'sdc-user': 'foo',
+            'secret-key': 'foo',
+            'storage-account-name': 'foo',
+            'subscription-id': 'foo',
+            'tenant-id': 'foo',
+            'tenant-name': 'foo',
+            'test-mode': False,
+            'tools-metadata-url': 'steve',
+            'type': 'foo',
+            'username': 'foo',
+            }, 'home')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        with client._bootstrap_config() as config_filename:
+            with open(config_filename) as f:
+                self.assertEqual({
+                    'admin-secret': 'foo',
+                    'agent-metadata-url': 'frank',
+                    'agent-stream': 'foo',
+                    'authorized-keys': 'foo',
+                    'availability-sets-enabled': 'foo',
+                    'bootstrap-timeout': 'foo',
+                    'bootstrap-user': 'foo',
+                    'container': 'foo',
+                    'default-series': 'foo',
+                    'development': False,
+                    'enable-os-upgrade': 'foo',
+                    'image-metadata-url': 'foo',
+                    'prefer-ipv6': 'foo',
+                    'test-mode': True,
+                    'tools-metadata-url': 'steve',
+                    }, yaml.safe_load(f))
+
     def test_bootstrap_maas(self):
         env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
         with patch.object(EnvJujuClient, 'juju') as mock:
