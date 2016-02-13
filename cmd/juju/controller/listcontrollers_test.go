@@ -6,6 +6,7 @@ package controller_test
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,117 +18,100 @@ import (
 )
 
 type ListControllersSuite struct {
-	store       jujuclient.ControllerStore
-	storeAccess func() (jujuclient.ControllerStore, error)
+	baseControllerSuite
 }
 
 var _ = gc.Suite(&ListControllersSuite{})
 
-func (s *ListControllersSuite) SetUpTest(c *gc.C) {
-	s.storeAccess = func() (jujuclient.ControllerStore, error) {
-		return s.store, nil
-	}
+func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
+	s.expectedOutput = `
+CONTROLLER  MODEL  USER  SERVER
+
+`[1:]
+
+	s.store = jujuclienttesting.NewMemControllerStore()
+	s.assertListControllers(c)
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
-	s.createMemClientStore(c)
-	s.assertListControllers(c, `
-CONTROLLER       MODEL  USER  SERVER
-abc
-controller.name
-test1
+	s.expectedOutput = `
+CONTROLLER                 MODEL     USER         SERVER
+local.aws-test             admin     -            instance-1-2-4.useast.aws.com
+local.mallards             my-model  admin@local  maas-1-05.cluster.mallards
+local.mark-test-prodstack  -         -            vm-23532.prodstack.canonical.com
 
-`[1:])
+`[1:]
+
+	s.createTestClientStore(c)
+	s.assertListControllers(c)
 }
 
 func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
-	s.createMemClientStore(c)
-	s.assertListControllers(c, `
-- controller: abc
-- controller: controller.name
-- controller: test1
-`[1:],
-		"--format", "yaml")
+	s.expectedOutput = `
+local.aws-test:
+  model: admin
+  server: instance-1-2-4.useast.aws.com
+local.mallards:
+  model: my-model
+  user: admin@local
+  server: maas-1-05.cluster.mallards
+local.mark-test-prodstack:
+  server: vm-23532.prodstack.canonical.com
+`[1:]
+
+	s.createTestClientStore(c)
+	s.assertListControllers(c, "--format", "yaml")
 }
 
 func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
-	s.createMemClientStore(c)
-	s.assertListControllers(c, `
-[{"controller":"abc"},{"controller":"controller.name"},{"controller":"test1"}]
-`[1:],
-		"--format", "json")
-}
+	s.expectedOutput = `
+{"local.aws-test":{"model":"admin","server":"instance-1-2-4.useast.aws.com"},"local.mallards":{"model":"my-model","user":"admin@local","server":"maas-1-05.cluster.mallards"},"local.mark-test-prodstack":{"server":"vm-23532.prodstack.canonical.com"}}
+`[1:]
 
-func (s *ListControllersSuite) TestListControllersAccessStoreErr(c *gc.C) {
-	msg := "my bad"
-	s.storeAccess = func() (jujuclient.ControllerStore, error) {
-		return nil, errors.New(msg)
-	}
-	s.assertListControllersFailed(c, fmt.Sprintf("failed to get jujuclient store: %v", msg))
+	s.createTestClientStore(c)
+	s.assertListControllers(c, "--format", "json")
 }
 
 func (s *ListControllersSuite) TestListControllersReadFromStoreErr(c *gc.C) {
 	msg := "fail getting all controllers"
-	s.store = jujuclienttesting.StubStore{msg}
-	s.assertListControllersFailed(c, fmt.Sprintf("failed to list controllers in jujuclient store: %v", msg))
+	errStore := jujuclienttesting.NewStubStore()
+	errStore.AllControllersFunc = func() (map[string]jujuclient.ControllerDetails, error) {
+		return nil, errors.New(msg)
+	}
+	s.store = errStore
+	s.expectedErr = fmt.Sprintf("failed to list controllers in jujuclient store: %v", msg)
+	s.assertListControllersFailed(c)
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedArg(c *gc.C) {
-	s.createMemClientStore(c)
-	s.assertListControllersFailed(c, `unrecognized args: \["whoops"\]`, "whoops")
+	s.createTestClientStore(c)
+	s.expectedErr = `unrecognized args: \["whoops"\]`
+	s.assertListControllersFailed(c, "whoops")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedFlag(c *gc.C) {
-	s.createMemClientStore(c)
-	s.assertListControllersFailed(c, `flag provided but not defined: -m`, "-m", "my.world")
+	s.createTestClientStore(c)
+	s.expectedErr = `flag provided but not defined: -m`
+	s.assertListControllersFailed(c, "-m", "my.world")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C) {
-	s.createMemClientStore(c)
-	s.assertListControllersFailed(c, `flag provided but not defined: --model`, "--model", "still.my.world")
+	s.createTestClientStore(c)
+	s.expectedErr = `flag provided but not defined: --model`
+	s.assertListControllersFailed(c, "--model", "still.my.world")
 }
 
-func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, msg string, args ...string) {
-	_, err := testing.RunCommand(c, controller.NewListControllersCommandForTest(s.storeAccess), args...)
-	c.Assert(err, gc.ErrorMatches, msg)
+func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
+	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.storeAccess), args...)
 }
 
-func (s *ListControllersSuite) assertListControllers(c *gc.C, output string, args ...string) {
-	context, err := testing.RunCommand(c, controller.NewListControllersCommandForTest(s.storeAccess), args...)
+func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
+	_, err := s.runListControllers(c, args...)
+	c.Assert(err, gc.ErrorMatches, s.expectedErr)
+}
+
+func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) {
+	context, err := s.runListControllers(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, output)
-}
-
-func (s *ListControllersSuite) createMemClientStore(c *gc.C) {
-	s.store = jujuclienttesting.NewMemControllerStore()
-
-	controllers := []struct {
-		name           string
-		controllerUUID string
-		caCert         string
-	}{
-		{
-			"test1",
-			"uuid.1",
-			"ca.cert.1",
-		},
-		{
-			"abc",
-			"uuid.2",
-			"ca.cert.2",
-		},
-		{
-			"controller.name",
-			"uuid.3",
-			"ca.cert.3",
-		},
-	}
-	for _, controller := range controllers {
-		err := s.store.UpdateController(controller.name,
-			jujuclient.ControllerDetails{
-				ControllerUUID: controller.controllerUUID,
-				CACert:         controller.caCert,
-			})
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	c.Assert(testing.Stdout(context), gc.Equals, s.expectedOutput)
 }

@@ -4,6 +4,9 @@
 package controller
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
@@ -15,8 +18,8 @@ import (
 // NewListControllersCommand returns a command to list the controllers the user knows about.
 func NewListControllersCommand() cmd.Command {
 	cmd := &listControllersCommand{}
-	cmd.newStoreFunc = func() (jujuclient.ControllerStore, error) {
-		return jujuclient.DefaultControllerStore()
+	cmd.newStoreFunc = func() jujuclient.ClientStore {
+		return jujuclient.NewFileClientStore()
 	}
 	return modelcmd.WrapBase(cmd)
 }
@@ -42,25 +45,16 @@ func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *listControllersCommand) Run(ctx *cmd.Context) error {
-	store, err := c.newStoreFunc()
-	if err != nil {
-		return errors.Annotate(err, "failed to get jujuclient store")
-	}
-
+	store := c.newStoreFunc()
 	controllers, err := store.AllControllers()
 	if err != nil {
 		return errors.Annotate(err, "failed to list controllers in jujuclient store")
 	}
-	if len(controllers) == 0 {
-		return nil
+	details, errs := c.convertControllerDetails(controllers)
+	if len(errs) > 0 {
+		fmt.Fprintf(ctx.Stderr, "%v\n", strings.Join(errs, "\n"))
 	}
-
-	// TODO (anastasiamac 2016-02-10) get the most recently used model per controller,
-	// preferably bulk call that takes all controller names and returns corresponding models...
-	details := convertControllerDetails(controllers)
-	if err != nil {
-		return err
-	}
+	// TODO (anastasiamac 2016-02-13) need to sort out what to do with current-controller.
 	return c.out.Write(ctx, details)
 }
 
@@ -68,10 +62,10 @@ type listControllersCommand struct {
 	modelcmd.JujuCommandBase
 
 	out          cmd.Output
-	newStoreFunc func() (jujuclient.ControllerStore, error)
+	newStoreFunc func() jujuclient.ClientStore
 }
 
-var listControllersDoc = `
+const listControllersDoc = `
 A controller refers to a Juju Controller that runs and manages the Juju API
 server and the underlying database used by Juju. A controller may host
 multiple models.

@@ -6,22 +6,26 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/juju/errors"
 )
 
+const noValueDisplay = "-"
+
 func formatControllersListTabular(value interface{}) ([]byte, error) {
-	controllers, ok := value.(controllerList)
+	controllers, ok := value.(map[string]ControllerItem)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", controllers, value)
 	}
 	return formatControllersTabular(controllers)
 }
 
-// formatControllersTabular returns a tabular summary of contorller/model items.
-func formatControllersTabular(controllers controllerList) ([]byte, error) {
+// formatControllersTabular returns a tabular summary of controller/model items
+// sorted by controller name alphabetically.
+func formatControllersTabular(controllers map[string]ControllerItem) ([]byte, error) {
 	var out bytes.Buffer
 
 	const (
@@ -39,8 +43,23 @@ func formatControllersTabular(controllers controllerList) ([]byte, error) {
 
 	print("CONTROLLER", "MODEL", "USER", "SERVER")
 
-	for _, c := range controllers {
-		print(c.ControllerName, c.ModelName, c.User, c.Server)
+	names := []string{}
+	for name, _ := range controllers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		c := controllers[name]
+		modelName := noValueDisplay
+		if c.ModelName != "" {
+			modelName = c.ModelName
+		}
+		userName := noValueDisplay
+		if c.User != "" {
+			userName = c.User
+		}
+		print(name, modelName, userName, c.Server)
 	}
 	tw.Flush()
 

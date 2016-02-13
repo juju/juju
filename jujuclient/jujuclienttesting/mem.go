@@ -12,12 +12,14 @@ import (
 type inMemory struct {
 	controllers map[string]jujuclient.ControllerDetails
 	models      map[string]jujuclient.ControllerModels
+	accounts    map[string]jujuclient.ControllerAccounts
 }
 
-func NewMemControllerStore() jujuclient.ControllerStore {
+func NewMemControllerStore() jujuclient.ClientStore {
 	return &inMemory{
 		make(map[string]jujuclient.ControllerDetails),
 		make(map[string]jujuclient.ControllerModels),
+		make(map[string]jujuclient.ControllerAccounts),
 	}
 }
 
@@ -71,28 +73,37 @@ func (c *inMemory) UpdateModel(controller, model string, details jujuclient.Mode
 	}
 	models, ok := c.models[controller]
 	if !ok {
-		return errors.NotFoundf("controller %s", controller)
+		if !ok {
+			models = jujuclient.ControllerModels{
+				Models: make(map[string]jujuclient.ModelDetails),
+			}
+			c.models[controller] = models
+		}
 	}
 	models.Models[model] = details
 	return nil
 }
 
-// SetControllerModel implements ModelUpdater.
-func (c *inMemory) SetControllerModel(controller, model string) error {
-	if err := jujuclient.ValidateControllerName(controller); err != nil {
-		return err
+// SetCurrentModel implements ModelUpdater.
+func (c *inMemory) SetCurrentModel(controllerName, modelName string) error {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
 	}
-	if err := jujuclient.ValidateModelName(model); err != nil {
-		return err
+	if err := jujuclient.ValidateModelName(modelName); err != nil {
+		return errors.Trace(err)
 	}
-	models, ok := c.models[controller]
+	models, ok := c.models[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controller)
+		return errors.NotFoundf("controller %s", controllerName)
 	}
-	if _, ok := models.Models[model]; !ok {
-		return errors.NotFoundf("model %s:%s", controller, model)
+	if models.CurrentModel == modelName {
+		return nil
 	}
-	models.CurrentModel = model
+	if _, ok := models.Models[modelName]; !ok {
+		return errors.NotFoundf("model %s:%s", controllerName, modelName)
+	}
+
+	models.CurrentModel = modelName
 	return nil
 }
 
@@ -159,4 +170,111 @@ func (c *inMemory) ModelByName(controller, model string) (*jujuclient.ModelDetai
 		return nil, errors.NotFoundf("model %s:%s", controller, model)
 	}
 	return &details, nil
+}
+
+// UpdateAccount implements AccountUpdater.
+func (c *inMemory) UpdateAccount(controllerName, accountName string, details jujuclient.AccountDetails) error {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateAccountName(accountName); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateAccountDetails(details); err != nil {
+		return err
+	}
+	accounts, ok := c.accounts[controllerName]
+	if !ok {
+		accounts = jujuclient.ControllerAccounts{
+			Accounts: make(map[string]jujuclient.AccountDetails),
+		}
+		c.accounts[controllerName] = accounts
+	}
+	accounts.Accounts[accountName] = details
+	return nil
+
+}
+
+// SetCurrentAccount implements AccountUpdater.
+func (c *inMemory) SetCurrentAccount(controllerName, accountName string) error {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateAccountName(accountName); err != nil {
+		return err
+	}
+	accounts, ok := c.accounts[controllerName]
+	if !ok {
+		return errors.NotFoundf("controller %s", controllerName)
+	}
+	if _, ok := accounts.Accounts[accountName]; !ok {
+		return errors.NotFoundf("account %s:%s", controllerName, accountName)
+	}
+	accounts.CurrentAccount = accountName
+	return nil
+}
+
+// AllAccounts implements AccountGetter.
+func (c *inMemory) AllAccounts(controllerName string) (map[string]jujuclient.AccountDetails, error) {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return nil, err
+	}
+	accounts, ok := c.accounts[controllerName]
+	if !ok {
+		return nil, errors.NotFoundf("controller %s", controllerName)
+	}
+	return accounts.Accounts, nil
+}
+
+// CurrentAccount implements AccountGetter.
+func (c *inMemory) CurrentAccount(controllerName string) (string, error) {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return "", err
+	}
+	accounts, ok := c.accounts[controllerName]
+	if !ok {
+		return "", errors.NotFoundf("controller %s", controllerName)
+	}
+	if accounts.CurrentAccount == "" {
+		return "", errors.NotFoundf("curernt account for controller %s", controllerName)
+	}
+	return accounts.CurrentAccount, nil
+}
+
+// AccountByName implements AccountGetter.
+func (c *inMemory) AccountByName(controllerName, accountName string) (*jujuclient.AccountDetails, error) {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return nil, err
+	}
+	if err := jujuclient.ValidateAccountName(accountName); err != nil {
+		return nil, err
+	}
+	accounts, ok := c.accounts[controllerName]
+	if !ok {
+		return nil, errors.NotFoundf("controller %s", controllerName)
+	}
+	details, ok := accounts.Accounts[accountName]
+	if !ok {
+		return nil, errors.NotFoundf("account %s:%s", controllerName, accountName)
+	}
+	return &details, nil
+}
+
+// RemoveAccount implements AccountRemover.
+func (c *inMemory) RemoveAccount(controllerName, accountName string) error {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateAccountName(accountName); err != nil {
+		return err
+	}
+	accounts, ok := c.accounts[controllerName]
+	if !ok {
+		return errors.NotFoundf("controller %s", controllerName)
+	}
+	if _, ok := accounts.Accounts[accountName]; !ok {
+		return errors.NotFoundf("account %s:%s", controllerName, accountName)
+	}
+	delete(accounts.Accounts, accountName)
+	return nil
 }
