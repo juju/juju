@@ -775,6 +775,8 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-alpha2'
             yield '2.0-alpha2-fake-wrapper'
             yield '2.0-alpha3'
+            yield '2.0-beta1'
+            yield '2.0-delta1'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
@@ -819,6 +821,14 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-alpha3')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2A2)
+            self.assertEqual(client.version, '2.0-beta1')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-delta1')
+            with self.assertRaises(StopIteration):
+                EnvJujuClient.by_version(None)
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
@@ -829,7 +839,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_by_version_keep_home(self):
         env = JujuData({}, juju_home='/foo/bar')
-        with patch('subprocess.check_output', return_value=' 4.3'):
+        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
             EnvJujuClient.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
@@ -2409,6 +2419,8 @@ class TestEnvJujuClient1X(ClientTest):
             yield '2.0-alpha2'
             yield '2.0-alpha2-fake-wrapper'
             yield '2.0-alpha3'
+            yield '2.0-beta1'
+            yield '2.0-delta1'
 
         context = patch.object(
             EnvJujuClient1X, 'get_version',
@@ -2453,6 +2465,14 @@ class TestEnvJujuClient1X(ClientTest):
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-alpha3')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2A2)
+            self.assertEqual(client.version, '2.0-beta1')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-delta1')
+            with self.assertRaises(StopIteration):
+                EnvJujuClient1X.by_version(None)
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
