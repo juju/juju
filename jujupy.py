@@ -1700,6 +1700,8 @@ class SimpleEnvironment:
 class JujuData(SimpleEnvironment):
 
     def __init__(self, environment, config=None, juju_home=None):
+        if juju_home is None:
+            juju_home = get_juju_home()
         super(JujuData, self).__init__(environment, config, juju_home)
         self.credentials = {}
         self.clouds = {}
