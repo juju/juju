@@ -1172,19 +1172,21 @@ class TestBootstrapAttempt(JujuPyTestCase):
         bootstrap = BootstrapAttempt()
         boot_iter = iter_steps_validate_info(self, bootstrap, client)
         self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
-        with patch('subprocess.Popen') as popen_mock:
-            with observable_temp_file() as config_file:
+        with observable_temp_file() as config_file:
+            with patch('subprocess.Popen') as popen_mock:
                 self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
-        assert_juju_call(self, popen_mock, client, (
-            'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
-            'steve', 'fake/regionx', '--config', config_file.name,
-            '--agent-version', '1.2'))
-        statuses = [
-            {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
-            {'machines': {'0': {'agent-state': 'started'}}, 'services': {}},
-        ]
-        popen_mock.return_value.wait.return_value = 0
-        self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
+            assert_juju_call(self, popen_mock, client, (
+                'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+                'steve', 'fake/regionx', '--config', config_file.name,
+                '--agent-version', '1.2'))
+            statuses = [
+                {'machines': {'0': {'agent-state': 'pending'}},
+                 'services': {}},
+                {'machines': {'0': {'agent-state': 'started'}},
+                 'services': {}},
+            ]
+            popen_mock.return_value.wait.return_value = 0
+            self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         with patch_status(client, *statuses) as gs_mock:
             self.assertEqual(boot_iter.next(),
                              {'test_id': 'bootstrap', 'result': True})
@@ -1774,17 +1776,17 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
         with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                              puj_iterator.next())
-        with patch('subprocess.Popen') as po_mock:
-            with observable_temp_file() as config_file:
+        with observable_temp_file() as config_file:
+            with patch('subprocess.Popen') as po_mock:
                 self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                                  puj_iterator.next())
-        assert_juju_call(self, po_mock, present_client, (
-            'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
-            'steve', 'fake/regionx', '--config', config_file.name,
-            '--agent-version', '2.0-alpha3'))
-        po_mock.return_value.wait.return_value = 0
-        self.assertEqual(puj_iterator.next(),
-                         {'test_id': 'prepare-upgrade-juju'})
+            assert_juju_call(self, po_mock, present_client, (
+                'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+                'steve', 'fake/regionx', '--config', config_file.name,
+                '--agent-version', '2.0-alpha3'))
+            po_mock.return_value.wait.return_value = 0
+            self.assertEqual(puj_iterator.next(),
+                             {'test_id': 'prepare-upgrade-juju'})
         b_status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},

@@ -4,6 +4,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import errno
 from itertools import count
 import logging
 import os
@@ -689,11 +690,20 @@ class FakePopen(object):
 
 @contextmanager
 def observable_temp_file():
-    with NamedTemporaryFile() as temp_file:
-        with patch('jujupy.NamedTemporaryFile',
-                   return_value=temp_file):
-            with patch.object(temp_file, '__exit__'):
-                yield temp_file
+    temporary_file = NamedTemporaryFile(delete=False)
+    try:
+        with temporary_file as temp_file:
+            with patch('jujupy.NamedTemporaryFile',
+                       return_value=temp_file):
+                with patch.object(temp_file, '__exit__'):
+                    yield temp_file
+    finally:
+        try:
+            os.unlink(temporary_file.name)
+        except OSError as e:
+            # File may have already been deleted, e.g. by temp_yaml_file.
+            if e.errno != errno.ENOENT:
+                raise
 
 
 class TestEnvJujuClient(ClientTest):
@@ -1053,7 +1063,7 @@ class TestEnvJujuClient(ClientTest):
                         client, 'bootstrap', (
                             '--constraints', 'mem=2G', 'foo', 'bar/baz',
                             '--config', config_file.name,
-                            '--agent-version', '2.0'))
+                            '--agent-version', '2.0'), include_e=False)
 
     def test_bootstrap_async_upload_tools(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -1064,7 +1074,8 @@ class TestEnvJujuClient(ClientTest):
                     mock.assert_called_with(
                         client, 'bootstrap', (
                             '--upload-tools', '--constraints', 'mem=2G',
-                            'foo', 'bar/baz', '--config', config_file.name))
+                            'foo', 'bar/baz', '--config', config_file.name),
+                        include_e=False)
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
