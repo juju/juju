@@ -29,7 +29,7 @@ clouds:
       ap-northeast-1:
         endpoint: https://ap-northeast-1.aws.amazon.com/v1.2/
       ap-northeast-2:
-        endpoint: https://ap-northeast-2.aws.amazon.com/v1.2/        
+        endpoint: https://ap-northeast-2.aws.amazon.com/v1.2/
       sa-east-1:
         endpoint: https://sa-east-1.aws.amazon.com/v1.2/
   aws-china:
@@ -125,7 +125,7 @@ clouds:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
   rackspace:
-    type: openstack
+    type: rackspace
     auth-types: [ access-key, userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:

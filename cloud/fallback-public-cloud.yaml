@@ -117,7 +117,7 @@ clouds:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
   rackspace:
-    type: openstack
+    type: rackspace
     auth-types: [ access-key, userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
