@@ -175,28 +175,43 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	_, err := state.GetModelMigration(st)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
-	targetInfo := params.ModelMigrationTargetInfo{
-		ControllerTag: names.NewModelTag(utils.MustNewUUID().String()).String(),
-		Addrs:         []string{"1.2.3.4:5"},
-		CACert:        "cert",
-		AuthTag:       names.NewUserTag("someone").String(),
-		Password:      "secret",
-	}
-	spec := params.ModelMigrationSpec{
-		ModelTag:   st.ModelTag().String(),
-		TargetInfo: targetInfo,
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            st.ModelUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
 	}
 
 	controller := s.OpenAPI(c)
-	result, err := controller.InitiateModelMigration(spec)
+	id, err := controller.InitiateModelMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedId := st.ModelUUID() + ":0"
-	c.Assert(result, gc.Equals, params.InitiateModelMigrationResult{
-		ModelTag: st.ModelTag().String(),
-		Id:       expectedId,
-	})
+	c.Check(id, gc.Equals, expectedId)
 
+	// Check database.
 	mig, err := state.GetModelMigration(st)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mig.Id(), gc.Equals, expectedId)
+	c.Check(mig.Id(), gc.Equals, expectedId)
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            randomUUID(), // Model doesn't exist.
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
+	}
+
+	controller := s.OpenAPI(c)
+	id, err := controller.InitiateModelMigration(spec)
+	c.Check(id, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func randomUUID() string {
+	return utils.MustNewUUID().String()
 }
