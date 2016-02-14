@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
@@ -71,6 +73,9 @@ type DeployCommand struct {
 	// BundleStorage maps service names to maps of storage constraints keyed on
 	// the storage name defined in that service's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
+
+	// Resources is a map of resource name to filename to be uploaded on deploy.
+	Resources map[string]string
 
 	Bindings map[string]string
 	Steps    []DeployStep
@@ -133,6 +138,14 @@ Constraints can be specified when using deploy by specifying the --constraints
 flag.  When used with deploy, service-specific constraints are set so that later
 machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
+
+Resources may be uploaded at deploy time by specifying the --resource flag.
+Following the resource flag should be name=filepath pair.  This flag may be
+repeated more than once to upload more than one resource.
+
+  juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+Where bar and baz are resources named in the metadata for the foo charm.
 
 Charms can be deployed to a specific machine using the --to argument.
 If the destination is an LXC container the default is to use lxc-clone
@@ -217,7 +230,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 var (
 	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
 	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade"}
+	charmOnlyFlags  = []string{"bind", "config", "constraints", "force", "n", "networks", "num-units", "series", "to", "u", "upgrade", "resource"}
 	bundleOnlyFlags = []string{}
 )
 
@@ -235,7 +248,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
+	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure service endpoint bindings to spaces")
+
 	for _, step := range c.Steps {
 		step.SetFlags(f)
 	}
@@ -548,18 +563,25 @@ func (c *DeployCommand) deployCharm(
 		}
 	}()
 
-	if err := deployer.serviceDeploy(serviceDeployParams{
-		curl.String(),
-		serviceName,
-		series,
-		numUnits,
-		string(configYAML),
-		c.Constraints,
-		c.Placement,
-		c.Networks,
-		c.Storage,
-		c.Bindings,
-	}); err != nil {
+	ids, err := c.handleResources(serviceName, charmInfo.Meta.Resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	params := serviceDeployParams{
+		charmURL:      curl.String(),
+		serviceName:   serviceName,
+		series:        series,
+		numUnits:      numUnits,
+		configYAML:    string(configYAML),
+		constraints:   c.Constraints,
+		placement:     c.Placement,
+		networks:      c.Networks,
+		storage:       c.Storage,
+		spaceBindings: c.Bindings,
+		resources:     ids,
+	}
+	if err := deployer.serviceDeploy(params); err != nil {
 		return err
 	}
 
@@ -573,6 +595,24 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	return err
+}
+
+func (c *DeployCommand) handleResources(serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+	if len(c.Resources) == 0 && len(metaResources) == 0 {
+		return nil, nil
+	}
+
+	api, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ids, err := resourceadapters.DeployResources(serviceName, c.Resources, metaResources, api)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ids, nil
 }
 
 const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<relation-name>=<space>] [<relation2-name>=<space2>] ...]'. "
@@ -630,6 +670,7 @@ type serviceDeployParams struct {
 	networks      string
 	storage       map[string]storage.Constraints
 	spaceBindings map[string]string
+	resources     map[string]string
 }
 
 type serviceDeployer struct {
@@ -656,7 +697,8 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		}
 		args.placement[i] = p
 	}
-	return serviceClient.Deploy(
+
+	clientArgs := apiservice.DeployArgs{
 		args.charmURL,
 		args.serviceName,
 		args.series,
@@ -667,7 +709,10 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		[]string{},
 		args.storage,
 		args.spaceBindings,
-	)
+		args.resources,
+	}
+
+	return serviceClient.Deploy(clientArgs)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {

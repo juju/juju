@@ -33,6 +33,8 @@ type DeployServiceParams struct {
 	Networks         []string
 	Storage          map[string]storage.Constraints
 	EndpointBindings map[string]string
+	// Resources is a map of resource name to IDs of pending resources.
+	Resources map[string]string
 }
 
 type ServiceDeployer interface {
@@ -83,6 +85,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		Settings:         settings,
 		NumUnits:         args.NumUnits,
 		Placement:        args.Placement,
+		Resources:        args.Resources,
 		EndpointBindings: effectiveBindings,
 	}
 
