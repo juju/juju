@@ -5,6 +5,7 @@ package migration
 
 import (
 	"encoding/base64"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -163,6 +164,14 @@ func (s *service) Units() []Unit {
 	result := make([]Unit, len(s.Units_.Units_))
 	for i, u := range s.Units_.Units_ {
 		result[i] = u
+	}
+	return result
+}
+
+func (s *service) unitNames() set.Strings {
+	result := set.NewStrings()
+	for _, u := range s.Units_.Units_ {
+		result.Add(u.Name())
 	}
 	return result
 }

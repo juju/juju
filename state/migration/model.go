@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package migration
@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/schema"
+	"github.com/juju/utils/set"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/version"
@@ -36,6 +37,7 @@ func NewModel(args ModelArgs) Model {
 	m.setUsers(nil)
 	m.setMachines(nil)
 	m.setServices(nil)
+	m.setRelations(nil)
 	return m
 }
 
@@ -65,16 +67,14 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Users_    users    `yaml:"users"`
-	Machines_ machines `yaml:"machines"`
-	Services_ services `yaml:"services"`
+	Users_     users     `yaml:"users"`
+	Machines_  machines  `yaml:"machines"`
+	Services_  services  `yaml:"services"`
+	Relations_ relations `yaml:"relations"`
 
-	// TODO: add extra entities, but initially focus on Machines.
-	// Services, and through them, Units
-	// Relations
+	// TODO:
 	// Spaces
 	// Storage
-
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -165,6 +165,15 @@ func (m *model) Services() []Service {
 	return result
 }
 
+func (m *model) service(name string) *service {
+	for _, service := range m.Services_.Services_ {
+		if service.Name() == name {
+			return service
+		}
+	}
+	return nil
+}
+
 // AddService implements Model.
 func (m *model) AddService(args ServiceArgs) Service {
 	service := newService(args)
@@ -179,18 +188,71 @@ func (m *model) setServices(serviceList []*service) {
 	}
 }
 
+// Relations implements Model.
+func (m *model) Relations() []Relation {
+	return nil
+}
+
+// AddRelation implements Model.
+func (m *model) AddRelation(RelationArgs) Relation {
+	return nil
+}
+
+func (m *model) setRelations(relationList []*relation) {
+	m.Relations_ = relations{
+		Version:    1,
+		Relations_: relationList,
+	}
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
+	unitsWithOpenPorts := set.NewStrings()
 	for _, machine := range m.Machines_.Machines_ {
 		if err := machine.Validate(); err != nil {
 			return errors.Trace(err)
 		}
+		for _, np := range machine.NetworkPorts() {
+			for _, pr := range np.OpenPorts() {
+				unitsWithOpenPorts.Add(pr.UnitName())
+			}
+		}
 	}
+	allUnits := set.NewStrings()
 	for _, service := range m.Services_.Services_ {
 		if err := service.Validate(); err != nil {
 			return errors.Trace(err)
 		}
+		allUnits = allUnits.Union(service.unitNames())
 	}
+	// Make sure that all the unit names specified in machine opened ports
+	// exist as units of services.
+	unknownUnitsWithPorts := unitsWithOpenPorts.Difference(allUnits)
+	if len(unknownUnitsWithPorts) > 0 {
+		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
+	}
+
+	// Make sure that for each endpoint in each relation has settings for all
+	// units of that service.
+	for _, relation := range m.Relations_.Relations_ {
+		for _, ep := range relation.EndPoints_.EndPoints_ {
+			// Check service exists.
+			service := m.service(ep.ServiceName())
+			if service == nil {
+				return errors.Errorf("unknown service %q for relation id %d", ep.ServiceName(), relation.Id())
+			}
+			// Check that all units have settings.
+			serviceUnits := service.unitNames()
+			epUnits := ep.unitNames()
+			if missingSettings := serviceUnits.Difference(epUnits); len(missingSettings) > 0 {
+				return errors.Errorf("missing relation settings for units %s in relation %d", missingSettings.SortedValues(), relation.Id())
+			}
+			if extraSettings := epUnits.Difference(serviceUnits); len(extraSettings) > 0 {
+				return errors.Errorf("settings for unknown units %s in relation %d", extraSettings.SortedValues(), relation.Id())
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -274,6 +336,9 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotatef(err, "services")
 	}
 	result.setServices(services)
+
+	// TODO: relations
+	result.setRelations(nil)
 
 	return result, nil
 }
