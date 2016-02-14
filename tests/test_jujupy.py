@@ -688,7 +688,7 @@ class FakePopen(object):
 
 
 @contextmanager
-def forced_temp_file():
+def observable_temp_file():
     with NamedTemporaryFile() as temp_file:
         with patch('jujupy.NamedTemporaryFile',
                    return_value=temp_file):
@@ -980,7 +980,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'maas', lambda: True):
-                with forced_temp_file() as config_file:
+                with observable_temp_file() as config_file:
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
@@ -994,7 +994,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
             client = EnvJujuClient(env, '2.0-zeta1', None)
             with patch.object(client.env, 'joyent', lambda: True):
-                with forced_temp_file() as config_file:
+                with observable_temp_file() as config_file:
                     client.bootstrap()
             mock.assert_called_once_with(
                 client, 'bootstrap', (
@@ -1004,7 +1004,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
-        with forced_temp_file() as config_file:
+        with observable_temp_file() as config_file:
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client = EnvJujuClient(env, '2.0-zeta1', None)
                 client.bootstrap()
@@ -1021,7 +1021,7 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with patch.object(client, 'juju') as mock:
                     client.bootstrap(upload_tools=True)
             mock.assert_called_with(
@@ -1033,7 +1033,7 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 client.bootstrap(bootstrap_series='angsty')
         mock.assert_called_with(
             'bootstrap', (
@@ -1047,7 +1047,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, '2.0-zeta1', None)
             client.env.juju_home = 'foo'
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with client.bootstrap_async():
                     mock.assert_called_once_with(
                         client, 'bootstrap', (
@@ -1059,7 +1059,7 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, '2.0-zeta1', None)
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with client.bootstrap_async(upload_tools=True):
                     mock.assert_called_with(
                         client, 'bootstrap', (

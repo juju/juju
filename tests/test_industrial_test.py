@@ -66,7 +66,7 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
-    forced_temp_file,
+    observable_temp_file,
     )
 from test_substrate import (
     get_aws_env,
@@ -1173,7 +1173,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
         boot_iter = iter_steps_validate_info(self, bootstrap, client)
         self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         with patch('subprocess.Popen') as popen_mock:
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         assert_juju_call(self, popen_mock, client, (
             'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
@@ -1775,7 +1775,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
             self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                              puj_iterator.next())
         with patch('subprocess.Popen') as po_mock:
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                                  puj_iterator.next())
         assert_juju_call(self, po_mock, present_client, (

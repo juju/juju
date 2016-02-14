@@ -71,7 +71,7 @@ from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
     FakePopen,
-    forced_temp_file,
+    observable_temp_file,
 )
 from utility import (
     LoggedException,
@@ -1314,7 +1314,7 @@ class TestBootContext(FakeHomeTestCase):
         client = EnvJujuClient(JujuData(
             'foo', {'type': 'paas', 'region': 'qux'}), '1.23', 'path')
         with self.bc_context(client, 'log_dir', jes='kill-controller'):
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with boot_context('bar', client, None, [], None, None, None,
                                   'log_dir', keep_env=False,
                                   upload_tools=False):
@@ -1347,7 +1347,7 @@ class TestBootContext(FakeHomeTestCase):
         client = EnvJujuClient(JujuData(
             'foo', {'type': 'paas', 'region': 'qux'}), '1.23', 'path')
         with self.bc_context(client, keep_env=True, jes='kill-controller'):
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with boot_context('bar', client, None, [], None, None, None,
                                   None, keep_env=True, upload_tools=False):
                     pass
@@ -1379,7 +1379,7 @@ class TestBootContext(FakeHomeTestCase):
         client = EnvJujuClient(JujuData(
             'foo', {'type': 'paas', 'region': 'qux'}), '1.23', 'path')
         with self.bc_context(client, jes='kill-controller'):
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with boot_context('bar', client, None, [], None, None, None,
                                   None, keep_env=False, upload_tools=True):
                     pass
@@ -1407,7 +1407,7 @@ class TestBootContext(FakeHomeTestCase):
         ue_mock = self.addContext(
             patch('deploy_stack.update_env', wraps=update_env))
         with self.bc_context(client, jes='kill-controller'):
-            with forced_temp_file() as config_file:
+            with observable_temp_file() as config_file:
                 with boot_context('bar', client, None, [], 'wacky', 'url',
                                   'devel', None, keep_env=False,
                                   upload_tools=False):

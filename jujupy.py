@@ -648,6 +648,15 @@ class EnvJujuClient:
             args += (name,)
         self.juju('deployer', args, self.env.needs_sudo())
 
+    def _get_substrate_constraints(self):
+        if self.env.maas:
+            return 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            return 'mem=2G cpu-cores=1'
+        else:
+            return 'mem=2G'
+
     def quickstart(self, bundle, upload_tools=False):
         """quickstart, using sudo if necessary."""
         if self.env.maas:
@@ -1005,13 +1014,7 @@ class EnvJujuClient2A2(EnvJujuClient):
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
+        constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints,
                 '--agent-version', self.get_matching_agent_version())
         if upload_tools:
@@ -1185,13 +1188,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
+        constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
@@ -1726,6 +1723,11 @@ class JujuData(SimpleEnvironment):
         return juju_data
 
     def dump_yaml(self, path, config):
+        """Dump the configuration files to the specified path.
+
+        config is unused, but is accepted for compatibility with
+        SimpleEnvironment and make_jes_home().
+        """
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
         with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
