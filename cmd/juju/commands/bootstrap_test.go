@@ -835,6 +835,22 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
+	resetJujuXDGDataHome(c)
+	ctx, err := coretesting.RunCommand(
+		c, newBootstrapCommand(), "ctrl/my-region", "dummy-cloud-without-regions",
+		"--config", "default-series=precise",
+	)
+	// If the cloud doesn't have any regions defined, we still allow the
+	// user to pass a region through. This enables the manual provider to
+	// take the bootstrap-host from the region name, and later, will
+	// enable the lxd provider to take the lxd remote from the region
+	// name.
+	c.Check(coretesting.Stderr(ctx), gc.Matches,
+		"Creating Juju controller \"ctrl/my-region\" on dummy-cloud-without-regions(.|\n)*")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "ctrl", "no-credentials")

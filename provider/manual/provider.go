@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -39,6 +40,11 @@ func (p manualProvider) RestrictedConfigAttributes() []string {
 	return []string{"bootstrap-host", "bootstrap-user"}
 }
 
+// DetectRegions is specified in the environs.CloudRegionDetector interface.
+func (p manualProvider) DetectRegions() (map[string]cloud.Region, error) {
+	return nil, errors.NotFoundf("regions")
+}
+
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	// Not even sure if this will ever make sense.
@@ -46,7 +52,31 @@ func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config
 }
 
 func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
+
+	var bootstrapHost string
+	switch {
+	case args.CloudEndpoint != "":
+		// If an endpoint is specified, then we expect that the user
+		// has specified in their clouds.yaml a region with the
+		// bootstrap host as the endpoint.
+		bootstrapHost = args.CloudEndpoint
+	case args.CloudRegion != "":
+		// If only a region is specified, then we expect that the user
+		// has run "juju bootstrap manual/<host>", and treat the region
+		// name as the name of the bootstrap machine.
+		bootstrapHost = args.CloudRegion
+	default:
+		return nil, errors.Errorf(
+			"missing address of host to bootstrap: " +
+				`please specify "juju bootstrap manual/<host>"`,
+		)
+	}
+	cfg, err := args.Config.Apply(map[string]interface{}{
+		"bootstrap-host": bootstrapHost,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
 		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}

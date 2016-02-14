@@ -484,25 +484,25 @@ func (c *bootstrapCommand) getCredentials(
 // and just pass this on to the provider. In this case, the returned
 // region name will be empty.
 func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (string, jujucloud.Region, error) {
+	if len(cloud.Regions) == 0 {
+		// The cloud does not specify regions, so assume
+		// that the cloud provider does not have a concept
+		// of regions, or has no pre-defined regions, and
+		// defer validation to the provider.
+		region := jujucloud.Region{
+			cloud.Endpoint,
+			cloud.StorageEndpoint,
+		}
+		return regionName, region, nil
+	}
 	if regionName == "" {
-		switch len(cloud.Regions) {
-		case 0:
-			// The cloud has no regions, and no region was
-			// specified, so assume that the cloud provider
-			// does not have a concept of regions, and defer
-			// validation to the provider.
-			region := jujucloud.Region{
-				cloud.Endpoint,
-				cloud.StorageEndpoint,
-			}
-			return "", region, nil
-		case 1:
+		if len(cloud.Regions) == 1 {
 			// No region was specified and there is
 			// only one in the cloud; use it.
 			for regionName, region := range cloud.Regions {
 				return regionName, region, nil
 			}
-		default:
+		} else {
 			return "", jujucloud.Region{}, errors.Errorf(
 				"no region specified, and no default set (expected one of %q)",
 				cloudRegionNames(cloud),
