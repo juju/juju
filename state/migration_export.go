@@ -54,6 +54,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.services(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.relations(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -463,6 +466,17 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 		result[doc.UserName] = doc.LastConnection.UTC()
 	}
 	return result, nil
+}
+
+func (e *exporter) relations() error {
+	rels, err := e.st.AllRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// todo...
+	_ = rels
+	return nil
 }
 
 func (e *exporter) readAllSettings() error {
