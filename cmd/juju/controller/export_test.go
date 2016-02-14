@@ -10,13 +10,14 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
-// NewListCommandForTest returns a ListCommand with the configstore provided
+// NewListControllersCommandForTest returns a listControllersCommand with the clientstore provided
 // as specified.
-func NewListCommandForTest(cfgStore configstore.Storage) *listCommand {
-	return &listCommand{
-		cfgStore: cfgStore,
+func NewListControllersCommandForTest(testStore jujuclient.ClientStore) *listControllersCommand {
+	return &listControllersCommand{
+		store: testStore,
 	}
 }
 
