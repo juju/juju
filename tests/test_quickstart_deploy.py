@@ -7,7 +7,7 @@ from mock import (
 from deploy_stack import BootstrapManager
 from jujupy import (
     EnvJujuClient,
-    SimpleEnvironment,
+    JujuData,
     )
 from quickstart_deploy import QuickstartTest
 from tests import (
@@ -38,7 +38,7 @@ class TestQuickstartTest(FakeHomeTestCase):
                 do_finally()
 
         client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = make_bootstrap_manager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         with patch.object(quickstart, 'iter_steps',
@@ -56,7 +56,7 @@ class TestQuickstartTest(FakeHomeTestCase):
                 tear_down()
 
         client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = make_bootstrap_manager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         with patch.object(quickstart, 'iter_steps',
@@ -69,7 +69,7 @@ class TestQuickstartTest(FakeHomeTestCase):
     def test_iter_steps(self):
         log_dir = use_context(self, temp_dir())
         client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = make_bootstrap_manager(client, log_dir=log_dir)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         steps = quickstart.iter_steps()
@@ -139,7 +139,7 @@ class TestQuickstartTest(FakeHomeTestCase):
 
     def test_iter_steps_quickstart_fail(self):
         client = EnvJujuClient(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
         bs_manager = FakeBootstrapManager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         step_iter = quickstart.iter_steps()

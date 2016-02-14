@@ -9,7 +9,7 @@ from unittest import TestCase
 
 from jujupy import (
     EnvJujuClient,
-    SimpleEnvironment,
+    JujuData,
 )
 from scale_out import (
     deploy_charms,
@@ -20,10 +20,6 @@ from scale_out import (
 )
 
 
-def fake_SimpleEnvironment(name):
-    return SimpleEnvironment(name, {})
-
-
 def fake_EnvJujuClient(env, path=None, debug=None):
     return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
 
@@ -32,7 +28,7 @@ class TestScaleOut(TestCase):
 
     @contextmanager
     def fake_client_cxt(self):
-        env = fake_SimpleEnvironment('foo')
+        env = JujuData('foo', {})
         client = fake_EnvJujuClient(env)
         bv_cxt = patch('jujupy.EnvJujuClient.by_version',
                        return_value=client)

@@ -10,7 +10,7 @@ import winrm
 from jujupy import (
     EnvJujuClient,
     get_timeout_path,
-    SimpleEnvironment,
+    JujuData,
     Status,
 )
 from remote import (
@@ -52,7 +52,7 @@ class TestRemote(tests.FakeHomeTestCase):
     """
 
     def test_remote_from_unit(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         with patch.object(client, "get_status", autospec=True) as st:
@@ -64,7 +64,7 @@ class TestRemote(tests.FakeHomeTestCase):
         self.assertIs(False, remote.is_windows())
 
     def test_remote_from_unit_with_series(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         remote = remote_from_unit(client, unit, series="trusty")
@@ -74,7 +74,7 @@ class TestRemote(tests.FakeHomeTestCase):
         self.assertIs(False, remote.is_windows())
 
     def test_remote_from_unit_with_status(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         status = Status.from_text(self.win2012hvr2_status_output)
@@ -100,7 +100,7 @@ class TestRemote(tests.FakeHomeTestCase):
         self.assertIs(True, remote.is_windows())
 
     def test_run_with_unit(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         remote = remote_from_unit(client, unit, series="trusty")
@@ -112,7 +112,7 @@ class TestRemote(tests.FakeHomeTestCase):
                                          timeout=120)
 
     def test_run_with_unit_fallback(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         with patch.object(client, "get_status") as st:
@@ -171,7 +171,7 @@ class TestRemote(tests.FakeHomeTestCase):
         ])
 
     def test_cat_on_windows(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         with patch.object(client, "get_status", autospec=True) as st:
@@ -203,7 +203,7 @@ class TestRemote(tests.FakeHomeTestCase):
         ])
 
     def test_copy_on_windows(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         dest = "/local/path"
@@ -242,7 +242,7 @@ class TestRemote(tests.FakeHomeTestCase):
         ])
 
     def test_run_cmd(self):
-        env = SimpleEnvironment("an-env", {"type": "nonlocal"})
+        env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
         unit = "a-service/0"
         with patch.object(client, "get_status", autospec=True) as st:

@@ -654,7 +654,8 @@ class JujuCITestCase(FakeHomeTestCase):
             with patch('jujuci.destroy_environment', autospec=True) as mock_de:
                 with patch('jujupy.EnvJujuClient.by_version', side_effect=(
                         lambda env: jujupy.EnvJujuClient(env, '1', None))):
-                    dirty = clean_environment('foo', verbose=False)
+                    with patch.object(jujupy.JujuData, 'load_yaml'):
+                        dirty = clean_environment('foo', verbose=False)
         self.assertTrue(dirty)
         self.assertEqual(1, mock_de.call_count)
         args, kwargs = mock_de.call_args

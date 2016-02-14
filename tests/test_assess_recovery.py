@@ -9,7 +9,7 @@ from assess_recovery import (
 from jujupy import (
     EnvJujuClient,
     get_cache_path,
-    SimpleEnvironment,
+    JujuData,
     _temp_env as temp_env,
 )
 from tests import (
@@ -71,17 +71,18 @@ class TestMakeClientFromArgs(TestCase):
     def test_make_client_from_args(self):
         with temp_env({'environments': {'foo': {}}}):
             with patch.object(EnvJujuClient, 'get_version', return_value=''):
-                client = make_client_from_args(
-                    Namespace(env_name='foo', juju_path='bar',
-                              temp_env_name='temp-foo', debug=False,
-                              agent_stream=None, series=None))
+                with patch.object(JujuData, 'load_yaml'):
+                    client = make_client_from_args(
+                        Namespace(env_name='foo', juju_path='bar',
+                                  temp_env_name='temp-foo', debug=False,
+                                  agent_stream=None, series=None))
         self.assertEqual(client.env.config, {'name': 'temp-foo'})
         self.assertEqual(client.env.environment, 'temp-foo')
 
 
 def make_mocked_client(name, status_error=None):
-    client = EnvJujuClient(SimpleEnvironment(
-        name, {'type': 'paas'}), '1.23', 'path')
+    client = EnvJujuClient(JujuData(
+        name, {'type': 'paas', 'region': 'region-foo'}), '1.23', 'path')
     patch.object(client, 'wait_for_ha', autospec=True).start()
     patch.object(
         client, 'get_status', autospec=True, side_effect=status_error).start()

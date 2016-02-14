@@ -15,6 +15,7 @@ import re
 from shutil import rmtree
 import subprocess
 import sys
+from tempfile import NamedTemporaryFile
 import time
 
 import yaml
@@ -178,6 +179,14 @@ class WorkloadsNotReady(StatusNotMet):
     _fmt = 'Workloads not ready in {env}.'
 
 
+@contextmanager
+def temp_yaml_file(yaml_dict):
+    with NamedTemporaryFile(suffix='.yaml') as config_file:
+        yaml.safe_dump(yaml_dict, config_file)
+        config_file.flush()
+        yield config_file.name
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -269,10 +278,10 @@ class EnvJujuClient:
             client_class = EnvJujuClient
         elif re.match('^2\.0-alpha1', version):
             client_class = EnvJujuClient2A1
-        elif re.match('^2\.0-alpha2', version):
-            client_class = EnvJujuClient2A2
-        else:
+        elif re.match('^2\.0-(alpha3|delta1)', version):
             client_class = EnvJujuClient
+        else:
+            client_class = EnvJujuClient2A2
         return client_class(env, version, full_path, debug=debug)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
@@ -322,8 +331,16 @@ class EnvJujuClient:
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
+    @staticmethod
+    def _get_env(env):
+        if not isinstance(env, JujuData) and isinstance(env,
+                                                        SimpleEnvironment):
+            # FIXME: JujuData should be used from the start.
+            env = JujuData.from_env(env)
+        return env
+
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
-        self.env = env
+        self.env = self._get_env(env)
         if version == '2.0-alpha2-fake-wrapper':
             version = '2.0-alpha1-juju-wrapped'
         self.version = version
@@ -365,7 +382,14 @@ class EnvJujuClient:
                 pause(30)
                 self.juju('add-machine', ('ssh:' + machine,))
 
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+    @staticmethod
+    def get_cloud_region(cloud, region):
+        if region is None:
+            return cloud
+        return '{}/{}'.format(cloud, region)
+
+    def get_bootstrap_args(self, upload_tools, config_filename,
+                           bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
@@ -374,28 +398,70 @@ class EnvJujuClient:
             constraints = 'mem=2G cpu-cores=1'
         else:
             constraints = 'mem=2G'
-        args = ('--constraints', constraints)
+        cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                             self.env.get_region())
+        args = ['--constraints', constraints, self.env.environment,
+                cloud_region, '--config', config_filename]
         if upload_tools:
-            args = ('--upload-tools',) + args
+            args.insert(0, '--upload-tools')
         else:
-            args = args + ('--agent-version',
-                           self.get_matching_agent_version())
+            args.extend(['--agent-version', self.get_matching_agent_version()])
+
         if bootstrap_series is not None:
-            args = args + ('--bootstrap-series', bootstrap_series)
-        return args
+            args.extend(['--bootstrap-series', bootstrap_series])
+        return tuple(args)
+
+    @contextmanager
+    def _bootstrap_config(self):
+        config_dict = make_safe_config(self)
+        # Strip unneeded variables.
+        config_dict = dict((k, v) for k, v in config_dict.items() if k not in {
+            'access-key',
+            'application-id',
+            'application-password',
+            'auth-url',
+            'client-email',
+            'client-id',
+            'control-bucket',
+            'location',
+            'maas-oauth',
+            'maas-server',
+            'manta-key-id',
+            'manta-user',
+            'name',
+            'password',
+            'private-key',
+            'region',
+            'sdc-key-id',
+            'sdc-url',
+            'sdc-user',
+            'secret-key',
+            'storage-account-name',
+            'subscription-id',
+            'tenant-id',
+            'tenant-name',
+            'type',
+            'username',
+            })
+        with temp_yaml_file(config_dict) as config_filename:
+            yield config_filename
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
-        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
-        self.juju('bootstrap', args, self.env.needs_sudo())
+        with self._bootstrap_config() as config_filename:
+            args = self.get_bootstrap_args(
+                upload_tools, config_filename, bootstrap_series)
+            self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
-    def bootstrap_async(self, upload_tools=False):
-        args = self.get_bootstrap_args(upload_tools)
-        with self.juju_async('bootstrap', args):
-            yield
-            log.info('Waiting for bootstrap of {}.'.format(
-                self.env.environment))
+    def bootstrap_async(self, upload_tools=False, bootstrap_series=None):
+        with self._bootstrap_config() as config_filename:
+            args = self.get_bootstrap_args(
+                upload_tools, config_filename, bootstrap_series)
+            with self.juju_async('bootstrap', args, include_e=False):
+                yield
+                log.info('Waiting for bootstrap of {}.'.format(
+                    self.env.environment))
 
     def create_environment(self, controller_client, config_file):
         self.juju('create-model', (
@@ -581,6 +647,15 @@ class EnvJujuClient:
         if name:
             args += (name,)
         self.juju('deployer', args, self.env.needs_sudo())
+
+    def _get_substrate_constraints(self):
+        if self.env.maas:
+            return 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            return 'mem=2G cpu-cores=1'
+        else:
+            return 'mem=2G'
 
     def quickstart(self, bundle, upload_tools=False):
         """quickstart, using sudo if necessary."""
@@ -908,6 +983,13 @@ class EnvJujuClient:
 class EnvJujuClient2A2(EnvJujuClient):
     """Drives Juju 2.0-alpha2 clients."""
 
+    @classmethod
+    def _get_env(cls, env):
+        if isinstance(env, JujuData):
+            raise ValueError(
+                'JujuData cannot be used with {}'.format(cls.__name__))
+        return env
+
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
@@ -917,8 +999,32 @@ class EnvJujuClient2A2(EnvJujuClient):
         env['JUJU_HOME'] = self.env.juju_home
         return env
 
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
+        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
+        self.juju('bootstrap', args, self.env.needs_sudo())
 
-class EnvJujuClient2A1(EnvJujuClient):
+    @contextmanager
+    def bootstrap_async(self, upload_tools=False):
+        args = self.get_bootstrap_args(upload_tools)
+        with self.juju_async('bootstrap', args):
+            yield
+            log.info('Waiting for bootstrap of {}.'.format(
+                self.env.environment))
+
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+        """Return the bootstrap arguments for the substrate."""
+        constraints = self._get_substrate_constraints()
+        args = ('--constraints', constraints,
+                '--agent-version', self.get_matching_agent_version())
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        if bootstrap_series is not None:
+            args = args + ('--bootstrap-series', bootstrap_series)
+        return args
+
+
+class EnvJujuClient2A1(EnvJujuClient2A2):
     """Drives Juju 2.0-alpha1 clients."""
 
     _show_status = 'status'
@@ -1082,13 +1188,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.maas:
-            constraints = 'mem=2G arch=amd64'
-        elif self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
+        constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
@@ -1331,16 +1431,6 @@ def get_cache_path(juju_home, models=False):
     return os.path.join(root, 'cache.yaml')
 
 
-@contextmanager
-def make_jes_home(juju_home, dir_name, config):
-    home_path = jes_home_path(juju_home, dir_name)
-    if os.path.exists(home_path):
-        rmtree(home_path)
-    os.makedirs(home_path)
-    dump_environments_yaml(home_path, config)
-    yield home_path
-
-
 def make_safe_config(client):
     config = dict(client.env.config)
     if 'agent-version' in client.bootstrap_replaces:
@@ -1388,7 +1478,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     # Always bootstrap a matching environment.
     jenv_path = get_jenv_path(juju_home, client.env.environment)
     if permanent:
-        context = make_jes_home(juju_home, client.env.environment, new_config)
+        context = client.env.make_jes_home(
+            juju_home, client.env.environment, new_config)
     else:
         context = _temp_env(new_config, juju_home, set_home)
     with context as temp_juju_home:
@@ -1581,6 +1672,10 @@ class SimpleEnvironment:
 
     @classmethod
     def from_config(cls, name):
+        return cls._from_config(name)
+
+    @classmethod
+    def _from_config(cls, name):
         config, selected = get_selected_environment(name)
         if name is None:
             name = selected
@@ -1588,6 +1683,96 @@ class SimpleEnvironment:
 
     def needs_sudo(self):
         return self.local
+
+    @contextmanager
+    def make_jes_home(self, juju_home, dir_name, new_config):
+        home_path = jes_home_path(juju_home, dir_name)
+        if os.path.exists(home_path):
+            rmtree(home_path)
+        os.makedirs(home_path)
+        self.dump_yaml(home_path, new_config)
+        yield home_path
+
+    def dump_yaml(self, path, config):
+        dump_environments_yaml(path, config)
+
+
+class JujuData(SimpleEnvironment):
+
+    def __init__(self, environment, config=None, juju_home=None):
+        super(JujuData, self).__init__(environment, config, juju_home)
+        self.credentials = {}
+        self.clouds = {}
+
+    @classmethod
+    def from_env(cls, env):
+        juju_data = cls(env.environment, env.config, env.juju_home)
+        juju_data.load_yaml()
+        return juju_data
+
+    def load_yaml(self):
+        with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
+            self.credentials = yaml.safe_load(f)
+        with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
+            self.clouds = yaml.safe_load(f)
+
+    @classmethod
+    def from_config(cls, name):
+        juju_data = cls._from_config(name)
+        juju_data.load_yaml()
+        return juju_data
+
+    def dump_yaml(self, path, config):
+        """Dump the configuration files to the specified path.
+
+        config is unused, but is accepted for compatibility with
+        SimpleEnvironment and make_jes_home().
+        """
+        with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
+            yaml.safe_dump(self.credentials, f)
+        with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
+            yaml.safe_dump(self.clouds, f)
+
+    def find_endpoint_cloud(self, cloud_type, endpoint):
+        for cloud, cloud_config in self.clouds['clouds'].items():
+            if cloud_config['type'] != cloud_type:
+                continue
+            if cloud_config['endpoint'] == endpoint:
+                return cloud
+        raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def get_cloud(self):
+        provider = self.config['type']
+        # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
+        # Model CLI specification
+        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
+            return 'aws-china'
+        if provider not in ('maas', 'openstack'):
+            return {
+                'ec2': 'aws',
+                'gce': 'google',
+            }.get(provider, provider)
+        if provider == 'maas':
+            endpoint = self.config['maas-server']
+        elif provider == 'openstack':
+            endpoint = self.config['auth-url']
+        return self.find_endpoint_cloud(provider, endpoint)
+
+    def get_region(self):
+        provider = self.config['type']
+        if provider == 'azure':
+            if 'tenant-id' not in self.config:
+                raise ValueError('Non-ARM Azure not supported.')
+            return self.config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            return 'localhost'
+        elif provider in ('maas', 'manual'):
+            return None
+        else:
+            return self.config['region']
 
 
 class GroupReporter:
