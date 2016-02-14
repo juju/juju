@@ -40,7 +40,7 @@ func (s *cloudSuite) TestParseClouds(c *gc.C) {
 func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 	clouds := parsePublicClouds(c)
 	rackspace := clouds["rackspace"]
-	c.Assert(rackspace.Type, gc.Equals, "openstack")
+	c.Assert(rackspace.Type, gc.Equals, "rackspace")
 	c.Assert(rackspace.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")
 	var regionNames []string
 	for name, region := range rackspace.Regions {
