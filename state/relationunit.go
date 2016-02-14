@@ -126,15 +126,12 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// * Create the scope doc.
-	rsDocID := ru.st.docID(ruKey)
 	ops = append(ops, txn.Op{
 		C:      relationScopesC,
-		Id:     rsDocID,
+		Id:     ruKey,
 		Assert: txn.DocMissing,
 		Insert: relationScopeDoc{
-			DocID:     rsDocID,
-			Key:       ruKey,
-			ModelUUID: ru.st.ModelUUID(),
+			Key: ruKey,
 		},
 	})
 
@@ -151,7 +148,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if count, err := relationScopes.FindId(rsDocID).Count(); err != nil {
+	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		// The scope document exists, so we're actually already in scope.
