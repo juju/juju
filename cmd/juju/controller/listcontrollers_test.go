@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
@@ -75,12 +74,11 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 func (s *ListControllersSuite) TestListControllersReadFromStoreErr(c *gc.C) {
 	msg := "fail getting all controllers"
 	errStore := jujuclienttesting.NewStubStore()
-	errStore.AllControllersFunc = func() (map[string]jujuclient.ControllerDetails, error) {
-		return nil, errors.New(msg)
-	}
+	errStore.SetErrors(errors.New(msg))
 	s.store = errStore
 	s.expectedErr = fmt.Sprintf("failed to list controllers in jujuclient store: %v", msg)
 	s.assertListControllersFailed(c)
+	errStore.CheckCallNames(c, "AllControllers")
 }
 
 func (s *ListControllersSuite) TestListControllersUnrecognizedArg(c *gc.C) {
