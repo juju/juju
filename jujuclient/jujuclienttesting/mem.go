@@ -73,12 +73,10 @@ func (c *inMemory) UpdateModel(controller, model string, details jujuclient.Mode
 	}
 	models, ok := c.models[controller]
 	if !ok {
-		if !ok {
-			models = jujuclient.ControllerModels{
-				Models: make(map[string]jujuclient.ModelDetails),
-			}
-			c.models[controller] = models
+		models = jujuclient.ControllerModels{
+			Models: make(map[string]jujuclient.ModelDetails),
 		}
+		c.models[controller] = models
 	}
 	models.Models[model] = details
 	return nil
