@@ -58,7 +58,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = info
-	err = modelcmd.WriteCurrentModel(envName)
+	err = modelcmd.WriteCurrentController(envName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

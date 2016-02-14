@@ -31,12 +31,13 @@ import (
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	apiConnection *mockAPIConnection
-	store         configstore.Storage
-	apiOpenError  error
-	apiOpenName   string
-	server        *httptest.Server
-	httpHandler   http.Handler
+	apiConnection         *mockAPIConnection
+	store                 configstore.Storage
+	apiOpenError          error
+	apiOpenControllerName string
+	apiOpenModelName      string
+	server                *httptest.Server
+	httpHandler           http.Handler
 }
 
 var _ = gc.Suite(&RegisterSuite{})
@@ -56,7 +57,8 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		controllerTag: testing.ModelTag,
 		addr:          serverURL.Host,
 	}
-	s.apiOpenName = ""
+	s.apiOpenControllerName = ""
+	s.apiOpenModelName = ""
 
 	s.store = configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
@@ -78,11 +80,12 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 	return s.apiConnection, nil
 }
 
-func (s *RegisterSuite) newAPIRoot(name string) (api.Connection, error) {
+func (s *RegisterSuite) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 	if s.apiOpenError != nil {
 		return nil, s.apiOpenError
 	}
-	s.apiOpenName = name
+	s.apiOpenControllerName = controllerName
+	s.apiOpenModelName = modelName
 	return s.apiConnection, nil
 }
 
@@ -191,7 +194,8 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 
 	// The command should have logged into the controller with the
 	// information we checked above.
-	c.Assert(s.apiOpenName, gc.Equals, "controller-name")
+	c.Assert(s.apiOpenControllerName, gc.Equals, "controller-name")
+	c.Assert(s.apiOpenModelName, gc.Equals, "")
 }
 
 func (s *RegisterSuite) TestRegisterInvalidRegistrationData(c *gc.C) {

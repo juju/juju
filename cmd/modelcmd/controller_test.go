@@ -30,11 +30,13 @@ func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "fubar")
 }
+
 func (s *ControllerCommandSuite) TestControllerCommandInitEnvFile(c *gc.C) {
-	// If there is a current-environment file, use that.
+	// The current-model file has no bearing.
 	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	testEnsureControllerName(c, "fubar")
+	_, err = initTestControllerCommand(c)
+	c.Assert(err, gc.ErrorMatches, "no controller specified")
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {

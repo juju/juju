@@ -79,6 +79,7 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 		// of this test.
 		c.Assert(com.flagSet, gc.NotNil)
 		com.flagSet = nil
+		com.SetClientStore(nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(com, jc.DeepEquals, t.com)
 	}

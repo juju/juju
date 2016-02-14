@@ -82,7 +82,7 @@ func NewKillCommandForTest(
 	clientapi destroyClientAPI,
 	apierr error,
 	clock clock.Clock,
-	apiOpenFunc func(string) (api.Connection, error),
+	apiOpen modelcmd.APIOpener,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
@@ -91,7 +91,7 @@ func NewKillCommandForTest(
 			apierr:    apierr,
 		},
 	}
-	return wrapKillCommand(kill, apiOpenFunc, clock)
+	return wrapKillCommand(kill, apiOpen, clock)
 }
 
 // NewListBlocksCommandForTest returns a ListBlocksCommand with the controller

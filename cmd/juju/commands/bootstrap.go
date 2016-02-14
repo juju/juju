@@ -114,7 +114,7 @@ type bootstrapCommand struct {
 	AgentVersion          *version.Number
 	config                configFlag
 
-	ControllerName string
+	controllerName string
 	CredentialName string
 	Cloud          string
 	Region         string
@@ -197,7 +197,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.New("controller name and cloud name are required")
 	}
-	c.ControllerName = args[0]
+	c.controllerName = args[0]
 	c.Cloud = args[1]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
@@ -329,7 +329,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	controllerStore := jujuclient.NewFileClientStore()
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), store, controllerStore, c.ControllerName,
+		modelcmd.BootstrapContext(ctx), store, controllerStore, c.controllerName,
 		environs.PrepareForBootstrapParams{
 			Config:               cfg,
 			Credentials:          *credential,
@@ -348,7 +348,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	ctx.Infof(
 		"Creating Juju controller %q on %s",
-		c.ControllerName, cloudRegion,
+		c.controllerName, cloudRegion,
 	)
 
 	// If we error out for any reason, clean up the environment.
@@ -361,7 +361,7 @@ When you are finished diagnosing the problem, remember to run juju destroy-model
 to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
-					return environsDestroy(c.ControllerName, environ, store)
+					return environsDestroy(c.controllerName, environ, store)
 				})
 			}
 		}
@@ -413,13 +413,13 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	c.SetModelName(c.ControllerName)
+	c.SetModelName(c.controllerName)
 	err = c.SetBootstrapEndpointAddress(environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
-	err = modelcmd.SetCurrentModel(ctx, c.ControllerName)
+	err = modelcmd.SetCurrentModel(ctx, c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -663,7 +663,7 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	}
 
 	controllerStore := jujuclient.NewFileClientStore()
-	err = controllerStore.UpdateController(c.ControllerName, jujuclient.ControllerDetails{
+	err = controllerStore.UpdateController(c.controllerName, jujuclient.ControllerDetails{
 		hosts,
 		endpoint.ServerUUID,
 		addrs,

@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -125,10 +127,10 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
-	testDialer := func(sysName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock.WallClock, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
 	_, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
@@ -139,12 +141,12 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	testDialer := func(sysName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 		<-stop
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock, modelcmd.OpenFunc(testDialer))
 	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
