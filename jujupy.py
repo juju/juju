@@ -181,10 +181,13 @@ class WorkloadsNotReady(StatusNotMet):
 
 @contextmanager
 def temp_yaml_file(yaml_dict):
-    with NamedTemporaryFile(suffix='.yaml') as config_file:
-        yaml.safe_dump(yaml_dict, config_file)
-        config_file.flush()
-        yield config_file.name
+    temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
+    try:
+        with temp_file:
+            yaml.safe_dump(yaml_dict, temp_file)
+        yield temp_file.name
+    finally:
+        os.unlink(temp_file.name)
 
 
 class EnvJujuClient:
