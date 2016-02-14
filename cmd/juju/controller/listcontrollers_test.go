@@ -76,7 +76,7 @@ func (s *ListControllersSuite) TestListControllersReadFromStoreErr(c *gc.C) {
 	errStore := jujuclienttesting.NewStubStore()
 	errStore.SetErrors(errors.New(msg))
 	s.store = errStore
-	s.expectedErr = fmt.Sprintf("failed to list controllers in jujuclient store: %v", msg)
+	s.expectedErr = fmt.Sprintf("failed to list controllers: %v", msg)
 	s.assertListControllersFailed(c)
 	errStore.CheckCallNames(c, "AllControllers")
 }
@@ -100,7 +100,7 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 }
 
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.storeAccess), args...)
+	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {

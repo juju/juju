@@ -20,18 +20,12 @@ func TestPackage(t *testing.T) {
 type baseControllerSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 
-	store       jujuclient.ClientStore
-	storeAccess func() jujuclient.ClientStore
-
+	store                       jujuclient.ClientStore
 	expectedOutput, expectedErr string
 }
 
 func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
-	s.storeAccess = func() jujuclient.ClientStore {
-		return s.store
-	}
 }
 
 func (s *baseControllerSuite) TearDownTest(c *gc.C) {
@@ -42,19 +36,19 @@ func (s *baseControllerSuite) TearDownTest(c *gc.C) {
 func (s *baseControllerSuite) createTestClientStore(c *gc.C) {
 	s.store = jujuclient.NewFileClientStore()
 
-	// Load controllers
+	// Load controllers.
 	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
 
-	//Load models
+	// Load models.
 	models, err := jujuclient.ParseModels([]byte(testModelsYAML))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuclient.WriteModelsFile(models)
 	c.Assert(err, jc.ErrorIsNil)
 
-	//Load accounts
+	// Load accounts.
 	accounts, err := jujuclient.ParseAccounts([]byte(testAccountsYAML))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuclient.WriteAccountsFile(accounts)

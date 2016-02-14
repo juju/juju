@@ -21,7 +21,6 @@ type ControllerItem struct {
 // convertControllerDetails takes a map of Controllers and
 // the recently used model for each and
 // creates a list of amalgamated controller and model details.
-// TODO (anastasiamac 2016-02-10) this would also take in details of latest used models soon.
 func (c *listControllersCommand) convertControllerDetails(storeControllers map[string]jujuclient.ControllerDetails) (map[string]ControllerItem, []string) {
 	if len(storeControllers) == 0 {
 		return nil, nil
@@ -42,7 +41,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			serverName = details.Servers[0]
 		}
 
-		currentModel, err := c.newStoreFunc().CurrentModel(controllerName)
+		currentModel, err := c.store.CurrentModel(controllerName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				addError("model", controllerName, err)
@@ -51,14 +50,14 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		}
 
 		userName := ""
-		accountName, err := c.newStoreFunc().CurrentAccount(controllerName)
+		accountName, err := c.store.CurrentAccount(controllerName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				addError("account name", controllerName, err)
 				continue
 			}
 		} else {
-			currentAccount, err := c.newStoreFunc().AccountByName(controllerName, accountName)
+			currentAccount, err := c.store.AccountByName(controllerName, accountName)
 			if err != nil {
 				addError("account details", controllerName, err)
 				continue

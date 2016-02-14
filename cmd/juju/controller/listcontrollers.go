@@ -15,11 +15,10 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// NewListControllersCommand returns a command to list the controllers the user knows about.
+// NewListControllersCommand returns a command to list registered controllers.
 func NewListControllersCommand() cmd.Command {
-	cmd := &listControllersCommand{}
-	cmd.newStoreFunc = func() jujuclient.ClientStore {
-		return jujuclient.NewFileClientStore()
+	cmd := &listControllersCommand{
+		store: jujuclient.NewFileClientStore(),
 	}
 	return modelcmd.WrapBase(cmd)
 }
@@ -28,7 +27,7 @@ func NewListControllersCommand() cmd.Command {
 func (c *listControllersCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-controllers",
-		Purpose: "list all controllers logged in to on the current machine",
+		Purpose: "list all registered controllers",
 		Doc:     listControllersDoc,
 	}
 }
@@ -45,14 +44,13 @@ func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *listControllersCommand) Run(ctx *cmd.Context) error {
-	store := c.newStoreFunc()
-	controllers, err := store.AllControllers()
+	controllers, err := c.store.AllControllers()
 	if err != nil {
-		return errors.Annotate(err, "failed to list controllers in jujuclient store")
+		return errors.Annotate(err, "failed to list controllers")
 	}
 	details, errs := c.convertControllerDetails(controllers)
 	if len(errs) > 0 {
-		fmt.Fprintf(ctx.Stderr, "%v\n", strings.Join(errs, "\n"))
+		fmt.Fprintln(ctx.Stderr, strings.Join(errs, "\n"))
 	}
 	// TODO (anastasiamac 2016-02-13) need to sort out what to do with current-controller.
 	return c.out.Write(ctx, details)
@@ -61,8 +59,8 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 type listControllersCommand struct {
 	modelcmd.JujuCommandBase
 
-	out          cmd.Output
-	newStoreFunc func() jujuclient.ClientStore
+	out   cmd.Output
+	store jujuclient.ClientStore
 }
 
 const listControllersDoc = `
