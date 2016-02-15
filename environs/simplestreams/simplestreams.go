@@ -370,14 +370,38 @@ type GetMetadataParams struct {
 // If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+	fmt.Printf("\n IN GETMETADATA %d \n", countGetMetadata)
 
 	for _, source := range sources {
 		logger.Tracef("searching for metadata in datasource %q", source.Description())
+		fmt.Printf("searching for metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
+		fmt.Printf("\n ITEMS (%d)\n INFO %v \n ERR %v\n\n", len(items), resolveInfo, err)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !source.RequireSigned() {
+			fmt.Printf("\n")
 			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
+			fmt.Printf("\nFELL THRU\n ITEMS (%d)\n INFO %v \n ERR %v\n\n", len(items), resolveInfo, err)
 		}
+
+		//		if source.RequireSigned() {
+		//			if err != nil {
+		//				return nil, resolveInfo, errors.Annotatef(err, "datasource %q only valid for signed data", source.Description())
+		//			}
+		//			// if err == nil
+		//			if len(items) == 0 {
+		//				// did not find any items in this data source, skip to next one or error?
+		//				continue
+		//			}
+		//			return items, resolveInfo, nil
+		//		} else {
+		//			if len(items) > 0 {
+		//				return items, resolveInfo, nil
+		//			}
+		//			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
+		//			fmt.Printf("\nFELL THRU\n ITEMS (%d)\n INFO %v \n ERR %v\n\n", len(items), resolveInfo, err)
+		//		}
+
 		if err == nil {
 			break
 		}
@@ -388,6 +412,9 @@ func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interf
 	}
 	return items, resolveInfo, err
 }
+
+var countGetMetadata = 1
+var countMe = 1
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint in params.
 func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed bool) ([]interface{}, *ResolveInfo, error) {
@@ -406,14 +433,18 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	resolveInfo.Signed = signed
 	indexPath := makeIndexPath(defaultIndexPath)
 
+	fmt.Printf("\n INDEXPATH %d %v \n", countMe, indexPath)
+
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	cons := params.LookupConstraint
 
 	indexRef, indexURL, err := fetchIndex(
 		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
 	)
+	fmt.Printf("\n INDEXURL %d %v \n", countMe, indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
+		fmt.Printf("%s not found (actual error = %v), trying legacy index path: %s", indexPath, err, legacyIndexPath)
 		logger.Tracef("%s not found, trying legacy index path: %s", indexPath, legacyIndexPath)
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = fetchIndex(
@@ -427,7 +458,10 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 		}
 		return nil, resolveInfo, err
 	}
+	fmt.Printf("\n RESOLVE INFO %d %v \n", countMe, resolveInfo)
+
 	logger.Debugf("read metadata index at %q", indexURL)
+	countMe++
 	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {

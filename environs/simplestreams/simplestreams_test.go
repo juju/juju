@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
@@ -320,11 +321,156 @@ func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *gc.C) {
 type countingSource struct {
 	simplestreams.DataSource
 	count int
+
+	urls []string
 }
 
 func (s *countingSource) URL(path string) (string, error) {
 	s.count++
-	return s.DataSource.URL(path)
+	if len(s.urls) == 0 {
+		s.urls = []string{}
+	}
+	url, err := s.DataSource.URL(path)
+	s.urls = append(s.urls, url)
+	return url, err
+}
+
+func (s *simplestreamsSuite) TestGetMetadataNoVerifyNotSigned(c *gc.C) {
+	source := &countingSource{
+		DataSource: simplestreams.NewURLDataSource(
+			"test",
+			"test:/daily",
+			utils.NoVerifySSLHostnames,
+			simplestreams.DEFAULT_CLOUD_DATA,
+			false,
+		),
+	}
+	sources := []simplestreams.DataSource{source, source, source}
+	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Series: []string{"precise"},
+		Arches: []string{"not-a-real-arch"}, // never matches
+	})
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   s.StreamsVersion,
+		LookupConstraint: constraint,
+		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
+	}
+
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	fmt.Printf("\nLOGS \n %v\n\n", c.GetTestLog())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(items, gc.HasLen, 0)
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    false,
+		IndexURL:  "test:/daily/streams/v1/index.json",
+		MirrorURL: "",
+	})
+
+	// There should be 4 calls to each data-source:
+	// one for .sjson, one for .json, repeated for legacy vs new index files.
+	c.Assert(source.count, gc.Equals, 4*len(sources))
+
+	fmt.Println("\n COUNTED URLS\n")
+	for i, url := range source.urls {
+		fmt.Printf("\n %d %v\n", i, url)
+	}
+}
+
+func (s *simplestreamsSuite) TestGetMetadataNoVerifySigned(c *gc.C) {
+	source := &countingSource{
+		DataSource: simplestreams.NewURLDataSource(
+			"test",
+			"test:/daily",
+			utils.NoVerifySSLHostnames,
+			simplestreams.DEFAULT_CLOUD_DATA,
+			true,
+		),
+	}
+	sources := []simplestreams.DataSource{source, source, source}
+	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Series: []string{"precise"},
+		Arches: []string{"not-a-real-arch"}, // never matches
+	})
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   s.StreamsVersion,
+		LookupConstraint: constraint,
+		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
+	}
+
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	fmt.Printf("\nLOGS \n %v\n\n", c.GetTestLog())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(items, gc.HasLen, 0)
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    false,
+		IndexURL:  "test:/daily/streams/v1/index.json",
+		MirrorURL: "",
+	})
+
+	// There should be 4 calls to each data-source:
+	// one for .sjson, one for .json, repeated for legacy vs new index files.
+	c.Assert(source.count, gc.Equals, 4*len(sources))
+
+	fmt.Println("\n COUNTED URLS\n")
+	for i, url := range source.urls {
+		fmt.Printf("\n %d %v\n", i, url)
+	}
+}
+
+func (s *simplestreamsSuite) TestGetMetadataVerifySigned(c *gc.C) {
+	source := &countingSource{
+		DataSource: simplestreams.NewURLDataSource(
+			"test",
+			"test:/daily",
+			utils.VerifySSLHostnames,
+			simplestreams.DEFAULT_CLOUD_DATA,
+			true,
+		),
+	}
+	sources := []simplestreams.DataSource{source, source, source}
+	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{
+			Region:   "us-east-1",
+			Endpoint: "https://ec2.us-east-1.amazonaws.com",
+		},
+		Series: []string{"precise"},
+		Arches: []string{"not-a-real-arch"}, // never matches
+	})
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   s.StreamsVersion,
+		LookupConstraint: constraint,
+		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
+	}
+
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	fmt.Printf("\nLOGS \n %v\n\n", c.GetTestLog())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(items, gc.HasLen, 0)
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    false,
+		IndexURL:  "test:/daily/streams/v1/index.json",
+		MirrorURL: "",
+	})
+
+	// There should be 4 calls to each data-source:
+	// one for .sjson, one for .json, repeated for legacy vs new index files.
+	c.Assert(source.count, gc.Equals, 4*len(sources))
+
+	fmt.Println("\n COUNTED URLS\n")
+	for i, url := range source.urls {
+		fmt.Printf("\n %d %v\n", i, url)
+	}
 }
 
 func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
@@ -365,6 +511,10 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	// There should be 4 calls to each data-source:
 	// one for .sjson, one for .json, repeated for legacy vs new index files.
 	c.Assert(source.count, gc.Equals, 4*len(sources))
+	fmt.Println("\n COUNTED URLS\n")
+	for i, url := range source.urls {
+		fmt.Printf("\n %d %v\n", i, url)
+	}
 }
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
