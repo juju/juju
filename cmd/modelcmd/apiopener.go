@@ -34,7 +34,7 @@ type timeoutOpener struct {
 }
 
 // NewTimeoutOpener will call the opener when Open is called, but if the
-// openern does not return by the specified timeout, ErrConnTimeOut is
+// opener does not return by the specified timeout, ErrConnTimeOut is
 // returned.
 func NewTimeoutOpener(opener APIOpener, clock clock.Clock, timeout time.Duration) APIOpener {
 	return &timeoutOpener{

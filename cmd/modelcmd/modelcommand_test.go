@@ -40,32 +40,32 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&ModelCommandSuite{})
 
-func (s *ModelCommandSuite) TestGetDefaultModelNothingSet(c *gc.C) {
-	env, err := modelcmd.GetDefaultModel(s.store)
+func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetDefaultModelCurrentModelSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentModelSet(c *gc.C) {
 	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := modelcmd.GetDefaultModel(s.store)
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "fubar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetDefaultModelJujuEnvSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
 	os.Setenv(osenv.JujuModelEnvKey, "magic")
-	env, err := modelcmd.GetDefaultModel(s.store)
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetDefaultModelBothSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuModelEnvKey, "magic")
 	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := modelcmd.GetDefaultModel(s.store)
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
 }

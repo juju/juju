@@ -80,7 +80,8 @@ func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connec
 	return c.apiContext.apiOpen(info, opts)
 }
 
-// RefreshModelsCache refreshes the local models cache for the current user.
+// RefreshModels refreshes the local models cache for the current user
+// on the specified controller.
 func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
 	accountName, err := store.CurrentAccount(controllerName)
 	if err != nil {

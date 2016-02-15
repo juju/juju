@@ -28,7 +28,7 @@ var logger = loggo.GetLogger("juju.cmd.envcmd")
 // has been explicitly specified, and there is no default model.
 var ErrNoModelSpecified = errors.New("no model specified")
 
-// GetDefaultModel returns the name of the current Juju model.
+// GetCurrentModel returns the name of the current Juju model.
 //
 // If $JUJU_MODEL is set, use that. Otherwise, get the current
 // controller by reading $XDG_DATA_HOME/juju/current-controller,
@@ -36,7 +36,7 @@ var ErrNoModelSpecified = errors.New("no model specified")
 // in models.yaml. If there is no current controller, or no
 // current model for that controller, then an empty string is
 // returned. It is not an error to have no default model.
-func GetDefaultModel(store jujuclient.ClientStore) (string, error) {
+func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
 		return model, nil
 	}
@@ -79,7 +79,10 @@ type ModelCommand interface {
 	ClientStore() jujuclient.ClientStore
 
 	// SetModelName sets the model name for this command. Setting the model
-	// name will also set the related controller name.
+	// name will also set the related controller name. The model name can
+	// be qualified with a controller name (controller:model), or
+	// unqualified, in which case it will be assumed to be within the
+	// current controller.
 	//
 	// SetModelName is called prior to the wrapped command's Init method
 	// with the active model name. The model name is guaranteed
@@ -194,8 +197,6 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// TODO(axw) stop checking c.store != nil once we've updated all the
 	// tests, and have excised configstore.
 	if c.modelName != "" && c.controllerName != "" && c.store != nil {
-		// The user has specified a model that the client does not
-		// know about. Refresh the client's model cache.
 		_, err := c.store.ModelByName(c.controllerName, c.modelName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -363,7 +364,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	if !w.skipFlags {
 		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.
-			defaultModel, err := GetDefaultModel(store)
+			defaultModel, err := GetCurrentModel(store)
 			if err != nil {
 				return err
 			}
