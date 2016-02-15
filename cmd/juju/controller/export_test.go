@@ -21,6 +21,14 @@ func NewListControllersCommandForTest(testStore jujuclient.ClientStore) *listCon
 	}
 }
 
+// NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
+// as specified.
+func NewShowControllerCommandForTest(testStore jujuclient.ClientStore) *showControllerCommand {
+	return &showControllerCommand{
+		store: testStore,
+	}
+}
+
 type CreateModelCommand struct {
 	*createModelCommand
 }
