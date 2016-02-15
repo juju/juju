@@ -563,7 +563,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		_, err = client.List()
 		client.Close()
 		if err == nil {
-			ctx.Infof("Bootstrap complete, %s now available.", c.ControllerName)
+			ctx.Infof("Bootstrap complete, %s now available.", c.controllerName)
 			return nil
 		}
 		// As the API server is coming up, it goes through a number of steps.
