@@ -197,12 +197,16 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.New("controller name and cloud name are required")
 	}
-	c.controllerName = args[0]
+	c.controllerName = bootstrappedControllerName(args[0])
 	c.Cloud = args[1]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
 	}
 	return cmd.CheckEmpty(args[2:])
+}
+
+var bootstrappedControllerName = func(controllerName string) string {
+	return fmt.Sprintf("local.%s", controllerName)
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
@@ -564,7 +568,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		_, err = client.List()
 		client.Close()
 		if err == nil {
-			ctx.Infof("Bootstrap complete")
+			ctx.Infof("Bootstrap complete, %s now available.", c.controllerName)
 			return nil
 		}
 		// As the API server is coming up, it goes through a number of steps.
