@@ -472,11 +472,6 @@ type errRoot struct {
 	err error
 }
 
-// Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
-func (r *errRoot) Admin(id string) (*adminApiV3, error) {
-	return nil, r.err
-}
-
 // FindMethod conforms to the same API as initialRoot, but we'll always return (nil, err)
 func (r *errRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	return nil, r.err

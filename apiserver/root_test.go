@@ -84,7 +84,7 @@ var _ = gc.Suite(&errRootSuite{})
 func (s *errRootSuite) TestErrorRoot(c *gc.C) {
 	origErr := fmt.Errorf("my custom error")
 	errRoot := apiserver.NewErrRoot(origErr)
-	st, err := errRoot.Admin("")
+	st, err := errRoot.FindMethod("", 0, "")
 	c.Check(st, gc.IsNil)
 	c.Check(err, gc.Equals, origErr)
 }
