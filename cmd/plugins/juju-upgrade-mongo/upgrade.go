@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
@@ -42,6 +43,10 @@ func Main(args []string) {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not obtain context for command: %v\n", err)
+		os.Exit(2)
+	}
+	if err := juju.InitJujuXDGDataHome(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
 	os.Exit(cmd.Main(modelcmd.Wrap(&upgradeMongoCommand{}), ctx, args[1:]))
