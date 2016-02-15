@@ -22,46 +22,50 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type ModelCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	store jujuclient.ClientStore
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
+	s.store = jujuclienttesting.NewMemStore()
 }
 
 var _ = gc.Suite(&ModelCommandSuite{})
 
-func (s *ModelCommandSuite) TestGetDefaultModelNothingSet(c *gc.C) {
-	env, err := modelcmd.GetDefaultModel()
+func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetDefaultModelCurrentModelSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentModelSet(c *gc.C) {
 	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := modelcmd.GetDefaultModel()
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "fubar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetDefaultModelJujuEnvSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
 	os.Setenv(osenv.JujuModelEnvKey, "magic")
-	env, err := modelcmd.GetDefaultModel()
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetDefaultModelBothSet(c *gc.C) {
+func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuModelEnvKey, "magic")
 	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := modelcmd.GetDefaultModel()
+	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -144,7 +148,7 @@ type ConnectionEndpointSuite struct {
 var _ = gc.Suite(&ConnectionEndpointSuite{})
 
 func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = configstore.NewMem()
 	s.PatchValue(modelcmd.GetConfigStore, func() (configstore.Storage, error) {
 		return s.store, nil

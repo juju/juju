@@ -35,6 +35,7 @@ func NewRegisterCommand() cmd.Command {
 	cmd := &registerCommand{}
 	cmd.apiOpen = cmd.APIOpen
 	cmd.newAPIRoot = cmd.NewAPIRoot
+	cmd.store = jujuclient.NewFileClientStore()
 	return modelcmd.WrapBase(cmd)
 }
 
@@ -44,6 +45,7 @@ type registerCommand struct {
 	modelcmd.JujuCommandBase
 	apiOpen     api.OpenFunc
 	newAPIRoot  modelcmd.OpenFunc
+	store       jujuclient.ClientStore
 	EncodedData string
 }
 
@@ -161,7 +163,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	apiConn, err := c.newAPIRoot(registrationParams.controllerName)
+	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, "")
 	if err != nil {
 		return errors.Trace(err)
 	}

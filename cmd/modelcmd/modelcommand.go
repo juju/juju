@@ -6,6 +6,7 @@ package modelcmd
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 )
 
 var logger = loggo.GetLogger("juju.cmd.envcmd")
@@ -26,40 +28,73 @@ var logger = loggo.GetLogger("juju.cmd.envcmd")
 // has been explicitly specified, and there is no default model.
 var ErrNoModelSpecified = errors.New("no model specified")
 
-// GetDefaultModel returns the name of the Juju default model.
-// There is simple ordering for the default model.  Firstly check the
-// JUJU_MODEL environment variable.  If that is set, it gets used.  If it isn't
-// set, look in the $JUJU_DATA/current-environment file.  If neither are
-// available, an empty string is returned; not having a default model
-// specified is not an error.
-func GetDefaultModel() (string, error) {
-	if defaultEnv := os.Getenv(osenv.JujuModelEnvKey); defaultEnv != "" {
-		return defaultEnv, nil
+// GetCurrentModel returns the name of the current Juju model.
+//
+// If $JUJU_MODEL is set, use that. Otherwise, get the current
+// controller by reading $XDG_DATA_HOME/juju/current-controller,
+// and then identifying the current model for that controller
+// in models.yaml. If there is no current controller, or no
+// current model for that controller, then an empty string is
+// returned. It is not an error to have no default model.
+func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
+	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
+		return model, nil
 	}
+
+	// TODO(axw) remove this when all of the tests are updated.
 	if currentModel, err := ReadCurrentModel(); err != nil {
 		return "", errors.Trace(err)
 	} else if currentModel != "" {
 		return currentModel, nil
 	}
-	if currentController, err := ReadCurrentController(); err != nil {
+
+	currentController, err := ReadCurrentController()
+	if err != nil {
 		return "", errors.Trace(err)
-	} else if currentController != "" {
-		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
 	}
-	return "", nil
+	if currentController == "" {
+		return "", nil
+	}
+
+	currentModel, err := store.CurrentModel(currentController)
+	if errors.IsNotFound(err) {
+		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return currentModel, nil
 }
 
 // ModelCommand extends cmd.Command with a SetModelName method.
 type ModelCommand interface {
 	CommandBase
 
+	// SetClientStore is called prior to the wrapped command's Init method
+	// with the default controller store. It may also be called to override the
+	// default controller store for testing.
+	SetClientStore(jujuclient.ClientStore)
+
+	// ClientStore returns the controller store that the command is
+	// associated with.
+	ClientStore() jujuclient.ClientStore
+
+	// SetModelName sets the model name for this command. Setting the model
+	// name will also set the related controller name. The model name can
+	// be qualified with a controller name (controller:model), or
+	// unqualified, in which case it will be assumed to be within the
+	// current controller.
+	//
 	// SetModelName is called prior to the wrapped command's Init method
 	// with the active model name. The model name is guaranteed
 	// to be non-empty at entry of Init.
-	SetModelName(modelName string)
+	SetModelName(modelName string) error
 
 	// ModelName returns the name of the model.
 	ModelName() string
+
+	// ControllerName returns the name of the controller that contains
+	// the model returned by ModelName().
+	ControllerName() string
 
 	// SetAPIOpener allows the replacement of the default API opener,
 	// which ends up calling NewAPIRoot
@@ -71,10 +106,12 @@ type ModelCommand interface {
 type ModelCommandBase struct {
 	JujuCommandBase
 
-	// ModelName will very soon be package visible only as we want to be able
-	// to specify an model in multiple ways, and not always referencing
-	// a file on disk based on the ModelName.
-	modelName string
+	// store is the client controller store that contains information
+	// about controllers, models, etc.
+	store jujuclient.ClientStore
+
+	modelName      string
+	controllerName string
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
@@ -83,14 +120,38 @@ type ModelCommandBase struct {
 	envGetterErr    error
 }
 
+// SetClientStore implements the ModelCommand interface.
+func (c *ModelCommandBase) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
+// ClientStore implements the ModelCommand interface.
+func (c *ModelCommandBase) ClientStore() jujuclient.ClientStore {
+	return c.store
+}
+
 // SetModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelName(modelName string) {
-	c.modelName = modelName
+func (c *ModelCommandBase) SetModelName(modelName string) error {
+	if i := strings.IndexRune(modelName, ':'); i > 0 {
+		c.controllerName, c.modelName = modelName[:i], modelName[i+1:]
+		return nil
+	}
+	currentController, err := ReadCurrentController()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.controllerName, c.modelName = currentController, modelName
+	return nil
 }
 
 // ModelName implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelName() string {
 	return c.modelName
+}
+
+// ControllerName implements the ModelCommand interface.
+func (c *ModelCommandBase) ControllerName() string {
+	return c.controllerName
 }
 
 // SetAPIOpener specifies the strategy used by the command to open
@@ -131,9 +192,24 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	}
 	opener := c.opener
 	if opener == nil {
-		opener = NewPassthroughOpener(c.JujuCommandBase.NewAPIRoot)
+		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	return opener.Open(c.modelName)
+	// TODO(axw) stop checking c.store != nil once we've updated all the
+	// tests, and have excised configstore.
+	if c.modelName != "" && c.controllerName != "" && c.store != nil {
+		_, err := c.store.ModelByName(c.controllerName, c.modelName)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+			// The model isn't known locally, so query the models
+			// available in the controller, and cache them locally.
+			if err := c.RefreshModels(c.store, c.controllerName); err != nil {
+				return nil, errors.Annotate(err, "refreshing models")
+			}
+		}
+	}
+	return opener.Open(c.store, c.controllerName, c.modelName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -280,10 +356,15 @@ func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (w *modelCommandWrapper) Init(args []string) error {
+	store := w.ClientStore()
+	if store == nil {
+		store = jujuclient.NewFileClientStore()
+		w.SetClientStore(store)
+	}
 	if !w.skipFlags {
 		if w.modelName == "" && w.useDefaultModel {
 			// Look for the default.
-			defaultModel, err := GetDefaultModel()
+			defaultModel, err := GetCurrentModel(store)
 			if err != nil {
 				return err
 			}
@@ -297,7 +378,9 @@ func (w *modelCommandWrapper) Init(args []string) error {
 			}
 		}
 	}
-	w.SetModelName(w.modelName)
+	if err := w.SetModelName(w.modelName); err != nil {
+		return errors.Annotate(err, "setting model name")
+	}
 	return w.ModelCommand.Init(args)
 }
 

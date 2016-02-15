@@ -43,11 +43,11 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	configstore.Default = func() (configstore.Storage, error) {
 		return s.store, nil
 	}
-	// Set up the current environment, and write just enough info
+	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
-	envName := "test-master"
+	controllerName := "test-master"
 	s.serverUUID = "fake-server-uuid"
-	info := s.store.CreateInfo(envName)
+	info := s.store.CreateInfo(controllerName)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
@@ -58,7 +58,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = info
-	err = modelcmd.WriteCurrentModel(envName)
+	err = modelcmd.WriteCurrentController(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

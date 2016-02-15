@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils/clock"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -43,11 +42,11 @@ func NewKillCommand() cmd.Command {
 
 // wrapKillCommand provides the common wrapping used by tests and
 // the default NewKillCommand above.
-func wrapKillCommand(kill *killCommand, fn func(string) (api.Connection, error), clock clock.Clock) cmd.Command {
-	if fn == nil {
-		fn = kill.JujuCommandBase.NewAPIRoot
+func wrapKillCommand(kill *killCommand, apiOpen modelcmd.APIOpener, clock clock.Clock) cmd.Command {
+	if apiOpen == nil {
+		apiOpen = modelcmd.OpenFunc(kill.JujuCommandBase.NewAPIRoot)
 	}
-	openStrategy := modelcmd.NewTimeoutOpener(fn, clock, 10*time.Second)
+	openStrategy := modelcmd.NewTimeoutOpener(apiOpen, clock, 10*time.Second)
 	return modelcmd.WrapController(
 		kill,
 		modelcmd.ControllerSkipFlags,

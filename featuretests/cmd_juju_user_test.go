@@ -30,7 +30,8 @@ var _ = gc.Suite(&UserSuite{})
 
 func (s *UserSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	modelcmd.WriteCurrentModel("dummymodel")
+	err := modelcmd.WriteCurrentController("dummymodel")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {

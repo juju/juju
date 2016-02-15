@@ -14,7 +14,9 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 )
 
 var errNoNameSpecified = errors.New("no name specified")
@@ -46,12 +48,15 @@ func (c *JujuCommandBase) closeContext() {
 }
 
 // NewAPIRoot returns a new connection to the API server for the given
-// model or system.
-func (c *JujuCommandBase) NewAPIRoot(modelOrControllerName string) (api.Connection, error) {
+// model or controller.
+func (c *JujuCommandBase) NewAPIRoot(
+	store jujuclient.ClientStore,
+	controllerName, modelName string,
+) (api.Connection, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(modelOrControllerName)
+	return c.apiContext.newAPIRoot(store, controllerName, modelName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -73,6 +78,38 @@ func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connec
 		return nil, errors.Trace(err)
 	}
 	return c.apiContext.apiOpen(info, opts)
+}
+
+// RefreshModels refreshes the local models cache for the current user
+// on the specified controller.
+func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+	accountName, err := store.CurrentAccount(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails, err := store.AccountByName(controllerName, accountName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	conn, err := c.NewAPIRoot(store, controllerName, "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer conn.Close()
+
+	modelManager := modelmanager.NewClient(conn)
+	models, err := modelManager.ListModels(accountDetails.User)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, model := range models {
+		modelDetails := jujuclient.ModelDetails{model.UUID}
+		err := store.UpdateModel(controllerName, model.Name, modelDetails)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // initAPIContext lazily initializes c.apiContext. Doing this lazily means that
@@ -174,7 +211,13 @@ func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connectio
 
 // newAPIRoot establishes a connection to the API server for
 // the named system or model.
-func (ctx *apiContext) newAPIRoot(name string) (api.Connection, error) {
+func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	// TODO(axw) pass controller and model name through to
+	// juju.NewAPIFromName, as well as the jujuclient.ClientStore.
+	name := modelName
+	if modelName == "" {
+		name = controllerName
+	}
 	if name == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
