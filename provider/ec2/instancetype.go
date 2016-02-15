@@ -425,6 +425,12 @@ var allRegionCosts = regionCosts{
 		"m3.xlarge":  405,
 		"m3.2xlarge": 810,
 
+		"m4.large":    174,
+		"m4.xlarge":   348,
+		"m4.2xlarge":  695,
+		"m4.4xlarge":  1391,
+		"m4.10xlarge": 3477,
+
 		"c1.medium": 158,
 		"c1.xlarge": 632,
 
@@ -517,6 +523,12 @@ var allRegionCosts = regionCosts{
 		"m3.xlarge":  392,
 		"m3.2xlarge": 784,
 
+		"m4.large":    178,
+		"m4.xlarge":   355,
+		"m4.2xlarge":  711,
+		"m4.4xlarge":  1421,
+		"m4.10xlarge": 3553,
+
 		"c1.medium": 164,
 		"c1.xlarge": 655,
 
@@ -568,6 +580,12 @@ var allRegionCosts = regionCosts{
 		"m3.xlarge":  392,
 		"m3.2xlarge": 784,
 
+		"m4.large":    168,
+		"m4.xlarge":   336,
+		"m4.2xlarge":  673,
+		"m4.4xlarge":  1345,
+		"m4.10xlarge": 3363,
+
 		"c1.medium": 164,
 		"c1.xlarge": 655,
 
@@ -618,6 +636,12 @@ var allRegionCosts = regionCosts{
 		"m3.large":   154,
 		"m3.xlarge":  308,
 		"m3.2xlarge": 616,
+
+		"m4.large":    132,
+		"m4.xlarge":   264,
+		"m4.2xlarge":  528,
+		"m4.4xlarge":  1056,
+		"m4.10xlarge": 2641,
 
 		"c1.medium": 148,
 		"c1.xlarge": 592,
@@ -678,6 +702,7 @@ var allRegionCosts = regionCosts{
 		"m3.xlarge":  381,
 		"m3.2xlarge": 761,
 
+
 		"c1.medium": 179,
 		"c1.xlarge": 718,
 
@@ -707,6 +732,12 @@ var allRegionCosts = regionCosts{
 		"m3.large":   140,
 		"m3.xlarge":  280,
 		"m3.2xlarge": 560,
+
+		"m4.large":    120,
+		"m4.xlarge":   239,
+		"m4.2xlarge":  479,
+		"m4.4xlarge":  958,
+		"m4.10xlarge": 2394,
 
 		"c1.medium": 130,
 		"c1.xlarge": 520,
@@ -767,6 +798,13 @@ var allRegionCosts = regionCosts{
 		"m3.xlarge":  308,
 		"m3.2xlarge": 616,
 
+		"m4.large":    140,
+		"m4.xlarge":   279,
+		"m4.2xlarge":  559,
+		"m4.4xlarge":  1117,
+		"m4.10xlarge": 2793,
+
+
 		"c1.medium": 148,
 		"c1.xlarge": 592,
 
@@ -815,6 +853,12 @@ var allRegionCosts = regionCosts{
 		"m3.large":   140,
 		"m3.xlarge":  280,
 		"m3.2xlarge": 560,
+
+		"m4.large":    120,
+		"m4.xlarge":   239,
+		"m4.2xlarge":  479,
+		"m4.4xlarge":  958,
+		"m4.10xlarge": 2394,
 
 		"c1.medium": 130,
 		"c1.xlarge": 520,
