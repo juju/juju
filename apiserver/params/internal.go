@@ -648,7 +648,7 @@ type HookRetryStrategy struct {
 	MinRetryTime    time.Duration
 	MaxRetryTime    time.Duration
 	JitterRetryTime bool
-	RetryTimeFactor int
+	RetryTimeFactor int64
 }
 
 // HookRetryStrategyResult holds a HookRetryStrategy or an error.
