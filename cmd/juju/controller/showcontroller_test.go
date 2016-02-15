@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,128 +24,155 @@ type ShowControllerSuite struct {
 var _ = gc.Suite(&ShowControllerSuite{})
 
 func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
-	s.controllers = []testControllers{{
-		"test1",
-		"uuid.1",
-		"ca.cert.1",
-	}}
-	s.createMemClientStore(c)
+	s.controllersYaml = `controllers:
+  local.mallards:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+`
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-test1:
-  servers: []
-  uuid: uuid.1
-  api-endpoints: []
-  ca-cert: ca.cert.1
+local.mallards:
+  details:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+  models:
+    admin:
+      uuid: abc
+    my-model:
+      uuid: def
+  current-model: my-model
+  accounts:
+    admin@local:
+      user: admin@local
+      password: hunter2
+    bob@local:
+      user: bob@local
+      password: huntert00
+    bob@remote:
+      user: bob@remote
+  current-account: admin@local
 `[1:]
 
-	s.assertShowController(c, "test1")
+	s.assertShowController(c, "local.mallards")
 }
 
 func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
-	s.createMemClientStore(c)
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-test1:
-  servers: []
-  uuid: uuid.1
-  api-endpoints: []
-  ca-cert: ca.cert.1
+local.aws-test:
+  details:
+    servers: [instance-1-2-4.useast.aws.com]
+    uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    ca-cert: this-is-aws-test-ca-cert
+  models:
+    admin:
+      uuid: ghi
+  current-model: admin
+  errors:
+  - accounts for controller local.aws-test not found
+  - current account for controller local.aws-test not found
 `[1:]
-	s.assertShowController(c, "test1")
+	s.assertShowController(c, "local.aws-test")
 }
 
 func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
-	s.createMemClientStore(c)
+	s.createTestClientStore(c)
 	s.expectedOutput = `
-abc:
-  servers: []
-  uuid: uuid.2
-  api-endpoints: []
-  ca-cert: ca.cert.2
-test1:
-  servers: []
-  uuid: uuid.1
-  api-endpoints: []
-  ca-cert: ca.cert.1
+local.aws-test:
+  details:
+    servers: [instance-1-2-4.useast.aws.com]
+    uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    ca-cert: this-is-aws-test-ca-cert
+  models:
+    admin:
+      uuid: ghi
+  current-model: admin
+  errors:
+  - accounts for controller local.aws-test not found
+  - current account for controller local.aws-test not found
+local.mark-test-prodstack:
+  details:
+    servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
+    uuid: this-is-a-uuid
+    api-endpoints: [this-is-one-of-many-api-endpoints]
+    ca-cert: this-is-a-ca-cert
+  accounts:
+    admin@local:
+      user: admin@local
+      password: hunter2
+  errors:
+  - models for controller local.mark-test-prodstack not found
+  - current model for controller local.mark-test-prodstack not found
+  - current account for controller local.mark-test-prodstack not found
 `[1:]
 
-	s.assertShowController(c, "test1", "abc")
+	s.assertShowController(c, "local.aws-test", "local.mark-test-prodstack")
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
-	s.controllers = []testControllers{{
-		"test1",
-		"uuid.1",
-		"ca.cert.1",
-	}}
-	s.createMemClientStore(c)
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"test1":{"Servers":null,"ControllerUUID":"uuid.1","APIEndpoints":null,"CACert":"ca.cert.1"}}
+{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin","errors":["accounts for controller local.aws-test not found","current account for controller local.aws-test not found"]}}
 `[1:]
 
-	s.assertShowController(c, "--format", "json", "test1")
+	s.assertShowController(c, "--format", "json", "local.aws-test")
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
-	s.createMemClientStore(c)
+	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"abc":{"Servers":null,"ControllerUUID":"uuid.2","APIEndpoints":null,"CACert":"ca.cert.2"},"test1":{"Servers":null,"ControllerUUID":"uuid.1","APIEndpoints":null,"CACert":"ca.cert.1"}}
+{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin","errors":["accounts for controller local.aws-test not found","current account for controller local.aws-test not found"]},"local.mark-test-prodstack":{"details":{"Servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"ControllerUUID":"this-is-a-uuid","APIEndpoints":["this-is-one-of-many-api-endpoints"],"CACert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"User":"admin@local","Password":"hunter2"}},"errors":["models for controller local.mark-test-prodstack not found","current model for controller local.mark-test-prodstack not found","current account for controller local.mark-test-prodstack not found"]}}
 `[1:]
-	s.assertShowController(c, "--format", "json", "test1", "abc")
-}
-
-func (s *ShowControllerSuite) TestShowControllerAccessStoreErr(c *gc.C) {
-	msg := "my bad"
-	s.storeAccess = func() (jujuclient.ControllerStore, error) {
-		return nil, errors.New(msg)
-	}
-
-	s.expectedErr = fmt.Sprintf("failed to get jujuclient store: %v", msg)
-
-	s.assertShowControllerFailed(c, "test1")
+	s.assertShowController(c, "--format", "json", "local.aws-test", "local.mark-test-prodstack")
 }
 
 func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
+	s.createTestClientStore(c)
+
 	msg := "fail getting controller"
-	s.store = &mockClientStore{msg}
-	s.expectedErr = fmt.Sprintf("failed to get controller %q from jujuclient store: %v", "test1", msg)
+	errStore := jujuclienttesting.NewStubStore()
+	errStore.SetErrors(errors.New(msg))
+	s.store = errStore
+	s.expectedErr = fmt.Sprintf("failed to get controller %s: %v", "test1", msg)
+
 	s.assertShowControllerFailed(c, "test1")
+	errStore.CheckCallNames(c, "ControllerByName")
 }
 
 func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
-	s.createMemClientStore(c)
+	s.createTestClientStore(c)
 	s.expectedErr = regexp.QuoteMeta(`must specify controller name(s)`)
 	s.assertShowControllerFailed(c)
 }
 
 func (s *ShowControllerSuite) TestShowControllerNotFound(c *gc.C) {
-	s.controllers = nil
-	s.createMemClientStore(c)
+	s.createTestClientStore(c)
 
-	s.expectedErr = regexp.QuoteMeta(`failed to get controller "whoops" from jujuclient store: controller whoops not found`)
+	s.expectedErr = `failed to get controller whoops: controller whoops not found`
 	s.assertShowControllerFailed(c, "whoops")
 }
 
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedFlag(c *gc.C) {
-	s.createMemClientStore(c)
-
-	// m (model) is not a valid flag for this command \o/
 	s.expectedErr = `flag provided but not defined: -m`
 	s.assertShowControllerFailed(c, "-m", "my.world")
 }
 
 func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) {
-	s.createMemClientStore(c)
-
-	// model is not a valid option flag for this command \o/
 	s.expectedErr = `flag provided but not defined: --model`
 	s.assertShowControllerFailed(c, "--model", "still.my.world")
 }
 
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewShowControllerCommandForTest(s.storeAccess), args...)
+	return testing.RunCommand(c, controller.NewShowControllerCommandForTest(s.store), args...)
 }
 
 func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string) {

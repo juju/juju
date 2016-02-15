@@ -20,12 +20,17 @@ func TestPackage(t *testing.T) {
 type baseControllerSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 
-	store                       jujuclient.ClientStore
-	expectedOutput, expectedErr string
+	store                                     jujuclient.ClientStore
+	controllersYaml, modelsYaml, accountsYaml string
+	expectedOutput, expectedErr               string
 }
 
 func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+
+	s.controllersYaml = testControllersYaml
+	s.modelsYaml = testModelsYaml
+	s.accountsYaml = testAccountsYaml
 }
 
 func (s *baseControllerSuite) TearDownTest(c *gc.C) {
@@ -37,25 +42,25 @@ func (s *baseControllerSuite) createTestClientStore(c *gc.C) {
 	s.store = jujuclient.NewFileClientStore()
 
 	// Load controllers.
-	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
+	controllers, err := jujuclient.ParseControllers([]byte(s.controllersYaml))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Load models.
-	models, err := jujuclient.ParseModels([]byte(testModelsYAML))
+	models, err := jujuclient.ParseModels([]byte(s.modelsYaml))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuclient.WriteModelsFile(models)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Load accounts.
-	accounts, err := jujuclient.ParseAccounts([]byte(testAccountsYAML))
+	accounts, err := jujuclient.ParseAccounts([]byte(s.accountsYaml))
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuclient.WriteAccountsFile(accounts)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-const testControllersYAML = `
+const testControllersYaml = `
 controllers:
   local.aws-test:
     servers: [instance-1-2-4.useast.aws.com]
@@ -74,7 +79,7 @@ controllers:
     ca-cert: this-is-a-ca-cert
 `
 
-const testModelsYAML = `
+const testModelsYaml = `
 controllers:
   local.aws-test:
     models:
@@ -90,7 +95,7 @@ controllers:
     current-model: my-model
 `
 
-const testAccountsYAML = `
+const testAccountsYaml = `
 controllers:
   local.mark-test-prodstack:
     accounts:
