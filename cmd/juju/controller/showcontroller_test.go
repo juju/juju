@@ -49,6 +49,42 @@ local.mallards:
   accounts:
     admin@local:
       user: admin@local
+    bob@local:
+      user: bob@local
+    bob@remote:
+      user: bob@remote
+  current-account: admin@local
+`[1:]
+
+	s.assertShowController(c, "local.mallards")
+}
+
+func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
+	s.controllersYaml = `controllers:
+  local.mallards:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+`
+	s.createTestClientStore(c)
+
+	s.expectedOutput = `
+local.mallards:
+  details:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+  models:
+    admin:
+      uuid: abc
+    my-model:
+      uuid: def
+  current-model: my-model
+  accounts:
+    admin@local:
+      user: admin@local
       password: hunter2
     bob@local:
       user: bob@local
@@ -58,7 +94,7 @@ local.mallards:
   current-account: admin@local
 `[1:]
 
-	s.assertShowController(c, "local.mallards")
+	s.assertShowController(c, "local.mallards", "--include-passwords")
 }
 
 func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
@@ -101,7 +137,6 @@ local.mark-test-prodstack:
   accounts:
     admin@local:
       user: admin@local
-      password: hunter2
 `[1:]
 
 	s.assertShowController(c, "local.aws-test", "local.mark-test-prodstack")
@@ -111,7 +146,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin"}}
+{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "local.aws-test")
@@ -120,7 +155,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin"},"local.mark-test-prodstack":{"details":{"Servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"ControllerUUID":"this-is-a-uuid","APIEndpoints":["this-is-one-of-many-api-endpoints"],"CACert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"User":"admin@local","Password":"hunter2"}}}}
+{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin"},"local.mark-test-prodstack":{"details":{"servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"user":"admin@local"}}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "local.aws-test", "local.mark-test-prodstack")
 }
