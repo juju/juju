@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/version"
@@ -473,5 +474,10 @@ type errRoot struct {
 
 // Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
 func (r *errRoot) Admin(id string) (*adminApiV3, error) {
+	return nil, r.err
+}
+
+// FindMethod conforms to the same API as initialRoot, but we'll always return (nil, err)
+func (r *errRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	return nil, r.err
 }

@@ -475,7 +475,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 
 	h, err := srv.newAPIHandler(conn, reqNotifier, modelUUID)
 	if err != nil {
-		conn.Serve(&errRoot{err}, serverError)
+		conn.ServeFinder(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminApiFactories {
