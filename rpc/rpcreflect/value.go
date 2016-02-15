@@ -84,12 +84,6 @@ func (v Value) FindMethod(rootMethodName string, version int, objMethodName stri
 	caller := methodCaller{
 		rootValue: v.rootValue,
 	}
-	if version != 0 {
-		return nil, &CallNotImplementedError{
-			RootMethod: rootMethodName,
-			Version:    version,
-		}
-	}
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)
 	if err != nil {

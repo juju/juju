@@ -8,12 +8,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-type adminApiV2 struct {
+type adminApiV3 struct {
 	*admin
 }
 
-func newAdminApiV2(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &adminApiV2{
+func newAdminApiV3(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+	return &adminApiV3{
 		&admin{
 			srv:         srv,
 			root:        root,
@@ -24,7 +24,7 @@ func newAdminApiV2(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 
 // Admin returns an object that provides API access to methods that can be
 // called even when not authenticated.
-func (r *adminApiV2) Admin(id string) (*adminApiV2, error) {
+func (r *adminApiV3) Admin(id string) (*adminApiV3, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
@@ -34,6 +34,6 @@ func (r *adminApiV2) Admin(id string) (*adminApiV2, error) {
 
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
-func (a *adminApiV2) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	return a.doLogin(req, 2)
+func (a *adminApiV3) Login(req params.LoginRequest) (params.LoginResultV1, error) {
+	return a.doLogin(req, 3)
 }

@@ -83,7 +83,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		isUser = true
 	}
 
-	serverOnlyLogin := loginVersion > 1 && a.root.modelUUID == ""
+	serverOnlyLogin := a.root.modelUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
 	if err != nil {
@@ -472,6 +472,6 @@ type errRoot struct {
 }
 
 // Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
-func (r *errRoot) Admin(id string) (*adminV0, error) {
+func (r *errRoot) Admin(id string) (*adminApiV3, error) {
 	return nil, r.err
 }

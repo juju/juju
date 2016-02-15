@@ -199,7 +199,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		limiter:   utils.NewLimiter(loginRateLimit),
 		validator: cfg.Validator,
 		adminApiFactories: map[int]adminApiFactory{
-			2: newAdminApiV2,
+			3: newAdminApiV3,
 		},
 	}
 	srv.authCtxt = newAuthContext(srv)
