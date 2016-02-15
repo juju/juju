@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"fmt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
@@ -267,7 +266,7 @@ func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (
 	}
 	return nil, &rpc.RequestError{
 		Code:    params.CodeNotSupported,
-		Message: fmt.Sprintf("this version of Juju does not support login from old clients"),
+		Message: "this version of Juju does not support login from old clients",
 	}
 }
 

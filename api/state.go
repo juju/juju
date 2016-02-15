@@ -66,20 +66,6 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, vers int
 	}
 	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
-		// If the server complains about an empty tag it may be that we are
-		// talking to an older server version that does not understand facades and
-		// expects a params.Creds request instead of a params.LoginRequest. We
-		// return a CodeNotImplemented error to force login down to V1, which
-		// supports older server logins. This may mask an actual empty tag in
-		// params.LoginRequest, but that would be picked up in loginV1. V1 will
-		// also produce a warning that we are ignoring an invalid API, so we do not
-		// need to add one here.
-		if err.Error() == `"" is not a valid tag` {
-			return &params.Error{
-				Message: err.Error(),
-				Code:    params.CodeNotImplemented,
-			}
-		}
 		return errors.Trace(err)
 	}
 	if result.DischargeRequired != nil {
