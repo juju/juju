@@ -105,7 +105,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
-	t.ControllerStore = jujuclienttesting.NewMemControllerStore()
+	t.ControllerStore = jujuclienttesting.NewMemStore()
 	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
@@ -822,7 +822,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	args.Config = dummyCfg
 	dummyenv, err := environs.Prepare(envtesting.BootstrapContext(c),
 		configstore.NewMem(),
-		jujuclienttesting.NewMemControllerStore(),
+		jujuclienttesting.NewMemStore(),
 		dummyCfg.Name(),
 		args)
 	c.Assert(err, jc.ErrorIsNil)

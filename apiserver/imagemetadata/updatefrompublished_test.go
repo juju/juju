@@ -168,7 +168,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 		c.Assert(err, jc.ErrorIsNil)
 		env, err := environs.Prepare(
 			modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
-			jujuclienttesting.NewMemControllerStore(),
+			jujuclienttesting.NewMemStore(),
 			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
 		)
 		c.Assert(err, jc.ErrorIsNil)
