@@ -78,10 +78,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
-	ruKey, err := ru.key(ru.unit.Name())
-	if err != nil {
-		return err
-	}
+	ruKey := ru.key()
 	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
@@ -249,10 +246,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	relationScopes, closer := ru.st.getCollection(relationScopesC)
 	defer closer()
 
-	key, err := ru.key(ru.unit.Name())
-	if err != nil {
-		return err
-	}
+	key := ru.key()
 	if count, err := relationScopes.FindId(key).Count(); err != nil {
 		return err
 	} else if count == 0 {
@@ -260,7 +254,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	}
 	ops := []txn.Op{{
 		C:      relationScopesC,
-		Id:     ru.st.docID(key),
+		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
 	return ru.st.runTransaction(ops)
@@ -275,10 +269,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	relationScopes, closer := ru.st.getCollection(relationScopesC)
 	defer closer()
 
-	key, err := ru.key(ru.unit.Name())
-	if err != nil {
-		return err
-	}
+	key := ru.key()
 	// The logic below is involved because we remove a dying relation
 	// with the last unit that leaves a scope in it. It handles three
 	// possible cases:
@@ -318,7 +309,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		ops := []txn.Op{{
 			C:      relationScopesC,
-			Id:     ru.st.docID(key),
+			Id:     key,
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
@@ -345,8 +336,8 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err = ru.st.run(buildTxn); err != nil {
-		return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
+	if err := ru.st.run(buildTxn); err != nil {
+		return errors.Annotatef(err, "cannot leave scope for %s", desc)
 	}
 	return nil
 }
@@ -368,11 +359,7 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 	relationScopes, closer := ru.st.getCollection(relationScopesC)
 	defer closer()
 
-	key, err := ru.key(ru.unit.Name())
-	if err != nil {
-		return false, err
-	}
-	sel = append(sel, bson.D{{"_id", key}}...)
+	sel = append(sel, bson.D{{"_id", ru.key()}}...)
 	count, err := relationScopes.Find(sel).Count()
 	if err != nil {
 		return false, err
@@ -391,11 +378,7 @@ func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	key, err := ru.key(ru.unit.Name())
-	if err != nil {
-		return nil, err
-	}
-	return readSettings(ru.st, key)
+	return readSettings(ru.st, ru.key())
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -410,7 +393,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if !names.IsValidUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}
-	key, err := ru.key(uname)
+	key, err := ru.unitKey(uname)
 	if err != nil {
 		return nil, err
 	}
@@ -421,18 +404,29 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	return node.Map(), nil
 }
 
-// key returns a string, based on the relation and the supplied unit name,
+// unitKey returns a string, based on the relation and the supplied unit name,
 // which is used as a key for that unit within this relation in the settings,
 // presence, and relationScopes collections.
-func (ru *RelationUnit) key(uname string) (string, error) {
+func (ru *RelationUnit) unitKey(uname string) (string, error) {
 	uparts := strings.Split(uname, "/")
 	sname := uparts[0]
 	ep, err := ru.relation.Endpoint(sname)
 	if err != nil {
 		return "", err
 	}
-	parts := []string{ru.scope, string(ep.Role), uname}
-	return strings.Join(parts, "#"), nil
+	return ru._key(string(ep.Role), uname), nil
+}
+
+// key returns a string, based on the relation and the current unit name,
+// which is used as a key for that unit within this relation in the settings,
+// presence, and relationScopes collections.
+func (ru *RelationUnit) key() string {
+	return ru._key(string(ru.endpoint.Role), ru.unit.Name())
+}
+
+func (ru *RelationUnit) _key(role, unitname string) string {
+	parts := []string{ru.scope, role, unitname}
+	return strings.Join(parts, "#")
 }
 
 // relationScopeDoc represents a unit which is in a relation scope.
