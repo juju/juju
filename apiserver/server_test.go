@@ -143,7 +143,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	assertNotProvisioned := func(err error) {
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned`)
+		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
 	}
 
 	machine, password := s.Factory.MakeMachineReturningPassword(

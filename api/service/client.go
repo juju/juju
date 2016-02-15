@@ -59,39 +59,61 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
-// Deploy obtains the charm, either locally or from
-// the charm store, and deploys it. It allows the specification of
-// requested networks that must be present on the machines where the
-// service is deployed. Another way to specify networks to include/exclude
-// is using constraints. Placement directives, if provided, specify the
+// DeployArgs holds the arguments to be sent to Client.ServiceDeploy.
+type DeployArgs struct {
+	// CharmURL is the URL of the charm to deploy.
+	CharmURL string
+	// ServiceName is the name to give the service.
+	ServiceName string
+	// Series to be used for the machine.
+	Series string
+	// NumUnits is the number of units to deploy.
+	NumUnits int
+	// ConfigYAML is a string that overrides the default config.yml.
+	ConfigYAML string
+	// Cons contains constraints on where units of this service may be
+	// placed.
+	Cons constraints.Value
+	// Placement directives on where the machines for the unit must be
+	// created.
+	Placement []*instance.Placement
+	// Networks contains names of networks to deploy on.
+	Networks []string
+	// Storage contains Constraints specifying how storage should be
+	// handled.
+	Storage map[string]storage.Constraints
+	// EndpointBindings
+	EndpointBindings map[string]string
+	// Collection of resource names for the service, with the value being the
+	// unique ID of a pre-uploaded resources in storage.
+	Resources map[string]string
+}
+
+// Deploy obtains the charm, either locally or from the charm store,
+// and deploys it. It allows the specification of requested networks
+// that must be present on the machines where the service is
+// deployed. Another way to specify networks to include/exclude is
+// using constraints. Placement directives, if provided, specify the
 // machine on which the charm is deployed.
-func (c *Client) Deploy(
-	charmURL string,
-	serviceName string,
-	series string,
-	numUnits int,
-	configYAML string,
-	cons constraints.Value,
-	placement []*instance.Placement,
-	networks []string,
-	storage map[string]storage.Constraints,
-) error {
-	args := params.ServicesDeploy{
+func (c *Client) Deploy(args DeployArgs) error {
+	deployArgs := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
-			ServiceName: serviceName,
-			Series:      series,
-			CharmUrl:    charmURL,
-			NumUnits:    numUnits,
-			ConfigYAML:  configYAML,
-			Constraints: cons,
-			Placement:   placement,
-			Networks:    networks,
-			Storage:     storage,
+			ServiceName:      args.ServiceName,
+			Series:           args.Series,
+			CharmUrl:         args.CharmURL,
+			NumUnits:         args.NumUnits,
+			ConfigYAML:       args.ConfigYAML,
+			Constraints:      args.Cons,
+			Placement:        args.Placement,
+			Networks:         args.Networks,
+			Storage:          args.Storage,
+			EndpointBindings: args.EndpointBindings,
+			Resources:        args.Resources,
 		}},
 	}
 	var results params.ErrorResults
 	var err error
-	err = c.facade.FacadeCall("Deploy", args, &results)
+	err = c.facade.FacadeCall("Deploy", deployArgs, &results)
 	if err != nil {
 		return err
 	}

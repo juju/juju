@@ -1,0 +1,19 @@
+name: starsay
+summary: A dumb little test charm for resources.
+maintainer: Nate Finch <nate.finch@gmail.com>
+description: Doesn't do anything at all.
+tags:
+  - application
+resources:
+  store-resource:
+    Type: file
+    filename: filename.tgz
+    comment: One line that is useful when operators need to push it.
+  install-resource:
+    Type: file
+    filename: gotta-have-it.txt
+    comment: get things started
+  upload-resource:
+    Type: file
+    filename: somename.xml
+    comment: Who uses xml anymore?
