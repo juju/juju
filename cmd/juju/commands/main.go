@@ -248,7 +248,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewShowControllerCommand())
-	
+
 	// Debug Metrics
 	r.Register(metricsdebug.New())
 	r.Register(metricsdebug.NewCollectMetricsCommand())
