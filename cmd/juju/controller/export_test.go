@@ -44,34 +44,10 @@ func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, user
 	})
 }
 
-// NewLoginCommandForTest returns a LoginCommand with the function used to open
-// the API connection mocked out.
-func NewLoginCommandForTest(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *loginCommand {
-	return &loginCommand{
-		loginAPIOpen:   apiOpen,
-		GetUserManager: getUserManager,
-	}
-}
-
 // NewRegisterCommandForTest returns a RegisterCommand with the function used
 // to open the API connection mocked out.
 func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc) *registerCommand {
 	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot}
-}
-
-type UseModelCommand struct {
-	*useModelCommand
-}
-
-// NewUseModelCommandForTest returns a UseModelCommand with the
-// API and userCreds provided as specified.
-func NewUseModelCommandForTest(api UseModelAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseModelCommand) {
-	c := &useModelCommand{
-		api:       api,
-		userCreds: userCreds,
-		endpoint:  endpoint,
-	}
-	return modelcmd.WrapController(c), &UseModelCommand{c}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
