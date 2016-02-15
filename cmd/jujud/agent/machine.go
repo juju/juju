@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
@@ -93,7 +94,6 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
-	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -124,7 +124,7 @@ var (
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newMachiner              = machiner.NewMachiner
-	newNetworker             = networker.NewNetworker
+	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
@@ -335,6 +335,10 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+
+	// Used to signal that spaces have been discovered.
+	discoveringSpaces      chan struct{}
+	discoveringSpacesMutex sync.Mutex
 
 	loopDeviceManager looputil.LoopDeviceManager
 }
@@ -680,15 +684,13 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isModelManager, isUnitHoster, isNetworkManager bool
+	var isModelManager, isUnitHoster bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageModel:
 			isModelManager = true
 		case multiwatcher.JobHostUnits:
 			isUnitHoster = true
-		case multiwatcher.JobManageNetworking:
-			isNetworkManager = true
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -787,22 +789,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 		return w, nil
 
-	})
-
-	// Check if the network management is disabled.
-	disableNetworkManagement, _ := modelConfig.DisableNetworkManagement()
-	if disableNetworkManagement {
-		logger.Infof("network management is disabled")
-	}
-
-	// Start networker depending on configuration and job.
-	intrusiveMode := isNetworkManager && !disableNetworkManagement
-	runner.StartWorker("networker", func() (worker.Worker, error) {
-		w, err := newNetworker(apiConn.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start networker worker")
-		}
-		return w, nil
 	})
 
 	// Start the worker to manage SSH keys.
@@ -1275,6 +1261,19 @@ func (a *MachineAgent) startEnvWorkers(
 		}
 		return w, nil
 	})
+	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
+		a.discoveringSpacesMutex.Lock()
+		defer a.discoveringSpacesMutex.Unlock()
+		w, discoveringSpaces := newDiscoverSpaces(apiSt.DiscoverSpaces())
+		if a.discoveringSpaces == nil {
+			// If the discovery channel has not been set, set it here. If
+			// it has been set then the worker has been restarted and we
+			// should *not* signal that discovery has restarted as this
+			// will block the api.
+			a.discoveringSpaces = discoveringSpaces
+		}
+		return w, nil
+	})
 
 	if machine.IsManager() {
 		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
@@ -1475,7 +1474,44 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
+	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
+		return err
+	}
 	return a.limitLoginsDuringUpgrade(req)
+}
+
+// limitLoginsUntilSpacesDiscovered will prevent logins from clients until
+// space discovery is completed.
+func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
+	a.discoveringSpacesMutex.Lock()
+	defer a.discoveringSpacesMutex.Unlock()
+	if a.discoveringSpaces == nil {
+		// Space discovery not started.
+		return nil
+	}
+	select {
+	case <-a.discoveringSpaces:
+		logger.Debugf("space discovery completed - client login unblocked")
+		return nil
+	default:
+		// Space discovery still in progress.
+	}
+	err := errors.New("space discovery still in progress")
+	authTag, parseErr := names.ParseTag(req.AuthTag)
+	if parseErr != nil {
+		return errors.Annotatef(err, "could not parse auth tag")
+	}
+	switch authTag := authTag.(type) {
+	case names.UserTag:
+		// use a restricted API mode
+		return err
+	case names.MachineTag:
+		if authTag == a.Tag() {
+			// allow logins from the local machine
+			return nil
+		}
+	}
+	return err
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes

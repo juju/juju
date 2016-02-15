@@ -212,6 +212,7 @@ var commandNames = []string{
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
+	"charm",
 	"collect-metrics",
 	"create-backup",
 	"create-budget",

@@ -558,6 +558,11 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 	for attempt := attempts.Start(); attempt.Next(); {
 		client, err = blockAPI(&c.ModelCommandBase)
 		if err != nil {
+			// Logins are prevented whilst space discovery is ongoing.
+			errorMessage := err.Error()
+			if strings.Contains(errorMessage, "space discovery still in progress") {
+				continue
+			}
 			return err
 		}
 		_, err = client.List()

@@ -95,6 +95,10 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+		if s.mockBlockClient.discoveringSpacesError > 0 {
+			s.mockBlockClient.discoveringSpacesError -= 1
+			return nil, errors.New("space discovery still in progress")
+		}
 		return s.mockBlockClient, nil
 	})
 }
@@ -112,19 +116,20 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 type mockBlockClient struct {
-	retry_count int
-	num_retries int
+	retryCount             int
+	numRetries             int
+	discoveringSpacesError int
 }
 
 func (c *mockBlockClient) List() ([]params.Block, error) {
-	c.retry_count += 1
-	if c.retry_count == 5 {
+	c.retryCount += 1
+	if c.retryCount == 5 {
 		return nil, fmt.Errorf("upgrade in progress")
 	}
-	if c.num_retries < 0 {
+	if c.numRetries < 0 {
 		return nil, fmt.Errorf("other error")
 	}
-	if c.retry_count < c.num_retries {
+	if c.retryCount < c.numRetries {
 		return nil, fmt.Errorf("upgrade in progress")
 	}
 	return []params.Block{}, nil
@@ -144,8 +149,8 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 	for _, t := range []struct {
-		num_retries int
-		err         string
+		numRetries int
+		err        string
 	}{
 		{0, ""},                    // agent ready immediately
 		{2, ""},                    // agent ready after 2 polls
@@ -155,8 +160,8 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		resetJujuXDGDataHome(c)
 		dummy.Reset()
 
-		s.mockBlockClient.num_retries = t.num_retries
-		s.mockBlockClient.retry_count = 0
+		s.mockBlockClient.numRetries = t.numRetries
+		s.mockBlockClient.retryCount = 0
 		_, err := coretesting.RunCommand(
 			c, newBootstrapCommand(),
 			"devcontroller", "dummy", "--auto-upgrade",
@@ -166,16 +171,31 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		} else {
 			c.Check(err, gc.ErrorMatches, t.err)
 		}
-		expectedRetries := t.num_retries
-		if t.num_retries <= 0 {
+		expectedRetries := t.numRetries
+		if t.numRetries <= 0 {
 			expectedRetries = 1
 		}
 		// Only retry maximum of bootstrapReadyPollCount times.
 		if expectedRetries > 5 {
 			expectedRetries = 5
 		}
-		c.Check(s.mockBlockClient.retry_count, gc.Equals, expectedRetries)
+		c.Check(s.mockBlockClient.retryCount, gc.Equals, expectedRetries)
 	}
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
+	defaultSeriesVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+	resetJujuXDGDataHome(c)
+
+	s.mockBlockClient.discoveringSpacesError = 2
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {

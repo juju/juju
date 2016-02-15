@@ -374,6 +374,53 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".* invalid placement is invalid")
 }
 
+func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
+	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
+
+	var cons constraints.Value
+	args := params.ServiceDeploy{
+		ServiceName:      "service",
+		CharmUrl:         curl.String(),
+		NumUnits:         1,
+		Constraints:      cons,
+		EndpointBindings: endpointBindings,
+	}
+
+	results, err := s.serviceApi.Deploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	service, err := s.State.Service(args.ServiceName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	retrievedBindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(retrievedBindings, jc.DeepEquals, expected)
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
+	s.State.AddSpace("a-space", "", nil, true)
+	expected := map[string]string{
+		"endpoint": "a-space",
+		"ring":     "",
+		"admin":    "",
+	}
+	endpointBindings := map[string]string{"endpoint": "a-space"}
+	s.testClientServicesDeployWithBindings(c, endpointBindings, expected)
+}
+
+func (s *serviceSuite) TestClientServicesDeployWithDefaultBindings(c *gc.C) {
+	expected := map[string]string{
+		"endpoint": "",
+		"ring":     "",
+		"admin":    "",
+	}
+	s.testClientServicesDeployWithBindings(c, nil, expected)
+}
+
 // TODO(wallyworld) - the following charm tests have been moved from the apiserver/client
 // package in order to use the fake charm store testing infrastructure. They are legacy tests
 // written to use the api client instead of the apiserver logic. They need to be rewritten and
@@ -434,7 +481,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	// Try to add a charm to the environment without authorization.
 	s.DischargeUser = ""
 	err = s.APIState.Client().AddCharm(curl)
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
 
 	tryAs := func(user string) error {
 		client := csclient.New(csclient.Params{

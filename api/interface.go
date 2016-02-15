@@ -15,13 +15,13 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
@@ -166,7 +166,6 @@ type Connection interface {
 	Client() *Client
 	Machiner() *machiner.State
 	Resumer() *resumer.API
-	Networker() networker.State
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
 	DiskManager() (*diskmanager.State, error)
@@ -177,6 +176,7 @@ type Connection interface {
 	Deployer() *deployer.State
 	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
+	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
