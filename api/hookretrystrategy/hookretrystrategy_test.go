@@ -2,7 +2,7 @@
 // Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hookretrystrategy_test
+package retrystrategy_test
 
 import (
 	"fmt"
@@ -12,66 +12,66 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/hookretrystrategy"
+	"github.com/juju/juju/api/retrystrategy"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type hookRetryStrategySuite struct {
+type retryStrategySuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&hookRetryStrategySuite{})
+var _ = gc.Suite(&retryStrategySuite{})
 
-func (s *hookRetryStrategySuite) TestHookRetryStrategyOk(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyOk(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
-	expectedRetryStrategy := params.HookRetryStrategy{
+	expectedRetryStrategy := params.RetryStrategy{
 		ShouldRetry: true,
 	}
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "HookRetryStrategy")
+		c.Check(request, gc.Equals, "RetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
-		c.Assert(response, gc.FitsTypeOf, &params.HookRetryStrategyResults{})
-		result := response.(*params.HookRetryStrategyResults)
-		result.Results = []params.HookRetryStrategyResult{{
+		c.Assert(response, gc.FitsTypeOf, &params.RetryStrategyResults{})
+		result := response.(*params.RetryStrategyResults)
+		result.Results = []params.RetryStrategyResult{{
 			Result: &expectedRetryStrategy,
 		}}
 		return nil
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.HookRetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retryStrategy, jc.DeepEquals, expectedRetryStrategy)
 }
 
-func (s *hookRetryStrategySuite) TestHookRetryStrategyResultError(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyResultError(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "HookRetryStrategy")
+		c.Check(request, gc.Equals, "RetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
-		c.Assert(response, gc.FitsTypeOf, &params.HookRetryStrategyResults{})
-		result := response.(*params.HookRetryStrategyResults)
-		result.Results = []params.HookRetryStrategyResult{{
+		c.Assert(response, gc.FitsTypeOf, &params.RetryStrategyResults{})
+		result := response.(*params.RetryStrategyResults)
+		result.Results = []params.RetryStrategyResult{{
 			Error: &params.Error{
 				Message: "splat",
 				Code:    params.CodeNotAssigned,
@@ -80,79 +80,79 @@ func (s *hookRetryStrategySuite) TestHookRetryStrategyResultError(c *gc.C) {
 		return nil
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.HookRetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "splat")
-	c.Assert(retryStrategy, jc.DeepEquals, params.HookRetryStrategy{})
+	c.Assert(retryStrategy, jc.DeepEquals, params.RetryStrategy{})
 }
 
-func (s *hookRetryStrategySuite) TestHookRetryStrategyMoreResults(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyMoreResults(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "HookRetryStrategy")
+		c.Check(request, gc.Equals, "RetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
-		c.Assert(response, gc.FitsTypeOf, &params.HookRetryStrategyResults{})
-		result := response.(*params.HookRetryStrategyResults)
-		result.Results = make([]params.HookRetryStrategyResult, 2)
+		c.Assert(response, gc.FitsTypeOf, &params.RetryStrategyResults{})
+		result := response.(*params.RetryStrategyResults)
+		result.Results = make([]params.RetryStrategyResult, 2)
 		return nil
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.HookRetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
-	c.Assert(retryStrategy, jc.DeepEquals, params.HookRetryStrategy{})
+	c.Assert(retryStrategy, jc.DeepEquals, params.RetryStrategy{})
 }
 
-func (s *hookRetryStrategySuite) TestHookRetryStrategyError(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyError(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "HookRetryStrategy")
+		c.Check(request, gc.Equals, "RetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
-		c.Assert(response, gc.FitsTypeOf, &params.HookRetryStrategyResults{})
+		c.Assert(response, gc.FitsTypeOf, &params.RetryStrategyResults{})
 		return fmt.Errorf("impossibru")
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.HookRetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "impossibru")
-	c.Assert(retryStrategy, jc.DeepEquals, params.HookRetryStrategy{})
+	c.Assert(retryStrategy, jc.DeepEquals, params.RetryStrategy{})
 }
 
-func (s *hookRetryStrategySuite) TestWatchHookRetryStrategyError(c *gc.C) {
+func (s *retryStrategySuite) TestWatchRetryStrategyError(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchHookRetryStrategy")
+		c.Check(request, gc.Equals, "WatchRetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
@@ -162,25 +162,25 @@ func (s *hookRetryStrategySuite) TestWatchHookRetryStrategyError(c *gc.C) {
 		return fmt.Errorf("sosorry")
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	w, err := client.WatchHookRetryStrategy(tag)
+	w, err := client.WatchRetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "sosorry")
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *hookRetryStrategySuite) TestWatchHookRetryStrategyResultError(c *gc.C) {
+func (s *retryStrategySuite) TestWatchRetryStrategyResultError(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchHookRetryStrategy")
+		c.Check(request, gc.Equals, "WatchRetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
@@ -195,25 +195,25 @@ func (s *hookRetryStrategySuite) TestWatchHookRetryStrategyResultError(c *gc.C) 
 		return nil
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	w, err := client.WatchHookRetryStrategy(tag)
+	w, err := client.WatchRetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "rigged")
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *hookRetryStrategySuite) TestWatchHookRetryStrategyMoreResults(c *gc.C) {
+func (s *retryStrategySuite) TestWatchRetryStrategyMoreResults(c *gc.C) {
 	tag := names.NewUnitTag("wp/1")
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, response interface{}) error {
 		called = true
 
-		c.Check(objType, gc.Equals, "HookRetryStrategy")
+		c.Check(objType, gc.Equals, "RetryStrategy")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchHookRetryStrategy")
+		c.Check(request, gc.Equals, "WatchRetryStrategy")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: tag.String()}},
 		})
@@ -223,10 +223,10 @@ func (s *hookRetryStrategySuite) TestWatchHookRetryStrategyMoreResults(c *gc.C) 
 		return nil
 	})
 
-	client := hookretrystrategy.NewClient(apiCaller)
+	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	w, err := client.WatchHookRetryStrategy(tag)
+	w, err := client.WatchRetryStrategy(tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 	c.Assert(w, gc.IsNil)

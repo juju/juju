@@ -2,7 +2,7 @@
 // Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hookretrystrategy
+package retrystrategy
 
 import (
 	"fmt"
@@ -16,45 +16,45 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// Client provides access to the hook retry strategy api
+// Client provides access to the retry strategy api
 type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewClient creates a client for accessing the hook retry strategy api
+// NewClient creates a client for accessing the retry strategy api
 func NewClient(apiCaller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(apiCaller, "HookRetryStrategy")}
+	return &Client{base.NewFacadeCaller(apiCaller, "RetryStrategy")}
 }
 
-// HookRetryStrategy returns the configuration for the agent specified by the agentTag.
-func (c *Client) HookRetryStrategy(agentTag names.Tag) (params.HookRetryStrategy, error) {
-	var results params.HookRetryStrategyResults
+// RetryStrategy returns the configuration for the agent specified by the agentTag.
+func (c *Client) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error) {
+	var results params.RetryStrategyResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall("HookRetryStrategy", args, &results)
+	err := c.facade.FacadeCall("RetryStrategy", args, &results)
 	if err != nil {
-		return params.HookRetryStrategy{}, errors.Trace(err)
+		return params.RetryStrategy{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return params.HookRetryStrategy{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return params.RetryStrategy{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return params.HookRetryStrategy{}, errors.Trace(result.Error)
+		return params.RetryStrategy{}, errors.Trace(result.Error)
 	}
 	return *result.Result, nil
 }
 
-// WatchHookRetryStrategy returns a notify watcher that looks for changes in the
-// hook retry config for the agent specified by agentTag
+// WatchRetryStrategy returns a notify watcher that looks for changes in the
+// retry strategy config for the agent specified by agentTag
 // Right now only the boolean that decides whether we retry can be modified.
-func (c *Client) WatchHookRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall("WatchHookRetryStrategy", args, &results)
+	err := c.facade.FacadeCall("WatchRetryStrategy", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

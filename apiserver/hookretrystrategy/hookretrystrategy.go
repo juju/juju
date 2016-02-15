@@ -2,7 +2,7 @@
 // Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hookretrystrategy
+package retrystrategy
 
 import (
 	"time"
@@ -25,34 +25,34 @@ const (
 )
 
 func init() {
-	common.RegisterStandardFacade("HookRetryStrategy", 1, NewHookRetryStrategyAPI)
+	common.RegisterStandardFacade("RetryStrategy", 1, NewRetryStrategyAPI)
 }
 
-// HookRetryStrategy defined the methods exported by the hookretrystrategy API facade.
-type HookRetryStrategy interface {
-	HookRetryStrategy(params.Entities) (params.HookRetryStrategyResults, error)
-	WatchHookRetryStrategy(params.Entities) (params.NotifyWatchResults, error)
+// RetryStrategy defined the methods exported by the retrystrategy API facade.
+type RetryStrategy interface {
+	RetryStrategy(params.Entities) (params.RetryStrategyResults, error)
+	WatchRetryStrategy(params.Entities) (params.NotifyWatchResults, error)
 }
 
-// HookRetryStrategyAPI implements HookRetryStrategy
-type HookRetryStrategyAPI struct {
+// RetryStrategyAPI implements RetryStrategy
+type RetryStrategyAPI struct {
 	st         *state.State
 	accessUnit common.GetAuthFunc
 	resources  *common.Resources
 }
 
-var _ HookRetryStrategy = (*HookRetryStrategyAPI)(nil)
+var _ RetryStrategy = (*RetryStrategyAPI)(nil)
 
-// NewHookRetryStrategyAPI creates a new API endpoint for getting hook retry strategies.
-func NewHookRetryStrategyAPI(
+// NewRetryStrategyAPI creates a new API endpoint for getting retry strategies.
+func NewRetryStrategyAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*HookRetryStrategyAPI, error) {
+) (*RetryStrategyAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	return &HookRetryStrategyAPI{
+	return &RetryStrategyAPI{
 		st: st,
 		accessUnit: func() (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
@@ -61,15 +61,15 @@ func NewHookRetryStrategyAPI(
 	}, nil
 }
 
-// HookRetryStrategy returns HookRetryStrategyResults that can be used by the uniter to configure
-// how hooks get retried.
-func (h *HookRetryStrategyAPI) HookRetryStrategy(args params.Entities) (params.HookRetryStrategyResults, error) {
-	results := params.HookRetryStrategyResults{
-		Results: make([]params.HookRetryStrategyResult, len(args.Entities)),
+// RetryStrategy returns RetryStrategyResults that can be used by any code that uses
+// to configure the retry timer that's currently in juju utils.
+func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStrategyResults, error) {
+	results := params.RetryStrategyResults{
+		Results: make([]params.RetryStrategyResult, len(args.Entities)),
 	}
 	canAccess, err := h.accessUnit()
 	if err != nil {
-		return params.HookRetryStrategyResults{}, errors.Trace(err)
+		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
 	config, configErr := h.st.ModelConfig()
 	for i, entity := range args.Entities {
@@ -84,7 +84,7 @@ func (h *HookRetryStrategyAPI) HookRetryStrategy(args params.Entities) (params.H
 				// Right now the only real configurable value is ShouldRetry,
 				// which is taken from the environment
 				// The rest are hardcoded
-				results.Results[i].Result = &params.HookRetryStrategy{
+				results.Results[i].Result = &params.RetryStrategy{
 					ShouldRetry:     config.AutomaticallyRetryHooks(),
 					MinRetryTime:    MinRetryTime,
 					MaxRetryTime:    MaxRetryTime,
@@ -101,9 +101,9 @@ func (h *HookRetryStrategyAPI) HookRetryStrategy(args params.Entities) (params.H
 	return results, nil
 }
 
-// WatchHookRetryStrategy watches for changes to the environment. Currently we only allow
-// changes to the boolean that determines whether hooks should be retried or not.
-func (h *HookRetryStrategyAPI) WatchHookRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
+// WatchRetryStrategy watches for changes to the environment. Currently we only allow
+// changes to the boolean that determines whether retries should be attempted or not.
+func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
