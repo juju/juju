@@ -137,8 +137,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
 	r.Register(newSwitchCommand())
-	r.Register(newEndpointCommand())
-	r.Register(newAPIInfoCommand())
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
@@ -176,7 +174,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage users and access
 	r.Register(user.NewAddCommand())
 	r.Register(user.NewChangePasswordCommand())
-	r.Register(user.NewCredentialsCommand())
 	r.Register(user.NewShowUserCommand())
 	r.Register(user.NewListCommand())
 	r.Register(user.NewEnableCommand())
@@ -248,10 +245,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
-	r.Register(controller.NewLoginCommand())
 	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
-	r.Register(controller.NewUseModelCommand())
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())

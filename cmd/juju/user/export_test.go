@@ -20,10 +20,6 @@ type AddCommand struct {
 	*addCommand
 }
 
-type CredentialsCommand struct {
-	*credentialsCommand
-}
-
 type ChangePasswordCommand struct {
 	*changePasswordCommand
 }
@@ -42,11 +38,6 @@ func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
 		infoCommandBase: infoCommandBase{
 			api: api,
 		}})
-}
-
-func NewCredentialsCommandForTest() (cmd.Command, *CredentialsCommand) {
-	c := &credentialsCommand{}
-	return modelcmd.WrapController(c), &CredentialsCommand{c}
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
