@@ -85,13 +85,13 @@ type ShowControllerDetails struct {
 // ControllerDetails holds details of a controller to show.
 type ControllerDetails struct {
 	// Servers contains the addresses of hosts that form this controller's cluster.
-	Servers []string `yaml:"servers,flow" json:"servers,flow"`
+	Servers []string `yaml:"servers,flow" json:"servers"`
 
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid" json:"uuid"`
 
 	// APIEndpoints is the collection of API endpoints running in this controller.
-	APIEndpoints []string `yaml:"api-endpoints,flow" json:"api-endpoints,flow"`
+	APIEndpoints []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
 
 	// CACert is a security certificate for this controller.
 	CACert string `yaml:"ca-cert" json:"ca-cert"`
