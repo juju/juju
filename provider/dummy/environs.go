@@ -105,15 +105,6 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
-// AdminUserTag returns the user tag used to bootstrap the dummy environment.
-// The dummy bootstrapping is handled slightly differently, and the user is
-// created as part of the bootstrap process.  This method is used to provide
-// tests a way to get to the user name that was used to initialise the
-// database, and as such, is the owner of the initial environment.
-func AdminUserTag() names.UserTag {
-	return names.NewLocalUserTag("dummy-admin")
-}
-
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
 // will be added as primary.
@@ -739,7 +730,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// user is constructed with an empty password here.
 		// It is set just below.
 		st, err := state.Initialize(
-			AdminUserTag(), info, cfg,
+			names.NewUserTag("admin@local"), info, cfg,
 			mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)

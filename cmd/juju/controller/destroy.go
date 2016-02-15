@@ -147,24 +147,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 	}
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
-}
-
-// destroyControllerViaClient attempts to destroy the controller using the client
-// endpoint for older juju controllers which do not implement controller.DestroyController
-func (c *destroyCommand) destroyControllerViaClient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
-	api, err := c.getClientAPI()
-	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
-	}
-	defer api.Close()
-
-	err = api.DestroyModel()
-	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, nil)
-	}
-
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+	return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed

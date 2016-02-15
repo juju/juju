@@ -60,10 +60,10 @@ func (c *Client) AddUser(username, displayName, password string) (_ names.UserTa
 }
 
 func (c *Client) userCall(username string, methodCall string) error {
-	if !names.IsValidUserName(username) {
+	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	tag := names.NewLocalUserTag(username)
+	tag := names.NewUserTag(username)
 
 	var results params.ErrorResults
 	args := params.Entities{
@@ -107,10 +107,10 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 	var results params.UserInfoResults
 	var entities []params.Entity
 	for _, username := range usernames {
-		if !names.IsValidUserName(username) {
+		if !names.IsValidUser(username) {
 			return nil, errors.Errorf("%q is not a valid username", username)
 		}
-		tag := names.NewLocalUserTag(username)
+		tag := names.NewUserTag(username)
 		entities = append(entities, params.Entity{Tag: tag.String()})
 	}
 	args := params.UserInfoRequest{
@@ -149,10 +149,10 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 
 // SetPassword changes the password for the specified user.
 func (c *Client) SetPassword(username, password string) error {
-	if !names.IsValidUserName(username) {
+	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	tag := names.NewLocalUserTag(username)
+	tag := names.NewUserTag(username)
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      tag.String(),

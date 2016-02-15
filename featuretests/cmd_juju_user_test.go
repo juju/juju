@@ -69,7 +69,7 @@ func (s *UserSuite) TestUserInfo(c *gc.C) {
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
 	ctx, err := s.RunUserCommand(c, "show-user")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), jc.Contains, "user-name: dummy-admin")
+	c.Assert(testing.Stdout(ctx), jc.Contains, "user-name: admin")
 }
 
 func (s *UserSuite) TestUserDisable(c *gc.C) {
@@ -96,7 +96,7 @@ func (s *UserSuite) TestUserList(c *gc.C) {
 	periodPattern := `(just now|\d+ \S+ ago)`
 	expected := fmt.Sprintf(`
 NAME\s+DISPLAY NAME\s+DATE CREATED\s+LAST CONNECTION
-dummy-admin\s+dummy-admin\s+%s\s+%s
+admin\s+admin\s+%s\s+%s
 
 `[1:], periodPattern, periodPattern)
 	c.Assert(testing.Stdout(ctx), gc.Matches, expected)

@@ -102,7 +102,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := juju.NewAPIState(dummy.AdminUserTag(), env, api.DialOpts{})
+	st, err := juju.NewAPIState(names.NewUserTag("admin@local"), env, api.DialOpts{})
 	c.Assert(st, gc.NotNil)
 
 	// the secrets will not be updated, as they already exist
@@ -159,7 +159,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage, controllerStore jujuclient.ControllerStore) {
+func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage, controllerStore jujuclient.ClientStore) {
 	const controllerName = "my-controller"
 	if store == nil {
 		store = configstore.NewMem()
@@ -184,19 +184,6 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage, con
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := store.ReadInfo(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	creds := info.APICredentials()
-	creds.User = dummy.AdminUserTag().Name()
-	c.Logf("set creds: %#v", creds)
-	info.SetAPICredentials(creds)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("creds: %#v", info.APICredentials())
-	info, err = store.ReadInfo(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("read creds: %#v", info.APICredentials())
-	c.Logf("store: %#v", store)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
@@ -784,11 +771,10 @@ func (info *infoWithWriteNotify) Write() error {
 type CacheAPIEndpointsSuite struct {
 	jujutesting.JujuConnSuite
 
-	hostPorts       [][]network.HostPort
-	modelTag        names.ModelTag
-	apiHostPort     network.HostPort
-	store           configstore.Storage
-	controllerStore jujuclient.ControllerStore
+	hostPorts   [][]network.HostPort
+	modelTag    names.ModelTag
+	apiHostPort network.HostPort
+	store       configstore.Storage
 
 	resolveSeq      int
 	resolveNumCalls int
@@ -834,7 +820,6 @@ func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
 	s.numResolved = 0
 	s.modelTag = names.NewModelTag(fakeUUID)
 	s.store = configstore.NewMem()
-	s.controllerStore = jujuclienttesting.NewMemStore()
 
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -860,13 +845,13 @@ func (s *CacheAPIEndpointsSuite) assertCreateInfo(c *gc.C, name string) configst
 		updateEndpoint.Addresses,
 		"this.is.ca.cert.but.not.relevant.slash.used.in.this.test",
 	}
-	err := s.controllerStore.UpdateController(name, controllerDetails)
+	err := s.ControllerStore.UpdateController(name, controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	return info
 }
 
 func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name string, check gc.Checker) {
-	found, err := s.controllerStore.ControllerByName(name)
+	found, err := s.ControllerStore.ControllerByName(name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Servers, check, 0)
 	c.Assert(found.APIEndpoints, check, 0)
@@ -887,7 +872,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 
 	info := s.assertCreateInfo(c, "env-name1")
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.controllerStore, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
+	err := juju.CacheChangedAPIInfo(info, s.ControllerStore, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6True(c, info)
 	s.assertControllerUpdated(c, "env-name1")
@@ -901,7 +886,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 	mockAPIInfo.ModelTag = s.modelTag
 	hps := network.CollapseHostPorts(s.hostPorts)
 	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
-	err = juju.CacheAPIInfo(s.APIState, info, s.controllerStore, mockAPIInfo)
+	err = juju.CacheAPIInfo(s.APIState, info, s.ControllerStore, mockAPIInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertControllerNotUpdated(c, "env-name2")
 	s.assertEndpointsPreferIPv6True(c, info)
@@ -913,7 +898,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 	})
 	info := s.assertCreateInfo(c, "env-name1")
 	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.controllerStore, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
+	err := juju.CacheChangedAPIInfo(info, s.ControllerStore, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6False(c, info)
 	s.assertControllerUpdated(c, "env-name1")
@@ -927,7 +912,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 	mockAPIInfo.ModelTag = s.modelTag
 	hps := network.CollapseHostPorts(s.hostPorts)
 	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
-	err = juju.CacheAPIInfo(s.APIState, info, s.controllerStore, mockAPIInfo)
+	err = juju.CacheAPIInfo(s.APIState, info, s.ControllerStore, mockAPIInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertControllerNotUpdated(c, "env-name2")
 	s.assertEndpointsPreferIPv6False(c, info)

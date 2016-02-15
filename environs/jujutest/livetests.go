@@ -91,10 +91,9 @@ type LiveTests struct {
 	ConfigStore configstore.Storage
 
 	// ControllerStore holds the controller related informtion
-	// such as controllers, accounts, etc
-	// used when preparing the environment.
-	// This is initialized by SetUpSuite.
-	ControllerStore jujuclient.ControllerStore
+	// such as controllers, accounts, etc., used when preparing
+	// the environment. This is initialized by SetUpSuite.
+	ControllerStore jujuclient.ClientStore
 
 	prepared     bool
 	bootstrapped bool
@@ -199,7 +198,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	if t.Env == nil {
 		return
 	}
-	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ConfigStore)
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ConfigStore, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -839,7 +838,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		t.ControllerStore,
 		"livetests", args)
 	c.Assert(err, jc.ErrorIsNil)
-	defer environs.Destroy("livetests", env, t.ConfigStore)
+	defer environs.Destroy("livetests", env, t.ConfigStore, t.ControllerStore)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)

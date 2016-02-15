@@ -293,7 +293,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, gc.Equals, "admin")
+	c.Check(opBootstrap.Env, gc.Equals, "local.peckham-controller")
 	c.Check(opBootstrap.Args.EnvironConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
@@ -302,7 +302,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
-	c.Check(opFinalizeBootstrap.Env, gc.Equals, "admin")
+	c.Check(opFinalizeBootstrap.Env, gc.Equals, "local.peckham-controller")
 	c.Check(opFinalizeBootstrap.InstanceConfig.Tools, gc.NotNil)
 	if test.upload != "" {
 		c.Check(opFinalizeBootstrap.InstanceConfig.Tools.Version.String(), gc.Equals, test.upload)
@@ -321,7 +321,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(info, gc.NotNil)
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Name(), gc.Equals, "admin")
+	c.Assert(cfg.Name(), gc.Equals, "local.peckham-controller")
 	_, hasCert := cfg.CACert()
 	c.Check(hasCert, jc.IsTrue)
 	_, hasKey := cfg.CAPrivateKey()
@@ -387,7 +387,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap model: model "admin" of type dummy does not support instances running on "mips64"`,
+	err:      `failed to bootstrap model: model "local.peckham-controller" of type dummy does not support instances running on "mips64"`,
 }, {
 	info:     "--upload-tools always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -516,7 +516,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesModelErrors(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(string, environs.Environ, configstore.Storage) error {
+	s.PatchValue(&environsDestroy, func(string, environs.Environ, configstore.Storage, jujuclient.ControllerRemover) error {
 		destroyed = true
 		return nil
 	})
@@ -524,7 +524,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&environsPrepare, func(
 		environs.BootstrapContext,
 		configstore.Storage,
-		jujuclient.ControllerStore,
+		jujuclient.ClientStore,
 		string,
 		environs.PrepareForBootstrapParams,
 	) (environs.Environ, error) {
@@ -715,7 +715,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "admin")
+	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "local.devcontroller")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
 	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
@@ -762,7 +762,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Creating Juju controller "local.devcontroller" on dummy-cloud/region-1
-Bootstrapping model "admin"
+Bootstrapping model "local.devcontroller"
 Starting new instance for initial controller
 Building tools to upload (1.7.3.1-raring-%s)
 `[1:], arch.HostArch()))
@@ -862,7 +862,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	ctx, err := coretesting.RunCommand(
-		c, newBootstrapCommand(), "ctrl/my-region", "dummy-cloud-without-regions",
+		c, newBootstrapCommand(), "ctrl", "dummy-cloud-without-regions/my-region",
 		"--config", "default-series=precise",
 	)
 	// If the cloud doesn't have any regions defined, we still allow the
@@ -871,7 +871,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 	// enable the lxd provider to take the lxd remote from the region
 	// name.
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"Creating Juju controller \"local.ctrl/my-region\" on dummy-cloud-without-regions(.|\n)*")
+		"Creating Juju controller \"local.ctrl\" on dummy-cloud-without-regions/my-region(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

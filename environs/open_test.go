@@ -18,6 +18,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -88,11 +89,19 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
 	c.Assert(info.APIEndpoint().ModelUUID, gc.Not(gc.Equals), "")
 	c.Assert(info.APICredentials().Password, gc.Not(gc.Equals), "")
-	c.Assert(info.APICredentials().User, gc.Equals, "admin")
+	c.Assert(info.APICredentials().User, gc.Equals, "admin@local")
 
-	foundController, err := cache.ControllerByName(cfg.Name())
+	foundController, err := cache.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, info.APIEndpoint().ServerUUID)
+	c.Assert(foundController, jc.DeepEquals, &jujuclient.ControllerDetails{
+		ControllerUUID: info.APIEndpoint().ServerUUID,
+		CACert:         info.APIEndpoint().CACert,
+	})
+	foundModel, err := cache.ModelByName("controller-name", "admin-model")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID: foundController.ControllerUUID,
+	})
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
@@ -252,23 +261,27 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 
-	store := configstore.NewMem()
-	controllerStore := jujuclienttesting.NewMemStore()
+	configstore := configstore.NewMem()
+	store := jujuclienttesting.NewMemStore()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.Prepare(ctx, store, controllerStore, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
+	e, err := environs.Prepare(ctx, configstore, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.ReadInfo("controller-name")
+	_, err = configstore.ReadInfo("controller-name")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy("controller-name", e, store)
+	err = environs.Destroy("controller-name", e, configstore, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
 	_, err = e.ControllerInstances()
 	c.Assert(err, gc.ErrorMatches, "model has been destroyed")
-	_, err = store.ReadInfo("controller-name")
+	_, err = configstore.ReadInfo("controller-name")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

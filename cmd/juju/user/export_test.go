@@ -7,13 +7,12 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	RandomPasswordNotify = &randomPasswordNotify
 	ReadPassword         = &readPassword
-	ServerFileNotify     = &serverFileNotify
-	WriteServerFile      = writeServerFile
 )
 
 type AddCommand struct {
@@ -42,11 +41,11 @@ func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommandForTest(api ChangePasswordAPI, writer EnvironInfoCredsWriter) (cmd.Command, *ChangePasswordCommand) {
+func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.ClientStore) (cmd.Command, *ChangePasswordCommand) {
 	c := &changePasswordCommand{
-		api:    api,
-		writer: writer,
+		api: api,
 	}
+	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }
 

@@ -82,8 +82,8 @@ func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestDisableUserBadName(c *gc.C) {
-	err := s.usermanager.DisableUser("not@home")
-	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+	err := s.usermanager.DisableUser("not!good")
+	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }
 
 func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
@@ -98,8 +98,8 @@ func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestEnableUserBadName(c *gc.C) {
-	err := s.usermanager.EnableUser("not@home")
-	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+	err := s.usermanager.EnableUser("not!good")
+	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
@@ -173,7 +173,16 @@ func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
 }
 
+func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *gc.C) {
+	tag := s.AdminUserTag(c)
+	err := s.usermanager.SetPassword(tag.Canonical(), "new-password")
+	c.Assert(err, jc.ErrorIsNil)
+	user, err := s.State.User(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
+}
+
 func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
-	err := s.usermanager.SetPassword("not@home", "new-password")
-	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+	err := s.usermanager.SetPassword("not!good", "new-password")
+	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }
