@@ -221,12 +221,10 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
 	var loginFunc func(st *state, tag names.Tag, pwd, nonce string) error
 	switch loginVersion {
-	case 0:
-		loginFunc = (*state).loginV0
-	case 1:
-		loginFunc = (*state).loginV1
 	case 2:
 		loginFunc = (*state).loginV2
+	case 3:
+		loginFunc = (*state).loginV3
 	default:
 		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}

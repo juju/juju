@@ -199,7 +199,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		limiter:   utils.NewLimiter(loginRateLimit),
 		validator: cfg.Validator,
 		adminApiFactories: map[int]adminApiFactory{
-			2: newAdminApiV2,
+			3: newAdminApiV3,
 		},
 	}
 	srv.authCtxt = newAuthContext(srv)
@@ -475,7 +475,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 
 	h, err := srv.newAPIHandler(conn, reqNotifier, modelUUID)
 	if err != nil {
-		conn.Serve(&errRoot{err}, serverError)
+		conn.ServeFinder(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminApiFactories {

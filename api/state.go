@@ -40,18 +40,20 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *state) Login(tag names.Tag, password, nonce string) error {
-	err := st.loginV2(tag, password, nonce)
-	if params.IsCodeNotImplemented(err) {
-		err = st.loginV1(tag, password, nonce)
-		if params.IsCodeNotImplemented(err) {
-			// TODO (cmars): remove fallback once we can drop v0 compatibility
-			return errors.Trace(st.loginV0(tag, password, nonce))
-		}
-	}
+	err := st.loginV3(tag, password, nonce)
 	return errors.Trace(err)
 }
 
+// loginV2 is retained for testing logins from older clients.
 func (st *state) loginV2(tag names.Tag, password, nonce string) error {
+	return st.loginForVersion(tag, password, nonce, 2)
+}
+
+func (st *state) loginV3(tag names.Tag, password, nonce string) error {
+	return st.loginForVersion(tag, password, nonce, 3)
+}
+
+func (st *state) loginForVersion(tag names.Tag, password, nonce string, vers int) error {
 	var result params.LoginResultV1
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
@@ -62,22 +64,8 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		// Add any macaroons that might work for authenticating the login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
 	}
-	err := st.APICall("Admin", 2, "", "Login", request, &result)
+	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
-		// If the server complains about an empty tag it may be that we are
-		// talking to an older server version that does not understand facades and
-		// expects a params.Creds request instead of a params.LoginRequest. We
-		// return a CodeNotImplemented error to force login down to V1, which
-		// supports older server logins. This may mask an actual empty tag in
-		// params.LoginRequest, but that would be picked up in loginV1. V1 will
-		// also produce a warning that we are ignoring an invalid API, so we do not
-		// need to add one here.
-		if err.Error() == `"" is not a valid tag` {
-			return &params.Error{
-				Message: err.Error(),
-				Code:    params.CodeNotImplemented,
-			}
-		}
 		return errors.Trace(err)
 	}
 	if result.DischargeRequired != nil {
@@ -101,7 +89,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
 		result = params.LoginResultV1{} // zero result
-		err = st.APICall("Admin", 2, "", "Login", request, &result)
+		err = st.APICall("Admin", vers, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -118,60 +106,6 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	st.serverVersion, err = version.Parse(result.ServerVersion)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (st *state) loginV1(tag names.Tag, password, nonce string) error {
-	var result struct {
-		// TODO (cmars): remove once we can drop 1.18 login compatibility
-		params.LoginResult
-
-		params.LoginResultV1
-	}
-	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
-		LoginRequest: params.LoginRequest{
-			AuthTag:     tagToString(tag),
-			Credentials: password,
-			Nonce:       nonce,
-		},
-		// TODO (cmars): remove once we can drop 1.18 login compatibility
-		Creds: params.Creds{
-			AuthTag:  tagToString(tag),
-			Password: password,
-			Nonce:    nonce,
-		},
-	}, &result)
-	if err != nil {
-		return err
-	}
-
-	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
-	// server.  The JSON field names between the structures are disjoint, so only
-	// one should have an model tag set.
-
-	var modelTag string
-	var controllerTag string
-	var servers [][]network.HostPort
-	var facades []params.FacadeVersions
-	// For quite old servers, it is possible that they don't send down
-	// the modelTag.
-	if result.LoginResult.ModelTag != "" {
-		modelTag = result.LoginResult.ModelTag
-		// If the server doesn't support login v1, it doesn't support
-		// multiple models, so don't store a server tag.
-		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
-		facades = result.LoginResult.Facades
-	} else if result.LoginResultV1.ModelTag != "" {
-		modelTag = result.LoginResultV1.ModelTag
-		controllerTag = result.LoginResultV1.ControllerTag
-		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
-		facades = result.LoginResultV1.Facades
-	}
-
-	err = st.setLoginResult(tag, modelTag, controllerTag, servers, facades)
-	if err != nil {
-		return err
 	}
 	return nil
 }
@@ -196,24 +130,6 @@ func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, s
 	}
 
 	st.setLoggedIn()
-	return nil
-}
-
-func (st *state) loginV0(tag names.Tag, password, nonce string) error {
-	var result params.LoginResult
-	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
-		AuthTag:  tagToString(tag),
-		Password: password,
-		Nonce:    nonce,
-	}, &result)
-	if err != nil {
-		return err
-	}
-	servers := params.NetworkHostsPorts(result.Servers)
-	// Don't set a server tag.
-	if err = st.setLoginResult(tag, result.ModelTag, "", servers, result.Facades); err != nil {
-		return err
-	}
 	return nil
 }
 
