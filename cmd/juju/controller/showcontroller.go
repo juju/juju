@@ -66,20 +66,20 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 
 	var err error
 	controller.Models, err = c.store.AllModels(controllerName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
 	controller.CurrentModel, err = c.store.CurrentModel(controllerName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
 
 	controller.Accounts, err = c.store.AllAccounts(controllerName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
 	controller.CurrentAccount, err = c.store.CurrentAccount(controllerName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
 	return controller

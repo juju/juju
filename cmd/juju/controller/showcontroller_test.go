@@ -75,9 +75,6 @@ local.aws-test:
     admin:
       uuid: ghi
   current-model: admin
-  errors:
-  - accounts for controller local.aws-test not found
-  - current account for controller local.aws-test not found
 `[1:]
 	s.assertShowController(c, "local.aws-test")
 }
@@ -95,9 +92,6 @@ local.aws-test:
     admin:
       uuid: ghi
   current-model: admin
-  errors:
-  - accounts for controller local.aws-test not found
-  - current account for controller local.aws-test not found
 local.mark-test-prodstack:
   details:
     servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
@@ -108,10 +102,6 @@ local.mark-test-prodstack:
     admin@local:
       user: admin@local
       password: hunter2
-  errors:
-  - models for controller local.mark-test-prodstack not found
-  - current model for controller local.mark-test-prodstack not found
-  - current account for controller local.mark-test-prodstack not found
 `[1:]
 
 	s.assertShowController(c, "local.aws-test", "local.mark-test-prodstack")
@@ -121,7 +111,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin","errors":["accounts for controller local.aws-test not found","current account for controller local.aws-test not found"]}}
+{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin"}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "local.aws-test")
@@ -130,7 +120,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin","errors":["accounts for controller local.aws-test not found","current account for controller local.aws-test not found"]},"local.mark-test-prodstack":{"details":{"Servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"ControllerUUID":"this-is-a-uuid","APIEndpoints":["this-is-one-of-many-api-endpoints"],"CACert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"User":"admin@local","Password":"hunter2"}},"errors":["models for controller local.mark-test-prodstack not found","current model for controller local.mark-test-prodstack not found","current account for controller local.mark-test-prodstack not found"]}}
+{"local.aws-test":{"details":{"Servers":["instance-1-2-4.useast.aws.com"],"ControllerUUID":"this-is-the-aws-test-uuid","APIEndpoints":["this-is-aws-test-of-many-api-endpoints"],"CACert":"this-is-aws-test-ca-cert"},"models":{"admin":{"ModelUUID":"ghi"}},"current-model":"admin"},"local.mark-test-prodstack":{"details":{"Servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"ControllerUUID":"this-is-a-uuid","APIEndpoints":["this-is-one-of-many-api-endpoints"],"CACert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"User":"admin@local","Password":"hunter2"}}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "local.aws-test", "local.mark-test-prodstack")
 }
