@@ -202,7 +202,7 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMemControllerStore(),
+		jujuclienttesting.NewMemStore(),
 		cfg.Name(),
 		environs.PrepareForBootstrapParams{
 			Config: cfg,

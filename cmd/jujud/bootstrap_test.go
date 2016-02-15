@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -57,8 +56,6 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
-
-var _ = configstore.Default
 
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.

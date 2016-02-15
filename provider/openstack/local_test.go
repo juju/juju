@@ -1174,7 +1174,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.env, err = environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMemControllerStore(),
+		jujuclienttesting.NewMemStore(),
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1790,7 +1790,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	configStore := configstore.NewMem()
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), configStore,
-		jujuclienttesting.NewMemControllerStore(),
+		jujuclienttesting.NewMemStore(),
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)

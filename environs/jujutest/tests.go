@@ -84,7 +84,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 	t.ConfigStore = configstore.NewMem()
-	t.ControllerStore = jujuclienttesting.NewMemControllerStore()
+	t.ControllerStore = jujuclienttesting.NewMemStore()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

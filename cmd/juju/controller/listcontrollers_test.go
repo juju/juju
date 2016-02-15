@@ -28,7 +28,7 @@ CONTROLLER  MODEL  USER  SERVER
 
 `[1:]
 
-	s.store = jujuclienttesting.NewMemControllerStore()
+	s.store = jujuclienttesting.NewMemStore()
 	s.assertListControllers(c)
 }
 

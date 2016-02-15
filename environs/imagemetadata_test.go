@@ -48,7 +48,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c), configstore.NewMem(),
-		jujuclienttesting.NewMemControllerStore(),
+		jujuclienttesting.NewMemStore(),
 		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg},
 	)
 	c.Assert(err, jc.ErrorIsNil)
