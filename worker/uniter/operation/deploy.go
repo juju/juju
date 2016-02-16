@@ -116,7 +116,6 @@ func (d *deploy) checkAlreadyDone(state State) error {
 	if *state.CharmURL != *d.charmURL {
 		return nil
 	}
-
 	if state.Step == Done {
 		return ErrSkipExecute
 	}

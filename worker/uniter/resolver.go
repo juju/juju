@@ -46,10 +46,6 @@ func (s *uniterResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
-	logger.Infof("NextOp RemoteState: %#v", remoteState)
-	logger.Infof("NextOp LocalState: %#v", localState)
-
 	if remoteState.Life == params.Dead || localState.Stopped {
 		return nil, resolver.ErrTerminate
 	}
