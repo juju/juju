@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
@@ -22,7 +22,7 @@ import (
 )
 
 type CharmStoreSuite struct {
-	gitjujutesting.CleanupSuite
+	testing.CleanupSuite
 
 	Session *mgo.Session
 	// DischargeUser holds the identity of the user

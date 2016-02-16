@@ -432,7 +432,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	// Try to add a charm to the environment without authorization.
 	s.DischargeUser = ""
 	err = s.APIState.Client().AddCharm(curl)
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": third party refused discharge: cannot discharge: discharge denied`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
 
 	tryAs := func(user string) error {
 		client := csclient.New(csclient.Params{

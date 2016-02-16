@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
@@ -258,6 +260,14 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	c.Check(string(results[0].Stdout), gc.Equals, expectedCommand[0])
 	c.Check(string(results[1].Stdout), gc.Equals, expectedCommand[0])
 	c.Check(string(results[2].Stdout), gc.Equals, expectedCommand[0])
+}
+
+func (s *runSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }
 
 func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
