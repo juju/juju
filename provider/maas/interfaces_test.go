@@ -439,8 +439,8 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 	subnetsMap := make(map[string]network.Id)
-	subnetsMap["default"] = network.Id("3")
-	subnetsMap["nonexistent"] = network.Id("0")
+	subnetsMap["10.250.19.0/24"] = network.Id("3")
+	subnetsMap["192.168.1.0/24"] = network.Id("0")
 	newAddressOnSpaceWithId := func(space string, id network.Id, address string) network.Address {
 		newAddress := network.NewAddressOnSpace(space, address)
 		newAddress.SpaceProviderId = id
