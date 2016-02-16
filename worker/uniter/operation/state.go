@@ -93,6 +93,10 @@ type State struct {
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
+
+	// CharmModifiedVersion is incremented every time the charm is modified in
+	// any way.
+	CharmModifiedVersion int `yaml:"charm-modified-version`
 }
 
 // validate returns an error if the state violates expectations.
@@ -164,6 +168,7 @@ type stateChange struct {
 	Hook            *hook.Info
 	ActionId        *string
 	CharmURL        *charm.URL
+	CharmModifiedVersion int
 	HasRunStatusSet bool
 }
 
@@ -173,6 +178,7 @@ func (change stateChange) apply(state State) *State {
 	state.Hook = change.Hook
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
+	state.CharmModifiedVersion = change.CharmModifiedVersion
 	state.StatusSet = state.StatusSet || change.HasRunStatusSet
 	return &state
 }

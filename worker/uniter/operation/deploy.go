@@ -18,10 +18,11 @@ import (
 type deploy struct {
 	DoesNotRequireMachineLock
 
-	kind     Kind
-	charmURL *corecharm.URL
-	revert   bool
-	resolved bool
+	kind                 Kind
+	charmURL             *corecharm.URL
+	revert               bool
+	resolved             bool
+	charmModifiedVersion int
 
 	callbacks Callbacks
 	deployer  charm.Deployer
@@ -75,7 +76,7 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	// race with a new service-charm-url change on the controller, and lead to
 	// failures on resume in which we try to obtain archive info for a charm that
 	// has already been removed from the controller.
-	if err := d.callbacks.SetCurrentCharm(d.charmURL); err != nil {
+	if err := d.callbacks.SetCurrentCharm(d.charmModifiedVersion, d.charmURL); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return d.getState(state, Pending), nil
@@ -116,6 +117,11 @@ func (d *deploy) checkAlreadyDone(state State) error {
 	if *state.CharmURL != *d.charmURL {
 		return nil
 	}
+
+	if state.CharmModifiedVersion != d.charmModifiedVersion {
+		return nil
+	}
+
 	if state.Step == Done {
 		return ErrSkipExecute
 	}
@@ -124,10 +130,11 @@ func (d *deploy) checkAlreadyDone(state State) error {
 
 func (d *deploy) getState(state State, step Step) *State {
 	return stateChange{
-		Kind:     d.kind,
-		Step:     step,
-		CharmURL: d.charmURL,
-		Hook:     d.interruptedHook(state),
+		Kind:                 d.kind,
+		Step:                 step,
+		CharmURL:             d.charmURL,
+		Hook:                 d.interruptedHook(state),
+		CharmModifiedVersion: d.charmModifiedVersion,
 	}.apply(state)
 }
 

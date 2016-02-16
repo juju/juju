@@ -113,7 +113,7 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 }
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
+func (opc *operationCallbacks) SetCurrentCharm(charmModVersion int, charmURL *corecharm.URL) error {
 	return opc.u.unit.SetCharmURL(charmURL)
 }
 

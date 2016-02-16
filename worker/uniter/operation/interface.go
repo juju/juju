@@ -68,17 +68,17 @@ type Factory interface {
 	NewInstall(charmURL *corecharm.URL) (Operation, error)
 
 	// NewUpgrade creates an upgrade operation for the supplied charm.
-	NewUpgrade(charmURL *corecharm.URL) (Operation, error)
+	NewUpgrade(charmModifiedVersion int, charmURL *corecharm.URL) (Operation, error)
 
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.
-	NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error)
+	NewRevertUpgrade(charmModifiedVersion int, charmURL *corecharm.URL) (Operation, error)
 
 	// NewResolvedUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to preserve
 	// non-overlapping remnants of a previously failed upgrade to the same charm.
-	NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error)
+	NewResolvedUpgrade(harmModifiedVersion int, charmURL *corecharm.URL) (Operation, error)
 
 	// NewRunHook creates an operation to execute the supplied hook.
 	NewRunHook(hookInfo hook.Info) (Operation, error)
@@ -157,7 +157,7 @@ type Callbacks interface {
 	// *before* recording local state referencing that charm, to ensure there's
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the service's settings for it. It's only used by Deploy operations.
-	SetCurrentCharm(charmURL *corecharm.URL) error
+	SetCurrentCharm(charmModVersion int, charmURL *corecharm.URL) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage
