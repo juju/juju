@@ -59,7 +59,7 @@ func (s *uniterResolver) NextOp(
 			return s.nextOpConflicted(localState, remoteState, opFactory)
 		}
 		logger.Infof("resuming charm upgrade")
-		return opFactory.NewUpgrade(localState.CharmModifiedVersion, localState.CharmURL)
+		return opFactory.NewUpgrade(localState.CharmURL)
 	}
 
 	if localState.Restart {
@@ -148,7 +148,7 @@ func (s *uniterResolver) nextOpConflicted(
 		if err := s.config.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return opFactory.NewResolvedUpgrade(localState.CharmModifiedVersion, localState.CharmURL)
+		return opFactory.NewResolvedUpgrade(localState.CharmURL)
 	}
 	if remoteState.ForceCharmUpgrade && localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
 		if *localState.CharmURL != *remoteState.CharmURL {
@@ -156,7 +156,7 @@ func (s *uniterResolver) nextOpConflicted(
 		} else {
 			logger.Debugf("charm modified from revision %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
 		}
-		return opFactory.NewRevertUpgrade(remoteState.CharmModifiedVersion, remoteState.CharmURL)
+		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
 	return nil, resolver.ErrWaiting
 }
@@ -174,7 +174,7 @@ func (s *uniterResolver) nextOpHookError(
 
 	if remoteState.ForceCharmUpgrade && localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
 		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		return opFactory.NewUpgrade(remoteState.CharmModifiedVersion, remoteState.CharmURL)
+		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
 	switch remoteState.ResolvedMode {
@@ -260,7 +260,7 @@ func (s *uniterResolver) nextOp(
 	}
 
 	if localState.CharmModifiedVersion != remoteState.CharmModifiedVersion {
-		return opFactory.NewUpgrade(remoteState.CharmModifiedVersion, remoteState.CharmURL)
+		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
 	if localState.ConfigVersion != remoteState.ConfigVersion {

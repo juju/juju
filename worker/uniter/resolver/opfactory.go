@@ -48,24 +48,24 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 	return s.wrapHookOp(op, info), nil
 }
 
-func (s *resolverOpFactory) NewUpgrade(charmModifiedVersion int, charmURL *charm.URL) (operation.Operation, error) {
-	op, err := s.Factory.NewUpgrade(charmModifiedVersion, charmURL)
+func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	op, err := s.Factory.NewUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *resolverOpFactory) NewRevertUpgrade(charmModifiedVersion int, charmURL *charm.URL) (operation.Operation, error) {
-	op, err := s.Factory.NewRevertUpgrade(charmModifiedVersion, charmURL)
+func (s *resolverOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	op, err := s.Factory.NewRevertUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *resolverOpFactory) NewResolvedUpgrade(charmModifiedVersion int, charmURL *charm.URL) (operation.Operation, error) {
-	op, err := s.Factory.NewResolvedUpgrade(charmModifiedVersion, charmURL)
+func (s *resolverOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	op, err := s.Factory.NewResolvedUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -36,42 +36,41 @@ type factory struct {
 }
 
 // newDeploy is the common code for creating arbitrary deploy operations.
-func (f *factory) newDeploy(kind Kind, charmModifiedVersion int, charmURL *corecharm.URL, revert, resolved bool) (Operation, error) {
+func (f *factory) newDeploy(kind Kind, charmURL *corecharm.URL, revert, resolved bool) (Operation, error) {
 	if charmURL == nil {
 		return nil, errors.New("charm url required")
 	} else if kind != Install && kind != Upgrade {
 		return nil, errors.Errorf("unknown deploy kind: %s", kind)
 	}
 	return &deploy{
-		kind:                 kind,
-		charmURL:             charmURL,
-		revert:               revert,
-		resolved:             resolved,
-		callbacks:            f.config.Callbacks,
-		deployer:             f.config.Deployer,
-		abort:                f.config.Abort,
-		charmModifiedVersion: charmModifiedVersion,
+		kind:      kind,
+		charmURL:  charmURL,
+		revert:    revert,
+		resolved:  resolved,
+		callbacks: f.config.Callbacks,
+		deployer:  f.config.Deployer,
+		abort:     f.config.Abort,
 	}, nil
 }
 
 // NewInstall is part of the Factory interface.
 func (f *factory) NewInstall(charmURL *corecharm.URL) (Operation, error) {
-	return f.newDeploy(Install, 0, charmURL, false, false)
+	return f.newDeploy(Install, charmURL, false, false)
 }
 
 // NewUpgrade is part of the Factory interface.
-func (f *factory) NewUpgrade(charmModifiedVersion int, charmURL *corecharm.URL) (Operation, error) {
-	return f.newDeploy(Upgrade, charmModifiedVersion, charmURL, false, false)
+func (f *factory) NewUpgrade(charmURL *corecharm.URL) (Operation, error) {
+	return f.newDeploy(Upgrade, charmURL, false, false)
 }
 
 // NewRevertUpgrade is part of the Factory interface.
-func (f *factory) NewRevertUpgrade(charmModifiedVersion int, charmURL *corecharm.URL) (Operation, error) {
-	return f.newDeploy(Upgrade, charmModifiedVersion, charmURL, true, false)
+func (f *factory) NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error) {
+	return f.newDeploy(Upgrade, charmURL, true, false)
 }
 
 // NewResolvedUpgrade is part of the Factory interface.
-func (f *factory) NewResolvedUpgrade(charmModifiedVersion int, charmURL *corecharm.URL) (Operation, error) {
-	return f.newDeploy(Upgrade, charmModifiedVersion, charmURL, false, true)
+func (f *factory) NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error) {
+	return f.newDeploy(Upgrade, charmURL, false, true)
 }
 
 // NewRunHook is part of the Factory interface.
