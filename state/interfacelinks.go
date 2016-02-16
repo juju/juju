@@ -16,7 +16,7 @@ type interfaceLinkDoc struct {
 
 	// ProviderID is a provider-specific ID of the link, prefixed by
 	// ModelUUID. Empty when not supported by the provider.
-	ProviderID string `bson:"provider-id,omitempty"`
+	ProviderID string `bson:"providerid,omitempty"`
 
 	// InterfaceName is the name of the interface this link belongs to.
 	InterfaceName string `bson:"interface-name"`

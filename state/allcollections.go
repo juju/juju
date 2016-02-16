@@ -315,6 +315,28 @@ func allCollections() collectionSchema {
 				Sparse: true,
 			}},
 		},
+		interfacesC: {
+			indexes: []mgo.Index{{
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support interfaces with IDs, it can be
+				// empty, hence both unique and sparse.
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		interfaceLinksC: {
+			indexes: []mgo.Index{{
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support interface links with IDs, it can be
+				// empty, hence both unique and sparse.
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
 		endpointBindingsC: {},
 
 		// -----
@@ -428,6 +450,8 @@ const (
 	storageConstraintsC      = "storageconstraints"
 	storageInstancesC        = "storageinstances"
 	subnetsC                 = "subnets"
+	interfacesC              = "interfaces"
+	interfaceLinksC          = "interfacelinks"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"

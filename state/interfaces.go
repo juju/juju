@@ -23,7 +23,7 @@ type interfaceDoc struct {
 
 	// ProviderID is a provider-specific ID of the interface, prefixed by
 	// ModelUUID. Empty when not supported by the provider.
-	ProviderID string `bson:"provider-id,omitempty"`
+	ProviderID string `bson:"providerid,omitempty"`
 
 	// MachineID is the ID of the machine where this interface is located.
 	MachineID string `bson:"machine-id"`
