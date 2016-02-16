@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -18,16 +19,12 @@ func TestPackage(t *testing.T) {
 }
 
 type baseControllerSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-
 	store                                     jujuclient.ClientStore
 	controllersYaml, modelsYaml, accountsYaml string
 	expectedOutput, expectedErr               string
 }
 
 func (s *baseControllerSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
 	s.controllersYaml = testControllersYaml
 	s.modelsYaml = testModelsYaml
 	s.accountsYaml = testAccountsYaml
@@ -35,29 +32,23 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 
 func (s *baseControllerSuite) TearDownTest(c *gc.C) {
 	s.store = nil
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *baseControllerSuite) createTestClientStore(c *gc.C) {
-	s.store = jujuclient.NewFileClientStore()
-
-	// Load controllers.
 	controllers, err := jujuclient.ParseControllers([]byte(s.controllersYaml))
 	c.Assert(err, jc.ErrorIsNil)
-	err = jujuclient.WriteControllersFile(controllers)
-	c.Assert(err, jc.ErrorIsNil)
 
-	// Load models.
 	models, err := jujuclient.ParseModels([]byte(s.modelsYaml))
 	c.Assert(err, jc.ErrorIsNil)
-	err = jujuclient.WriteModelsFile(models)
-	c.Assert(err, jc.ErrorIsNil)
 
-	// Load accounts.
 	accounts, err := jujuclient.ParseAccounts([]byte(s.accountsYaml))
 	c.Assert(err, jc.ErrorIsNil)
-	err = jujuclient.WriteAccountsFile(accounts)
-	c.Assert(err, jc.ErrorIsNil)
+
+	s.store = &jujuclienttesting.MemStore{
+		Controllers: controllers,
+		Models:      models,
+		Accounts:    accounts,
+	}
 }
 
 const testControllersYaml = `
