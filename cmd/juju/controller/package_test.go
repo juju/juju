@@ -19,18 +19,17 @@ func TestPackage(t *testing.T) {
 }
 
 type baseControllerSuite struct {
+	coretesting.FakeJujuXDGDataHomeSuite
 	store                                     jujuclient.ClientStore
 	controllersYaml, modelsYaml, accountsYaml string
 	expectedOutput, expectedErr               string
 }
 
 func (s *baseControllerSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.controllersYaml = testControllersYaml
 	s.modelsYaml = testModelsYaml
 	s.accountsYaml = testAccountsYaml
-}
-
-func (s *baseControllerSuite) TearDownTest(c *gc.C) {
 	s.store = nil
 }
 
