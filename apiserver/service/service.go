@@ -170,6 +170,7 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 			Networks:         requestedNetworks,
 			Storage:          args.Storage,
 			EndpointBindings: args.EndpointBindings,
+			Resources:        args.Resources,
 		})
 	return errors.Trace(err)
 }

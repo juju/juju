@@ -313,7 +313,11 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	info.Nonce = ""
 
 	apiState, err := api.Open(info, upgradeTestDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		// If space discovery is in progress we'll get an error here
+		// and need to retry.
+		return err
+	}
 	defer apiState.Close()
 
 	// this call should always work

@@ -15,21 +15,21 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type loginV2Suite struct {
+type loginV3Suite struct {
 	loginSuite
 }
 
-var _ = gc.Suite(&loginV2Suite{
+var _ = gc.Suite(&loginV3Suite{
 	loginSuite{
 		baseLoginSuite{
 			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 2)
+				apiserver.SetAdminApiVersions(srv, 3)
 			},
 		},
 	},
 })
 
-func (s *loginV2Suite) TestClientLoginToEnvironment(c *gc.C) {
+func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 	_, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -43,7 +43,7 @@ func (s *loginV2Suite) TestClientLoginToEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
+func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 	_, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -61,7 +61,7 @@ func (s *loginV2Suite) TestClientLoginToServer(c *gc.C) {
 	})
 }
 
-func (s *loginV2Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
+func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 	_, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -86,12 +86,12 @@ func (s *loginV2Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 	c.Assert(lastLogin, gc.NotNil)
 }
 
-func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {
+func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	_, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
 	info := s.APIInfo(c)
 	info.ModelTag = names.ModelTag{}
-	_, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
-	c.Assert(err, gc.ErrorMatches, ".*not implemented.*")
+	_, err := api.OpenWithVersion(info, api.DialOpts{}, 2)
+	c.Assert(err, gc.ErrorMatches, ".*this version of Juju does not support login from old clients.*")
 }

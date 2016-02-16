@@ -1262,9 +1262,8 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		a.discoveringSpacesMutex.Lock()
-		defer a.discoveringSpacesMutex.Unlock()
 		w, discoveringSpaces := newDiscoverSpaces(apiSt.DiscoverSpaces())
+		a.discoveringSpacesMutex.Lock()
 		if a.discoveringSpaces == nil {
 			// If the discovery channel has not been set, set it here. If
 			// it has been set then the worker has been restarted and we
@@ -1272,6 +1271,7 @@ func (a *MachineAgent) startEnvWorkers(
 			// will block the api.
 			a.discoveringSpaces = discoveringSpaces
 		}
+		a.discoveringSpacesMutex.Unlock()
 		return w, nil
 	})
 
@@ -1483,8 +1483,6 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 // limitLoginsUntilSpacesDiscovered will prevent logins from clients until
 // space discovery is completed.
 func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
-	a.discoveringSpacesMutex.Lock()
-	defer a.discoveringSpacesMutex.Unlock()
 	if a.discoveringSpaces == nil {
 		// Space discovery not started.
 		return nil
