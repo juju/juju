@@ -92,7 +92,7 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			subnet, err := subnet["cidr"].GetString()
+			subnet, err := subnetMap["cidr"].GetString()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -907,12 +907,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 
 		if environ.supportsNetworkDeploymentUbuntu {
-			spacesMap, err := environ.subnetToSpaceIds()
+			subnetsMap, err := environ.subnetToSpaceIds()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode, spacesMap)
+			interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		} else {
 			// Use the legacy approach.
 			interfaces, err = environ.setupNetworks(inst)

@@ -103,7 +103,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
-func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, spacesMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
 
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
@@ -174,7 +174,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, spacesMap map
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
-			spaceId, ok := spacesMap[string(sub.Space)]
+			spaceId, ok := subnetsMap[string(sub.CIDR)]
 			if !ok {
 				// The space we found is not recognised, no
 				// provider id available.
