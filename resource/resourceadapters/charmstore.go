@@ -53,5 +53,5 @@ func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
 // NewClient implements charmstore.NewOperationsDeps.
 func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
 	// TODO(ericsnow) Return an actual charm store client.
-	return NewFakeCharmStoreClient(nil), nil
+	return newFakeCharmStoreClient(nil), nil
 }

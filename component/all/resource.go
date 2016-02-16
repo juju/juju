@@ -136,19 +136,6 @@ func (p resourcePersistence) StageResource(res resource.Resource, storagePath st
 	return p.Persistence.StageResource(res, storagePath)
 }
 
-type resourcesCharmCmdBase struct {
-	*charmcmd.CommandBase
-}
-
-// Connect implements cmd.CommandBase
-func (c *resourcesCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
-	client, err := c.CommandBase.Connect()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return resourceadapters.NewFakeCharmStoreClient(client), nil
-}
-
 // registerPublicCommands adds the resources-related commands
 // to the "juju" supercommand.
 func (r resources) registerPublicCommands() {
@@ -158,7 +145,7 @@ func (r resources) registerPublicCommands() {
 
 	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
 		base := charmcmd.NewCommandBase(spec)
-		resBase := &resourcesCharmCmdBase{base}
+		resBase := resourceadapters.NewFakeCharmCmdBase(base)
 		return cmd.NewListCharmResourcesCommand(resBase)
 	})
 
