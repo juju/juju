@@ -474,10 +474,14 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 	if requireSigned {
 		publicKey := source.PublicSigningKey()
 		if publicKey == "" {
-			// Data sources may not require signing. These data source may not provide public key.
-			// However, these data source may still contain signed data
-			// Since we will always try to read signed data first, we want to be able
-			// to try to read this signed data with public key known to Juju.
+			// Data sources may not require to contain signed data.
+			// These data sources may also not provide public key.
+			// However, they may still contain signed data.
+			// Since we will always try to read signed data first,
+			// we want to be able to try to read this signed data with public key known to Juju.
+			//
+			// When public key is not provided by the data source but signed data has been supplied,
+			// let's use user supplied public key or fall back to other-juju-known public key.
 			// Bugs #1542127, #1542131
 			publicKey, _ = UserPublicSigningKey()
 			if publicKey == "" {
