@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -62,15 +61,4 @@ func (st *State) Resources() (Resources, error) {
 	persist := st.newPersistence()
 	resources := newResources(persist)
 	return resources, nil
-}
-
-// incCharmModifiedVersionOps returns the operations necessary to increment
-// the CharmModifiedVersion field for the given service.
-func (st *State) incCharmModifiedVersionOps(serviceID string) []txn.Op {
-	return []txn.Op{{
-		C:      servicesC,
-		Id:     serviceID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
-	}}
 }

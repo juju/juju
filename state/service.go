@@ -293,8 +293,6 @@ func (s *Service) CharmModifiedVersion() int {
 	return s.doc.CharmModifiedVersion
 }
 
-
-
 // CharmURL returns the service's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {
@@ -530,13 +528,12 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 			C:      servicesC,
 			Id:     s.doc.DocID,
 			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{
-				{"charmurl", ch.URL()},
-				{"forcecharm", forceUnits},
-				{"charmmodifed", time.Now().UTC()},
-			}}},
+			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
 		},
 	}...)
+
+	ops = append(ops, incCharmModifiedVersionOps(s.doc.DocID)...)
+
 	// Add any extra peer relations that need creation.
 	newPeers := s.extraPeerRelations(ch.Meta())
 	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
@@ -1480,4 +1477,15 @@ var statusServerities = map[Status]int{
 	StatusTerminated:  60,
 	StatusActive:      50,
 	StatusUnknown:     40,
+}
+
+// incCharmModifiedVersionOps returns the operations necessary to increment
+// the CharmModifiedVersion field for the given service.
+func incCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
+	}}
 }

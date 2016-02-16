@@ -89,5 +89,5 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 // IncCharmModifiedVersionOps returns the operations necessary to increment the
 // CharmModifiedVersion field for the given service.
 func (sp *statePersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
-	return sp.st.incCharmModifiedVersionOps(serviceID)
+	return incCharmModifiedVersionOps(serviceID)
 }
