@@ -6,7 +6,6 @@ package resourceadapters
 import (
 	"io"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -47,12 +46,12 @@ type charmstoreOpener struct {
 }
 
 func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
-	// TODO(ericsnow) Do something with the charm URL.
+	// TODO(ericsnow) Extract the charm store URL from the charm URL.
 	return &charmstoreOpener{}
 }
 
 // NewClient implements charmstore.NewOperationsDeps.
 func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
-	// TODO(ericsnow) finish
-	return nil, errors.NotImplementedf("")
+	// TODO(ericsnow) Return an actual charm store client.
+	return &fakeCharmStoreClient{}, nil
 }
