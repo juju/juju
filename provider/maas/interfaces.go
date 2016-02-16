@@ -218,7 +218,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spacesMap, err := environ.fetchSpaceIds()
+	spacesMap, err := environ.subnetToSpaceIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

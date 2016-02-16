@@ -61,10 +61,10 @@ var (
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
-	FetchSpaces              = fetchSpaceIds
+	FetchSpaces              = subnetToSpaceIds
 )
 
-func fetchSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
+func subnetToSpaceId(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
 	spacesJson, err := spaces.CallGet("list", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -898,7 +898,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 
 		if environ.supportsNetworkDeploymentUbuntu {
-			spacesMap, err := environ.fetchSpaceIds()
+			spacesMap, err := environ.subnetToSpaceIds()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1889,11 +1889,11 @@ func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
 	return json.GetArray()
 }
 
-// fetchSpaceIds fetches the spaces from MAAS and builds a map of space name to
-// id.
-func (environ *maasEnviron) fetchSpaceIds() (map[string]network.Id, error) {
+// subnetToSpaceIds fetches the spaces from MAAS and builds a map of subnets to
+// space ids.
+func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 	spaces := environ.getMAASClient().GetSubObject("spaces")
-	return fetchSpaceIds(spaces)
+	return subnetToSpaceIds(spaces)
 }
 
 // Spaces returns all the spaces, that have subnets, known to the provider.
