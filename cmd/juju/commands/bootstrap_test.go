@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -293,7 +294,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, gc.Equals, "admin")
+	c.Check(opBootstrap.Env, gc.Equals, "local.peckham-controller")
 	c.Check(opBootstrap.Args.EnvironConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
@@ -302,7 +303,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
-	c.Check(opFinalizeBootstrap.Env, gc.Equals, "admin")
+	c.Check(opFinalizeBootstrap.Env, gc.Equals, "local.peckham-controller")
 	c.Check(opFinalizeBootstrap.InstanceConfig.Tools, gc.NotNil)
 	if test.upload != "" {
 		c.Check(opFinalizeBootstrap.InstanceConfig.Tools.Version.String(), gc.Equals, test.upload)
@@ -321,7 +322,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(info, gc.NotNil)
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Name(), gc.Equals, "admin")
+	c.Assert(cfg.Name(), gc.Equals, "local.peckham-controller")
 	_, hasCert := cfg.CACert()
 	c.Check(hasCert, jc.IsTrue)
 	_, hasKey := cfg.CAPrivateKey()
@@ -387,7 +388,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap model: model "admin" of type dummy does not support instances running on "mips64"`,
+	err:      `failed to bootstrap model: model "local.peckham-controller" of type dummy does not support instances running on "mips64"`,
 }, {
 	info:     "--upload-tools always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -486,29 +487,19 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
 }
 
-// In the case where we cannot examine a model, we want the
+// In the case where we cannot examine the client store, we want the
 // error to propagate back up to the user.
-func (s *BootstrapSuite) TestBootstrapPropagatesModelErrors(c *gc.C) {
-	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: this is very platform specific. When/if we will support windows state machine, this will probably be rewritten.")
-	}
-
+func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	const controllerName = "devcontroller"
-	expectedBootstrappedControllerName := bootstrappedControllerName(controllerName)
+	bootstrappedControllerName(controllerName)
 	s.patchVersionAndSeries(c, "raring")
 
-	// Change permissions on the models directory to simulate some kind of
-	// unexpected error when trying to read info from the environment
-	modelsDir := testing.JujuXDGDataHomePath("models")
-	err := os.MkdirAll(modelsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	jenvFile := filepath.Join(modelsDir, expectedBootstrappedControllerName+".jenv")
-	err = ioutil.WriteFile(jenvFile, []byte("nonsense"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
-	c.Assert(err, gc.ErrorMatches, `error reading controller "local.devcontroller" info:.*\n.*cannot unmarshal.*nonsense.*`)
+	store := jujuclienttesting.NewStubStore()
+	store.SetErrors(errors.New("oh noes"))
+	cmd := &bootstrapCommand{}
+	cmd.SetClientStore(store)
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
+	c.Assert(err, gc.ErrorMatches, `error reading controller "local.devcontroller" info: oh noes`)
 }
 
 // When attempting to bootstrap, check that when prepare errors out,
@@ -516,7 +507,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesModelErrors(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(string, environs.Environ, configstore.Storage) error {
+	s.PatchValue(&environsDestroy, func(string, environs.Environ, configstore.Storage, jujuclient.ControllerRemover) error {
 		destroyed = true
 		return nil
 	})
@@ -524,7 +515,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&environsPrepare, func(
 		environs.BootstrapContext,
 		configstore.Storage,
-		jujuclient.ControllerStore,
+		jujuclient.ClientStore,
 		string,
 		environs.PrepareForBootstrapParams,
 	) (environs.Environ, error) {
@@ -540,15 +531,16 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
-func (s *BootstrapSuite) TestBootstrapJenvExists(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	const controllerName = "devcontroller"
 	expectedBootstrappedName := bootstrappedControllerName(controllerName)
 	s.patchVersionAndSeries(c, "raring")
 
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo(expectedBootstrappedName)
-	err = info.Write()
+	store := jujuclient.NewFileClientStore()
+	err := store.UpdateController("local.devcontroller", jujuclient.ControllerDetails{
+		CACert:         "x",
+		ControllerUUID: "y",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := coretesting.Context(c)
@@ -715,7 +707,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "admin")
+	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "local.devcontroller")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
 	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
@@ -762,7 +754,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Creating Juju controller "local.devcontroller" on dummy-cloud/region-1
-Bootstrapping model "admin"
+Bootstrapping model "local.devcontroller"
 Starting new instance for initial controller
 Building tools to upload (1.7.3.1-raring-%s)
 `[1:], arch.HostArch()))
@@ -862,7 +854,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	ctx, err := coretesting.RunCommand(
-		c, newBootstrapCommand(), "ctrl/my-region", "dummy-cloud-without-regions",
+		c, newBootstrapCommand(), "ctrl", "dummy-cloud-without-regions/my-region",
 		"--config", "default-series=precise",
 	)
 	// If the cloud doesn't have any regions defined, we still allow the
@@ -871,7 +863,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 	// enable the lxd provider to take the lxd remote from the region
 	// name.
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"Creating Juju controller \"local.ctrl/my-region\" on dummy-cloud-without-regions(.|\n)*")
+		"Creating Juju controller \"local.ctrl\" on dummy-cloud-without-regions/my-region(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -961,6 +953,14 @@ func resetJujuXDGDataHome(c *gc.C) {
 	jenvDir := testing.JujuXDGDataHomePath("models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
+
+	for _, path := range []string{
+		jujuclient.JujuControllersPath(),
+		jujuclient.JujuModelsPath(),
+		jujuclient.JujuAccountsPath(),
+	} {
+		os.Remove(path)
+	}
 
 	cloudsPath := cloud.JujuPersonalCloudsPath()
 	err = ioutil.WriteFile(cloudsPath, []byte(`

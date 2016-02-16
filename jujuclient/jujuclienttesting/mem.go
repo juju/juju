@@ -17,7 +17,7 @@ type MemStore struct {
 	Accounts    map[string]*jujuclient.ControllerAccounts
 }
 
-func NewMemStore() jujuclient.ClientStore {
+func NewMemStore() *MemStore {
 	return &MemStore{
 		make(map[string]jujuclient.ControllerDetails),
 		make(map[string]*jujuclient.ControllerModels),

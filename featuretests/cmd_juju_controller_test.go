@@ -57,8 +57,8 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL  USER  SERVER
-dummymodel  -      -     
+CONTROLLER  MODEL       USER         SERVER
+dummymodel  dummymodel  admin@local  
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -69,9 +69,9 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME        OWNER              LAST CONNECTION\n"+
-		"dummymodel  dummy-admin@local  just now\n"+
-		"new-model   dummy-admin@local  never connected\n"+
+		"NAME        OWNER        LAST CONNECTION\n"+
+		"dummymodel  admin@local  just now\n"+
+		"new-model   admin@local  never connected\n"+
 		"\n")
 }
 

@@ -130,14 +130,14 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server. Destroying through provider.")
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+		return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
 	}
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+		return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.ControllerName())
@@ -152,24 +152,5 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
-}
-
-// killControllerViaClient attempts to kill the controller using the client
-// endpoint for older juju controllers which do not implement
-// controller.DestroyController
-func (c *killCommand) killControllerViaClient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
-	api, err := c.getClientAPI()
-	if err != nil {
-		defer api.Close()
-	}
-
-	if api != nil {
-		err = api.DestroyModel()
-		if err != nil {
-			ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		}
-	}
-
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+	return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
 }

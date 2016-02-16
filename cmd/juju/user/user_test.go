@@ -20,11 +20,13 @@ import (
 
 type BaseSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	configstore configstore.Storage
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	memstore := configstore.NewMem()
+	s.configstore = memstore
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
 		return memstore, nil
 	})
@@ -39,7 +41,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     "user-test",
-		Password: "password",
+		Password: "old-password",
 	})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)

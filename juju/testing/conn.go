@@ -86,7 +86,7 @@ type JujuConnSuite struct {
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
 	ConfigStore        configstore.Storage
-	ControllerStore    jujuclient.ControllerStore
+	ControllerStore    jujuclient.ClientStore
 	BackingState       *state.State // The State being used by the API server
 	RootDir            string       // The faked-up root directory.
 	LogDir             string
@@ -112,7 +112,6 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State)
 }

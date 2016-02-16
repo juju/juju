@@ -392,7 +392,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	admin, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, jc.ErrorIsNil)
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+	userAardvark := s.Factory.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark", Disabled: true})
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
 	results, err := s.usermanager.UserInfo(args)
@@ -401,28 +401,26 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	for _, r := range []struct {
 		user *state.User
 		info *params.UserInfo
-	}{
-		{
-			user: userBar,
-			info: &params.UserInfo{
-				Username:    "barfoo",
-				DisplayName: "Bar Foo",
-				Disabled:    true,
-			},
-		}, {
-			user: admin,
-			info: &params.UserInfo{
-				Username:    s.adminName,
-				DisplayName: admin.DisplayName(),
-			},
-		}, {
-			user: userFoo,
-			info: &params.UserInfo{
-				Username:    "foobar",
-				DisplayName: "Foo Bar",
-			},
+	}{{
+		user: userAardvark,
+		info: &params.UserInfo{
+			Username:    "aardvark",
+			DisplayName: "Aard Vark",
+			Disabled:    true,
 		},
-	} {
+	}, {
+		user: admin,
+		info: &params.UserInfo{
+			Username:    s.adminName,
+			DisplayName: admin.DisplayName(),
+		},
+	}, {
+		user: userFoo,
+		info: &params.UserInfo{
+			Username:    "foobar",
+			DisplayName: "Foo Bar",
+		},
+	}} {
 		r.info.CreatedBy = s.adminName
 		r.info.DateCreated = r.user.DateCreated()
 		r.info.LastConnection = lastLoginPointer(c, r.user)
@@ -432,7 +430,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 
 	results, err = s.usermanager.UserInfo(params.UserInfoRequest{})
 	c.Assert(err, jc.ErrorIsNil)
-	// Same results as before, but without the deactivated barfoo user
+	// Same results as before, but without the deactivated user
 	expected.Results = expected.Results[1:]
 	c.Assert(results, jc.DeepEquals, expected)
 }

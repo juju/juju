@@ -40,10 +40,9 @@ type Tests struct {
 	ConfigStore configstore.Storage
 
 	// ControllerStore holds the controller related informtion
-	// such as controllers, accounts, etc
-	// used when preparing the environment.
-	// This is initialized by SetUpSuite.
-	ControllerStore jujuclient.ControllerStore
+	// such as controllers, accounts, etc., used when preparing
+	// the environment. This is initialized by SetUpSuite.
+	ControllerStore jujuclient.ClientStore
 }
 
 // Open opens an instance of the testing environment.
@@ -156,7 +155,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
 	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2.Config().Name(), e2, t.ConfigStore)
+	err = environs.Destroy(e2.Config().Name(), e2, t.ConfigStore, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
@@ -165,6 +164,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy(e3.Config().Name(), e3, t.ConfigStore)
+	err = environs.Destroy(e3.Config().Name(), e3, t.ConfigStore, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 }

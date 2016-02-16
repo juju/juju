@@ -313,7 +313,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// controller's model should be called "admin".
 	configAttrs := map[string]interface{}{
 		"type": cloud.Type,
-		"name": "admin",
+		// TODO(axw) this should be "admin", but we can't call it
+		// that until the configstore code is gone.
+		"name": c.controllerName,
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -331,7 +333,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerStore := jujuclient.NewFileClientStore()
+	controllerStore := c.ClientStore()
 	environ, err := environsPrepare(
 		modelcmd.BootstrapContext(ctx), store, controllerStore, c.controllerName,
 		environs.PrepareForBootstrapParams{
@@ -365,7 +367,9 @@ When you are finished diagnosing the problem, remember to run juju destroy-model
 to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
-					return environsDestroy(c.controllerName, environ, store)
+					return environsDestroy(
+						c.controllerName, environ, store, controllerStore,
+					)
 				})
 			}
 		}
@@ -417,15 +421,22 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	c.SetModelName(c.controllerName)
+	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.SetModelName(cfg.Name()); err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(axw) we need to keep writing current-model until everything
+	// is switched over to jujuclient. The initial model is stored with
+	// the controller's name.
+	if err := modelcmd.SetCurrentModel(ctx, cfg.Name()); err != nil {
+		return errors.Trace(err)
+	}
+
 	err = c.SetBootstrapEndpointAddress(environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
-	}
-
-	err = modelcmd.SetCurrentModel(ctx, c.controllerName)
-	if err != nil {
-		return errors.Trace(err)
 	}
 
 	// To avoid race conditions when running scripted bootstraps, wait

@@ -18,6 +18,9 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+// adminUser is the initial admin user created for all controllers.
+const adminUser = "admin@local"
+
 // New returns a new environment based on the provided configuration.
 func New(config *config.Config) (Environ, error) {
 	p, err := Provider(config.Type())
@@ -27,17 +30,18 @@ func New(config *config.Config) (Environ, error) {
 	return p.Open(config)
 }
 
-// Prepare prepares a new environment based on the provided configuration.
-// It is an error to prepare a environment if there already exists an
-// entry in the config store with that name.
+// Prepare prepares a new controller based on the provided configuration.
+// It is an error to prepare a controller if there already exists an
+// entry in the client store with the same name.
 func Prepare(
 	ctx BootstrapContext,
-	store configstore.Storage,
-	controllerStore jujuclient.ControllerStore,
+	configstore configstore.Storage,
+	store jujuclient.ClientStore,
 	controllerName string,
 	args PrepareForBootstrapParams,
-) (Environ, error) {
-	info, err := store.ReadInfo(controllerName)
+) (_ Environ, resultErr error) {
+
+	_, err := store.ControllerByName(controllerName)
 	if err == nil {
 		return nil, errors.AlreadyExistsf("controller %q", controllerName)
 	} else if !errors.IsNotFound(err) {
@@ -48,18 +52,25 @@ func Prepare(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info = store.CreateInfo(controllerName)
-	env, err := prepare(ctx, info, p, args)
-	if err != nil {
+
+	info := configstore.CreateInfo(controllerName)
+	defer func() {
+		if resultErr == nil {
+			return
+		}
 		if err := info.Destroy(); err != nil {
 			logger.Warningf(
 				"cannot destroy newly created controller %q info: %v",
 				controllerName, err,
 			)
 		}
+	}()
+
+	env, details, err := prepare(ctx, info, p, args)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := decorateAndWriteInfo(info, controllerStore, env.Config()); err != nil {
+	if err := decorateAndWriteInfo(info, store, details, controllerName, env.Config()); err != nil {
 		return nil, errors.Annotatef(err, "cannot create controller %q info", controllerName)
 	}
 	return env, nil
@@ -67,135 +78,174 @@ func Prepare(
 
 // decorateAndWriteInfo decorates the info struct with information
 // from the given cfg, and the writes that out to the filesystem.
-func decorateAndWriteInfo(info configstore.EnvironInfo, controllerStore jujuclient.ControllerStore, cfg *config.Config) error {
+func decorateAndWriteInfo(
+	info configstore.EnvironInfo,
+	store jujuclient.ClientStore,
+	details prepareDetails,
+	controllerName string,
+	cfg *config.Config,
+) error {
 
-	// Sanity check our config.
-	var endpoint configstore.APIEndpoint
-	if cert, ok := cfg.CACert(); !ok {
-		return errors.Errorf("CACert is not set")
-	} else if uuid, ok := cfg.UUID(); !ok {
-		return errors.Errorf("UUID is not set")
-	} else if adminSecret := cfg.AdminSecret(); adminSecret == "" {
-		return errors.Errorf("admin-secret is not set")
-	} else {
-		endpoint = configstore.APIEndpoint{
-			CACert:    cert,
-			ModelUUID: uuid,
-		}
+	// TODO(axw) drop this when the tests are all updated to rely only on
+	// the jujuclient store.
+	endpoint := configstore.APIEndpoint{
+		CACert:     details.CACert,
+		ModelUUID:  details.ControllerUUID,
+		ServerUUID: details.ControllerUUID,
 	}
-
 	creds := configstore.APICredentials{
-		User:     configstore.DefaultAdminUsername,
-		Password: cfg.AdminSecret(),
+		User:     details.User,
+		Password: details.Password,
 	}
-	endpoint.ServerUUID = endpoint.ModelUUID
 	info.SetAPICredentials(creds)
 	info.SetAPIEndpoint(endpoint)
 	info.SetBootstrapConfig(cfg.AllAttrs())
-
-	connectionDetails := info.APIEndpoint()
-	c := jujuclient.ControllerDetails{
-		connectionDetails.Hostnames,
-		endpoint.ServerUUID,
-		connectionDetails.Addresses,
-		endpoint.CACert,
-	}
-	if err := controllerStore.UpdateController(cfg.Name(), c); err != nil {
+	if err := info.Write(); err != nil {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(info.Write())
+	accountName := details.User
+	modelName := cfg.Name()
+	modelDetails := jujuclient.ModelDetails{details.ControllerUUID}
+	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.UpdateAccount(controllerName, accountName, details.AccountDetails); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.UpdateModel(controllerName, modelName, modelDetails); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.SetCurrentModel(controllerName, modelName); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-func prepare(ctx BootstrapContext, info configstore.EnvironInfo, p EnvironProvider, args PrepareForBootstrapParams) (Environ, error) {
-	cfg, err := ensureAdminSecret(args.Config)
+func prepare(
+	ctx BootstrapContext,
+	info configstore.EnvironInfo,
+	p EnvironProvider,
+	args PrepareForBootstrapParams,
+) (Environ, prepareDetails, error) {
+	var details prepareDetails
+	cfg, adminSecret, err := ensureAdminSecret(args.Config)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot generate admin-secret")
+		return nil, details, errors.Annotate(err, "cannot generate admin-secret")
 	}
-	cfg, err = ensureCertificate(cfg)
+	cfg, caCert, err := ensureCertificate(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot ensure CA certificate")
+		return nil, details, errors.Annotate(err, "cannot ensure CA certificate")
 	}
-	cfg, err = ensureUUID(cfg)
+	cfg, uuid, err := ensureUUID(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot ensure uuid")
+		return nil, details, errors.Annotate(err, "cannot ensure uuid")
 	}
 	args.Config = cfg
-	return p.PrepareForBootstrap(ctx, args)
+	env, err := p.PrepareForBootstrap(ctx, args)
+	if err != nil {
+		return nil, details, errors.Trace(err)
+	}
+
+	details.CACert = caCert
+	details.ControllerUUID = uuid
+	details.User = adminUser
+	details.Password = adminSecret
+
+	return env, details, nil
+}
+
+type prepareDetails struct {
+	jujuclient.ControllerDetails
+	jujuclient.AccountDetails
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.
-func ensureAdminSecret(cfg *config.Config) (*config.Config, error) {
-	if cfg.AdminSecret() != "" {
-		return cfg, nil
+func ensureAdminSecret(cfg *config.Config) (*config.Config, string, error) {
+	if secret := cfg.AdminSecret(); secret != "" {
+		return cfg, secret, nil
 	}
-	return cfg.Apply(map[string]interface{}{
-		"admin-secret": randomKey(),
-	})
-}
 
-func randomKey() string {
+	// Generate a random string.
 	buf := make([]byte, 16)
-	_, err := io.ReadFull(rand.Reader, buf)
-	if err != nil {
-		panic(fmt.Errorf("error from crypto rand: %v", err))
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return nil, "", errors.Annotate(err, "generating random secret")
 	}
-	return fmt.Sprintf("%x", buf)
+	secret := fmt.Sprintf("%x", buf)
+
+	cfg, err := cfg.Apply(map[string]interface{}{"admin-secret": secret})
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return cfg, secret, nil
 }
 
 // ensureCertificate generates a new CA certificate and
 // attaches it to the given controller configuration,
 // unless the configuration already has one.
-func ensureCertificate(cfg *config.Config) (*config.Config, error) {
-	_, hasCACert := cfg.CACert()
+func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
+	caCert, hasCACert := cfg.CACert()
 	_, hasCAKey := cfg.CAPrivateKey()
 	if hasCACert && hasCAKey {
-		return cfg, nil
+		return cfg, caCert, nil
 	}
 	if hasCACert && !hasCAKey {
-		return nil, fmt.Errorf("controller configuration with a certificate but no CA private key")
+		return nil, "", errors.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
 	caCert, caKey, err := cert.NewCA(cfg.Name(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
-		return nil, err
+		return nil, "", errors.Trace(err)
 	}
-	return cfg.Apply(map[string]interface{}{
+	cfg, err = cfg.Apply(map[string]interface{}{
 		"ca-cert":        string(caCert),
 		"ca-private-key": string(caKey),
 	})
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return cfg, string(caCert), nil
 }
 
 // ensureUUID generates a new uuid and attaches it to
 // the given environment configuration, unless the
 // configuration already has one.
-func ensureUUID(cfg *config.Config) (*config.Config, error) {
-	_, hasUUID := cfg.UUID()
-	if hasUUID {
-		return cfg, nil
+func ensureUUID(cfg *config.Config) (*config.Config, string, error) {
+	if uuid, hasUUID := cfg.UUID(); hasUUID {
+		return cfg, uuid, nil
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
-	return cfg.Apply(map[string]interface{}{
+	cfg, err = cfg.Apply(map[string]interface{}{
 		"uuid": uuid.String(),
 	})
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return cfg, uuid.String(), nil
 }
 
 // Destroy destroys the controller and, if successful,
 // its associated configuration data from the given store.
-func Destroy(controllerName string, env Environ, store configstore.Storage) error {
+func Destroy(
+	controllerName string,
+	env Environ,
+	configstore configstore.Storage,
+	store jujuclient.ControllerRemover,
+) error {
 	if err := env.Destroy(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return DestroyInfo(controllerName, store)
-}
-
-// DestroyInfo destroys the configuration data for the named
-// controller from the given store.
-func DestroyInfo(controllerName string, store configstore.Storage) error {
-	info, err := store.ReadInfo(controllerName)
+	err := store.RemoveController(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	info, err := configstore.ReadInfo(controllerName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
