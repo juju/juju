@@ -265,7 +265,7 @@ func (ds *resourcesUnitDataStore) GetResource(name string) (resource.Resource, e
 
 // OpenResource implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return ds.resources.OpenResource(ds.unit, name)
+	return ds.resources.OpenResourceForUnit(ds.unit, name)
 }
 
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {

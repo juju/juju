@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/resource"
 	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state"
 )
 
