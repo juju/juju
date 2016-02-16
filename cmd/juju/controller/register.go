@@ -170,7 +170,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err := apiConn.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := modelcmd.SetCurrentController(ctx, registrationParams.controllerName); err != nil {
+	if err := modelcmd.WriteCurrentController(registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 

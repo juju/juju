@@ -4,6 +4,7 @@
 package modelcmd
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -41,13 +42,6 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 		return model, nil
 	}
 
-	// TODO(axw) remove this when all of the tests are updated.
-	if currentModel, err := ReadCurrentModel(); err != nil {
-		return "", errors.Trace(err)
-	} else if currentModel != "" {
-		return currentModel, nil
-	}
-
 	currentController, err := ReadCurrentController()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -58,7 +52,7 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 
 	currentModel, err := store.CurrentModel(currentController)
 	if errors.IsNotFound(err) {
-		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
+		return "", nil
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -132,15 +126,15 @@ func (c *ModelCommandBase) ClientStore() jujuclient.ClientStore {
 
 // SetModelName implements the ModelCommand interface.
 func (c *ModelCommandBase) SetModelName(modelName string) error {
-	if i := strings.IndexRune(modelName, ':'); i > 0 {
-		c.controllerName, c.modelName = modelName[:i], modelName[i+1:]
-		return nil
+	controllerName, modelName := SplitModelName(modelName)
+	if controllerName == "" {
+		currentController, err := ReadCurrentController()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		controllerName = currentController
 	}
-	currentController, err := ReadCurrentController()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	c.controllerName, c.modelName = currentController, modelName
+	c.controllerName, c.modelName = controllerName, modelName
 	return nil
 }
 
@@ -414,4 +408,21 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 type ModelGetter interface {
 	ModelGet() (map[string]interface{}, error)
 	Close() error
+}
+
+// SplitModelName splits a model name into its controller
+// and model parts. If the model is unqualified, then the
+// returned controller string will be empty, and the returned
+// model string will be identical to the input.
+func SplitModelName(name string) (controller, model string) {
+	if i := strings.IndexRune(name, ':'); i >= 0 {
+		return name[:i], name[i+1:]
+	}
+	return "", name
+}
+
+// JoinModelName joins a controller and model name into a
+// qualified model name.
+func JoinModelName(controller, model string) string {
+	return fmt.Sprintf("%s:%s", controller, model)
 }

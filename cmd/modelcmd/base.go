@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )
@@ -97,6 +98,16 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	}
 	defer conn.Close()
 
+	// TODO(axw) remove this when we stop using configstore.
+	legacyStore, err := configstore.Default()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerInfo, err := legacyStore.ReadInfo(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	modelManager := modelmanager.NewClient(conn)
 	models, err := modelManager.ListModels(accountDetails.User)
 	if err != nil {
@@ -104,8 +115,20 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	}
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{model.UUID}
-		err := store.UpdateModel(controllerName, model.Name, modelDetails)
-		if err != nil {
+		if err := store.UpdateModel(controllerName, model.Name, modelDetails); err != nil {
+			return errors.Trace(err)
+		}
+		modelInfo, err := legacyStore.ReadInfo(model.Name)
+		if errors.IsNotFound(err) {
+			modelInfo = legacyStore.CreateInfo(model.Name)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		apiEndpoint := controllerInfo.APIEndpoint()
+		apiEndpoint.ModelUUID = modelDetails.ModelUUID
+		modelInfo.SetAPIEndpoint(apiEndpoint)
+		modelInfo.SetAPICredentials(controllerInfo.APICredentials())
+		if err := modelInfo.Write(); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -427,12 +427,6 @@ to clean up the model.`[1:])
 	if err := c.SetModelName(cfg.Name()); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(axw) we need to keep writing current-model until everything
-	// is switched over to jujuclient. The initial model is stored with
-	// the controller's name.
-	if err := modelcmd.SetCurrentModel(ctx, cfg.Name()); err != nil {
-		return errors.Trace(err)
-	}
 
 	err = c.SetBootstrapEndpointAddress(environ)
 	if err != nil {

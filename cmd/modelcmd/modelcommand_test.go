@@ -6,9 +6,7 @@ package modelcmd_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -16,7 +14,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -46,12 +43,25 @@ func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetCurrentModelCurrentModelSet(c *gc.C) {
-	err := modelcmd.WriteCurrentModel("fubar")
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentModel(c *gc.C) {
+	err := modelcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "fubar")
+	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerCurrentModel(c *gc.C) {
+	err := modelcmd.WriteCurrentController("fubar")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.UpdateModel("fubar", "mymodel", jujuclient.ModelDetails{"uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("fubar", "mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := modelcmd.GetCurrentModel(s.store)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.Equals, "mymodel")
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
@@ -63,36 +73,37 @@ func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
 
 func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuModelEnvKey, "magic")
-	err := modelcmd.WriteCurrentModel("fubar")
+
+	err := modelcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.UpdateModel("fubar", "mymodel", jujuclient.ModelDetails{"uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("fubar", "mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+
 	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "magic")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.Equals, "magic")
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitExplicit(c *gc.C) {
 	// Take model name from command line arg.
-	testEnsureModelName(c, "explicit", "-m", "explicit")
+	s.testEnsureModelName(c, "explicit", "-m", "explicit")
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitExplicitLongForm(c *gc.C) {
 	// Take model name from command line arg.
-	testEnsureModelName(c, "explicit", "--model", "explicit")
+	s.testEnsureModelName(c, "explicit", "--model", "explicit")
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
-	// If there is a current-model file, use that.
-	err := modelcmd.WriteCurrentModel("fubar")
-	c.Assert(err, jc.ErrorIsNil)
-	testEnsureModelName(c, "fubar")
-}
-
-func (s *ModelCommandSuite) TestModelCommandInitControllerFile(c *gc.C) {
-	// If there is a current-controller file, error raised.
 	err := modelcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = initTestCommand(c)
-	c.Assert(err, gc.ErrorMatches, `not operating on an model, using controller "fubar"`)
+	err = s.store.UpdateModel("fubar", "mymodel", jujuclient.ModelDetails{"uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("fubar", "mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	s.testEnsureModelName(c, "mymodel")
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
@@ -115,6 +126,34 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
+	assert := func(in, controller, model string) {
+		outController, outModel := modelcmd.SplitModelName(in)
+		c.Assert(outController, gc.Equals, controller)
+		c.Assert(outModel, gc.Equals, model)
+	}
+	assert("model", "", "model")
+	assert("ctrl:model", "ctrl", "model")
+	assert("ctrl:", "ctrl", "")
+	assert(":model", "", "model")
+}
+
+func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
+	assert := func(controller, model, expect string) {
+		out := modelcmd.JoinModelName(controller, model)
+		c.Assert(out, gc.Equals, expect)
+	}
+	assert("ctrl", "", "ctrl:")
+	assert("", "model", ":model")
+	assert("ctrl", "model", "ctrl:model")
+}
+
+func (s *ModelCommandSuite) testEnsureModelName(c *gc.C, expect string, args ...string) {
+	cmd, err := initTestCommand(c, s.store, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
+}
+
 type testCommand struct {
 	modelcmd.ModelCommandBase
 }
@@ -127,16 +166,11 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 	panic("should not be called")
 }
 
-func initTestCommand(c *gc.C, args ...string) (*testCommand, error) {
+func initTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testCommand, error) {
 	cmd := new(testCommand)
+	cmd.SetClientStore(store)
 	wrapped := modelcmd.Wrap(cmd)
 	return cmd, cmdtesting.InitCommand(wrapped, args)
-}
-
-func testEnsureModelName(c *gc.C, expect string, args ...string) {
-	cmd, err := initTestCommand(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
 }
 
 type ConnectionEndpointSuite struct {
@@ -170,7 +204,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	cmd, err := initTestCommand(c, "-m", "model-name")
+	cmd, err := initTestCommand(c, nil, "-m", "model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,7 +212,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	cmd, err := initTestCommand(c, "-m", "no-such-model")
+	cmd, err := initTestCommand(c, nil, "-m", "no-such-model")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -200,7 +234,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 		return new(closer), nil
 	})
 
-	cmd, err := initTestCommand(c, "-m", "model-name")
+	cmd, err := initTestCommand(c, nil, "-m", "model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,8 +251,7 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
-	serverFilePath string
-	envName        string
+	envName string
 }
 
 const testUser = "testuser@somewhere"
@@ -232,16 +265,6 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
 	apiInfo := s.APIInfo(c)
-	var serverDetails modelcmd.ServerFile
-	serverDetails.Addresses = apiInfo.Addrs
-	serverDetails.CACert = apiInfo.CACert
-	content, err := goyaml.Marshal(serverDetails)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.serverFilePath = filepath.Join(c.MkDir(), "server.yaml")
-
-	err = ioutil.WriteFile(s.serverFilePath, content, 0644)
-	c.Assert(err, jc.ErrorIsNil)
 
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)

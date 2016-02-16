@@ -176,9 +176,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "switch"}, // global flags before
-		{"switch", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "switch", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "list-controllers"}, // global flags before
+		{"list-controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "list-controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
