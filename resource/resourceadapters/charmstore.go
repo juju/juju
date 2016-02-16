@@ -5,8 +5,11 @@ package resourceadapters
 
 import (
 	"io"
+	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
@@ -53,5 +56,47 @@ func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
 // NewClient implements charmstore.NewOperationsDeps.
 func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
 	// TODO(ericsnow) Return an actual charm store client.
-	return newFakeCharmStoreClient(nil), nil
+	client := newFakeCharmStoreClient(nil)
+	return newCSRetryClient(client), nil
+}
+
+type csRetryClient struct {
+	charmstore.Client
+	strategy utils.AttemptStrategy
+}
+
+func newCSRetryClient(client charmstore.Client) *csRetryClient {
+	strategy := utils.AttemptStrategy{
+		Delay: 1 * time.Minute,
+		Min:   4, // max 5 tries
+	}
+	return &csRetryClient{
+		Client:   client,
+		strategy: strategy,
+	}
+}
+
+// GetResource returns a reader for the resource's data.
+func (client csRetryClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
+	retries := client.strategy.Start()
+	var lastErr error
+	for retries.Next() {
+		reader, err := client.Client.GetResource(cURL, resourceName, revision)
+		if err == nil {
+			return reader, nil
+		}
+		if errorShouldNotRetry(err) {
+			return nil, errors.Trace(err)
+		}
+		// Otherwise, remember the error we're hiding and then retry!
+		lastErr = err
+	}
+	return nil, errors.Annotate(lastErr, "failed after retrying")
+}
+
+func errorShouldNotRetry(err error) bool {
+	if errors.IsNotFound(err) {
+		return true
+	}
+	return false
 }
