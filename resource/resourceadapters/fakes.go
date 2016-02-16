@@ -10,7 +10,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/resource/charmstore"
+	"github.com/juju/juju/resource/cmd"
 )
 
 // TODO(ericsnow) Get rid of fakeCharmStoreClient once csclient.Client grows the methods.
@@ -19,7 +21,7 @@ type baseCharmStoreClient interface {
 	io.Closer
 }
 
-func NewFakeCharmStoreClient(base baseCharmStoreClient) charmstore.Client {
+func newFakeCharmStoreClient(base baseCharmStoreClient) charmstore.Client {
 	return &fakeCharmStoreClient{base}
 }
 
@@ -44,4 +46,23 @@ func (client fakeCharmStoreClient) Close() error {
 		return nil
 	}
 	return client.baseCharmStoreClient.Close()
+}
+
+// TODO(ericsnow) Get rid of fakeCharmCmdBase once csclient.Client grows the methods.
+
+type fakeCharmCmdBase struct {
+	*charmcmd.CommandBase
+}
+
+func NewFakeCharmCmdBase(base *charmcmd.CommandBase) cmd.CharmCommandBase {
+	return &fakeCharmCmdBase{base}
+}
+
+// Connect implements cmd.CommandBase.
+func (c *fakeCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
+	client, err := c.CommandBase.Connect()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newFakeCharmStoreClient(client), nil
 }
