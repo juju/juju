@@ -18,6 +18,6 @@ fi
 if [[ -d $DUMMY_DIR ]]; then
     sudo rm -r $DUMMY_DIR
 fi
-sudo find /etc/init -name 'juju*' -delete
+sudo find /etc/init -name 'juju*' -delete || true
 EOT
 done
