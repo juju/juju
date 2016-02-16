@@ -218,12 +218,12 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spacesMap, err := environ.subnetToSpaceIds()
+	subnetsMap, err := environ.subnetToSpaceIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	mi := inst.(*maasInstance)
-	return maasObjectNetworkInterfaces(mi.maasObject, spacesMap)
+	return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
