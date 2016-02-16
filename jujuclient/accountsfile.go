@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -43,7 +44,7 @@ func WriteAccountsFile(controllerAccounts map[string]*ControllerAccounts) error 
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal accounts")
 	}
-	return ioutil.WriteFile(JujuAccountsPath(), data, os.FileMode(0600))
+	return utils.AtomicWriteFile(JujuAccountsPath(), data, os.FileMode(0600))
 }
 
 // ParseAccounts parses the given YAML bytes into accounts metadata.

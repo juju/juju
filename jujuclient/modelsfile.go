@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -44,7 +45,7 @@ func WriteModelsFile(controllerModels map[string]*ControllerModels) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal models")
 	}
-	return ioutil.WriteFile(JujuModelsPath(), data, os.FileMode(0600))
+	return utils.AtomicWriteFile(JujuModelsPath(), data, os.FileMode(0600))
 }
 
 // ParseModels parses the given YAML bytes into models metadata.

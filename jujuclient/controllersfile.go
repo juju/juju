@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -43,7 +44,7 @@ func WriteControllersFile(controllers map[string]ControllerDetails) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml controllers")
 	}
-	return ioutil.WriteFile(JujuControllersPath(), data, os.FileMode(0600))
+	return utils.AtomicWriteFile(JujuControllersPath(), data, os.FileMode(0600))
 }
 
 // ParseControllers parses the given YAML bytes into controllers metadata.
