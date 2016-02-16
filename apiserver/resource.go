@@ -21,10 +21,12 @@ type resourcesHandlerDeps struct {
 	httpCtxt httpContext
 }
 
+// ConnectForUser connects to state for an API user.
 func (deps resourcesHandlerDeps) ConnectForUser(req *http.Request) (*state.State, state.Entity, error) {
 	return deps.httpCtxt.stateForRequestAuthenticatedUser(req)
 }
 
+// ConnectForUnitAgent connects to state for a unit agent.
 func (deps resourcesHandlerDeps) ConnectForUnitAgent(req *http.Request) (*state.State, *state.Unit, error) {
 	st, ent, err := deps.httpCtxt.stateForRequestAuthenticatedAgent(req)
 	if err != nil {
