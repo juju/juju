@@ -126,6 +126,28 @@ func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (*ModelCommandSuite) TestSplitModelName(c *gc.C) {
+	assert := func(in, controller, model string) {
+		outController, outModel := modelcmd.SplitModelName(in)
+		c.Assert(outController, gc.Equals, controller)
+		c.Assert(outModel, gc.Equals, model)
+	}
+	assert("model", "", "model")
+	assert("ctrl:model", "ctrl", "model")
+	assert("ctrl:", "ctrl", "")
+	assert(":model", "", "model")
+}
+
+func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
+	assert := func(controller, model, expect string) {
+		out := modelcmd.JoinModelName(controller, model)
+		c.Assert(out, gc.Equals, expect)
+	}
+	assert("ctrl", "", "ctrl:")
+	assert("", "model", ":model")
+	assert("ctrl", "model", "ctrl:model")
+}
+
 func (s *ModelCommandSuite) testEnsureModelName(c *gc.C, expect string, args ...string) {
 	cmd, err := initTestCommand(c, s.store, args...)
 	c.Assert(err, jc.ErrorIsNil)

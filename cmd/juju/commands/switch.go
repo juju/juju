@@ -6,7 +6,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -88,8 +87,8 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// the JUJU_MODEL environment setting, and as such, doesn't play too well.
 	// If JUJU_MODEL is set we should report that as the current environment,
 	// and not allow switching when it is set.
-	if env := os.Getenv(osenv.JujuModelEnvKey); env != "" {
-		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", env)
+	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
+		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}
 
 	// If the name identifies a controller, then set that as the current one.
@@ -112,17 +111,15 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// the given name. The name can be qualified with the controller
 	// name (<controller>:<model>), or unqualified; in the latter
 	// case, the model must exist in the current controller.
-	var controllerName, modelName string
-	if i := strings.IndexRune(c.Target, ':'); i > 0 {
-		controllerName, modelName = c.Target[:i], c.Target[i+1:]
+	controllerName, modelName := modelcmd.SplitModelName(c.Target)
+	if controllerName != "" {
 		newName = c.Target
 	} else {
 		if currentControllerName == "" {
 			return unknownSwitchTargetError(c.Target)
 		}
 		controllerName = currentControllerName
-		modelName = c.Target
-		newName = fmt.Sprintf("%s:%s", controllerName, modelName)
+		newName = modelcmd.JoinModelName(controllerName, modelName)
 	}
 
 	err = c.Store.SetCurrentModel(controllerName, modelName)
@@ -169,7 +166,7 @@ func (c *switchCommand) name(controllerName string) (string, error) {
 	}
 	modelName, err := c.Store.CurrentModel(controllerName)
 	if err == nil {
-		return fmt.Sprintf("%s:%s", controllerName, modelName), nil
+		return modelcmd.JoinModelName(controllerName, modelName), nil
 	}
 	if errors.IsNotFound(err) {
 		return fmt.Sprintf("%s (controller)", controllerName), nil
