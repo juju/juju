@@ -17,6 +17,7 @@ import (
 // APIHTTPRequestExtractor provides the functionality to extract an API
 // request from an HTTP request.
 type APIHTTPRequestExtractor struct {
+	// Deps holds the external dependencies of APIHTTPRequestExtractor.
 	Deps APIHTTPRequestExtractorDeps
 }
 
@@ -59,8 +60,10 @@ func (ex APIHTTPRequestExtractor) extractForUnit(req *http.Request) (*apiHTTPReq
 // APIHTTPRequestExtractorDeps exposes the external dependencies
 // of APIHTTPRequestExtractor.
 type APIHTTPRequestExtractorDeps interface {
+	// ConnectForUser connects to state for an API user.
 	ConnectForUser(*http.Request) (*corestate.State, corestate.Entity, error)
 
+	// ConnectForUnitAgent connects to state for a unit agent.
 	ConnectForUnitAgent(*http.Request) (*corestate.State, *corestate.Unit, error)
 }
 
