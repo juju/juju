@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
-	"github.com/voidspace/gomaasapi"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
