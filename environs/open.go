@@ -41,18 +41,19 @@ func Prepare(
 	args PrepareForBootstrapParams,
 ) (_ Environ, resultErr error) {
 
-	info, err := configstore.ReadInfo(controllerName)
+	_, err := store.ControllerByName(controllerName)
 	if err == nil {
 		return nil, errors.AlreadyExistsf("controller %q", controllerName)
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Annotatef(err, "error reading controller %q info", controllerName)
 	}
+
 	p, err := Provider(args.Config.Type())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info = configstore.CreateInfo(controllerName)
+	info := configstore.CreateInfo(controllerName)
 	defer func() {
 		if resultErr == nil {
 			return

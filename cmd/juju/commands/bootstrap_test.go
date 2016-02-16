@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -486,29 +487,19 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 	return []network.Address{{Value: "localhost"}}, nil
 }
 
-// In the case where we cannot examine a model, we want the
+// In the case where we cannot examine the client store, we want the
 // error to propagate back up to the user.
-func (s *BootstrapSuite) TestBootstrapPropagatesModelErrors(c *gc.C) {
-	//TODO(bogdanteleaga): fix this for windows once permissions are fixed
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: this is very platform specific. When/if we will support windows state machine, this will probably be rewritten.")
-	}
-
+func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	const controllerName = "devcontroller"
-	expectedBootstrappedControllerName := bootstrappedControllerName(controllerName)
+	bootstrappedControllerName(controllerName)
 	s.patchVersionAndSeries(c, "raring")
 
-	// Change permissions on the models directory to simulate some kind of
-	// unexpected error when trying to read info from the environment
-	modelsDir := testing.JujuXDGDataHomePath("models")
-	err := os.MkdirAll(modelsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	jenvFile := filepath.Join(modelsDir, expectedBootstrappedControllerName+".jenv")
-	err = ioutil.WriteFile(jenvFile, []byte("nonsense"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
-	c.Assert(err, gc.ErrorMatches, `error reading controller "local.devcontroller" info:.*\n.*cannot unmarshal.*nonsense.*`)
+	store := jujuclienttesting.NewStubStore()
+	store.SetErrors(errors.New("oh noes"))
+	cmd := &bootstrapCommand{}
+	cmd.SetClientStore(store)
+	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
+	c.Assert(err, gc.ErrorMatches, `error reading controller "local.devcontroller" info: oh noes`)
 }
 
 // When attempting to bootstrap, check that when prepare errors out,
@@ -540,15 +531,16 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
-func (s *BootstrapSuite) TestBootstrapJenvExists(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	const controllerName = "devcontroller"
 	expectedBootstrappedName := bootstrappedControllerName(controllerName)
 	s.patchVersionAndSeries(c, "raring")
 
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo(expectedBootstrappedName)
-	err = info.Write()
+	store := jujuclient.NewFileClientStore()
+	err := store.UpdateController("local.devcontroller", jujuclient.ControllerDetails{
+		CACert:         "x",
+		ControllerUUID: "y",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := coretesting.Context(c)
@@ -961,6 +953,14 @@ func resetJujuXDGDataHome(c *gc.C) {
 	jenvDir := testing.JujuXDGDataHomePath("models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
+
+	for _, path := range []string{
+		jujuclient.JujuControllersPath(),
+		jujuclient.JujuModelsPath(),
+		jujuclient.JujuAccountsPath(),
+	} {
+		os.Remove(path)
+	}
 
 	cloudsPath := cloud.JujuPersonalCloudsPath()
 	err = ioutil.WriteFile(cloudsPath, []byte(`

@@ -313,7 +313,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// controller's model should be called "admin".
 	configAttrs := map[string]interface{}{
 		"type": cloud.Type,
-		// TODO(axw) this should be "admin", but we can't set call it
+		// TODO(axw) this should be "admin", but we can't call it
 		// that until the configstore code is gone.
 		"name": c.controllerName,
 	}

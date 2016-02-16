@@ -136,9 +136,8 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		logger.Errorf("updating the cached credentials failed, reverting to original password: %v", err)
 		if setErr := c.api.SetPassword(accountDetails.User, oldPassword); setErr != nil {
 			logger.Errorf(
-				"failed to set password back, you will need to edit your "+
-					"accounts file by hand to specify the password: %q",
-				newPassword,
+				"failed to reset to the old password, you will need to edit your " +
+					"accounts file by hand to specify the new password",
 			)
 			return errors.Annotate(setErr, "failed to set password back")
 		}
