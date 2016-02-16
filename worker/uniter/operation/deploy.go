@@ -118,10 +118,6 @@ func (d *deploy) checkAlreadyDone(state State) error {
 		return nil
 	}
 
-	if state.CharmModifiedVersion != d.charmModifiedVersion {
-		return nil
-	}
-
 	if state.Step == Done {
 		return ErrSkipExecute
 	}
@@ -130,11 +126,10 @@ func (d *deploy) checkAlreadyDone(state State) error {
 
 func (d *deploy) getState(state State, step Step) *State {
 	return stateChange{
-		Kind:                 d.kind,
-		Step:                 step,
-		CharmURL:             d.charmURL,
-		Hook:                 d.interruptedHook(state),
-		CharmModifiedVersion: d.charmModifiedVersion,
+		Kind:     d.kind,
+		Step:     step,
+		CharmURL: d.charmURL,
+		Hook:     d.interruptedHook(state),
 	}.apply(state)
 }
 

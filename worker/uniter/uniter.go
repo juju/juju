@@ -162,7 +162,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is any remote state, and before the remote state watcher
 	// is started.
 	var charmURL *corecharm.URL
-	var charmModifiedVersion int
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		logger.Infof("resuming charm install")
@@ -174,18 +173,12 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		charmURL = opState.CharmURL
-		charmModifiedVersion = opState.CharmModifiedVersion
 	} else {
 		curl, err := u.unit.CharmURL()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		charmURL = curl
-		ver, err := u.getServiceCharmModifiedVersion()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmModifiedVersion = ver
 	}
 
 	var (
@@ -295,8 +288,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		localState := resolver.LocalState{
-			CharmURL:             charmURL,
-			CharmModifiedVersion: charmModifiedVersion,
+			CharmURL: charmURL,
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
@@ -323,7 +315,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				err = u.terminate()
 			case resolver.ErrRestart:
 				charmURL = localState.CharmURL
-				charmModifiedVersion = localState.CharmModifiedVersion
 				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error
@@ -513,15 +504,6 @@ func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	}
 	charmURL, _, err := service.CharmURL()
 	return charmURL, err
-}
-
-func (u *Uniter) getServiceCharmModifiedVersion() (int, error) {
-	service, err := u.st.Service(u.unit.ServiceTag())
-	if err != nil {
-		return -1, err
-	}
-	ver, err := service.CharmModifiedVersion()
-	return ver, err
 }
 
 func (u *Uniter) operationState() operation.State {
