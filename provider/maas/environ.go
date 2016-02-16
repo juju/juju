@@ -72,13 +72,9 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spacesMap := make(map[string]network.Id)
+	subnetsMap := make(map[string]network.Id)
 	for _, spaceJson := range spacesArray {
 		spaceMap, err := spaceJson.GetMap()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		name, err := spaceMap["name"].GetString()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -87,9 +83,23 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 			return nil, errors.Trace(err)
 		}
 		providerId := network.Id(strconv.Itoa(int(providerIdRaw)))
-		spacesMap[name] = providerId
+		subnetsArray, err := spaceMap["subnets"].GetArray()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnetJson := range subnetsArray {
+			subnetMap, err := subnetJson.GetMap()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnet, err := subnet["cidr"].GetString()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnetsMap[subnet] = providerId
+		}
 	}
-	return spacesMap, nil
+	return subnetsMap, nil
 }
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
