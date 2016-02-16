@@ -287,9 +287,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case <-watcher.RemoteStateChanged():
 		}
 
-		localState := resolver.LocalState{
-			CharmURL: charmURL,
-		}
+		localState := resolver.LocalState{CharmURL: charmURL}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
 				Resolver:      uniterResolver,
