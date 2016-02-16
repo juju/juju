@@ -14,6 +14,12 @@ type Client interface {
 	// given result value, which should be a pointer to the expected
 	// data, but may be nil if no result is desired.
 	Get(path string, result interface{}) error
+
+	// ListResources composes, for each of the identified charms, the
+	// list of details for each of the charm's resources. Those details
+	// are those associated with the specific charm revision. They
+	// include the resource's metadata and revision.
+	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
 }
 
 // TestingClient expands Client with methods needed during testing.
