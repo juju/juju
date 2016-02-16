@@ -41,6 +41,8 @@ func (deps resourcesHandlerDeps) ConnectForUnitAgent(req *http.Request) (*state.
 	return st, unit, nil
 }
 
+// TODO(ericsnow) Move these functions to resourceadapters?
+
 func newResourceHandler(httpCtxt httpContext) http.Handler {
 	deps := resourcesHandlerDeps{httpCtxt}
 	return server.NewLegacyHTTPHandler(
