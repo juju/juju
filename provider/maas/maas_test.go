@@ -35,6 +35,15 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
+func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
+	var out bytes.Buffer
+	err := json.NewEncoder(&out).Encode(space)
+	if err != nil {
+		panic(err)
+	}
+	return &out
+}
+
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
@@ -61,6 +70,8 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
 	s.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
+	// Creating a space ensures that the spaces endpoint won't 404.
+	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
