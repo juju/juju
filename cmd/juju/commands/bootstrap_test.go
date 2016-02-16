@@ -471,10 +471,9 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
-	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "-> local.devcontroller")
-	currentController, err := modelcmd.ReadCurrentModel()
+	currentController, err := modelcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentController, gc.Equals, bootstrappedControllerName("devcontroller"))
 }

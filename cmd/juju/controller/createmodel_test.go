@@ -33,7 +33,13 @@ var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeCreateClient{}
+	s.fake = &fakeCreateClient{
+		env: params.Model{
+			Name:     "test",
+			UUID:     "fake-model-uuid",
+			OwnerTag: "ignored-for-now",
+		},
+	}
 	s.parser = nil
 	store := configstore.Default
 	s.AddCleanup(func(*gc.C) {
@@ -268,11 +274,6 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
-	s.fake.env = params.Model{
-		Name:     "test",
-		UUID:     "fake-model-uuid",
-		OwnerTag: "ignored-for-now",
-	}
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -290,11 +291,6 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 }
 
 func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
-	s.fake.env = params.Model{
-		Name:     "test",
-		UUID:     "fake-model-uuid",
-		OwnerTag: "ignored-for-now",
-	}
 	_, err := s.run(c, "test", "--owner", "zeus")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -325,9 +321,8 @@ func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelCo
 	}, nil
 }
 func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
-	var env params.Model
 	if f.err != nil {
-		return env, f.err
+		return params.Model{}, f.err
 	}
 	f.owner = owner
 	f.account = account

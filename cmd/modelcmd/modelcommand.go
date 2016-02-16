@@ -41,13 +41,6 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 		return model, nil
 	}
 
-	// TODO(axw) remove this when all of the tests are updated.
-	if currentModel, err := ReadCurrentModel(); err != nil {
-		return "", errors.Trace(err)
-	} else if currentModel != "" {
-		return currentModel, nil
-	}
-
 	currentController, err := ReadCurrentController()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -58,7 +51,7 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 
 	currentModel, err := store.CurrentModel(currentController)
 	if errors.IsNotFound(err) {
-		return "", errors.Errorf("not operating on an model, using controller %q", currentController)
+		return "", nil
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}

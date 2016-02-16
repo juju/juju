@@ -4,7 +4,6 @@
 package modelcmd
 
 var (
-	GetCurrentModelFilePath      = getCurrentModelFilePath
 	GetCurrentControllerFilePath = getCurrentControllerFilePath
 	GetConfigStore               = &getConfigStore
 	EndpointRefresher            = &endpointRefresher

@@ -63,7 +63,6 @@ Please send this command to bob:
 Please set a name for this controller: 
 Enter password: 
 Confirm password: 
-dummymodel (controller) -> bob-controller (controller)
 
 Welcome, bob. You are now logged into "bob-controller".
 `[1:])
