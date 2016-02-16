@@ -19,6 +19,7 @@ LOCAL_CLOUD_CITY="${1:-./cloud-city}"
 MAAS_REPO="${2:-default}"
 KEY="staging-juju-rsa"
 PUB_KEY_VALUE=$(cat ${LOCAL_CLOUD_CITY}/${KEY}.pub)
+WIN_CERT_KEY=$(cat ${LOCAL_CLOUD_CITY}/winrm_client_cert.pem)
 MAAS_ADDRESS="http://${PUBLIC_ADDRESS}/MAAS"
 MAAS_API_ADDRESS="${MAAS_ADDRESS}/api/1.0"
 MAAS_HOME="/var/lib/maas"
@@ -69,6 +70,7 @@ sudo maas-region-admin createsuperuser --noinput --username root --email ubuntu@
 APIKEY=\$(sudo maas-region-admin apikey --username=root)
 maas login vmaas $MAAS_API_ADDRESS \$APIKEY
 maas vmaas sshkeys new key="$PUB_KEY_VALUE"
+maas vmaas sslkeys new key="$WIN_CERT_KEY"
 
 
 # Select and import images
