@@ -9,11 +9,23 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+
+	"github.com/juju/juju/resource/charmstore"
 )
 
 // TODO(ericsnow) Get rid of fakeCharmStoreClient once csclient.Client grows the methods.
 
-type fakeCharmStoreClient struct{}
+type baseCharmStoreClient interface {
+	io.Closer
+}
+
+func NewFakeCharmStoreClient(base baseCharmStoreClient) charmstore.Client {
+	return &fakeCharmStoreClient{base}
+}
+
+type fakeCharmStoreClient struct {
+	baseCharmStoreClient
+}
 
 // ListResources implements resource/charmstore.Client as a noop.
 func (fakeCharmStoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
@@ -27,6 +39,9 @@ func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, re
 }
 
 // Close implements io.Closer.
-func (fakeCharmStoreClient) Close() error {
-	return nil
+func (client fakeCharmStoreClient) Close() error {
+	if client.baseCharmStoreClient == nil {
+		return nil
+	}
+	return client.baseCharmStoreClient.Close()
 }

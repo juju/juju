@@ -11,8 +11,6 @@ import (
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -148,7 +146,7 @@ func (c *resourcesCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &charmstoreClient{client}, nil
+	return resourceadapters.NewFakeCharmStoreClient(client), nil
 }
 
 // registerPublicCommands adds the resources-related commands
@@ -183,17 +181,6 @@ func (r resources) registerPublicCommands() {
 			},
 		})
 	})
-}
-
-// TODO(ericsnow) Get rid of charmstoreClient once csclient.Client grows the methods.
-
-type charmstoreClient struct {
-	charmcmd.CharmstoreClient
-}
-
-func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
-	res := make([][]charmresource.Resource, len(charmURLs))
-	return res, nil
 }
 
 type apicommand interface {
