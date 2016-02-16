@@ -3,6 +3,13 @@
 
 package charmstore
 
+import (
+	"io"
+
+	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+)
+
 // Client exposes the functionality of the charm store, as provided
 // by github.com/juju/charmrepo/csclient.Client.
 type Client interface {
@@ -15,11 +22,19 @@ type Client interface {
 	// data, but may be nil if no result is desired.
 	Get(path string, result interface{}) error
 
+	// TODO(ericsnow) Just embed resource/charmstore.BaseClient?
+
 	// ListResources composes, for each of the identified charms, the
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
 	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
+
+	// GetResource returns a reader for the resource's data. That data
+	// is streamed from the charm store. The charm's revision, if any,
+	// is ignored. If the identified resource is not in the charm store
+	// then errors.NotFound is returned.
+	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
 }
 
 // TestingClient expands Client with methods needed during testing.
