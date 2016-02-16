@@ -24,25 +24,25 @@ type StubDataSource struct {
 func NewStubDataSource() *StubDataSource {
 	result := &StubDataSource{
 		Stub: &testing.Stub{},
-	}
-	result.DescriptionFunc = func() string {
-		return ""
+		DescriptionFunc: func() string {
+			return ""
+		},
+		PublicSigningKeyFunc: func() string {
+			return ""
+		},
+		SetAllowRetryFunc: func(allow bool) {},
+		PriorityFunc: func() int {
+			return 0
+		},
+		RequireSignedFunc: func() bool {
+			return false
+		},
 	}
 	result.FetchFunc = func(path string) (io.ReadCloser, string, error) {
 		return nil, "", result.Stub.NextErr()
 	}
 	result.URLFunc = func(path string) (string, error) {
 		return "", result.Stub.NextErr()
-	}
-	result.PublicSigningKeyFunc = func() string {
-		return ""
-	}
-	result.SetAllowRetryFunc = func(allow bool) {}
-	result.PriorityFunc = func() int {
-		return 0
-	}
-	result.RequireSignedFunc = func() bool {
-		return false
 	}
 	return result
 }
