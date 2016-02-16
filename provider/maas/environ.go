@@ -61,10 +61,9 @@ var (
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
-	FetchSpaces              = subnetToSpaceIds
 )
 
-func subnetToSpaceId(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
+func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
 	spacesJson, err := spaces.CallGet("list", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
