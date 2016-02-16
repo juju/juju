@@ -27,8 +27,10 @@ type DisenableUserBase struct {
 	*disenableUserBase
 }
 
-func NewAddCommandForTest(api AddUserAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
+	c.SetClientStore(store)
+	c.SetModelApi(modelApi)
 	return modelcmd.WrapController(c), &AddCommand{c}
 }
 

@@ -56,16 +56,22 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *userManagerSuite) TestAddUser(c *gc.C) {
+func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
+	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "sharedmodel",
+	})
+	defer sharedModelState.Close()
+
 	args := params.AddUsers{
 		Users: []params.AddUser{{
-			Username:    "foobar",
-			DisplayName: "Foo Bar",
-			Password:    "password",
+			Username:        "foobar",
+			DisplayName:     "Foo Bar",
+			Password:        "password",
+			SharedModelTags: sharedModelTags,
 		}}}
 
 	result, err := s.usermanager.AddUser(args)
-	// Check that the call is succesful
+	// Check that the call is successful
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	foobarTag := names.NewLocalUserTag("foobar")
@@ -77,6 +83,10 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
+}
+
+func (s *userManagerSuite) TestAddUser(c *gc.C) {
+	s.assertAddUser(c, nil)
 }
 
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
@@ -107,6 +117,30 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
 		Tag:       foobarTag.String(),
 		SecretKey: user.SecretKey(),
+	})
+}
+
+func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
+	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "somesharedmodel",
+	})
+	defer sharedModelState.Close()
+
+	s.assertAddUser(c, []string{sharedModelState.ModelTag().String()})
+
+	// Check that the model has been shared.
+	sharedModel, err := sharedModelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	users, err := sharedModel.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	//c.Assert(users, gc.HasLen, 1)
+	var modelUserTags = make([]names.UserTag, len(users))
+	for i, u := range users {
+		modelUserTags[i] = u.UserTag()
+	}
+	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
+		names.NewLocalUserTag("foobar"),
+		names.NewLocalUserTag("admin"),
 	})
 }
 

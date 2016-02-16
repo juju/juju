@@ -307,14 +307,6 @@ func ModelSkipDefault(w *modelCommandWrapper) {
 	w.useDefaultModel = false
 }
 
-// EnvAPIOpener instructs the underlying environment command to use a
-// different Opener strategy.
-func EnvAPIOpener(opener APIOpener) WrapEnvOption {
-	return func(w *modelCommandWrapper) {
-		w.ModelCommand.SetAPIOpener(opener)
-	}
-}
-
 // Wrap wraps the specified ModelCommand, returning a Command
 // that proxies to each of the ModelCommand methods.
 // Any provided options are applied to the wrapped command

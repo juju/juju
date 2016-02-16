@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -18,16 +19,20 @@ import (
 )
 
 const useraddCommandDoc = `
-Add users to an existing model.
+Add users to a controller to allow them to login to that controller.
+Optionally, share a model hosted by that controller with the user. 
 
-The user information is stored within an existing model, and will be
+The user information is stored within the shared model, and will be
 lost when the model is destroyed.  A "juju register" command will be
 printed out, which must be executed to complete the user registration
-process, setting its initial password.
+process, setting the user's initial password.
 
 Examples:
     # Add user "foobar"
     juju add-user foobar
+    
+    # Add user and share model.
+    juju add-user foobar --share somemodel
 
 
 See Also:
@@ -36,7 +41,7 @@ See Also:
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
-	AddUser(username, displayName, password string) (names.UserTag, []byte, error)
+	AddUser(username, displayName, password string, modelUUIDs ...string) (names.UserTag, []byte, error)
 	Close() error
 }
 
@@ -50,14 +55,19 @@ type addCommand struct {
 	api         AddUserAPI
 	User        string
 	DisplayName string
+	ModelName   string
+}
+
+func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.ModelName, "share", "", "share a model with the new user")
 }
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-user",
-		Args:    "<username> [<display name>]",
-		Purpose: "adds a user",
+		Args:    "<username> [<display name>] [--share <model name>]",
+		Purpose: "adds a user to a controller and optionally shares a model",
 		Doc:     useraddCommandDoc,
 	}
 }
@@ -86,10 +96,27 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		defer api.Close()
 	}
 
+	// If we need to share a model, look up the model UUID from the supplied name.
+	var modelUUIDs []string
+	if c.ModelName != "" {
+		model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
+		if errors.IsNotFound(err) {
+			// The model isn't known locally, so query the models available in the controller.
+			if err := c.RefreshModels(c.ClientStore(), c.ControllerName()); err != nil {
+				return errors.Annotate(err, "refreshing models")
+			}
+			model, err = c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
+		}
+		if err != nil {
+			return err
+		}
+		modelUUIDs = []string{model.ModelUUID}
+	}
+
 	// Add a user without a password. This will generate a temporary
 	// secret key, which we'll print out for the user to supply to
 	// "juju register".
-	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "")
+	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", modelUUIDs...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -132,6 +159,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	)
 
 	fmt.Fprintf(ctx.Stdout, "User %q added\n", displayName)
+	if c.ModelName != "" {
+		fmt.Fprintf(ctx.Stdout, "Model  %q is now shared\n", c.ModelName)
+	}
 	fmt.Fprintf(ctx.Stdout, "Please send this command to %v:\n", c.User)
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",
 		base64RegistrationData,

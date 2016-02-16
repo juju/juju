@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
+	"github.com/juju/juju/apiserver/usermanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -374,23 +375,8 @@ func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorRe
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share model"))
 			continue
 		}
-		switch arg.Action {
-		case params.AddModelUser:
-			_, err := c.api.stateAccessor.AddModelUser(
-				state.ModelUserSpec{User: user, CreatedBy: createdBy})
-			if err != nil {
-				err = errors.Annotate(err, "could not share model")
-				result.Results[i].Error = common.ServerError(err)
-			}
-		case params.RemoveModelUser:
-			err := c.api.stateAccessor.RemoveModelUser(user)
-			if err != nil {
-				err = errors.Annotate(err, "could not unshare model")
-				result.Results[i].Error = common.ServerError(err)
-			}
-		default:
-			result.Results[i].Error = common.ServerError(errors.Errorf("unknown action %q", arg.Action))
-		}
+		result.Results[i].Error = common.ServerError(
+			usermanager.ShareModelAction(c.api.stateAccessor, c.api.stateAccessor.ModelTag(), createdBy, user, arg.Action))
 	}
 	return result, nil
 }
