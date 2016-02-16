@@ -14,6 +14,8 @@ import (
 	corestate "github.com/juju/juju/state"
 )
 
+// APIHTTPRequestExtractor provides the functionality to extract an API
+// request from an HTTP request.
 type APIHTTPRequestExtractor struct {
 	Deps APIHTTPRequestExtractorDeps
 }
