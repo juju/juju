@@ -89,6 +89,7 @@ func (client csRetryClient) GetResource(cURL *charm.URL, resourceName string, re
 			return nil, errors.Trace(err)
 		}
 		// Otherwise, remember the error we're hiding and then retry!
+		logger.Errorf("retrying resource download from charm store due to error: %v", err)
 		lastErr = err
 	}
 	return nil, errors.Annotate(lastErr, "failed after retrying")
