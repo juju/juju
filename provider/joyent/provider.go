@@ -59,9 +59,7 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 	// https://us-east.manta.joyent.com, so for now,
 	// if the default value is not correct, it's necessary
 	// to specify the URL in bootstrap config.
-	attrs := map[string]interface{}{
-		SdcUrl: args.CloudEndpoint,
-	}
+	attrs := map[string]interface{}{}
 	// Add the credential attributes to config.
 	switch authType := args.Credentials.AuthType(); authType {
 	case cloud.UserPassAuthType:
@@ -71,6 +69,9 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 		}
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	if args.CloudEndpoint != "" {
+		attrs[sdcUrl] = args.CloudEndpoint
 	}
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
