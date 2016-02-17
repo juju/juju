@@ -63,6 +63,45 @@ var (
 	DeploymentStatusCall     = deploymentStatusCall
 )
 
+func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
+	spacesJson, err := spaces.CallGet("list", nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spacesArray, err := spacesJson.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnetsMap := make(map[string]network.Id)
+	for _, spaceJson := range spacesArray {
+		spaceMap, err := spaceJson.GetMap()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerIdRaw, err := spaceMap["id"].GetFloat64()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
+		subnetsArray, err := spaceMap["subnets"].GetArray()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnetJson := range subnetsArray {
+			subnetMap, err := subnetJson.GetMap()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnet, err := subnetMap["cidr"].GetString()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnetsMap[subnet] = providerId
+		}
+	}
+	return subnetsMap, nil
+}
+
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
 	return err
@@ -804,7 +843,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{selectedNode}
+	inst := &maasInstance{selectedNode, environ}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -868,8 +907,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 
 		if environ.supportsNetworkDeploymentUbuntu {
+			subnetsMap, err := environ.subnetToSpaceIds()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode)
+			interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		} else {
 			// Use the legacy approach.
 			interfaces, err = environ.setupNetworks(inst)
@@ -1160,7 +1203,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{&node}
+		instances[index] = &maasInstance{&node, environ}
 	}
 	return instances, nil
 }
@@ -1853,6 +1896,13 @@ func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
 		return nil, errors.Trace(err)
 	}
 	return json.GetArray()
+}
+
+// subnetToSpaceIds fetches the spaces from MAAS and builds a map of subnets to
+// space ids.
+func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
+	spaces := environ.getMAASClient().GetSubObject("spaces")
+	return subnetToSpaceIds(spaces)
 }
 
 // Spaces returns all the spaces, that have subnets, known to the provider.

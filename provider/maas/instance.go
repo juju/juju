@@ -16,6 +16,7 @@ import (
 
 type maasInstance struct {
 	maasObject *gomaasapi.MAASObject
+	environ    *maasEnviron
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
@@ -124,8 +125,12 @@ func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
 		return nil, errors.Annotate(err, "getting instance details")
 	}
 
+	subnetsMap, err := mi.environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// Get all the interface details and extract the addresses.
-	interfaces, err := maasObjectNetworkInterfaces(&obj)
+	interfaces, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

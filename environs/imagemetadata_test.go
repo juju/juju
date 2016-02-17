@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -54,9 +55,9 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "", "")
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		"https://streams.canonical.com/juju/images/releases/",
-		"http://cloud-images.ubuntu.com/releases/",
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"https://streams.canonical.com/juju/images/releases/", imagemetadata.SimplestreamsImagesPublicKey},
+		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey},
 	})
 }
 
@@ -64,10 +65,10 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 	env := s.env(c, "config-image-metadata-url", "")
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-image-metadata-url/",
-		"https://streams.canonical.com/juju/images/releases/",
-		"http://cloud-images.ubuntu.com/releases/",
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"config-image-metadata-url/", ""},
+		{"https://streams.canonical.com/juju/images/releases/", imagemetadata.SimplestreamsImagesPublicKey},
+		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey},
 	})
 }
 
@@ -92,12 +93,12 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	env := s.env(c, "config-image-metadata-url", "")
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-image-metadata-url/",
-		"foobar/",
-		"betwixt/releases/",
-		"https://streams.canonical.com/juju/images/releases/",
-		"http://cloud-images.ubuntu.com/releases/",
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"config-image-metadata-url/", ""},
+		{"foobar/", ""},
+		{"betwixt/releases/", ""},
+		{"https://streams.canonical.com/juju/images/releases/", imagemetadata.SimplestreamsImagesPublicKey},
+		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey},
 	})
 }
 
@@ -116,8 +117,8 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {
 	env := s.env(c, "", "daily")
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		"https://streams.canonical.com/juju/images/daily/",
-		"http://cloud-images.ubuntu.com/daily/",
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"https://streams.canonical.com/juju/images/daily/", imagemetadata.SimplestreamsImagesPublicKey},
+		{"http://cloud-images.ubuntu.com/daily/", imagemetadata.SimplestreamsImagesPublicKey},
 	})
 }

@@ -23,6 +23,12 @@ type interfacesSuite struct {
 
 var _ = gc.Suite(&interfacesSuite{})
 
+func newAddressOnSpaceWithId(space string, id network.Id, address string) network.Address {
+	newAddress := network.NewAddressOnSpace(space, address)
+	newAddress.SpaceProviderId = id
+	return newAddress
+}
+
 const exampleInterfaceSetJSON = `
 [
 	{
@@ -438,6 +444,9 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
+	subnetsMap := make(map[string]network.Id)
+	subnetsMap["10.250.19.0/24"] = network.Id("3")
+	subnetsMap["192.168.1.0/24"] = network.Id("0")
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -528,15 +537,15 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("storage", "10.250.19.103"),
+		Address:           newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
 		DNSServers:        nil,
 		DNSSearch:         "",
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("storage", "10.250.19.2"),
+		GatewayAddress:    newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
 		ExtraConfig:       nil,
 	}}
 
-	infos, err := maasObjectNetworkInterfaces(&obj)
+	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
