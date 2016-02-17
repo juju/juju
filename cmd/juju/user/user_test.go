@@ -29,7 +29,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		return memstore, nil
 	})
 	os.Setenv(osenv.JujuModelEnvKey, "testing")
-	info := memstore.CreateInfo("testing")
+	info := memstore.CreateInfo("testing:testing")
 	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses: []string{"127.0.0.1:12345"},

@@ -106,7 +106,10 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	controllerInfo = store.CreateInfo(registrationParams.controllerName)
+	controllerInfo = store.CreateInfo(configstore.EnvironInfoName(
+		registrationParams.controllerName,
+		configstore.AdminModelName(registrationParams.controllerName),
+	))
 
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.

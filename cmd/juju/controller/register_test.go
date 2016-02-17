@@ -181,7 +181,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 
 	// The controller information should be recorded with
 	// the specified controller name ("controller-name").
-	info, err := s.store.ReadInfo("controller-name")
+	info, err := s.store.ReadInfo("controller-name:controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.APICredentials(), jc.DeepEquals, configstore.APICredentials{
 		User:     "bob",

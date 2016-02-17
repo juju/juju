@@ -90,13 +90,14 @@ func (c *destroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
-	configstore, err := configstore.Default()
+	legacyStore, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open model info storage")
 	}
 
+	controllerName := c.ControllerName()
 	modelName := c.ModelName()
-	cfgInfo, err := configstore.ReadInfo(modelName)
+	cfgInfo, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
 	if err != nil {
 		return errors.Annotate(err, "cannot read model info")
 	}
@@ -128,7 +129,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
 	}
 
-	err = store.RemoveModel(c.ControllerName(), modelName)
+	err = store.RemoveModel(controllerName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

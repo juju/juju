@@ -47,7 +47,8 @@ type Tests struct {
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C) environs.Environ {
-	info, err := t.ConfigStore.ReadInfo(t.TestConfig["name"].(string))
+	modelName := t.TestConfig["name"].(string)
+	info, err := t.ConfigStore.ReadInfo(configstore.EnvironInfoName(modelName, modelName))
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	c.Assert(err, jc.ErrorIsNil)

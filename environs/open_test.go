@@ -83,7 +83,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	_, err = environs.Prepare(ctx, store, cache, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := store.ReadInfo("controller-name")
+	info, err := store.ReadInfo("controller-name:admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.NotNil)
 	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
@@ -148,7 +148,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the model info file was correctly created.
-	info, err := store.ReadInfo("erewhemos")
+	info, err := store.ReadInfo("erewhemos:erewhemos")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, env.Config().AllAttrs())
@@ -268,7 +268,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	e, err := environs.Prepare(ctx, configstore, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = configstore.ReadInfo("controller-name")
+	_, err = configstore.ReadInfo("controller-name:erewhemos")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,7 +280,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// and that the config info has been destroyed too.
 	_, err = e.ControllerInstances()
 	c.Assert(err, gc.ErrorMatches, "model has been destroyed")
-	_, err = configstore.ReadInfo("controller-name")
+	_, err = configstore.ReadInfo("controller-name:erewhemos")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

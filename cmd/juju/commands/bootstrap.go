@@ -313,9 +313,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// controller's model should be called "admin".
 	configAttrs := map[string]interface{}{
 		"type": cloud.Type,
-		// TODO(axw) this should be "admin", but we can't call it
-		// that until the configstore code is gone.
-		"name": c.controllerName,
+		// TODO(axw) for now we call the initial model the same as the
+		// controller, without the "local." prefix. This is necessary
+		// to make CI happy. Once CI is updated, we'll switch over to
+		// "admin".
+		"name": configstore.AdminModelName(c.controllerName),
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -428,7 +430,7 @@ to clean up the model.`[1:])
 		return errors.Trace(err)
 	}
 
-	err = c.SetBootstrapEndpointAddress(environ)
+	err = c.setBootstrapEndpointAddress(store, environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -629,11 +631,14 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 
 var prepareEndpointsForCaching = juju.PrepareEndpointsForCaching
 
-// SetBootstrapEndpointAddress writes the API endpoint address of the
+// setBootstrapEndpointAddress writes the API endpoint address of the
 // bootstrap server into the connection information. This should only be run
 // once directly after Bootstrap. It assumes that there is just one instance
 // in the environment - the bootstrap instance.
-func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ) error {
+func (c *bootstrapCommand) setBootstrapEndpointAddress(
+	legacyStore configstore.Storage,
+	environ environs.Environ,
+) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)
@@ -646,8 +651,11 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 		logger.Warningf("expected one instance, got %d", length)
 	}
 	bootstrapInstance := instances[0]
+
 	cfg := environ.Config()
-	info, err := modelcmd.ConnectionInfoForName(c.ConnectionName())
+	info, err := legacyStore.ReadInfo(
+		configstore.EnvironInfoName(c.controllerName, cfg.Name()),
+	)
 	if err != nil {
 		return errors.Annotate(err, "failed to get connection info")
 	}
@@ -676,7 +684,7 @@ func (c *bootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
 	}
 
-	controllerStore := jujuclient.NewFileClientStore()
+	controllerStore := c.ClientStore()
 	err = controllerStore.UpdateController(c.controllerName, jujuclient.ControllerDetails{
 		hosts,
 		endpoint.ServerUUID,

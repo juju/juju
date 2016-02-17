@@ -35,7 +35,7 @@ func New(config *config.Config) (Environ, error) {
 // entry in the client store with the same name.
 func Prepare(
 	ctx BootstrapContext,
-	configstore configstore.Storage,
+	legacyStore configstore.Storage,
 	store jujuclient.ClientStore,
 	controllerName string,
 	args PrepareForBootstrapParams,
@@ -53,7 +53,9 @@ func Prepare(
 		return nil, errors.Trace(err)
 	}
 
-	info := configstore.CreateInfo(controllerName)
+	info := legacyStore.CreateInfo(
+		configstore.EnvironInfoName(controllerName, args.Config.Name()),
+	)
 	defer func() {
 		if resultErr == nil {
 			return
@@ -235,17 +237,20 @@ func ensureUUID(cfg *config.Config) (*config.Config, string, error) {
 func Destroy(
 	controllerName string,
 	env Environ,
-	configstore configstore.Storage,
+	legacyStore configstore.Storage,
 	store jujuclient.ControllerRemover,
 ) error {
-	if err := env.Destroy(); err != nil {
-		return errors.Trace(err)
-	}
 	err := store.RemoveController(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	info, err := configstore.ReadInfo(controllerName)
+	modelName := env.Config().Name()
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	info, err := legacyStore.ReadInfo(
+		configstore.EnvironInfoName(controllerName, modelName),
+	)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil

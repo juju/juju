@@ -301,9 +301,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
 	err = s.ControllerStore.UpdateController("dummymodel", *controller)
 	c.Assert(err, jc.ErrorIsNil)
+	err = modelcmd.WriteCurrentController("dummymodel")
+	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO (anastasiamac 2016-02-08) START REMOVE with cache.yaml
-	info, err := s.ConfigStore.ReadInfo("dummymodel")
+	info, err := s.ConfigStore.ReadInfo("dummymodel:dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}

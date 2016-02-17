@@ -86,7 +86,7 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("new-model", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
@@ -198,7 +198,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	undertaker.NewUndertaker(client, mClock)
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummymodel")
+	_, err = store.ReadInfo("dummymodel:dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "kill-controller", "dummymodel", "-y")

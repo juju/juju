@@ -187,7 +187,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(modelcmd.GetConfigStore, func() (configstore.Storage, error) {
 		return s.store, nil
 	})
-	newInfo := s.store.CreateInfo("model-name")
+	newInfo := s.store.CreateInfo("ctrl:model-name")
 	newInfo.SetAPICredentials(configstore.APICredentials{
 		User:     "foo",
 		Password: "foopass",
@@ -204,7 +204,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	cmd, err := initTestCommand(c, nil, "-m", "model-name")
+	cmd, err := initTestCommand(c, nil, "-m", "ctrl:model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,11 +212,11 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	cmd, err := initTestCommand(c, nil, "-m", "no-such-model")
+	cmd, err := initTestCommand(c, nil, "-m", "ctrl:no-such-model")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `model "no-such-model" not found`)
+	c.Assert(err, gc.ErrorMatches, `model "ctrl:no-such-model" not found`)
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
@@ -227,14 +227,14 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 		ModelUUID: "fake-uuid",
 	}
 	s.PatchValue(modelcmd.EndpointRefresher, func(_ *modelcmd.ModelCommandBase) (io.Closer, error) {
-		info, err := s.store.ReadInfo("model-name")
+		info, err := s.store.ReadInfo("ctrl:model-name")
 		info.SetAPIEndpoint(newEndpoint)
 		err = info.Write()
 		c.Assert(err, jc.ErrorIsNil)
 		return new(closer), nil
 	})
 
-	cmd, err := initTestCommand(c, nil, "-m", "model-name")
+	cmd, err := initTestCommand(c, nil, "-m", "ctrl:model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,7 +251,9 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
-	envName string
+	store          *jujuclienttesting.MemStore
+	controllerName string
+	modelName      string
 }
 
 const testUser = "testuser@somewhere"
@@ -260,7 +262,8 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 
 	modelTag := names.NewModelTag(s.State.ModelUUID())
-	s.envName = modelTag.Id()
+	s.controllerName = "my-controller"
+	s.modelName = modelTag.Id()
 
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
@@ -268,12 +271,12 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := store.CreateInfo(s.envName)
+	cfg := store.CreateInfo(s.controllerName + ":" + s.modelName)
 	cfg.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses: apiInfo.Addrs,
 		Hostnames: []string{"0.1.2.3"},
 		CACert:    apiInfo.CACert,
-		ModelUUID: s.envName,
+		ModelUUID: modelTag.Id(),
 	})
 	err = cfg.Write()
 	cfg.SetAPICredentials(configstore.APICredentials{
@@ -281,6 +284,13 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 		Password: "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			s.modelName: {modelTag.Id()},
+		},
+	}
 }
 
 func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
@@ -288,7 +298,8 @@ func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 		return testUser
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.envName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.controllerName, s.modelName, nil, nil)
+	cmd.SetClientStore(s.store)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -298,10 +309,10 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.envName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.controllerName, s.modelName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	// TODO(rog) is this really the right error here?
-	c.Assert(err, gc.ErrorMatches, `model "`+s.envName+`" not found`)
+	c.Assert(err, gc.ErrorMatches, `bootstrap config not found`)
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -309,8 +320,8 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.envName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.controllerName, s.modelName, nil, nil)
 	_, err := cmd.NewAPIRoot()
 	// TODO(rog) is this really the right error here?
-	c.Assert(err, gc.ErrorMatches, `model "`+s.envName+`" not found`)
+	c.Assert(err, gc.ErrorMatches, `bootstrap config not found`)
 }

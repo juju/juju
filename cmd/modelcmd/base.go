@@ -103,7 +103,12 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerInfo, err := legacyStore.ReadInfo(controllerName)
+	controllerInfo, err := legacyStore.ReadInfo(
+		configstore.EnvironInfoName(
+			controllerName,
+			configstore.AdminModelName(controllerName),
+		),
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -118,9 +123,10 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 		if err := store.UpdateModel(controllerName, model.Name, modelDetails); err != nil {
 			return errors.Trace(err)
 		}
-		modelInfo, err := legacyStore.ReadInfo(model.Name)
+		environInfoName := configstore.EnvironInfoName(controllerName, model.Name)
+		modelInfo, err := legacyStore.ReadInfo(environInfoName)
 		if errors.IsNotFound(err) {
-			modelInfo = legacyStore.CreateInfo(model.Name)
+			modelInfo = legacyStore.CreateInfo(environInfoName)
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -235,16 +241,10 @@ func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connectio
 // newAPIRoot establishes a connection to the API server for
 // the named system or model.
 func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
-	// TODO(axw) pass controller and model name through to
-	// juju.NewAPIFromName, as well as the jujuclient.ClientStore.
-	name := modelName
-	if modelName == "" {
-		name = controllerName
-	}
-	if name == "" {
+	if controllerName == "" && modelName == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
-	return juju.NewAPIFromName(name, ctx.client)
+	return juju.NewAPIConnection(store, controllerName, modelName, ctx.client)
 }
 
 // httpClient returns an http.Client that contains the loaded
