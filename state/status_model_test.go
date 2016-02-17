@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 )
 
 type StatusModelSuite struct {
@@ -17,84 +17,46 @@ type StatusModelSuite struct {
 
 var _ = gc.Suite(&StatusModelSuite{})
 
-func (s *StatusModelSuite) TestTranslateLegacyAgentState(c *gc.C) {
-	for i, test := range []struct {
-		agentStatus     state.Status
-		workloadStatus  state.Status
-		workloadMessage string
-		expected        state.Status
-	}{{
-		agentStatus: state.StatusAllocating,
-		expected:    state.StatusPending,
-	}, {
-		agentStatus: state.StatusError,
-		expected:    state.StatusError,
-	}, {
-		agentStatus:     state.StatusIdle,
-		workloadStatus:  state.StatusMaintenance,
-		expected:        state.StatusPending,
-		workloadMessage: "installing charm software",
-	}, {
-		agentStatus:     state.StatusIdle,
-		workloadStatus:  state.StatusMaintenance,
-		expected:        state.StatusStarted,
-		workloadMessage: "backing up",
-	}, {
-		agentStatus:    state.StatusIdle,
-		workloadStatus: state.StatusTerminated,
-		expected:       state.StatusStopped,
-	}, {
-		agentStatus:    state.StatusIdle,
-		workloadStatus: state.StatusBlocked,
-		expected:       state.StatusStarted,
-	}} {
-		c.Logf("test %d", i)
-		legacy, ok := state.TranslateToLegacyAgentState(test.agentStatus, test.workloadStatus, test.workloadMessage)
-		c.Check(ok, jc.IsTrue)
-		c.Check(legacy, gc.Equals, test.expected)
-	}
-}
-
 func (s *StatusModelSuite) TestUnitAgentStatusDocValidation(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 	for i, test := range []struct {
-		status state.Status
+		status status.Status
 		info   string
 		err    string
 	}{{
-		status: state.StatusPending,
+		status: status.StatusPending,
 		err:    `cannot set invalid status "pending"`,
 	}, {
-		status: state.StatusDown,
+		status: status.StatusDown,
 		err:    `cannot set invalid status "down"`,
 	}, {
-		status: state.StatusStarted,
+		status: status.StatusStarted,
 		err:    `cannot set invalid status "started"`,
 	}, {
-		status: state.StatusStopped,
+		status: status.StatusStopped,
 		err:    `cannot set invalid status "stopped"`,
 	}, {
-		status: state.StatusAllocating,
+		status: status.StatusAllocating,
 		err:    `cannot set status "allocating"`,
 	}, {
-		status: state.StatusAllocating,
+		status: status.StatusAllocating,
 		info:   "any message",
 		err:    `cannot set status "allocating"`,
 	}, {
-		status: state.StatusLost,
+		status: status.StatusLost,
 		err:    `cannot set status "lost"`,
 	}, {
-		status: state.StatusLost,
+		status: status.StatusLost,
 		info:   "any message",
 		err:    `cannot set status "lost"`,
 	}, {
-		status: state.StatusError,
+		status: status.StatusError,
 		err:    `cannot set status "error" without info`,
 	}, {
-		status: state.StatusError,
+		status: status.StatusError,
 		info:   "some error info",
 	}, {
-		status: state.Status("bogus"),
+		status: status.Status("bogus"),
 		err:    `cannot set invalid status "bogus"`,
 	}} {
 		c.Logf("test %d", i)

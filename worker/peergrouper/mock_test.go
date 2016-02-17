@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 )
 
@@ -308,9 +309,9 @@ func (m *fakeMachine) APIHostPorts() []network.HostPort {
 	return m.doc.apiHostPorts
 }
 
-func (m *fakeMachine) Status() (state.StatusInfo, error) {
-	return state.StatusInfo{
-		Status: state.StatusStarted,
+func (m *fakeMachine) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{
+		Status: status.StatusStarted,
 	}, nil
 }
 

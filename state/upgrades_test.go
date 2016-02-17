@@ -12,6 +12,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
@@ -263,16 +264,16 @@ func (s *upgradesSuite) TestAddFilesystemStatus(c *gc.C) {
 	removeStatusDoc(c, s.state, filesystem)
 	_, err := filesystem.Status()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	s.assertAddFilesystemStatus(c, filesystem, StatusPending)
+	s.assertAddFilesystemStatus(c, filesystem, status.StatusPending)
 }
 
 func (s *upgradesSuite) TestAddFilesystemStatusDoesNotOverwrite(c *gc.C) {
 	_, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
-	err := filesystem.SetStatus(StatusDestroying, "", nil)
+	err := filesystem.SetStatus(status.StatusDestroying, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAddFilesystemStatus(c, filesystem, StatusDestroying)
+	s.assertAddFilesystemStatus(c, filesystem, status.StatusDestroying)
 }
 
 func (s *upgradesSuite) TestAddFilesystemStatusProvisioned(c *gc.C) {
@@ -284,7 +285,7 @@ func (s *upgradesSuite) TestAddFilesystemStatusProvisioned(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	removeStatusDoc(c, s.state, filesystem)
-	s.assertAddFilesystemStatus(c, filesystem, StatusAttaching)
+	s.assertAddFilesystemStatus(c, filesystem, status.StatusAttaching)
 }
 
 func (s *upgradesSuite) TestAddFilesystemStatusAttached(c *gc.C) {
@@ -307,10 +308,10 @@ func (s *upgradesSuite) TestAddFilesystemStatusAttached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	removeStatusDoc(c, s.state, filesystem)
-	s.assertAddFilesystemStatus(c, filesystem, StatusAttached)
+	s.assertAddFilesystemStatus(c, filesystem, status.StatusAttached)
 }
 
-func (s *upgradesSuite) assertAddFilesystemStatus(c *gc.C, filesystem Filesystem, expect Status) {
+func (s *upgradesSuite) assertAddFilesystemStatus(c *gc.C, filesystem Filesystem, expect status.Status) {
 	err := AddFilesystemStatus(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 

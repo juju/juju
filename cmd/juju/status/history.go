@@ -40,7 +40,11 @@ The statuses for the unit workload and/or agent are available.
 -type supports:
     agent: will show statuses for the unit's agent
     workload: will show statuses for the unit's workload
-    combined: will show agent and workload statuses combined
+    combined: will show all statuses combined
+    machine: will show statuses for machines
+    machineinstance: will show instance status for machines
+    container: will show container statuses
+    containerinstance: will show instance statuses for containers
  and sorted by time of occurrence.
 `
 
@@ -54,7 +58,7 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 }
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.outputContent, "type", "combined", "type of statuses to be displayed [agent|workload|combined].")
+	f.StringVar(&c.outputContent, "type", "combined", "type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance].")
 	f.IntVar(&c.backlogSize, "n", 20, "size of logs backlog.")
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 }
@@ -81,9 +85,10 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	}
 	kind := params.HistoryKind(c.outputContent)
 	switch kind {
-	case params.KindCombined, params.KindAgent, params.KindWorkload:
+	case params.KindCombined, params.KindAgent, params.KindWorkload,
+		params.KindMachineInstance, params.KindMachine, params.KindContainer,
+		params.KindContainerInstance:
 		return nil
-
 	}
 	return errors.Errorf("unexpected status type %q", c.outputContent)
 }
@@ -94,9 +99,9 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
-	var statuses *params.UnitStatusHistory
+	var statuses *params.StatusHistoryResults
 	kind := params.HistoryKind(c.outputContent)
-	statuses, err = apiclient.UnitStatusHistory(kind, c.unitName, c.backlogSize)
+	statuses, err = apiclient.StatusHistory(kind, c.unitName, c.backlogSize)
 	if err != nil {
 		if len(statuses.Statuses) == 0 {
 			return errors.Trace(err)

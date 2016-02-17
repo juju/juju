@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	dummystorage "github.com/juju/juju/storage/provider/dummy"
@@ -564,11 +565,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
 		break
 	}
@@ -611,11 +612,11 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
 		return
@@ -700,11 +701,11 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
 		return
@@ -735,7 +736,7 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	stop(c, p)
 	statusInfo, err := m.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
 	s.checkNoOperations(c)
 }
 
@@ -802,7 +803,7 @@ var _ = gc.Suite(&MachineClassifySuite{})
 
 type MockMachine struct {
 	life          params.Life
-	status        params.Status
+	status        status.Status
 	id            string
 	idErr         error
 	ensureDeadErr error
@@ -821,7 +822,7 @@ func (m *MockMachine) EnsureDead() error {
 	return m.ensureDeadErr
 }
 
-func (m *MockMachine) Status() (params.Status, string, error) {
+func (m *MockMachine) Status() (status.Status, string, error) {
 	return m.status, "", m.statusErr
 }
 
@@ -832,7 +833,7 @@ func (m *MockMachine) Id() string {
 type machineClassificationTest struct {
 	description    string
 	life           params.Life
-	status         params.Status
+	status         status.Status
 	idErr          string
 	ensureDeadErr  string
 	expectErrCode  string
@@ -844,23 +845,23 @@ type machineClassificationTest struct {
 var machineClassificationTests = []machineClassificationTest{{
 	description:    "Dead machine is dead",
 	life:           params.Dead,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.Dead,
 }, {
 	description:    "Dying machine can carry on dying",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.None,
 }, {
 	description:    "Dying unprovisioned machine is ensured dead",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.Dead,
 	idErr:          params.CodeNotProvisioned,
 }, {
 	description:    "Can't load provisioned dying machine",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
 	expectErrCode:  params.CodeNotFound,
@@ -868,14 +869,14 @@ var machineClassificationTests = []machineClassificationTest{{
 }, {
 	description:    "Alive machine is not provisioned - pending",
 	life:           params.Alive,
-	status:         params.StatusPending,
+	status:         status.StatusPending,
 	classification: provisioner.Pending,
 	idErr:          params.CodeNotProvisioned,
 	expectErrFmt:   "found machine pending provisioning id:%s.*",
 }, {
 	description:    "Alive, pending machine not found",
 	life:           params.Alive,
-	status:         params.StatusPending,
+	status:         status.StatusPending,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
 	expectErrCode:  params.CodeNotFound,
@@ -889,7 +890,7 @@ var machineClassificationTests = []machineClassificationTest{{
 }, {
 	description:    "Dying machine fails to ensure dead",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.None,
 	idErr:          params.CodeNotProvisioned,
 	expectErrCode:  params.CodeNotFound,
@@ -900,14 +901,14 @@ var machineClassificationTests = []machineClassificationTest{{
 var machineClassificationTestsRequireMaintenance = machineClassificationTest{
 	description:    "Machine needs maintaining",
 	life:           params.Alive,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.Maintain,
 }
 
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
 	life:           params.Alive,
-	status:         params.StatusStarted,
+	status:         status.StatusStarted,
 	classification: provisioner.None,
 }
 
@@ -1014,11 +1015,11 @@ func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints
 	for time.Since(t0) < coretesting.LongWait {
 		statusInfo, err := machine.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
 		break
 	}
@@ -1376,7 +1377,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-thatsAllFolks:
 				return
 			case <-time.After(coretesting.ShortWait):
-				err := m3.SetStatus(state.StatusError, "info", map[string]interface{}{"transient": true})
+				err := m3.SetStatus(status.StatusError, "info", map[string]interface{}{"transient": true})
 				c.Assert(err, jc.ErrorIsNil)
 			}
 		}
@@ -1387,7 +1388,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	statusInfo, err := m4.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }

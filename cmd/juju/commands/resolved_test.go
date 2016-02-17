@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
@@ -95,7 +96,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetAgentStatus(state.StatusError, "lol borken", nil)
+		err = u.SetAgentStatus(status.StatusError, "lol borken", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -123,7 +124,7 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetAgentStatus(state.StatusError, "lol borken", nil)
+		err = u.SetAgentStatus(status.StatusError, "lol borken", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

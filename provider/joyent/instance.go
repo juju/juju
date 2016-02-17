@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type joyentInstance struct {
@@ -21,8 +22,12 @@ func (inst *joyentInstance) Id() instance.Id {
 	return instance.Id(inst.machine.Id)
 }
 
-func (inst *joyentInstance) Status() string {
-	return inst.machine.State
+func (inst *joyentInstance) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{
+		Status:  status.StatusUnknown,
+		Message: inst.machine.State,
+	}
+
 }
 
 func (inst *joyentInstance) Addresses() ([]network.Address, error) {

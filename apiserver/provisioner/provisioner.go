@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"
@@ -39,6 +40,15 @@ func init() {
 	// receive this additional information; otherwise they are
 	// compatible.
 	common.RegisterStandardFacade("Provisioner", 2, NewProvisionerAPI)
+}
+
+// InstanceStateCapableMachine represents a machine whose instance status
+// can be set and queried.
+type InstanceStateCapableMachine interface {
+	state.Entity
+
+	InstanceStatus() (status.StatusInfo, error)
+	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -335,10 +345,10 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		if err != nil {
 			continue
 		}
-		result.Status = params.Status(statusInfo.Status)
+		result.Status = status.Status(statusInfo.Status)
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
-		if result.Status != params.StatusError {
+		if result.Status != status.StatusError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.

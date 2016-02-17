@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -42,7 +43,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
-				Status: params.StatusError,
+				Status: status.StatusError,
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -61,9 +62,9 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		for i, result := range results {
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
-				Status: params.StatusAttaching,
+				Status: status.StatusAttaching,
 			})
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the filesystem creation.
 				reschedule = append(reschedule, ops[filesystemParams[i].Tag])
@@ -72,8 +73,8 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 				// that we will retry. When we distinguish between
 				// transient and permanent errors, we will set the
 				// status to "error" for permanent errors.
-				status.Status = params.StatusPending
-				status.Info = result.Error.Error()
+				entityStatus.Status = status.StatusPending
+				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to create %s: %v",
 					names.ReadableString(filesystemParams[i].Tag),
@@ -146,9 +147,9 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 			p := filesystemAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Filesystem.String(),
-				Status: params.StatusAttached,
+				Status: status.StatusAttached,
 			})
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the filesystem attachment.
 				id := params.MachineStorageId{
@@ -161,8 +162,8 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 				// indicate that we will retry. When we distinguish
 				// between transient and permanent errors, we will
 				// set the status to "error" for permanent errors.
-				status.Status = params.StatusAttaching
-				status.Info = result.Error.Error()
+				entityStatus.Status = status.StatusAttaching
+				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Filesystem),
@@ -212,7 +213,7 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
-				Status: params.StatusError,
+				Status: status.StatusError,
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -246,7 +247,7 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: params.StatusDestroying,
+				Status: status.StatusDestroying,
 				Info:   err.Error(),
 			})
 		}
@@ -292,17 +293,17 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 				// attachment, we'll have to check if
 				// there are any other attachments
 				// before saying the status "detached".
-				Status: params.StatusDetached,
+				Status: status.StatusDetached,
 			})
 			id := params.MachineStorageId{
 				MachineTag:    p.Machine.String(),
 				AttachmentTag: p.Filesystem.String(),
 			}
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if err != nil {
 				reschedule = append(reschedule, ops[id])
-				status.Status = params.StatusDetaching
-				status.Info = err.Error()
+				entityStatus.Status = status.StatusDetaching
+				entityStatus.Info = err.Error()
 				logger.Debugf(
 					"failed to detach %s from %s: %v",
 					names.ReadableString(p.Filesystem),

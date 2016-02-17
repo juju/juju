@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 )
 
 type machinerSuite struct {
@@ -54,16 +55,16 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	err := s.machine0.SetStatus(state.StatusStarted, "blah", nil)
+	err := s.machine0.SetStatus(status.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.SetStatus(state.StatusStopped, "foo", nil)
+	err = s.machine1.SetStatus(status.StatusStopped, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
-			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
-			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "machine-1", Status: status.StatusError, Info: "not really"},
+			{Tag: "machine-0", Status: status.StatusStopped, Info: "foobar"},
+			{Tag: "machine-42", Status: status.StatusStarted, Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,12 +79,12 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	// Verify machine 0 - no change.
 	statusInfo, err := s.machine0.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusStarted)
 	c.Assert(statusInfo.Message, gc.Equals, "blah")
 	// ...machine 1 is fine though.
 	statusInfo, err = s.machine1.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "not really")
 }
 

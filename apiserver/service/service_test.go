@@ -28,6 +28,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -2031,7 +2032,7 @@ func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err = unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -2108,7 +2109,7 @@ func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err = unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

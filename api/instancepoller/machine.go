@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // Machine represents a juju machine as seen by an instancepoller
@@ -117,31 +118,31 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 }
 
 // InstanceStatus returns the machine's instance status.
-func (m *Machine) InstanceStatus() (string, error) {
-	var results params.StringResults
+func (m *Machine) InstanceStatus() (params.StatusResult, error) {
+	var results params.StatusResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
 	err := m.facade.FacadeCall("InstanceStatus", args, &results)
 	if err != nil {
-		return "", errors.Trace(err)
+		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
 		err := errors.Errorf("expected 1 result, got %d", len(results.Results))
-		return "", err
+		return params.StatusResult{}, err
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", result.Error
+		return params.StatusResult{}, result.Error
 	}
-	return result.Result, nil
+	return result, nil
 }
 
 // SetInstanceStatus sets the instance status of the machine.
-func (m *Machine) SetInstanceStatus(status string) error {
+func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
-	args := params.SetInstancesStatus{Entities: []params.InstanceStatus{
-		{Tag: m.tag.String(), Status: status},
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: m.tag.String(), Status: status, Info: message, Data: data},
 	}}
 	err := m.facade.FacadeCall("SetInstanceStatus", args, &result)
 	if err != nil {
