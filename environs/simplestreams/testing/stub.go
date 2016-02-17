@@ -10,7 +10,7 @@ import (
 )
 
 type StubDataSource struct {
-	*testing.Stub
+	testing.Stub
 
 	DescriptionFunc      func() string
 	FetchFunc            func(path string) (io.ReadCloser, string, error)
@@ -23,7 +23,7 @@ type StubDataSource struct {
 
 func NewStubDataSource() *StubDataSource {
 	result := &StubDataSource{
-		Stub: &testing.Stub{},
+		Stub: testing.Stub{},
 		DescriptionFunc: func() string {
 			return ""
 		},

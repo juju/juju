@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,8 +16,6 @@ import (
 )
 
 type fetchDataSuite struct {
-	gitjujutesting.CleanupSuite
-
 	requireSigned bool
 	source        *testing.StubDataSource
 
@@ -29,22 +26,25 @@ type fetchDataSuite struct {
 var _ = gc.Suite(&fetchDataSuite{})
 
 func (s *fetchDataSuite) SetUpTest(c *gc.C) {
-	s.CleanupSuite.SetUpTest(c)
 	s.source = testing.NewStubDataSource()
 }
 
 func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithoutPublicKey(c *gc.C) {
 	s.requireSigned = true
-	s.expectedCalls = []string{"Fetch", "PublicSigningKey"}
+	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.readerData = signedData
 	s.expectedData = unsignedData[1:]
 	s.setupDataSource("")
+	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: failed to parse public key: openpgp: invalid argument: no armored data found`)
+}
 
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, testSigningKey)
-	// even though the data source does not specify public key,
-	// the code should try to figure out a public key to use.
-	// Bugs #1542127, #1542131
-	s.assertFetchData(c)
+func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithWrongPublicKey(c *gc.C) {
+	s.requireSigned = true
+	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
+	s.readerData = signedData
+	s.expectedData = unsignedData[1:]
+	s.setupDataSource(simplestreams.SimplestreamsJujuPublicKey)
+	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: openpgp: signature made by unknown entity`)
 }
 
 func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithPublicKey(c *gc.C) {

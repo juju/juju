@@ -235,3 +235,8 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 	strippedOut = strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 }
+
+func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
+	ds := imagesDataSources("test.me")
+	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
+}

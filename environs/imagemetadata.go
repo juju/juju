@@ -90,7 +90,13 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
+		// This data source does not require to contain signed data.
+		// However, it may still contain it.
+		// Since we will always try to read signed data first,
+		// we want to be able to try to read this signed data
+		// with a public key.
+		// Bugs #1542127, #1542131
+		sources = append(sources, simplestreams.NewURLSignedDataSource("image-metadata-url", userURL, imagemetadata.ImagePublicKey(), verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)

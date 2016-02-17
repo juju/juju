@@ -472,27 +472,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 	}
 	defer rc.Close()
 	if requireSigned {
-		publicKey := source.PublicSigningKey()
-		if publicKey == "" {
-			// Data sources may not require to contain signed data.
-			// These data sources may also not provide public key.
-			// However, they may still contain signed data.
-			// Since we will always try to read signed data first,
-			// we want to be able to try to read this signed data
-			// with public key known to Juju.
-			//
-			// When public key is not provided by the data source
-			// but signed data has been supplied,
-			// let's use user supplied public key or
-			// fall back to other-juju-known public key.
-			// Bugs #1542127, #1542131
-			publicKey, _ = UserPublicSigningKey()
-			if publicKey == "" {
-				// TODO (anastasiamac 2016-02-16) Do I need to consider imagemetadata.SimplestreamsImagesPublicKey here as well?
-				publicKey = SimplestreamsJujuPublicKey
-			}
-		}
-		data, err = DecodeCheckSignature(rc, publicKey)
+		data, err = DecodeCheckSignature(rc, source.PublicSigningKey())
 	} else {
 		data, err = ioutil.ReadAll(rc)
 	}
@@ -542,7 +522,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames, source.Priority(), requireSigned)
+			indexRef.Source = NewURLSignedDataSource("mirror", mirrorInfo.MirrorURL, source.PublicSigningKey(), utils.VerifySSLHostnames, source.Priority(), requireSigned)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)

@@ -159,7 +159,14 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLDataSource("sync tools source", sourceURL, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with public key with Juju-known public key for tools.
+	// Bugs #1542127, #1542131
+	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, simplestreams.SimplestreamsJujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.

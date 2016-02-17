@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -773,6 +774,27 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	// m.Version would be deduced from m.Series
 	m.Version = "14.04"
 	assertWrittenToState(c, m)
+
+}
+
+func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
+	dir, _, _ := createImageMetadata(c)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	called := false
+	s.PatchValue(&storeImageMetadataFromFiles, func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
+		called = true
+		c.Assert(source.PublicSigningKey(), gc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
+		return nil
+	})
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {

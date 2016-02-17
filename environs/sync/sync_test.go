@@ -167,6 +167,10 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, jc.ErrorIsNil)
 
+			ds, err := sync.SelectSourceDatasource(test.ctx)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ds.PublicSigningKey(), gc.Not(gc.Equals), "")
+
 			var uploaded []version.Binary
 			for v := range uploader.uploaded {
 				uploaded = append(uploaded, v)

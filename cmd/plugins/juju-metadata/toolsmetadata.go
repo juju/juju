@@ -123,9 +123,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
-		toolsList, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return err
@@ -140,6 +138,27 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		writeMirrors = envtools.WriteMirrors
 	}
 	return mergeAndWriteMetadata(targetStorage, toolsDir, c.stream, c.clean, toolsList, writeMirrors)
+}
+
+// extracted into a var for testing banefit
+var toolsDataSources = func(urls ...string) []simplestreams.DataSource {
+	dataSources := make([]simplestreams.DataSource, len(urls))
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with public key with Juju-known public key for tools.
+	// Bugs #1542127, #1542131
+	for i, url := range urls {
+		dataSources[i] = simplestreams.NewURLSignedDataSource(
+			"local source",
+			url,
+			simplestreams.SimplestreamsJujuPublicKey,
+			utils.VerifySSLHostnames,
+			simplestreams.CUSTOM_CLOUD_DATA,
+			false)
+	}
+	return dataSources
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also

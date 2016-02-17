@@ -76,7 +76,14 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource(conf.AgentMetadataURLKey, userURL, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
+
+		// This data source does not require to contain signed data.
+		// However, it may still contain it.
+		// Since we will always try to read signed data first,
+		// we want to be able to try to read this signed data
+		// with public key with Juju-known public key for tools.
+		// Bugs #1542127, #1542131
+		sources = append(sources, simplestreams.NewURLSignedDataSource(conf.AgentMetadataURLKey, userURL, simplestreams.SimplestreamsJujuPublicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)
