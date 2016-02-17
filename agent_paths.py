@@ -21,8 +21,10 @@ def main():
     for stanza in stanzas:
         path_hash = stanza['sha256']
         old_hash_urls[path_hash] = stanza['item_url']
-        path = os.path.join('agent', os.path.basename(stanza['path']))
-        path = re.sub('-win(2012(hv)?(r2)?|7|8|81)-', '-windows-', path)
+        agent_filename = stanza['path'].split('/')[-1]
+        path = 'agent/{}/{}'.format(stanza['version'], agent_filename)
+        path = re.sub('-win(2012(hv)?(r2)?|2016|7|8|81|10)-', '-windows-',
+                      path)
         paths_hashes.setdefault(path, stanza['sha256'])
         if paths_hashes[path] != path_hash:
             raise ValueError('Conflicting hash')
