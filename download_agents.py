@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import errno
 import json
 import os
 from urllib.request import urlopen
@@ -22,6 +23,11 @@ def main():
         else:
             print('Downloading: {}'.format(path), end='')
             sys.stdout.flush()
+            try:
+                os.makedirs(os.path.dirname(download['path']))
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
             with open(download['path'], 'wb') as target:
                 with urlopen(download['url']) as source:
                     while True:
