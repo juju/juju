@@ -359,6 +359,7 @@ func validPrepareAttrs() coretesting.Attrs {
 	return validAttrs().Delete("private-key")
 }
 
+// TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
 var prepareConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
