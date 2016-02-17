@@ -160,42 +160,31 @@ func newAPIFromStore(controllerName, modelName string, legacyStore configstore.S
 	if err != nil {
 		return nil, err
 	}
-	// Even though we are about to update API addresses based on
-	// APIHostPorts in cacheChangedAPIInfo, we first cache the
-	// addresses based on the provider lookup. This is because older API
-	// servers didn't return their HostPort information on Login, and we
-	// still want to cache our connection information to them.
-	if cachedInfo, ok := st.(apiStateCachedInfo); ok {
-		st = cachedInfo.Connection
-		if cachedInfo.cachedInfo != nil && info != nil {
-			// Cache the connection settings only if we used the
-			// environment config, but any errors are just logged
-			// as warnings, because they're not fatal.
-			err = cacheAPIInfo(st, info, store, cachedInfo.cachedInfo)
-			if err != nil {
-				logger.Warningf("cannot cache API connection settings: %v", err.Error())
-			} else {
-				logger.Infof("updated API connection settings cache")
-			}
-			addrConnectedTo, err = serverAddress(st.Addr())
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	// For older servers, the model tag or server tag may not be set.
-	// if they are not, we store empty values.
-	var modelUUID string
+	// TODO(wallyworld) - record changed model UUID?
+	//var modelUUID string
+	//if modelTag, err := st.ModelTag(); err == nil {
+	//	modelUUID = modelTag.Id()
+	//} else {
+	//	return nil, err
+	//}
 	var serverUUID string
-	if modelTag, err := st.ModelTag(); err == nil {
-		modelUUID = modelTag.Id()
-	}
 	if controllerTag, err := st.ControllerTag(); err == nil {
 		serverUUID = controllerTag.Id()
+	} else {
+		return nil, err
 	}
-	if localerr := cacheChangedAPIInfo(info, store, st.APIHostPorts(), addrConnectedTo, modelUUID, serverUUID); localerr != nil {
-		logger.Warningf("cannot cache API addresses: %v", localerr)
+	params := ControllerUpdateParams{
+		ControllerUUID: serverUUID,
+	}
+	hostPorts := st.APIHostPorts()
+	if len(hostPorts) == 0 {
+		hostPorts = [][]network.HostPort{{}}
+	}
+	if localerr := UpdateControllerAddresses(store, legacyStore, params, modelName, hostPorts, addrConnectedTo); localerr != nil {
+		if errors.Cause(localerr) != cachedAddressesExistErr {
+			logger.Warningf("cannot cache API addresses: %v", localerr)
+		}
 	}
 	return st, nil
 }
@@ -322,86 +311,6 @@ func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error)
 	return info, nil
 }
 
-// cacheAPIInfo updates the local environment settings (.jenv file)
-// with the provided apiInfo, assuming we've just successfully
-// connected to the API server.
-func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, controllerStore jujuclient.ControllerStore, apiInfo *api.Info) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
-	var modelUUID string
-	if names.IsValidModel(apiInfo.ModelTag.Id()) {
-		modelUUID = apiInfo.ModelTag.Id()
-	} else {
-		// For backwards-compatibility, we have to allow connections
-		// with an empty UUID. Login will work for the same reasons.
-		logger.Warningf("ignoring invalid cached API endpoint model UUID %v", apiInfo.ModelTag.Id())
-	}
-	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
-	if err != nil {
-		return errors.Annotatef(err, "invalid API addresses %v", apiInfo.Addrs)
-	}
-	addrConnectedTo, err := network.ParseHostPorts(st.Addr())
-	if err != nil {
-		// Should never happen, since we've just connected with it.
-		return errors.Annotatef(err, "invalid API address %q", st.Addr())
-	}
-	addrs, hostnames, addrsChanged := PrepareEndpointsForCaching(
-		info, [][]network.HostPort{hostPorts}, addrConnectedTo[0],
-	)
-
-	endpoint := configstore.APIEndpoint{
-		CACert:    string(apiInfo.CACert),
-		ModelUUID: modelUUID,
-	}
-	if addrsChanged {
-		endpoint.Addresses = addrs
-		endpoint.Hostnames = hostnames
-
-		// Only want to update controller file if connection details have changed.
-		if err := updateControllerInfo(controllerStore, info.APIEndpoint(), endpoint); err != nil {
-			return errors.Annotate(err, "could not update controller details")
-		}
-	}
-	info.SetAPIEndpoint(endpoint)
-	tag, ok := apiInfo.Tag.(names.UserTag)
-	if !ok {
-		return errors.Errorf("apiInfo.Tag was of type %T, expecting names.UserTag", apiInfo.Tag)
-	}
-	info.SetAPICredentials(configstore.APICredentials{
-		// This looks questionable. We have a tag, say "user-admin", but then only
-		// the Id portion of the tag is recorded, "admin", so this is really a
-		// username, not a tag, and cannot be reconstructed accurately.
-		User:     tag.Id(),
-		Password: apiInfo.Password,
-	})
-	return info.Write()
-}
-
-// updateControllerInfo should only be called when connection details have changed.
-func updateControllerInfo(controllerStore jujuclient.ControllerStore, existing, new configstore.APIEndpoint) error {
-	// Look up controller using its uuid.
-	all, err := controllerStore.AllControllers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var controllerDetails jujuclient.ControllerDetails
-	var controllerName string
-	for name, details := range all {
-		if details.ControllerUUID == existing.ServerUUID {
-			controllerDetails = details
-			controllerName = name
-			break
-		}
-	}
-	if controllerName == "" {
-		return errors.NotFoundf("controller name with uuid %v", existing.ServerUUID)
-	}
-
-	controllerDetails.Servers = new.Hostnames
-	controllerDetails.APIEndpoints = new.Addresses
-	return controllerStore.UpdateController(controllerName, controllerDetails)
-}
-
 var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {
 	// BootstrapConfig will exist in production environments after
 	// bootstrap, but for testing it's easier to mock this function.
@@ -442,7 +351,7 @@ var resolveOrDropHostnames = network.ResolveOrDropHostnames
 // This is used right after bootstrap to cache the initial API
 // endpoints, as well as on each CLI connection to verify if the
 // cached endpoints need updating.
-func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort) (addresses, hostnames []string, haveChanged bool) {
+func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort) (addresses, hostnames []string, haveChanged bool) {
 	processHostPorts := func(allHostPorts [][]network.HostPort) []network.HostPort {
 		collapsedHPs := network.CollapseHostPorts(allHostPorts)
 		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
@@ -453,10 +362,11 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 		preferIPv6 := maybePreferIPv6(info)
 		network.SortHostPorts(uniqueHPs, preferIPv6)
 
-		if addrConnectedTo.Value != "" {
-			return network.EnsureFirstHostPort(addrConnectedTo, uniqueHPs)
+		for _, addr := range addrConnectedTo {
+			if addr.Value != "" {
+				uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
+			}
 		}
-		// addrConnectedTo can be empty only right after bootstrap.
 		return uniqueHPs
 	}
 
@@ -506,43 +416,6 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 	return nil, nil, false
 }
 
-// cacheChangedAPIInfo updates the local environment settings (.jenv file)
-// with the provided API server addresses if they have changed. It will also
-// save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, controllerStore jujuclient.ControllerStore, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, modelUUID, serverUUID string) error {
-	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
-	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
-	endpoint := info.APIEndpoint()
-	needCaching := false
-	if endpoint.ModelUUID != modelUUID && modelUUID != "" {
-		endpoint.ModelUUID = modelUUID
-		needCaching = true
-	}
-	if endpoint.ServerUUID != serverUUID && serverUUID != "" {
-		endpoint.ServerUUID = serverUUID
-		needCaching = true
-	}
-	if addrsChanged {
-		endpoint.Addresses = addrs
-		endpoint.Hostnames = hosts
-		needCaching = true
-	}
-	if !needCaching {
-		return nil
-	}
-	info.SetAPIEndpoint(endpoint)
-	if err := info.Write(); err != nil {
-		return err
-	}
-
-	if err := updateControllerInfo(controllerStore, info.APIEndpoint(), endpoint); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Infof("updated API connection settings cache - endpoints %v", endpoint.Addresses)
-	return nil
-}
-
 // addrsChanged returns true iff the two
 // slices are not equal. Order is important.
 func addrsChanged(a, b []string) bool {
@@ -555,4 +428,86 @@ func addrsChanged(a, b []string) bool {
 		}
 	}
 	return false
+}
+
+var cachedAddressesExistErr = errors.New("cached API endpoints unexpectedly exist")
+
+// ControllerUpdateParams holds controller details for the UpdateControllerAddresses call.
+type ControllerUpdateParams struct {
+	ControllerName string
+	ControllerUUID string
+	CACert         string
+}
+
+// UpdateControllerAddresses writes any new api addresses to the client controller file.
+// Controller may be specified by a UUID, in which case the controller must already exist,
+// or a name, which may be a new or existing controller.
+func UpdateControllerAddresses(
+	store jujuclient.ControllerStore, legacystore configstore.Storage, params ControllerUpdateParams,
+	modelName string, currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+) error {
+	if params.ControllerName == "" && params.ControllerUUID == "" {
+		return errors.New("expected either controller name or UUID")
+	}
+
+	// TODO(wallyworld) - stop storing legacy controller info when
+	// all code ported across to use new yaml files.
+	info, err := legacystore.ReadInfo(modelName)
+	if err != nil {
+		return errors.Annotate(err, "failed to get connection info")
+	}
+	endpoint := info.APIEndpoint()
+
+	var controllerDetails *jujuclient.ControllerDetails
+	if params.ControllerName == "" {
+		// We expect an existing controller.
+		// Look up controller using its uuid.
+		all, err := store.AllControllers()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for name, details := range all {
+			if details.ControllerUUID == params.ControllerUUID {
+				controllerDetails = &details
+				params.ControllerName = name
+				break
+			}
+		}
+	} else {
+		// Look up the controller by name and create it if it doesn't exist.
+		var err error
+		controllerDetails, err = store.ControllerByName(params.ControllerName)
+		if errors.IsNotFound(err) {
+			controllerDetails = &jujuclient.ControllerDetails{
+				ControllerUUID: params.ControllerUUID,
+				CACert:         params.CACert,
+			}
+			endpoint.CACert = params.CACert
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if params.ControllerName == "" {
+		return errors.NotFoundf("controller name with uuid %v", params.ControllerUUID)
+	}
+
+	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, currentHostPorts, addrConnectedTo...)
+	if !addrsChanged {
+		// Something's wrong we already have cached addresses?
+		return cachedAddressesExistErr
+	}
+
+	endpoint.Addresses = addrs
+	endpoint.Hostnames = hosts
+	endpoint.ServerUUID = controllerDetails.ControllerUUID
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
+	if err != nil {
+		return errors.Annotate(err, "failed to write API endpoint to connection info")
+	}
+
+	controllerDetails.Servers = hosts
+	controllerDetails.APIEndpoints = addrs
+	err = store.UpdateController(params.ControllerName, *controllerDetails)
+	return errors.Trace(err)
 }

@@ -39,7 +39,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -55,6 +54,7 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
+	memstore        configstore.Storage
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -101,6 +101,10 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 			return nil, errors.New("space discovery still in progress")
 		}
 		return s.mockBlockClient, nil
+	})
+	s.memstore = configstore.NewMem()
+	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
+		return s.memstore, nil
 	})
 }
 
@@ -160,6 +164,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	} {
 		resetJujuXDGDataHome(c)
 		dummy.Reset()
+		s.memstore = configstore.NewMem()
 
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
@@ -245,23 +250,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	resetJujuXDGDataHome(c)
 	dummy.Reset()
 
-	// Although we're testing PrepareEndpointsForCaching interactions
-	// separately in the juju package, here we just ensure it gets
-	// called with the right arguments.
-	prepareCalled := false
 	addrConnectedTo := "localhost:17070"
-	restore := testing.PatchValue(
-		&prepareEndpointsForCaching,
-		func(info configstore.EnvironInfo, hps [][]network.HostPort, addr network.HostPort) (_, _ []string, _ bool) {
-			prepareCalled = true
-			addrs, hosts, changed := juju.PrepareEndpointsForCaching(info, hps, addr)
-			// Because we're bootstrapping the addresses will always
-			// change, as there's no .jenv file saved yet.
-			c.Assert(changed, jc.IsTrue)
-			return addrs, hosts, changed
-		},
-	)
-
+	var restore testing.Restorer = func() {
+		s.memstore = configstore.NewMem()
+	}
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
 		v := version.MustParseBinary(useVersion)
@@ -327,7 +319,6 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(hasCert, jc.IsTrue)
 	_, hasKey := cfg.CAPrivateKey()
 	c.Check(hasKey, jc.IsTrue)
-	c.Assert(prepareCalled, jc.IsTrue)
 	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{addrConnectedTo})
 
 	// Check controllers.yaml has controller

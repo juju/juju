@@ -50,4 +50,7 @@ type SecretKeyLoginResponsePayload struct {
 	// CACert is the CA certificate, required to establish a secure
 	// TLS connection to the Juju controller
 	CACert string `json:"ca-cert"`
+
+	// ControllerUUID is the UUID of the Juju controller.
+	ControllerUUID string `json:"controller-uuid"`
 }
