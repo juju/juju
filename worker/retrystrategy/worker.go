@@ -9,16 +9,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 )
 
-var logger = loggo.GetLogger("juju.worker.retrystrategy")
-
 // Facade defines the capabilities required by the worker from the API.
 type Facade interface {
-	RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error)
-	WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, error)
+	RetryStrategy(names.Tag) (params.RetryStrategy, error)
+	WatchRetryStrategy(names.Tag) (watcher.NotifyWatcher, error)
 }
 
 // WorkerConfig defines the worker's dependencies.
@@ -85,13 +82,11 @@ func (h retryStrategyHandler) SetUp() (watcher.NotifyWatcher, error) {
 // making the dependents bounce and get the new value
 func (h retryStrategyHandler) Handle(_ <-chan struct{}) error {
 	newRetryStrategy, err := h.config.Facade.RetryStrategy(h.config.AgentTag)
-	//TODO: Should an error be returned here or not?
 	if err != nil {
-		logger.Errorf("%v", err)
-	} else {
-		if newRetryStrategy != h.config.RetryStrategy {
-			return errors.Errorf("bouncing retrystrategy worker to get new values")
-		}
+		return errors.Trace(err)
+	}
+	if newRetryStrategy != h.config.RetryStrategy {
+		return errors.Errorf("bouncing retrystrategy worker to get new values")
 	}
 	return nil
 }

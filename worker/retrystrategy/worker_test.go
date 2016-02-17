@@ -60,6 +60,15 @@ func (s WorkerSuite) TestWatchError(c *gc.C) {
 	fix.CheckCallNames(c, "WatchRetryStrategy")
 }
 
+func (s WorkerSuite) TestGetStrategyError(c *gc.C) {
+	fix := newFixture(c, nil, errors.New("blackfridaybunduru"))
+	fix.Run(c, func(w worker.Worker) {
+		err := w.Wait()
+		c.Assert(err, gc.ErrorMatches, "blackfridaybunduru")
+	})
+	fix.CheckCallNames(c, "WatchRetryStrategy", "RetryStrategy")
+}
+
 func (s WorkerSuite) TestBounce(c *gc.C) {
 	fix := newFixture(c, nil, nil, nil)
 	fix.Run(c, func(w worker.Worker) {
