@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
@@ -42,6 +43,7 @@ type resources struct{}
 // for the component in a jujud context.
 func (r resources) registerForServer() error {
 	r.registerState()
+	r.registerAgentWorkers()
 	r.registerPublicFacade()
 	r.registerHookContext()
 	return nil
@@ -94,6 +96,16 @@ type resourcesAPIClient struct {
 // Close implements io.Closer.
 func (client resourcesAPIClient) Close() error {
 	return client.closeConnFunc()
+}
+
+// registerAgentWorkers adds the resources workers to the agents.
+func (r resources) registerAgentWorkers() {
+	if !markRegistered(resource.ComponentName, "agent-workers") {
+		return
+	}
+
+	factory := resourceadapters.NewWorkerFactory()
+	agent.RegisterWorker(resource.ComponentName+"-charmstore-poller", factory)
 }
 
 // registerState registers the state functionality for resources.
