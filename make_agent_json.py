@@ -12,8 +12,8 @@ from build_package import juju_series
 
 
 supported_windows_releases = (
-    'win2012', 'win2012hv', 'win2012hvr2', 'win2012r2', 'win7', 'win81',
-    'win8', 'win10',
+    'win2012', 'win2012hv', 'win2012hvr2', 'win2012r2', 'win2016',
+    'win2016nano', 'win7', 'win81', 'win8', 'win10',
     )
 
 

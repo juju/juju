@@ -20,6 +20,8 @@ AGENT_TEMPLATES = (
     'juju-{}-win2012hv-amd64.tgz',
     'juju-{}-win2012r2-amd64.tgz',
     'juju-{}-win2012-amd64.tgz',
+    'juju-{}-win2016-amd64.tgz',
+    'juju-{}-win2016nano-amd64.tgz',
     'juju-{}-win7-amd64.tgz',
     'juju-{}-win8-amd64.tgz',
     'juju-{}-win81-amd64.tgz',
