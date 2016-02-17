@@ -5,6 +5,7 @@ package usermanager_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,6 +38,29 @@ func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.Name(), gc.Equals, "foobar")
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
 	c.Assert(user.PasswordValid("password"), jc.IsTrue)
+}
+
+func (s *usermanagerSuite) TestAddUserWithSharedModel(c *gc.C) {
+	sharedModelState := s.Factory.MakeModel(c, nil)
+	defer sharedModelState.Close()
+
+	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", sharedModelState.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check model is shared with expected users.
+	sharedModel, err := sharedModelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	users, err := sharedModel.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 2)
+	var modelUserTags = make([]names.UserTag, len(users))
+	for i, u := range users {
+		modelUserTags[i] = u.UserTag()
+	}
+	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
+		tag,
+		names.NewLocalUserTag("admin"),
+	})
 }
 
 func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {

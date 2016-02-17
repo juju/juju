@@ -31,13 +31,23 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AddUser creates a new local user in the juju server.
-func (c *Client) AddUser(username, displayName, password string) (_ names.UserTag, secretKey []byte, _ error) {
+// AddUser creates a new local user in the controller, sharing with that user any specified models.
+func (c *Client) AddUser(
+	username, displayName, password string, modelUUIDs ...string,
+) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
 		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
 	}
+	modelTags := make([]string, len(modelUUIDs))
+	for i, uuid := range modelUUIDs {
+		modelTags[i] = names.NewModelTag(uuid).String()
+	}
 	userArgs := params.AddUsers{
-		Users: []params.AddUser{{Username: username, DisplayName: displayName, Password: password}},
+		Users: []params.AddUser{{
+			Username:        username,
+			DisplayName:     displayName,
+			Password:        password,
+			SharedModelTags: modelTags}},
 	}
 	var results params.AddUserResults
 	err := c.facade.FacadeCall("AddUser", userArgs, &results)

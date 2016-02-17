@@ -14,6 +14,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
@@ -31,11 +32,18 @@ type CommandBase interface {
 	closeContext()
 }
 
+// ModelAPI provides access to the model client facade methods.
+type ModelAPI interface {
+	ListModels(user string) ([]base.UserModel, error)
+	Close() error
+}
+
 // JujuCommandBase is a convenience type for embedding that need
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
 	apiContext *apiContext
+	modelApi   ModelAPI
 }
 
 // closeContext closes the command's API context
@@ -46,6 +54,23 @@ func (c *JujuCommandBase) closeContext() {
 			logger.Errorf("%v", err)
 		}
 	}
+}
+
+// SetModelApi sets the api used to access model information.
+func (c *JujuCommandBase) SetModelApi(api ModelAPI) {
+	c.modelApi = api
+}
+
+func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
+	if c.modelApi != nil {
+		return c.modelApi, nil
+	}
+	conn, err := c.NewAPIRoot(store, controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.modelApi = modelmanager.NewClient(conn)
+	return c.modelApi, nil
 }
 
 // NewAPIRoot returns a new connection to the API server for the given
@@ -92,11 +117,12 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	if err != nil {
 		return errors.Trace(err)
 	}
-	conn, err := c.NewAPIRoot(store, controllerName, "")
+
+	modelManager, err := c.modelAPI(store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer conn.Close()
+	defer modelManager.Close()
 
 	// TODO(axw) remove this when we stop using configstore.
 	legacyStore, err := configstore.Default()
@@ -113,7 +139,6 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 		return errors.Trace(err)
 	}
 
-	modelManager := modelmanager.NewClient(conn)
 	models, err := modelManager.ListModels(accountDetails.User)
 	if err != nil {
 		return errors.Trace(err)

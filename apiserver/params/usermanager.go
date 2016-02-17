@@ -42,8 +42,9 @@ type AddUsers struct {
 
 // AddUser stores the parameters to add one user.
 type AddUser struct {
-	Username    string `json:"username"`
-	DisplayName string `json:"display-name"`
+	Username        string   `json:"username"`
+	DisplayName     string   `json:"display-name"`
+	SharedModelTags []string `json:"shared-model-tags"`
 
 	// Password is optional. If it is empty, then
 	// a secret key will be generated for the user
