@@ -76,7 +76,6 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/conv2state"
@@ -129,7 +128,6 @@ var (
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
-	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
@@ -485,6 +483,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err != nil {
 			return nil, err
 		}
+
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{a},
@@ -494,6 +493,10 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			OpenState:            a.openState,
+			NewApiserverWorker:   a.newApiserverWorker,
+			ChangeConfig:         a.ChangeConfig,
+			CertChangedChan:      make(chan params.StateServingInfo, 1),
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -1041,20 +1044,31 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func (a *MachineAgent) openState() (_ *state.State, _ *state.Machine, err error) {
+	agentConfig := a.CurrentConfig()
+
+	// Start MongoDB server and dial.
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, nil, err
+	}
+	st, m, err := openState(agentConfig, stateWorkerDialOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	reportOpenedState(st)
+
+	return st, m, nil
+}
+
 // StateWorker returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	// Start MongoDB server and dial.
-	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, err
-	}
-	st, m, err := openState(agentConfig, stateWorkerDialOpts)
+	st, m, err := a.openState()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	reportOpenedState(st)
 
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)
@@ -1091,6 +1105,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
 			})
 
+			// TODO(waigani) apiserver is now also started via the dependency
+			// engine. Once dblogpruner and txnpruner are moved over, remove
+			// apiserver.
+
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
 			// workers.  It is possible that multiple cert changes
@@ -1114,21 +1132,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return st, err
 			}
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
-				return a.ChangeConfig(func(config agent.ConfigSetter) error {
-					config.SetStateServingInfo(info)
-					logger.Infof("update apiserver worker with new certificate")
-					select {
-					case certChangedChan <- info:
-						return nil
-					case <-done:
-						return nil
-					}
-				})
-			}
-			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
-			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
 				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil

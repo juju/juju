@@ -67,7 +67,7 @@ type APIHostPortsGetter interface {
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new controller certificate with those
 // addresses in the certificate's SAN value.
-func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
+var NewCertificateUpdater = func(addressWatcher AddressWatcher, getter StateServingInfoGetter,
 	configGetter ModelConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
 ) worker.Worker {
 	return legacy.NewNotifyWorker(&CertificateUpdater{
