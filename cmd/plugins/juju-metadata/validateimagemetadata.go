@@ -233,12 +233,6 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 }
 
 var imagesDataSources = func(urls ...string) []simplestreams.DataSource {
-	// This data source does not require to contain signed data.
-	// However, it may still contain it.
-	// Since we will always try to read signed data first,
-	// we want to be able to try to read this signed data
-	// with a public key.
-	// Bugs #1542127, #1542131
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	for i, url := range urls {
 		dataSources[i] = simplestreams.NewURLSignedDataSource(

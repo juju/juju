@@ -352,5 +352,11 @@ Finding tools in .*
 
 func (s *ToolsMetadataSuite) TestToolsDataSourceHasKey(c *gc.C) {
 	ds := toolsDataSources("test.me")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with public key with Juju-known public key for tools.
+	// Bugs #1542127, #1542131
 	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, simplestreams.SimplestreamsJujuPublicKey)
 }

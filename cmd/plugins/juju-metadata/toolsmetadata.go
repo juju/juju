@@ -143,12 +143,6 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 // extracted into a var for testing banefit
 var toolsDataSources = func(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
-	// This data source does not require to contain signed data.
-	// However, it may still contain it.
-	// Since we will always try to read signed data first,
-	// we want to be able to try to read this signed data
-	// with public key with Juju-known public key for tools.
-	// Bugs #1542127, #1542131
 	for i, url := range urls {
 		dataSources[i] = simplestreams.NewURLSignedDataSource(
 			"local source",

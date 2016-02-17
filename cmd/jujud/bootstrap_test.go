@@ -789,6 +789,12 @@ func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
 	called := false
 	s.PatchValue(&storeImageMetadataFromFiles, func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
 		called = true
+		// This data source does not require to contain signed data.
+		// However, it may still contain it.
+		// Since we will always try to read signed data first,
+		// we want to be able to try to read this signed data
+		// with a public key.
+		// Bugs #1542127, #1542131
 		c.Assert(source.PublicSigningKey(), gc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
 		return nil
 	})

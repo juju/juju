@@ -598,6 +598,12 @@ type SourceDetails struct {
 }
 
 func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetails []SourceDetails) {
+	// Some data sources do not require to contain signed data.
+	// However, they may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a public key. Check keys are provided where needed.
+	// Bugs #1542127, #1542131
 	for i, source := range obtained {
 		url, err := source.URL("")
 		c.Assert(err, jc.ErrorIsNil)

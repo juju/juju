@@ -302,6 +302,12 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 3)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a public key.
+	// Bugs #1542127, #1542131
 	c.Assert(datasources[0].PublicSigningKey(), gc.Not(gc.Equals), "")
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
