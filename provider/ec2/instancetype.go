@@ -702,7 +702,6 @@ var allRegionCosts = regionCosts{
 		"m3.xlarge":  381,
 		"m3.2xlarge": 761,
 
-
 		"c1.medium": 179,
 		"c1.xlarge": 718,
 
@@ -803,7 +802,6 @@ var allRegionCosts = regionCosts{
 		"m4.2xlarge":  559,
 		"m4.4xlarge":  1117,
 		"m4.10xlarge": 2793,
-
 
 		"c1.medium": 148,
 		"c1.xlarge": 592,
