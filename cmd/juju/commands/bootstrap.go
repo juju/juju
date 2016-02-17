@@ -659,9 +659,13 @@ func (c *bootstrapCommand) setBootstrapEndpointAddress(
 	apiPort := cfg.APIPort()
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
 
+	controllerDetails, err := c.ClientStore().ControllerByName(c.controllerName)
+	if err != nil {
+		return errors.Annotate(err, "failed to get controller information")
+	}
 	params := juju.ControllerUpdateParams{
 		ControllerName: c.controllerName,
+		ControllerUUID: controllerDetails.ControllerUUID,
 	}
-	fullModelName := configstore.EnvironInfoName(c.controllerName, cfg.Name())
-	return juju.UpdateControllerAddresses(c.ClientStore(), legacyStore, params, fullModelName, nil, apiHostPorts...)
+	return juju.UpdateControllerAddresses(c.ClientStore(), legacyStore, params, nil, apiHostPorts...)
 }

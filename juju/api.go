@@ -161,13 +161,6 @@ func newAPIFromStore(controllerName, modelName string, legacyStore configstore.S
 		return nil, err
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	// TODO(wallyworld) - record changed model UUID?
-	//var modelUUID string
-	//if modelTag, err := st.ModelTag(); err == nil {
-	//	modelUUID = modelTag.Id()
-	//} else {
-	//	return nil, err
-	//}
 	var serverUUID string
 	if controllerTag, err := st.ControllerTag(); err == nil {
 		serverUUID = controllerTag.Id()
@@ -178,13 +171,8 @@ func newAPIFromStore(controllerName, modelName string, legacyStore configstore.S
 		ControllerUUID: serverUUID,
 	}
 	hostPorts := st.APIHostPorts()
-	if len(hostPorts) == 0 {
-		hostPorts = [][]network.HostPort{{}}
-	}
-	if localerr := UpdateControllerAddresses(store, legacyStore, params, modelName, hostPorts, addrConnectedTo); localerr != nil {
-		if errors.Cause(localerr) != cachedAddressesExistErr {
-			logger.Warningf("cannot cache API addresses: %v", localerr)
-		}
+	if localerr := UpdateControllerAddresses(store, legacyStore, params, hostPorts, addrConnectedTo); localerr != nil {
+		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
 }
@@ -363,9 +351,7 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 		network.SortHostPorts(uniqueHPs, preferIPv6)
 
 		for _, addr := range addrConnectedTo {
-			if addr.Value != "" {
-				uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
-			}
+			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
 		}
 		return uniqueHPs
 	}
@@ -430,37 +416,24 @@ func addrsChanged(a, b []string) bool {
 	return false
 }
 
-var cachedAddressesExistErr = errors.New("cached API endpoints unexpectedly exist")
-
 // ControllerUpdateParams holds controller details for the UpdateControllerAddresses call.
 type ControllerUpdateParams struct {
 	ControllerName string
 	ControllerUUID string
-	CACert         string
 }
 
 // UpdateControllerAddresses writes any new api addresses to the client controller file.
-// Controller may be specified by a UUID, in which case the controller must already exist,
-// or a name, which may be a new or existing controller.
+// Controller may be specified by a UUID or name, and must already exist.
 func UpdateControllerAddresses(
 	store jujuclient.ControllerStore, legacystore configstore.Storage, params ControllerUpdateParams,
-	modelName string, currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
 	if params.ControllerName == "" && params.ControllerUUID == "" {
 		return errors.New("expected either controller name or UUID")
 	}
 
-	// TODO(wallyworld) - stop storing legacy controller info when
-	// all code ported across to use new yaml files.
-	info, err := legacystore.ReadInfo(modelName)
-	if err != nil {
-		return errors.Annotate(err, "failed to get connection info")
-	}
-	endpoint := info.APIEndpoint()
-
 	var controllerDetails *jujuclient.ControllerDetails
 	if params.ControllerName == "" {
-		// We expect an existing controller.
 		// Look up controller using its uuid.
 		all, err := store.AllControllers()
 		if err != nil {
@@ -474,16 +447,10 @@ func UpdateControllerAddresses(
 			}
 		}
 	} else {
-		// Look up the controller by name and create it if it doesn't exist.
+		// Look up the controller by name.
 		var err error
 		controllerDetails, err = store.ControllerByName(params.ControllerName)
-		if errors.IsNotFound(err) {
-			controllerDetails = &jujuclient.ControllerDetails{
-				ControllerUUID: params.ControllerUUID,
-				CACert:         params.CACert,
-			}
-			endpoint.CACert = params.CACert
-		} else if err != nil {
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -491,21 +458,59 @@ func UpdateControllerAddresses(
 		return errors.NotFoundf("controller name with uuid %v", params.ControllerUUID)
 	}
 
-	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, currentHostPorts, addrConnectedTo...)
-	if !addrsChanged {
-		// Something's wrong we already have cached addresses?
-		return cachedAddressesExistErr
-	}
-
-	endpoint.Addresses = addrs
-	endpoint.Hostnames = hosts
-	endpoint.ServerUUID = controllerDetails.ControllerUUID
-	info.SetAPIEndpoint(endpoint)
-	err = info.Write()
+	// TODO(wallyworld) - stop storing legacy controller info when all code ported across to use new yaml files.
+	var controllerInfo configstore.EnvironInfo
+	var matchingModelInfos []configstore.EnvironInfo
+	// Get all the controller names.
+	systemNames, err := legacystore.ListSystems()
 	if err != nil {
-		return errors.Annotate(err, "failed to write API endpoint to connection info")
+		return errors.Annotate(err, "failed to get legacy controller connection names")
+	}
+	// Get all the model names.
+	infoNames, err := legacystore.List()
+	if err != nil {
+		return errors.Annotate(err, "failed to get legacy connection names")
+	}
+	infoNames = append(infoNames, systemNames...)
+
+	// Figure out what we need to update.
+	for _, name := range infoNames {
+		info, err := legacystore.ReadInfo(name)
+		if err != nil {
+			return errors.Annotate(err, "failed to read legacy connection info")
+		}
+		ep := info.APIEndpoint()
+		if ep.ServerUUID == params.ControllerUUID {
+			if ep.ServerUUID == ep.ModelUUID || ep.ModelUUID == "" {
+				controllerInfo = info
+			}
+			matchingModelInfos = append(matchingModelInfos, info)
+		}
+	}
+	if controllerInfo == nil {
+		return errors.New("cannot update addresses, no controllers found")
 	}
 
+	// Get the new endpoint addresses.
+	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(controllerInfo, currentHostPorts, addrConnectedTo...)
+	if !addrsChanged {
+		return nil
+	}
+
+	// Write the legacy data.
+	for _, info := range matchingModelInfos {
+		endpoint := info.APIEndpoint()
+		endpoint.Addresses = addrs
+		endpoint.Hostnames = hosts
+		endpoint.ServerUUID = controllerDetails.ControllerUUID
+		info.SetAPIEndpoint(endpoint)
+		err = info.Write()
+		if err != nil {
+			return errors.Annotate(err, "failed to write API endpoint to connection info")
+		}
+	}
+
+	// Write the new controller data.
 	controllerDetails.Servers = hosts
 	controllerDetails.APIEndpoints = addrs
 	err = store.UpdateController(params.ControllerName, *controllerDetails)

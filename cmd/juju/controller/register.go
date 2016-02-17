@@ -154,6 +154,9 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unmarshalling response payload")
 	}
 
+	endpoint := controllerInfo.APIEndpoint()
+	endpoint.CACert = responsePayload.CACert
+	controllerInfo.SetAPIEndpoint(endpoint)
 	// TODO(wallyworld) - update accounts.yaml
 	controllerInfo.SetAPICredentials(configstore.APICredentials{
 		User:     registrationParams.userTag.Id(),
@@ -164,16 +167,22 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Store the controller information.
-	params := juju.ControllerUpdateParams{
-		ControllerName: registrationParams.controllerName,
+	controllerDetails := jujuclient.ControllerDetails{
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
+	}
+	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+		return errors.Trace(err)
 	}
 	hostPorts, err := network.ParseHostPorts(registrationParams.controllerAddrs...)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := juju.UpdateControllerAddresses(c.store, legacyStore, params, fullModelName, nil, hostPorts...); err != nil {
+	params := juju.ControllerUpdateParams{
+		ControllerName: registrationParams.controllerName,
+		ControllerUUID: responsePayload.ControllerUUID,
+	}
+	if err := juju.UpdateControllerAddresses(c.store, legacyStore, params, nil, hostPorts...); err != nil {
 		return errors.Trace(err)
 	}
 

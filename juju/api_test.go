@@ -733,8 +733,9 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 	c.Assert(err, jc.ErrorIsNil)
 	params := juju.ControllerUpdateParams{
 		ControllerName: "controller-name1",
+		ControllerUUID: fakeUUID,
 	}
-	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, params, "controller-name1", s.hostPorts, s.apiHostPort)
+	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, params, s.hostPorts, s.apiHostPort)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err = s.store.ReadInfo("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -751,8 +752,9 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 	c.Assert(err, jc.ErrorIsNil)
 	params := juju.ControllerUpdateParams{
 		ControllerName: "controller-name1",
+		ControllerUUID: fakeUUID,
 	}
-	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, params, "controller-name1", s.hostPorts, s.apiHostPort)
+	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, params, s.hostPorts, s.apiHostPort)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err = s.store.ReadInfo("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -777,7 +779,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{hps}, network.HostPort{},
+		info, [][]network.HostPort{hps},
 	)
 	c.Assert(addrs, gc.IsNil)
 	c.Assert(hosts, gc.IsNil)
@@ -825,7 +827,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		info, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, jc.DeepEquals, strResolved)
 	c.Assert(hosts, jc.DeepEquals, strSorted)
@@ -873,7 +875,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		info, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, gc.IsNil)
 	c.Assert(hosts, gc.IsNil)
@@ -917,7 +919,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		info, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, jc.DeepEquals, strResolved)
 	c.Assert(hosts, jc.DeepEquals, strSorted)

@@ -143,13 +143,12 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (*
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	st *state.State,
 ) (*params.SecretKeyLoginResponsePayload, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
+	if !st.IsController() {
+		return nil, errors.New("state is not for a controller")
 	}
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         st.CACert(),
-		ControllerUUID: model.ControllerUUID(),
+		ControllerUUID: st.ModelUUID(),
 	}
 	return &payload, nil
 }
