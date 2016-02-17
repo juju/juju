@@ -190,7 +190,7 @@ class AgentArchive(TestCase):
         nv_mock.assert_called_with(
             os.path.abspath('juju-1.21.0-win2012-amd64.tgz'),
             None, verbose=False)
-        self.assertEqual(7, mock.call_count)
+        self.assertEqual(8, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
