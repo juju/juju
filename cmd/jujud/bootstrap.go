@@ -467,12 +467,14 @@ var seriesFromVersion = series.VersionSeries
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	datasource := simplestreams.NewURLSignedDataSource("custom", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 	return storeImageMetadataFromFiles(st, env, datasource)
 }
 
 // storeImageMetadataFromFiles puts image metadata found in sources into state.
-func storeImageMetadataFromFiles(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
+// Declared as var to facilitate tests.
+var storeImageMetadataFromFiles = func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); ok {

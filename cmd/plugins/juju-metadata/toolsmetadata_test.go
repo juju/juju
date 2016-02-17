@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -347,4 +348,15 @@ Finding tools in .*
 		FileType: "tar.gz",
 		SHA256:   sha256,
 	})
+}
+
+func (s *ToolsMetadataSuite) TestToolsDataSourceHasKey(c *gc.C) {
+	ds := toolsDataSources("test.me")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with public key with Juju-known public key for tools.
+	// Bugs #1542127, #1542131
+	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, simplestreams.SimplestreamsJujuPublicKey)
 }

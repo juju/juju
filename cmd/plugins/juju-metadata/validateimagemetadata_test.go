@@ -235,3 +235,14 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 	strippedOut = strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 }
+
+func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
+	ds := imagesDataSources("test.me")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a user provided public key. For this test, none is provided.
+	// Bugs #1542127, #1542131
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, "")
+}
