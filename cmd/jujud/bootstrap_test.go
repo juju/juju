@@ -109,7 +109,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
@@ -770,6 +770,33 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	// m.Version would be deduced from m.Series
 	m.Version = "14.04"
 	assertWrittenToState(c, m)
+
+}
+
+func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
+	dir, _, _ := createImageMetadata(c)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	called := false
+	s.PatchValue(&storeImageMetadataFromFiles, func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
+		called = true
+		// This data source does not require to contain signed data.
+		// However, it may still contain it.
+		// Since we will always try to read signed data first,
+		// we want to be able to try to read this signed data
+		// with a user provided public key. For this test, none is provided.
+		// Bugs #1542127, #1542131
+		c.Assert(source.PublicSigningKey(), gc.Equals, "")
+		return nil
+	})
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
