@@ -23,11 +23,14 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/worker/upgradewaiter"
 	"github.com/juju/juju/worker/util"
+	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -78,9 +81,16 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
+
+	// Clock is used by the storageprovisioner worker.
+	Clock clock.Clock
+
+	// Socpe is used by storageprovisioner worker to determine what if it is
+	// provisioning storage for an environment or a machine.
+	Scope names.Tag
 }
 
-// Manifolds returns a set of co-configured manifolds covering the
+// Manifolds returns ea set of co-configured manifolds covering the
 // various responsibilities of a machine agent.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
@@ -261,10 +271,28 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 		}),
+
 		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
+		// NewStorageProvisioner returns a Worker which manages
+		// provisioning (deprovisioning), and attachment (detachment)
+		// of first-class volumes and filesystems.
+		//
+		// Machine-scoped storage workers will be provided with
+		// a storage directory, while environment-scoped workers
+		// will not. If the directory path is non-empty, then it
+		// will be passed to the storage source via its config.
+		storageprovisionerName: storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName},
+			Clock: config.Clock,
+			Scope: config.Scope,
 		}),
 	}
 }
@@ -291,4 +319,5 @@ const (
 	logSenderName            = "log-sender"
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
+	storageprovisionerName   = "storage-provisioner-machine"
 )

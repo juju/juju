@@ -4,59 +4,52 @@
 package storageprovisioner
 
 import (
+	"path/filepath"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig defines a storage provisioner's configuration and dependencies.
 type ManifoldConfig struct {
-	APICallerName string
-	ClockName     string
-
-	Scope      names.Tag
-	StorageDir string
+	util.PostUpgradeManifoldConfig
+	Clock clock.Clock
+	Scope names.Tag
 }
 
 // Manifold returns a dependency.Manifold that runs a storage provisioner.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.ClockName},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-
-			var clock clock.Clock
-			if err := getResource(config.ClockName, &clock); err != nil {
-				return nil, errors.Trace(err)
-			}
-			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			api, err := storageprovisioner.NewState(apiCaller, config.Scope)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			w, err := NewStorageProvisioner(Config{
-				Scope:       config.Scope,
-				StorageDir:  config.StorageDir,
-				Volumes:     api,
-				Filesystems: api,
-				Life:        api,
-				Environ:     api,
-				Machines:    api,
-				Status:      api,
-				Clock:       clock,
-			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return w, nil
-		},
+	newWorker := func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+		cfg := a.CurrentConfig()
+		api, err := storageprovisioner.NewState(apiCaller, cfg.Tag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storageDir := filepath.Join(cfg.DataDir(), "storage")
+		w, err := NewStorageProvisioner(Config{
+			Scope:       config.Scope,
+			StorageDir:  storageDir,
+			Volumes:     api,
+			Filesystems: api,
+			Life:        api,
+			Environ:     api,
+			Machines:    api,
+			Status:      api,
+			Clock:       config.Clock,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	}
+
+	return util.PostUpgradeManifold(config.PostUpgradeManifoldConfig, newWorker)
 }
