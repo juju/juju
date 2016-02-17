@@ -423,6 +423,7 @@ class EnvJujuClient:
             'application-id',
             'application-password',
             'auth-url',
+            'bootstrap-host',
             'client-email',
             'client-id',
             'control-bucket',
@@ -1812,6 +1813,8 @@ class JujuData(SimpleEnvironment):
             return matcher.match(self.config['sdc-url']).group(1)
         elif provider == 'lxd':
             return 'localhost'
+        elif provider == 'manual':
+            return self.config['bootstrap-host']
         elif provider in ('maas', 'manual'):
             return None
         else:
