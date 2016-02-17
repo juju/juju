@@ -204,6 +204,7 @@ type ServiceDeploy struct {
 	Networks         []string
 	Storage          map[string]storage.Constraints
 	EndpointBindings map[string]string
+	Resources        map[string]string
 }
 
 // ServiceUpdate holds the parameters for making the service Update call.

@@ -130,3 +130,51 @@ func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, 
 		},
 	)
 }
+
+// StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.
+type StubFacadeCaller struct {
+	// Stub is the raw stub used to track calls and errors.
+	Stub *testing.Stub
+	// These control the values returned by the stub's methods.
+	FacadeCallFn         func(name string, params, response interface{}) error
+	ReturnName           string
+	ReturnBestAPIVersion int
+	ReturnRawAPICaller   base.APICaller
+}
+
+// FacadeCall implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) FacadeCall(request string, params, response interface{}) error {
+	s.Stub.AddCall("FacadeCall", request, params, response)
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if s.FacadeCallFn != nil {
+		return s.FacadeCallFn(request, params, response)
+	}
+	return nil
+}
+
+// Name implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) Name() string {
+	s.Stub.AddCall("Name")
+	s.Stub.PopNoErr()
+
+	return s.ReturnName
+}
+
+// BestAPIVersion implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) BestAPIVersion() int {
+	s.Stub.AddCall("BestAPIVersion")
+	s.Stub.PopNoErr()
+
+	return s.ReturnBestAPIVersion
+}
+
+// RawAPICaller implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) RawAPICaller() base.APICaller {
+	s.Stub.AddCall("RawAPICaller")
+	s.Stub.PopNoErr()
+
+	return s.ReturnRawAPICaller
+}
