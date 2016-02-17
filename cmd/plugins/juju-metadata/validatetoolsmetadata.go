@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
@@ -203,9 +202,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
-			"local metadata directory", toolsURL, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false),
-		}
+		params.Sources = toolsDataSources(toolsURL)
 	}
 	params.Stream = c.stream
 

@@ -4,10 +4,10 @@
 package tools
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/version"

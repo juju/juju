@@ -159,6 +159,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
 
+	jujud.Register(NewUpgradeMongoCommand())
+
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }
