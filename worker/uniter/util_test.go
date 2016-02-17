@@ -241,8 +241,8 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
-	c.Logf("ctx.hooks: %#v", ctx.hooks)
+	c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
+	c.Logf("expected hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
@@ -807,6 +807,8 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 				return
 			}
 		case <-timeout:
+			c.Logf("expected hooks: %#v", ctx.hooks)
+			c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
 			c.Fatalf("never got expected hooks")
 		}
 	}

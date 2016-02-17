@@ -49,6 +49,7 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 }
 
 func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	logger.Infof("Creating new upgrade op for %q", charmURL)
 	op, err := s.Factory.NewUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -99,10 +100,12 @@ func trimCompletedActions(pendingActions []string, completedActions map[string]s
 }
 
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
+	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL
 		s.LocalState.Restart = true
 		s.LocalState.Conflicted = false
+		s.LocalState.CharmModifiedVersion = charmModifiedVersion
 	}}
 }
 

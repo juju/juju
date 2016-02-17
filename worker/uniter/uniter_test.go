@@ -493,7 +493,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
+func (s *UniterSuite) TestUniterSteadyStateUpgrade1(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from steady state.
 		ut(
@@ -513,7 +513,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyCharm{revision: 1},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgrade2(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"steady state forced upgrade (identical behaviour)",
 			quickStart{},
 			createCharm{revision: 1},
@@ -530,7 +536,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyCharm{revision: 1},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgrade3(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"steady state upgrade hook fail and resolve",
 			quickStart{},
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
@@ -560,7 +572,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			},
 			waitHooks{"config-changed"},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgrade4(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"steady state upgrade hook fail and retry",
 			quickStart{},
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
@@ -599,7 +617,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgrade5(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			// This test does an add-relation as quickly as possible
 			// after an upgrade-charm, in the hope that the scheduler will
 			// deliver the events in the wrong order. The observed
