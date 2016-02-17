@@ -20,9 +20,12 @@ AGENT_TEMPLATES = (
     'juju-{}-win2012hv-amd64.tgz',
     'juju-{}-win2012r2-amd64.tgz',
     'juju-{}-win2012-amd64.tgz',
+    'juju-{}-win2016-amd64.tgz',
+    'juju-{}-win2016nano-amd64.tgz',
     'juju-{}-win7-amd64.tgz',
     'juju-{}-win8-amd64.tgz',
     'juju-{}-win81-amd64.tgz',
+    'juju-{}-win10-amd64.tgz',
 )
 # The versions of agent that may or will exist. The agents will
 # always start with juju, the series will start with "win" and the
