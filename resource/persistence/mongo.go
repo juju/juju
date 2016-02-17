@@ -236,6 +236,8 @@ type resourceDoc struct {
 	Username  string    `bson:"username"`
 	Timestamp time.Time `bson:"timestamp-when-added"`
 
+	Outdated bool `bson:"outdated"`
+
 	StoragePath string `bson:"storage-path"`
 }
 
@@ -269,6 +271,8 @@ func resource2doc(id string, stored storedResource) *resourceDoc {
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
+
+		Outdated: res.Outdated,
 
 		StoragePath: stored.storagePath,
 	}
@@ -325,6 +329,7 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 		ServiceID: doc.ServiceID,
 		Username:  doc.Username,
 		Timestamp: doc.Timestamp,
+		Outdated:  doc.Outdated,
 	}
 	if err := res.Validate(); err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")
