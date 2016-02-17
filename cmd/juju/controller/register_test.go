@@ -137,7 +137,7 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
-func (s *RegisterSuite) TestxRegister(c *gc.C) {
+func (s *RegisterSuite) TestRegister(c *gc.C) {
 	secretKey := []byte(strings.Repeat("X", 32))
 	respNonce := []byte(strings.Repeat("X", 24))
 

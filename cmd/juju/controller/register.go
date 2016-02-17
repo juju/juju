@@ -154,7 +154,9 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unmarshalling response payload")
 	}
 
+	// Ensure there's a skeleton legacy record written with basic minimum information.
 	endpoint := controllerInfo.APIEndpoint()
+	endpoint.ServerUUID = responsePayload.ControllerUUID
 	endpoint.CACert = responsePayload.CACert
 	controllerInfo.SetAPIEndpoint(endpoint)
 	// TODO(wallyworld) - update accounts.yaml
