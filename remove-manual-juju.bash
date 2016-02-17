@@ -5,6 +5,9 @@ for ip in $ips; do
     ssh -i $JUJU_HOME/staging-juju-rsa ubuntu@$ip <<"EOT"
 #!/bin/bash
 set -ux
+
+echo "Cleaning manual machine"
+
 JUJU_DIR="/var/lib/juju"
 DUMMY_DIR="/var/run/dummy-sink"
 if ps -f -C jujud; then
@@ -18,6 +21,8 @@ fi
 if [[ -d $DUMMY_DIR ]]; then
     sudo rm -r $DUMMY_DIR
 fi
-sudo find /etc/init -name 'juju*' -delete
+sudo find /etc/init -name 'juju*' -delete || true
+echo "Cleaning completed"
+exit 0
 EOT
 done

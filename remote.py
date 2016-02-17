@@ -170,8 +170,7 @@ class _SSLSession(winrm.Session):
         key, cert = auth
         self.url = self._build_url(target, transport)
         self.protocol = winrm.Protocol(self.url, transport=transport,
-                                       cert_key_pem=key, cert_pem=cert,
-                                       server_cert_validation="ignore")
+                                       cert_key_pem=key, cert_pem=cert)
 
 
 _ps_copy_script = """\
