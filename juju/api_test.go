@@ -776,11 +776,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 	info := s.assertCreateInfo(c, "controller-name1")
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	params := juju.ControllerUpdateParams{
-		ControllerName: "controller-name1",
-		ControllerUUID: fakeUUID,
-	}
-	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, params, s.hostPorts, s.apiHostPort)
+	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, "controller-name1", s.hostPorts, s.apiHostPort)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err = s.store.ReadInfo("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -795,11 +791,7 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c
 	info := s.assertCreateInfo(c, "controller-name1")
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	params := juju.ControllerUpdateParams{
-		ControllerName: "controller-name1",
-		ControllerUUID: fakeUUID,
-	}
-	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, params, s.hostPorts, s.apiHostPort)
+	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, "controller-name1", s.hostPorts, s.apiHostPort)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err = s.store.ReadInfo("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)

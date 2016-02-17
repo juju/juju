@@ -180,11 +180,9 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	params := juju.ControllerUpdateParams{
-		ControllerName: registrationParams.controllerName,
-		ControllerUUID: responsePayload.ControllerUUID,
-	}
-	if err := juju.UpdateControllerAddresses(c.store, legacyStore, params, nil, hostPorts...); err != nil {
+	if err := juju.UpdateControllerAddresses(
+		c.store, legacyStore, registrationParams.controllerName, nil, hostPorts...,
+	); err != nil {
 		return errors.Trace(err)
 	}
 

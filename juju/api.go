@@ -161,17 +161,8 @@ func newAPIFromStore(controllerName, modelName string, legacyStore configstore.S
 		return nil, err
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	var serverUUID string
-	if controllerTag, err := st.ControllerTag(); err == nil {
-		serverUUID = controllerTag.Id()
-	} else {
-		return nil, err
-	}
-	params := ControllerUpdateParams{
-		ControllerUUID: serverUUID,
-	}
 	hostPorts := st.APIHostPorts()
-	if localerr := UpdateControllerAddresses(store, legacyStore, params, hostPorts, addrConnectedTo); localerr != nil {
+	if localerr := UpdateControllerAddresses(store, legacyStore, controllerName, hostPorts, addrConnectedTo); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -416,46 +407,16 @@ func addrsChanged(a, b []string) bool {
 	return false
 }
 
-// ControllerUpdateParams holds controller details for the UpdateControllerAddresses call.
-type ControllerUpdateParams struct {
-	ControllerName string
-	ControllerUUID string
-}
-
 // UpdateControllerAddresses writes any new api addresses to the client controller file.
 // Controller may be specified by a UUID or name, and must already exist.
 func UpdateControllerAddresses(
-	store jujuclient.ControllerStore, legacystore configstore.Storage, params ControllerUpdateParams,
+	store jujuclient.ControllerStore, legacystore configstore.Storage, controllerName string,
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
-	if params.ControllerName == "" && params.ControllerUUID == "" {
-		return errors.New("expected either controller name or UUID")
-	}
 
-	var controllerDetails *jujuclient.ControllerDetails
-	if params.ControllerName == "" {
-		// Look up controller using its uuid.
-		all, err := store.AllControllers()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for name, details := range all {
-			if details.ControllerUUID == params.ControllerUUID {
-				controllerDetails = &details
-				params.ControllerName = name
-				break
-			}
-		}
-	} else {
-		// Look up the controller by name.
-		var err error
-		controllerDetails, err = store.ControllerByName(params.ControllerName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if params.ControllerName == "" {
-		return errors.NotFoundf("controller name with uuid %v", params.ControllerUUID)
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// TODO(wallyworld) - stop storing legacy controller info when all code ported across to use new yaml files.
@@ -480,7 +441,7 @@ func UpdateControllerAddresses(
 			return errors.Annotate(err, "failed to read legacy connection info")
 		}
 		ep := info.APIEndpoint()
-		if ep.ServerUUID == params.ControllerUUID {
+		if ep.ServerUUID == controllerDetails.ControllerUUID {
 			if ep.ServerUUID == ep.ModelUUID || ep.ModelUUID == "" {
 				controllerInfo = info
 			}
@@ -513,6 +474,6 @@ func UpdateControllerAddresses(
 	// Write the new controller data.
 	controllerDetails.Servers = hosts
 	controllerDetails.APIEndpoints = addrs
-	err = store.UpdateController(params.ControllerName, *controllerDetails)
+	err = store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)
 }
