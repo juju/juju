@@ -505,6 +505,50 @@ func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
+func (s *ResourceSuite) TestMarkOutdatedResources(c *gc.C) {
+	resources := newStoreResources(c, "spam", "eggs", "ham", "<>", "bacon", "sausage")
+	resources[1].Outdated = true
+	resources[3] = newUploadResource(c, "bakedbeans", "<data>")
+	s.persist.ReturnListResources = resource.ServiceResources{Resources: resources}
+	var expected []resource.Resource
+	var info []charmresource.Resource
+	for _, res := range resources {
+		if res.Origin != charmresource.OriginStore {
+			info = append(info, res.Resource)
+			continue
+		}
+		if res.Name == "bacon" {
+			info = append(info, res.Resource)
+			continue
+		}
+		if res.Outdated {
+			info = append(info, res.Resource)
+			continue
+		}
+		chRes := res.Resource
+		chRes.Revision += 1
+		info = append(info, chRes)
+		res.Outdated = true
+		expected = append(expected, res)
+	}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	err := st.MarkOutdatedResources("a-service", info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"ListResources",
+		"SetResource",
+		"SetResource",
+		"SetResource",
+	)
+	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+	s.stub.CheckCall(c, 1, "SetResource", expected[0])
+	s.stub.CheckCall(c, 2, "SetResource", expected[1])
+	s.stub.CheckCall(c, 3, "SetResource", expected[2])
+}
+
 func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
 	doc1 := map[string]string{"a": "1"}
 	doc2 := map[string]string{"b": "2"}
@@ -644,6 +688,25 @@ func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 func newUploadResource(c *gc.C, name, data string) resource.Resource {
 	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
 	return opened.Resource
+}
+
+func newStoreResources(c *gc.C, names ...string) []resource.Resource {
+	var resources []resource.Resource
+	for _, name := range names {
+		res := newStoreResource(c, name, name)
+		resources = append(resources, res)
+	}
+	return resources
+}
+
+func newStoreResource(c *gc.C, name, data string) resource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	res := opened.Resource
+	res.Origin = charmresource.OriginStore
+	res.Revision = 1
+	res.Username = ""
+	res.Timestamp = time.Time{}
+	return res
 }
 
 func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resource {

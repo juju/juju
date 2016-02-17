@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -272,6 +273,45 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// MarkOutdatedResources compares each of the service's resources
+// against those provided and marks any outdated ones accordingly.
+func (st resourceState) MarkOutdatedResources(serviceID string, info []charmresource.Resource) error {
+	serviceResources, err := st.persist.ListResources(serviceID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resources := serviceResources.Resources
+
+	for _, chRes := range info {
+		for _, res := range resources {
+			if res.Name == chRes.Name {
+				if shouldMarkOutdated(res, chRes) {
+					res.Outdated = true
+					if err := st.persist.SetResource(res); err != nil {
+						return errors.Trace(err)
+					}
+				}
+				break
+			}
+		}
+		// TODO(ericsnow) Worry about extras? missing?
+	}
+	return nil
+}
+
+func shouldMarkOutdated(res resource.Resource, chRes charmresource.Resource) bool {
+	if res.Outdated {
+		return false
+	}
+	if res.Origin != charmresource.OriginStore {
+		return false
+	}
+	if reflect.DeepEqual(res.Resource, chRes) {
+		return false
+	}
+	return true
 }
 
 // TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that
