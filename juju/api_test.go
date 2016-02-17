@@ -186,6 +186,51 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, store configstore.Storage, con
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
+	store := newConfigStore("noconfig", dummyStoreInfo)
+	controllerStore := newControllerStore("noconfig", dummyStoreInfo)
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
+		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
+		called++
+		return expectState, nil
+	}
+
+	// Give NewAPIFromStore a store interface that can report when the
+	// config was written to, to check if the cache is updated.
+	mockStore := &storageWithWriteNotify{store: store}
+	st, err := juju.NewAPIFromStore("noconfig", "noconfig", mockStore, controllerStore, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 1)
+	c.Assert(mockStore.written, jc.IsTrue)
+	info, err := store.ReadInfo("noconfig:noconfig")
+	c.Assert(err, jc.ErrorIsNil)
+	ep := info.APIEndpoint()
+	c.Check(ep.Addresses, jc.DeepEquals, []string{
+		"0.1.2.3:1234", "[2001:db8::1]:1234",
+	})
+	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
+	mockStore.written = false
+
+	controllerBefore, err := controllerStore.ControllerByName("noconfig")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If APIHostPorts haven't changed, then the store won't be updated.
+	st, err = juju.NewAPIFromStore("noconfig", "noconfig", mockStore, controllerStore, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 2)
+	c.Assert(mockStore.written, jc.IsFalse)
+
+	controllerAfter, err := controllerStore.ControllerByName("noconfig")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
+}
+
 func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 	expectErr := fmt.Errorf("an error")
 	store := newConfigStoreWithError(expectErr)
@@ -262,7 +307,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	return &mockAPIState{
 		apiHostPorts:  apiHostPorts,
 		modelTag:      modelTag,
-		controllerTag: "model-deadbeef-12e9-11e4-8a70-b2227cce2b54",
+		controllerTag: modelTag,
 		addr:          addr,
 	}
 }
@@ -598,11 +643,11 @@ func (*storageWithWriteNotify) CreateInfo(envName string) configstore.EnvironInf
 }
 
 func (*storageWithWriteNotify) List() ([]string, error) {
-	panic("List not implemented")
+	return nil, nil
 }
 
 func (*storageWithWriteNotify) ListSystems() ([]string, error) {
-	panic("ListSystems not implemented")
+	return []string{"noconfig:noconfig"}, nil
 }
 
 func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
@@ -1086,6 +1131,19 @@ func (s *CacheAPIEndpointsSuite) mockResolveOrDropHostnames(hps []network.HostPo
 }
 
 var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
+var dummyStoreInfo = &environInfo{
+	creds: configstore.APICredentials{
+		User:     "foo",
+		Password: "foopass",
+	},
+	endpoint: configstore.APIEndpoint{
+		Addresses:  []string{"foo.invalid"},
+		CACert:     "certificated",
+		ModelUUID:  fakeUUID,
+		ServerUUID: fakeUUID,
+	},
+}
 
 type EnvironInfoTest struct {
 	coretesting.FakeJujuXDGDataHomeSuite
