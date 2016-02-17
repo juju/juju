@@ -41,9 +41,7 @@ func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestAddUserWithSharedModel(c *gc.C) {
-	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "somesharedmodel",
-	})
+	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
 	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", sharedModelState.ModelUUID())

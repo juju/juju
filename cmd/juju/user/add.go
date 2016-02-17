@@ -19,13 +19,13 @@ import (
 )
 
 const useraddCommandDoc = `
-Add users to a controller to allow them to login to that controller.
-Optionally, share a model hosted by that controller with the user. 
+Add users to a controller to allow them to login to the controller.
+Optionally, share a model hosted by the controller with the user.
 
-The user information is stored within the shared model, and will be
-lost when the model is destroyed.  A "juju register" command will be
-printed out, which must be executed to complete the user registration
-process, setting the user's initial password.
+The user's details are stored with the model being shared, and will be
+removed when the model is destroyed.  A "juju register" command will be
+printed, which must be executed to complete the user registration process,
+setting the user's initial password.
 
 Examples:
     # Add user "foobar"
@@ -37,6 +37,7 @@ Examples:
 
 See Also:
     juju help change-user-password
+    juju help register
 `
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
@@ -102,6 +103,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
 		if errors.IsNotFound(err) {
 			// The model isn't known locally, so query the models available in the controller.
+			ctx.Verbosef("model %q not cached locally, refreshing models from controller", c.ModelName)
 			if err := c.RefreshModels(c.ClientStore(), c.ControllerName()); err != nil {
 				return errors.Annotate(err, "refreshing models")
 			}

@@ -70,7 +70,6 @@ func (s *UserSuite) TestUserAddShareModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	users, err := sharedModel.Users()
 	c.Assert(err, jc.ErrorIsNil)
-	//c.Assert(users, gc.HasLen, 1)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()

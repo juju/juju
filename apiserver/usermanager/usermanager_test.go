@@ -57,9 +57,7 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
-	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "sharedmodel",
-	})
+	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
 	args := params.AddUsers{
@@ -121,9 +119,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
-	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "somesharedmodel",
-	})
+	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
 	s.assertAddUser(c, []string{sharedModelState.ModelTag().String()})
@@ -133,7 +129,6 @@ func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	users, err := sharedModel.Users()
 	c.Assert(err, jc.ErrorIsNil)
-	//c.Assert(users, gc.HasLen, 1)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()
