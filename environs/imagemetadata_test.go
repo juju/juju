@@ -66,7 +66,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
-		{"config-image-metadata-url/", imagemetadata.SimplestreamsImagesPublicKey},
+		{"config-image-metadata-url/", ""},
 		{"https://streams.canonical.com/juju/images/releases/", imagemetadata.SimplestreamsImagesPublicKey},
 		{"http://cloud-images.ubuntu.com/releases/", imagemetadata.SimplestreamsImagesPublicKey},
 	})
@@ -94,7 +94,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
-		{"config-image-metadata-url/", imagemetadata.SimplestreamsImagesPublicKey},
+		{"config-image-metadata-url/", ""},
 		{"foobar/", ""},
 		{"betwixt/releases/", ""},
 		{"https://streams.canonical.com/juju/images/releases/", imagemetadata.SimplestreamsImagesPublicKey},

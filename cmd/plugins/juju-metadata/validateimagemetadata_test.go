@@ -242,7 +242,7 @@ func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
 	// However, it may still contain it.
 	// Since we will always try to read signed data first,
 	// we want to be able to try to read this signed data
-	// with a public key.
+	// with a user provided public key. For this test, none is provided.
 	// Bugs #1542127, #1542131
-	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, "")
 }

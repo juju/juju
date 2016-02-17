@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -793,9 +792,9 @@ func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
 		// However, it may still contain it.
 		// Since we will always try to read signed data first,
 		// we want to be able to try to read this signed data
-		// with a public key.
+		// with a user provided public key. For this test, none is provided.
 		// Bugs #1542127, #1542131
-		c.Assert(source.PublicSigningKey(), gc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
+		c.Assert(source.PublicSigningKey(), gc.Equals, "")
 		return nil
 	})
 	err = cmd.Run(nil)
