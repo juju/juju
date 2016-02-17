@@ -32,6 +32,17 @@ func defaultSubnet() gomaasapi.CreateSubnet {
 	return s
 }
 
+func (s *instanceTest) newSubnet(cidr, space string, id uint) *bytes.Buffer {
+	var sub gomaasapi.CreateSubnet
+	sub.DNSServers = []string{"192.168.1.2"}
+	sub.Name = cidr
+	sub.Space = space
+	sub.GatewayIP = "192.168.1.1"
+	sub.CIDR = cidr
+	sub.ID = id
+	return s.subnetJSON(sub)
+}
+
 func (s *instanceTest) subnetJSON(subnet gomaasapi.CreateSubnet) *bytes.Buffer {
 	var out bytes.Buffer
 	err := json.NewEncoder(&out).Encode(subnet)
@@ -104,6 +115,7 @@ func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
 }
 
 func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
+	server := s.testMAASObject.TestServer
 	// We simulate an newer MAAS (1.9+) which returns both ip_addresses and
 	// interface_set for a node. To verify we use interfaces we deliberately put
 	// different items in ip_addresses
@@ -112,14 +124,14 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 			"system_id": "system_id",
             "interface_set" : [
               { "name": "eth0", "links": [
-                  { "subnet": { "space": "bar" }, "ip_address": "8.7.6.5" },
-                  { "subnet": { "space": "bar" }, "ip_address": "8.7.6.6" }
+                  { "subnet": { "space": "bar", "cidr": "8.7.6.0/24" }, "ip_address": "8.7.6.5" },
+                  { "subnet": { "space": "bar", "cidr": "8.7.6.0/24"  }, "ip_address": "8.7.6.6" }
               ] },
               { "name": "eth1", "links": [
-                  { "subnet": { "space": "storage" }, "ip_address": "10.0.1.1" }
+                  { "subnet": { "space": "storage", "cidr": "10.0.1.1/24" }, "ip_address": "10.0.1.1" }
                ] },
               { "name": "eth3", "links": [
-                  { "subnet": { "space": "db" }, "ip_address": "fc00::123" }
+                  { "subnet": { "space": "db", "cidr": "fc00::/64" }, "ip_address": "fc00::123" }
                ] },
               { "name": "eth4" },
               { "name": "eth5", "links": [
@@ -129,6 +141,13 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 			"ip_addresses": [ "anything", "foo", "0.1.2.3" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	barSpace := server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
+	storageSpace := server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "storage"}))
+	dbSpace := server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "db"}))
+	server.NewSubnet(s.newSubnet("8.7.6.0/24", "bar", 2))
+	server.NewSubnet(s.newSubnet("10.0.1.1/24", "storage", 3))
+	server.NewSubnet(s.newSubnet("fc00::/64", "db", 4))
+
 	inst := maasInstance{&obj, s.makeEnviron()}
 	// Since gomaasapi treats "interface_set" specially and the only way to
 	// change it is via SetNodeNetworkLink(), which in turn does not allow you
@@ -139,11 +158,14 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 		return *mo, nil
 	})
 
+	idFromUint := func(u uint) network.Id {
+		return network.Id(fmt.Sprintf("%d", u))
+	}
 	expected := []network.Address{
-		network.NewAddressOnSpace("bar", "8.7.6.5"),
-		network.NewAddressOnSpace("bar", "8.7.6.6"),
-		network.NewAddressOnSpace("storage", "10.0.1.1"),
-		network.NewAddressOnSpace("db", "fc00::123"),
+		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.5"),
+		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.6"),
+		newAddressOnSpaceWithId("storage", idFromUint(storageSpace.ID), "10.0.1.1"),
+		newAddressOnSpaceWithId("db", idFromUint(dbSpace.ID), "fc00::123"),
 	}
 
 	addr, err := inst.Addresses()

@@ -23,6 +23,12 @@ type interfacesSuite struct {
 
 var _ = gc.Suite(&interfacesSuite{})
 
+func newAddressOnSpaceWithId(space string, id network.Id, address string) network.Address {
+	newAddress := network.NewAddressOnSpace(space, address)
+	newAddress.SpaceProviderId = id
+	return newAddress
+}
+
 const exampleInterfaceSetJSON = `
 [
 	{
@@ -441,11 +447,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	subnetsMap := make(map[string]network.Id)
 	subnetsMap["10.250.19.0/24"] = network.Id("3")
 	subnetsMap["192.168.1.0/24"] = network.Id("0")
-	newAddressOnSpaceWithId := func(space string, id network.Id, address string) network.Address {
-		newAddress := network.NewAddressOnSpace(space, address)
-		newAddress.SpaceProviderId = id
-		return newAddress
-	}
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
