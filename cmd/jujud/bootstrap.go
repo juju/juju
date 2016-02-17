@@ -450,7 +450,8 @@ var seriesFromVersion = series.VersionSeries
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLSignedDataSource("custom", baseURL, imagemetadata.ImagePublicKey(), utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	datasource := simplestreams.NewURLSignedDataSource("custom", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 	return storeImageMetadataFromFiles(st, env, datasource)
 }
 

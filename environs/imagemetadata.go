@@ -90,7 +90,8 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLSignedDataSource("image-metadata-url", userURL, imagemetadata.ImagePublicKey(), verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
+		publicKey, _ := simplestreams.UserPublicSigningKey()
+		sources = append(sources, simplestreams.NewURLSignedDataSource("image-metadata-url", userURL, publicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)

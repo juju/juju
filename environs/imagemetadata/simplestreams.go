@@ -151,15 +151,6 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 	return result, nil
 }
 
-// ImagePublicKey returns a public key to use to decode signed image data.
-func ImagePublicKey() string {
-	publicKey, _ := simplestreams.UserPublicSigningKey()
-	if publicKey == "" {
-		publicKey = SimplestreamsImagesPublicKey
-	}
-	return publicKey
-}
-
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
 	simplestreams.LookupParams

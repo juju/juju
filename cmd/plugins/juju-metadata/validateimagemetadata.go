@@ -234,9 +234,10 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 
 var imagesDataSources = func(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
+	publicKey, _ := simplestreams.UserPublicSigningKey()
 	for i, url := range urls {
 		dataSources[i] = simplestreams.NewURLSignedDataSource(
-			"local metadata directory", "file://"+url, imagemetadata.ImagePublicKey(), utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+			"local metadata directory", "file://"+url, publicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 	}
 	return dataSources
 }
