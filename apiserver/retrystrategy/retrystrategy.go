@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/names"
 )
 
 // Right now, these are defined as constants, but the plan is to maybe make
@@ -28,7 +29,7 @@ func init() {
 	common.RegisterStandardFacade("RetryStrategy", 1, NewRetryStrategyAPI)
 }
 
-// RetryStrategy defined the methods exported by the retrystrategy API facade.
+// RetryStrategy defines the methods exported by the RetryStrategy API facade.
 type RetryStrategy interface {
 	RetryStrategy(params.Entities) (params.RetryStrategyResults, error)
 	WatchRetryStrategy(params.Entities) (params.NotifyWatchResults, error)
@@ -71,7 +72,10 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
-	config, configErr := h.st.ModelConfig()
+	config, err := h.st.ModelConfig()
+	if err != nil {
+		return params.RetryStrategyResults{}, errors.Trace(err)
+	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -80,21 +84,17 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			if configErr == nil {
-				// Right now the only real configurable value is ShouldRetry,
-				// which is taken from the environment
-				// The rest are hardcoded
-				results.Results[i].Result = &params.RetryStrategy{
-					ShouldRetry:     config.AutomaticallyRetryHooks(),
-					MinRetryTime:    MinRetryTime,
-					MaxRetryTime:    MaxRetryTime,
-					JitterRetryTime: JitterRetryTime,
-					RetryTimeFactor: RetryTimeFactor,
-				}
-				err = nil
-			} else {
-				err = configErr
+			// Right now the only real configurable value is ShouldRetry,
+			// which is taken from the environment
+			// The rest are hardcoded
+			results.Results[i].Result = &params.RetryStrategy{
+				ShouldRetry:     config.AutomaticallyRetryHooks(),
+				MinRetryTime:    MinRetryTime,
+				MaxRetryTime:    MaxRetryTime,
+				JitterRetryTime: JitterRetryTime,
+				RetryTimeFactor: RetryTimeFactor,
 			}
+			err = nil
 		}
 		results.Results[i].Error = common.ServerError(err)
 	}

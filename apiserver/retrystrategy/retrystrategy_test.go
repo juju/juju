@@ -33,6 +33,16 @@ type retryStrategySuite struct {
 	strategy retrystrategy.RetryStrategy
 }
 
+var tagsTests = []struct {
+	tag         string
+	expectedErr string
+}{
+	{"user-admin", "permission denied"},
+	{"unit-wut-4", "permission denied"},
+	{"definitelynotatag", `"definitelynotatag" is not a valid tag`},
+	{"machine-5", "permission denied"},
+}
+
 func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -69,22 +79,16 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
-	tags := []string{
-		"user-admin",
-		"unit-wut-4",
-		"definitelnotatag",
-		"machine-5",
-	}
-	args := params.Entities{Entities: make([]params.Entity, len(tags))}
-	for i, tag := range tags {
-		args.Entities[i] = params.Entity{Tag: tag}
+	args := params.Entities{Entities: make([]params.Entity, len(tagsTests))}
+	for i, t := range tagsTests {
+		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
 	res, err := s.strategy.RetryStrategy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, len(tags))
+	c.Assert(res.Results, gc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
 		c.Logf("result %d", i)
-		c.Assert(r.Error, gc.ErrorMatches, "(permission denied)|(.* is not a valid tag)")
+		c.Assert(r.Error, gc.ErrorMatches, tagsTests[i].expectedErr)
 		c.Assert(res.Results[i].Result, gc.IsNil)
 	}
 }
@@ -136,22 +140,16 @@ func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
-	tags := []string{
-		"user-admin",
-		"unit-wut-4",
-		"definitelnotatag",
-		"machine-5",
-	}
-	args := params.Entities{Entities: make([]params.Entity, len(tags))}
-	for i, tag := range tags {
-		args.Entities[i] = params.Entity{Tag: tag}
+	args := params.Entities{Entities: make([]params.Entity, len(tagsTests))}
+	for i, t := range tagsTests {
+		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
 	res, err := s.strategy.WatchRetryStrategy(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, len(tags))
+	c.Assert(res.Results, gc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
 		c.Logf("result %d", i)
-		c.Assert(r.Error, gc.ErrorMatches, "(permission denied)|(.* is not a valid tag)")
+		c.Assert(r.Error, gc.ErrorMatches, tagsTests[i].expectedErr)
 		c.Assert(res.Results[i].NotifyWatcherId, gc.Equals, "")
 	}
 }
