@@ -17,9 +17,6 @@ var (
 	ServerAddress          = &serverAddress
 )
 
-func NewAPIFromStore(envName string, store configstore.Storage, controllerStore jujuclient.ControllerStore, f api.OpenFunc) (api.Connection, error) {
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		return f(info, opts)
-	}
-	return newAPIFromStore(envName, store, controllerStore, apiOpen, nil)
+func NewAPIFromStore(controllerName, modelName string, store configstore.Storage, controllerStore jujuclient.ClientStore, f api.OpenFunc) (api.Connection, error) {
+	return newAPIFromStore(controllerName, modelName, store, controllerStore, f, nil)
 }

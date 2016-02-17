@@ -215,7 +215,7 @@ func (c *ModelCommandBase) ConnectionCredentials() (configstore.APICredentials, 
 	if c.modelName == "" {
 		return emptyCreds, errors.Trace(ErrNoModelSpecified)
 	}
-	info, err := ConnectionInfoForName(c.modelName)
+	info, err := connectionInfoForName(c.controllerName, c.modelName)
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
@@ -232,7 +232,7 @@ func (c *ModelCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndp
 	if c.modelName == "" {
 		return emptyEndpoint, errors.Trace(ErrNoModelSpecified)
 	}
-	info, err := ConnectionInfoForName(c.modelName)
+	info, err := connectionInfoForName(c.controllerName, c.modelName)
 	if err != nil {
 		return emptyEndpoint, errors.Trace(err)
 	}
@@ -250,7 +250,7 @@ func (c *ModelCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndp
 	}
 	refresher.Close()
 
-	info, err = ConnectionInfoForName(c.modelName)
+	info, err = connectionInfoForName(c.controllerName, c.modelName)
 	if err != nil {
 		return emptyEndpoint, err
 	}
@@ -269,14 +269,14 @@ var getConfigStore = func() (configstore.Storage, error) {
 	return store, nil
 }
 
-// ConnectionInfoForName reads the environment information for the named
+// connectionInfoForName reads the environment information for the named
 // environment (modelName) and returns it.
-func ConnectionInfoForName(modelName string) (configstore.EnvironInfo, error) {
+func connectionInfoForName(controllerName, modelName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := store.ReadInfo(modelName)
+	info, err := store.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

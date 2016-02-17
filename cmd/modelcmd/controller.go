@@ -165,7 +165,10 @@ func (c *ControllerCommandBase) ConnectionInfo() (configstore.EnvironInfo, error
 	if c.controllerName == "" {
 		return nil, errors.Trace(ErrNoControllerSpecified)
 	}
-	info, err := ConnectionInfoForName(c.controllerName)
+	info, err := connectionInfoForName(
+		c.controllerName,
+		configstore.AdminModelName(c.controllerName),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

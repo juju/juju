@@ -108,7 +108,7 @@ func (s *ChangePasswordCommandSuite) assertStorePassword(c *gc.C, user, pass str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details.Password, gc.Equals, pass)
 
-	info, err := s.configstore.ReadInfo("testing")
+	info, err := s.configstore.ReadInfo("testing:testing")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.APICredentials().Password, gc.Equals, pass)
 }

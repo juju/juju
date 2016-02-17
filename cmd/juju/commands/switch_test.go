@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -201,7 +200,6 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails
 }
 
 func (s *SwitchSimpleSuite) TestSettingWhenEnvVarSet(c *gc.C) {
-	s.addTestEnv(c, "erewhemos-2")
 	os.Setenv("JUJU_MODEL", "using-model")
 	_, err := s.run(c, "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
@@ -214,28 +212,4 @@ func (s *SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
 
 func (s *SwitchSimpleSuite) addController(c *gc.C, name string) {
 	s.store.Controllers[name] = jujuclient.ControllerDetails{}
-}
-
-func (s *SwitchSimpleSuite) addTestEnv(c *gc.C, name string) {
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo(name)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses: []string{"localhost"},
-		CACert:    coretesting.CACert,
-		ModelUUID: "model-uuid",
-	})
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SwitchSimpleSuite) updateControllersFile(c *gc.C, name string, endpoint configstore.APIEndpoint) {
-	controllerStore := jujuclient.NewFileClientStore()
-	err := controllerStore.UpdateController(name,
-		jujuclient.ControllerDetails{
-			[]string{"test.host.name"},
-			endpoint.ServerUUID,
-			endpoint.Addresses,
-			endpoint.CACert})
-	c.Assert(err, jc.ErrorIsNil)
 }

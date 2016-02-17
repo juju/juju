@@ -51,9 +51,9 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	}
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
-	controllerName := "test-master"
+	controllerName := "local.test-master"
 	s.serverUUID = "fake-server-uuid"
-	info := s.store.CreateInfo(controllerName)
+	info := s.store.CreateInfo("local.test-master:test-master")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
@@ -135,7 +135,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 
 func (s *createSuite) TestCreateExistingName(c *gc.C) {
 	// Make a configstore entry with the same name.
-	info := s.store.CreateInfo("test")
+	info := s.store.CreateInfo("local.test-master:test")
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -269,15 +269,15 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
-	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
+	_, err = s.store.ReadInfo("local.test-master:test")
+	c.Assert(err, gc.ErrorMatches, `model "local.test-master:test" not found`)
 }
 
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := s.store.ReadInfo("test")
+	info, err := s.store.ReadInfo("local.test-master:test")
 	c.Assert(err, jc.ErrorIsNil)
 	// Stores the credentials of the original environment
 	c.Assert(info.APICredentials(), jc.DeepEquals, s.server.APICredentials())
@@ -294,8 +294,8 @@ func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	_, err := s.run(c, "test", "--owner", "zeus")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
+	_, err = s.store.ReadInfo("local.test-master:test")
+	c.Assert(err, gc.ErrorMatches, `model "local.test-master:test" not found`)
 }
 
 // fakeCreateClient is used to mock out the behavior of the real

@@ -55,21 +55,20 @@ func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts
 	return st, nil
 }
 
-// NewAPIFromName returns an api.State connected to the API Server for
-// the named environment.
-func NewAPIFromName(envName string, bClient *httpbakery.Client) (api.Connection, error) {
-	return newAPIClient(envName, bClient)
-}
-
 var defaultAPIOpen = api.Open
 
-func newAPIClient(envName string, bClient *httpbakery.Client) (api.Connection, error) {
-	store, err := configstore.Default()
+// NewAPIConnection returns an api.Connection to the specified Juju controller,
+// optionally scoped to the specified model name.
+func NewAPIConnection(
+	store jujuclient.ClientStore,
+	controllerName, modelName string,
+	bClient *httpbakery.Client,
+) (api.Connection, error) {
+	legacyStore, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerStore := jujuclient.NewFileClientStore()
-	st, err := newAPIFromStore(envName, store, controllerStore, defaultAPIOpen, bClient)
+	st, err := newAPIFromStore(controllerName, modelName, legacyStore, store, defaultAPIOpen, bClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -86,9 +85,21 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 	return addrConnectedTo[0], nil
 }
 
-// newAPIFromStore implements the bulk of NewAPIFromName but is separate for
+// newAPIFromStore implements the bulk of NewAPIConnection but is separate for
 // testing purposes.
-func newAPIFromStore(envName string, store configstore.Storage, controllerStore jujuclient.ControllerStore, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
+func newAPIFromStore(controllerName, modelName string, legacyStore configstore.Storage, store jujuclient.ControllerStore, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
+
+	// TODO(axw) this should be unnecessary once we've removed the legacy
+	// configstore code. If no model name is specified, then we should
+	// use the controller UUID in the login instead.
+	if modelName == "" {
+		modelName = configstore.AdminModelName(controllerName)
+	}
+	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Try to connect to the API concurrently using two different
 	// possible sources of truth for the API endpoint. Our
 	// preference is for the API endpoint cached in the API info,
@@ -112,10 +123,6 @@ func newAPIFromStore(envName string, store configstore.Storage, controllerStore 
 	}
 	try := parallel.NewTry(0, chooseError)
 
-	info, err := store.ReadInfo(envName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	var delay time.Duration
 	if len(info.APIEndpoint().Addresses) > 0 {
 		logger.Debugf(
@@ -132,7 +139,7 @@ func newAPIFromStore(envName string, store configstore.Storage, controllerStore 
 		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getConfig(info, envName)
+		cfg, err := getConfig(info)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +171,7 @@ func newAPIFromStore(envName string, store configstore.Storage, controllerStore 
 			// Cache the connection settings only if we used the
 			// environment config, but any errors are just logged
 			// as warnings, because they're not fatal.
-			err = cacheAPIInfo(st, info, controllerStore, cachedInfo.cachedInfo)
+			err = cacheAPIInfo(st, info, store, cachedInfo.cachedInfo)
 			if err != nil {
 				logger.Warningf("cannot cache API connection settings: %v", err.Error())
 			} else {
@@ -187,7 +194,7 @@ func newAPIFromStore(envName string, store configstore.Storage, controllerStore 
 	if controllerTag, err := st.ControllerTag(); err == nil {
 		serverUUID = controllerTag.Id()
 	}
-	if localerr := cacheChangedAPIInfo(info, controllerStore, st.APIHostPorts(), addrConnectedTo, modelUUID, serverUUID); localerr != nil {
+	if localerr := cacheChangedAPIInfo(info, store, st.APIHostPorts(), addrConnectedTo, modelUUID, serverUUID); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -289,9 +296,9 @@ func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan stru
 }
 
 // getConfig looks for configuration info on the given environment
-func getConfig(info configstore.EnvironInfo, modelName string) (*config.Config, error) {
+func getConfig(info configstore.EnvironInfo) (*config.Config, error) {
 	if len(info.BootstrapConfig()) == 0 {
-		return nil, errors.NotFoundf("model %q", modelName)
+		return nil, errors.NotFoundf("bootstrap config")
 	}
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	if err != nil {

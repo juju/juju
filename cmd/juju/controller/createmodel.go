@@ -111,7 +111,7 @@ func (c *createModelCommand) getAPI() (CreateEnvironmentAPI, error) {
 func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 	client, err := c.getAPI()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -144,7 +144,9 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info = store.CreateInfo(c.Name)
+		info = store.CreateInfo(
+			configstore.EnvironInfoName(c.ControllerName(), c.Name),
+		)
 		info.SetAPICredentials(creds)
 		endpoint.ModelUUID = ""
 		if err := info.Write(); err != nil {

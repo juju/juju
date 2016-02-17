@@ -88,7 +88,10 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.ControllerName())
+	controllerName := c.ControllerName()
+	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
+		controllerName, configstore.AdminModelName(controllerName),
+	))
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
