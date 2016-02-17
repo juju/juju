@@ -82,7 +82,7 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerId := network.Id(strconv.Itoa(int(providerIdRaw)))
+		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
 		subnetsArray, err := spaceMap["subnets"].GetArray()
 		if err != nil {
 			return nil, errors.Trace(err)
