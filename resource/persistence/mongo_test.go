@@ -47,6 +47,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
+		Outdated:  true,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
@@ -71,6 +72,8 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 
 		Username:  "a-user",
 		Timestamp: now,
+
+		Outdated: true,
 
 		StoragePath: "service-a-service/resources/spam",
 	})
@@ -254,6 +257,8 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
+		Outdated: true,
+
 		StoragePath: "service-a-service/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,6 +281,7 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
+		Outdated:  true,
 	})
 }
 
@@ -351,6 +357,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
+		Outdated:  true,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
@@ -376,6 +383,8 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 		Username:  "a-user",
 		Timestamp: now,
+
+		Outdated: true,
 
 		StoragePath: "service-a-service/resources/spam",
 	})
@@ -409,6 +418,8 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
+		Outdated: true,
+
 		StoragePath: "service-a-service/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -431,6 +442,7 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
+		Outdated:  true,
 	})
 }
 
