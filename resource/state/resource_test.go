@@ -14,6 +14,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
@@ -659,4 +660,8 @@ func newUnit(stub *testing.Stub, name string) *resourcetesting.StubUnit {
 		ReturnName:        name,
 		ReturnServiceName: strings.Split(name, "/")[0],
 	}
+}
+
+func (f fakeUnit) CharmURL() (*charm.URL, bool) {
+	return nil, false
 }
