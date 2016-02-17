@@ -27,7 +27,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 )
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
@@ -96,20 +98,21 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	store, err := configstore.Default()
+	legacyStore, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerInfo, err := store.ReadInfo(registrationParams.controllerName)
+	controllerInfo, err := legacyStore.ReadInfo(registrationParams.controllerName)
 	if err == nil {
 		return errors.AlreadyExistsf("controller %q", registrationParams.controllerName)
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	controllerInfo = store.CreateInfo(configstore.EnvironInfoName(
+	fullModelName := configstore.EnvironInfoName(
 		registrationParams.controllerName,
 		configstore.AdminModelName(registrationParams.controllerName),
-	))
+	)
+	controllerInfo = legacyStore.CreateInfo(fullModelName)
 
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.
@@ -151,16 +154,35 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unmarshalling response payload")
 	}
 
-	// Store the controller information.
-	controllerInfo.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses: registrationParams.controllerAddrs,
-		CACert:    responsePayload.CACert,
-	})
+	// Ensure there's a skeleton legacy record written with basic minimum information.
+	endpoint := controllerInfo.APIEndpoint()
+	endpoint.ServerUUID = responsePayload.ControllerUUID
+	endpoint.CACert = responsePayload.CACert
+	controllerInfo.SetAPIEndpoint(endpoint)
+	// TODO(wallyworld) - update accounts.yaml
 	controllerInfo.SetAPICredentials(configstore.APICredentials{
 		User:     registrationParams.userTag.Id(),
 		Password: registrationParams.newPassword,
 	})
 	if err := controllerInfo.Write(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Store the controller information.
+	controllerDetails := jujuclient.ControllerDetails{
+		ControllerUUID: responsePayload.ControllerUUID,
+		CACert:         responsePayload.CACert,
+	}
+	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
+		return errors.Trace(err)
+	}
+	hostPorts, err := network.ParseHostPorts(registrationParams.controllerAddrs...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerAddresses(
+		c.store, legacyStore, registrationParams.controllerName, nil, hostPorts...,
+	); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -104,6 +104,9 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	err = json.Unmarshal(plaintext, &responsePayload)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.CACert, gc.Equals, s.BackingState.CACert())
+	model, err := s.BackingState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(responsePayload.ControllerUUID, gc.Equals, model.ControllerUUID())
 }
 
 func (s *registrationSuite) TestRegisterInvalidMethod(c *gc.C) {

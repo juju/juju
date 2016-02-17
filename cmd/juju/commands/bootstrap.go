@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
@@ -631,8 +630,6 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 	return environ.AllInstances()
 }
 
-var prepareEndpointsForCaching = juju.PrepareEndpointsForCaching
-
 // setBootstrapEndpointAddress writes the API endpoint address of the
 // bootstrap server into the connection information. This should only be run
 // once directly after Bootstrap. It assumes that there is just one instance
@@ -654,48 +651,14 @@ func (c *bootstrapCommand) setBootstrapEndpointAddress(
 	}
 	bootstrapInstance := instances[0]
 
-	cfg := environ.Config()
-	info, err := legacyStore.ReadInfo(
-		configstore.EnvironInfoName(c.controllerName, cfg.Name()),
-	)
-	if err != nil {
-		return errors.Annotate(err, "failed to get connection info")
-	}
-
 	// Don't use c.ConnectionEndpoint as it attempts to contact the state
 	// server if no addresses are found in connection info.
-	endpoint := info.APIEndpoint()
 	netAddrs, err := bootstrapInstance.Addresses()
 	if err != nil {
 		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
+	cfg := environ.Config()
 	apiPort := cfg.APIPort()
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	addrs, hosts, addrsChanged := prepareEndpointsForCaching(
-		info, [][]network.HostPort{apiHostPorts}, network.HostPort{},
-	)
-	if !addrsChanged {
-		// Something's wrong we already have cached addresses?
-		return errors.Annotate(err, "cached API endpoints unexpectedly exist")
-	}
-	endpoint.Addresses = addrs
-	endpoint.Hostnames = hosts
-	info.SetAPIEndpoint(endpoint)
-	err = info.Write()
-	if err != nil {
-		return errors.Annotate(err, "failed to write API endpoint to connection info")
-	}
-
-	controllerStore := c.ClientStore()
-	err = controllerStore.UpdateController(c.controllerName, jujuclient.ControllerDetails{
-		hosts,
-		endpoint.ServerUUID,
-		addrs,
-		endpoint.CACert,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return juju.UpdateControllerAddresses(c.ClientStore(), legacyStore, c.controllerName, nil, apiHostPorts...)
 }

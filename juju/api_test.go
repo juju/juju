@@ -305,9 +305,10 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
 	return &mockAPIState{
-		apiHostPorts: apiHostPorts,
-		modelTag:     modelTag,
-		addr:         addr,
+		apiHostPorts:  apiHostPorts,
+		modelTag:      modelTag,
+		controllerTag: modelTag,
+		addr:          addr,
 	}
 }
 
@@ -318,57 +319,8 @@ func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
-func (s *NewAPIClientSuite) TestWithInfoNoModelTag(c *gc.C) {
-	store := newConfigStore("noconfig", noTagStoreInfo)
-
-	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
-		called++
-		return expectState, nil
-	}
-
-	// Give NewAPIFromStore a store interface that can report when the
-	// config was written to, to check if the cache is updated.
-	mockStore := &storageWithWriteNotify{store: store}
-	jujuclient := jujuclienttesting.NewMemStore()
-	st, err := juju.NewAPIFromStore("noconfig", "noconfig", mockStore, jujuclient, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := store.ReadInfo("noconfig:noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
-		"0.1.2.3:1234", "[2001:db8::1]:1234",
-	})
-	c.Check(info.APIEndpoint().ModelUUID, gc.Equals, fakeUUID)
-
-	// Now simulate prefer-ipv6: true
-	store = newConfigStore("noconfig", noTagStoreInfo)
-	mockStore = &storageWithWriteNotify{store: store}
-	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
-		return true
-	})
-	expectState = mockedAPIState(mockedHostPort | mockedModelTag | mockedPreferIPv6)
-	st, err = juju.NewAPIFromStore("noconfig", "noconfig", mockStore, jujuclient, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err = store.ReadInfo("noconfig:noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
-		"[2001:db8::1]:1234", "0.1.2.3:1234",
-	})
-	c.Check(info.APIEndpoint().ModelUUID, gc.Equals, fakeUUID)
-}
-
 func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
-	// The local cache doesn't have an ModelTag, which the API does
-	// return. However, the API doesn't have apiHostPorts, we don't want to
+	// The API doesn't have apiHostPorts, we don't want to
 	// override the local cache with bad endpoints.
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
@@ -386,62 +338,12 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
 	info, err := store.ReadInfo("noconfig:noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 	ep := info.APIEndpoint()
-	// We should have cached the model tag, but not disturbed the
-	// Addresses
+	// We should not have disturbed the Addresses
 	c.Check(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `foo\.invalid`)
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-}
-
-func (s *NewAPIClientSuite) TestNoModelTagDoesntOverwriteCached(c *gc.C) {
-	store := newConfigStore("noconfig", dummyStoreInfo)
-	called := 0
-	// State returns a new set of APIHostPorts but not a new ModelTag. We
-	// shouldn't override the cached value with model tag of "".
-	expectState := mockedAPIState(mockedHostPort)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
-		called++
-		return expectState, nil
-	}
-
-	mockStore := &storageWithWriteNotify{store: store}
-	controllerStore := jujuclienttesting.NewMemStore()
-	st, err := juju.NewAPIFromStore("noconfig", "noconfig", mockStore, controllerStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := store.ReadInfo("noconfig:noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	ep := info.APIEndpoint()
-	c.Check(ep.Addresses, gc.DeepEquals, []string{
-		"0.1.2.3:1234", "[2001:db8::1]:1234",
-	})
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-
-	// Now simulate prefer-ipv6: true
-	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
-		return true
-	})
-	expectState = mockedAPIState(mockedHostPort | mockedPreferIPv6)
-	st, err = juju.NewAPIFromStore("noconfig", "noconfig", mockStore, controllerStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err = store.ReadInfo("noconfig:noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	ep = info.APIEndpoint()
-	c.Check(ep.Addresses, gc.DeepEquals, []string{
-		"[2001:db8::1]:1234", "0.1.2.3:1234",
-	})
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
@@ -469,6 +371,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
+	c.Skip("wallyworld - this is a dumb test relying on an arbitary 50ms delay to pass")
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	store := configstore.NewMem()
 	controllerStore := jujuclienttesting.NewMemStore()
@@ -740,11 +643,11 @@ func (*storageWithWriteNotify) CreateInfo(envName string) configstore.EnvironInf
 }
 
 func (*storageWithWriteNotify) List() ([]string, error) {
-	panic("List not implemented")
+	return nil, nil
 }
 
 func (*storageWithWriteNotify) ListSystems() ([]string, error) {
-	panic("ListSystems not implemented")
+	return []string{"noconfig:noconfig"}, nil
 }
 
 func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
@@ -870,59 +773,37 @@ func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c 
 		return true
 	})
 
-	info := s.assertCreateInfo(c, "env-name1")
-	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.ControllerStore, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
+	info := s.assertCreateInfo(c, "controller-name1")
+	err := info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, "controller-name1", s.hostPorts, s.apiHostPort)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err = s.store.ReadInfo("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6True(c, info)
-	s.assertControllerUpdated(c, "env-name1")
-
-	// Now test cacheAPIInfo behaves the same way.
-	s.resolveSeq = 1
-	s.resolveNumCalls = 0
-	s.numResolved = 0
-	info = s.assertCreateInfo(c, "env-name2")
-	mockAPIInfo := s.APIInfo(c)
-	mockAPIInfo.ModelTag = s.modelTag
-	hps := network.CollapseHostPorts(s.hostPorts)
-	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
-	err = juju.CacheAPIInfo(s.APIState, info, s.ControllerStore, mockAPIInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertControllerNotUpdated(c, "env-name2")
-	s.assertEndpointsPreferIPv6True(c, info)
+	s.assertControllerUpdated(c, "controller-name1")
 }
 
 func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c *gc.C) {
 	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
 		return false
 	})
-	info := s.assertCreateInfo(c, "env-name1")
-	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.ControllerStore, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
+	info := s.assertCreateInfo(c, "controller-name1")
+	err := info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	err = juju.UpdateControllerAddresses(s.ControllerStore, s.store, "controller-name1", s.hostPorts, s.apiHostPort)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err = s.store.ReadInfo("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpointsPreferIPv6False(c, info)
-	s.assertControllerUpdated(c, "env-name1")
-
-	// Now test cacheAPIInfo behaves the same way.
-	s.resolveSeq = 1
-	s.resolveNumCalls = 0
-	s.numResolved = 0
-	info = s.assertCreateInfo(c, "env-name2")
-	mockAPIInfo := s.APIInfo(c)
-	mockAPIInfo.ModelTag = s.modelTag
-	hps := network.CollapseHostPorts(s.hostPorts)
-	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
-	err = juju.CacheAPIInfo(s.APIState, info, s.ControllerStore, mockAPIInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertControllerNotUpdated(c, "env-name2")
-	s.assertEndpointsPreferIPv6False(c, info)
+	s.assertControllerUpdated(c, "controller-name1")
 }
 
 func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.C) {
 	// Test that if new endpoints hostnames are the same as the
 	// cached, no DNS resolution happens (i.e. we don't resolve on
 	// every connection, but as needed).
-	info := s.store.CreateInfo("env-name")
+	info := s.store.CreateInfo("controller-name")
 	hps := network.NewHostPorts(1234,
 		"8.8.8.8",
 		"example.com",
@@ -935,7 +816,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{hps}, network.HostPort{},
+		info, [][]network.HostPort{hps},
 	)
 	c.Assert(addrs, gc.IsNil)
 	c.Assert(hosts, gc.IsNil)
@@ -952,7 +833,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	// Test that if new endpoints hostnames are different than the
 	// cached hostnames DNS resolution happens and we compare resolved
 	// addresses.
-	info := s.store.CreateInfo("env-name")
+	info := s.store.CreateInfo("controller-name")
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
 	unsortedHPs := network.NewHostPorts(1234,
@@ -983,7 +864,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		info, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, jc.DeepEquals, strResolved)
 	c.Assert(hosts, jc.DeepEquals, strSorted)
@@ -1000,7 +881,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	// Test that if new endpoints hostnames are different than the
 	// cached hostnames, but after resolving the addresses match the
 	// cached addresses, the cache is not changed.
-	info := s.store.CreateInfo("env-name")
+	info := s.store.CreateInfo("controller-name")
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
 	unsortedHPs := network.NewHostPorts(1234,
@@ -1031,7 +912,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		info, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, gc.IsNil)
 	c.Assert(hosts, gc.IsNil)
@@ -1047,7 +928,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) {
 	// Test that if no hostnames exist cached we call resolve (i.e.
 	// simulate the behavior right after bootstrap)
-	info := s.store.CreateInfo("env-name")
+	info := s.store.CreateInfo("controller-name")
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
 	unsortedHPs := network.NewHostPorts(1234,
@@ -1075,7 +956,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		info, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, jc.DeepEquals, strResolved)
 	c.Assert(hosts, jc.DeepEquals, strSorted)
