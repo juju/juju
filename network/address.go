@@ -245,28 +245,38 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 
 // SelectAddressBySpace picks the first address from the given slice that has
 // the given space name associated.
-func SelectAddressBySpace(addresses []Address, spaceName string) (Address, bool) {
+func SelectAddressBySpace(addresses []Address, spaceNames []SpaceName) (Address, bool) {
 	for _, addr := range addresses {
-		if addr.SpaceName == SpaceName(spaceName) {
-			logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
-			return addr, true
+		for _, spaceName := range spaceNames {
+			if addr.SpaceName == spaceName {
+				logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
+				return addr, true
+			}
 		}
 	}
-	logger.Warningf("no addresses found in space %q", spaceName)
+	logger.Warningf("no addresses found in spaces %q", spaceNames)
 	return Address{}, false
 }
 
 // SelectHostPortBySpace picks the first HostPort from the given slice that has
 // the given space name associated.
-func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
+func SelectHostPortBySpace(hps []HostPort, spaceNames []SpaceName) ([]HostPort, bool) {
+	var selectedHostPorts []HostPort
 	for _, hp := range hps {
-		if hp.SpaceName == SpaceName(spaceName) {
-			logger.Debugf("selected %q as first hostPort in space %q", hp.Value, spaceName)
-			return hp, true
+		for _, spaceName := range spaceNames {
+			if hp.SpaceName == spaceName {
+				logger.Debugf("selected %q as a hostPort in space %q", hp.Value, spaceName)
+				selectedHostPorts = append(selectedHostPorts, hp)
+			}
 		}
 	}
-	logger.Warningf("no hostPorts found in space %q", spaceName)
-	return HostPort{}, false
+
+	if len(selectedHostPorts) > 0 {
+		return selectedHostPorts, true
+	}
+
+	logger.Warningf("no hostPorts found in spaces %q", spaceNames)
+	return []HostPort{}, false
 }
 
 // SelectControllerAddress returns the most suitable address to use as a Juju
@@ -286,7 +296,7 @@ func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
 //
 // LKK Card: https://canonical.leankit.com/Boards/View/101652562/119282343
 func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, DefaultSpace)
+	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, []SpaceName{DefaultSpace})
 	if ok {
 		logger.Debugf(
 			"selected %q as controller address, using space %q",
@@ -311,14 +321,14 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 // When machineLocal is true and an address can't be selected by space both
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
-func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool) string {
-	defaultSpaceHP, ok := SelectHostPortBySpace(hostPorts, DefaultSpace)
+func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool, space SpaceName) []string {
+	defaultSpaceHPs, ok := SelectHostPortBySpace(hostPorts, []SpaceName{space})
 	if ok {
 		logger.Debugf(
-			"selected %q as controller host:port, using space %q",
-			defaultSpaceHP.Value, DefaultSpace,
+			"selected %q as controller host:port, using spaces %q",
+			defaultSpaceHPs, DefaultSpace,
 		)
-		return defaultSpaceHP.NetAddr()
+		return HostPortsToStrings(defaultSpaceHPs)
 	}
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.
@@ -327,7 +337,7 @@ func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool) string {
 		"selected %q as controller host:port, using scope selection",
 		internalHP,
 	)
-	return internalHP
+	return []string{internalHP}
 }
 
 // SelectPublicAddress picks one address from a slice that would be
@@ -641,4 +651,47 @@ func MergedAddresses(machineAddresses, providerAddresses []Address) []Address {
 		}
 	}
 	return merged
+}
+
+// AllSpaceStats holds a SpaceStats for both API and Mongo machines
+type AllSpaceStats struct {
+	APIMachines   SpaceStats
+	MongoMachines SpaceStats
+}
+
+// SpaceStats holds information useful when choosing which space to pick an
+// address from.
+type SpaceStats struct {
+	SpaceCount              map[SpaceName]int
+	LargestSpace            SpaceName
+	LargestSpaceSize        int
+	LargestSpaceContainsAll bool
+}
+
+// GenerateSpaceStats takes a list of machines and returns information about
+// what spaces are referenced by those machines.
+func GenerateSpaceStats(addresses [][]Address) SpaceStats {
+	var stats SpaceStats
+	stats.SpaceCount = make(map[SpaceName]int)
+
+	for i := range addresses {
+		for _, addr := range addresses[i] {
+			v, ok := stats.SpaceCount[addr.SpaceName]
+			if !ok {
+				v = 0
+			}
+
+			v++
+			stats.SpaceCount[addr.SpaceName] = v
+
+			if v > stats.LargestSpaceSize {
+				stats.LargestSpace = addr.SpaceName
+				stats.LargestSpaceSize = v
+			}
+		}
+	}
+
+	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
+
+	return stats
 }

@@ -2234,6 +2234,7 @@ type controllersDoc struct {
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
+	MongoSpaceDocId  string
 }
 
 // ControllerInfo holds information about currently
@@ -2253,6 +2254,10 @@ type ControllerInfo struct {
 	// configured to run a controller and to have a vote
 	// in peer election.
 	VotingMachineIds []string
+
+	// MongoSpaceDocId is a reference to a space that contains all
+	// Mongo servers.
+	MongoSpaceDocId string
 }
 
 // ControllerInfo returns information about
@@ -2304,6 +2309,7 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
+		MongoSpaceDocId:  doc.MongoSpaceDocId,
 	}, nil
 }
 
@@ -2358,6 +2364,20 @@ func SetSystemIdentity(st *State, identity string) error {
 		Id:     stateServingInfoKey,
 		Assert: bson.D{{"systemidentity", ""}},
 		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
+	}}
+
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) SetMongoSpaceDocId(mongoSpaceDocId string) error {
+	ops := []txn.Op{{
+		C:      stateServersC,
+		Id:     modelGlobalKey,
+		Assert: bson.D{{"mongospacedocid", ""}},
+		Update: bson.D{{"mongospacedocid", mongoSpaceDocId}},
 	}}
 
 	if err := st.runTransaction(ops); err != nil {

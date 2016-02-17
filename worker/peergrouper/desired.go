@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/dooferlad/here"
+	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 )
@@ -19,9 +21,10 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 // peerGroupInfo holds information that may contribute to
 // a peer group.
 type peerGroupInfo struct {
-	machines map[string]*machine // id -> machine
-	statuses []replicaset.MemberStatus
-	members  []replicaset.Member
+	machines      map[string]*machine // id -> machine
+	statuses      []replicaset.MemberStatus
+	members       []replicaset.Member
+	databaseSpace network.SpaceName
 }
 
 // desiredPeerGroup returns the mongo peer group according to the given
@@ -78,8 +81,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	}
 	adjustVotes(toRemoveVote, toAddVote, setVoting)
 
-	addNewMembers(members, toKeep, maxId, setVoting)
-	if updateAddresses(members, info.machines) {
+	addNewMembers(members, toKeep, maxId, setVoting, info.databaseSpace)
+	if updateAddresses(members, info.machines, info.databaseSpace) {
 		changed = true
 	}
 	if !changed {
@@ -144,14 +147,20 @@ func possiblePeerGroupChanges(info *peerGroupInfo, members map[*machine]*replica
 
 // updateAddresses updates the members' addresses from the machines' addresses.
 // It reports whether any changes have been made.
-func updateAddresses(members map[*machine]*replicaset.Member, machines map[string]*machine) bool {
+func updateAddresses(
+	members map[*machine]*replicaset.Member,
+	machines map[string]*machine,
+	databaseSpace network.SpaceName,
+) bool {
 	changed := false
+
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range machines {
-		hp := m.mongoHostPort()
+		hp := m.mongoHostPort(databaseSpace)
 		if hp == "" {
 			continue
 		}
+		here.Is(hp)
 		// TODO ensure that replicaset works correctly with IPv6 [host]:port addresses.
 		if hp != members[m].Address {
 			members[m].Address = hp
@@ -204,9 +213,10 @@ func addNewMembers(
 	toKeep []*machine,
 	maxId int,
 	setVoting func(*machine, bool),
+	databaseSpace network.SpaceName,
 ) {
 	for _, m := range toKeep {
-		hasAddress := m.mongoHostPort() != ""
+		hasAddress := m.mongoHostPort(databaseSpace) != ""
 		if members[m] == nil && hasAddress {
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
@@ -224,6 +234,20 @@ func addNewMembers(
 			logger.Debugf("ignoring machine %q with no address", m.id)
 		}
 	}
+}
+
+func mongoAddresses(machines map[string]*machine) [][]network.Address {
+	addresses := make([][]network.Address, len(machines))
+
+	i := 0
+	for _, m := range machines {
+		for _, hp := range m.mongoHostPorts {
+			addresses[i] = append(addresses[i], hp.Address)
+		}
+		i++
+	}
+
+	return addresses
 }
 
 func isReady(status replicaset.MemberStatus) bool {

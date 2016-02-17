@@ -571,9 +571,9 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	var addrs []string
 	for _, serverHostPorts := range servers {
 		// Try the preferred approach first.
-		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
+		serverHPs, ok := network.SelectHostPortBySpace(serverHostPorts, []network.SpaceName{network.DefaultSpace})
 		if ok {
-			addrs = append(addrs, serverHP.NetAddr())
+			addrs = append(addrs, network.HostPortsToStrings(serverHPs)...)
 		} else {
 			// Fallback to the legacy approach.
 			hps := network.SelectInternalHostPorts(serverHostPorts, false)

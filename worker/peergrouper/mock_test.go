@@ -17,9 +17,13 @@ import (
 	"github.com/juju/utils/voyeur"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
 
@@ -34,6 +38,7 @@ type fakeState struct {
 	statuses    voyeur.Value // of statuses collection
 	session     *fakeMongoSession
 	check       func(st *fakeState) error
+	mongoSpaceDocId string
 }
 
 var (
@@ -228,6 +233,31 @@ func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
 
 func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
+}
+
+type SpaceReader interface {
+	ID() string
+	Name() string
+}
+
+func (st *fakeState) Space(name string) (SpaceReader, error) {
+	foo := []networkingcommon.BackingSpace{
+		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
+		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
+		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
+	}
+	return foo[0].(SpaceReader), nil
+}
+
+func (st *fakeState) SetMongoSpaceDocId(mongoSpaceDocId string) error {
+	st.mongoSpaceDocId = mongoSpaceDocId
+	return nil
+}
+
+func (st *fakeState) ModelConfig() (*config.Config, error) {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.NoDefaults, attrs)
+	return cfg, err
 }
 
 type fakeMachine struct {

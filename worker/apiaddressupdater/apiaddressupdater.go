@@ -71,9 +71,9 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	hpsToSet := make([][]network.HostPort, 0, len(addresses))
 	for _, hostPorts := range addresses {
 		// First try to keep only addresses in the default space where all API servers are on.
-		defaultSpaceHP, ok := network.SelectHostPortBySpace(hostPorts, network.DefaultSpace)
+		defaultSpaceHPs, ok := network.SelectHostPortBySpace(hostPorts, []network.SpaceName{network.DefaultSpace})
 		if ok {
-			hpsToSet = append(hpsToSet, []network.HostPort{defaultSpaceHP})
+			hpsToSet = append(hpsToSet, defaultSpaceHPs)
 			continue
 		} else {
 			// As a fallback, use the old behavior.

@@ -113,13 +113,13 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 	// All API servers need to be accessible there.
 	var hpsToSet [][]network.HostPort
 	for _, hps := range netHostsPorts {
-		defaultSpaceHP, ok := network.SelectHostPortBySpace(hps, network.DefaultSpace)
+		defaultSpaceHPs, ok := network.SelectHostPortBySpace(hps, []network.SpaceName{network.DefaultSpace})
 		if !ok {
 			logger.Warningf("cannot determine API addresses in space %q to use as API endpoints; using all addresses", network.DefaultSpace)
 			hpsToSet = netHostsPorts
 			break
 		}
-		hpsToSet = append(hpsToSet, []network.HostPort{defaultSpaceHP})
+		hpsToSet = append(hpsToSet, defaultSpaceHPs)
 	}
 
 	doc := apiHostPortsDoc{

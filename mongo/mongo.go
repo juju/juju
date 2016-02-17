@@ -255,10 +255,11 @@ func SelectPeerAddress(addrs []network.Address) string {
 
 // SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
-func SelectPeerHostPort(hostPorts []network.HostPort) string {
+func SelectPeerHostPort(hostPorts []network.HostPort, space network.SpaceName) string {
 	logger.Debugf("selecting mongo peer hostPort from %+v", hostPorts)
 	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	return network.SelectControllerHostPort(hostPorts, true)
+	suitableHostPorts := network.SelectControllerHostPort(hostPorts, true, space)
+	return suitableHostPorts[0]
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)

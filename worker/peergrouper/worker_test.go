@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
@@ -414,6 +415,79 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			AssertAPIHostPorts(c, servers, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish")
+		}
+	})
+}
+
+func (s *workerSuite) TestStateServersArePublishedFromSpace(c *gc.C) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		publishCh := make(chan [][]network.HostPort)
+		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+			publishCh <- apiServers
+			return nil
+		}
+
+		st := NewFakeState()
+		InitState(c, st, 3, ipVersion)
+
+		netAddress := network.Address{
+			Value:       "0.0.0.1",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeUnknown,
+			SpaceName:   "one",
+		}
+		netHostPortOne := network.HostPort{netAddress, 4711}
+		netHostPortTwo := network.HostPort{netAddress, 4711}
+		netHostPortTwo.Address.SpaceName = "two"
+		netHostPortTwo.Address.Value = "0.0.0.2"
+		netHostPortThree := network.HostPort{netAddress, 4711}
+		netHostPortThree.Address.SpaceName = "three"
+		netHostPortThree.Address.Value = "0.0.0.3"
+
+		hostPorts := []network.HostPort{
+			netHostPortThree, netHostPortTwo, netHostPortOne,
+		}
+
+		machines := []string{"10", "11", "12"}
+		for i, machine := range machines {
+			st.machine(machine).SetHasVote(true)
+			st.machine(machine).setWantsVote(true)
+			st.machine(machine).setMongoHostPorts(hostPorts[0 : i+1])
+		}
+		st.session.Set(mkMembers("0v 1v 2v", ipVersion))
+
+		w := newWorker(st, PublisherFunc(publish))
+		pgw := w.(*pgWorker)
+		pgw.providerSupportsSpaces = true
+		defer func() {
+			c.Check(worker.Stop(w), gc.IsNil)
+		}()
+		select {
+		case servers := <-publishCh:
+			AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for publish")
+		}
+
+		// Change one of the servers' API addresses and check that it's published.
+		var newMachine10APIHostPorts []network.HostPort
+		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHost)
+		st.machine("10").setAPIHostPorts(newMachine10APIHostPorts)
+		select {
+		case servers := <-publishCh:
+			expected := ExpectedAPIHostPorts(3, ipVersion)
+			expected[0] = newMachine10APIHostPorts
+			AssertAPIHostPorts(c, servers, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for publish")
+		}
+
+		c.Assert(st.mongoSpaceDocId, gc.Equals, "three")
+		members := st.session.members.Get().([]replicaset.Member)
+		c.Assert(members, gc.HasLen, 3)
+		for i := 0; i < 3; i++ {
+			c.Assert(members[i].Address, gc.Equals, "0.0.0.3:4711")
 		}
 	})
 }
