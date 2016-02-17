@@ -45,7 +45,7 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
         print("checking {} for {}".format(safe_archive, release))
         subprocess.check_call([
             'lftp', '-c', 'mirror', '-I',
-            "juju-core_{}*.{}~juj*.deb".format(release, upatch),
+            "juju-core*{}*.{}~juj*.deb".format(release, upatch),
             archive], cwd=dest_debs)
     juju_core_dir = os.path.join(dest_debs, 'juju-core')
     if os.path.isdir(juju_core_dir):
