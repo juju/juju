@@ -185,17 +185,14 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
-			if ok {
-				gwAddr.SpaceProviderId = spaceId
-			}
-			nicInfo.GatewayAddress = gwAddr
-
 			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
 			if ok {
+				gwAddr.SpaceProviderId = spaceId
 				for i := range nicInfo.DNSServers {
 					nicInfo.DNSServers[i].SpaceProviderId = spaceId
 				}
 			}
+			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
