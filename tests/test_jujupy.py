@@ -925,6 +925,7 @@ class TestEnvJujuClient(ClientTest):
             'auth-url': 'foo',
             'authorized-keys': 'foo',
             'availability-sets-enabled': 'foo',
+            'bootstrap-host': 'foo',
             'bootstrap-timeout': 'foo',
             'bootstrap-user': 'foo',
             'client-email': 'foo',
@@ -4881,8 +4882,9 @@ class TestJujuData(TestCase):
                                      'home').get_region())
 
     def test_get_region_manual(self):
-        self.assertIs(None, JujuData('foo', {
-            'type': 'manual', 'region': 'bar'}, 'home').get_region())
+        self.assertEqual('baz', JujuData('foo', {
+            'type': 'manual', 'region': 'bar',
+            'bootstrap-host': 'baz'}, 'home').get_region())
 
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}
