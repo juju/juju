@@ -140,8 +140,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	return mergeAndWriteMetadata(targetStorage, toolsDir, c.stream, c.clean, toolsList, writeMirrors)
 }
 
-// extracted into a var for testing banefit
-var toolsDataSources = func(urls ...string) []simplestreams.DataSource {
+func toolsDataSources(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	for i, url := range urls {
 		dataSources[i] = simplestreams.NewURLSignedDataSource(

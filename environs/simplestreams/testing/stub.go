@@ -23,7 +23,6 @@ type StubDataSource struct {
 
 func NewStubDataSource() *StubDataSource {
 	result := &StubDataSource{
-		Stub: testing.Stub{},
 		DescriptionFunc: func() string {
 			return ""
 		},
