@@ -1157,6 +1157,9 @@ class FakeEnvJujuClient(EnvJujuClient):
             JujuData(name, {'type': 'fake', 'region': 'regionx'}),
             '1.2', '/jbin/juju')
 
+    def get_restore_client(self, new_name):
+        return self
+
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):
 
@@ -1681,7 +1684,9 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
     def test_iter_steps(self):
         br_attempt = BackupRestoreAttempt()
         client = FakeEnvJujuClient()
-        client.env = get_aws_env()
+        simple_env = get_aws_env()
+        client.env = JujuData(simple_env.environment, simple_env.config,
+                              juju_home='home')
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
 
@@ -1716,13 +1721,23 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 self.assertEqual(iterator.next(),
                                  {'test_id': 'back-up-restore'})
         pn_mock.assert_called_with('Closed.')
-        with patch('subprocess.Popen') as po_mock:
-            self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
+        with observable_temp_file() as config_file:
+            with patch('subprocess.Popen') as po_mock:
+                self.assertEqual(iterator.next(),
+                                 {'test_id': 'back-up-restore'})
+                po_mock.return_value.wait.return_value = 0
+                self.assertEqual(iterator.next(),
+                                 {'test_id': 'back-up-restore'})
         assert_juju_call(
             self, po_mock, client, (
-                'juju', '--show-log', 'restore', '-m', 'baz',
-                os.path.abspath('juju-backup-24.tgz')))
-        po_mock.return_value.wait.return_value = 0
+                'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+                'baz', 'aws/ca-west', '--config', config_file.name,
+                '--agent-version', '1.2'), 0)
+        assert_juju_call(
+            self, po_mock, client, (
+                'juju', '--show-log', 'restore-backup', '-m', 'baz',
+                '--file', os.path.abspath('juju-backup-24.tgz')), 2)
+        self.assertEqual(4, len(po_mock.mock_calls))
         with patch('os.unlink') as ul_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore'})

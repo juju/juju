@@ -2012,24 +2012,44 @@ class TestEnvJujuClient(ClientTest):
             client.backup()
             self.assertNotEqual(environ, os.environ)
 
+    def test_get_restore_client(self):
+        client = EnvJujuClient(
+            JujuData('foo', {'config-name': 'config-value'}), None,
+            'foobar/baz')
+        restore_client = client.get_restore_client('qux')
+        self.assertIsNot(client, restore_client)
+        self.assertEqual('qux', restore_client.env.environment)
+        self.assertEqual('foo', client.env.environment)
+        self.assertEqual({'config-name': 'config-value'},
+                         restore_client.env.config)
+
     def test_restore_backup(self):
-        env = JujuData('qux')
-        client = EnvJujuClient(env, None, '/foobar/baz')
+        env = JujuData('qux', {'type': 'foo', 'region': 'bar'})
+        client = EnvJujuClient(env, '2.0', '/foobar/baz')
         with patch.object(client, 'get_juju_output') as gjo_mock:
-            result = client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', '-b',
-                                         '--constraints', 'mem=2G',
-                                         '--file', 'quxx')
+            with patch.object(client, 'juju') as juju_mock:
+                with observable_temp_file() as config_file:
+                    result = client.restore_backup('quxx')
+        juju_mock.assert_called_once_with('bootstrap', (
+            '--constraints', 'mem=2G', 'qux', 'foo/bar', '--config',
+            config_file.name, '--agent-version', '2.0'), include_e=False)
+        gjo_mock.assert_called_once_with('restore-backup', '--file', 'quxx')
         self.assertIs(gjo_mock.return_value, result)
 
     def test_restore_backup_async(self):
-        env = JujuData('qux')
-        client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch.object(client, 'juju_async') as gjo_mock:
-            result = client.restore_backup_async('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', (
-            '-b', '--constraints', 'mem=2G', '--file', 'quxx'))
-        self.assertIs(gjo_mock.return_value, result)
+        env = JujuData('qux', {'type': 'foo', 'region': 'bar'})
+        client = EnvJujuClient(env, '2.0', '/foobar/baz')
+        with patch.object(client, 'juju_async') as ja_mock:
+            with patch.object(client, 'juju') as juju_mock:
+                with observable_temp_file() as config_file:
+                    with client.restore_backup_async('quxx'):
+                        pass
+        ja_mock.assert_called_once_with('bootstrap', (
+            '--constraints', 'mem=2G', 'qux', 'foo/bar',
+            '--config', config_file.name, '--agent-version', '2.0'),
+            include_e=False)
+        juju_mock.assert_called_once_with('restore-backup', (
+            '--file', 'quxx'))
 
     def test_enable_ha(self):
         env = JujuData('qux')
@@ -2353,6 +2373,32 @@ class TestEnvJujuClient2A2(TestCase):
         self.assertEqual(args, (
             '--upload-tools', '--constraints', 'mem=2G',
             '--agent-version', '2.0', '--bootstrap-series', 'angsty'))
+
+    def test_get_restore_client(self):
+        env = SimpleEnvironment('foo', {'config-name': 'config-value'},
+                                juju_home='home')
+        client = EnvJujuClient2A2(env, None, 'foobar/baz')
+        restore_client = client.get_restore_client('qux')
+        self.assertIs(client, restore_client)
+
+    def test_restore_backup(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient2A2(env, None, '/foobar/baz', 'home')
+        with patch.object(client, 'get_juju_output') as gjo_mock:
+            result = client.restore_backup('quxx')
+        gjo_mock.assert_called_once_with('restore-backup', '-b',
+                                         '--constraints', 'mem=2G',
+                                         '--file', 'quxx')
+        self.assertIs(gjo_mock.return_value, result)
+
+    def test_restore_backup_async(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient2A2(env, None, '/foobar/baz', juju_home='home')
+        with patch.object(client, 'juju_async') as gjo_mock:
+            result = client.restore_backup_async('quxx')
+        gjo_mock.assert_called_once_with('restore-backup', (
+            '-b', '--constraints', 'mem=2G', '--file', 'quxx'))
+        self.assertIs(gjo_mock.return_value, result)
 
 
 class TestEnvJujuClient1X(ClientTest):
@@ -4863,6 +4909,30 @@ class TestJujuData(TestCase):
                 yaml.safe_dump(credential_dict, f)
             data = JujuData('baz', {'type': 'qux'}, path)
             data.load_yaml()
+
+    def test_clone(self):
+        orig_data = JujuData(
+            'env-name', {'config-name': 'config-value'},
+            'home_name', {'credentials-name': 'credentials-value'},
+            {'clouds-name': 'clouds-value'})
+        clone_data = orig_data.clone()
+        self.assertIsNot(orig_data, clone_data)
+        self.assertEqual('env-name', clone_data.environment)
+        self.assertEqual({'config-name': 'config-value'}, clone_data.config)
+        self.assertEqual('home_name', clone_data.juju_home)
+        self.assertEqual({'credentials-name': 'credentials-value'},
+                         clone_data.credentials)
+        self.assertEqual({'clouds-name': 'clouds-value'},
+                         clone_data.clouds)
+
+    def test_clone_change_environment(self):
+        orig_data = JujuData(
+            'env-name', {'config-name': 'config-value'},
+            'home_name', {'credentials-name': 'credentials-value'},
+            {'clouds-name': 'clouds-value'})
+        clone_data = orig_data.clone()
+        clone_data.environment = 'env-name2'
+        self.assertEqual('env-name', orig_data.environment)
 
 
 class TestGroupReporter(TestCase):

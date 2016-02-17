@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import logging
 import re
 from subprocess import CalledProcessError
 import sys
@@ -22,6 +23,7 @@ from substrate import (
     terminate_instances,
 )
 from utility import (
+    configure_logging,
     print_now,
 )
 
@@ -60,10 +62,13 @@ def restore_present_state_server(client, backup_file):
         print_now(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
-        match = running_instance_pattern.search(e.stderr)
+        stderr = getattr(e, 'stderr', None)
+        if stderr is None:
+            return None
+        match = running_instance_pattern.search(stderr)
         if match is None:
             print_now("WARNING: Could not find the instance_id in output:")
-            print_now(e.stderr)
+            print_now(stderr)
             print_now("")
             return None
         return match.group(1)
@@ -99,7 +104,10 @@ def restore_missing_state_server(client, backup_file):
         output = client.restore_backup(backup_file)
     except CalledProcessError as e:
         print_now('Call of juju restore exited with an error\n')
-        message = 'Restore failed: \n%s' % e.stderr
+        stderr = getattr(e, 'stderr', None)
+        if stderr is None:
+            raise
+        message = 'Restore failed: \n%s' % stderr
         print_now(message)
         print_now('\n')
         raise Exception(message)
@@ -146,6 +154,7 @@ def make_client_from_args(args):
 
 def main(argv):
     args = parse_args(argv)
+    configure_logging(logging.INFO)
     client = make_client_from_args(args)
     jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
@@ -171,6 +180,8 @@ def main(argv):
             if args.strategy == 'ha':
                 client.get_status(600)
             else:
+                client = client.get_restore_client(
+                    client.env.environment + '-restore')
                 restore_missing_state_server(client, backup_file)
         except Exception as e:
             bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
