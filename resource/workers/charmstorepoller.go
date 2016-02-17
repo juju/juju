@@ -40,7 +40,7 @@ type CharmStoreClient interface {
 	io.Closer
 
 	// ListResources returns the resources info for each identified charm.
-	ListResources([]*charm.URL) ([][]charmresource.Resource, error)
+	ListResources([]charm.URL) ([][]charmresource.Resource, error)
 }
 
 // CharmStorePoller provides the functionality to poll the charm store
@@ -61,7 +61,7 @@ func NewCharmStorePoller(st DataStore, newClient func() (CharmStoreClient, error
 	}
 	return &CharmStorePoller{
 		CharmStorePollerDeps: deps,
-		Period:               5 * time.Minute,
+		Period:               5 * time.Minute, // TODO(ericsnow) This is probably too frequent.
 	}
 }
 
@@ -84,10 +84,13 @@ func (csp CharmStorePoller) Do(stop <-chan struct{}) error {
 	default:
 	}
 
-	var cURLs []*charm.URL
+	var cURLs []charm.URL
 	for _, service := range services {
 		cURL := service.CharmURL()
-		cURLs = append(cURLs, cURL)
+		if cURL == nil {
+			continue
+		}
+		cURLs = append(cURLs, *cURL)
 	}
 	select {
 	case <-stop:
@@ -126,7 +129,7 @@ type CharmStorePollerDeps interface {
 
 	// ListCharmStoreResources returns the resources from the charm
 	// store for each of the identified charms.
-	ListCharmStoreResources([]*charm.URL) ([][]charmresource.Resource, error)
+	ListCharmStoreResources([]charm.URL) ([][]charmresource.Resource, error)
 }
 
 type csPollerDeps struct {
@@ -140,7 +143,7 @@ func (csPollerDeps) NewPeriodicWorker(call func(stop <-chan struct{}) error, per
 }
 
 // ListCharmStoreResources implements CharmStorePollerDeps.
-func (deps csPollerDeps) ListCharmStoreResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
+func (deps csPollerDeps) ListCharmStoreResources(cURLs []charm.URL) ([][]charmresource.Resource, error) {
 	client, err := deps.newClient()
 	if err != nil {
 		return nil, errors.Trace(err)
