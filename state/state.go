@@ -332,6 +332,15 @@ func (st *State) Ping() error {
 	return st.session.Ping()
 }
 
+// MongoVersion return the string repre
+func (st *State) MongoVersion() (string, error) {
+	binfo, err := st.session.BuildInfo()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain mongo build info")
+	}
+	return binfo.Version, nil
+}
+
 // MongoSession returns the underlying mongodb session
 // used by the state. It is exposed so that external code
 // can maintain the mongo replica set and should not
