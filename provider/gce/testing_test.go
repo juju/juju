@@ -65,7 +65,6 @@ var (
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "gce",
-		"auth-file":      "",
 		"private-key":    PrivateKey,
 		"client-id":      ClientID,
 		"client-email":   ClientEmail,

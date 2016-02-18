@@ -106,34 +106,34 @@ func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
 // parseJSONKey extracts the auth information from the JSON file
 // downloaded from the GCE console (under /apiui/credential).
 func parseJSONKey(jsonKey []byte) (map[string]string, error) {
-	data := make(map[string]string)
-	if err := json.Unmarshal(jsonKey, &data); err != nil {
+	in := make(map[string]string)
+	if err := json.Unmarshal(jsonKey, &in); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	keyType, ok := data["type"]
+	keyType, ok := in["type"]
 	if !ok {
 		return nil, errors.New(`missing "type"`)
 	}
 	switch keyType {
 	case jsonKeyTypeServiceAccount:
-		for k, v := range data {
-			delete(data, k)
+		out := make(map[string]string)
+		for k, v := range in {
 			switch k {
 			case "private_key":
-				data[OSEnvPrivateKey] = v
+				out[OSEnvPrivateKey] = v
 			case "client_email":
-				data[OSEnvClientEmail] = v
+				out[OSEnvClientEmail] = v
 			case "client_id":
-				data[OSEnvClientID] = v
+				out[OSEnvClientID] = v
 			case "project_id":
-				data[OSEnvProjectID] = v
+				out[OSEnvProjectID] = v
 			}
 		}
+		return out, nil
 	default:
-		return nil, errors.NotSupportedf("JSON key type %q", data["type"])
+		return nil, errors.NotSupportedf("JSON key type %q", keyType)
 	}
-	return data, nil
 }
 
 // buildJSONKey returns the content of the JSON key file for the
