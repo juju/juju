@@ -71,7 +71,27 @@ func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *SwitchSimpleSuite) TestNoArgs(c *gc.C) {
 	_, err := s.run(c)
-	c.Assert(err, gc.ErrorMatches, "missing controller or model name")
+	c.Assert(err, gc.ErrorMatches, "no currently specified model")
+}
+
+func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *gc.C) {
+	s.addController(c, "a-controller")
+	s.currentController = "a-controller"
+	ctx, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller\n")
+}
+
+func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
+	s.addController(c, "a-controller")
+	s.currentController = "a-controller"
+	s.store.Models["a-controller"] = &jujuclient.ControllerModels{
+		Models:       map[string]jujuclient.ModelDetails{"mymodel": {}},
+		CurrentModel: "mymodel",
+	}
+	ctx, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller:mymodel\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {

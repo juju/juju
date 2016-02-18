@@ -47,34 +47,42 @@ fully-qualified model with the format "controller:model".
 func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
-		Args:    "<controller>|<model>|<controller>:<model>",
+		Args:    "[<controller>|<model>|<controller>:<model>]",
 		Purpose: "change the active Juju model",
 		Doc:     switchDoc,
 	}
 }
 
 func (c *switchCommand) Init(args []string) error {
-	if len(args) == 0 {
-		return errors.Errorf("missing controller or model name")
-	}
-	if err := cmd.CheckEmpty(args[1:]); err != nil {
-		return err
-	}
-	c.Target = args[0]
-	return nil
+	var err error
+	c.Target, err = cmd.ZeroOrOneArgs(args)
+	return err
 }
 
 func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 
-	// Get the current name for logging the transition.
+	// Get the current name for logging the transition or printing
+	// the current controller/model.
 	currentControllerName, err := c.ReadCurrentController()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	currentName, err := c.name(currentControllerName)
+	if c.Target == "" {
+		currentName, err := c.name(currentControllerName, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if currentName == "" {
+			return errors.New("no currently specified model")
+		}
+		fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
+		return nil
+	}
+	currentName, err := c.name(currentControllerName, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	var newName string
 	defer func() {
 		if resultErr != nil {
@@ -97,7 +105,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 			newName = currentName
 			return nil
 		} else {
-			newName, err = c.name(c.Target)
+			newName, err = c.name(c.Target, false)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -160,7 +168,7 @@ func logSwitch(ctx *cmd.Context, oldName string, newName *string) {
 // name returns the name of the current model for the specified controller
 // if one is set, otherwise the controller name with an indicator that it
 // is the name of a controller and not a model.
-func (c *switchCommand) name(controllerName string) (string, error) {
+func (c *switchCommand) name(controllerName string, machineReadable bool) (string, error) {
 	if controllerName == "" {
 		return "", nil
 	}
@@ -169,6 +177,9 @@ func (c *switchCommand) name(controllerName string) (string, error) {
 		return modelcmd.JoinModelName(controllerName, modelName), nil
 	}
 	if errors.IsNotFound(err) {
+		if machineReadable {
+			return controllerName, nil
+		}
 		return fmt.Sprintf("%s (controller)", controllerName), nil
 	}
 	return "", errors.Trace(err)
