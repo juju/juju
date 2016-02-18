@@ -59,12 +59,16 @@ def get_git_revision_info(branch, revision_spec):
         commit, ref = ls_remote(repo_url, revision_spec, tag=True)
     if commit is None:
         commit = revision_spec
+    return None, commit
+
+
+def get_git_version(branch, commit):
+    protocol, branch_name, repo_name = branch.split(':')
     domain, user, repo = repo_name.split('/')
     template = 'https://raw.githubusercontent.com/{}/{}/{}/version/version.go'
     file_url = template.format(user, repo, commit)
     response = urllib2.urlopen(file_url)
-    version = parse_version(response.read())
-    return None, commit, version
+    return parse_version(response.read())
 
 
 if __name__ == '__main__':
@@ -80,21 +84,26 @@ if __name__ == '__main__':
     if branch.startswith('lp:'):
         logging.error('Launchpad branches are no longer supported.')
         sys.exit(1)
-    else:
-        revno, revision_id, version = get_git_revision_info(
-            branch, revision_spec)
-    with open('buildvars.bash', 'w') as f:
-        f.write(dedent("""\
-            export BRANCH=%s
-            export REVISION_ID='%s'
-            export VERSION=%s
-        """ % (branch, revision_id, version)))
-        if revno is not None:
-            f.write('export REVNO=%s\n' % revno)
-    with open('buildvars.json', 'w') as f:
-        json.dump({
-            'branch': branch,
-            'revision_id': revision_id,
-            'version': version,
-            'revision_build': args.revision_build,
-            }, f, indent=2)
+    revno, revision_id = get_git_revision_info(branch, revision_spec)
+    version = None
+    version_str = ''
+    try:
+        version = get_git_version(branch, revision_id)
+        version_str = str(version)
+    finally:
+        with open('buildvars.bash', 'w') as f:
+            f.write(dedent("""\
+                export BRANCH=%s
+                export REVISION_ID='%s'
+                export VERSION=%s
+            """ % (branch, revision_id, version_str)))
+            if revno is not None:
+                f.write('export REVNO=%s\n' % revno)
+        with open('buildvars.json', 'w') as f:
+            json.dump({
+                'branch': branch,
+                'revision_id': revision_id,
+                'version': version,
+                'revision_build': args.revision_build,
+                }, f, indent=2)
+
