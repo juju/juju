@@ -75,6 +75,42 @@ func (s *tagsSuite) TestAddInstanceTagsSupportsTagging(c *gc.C) {
 	}})
 }
 
+func (s *tagsSuite) TestAddInstanceTagsIgnoresManuallyProvisionedMachines(c *gc.C) {
+	env := &testEnvironWithTagging{
+		testEnviron: testEnviron{
+			cfg: testing.CustomEnvironConfig(c, testing.Attrs{
+				"resource-tags": "abc=123",
+			}),
+		},
+	}
+
+	manuallyProvisioned, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = manuallyProvisioned.SetProvisioned("inst-10", "manual:", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = upgrades.AddInstanceTags(env, []*state.Machine{
+		s.stateServer,
+		manuallyProvisioned,
+		s.provisioned})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(env.calls, jc.DeepEquals, []tagInstanceArgs{{
+		// for s.stateServer
+		"inst-0", map[string]string{
+			"juju-is-state": "true",
+			"juju-env-uuid": testing.EnvironmentTag.Id(),
+			"abc":           "123",
+		},
+	}, // for s.provisioned
+		{
+			"inst-1", map[string]string{
+				"juju-env-uuid": testing.EnvironmentTag.Id(),
+				"abc":           "123",
+			},
+		}})
+}
+
 func (s *tagsSuite) TestAddInstanceTagsDoesNotSupportTagging(c *gc.C) {
 	env := &testEnviron{cfg: testing.CustomEnvironConfig(c, nil)}
 	err := upgrades.AddInstanceTags(env, []*state.Machine{
