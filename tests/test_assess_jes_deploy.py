@@ -1,5 +1,4 @@
 from argparse import Namespace
-import unittest
 from mock import (
     patch,
     )
@@ -17,10 +16,11 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
 )
+import tests
 from tests.test_jujupy import FakeJujuClient
 
 
-class TestJES(unittest.TestCase):
+class TestJES(tests.FakeHomeTestCase):
 
     client_class = EnvJujuClient25
 
@@ -154,11 +154,11 @@ class TestJES(unittest.TestCase):
         self.assertNotIn('jes', new_client.feature_flags)
 
 
-class TestHostedEnvironment(unittest.TestCase):
+class TestHostedEnvironment(tests.FakeHomeTestCase):
 
     def test_hosted_environment(self):
         hosting_client = FakeJujuClient()
-        with hosted_environment(hosting_client, 'bar') as client:
+        with hosted_environment(hosting_client, '/log', 'bar') as client:
             model_state = client._backing_state
             self.assertEqual({'name-bar': model_state},
                              hosting_client._backing_state.models)
