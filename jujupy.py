@@ -281,10 +281,10 @@ class EnvJujuClient:
             client_class = EnvJujuClient
         elif re.match('^2\.0-alpha1', version):
             client_class = EnvJujuClient2A1
-        elif re.match('^2\.0-(alpha3|delta1)', version):
-            client_class = EnvJujuClient
-        else:
+        elif re.match('^2\.0-alpha2', version):
             client_class = EnvJujuClient2A2
+        else:
+            client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
