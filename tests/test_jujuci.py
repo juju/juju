@@ -18,7 +18,6 @@ from jujuci import (
     get_artifacts,
     get_build_data,
     get_buildvars,
-    get_certification_bin,
     get_credentials,
     get_job_data,
     get_juju_bin,
@@ -481,33 +480,6 @@ class JujuCITestCase(FakeHomeTestCase):
             JENKINS_URL, credentials, 'build-binary-wacky-a64', 'lastBuild')
         self.assertEqual(1, jnf_mock.call_count)
 
-    def test_get_certification_bin(self):
-        package_namer = PackageNamer('foo', 'bar', 'baz')
-        build_data = {
-            'url': 'http://foo/',
-            'artifacts': [{
-                'fileName': 'juju-core_36.1~0ubuntu1~bar.1_foo.deb',
-                'relativePath': 'baz',
-                }]
-            }
-        credentials = Credentials('jrandom', 'password1')
-
-        with self.get_juju_binary_mocks() as (workspace, ur_mock, cc_mock):
-            with patch('jujuci.get_build_data', return_value=build_data,
-                       autospec=True) as gbd_mock:
-                with patch.object(PackageNamer, 'factory',
-                                  return_value=package_namer):
-                    bin_loc = get_certification_bin(credentials,
-                                                    '36.1~0ubuntu1',
-                                                    workspace)
-        self.assertEqual(bin_loc, os.path.join(
-            workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
-        ur_mock.assert_called_once_with(
-            'http://jrandom:password1@foo/artifact/baz',
-            os.path.join(workspace, 'juju-core_36.1~0ubuntu1~bar.1_foo.deb'))
-        gbd_mock.assert_called_once_with(
-            JENKINS_URL, credentials, CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
-
     @contextmanager
     def get_juju_binary_mocks(self):
         def mock_extract_deb(args):
@@ -747,12 +719,6 @@ class TestPackageNamer(TestNamer):
         self.assertEqual(
             package_namer.get_release_package('27.6'),
             'juju-core_27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
-
-    def test_get_certification_package(self):
-        package_namer = PackageNamer('amd42', '42.34', 'wacky')
-        self.assertEqual(
-            package_namer.get_certification_package('27.6~0ubuntu1'),
-            'juju-core_27.6~0ubuntu1~42.34.1_amd42.deb')
 
 
 class TestJobNamer(TestNamer):
