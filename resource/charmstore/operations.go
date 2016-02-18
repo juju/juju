@@ -83,6 +83,9 @@ func (ops operations) GetResource(cURL *charm.URL, name string) (resource.Resour
 
 	reader, err = client.GetResource(cURL, res.Name, res.Revision)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			err = errors.Annotate(err, "(in the charm store)")
+		}
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
