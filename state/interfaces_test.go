@@ -184,7 +184,7 @@ func (s *interfacesStateSuite) checkAddedInterfaceMatchesArgs(c *gc.C, addedInte
 }
 
 func (s *interfacesStateSuite) checkAddedInterfaceMatchesMachineIDAndModelUUID(c *gc.C, addedInterface *state.Interface, machineID, modelUUID string) {
-	globalKey := state.InterfaceGlobalKey(machineID, addedInterface.Name())
+	globalKey := fmt.Sprintf("m#%si#%s", machineID, addedInterface.Name())
 	c.Check(addedInterface.DocID(), gc.Equals, modelUUID+":"+globalKey)
 	c.Check(addedInterface.MachineID(), gc.Equals, machineID)
 }
@@ -233,11 +233,36 @@ func (s *interfacesStateSuite) TestAddInterfaceWithDuplicateNameReturnsAlreadyEx
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *interfacesStateSuite) TestStateInterfaceReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	result, err := s.State.Interface("missing")
-	c.Assert(result, gc.IsNil)
+func (s *interfacesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
+	nic := s.addSimpleInterface(c)
+
+	err := s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := nic.Machine()
+	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `interface "missing" not found`)
+	c.Assert(result, gc.IsNil)
+}
+
+func (s *interfacesStateSuite) addSimpleInterface(c *gc.C) *state.Interface {
+	args := state.AddInterfaceArgs{
+		Name: "foo",
+		Type: state.UnknownInterface,
+	}
+	nic, err := s.machine.AddInterface(args)
+	c.Assert(err, jc.ErrorIsNil)
+	return nic
+}
+
+func (s *interfacesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
+	nic := s.addSimpleInterface(c)
+
+	result, err := nic.Machine()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, s.machine)
 }
 
 func (s *interfacesStateSuite) TestParentInterfaceReturnsInterface(c *gc.C) {
@@ -254,12 +279,26 @@ func (s *interfacesStateSuite) TestParentInterfaceReturnsInterface(c *gc.C) {
 	}
 	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, childArgs)
 
-	childGlobalKey := state.InterfaceGlobalKey(s.machine.Id(), childArgs.Name)
-	child, err := s.State.Interface(childGlobalKey)
+	child, err := s.machine.Interface(childArgs.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	parent, err := child.ParentInterface()
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkAddedInterfaceMatchesArgs(c, parent, parentArgs)
 	s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, parent, s.machine.Id(), s.State.ModelUUID())
+}
+
+func (s *interfacesStateSuite) TestMachineInterfaceReturnsNotFoundErrorWhenMissing(c *gc.C) {
+	result, err := s.machine.Interface("missing")
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `interface "missing" on machine "0" not found`)
+}
+
+func (s *interfacesStateSuite) TestMachineInterfaceReturnsInterface(c *gc.C) {
+	existingInterface := s.addSimpleInterface(c)
+
+	result, err := s.machine.Interface(existingInterface.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, existingInterface)
 }

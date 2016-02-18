@@ -72,10 +72,10 @@ func (s *interfacesInternalSuite) TestParentInterfaceReturnsNoErrorWhenParentNam
 }
 
 func (s *interfacesInternalSuite) TestInterfaceGlobalKeyHelper(c *gc.C) {
-	result := InterfaceGlobalKey("42", "eno1")
+	result := interfaceGlobalKey("42", "eno1")
 	c.Assert(result, gc.Equals, "m#42i#eno1")
 
-	result = InterfaceGlobalKey("", "")
+	result = interfaceGlobalKey("", "")
 	c.Assert(result, gc.Equals, "")
 }
 

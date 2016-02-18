@@ -147,6 +147,11 @@ func (nic *Interface) MachineID() string {
 	return nic.doc.MachineID
 }
 
+// Machine returns the Machine of this interface.
+func (nic *Interface) Machine() (*Machine, error) {
+	return nic.st.Machine(nic.doc.MachineID)
+}
+
 // Type returns the type of the interface.
 func (nic *Interface) Type() InterfaceType {
 	return nic.doc.Type
@@ -182,15 +187,20 @@ func (nic *Interface) ParentInterface() (*Interface, error) {
 		return nil, nil
 	}
 
-	parentGlobalKey := InterfaceGlobalKey(nic.doc.MachineID, nic.doc.ParentName)
-	return nic.st.Interface(parentGlobalKey)
+	return nic.machineProxy().Interface(nic.doc.ParentName)
+}
+
+// machineProxy is a convenience wrapper for calling Machine.Interface() from
+// *Interface.
+func (nic *Interface) machineProxy() *Machine {
+	return &Machine{st: nic.st, doc: machineDoc{Id: nic.doc.MachineID}}
 }
 
 // Refresh refreshes the contents of the inteface from the underlying state. It
 // returns an error that satisfies errors.IsNotFound if the interface has been
 // removed.
 func (nic *Interface) Refresh() error {
-	freshCopy, err := nic.st.Interface(nic.globalKey())
+	freshCopy, err := nic.machineProxy().Interface(nic.doc.Name)
 	if errors.IsNotFound(err) {
 		return err
 	} else if err != nil {
@@ -200,20 +210,21 @@ func (nic *Interface) Refresh() error {
 	return nil
 }
 
-// Interface returns the interface matching the given globalKey. An error
-// satisfying errors.IsNotFound() is returned when no such interface exists.
-func (st *State) Interface(globalKey string) (*Interface, error) {
-	interfaces, closer := st.getCollection(interfacesC)
+// Interface returns the interface matching the given name. An error satisfying
+// errors.IsNotFound() is returned when no such interface exists on the machine.
+func (m *Machine) Interface(name string) (*Interface, error) {
+	interfaces, closer := m.st.getCollection(interfacesC)
 	defer closer()
 
 	var doc interfaceDoc
+	globalKey := interfaceGlobalKey(m.doc.Id, name)
 	err := interfaces.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("interface %q", globalKey)
+		return nil, errors.NotFoundf("interface %q on machine %q", name, m.doc.Id)
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot get interface %q", globalKey)
+		return nil, errors.Annotatef(err, "cannot get interface %q on machine %q", name, m.doc.Id)
 	}
-	return newInterface(st, doc), nil
+	return newInterface(m.st, doc), nil
 }
 
 // AddInterfaceArgs contains the arguments accepted by Machine.AddInterface().
@@ -280,7 +291,6 @@ func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) 
 	}
 
 	newInterfaceDoc := m.newInterfaceDocFromArgs(args)
-	parentGlobalKey := InterfaceGlobalKey(m.doc.Id, args.ParentName)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -294,16 +304,15 @@ func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) 
 				return nil, errors.Errorf("machine not found or not alive")
 			}
 
-			if parentGlobalKey != "" {
-				if _, err := m.st.Interface(parentGlobalKey); errors.IsNotFound(err) {
+			if args.ParentName != "" {
+				if _, err := m.Interface(args.ParentName); errors.IsNotFound(err) {
 					return nil, errors.NotFoundf("parent interface %q", args.ParentName)
 				} else if err != nil {
 					return nil, errors.Trace(err)
 				}
 			}
 
-			globalKey := InterfaceGlobalKey(m.doc.Id, args.Name)
-			if _, err := m.st.Interface(globalKey); err == nil {
+			if _, err := m.Interface(args.Name); err == nil {
 				return nil, errors.AlreadyExistsf("interface")
 			} else if !errors.IsNotFound(err) {
 				return nil, errors.Trace(err)
@@ -324,7 +333,8 @@ func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) 
 			},
 		}
 
-		if parentGlobalKey != "" {
+		if args.ParentName != "" {
+			parentGlobalKey := interfaceGlobalKey(m.doc.Id, args.ParentName)
 			parentDocID := m.st.docID(parentGlobalKey)
 			ops = append(ops, txn.Op{
 				C:      interfacesC,
@@ -382,7 +392,7 @@ func validateAddInterfaceArgs(args AddInterfaceArgs) error {
 // newInterfaceDocFromArgs returns an interfaceDoc populated from args for the
 // machine.
 func (m *Machine) newInterfaceDocFromArgs(args AddInterfaceArgs) interfaceDoc {
-	globalKey := InterfaceGlobalKey(m.doc.Id, args.Name)
+	globalKey := interfaceGlobalKey(m.doc.Id, args.Name)
 	interfaceDocID := m.st.docID(globalKey)
 
 	providerID := string(args.ProviderID)
@@ -429,18 +439,16 @@ func (nic *Interface) GatewayAddress() string {
 	return nic.doc.GatewayAddress
 }
 
-func (nic *Interface) globalKey() string {
-	return InterfaceGlobalKey(nic.doc.MachineID, nic.doc.Name)
-}
-
 // String returns the interface as a human-readable string.
 func (nic *Interface) String() string {
 	return fmt.Sprintf("%s interface %q on machine %q", nic.doc.Type, nic.doc.Name, nic.doc.MachineID)
 }
 
-// InterfaceGlobalKey returns a (model-unique) global key for an interface. If
-// either argument is empty, the result is empty.
-func InterfaceGlobalKey(machineID, interfaceName string) string {
+func (nic *Interface) globalKey() string {
+	return interfaceGlobalKey(nic.doc.MachineID, nic.doc.Name)
+}
+
+func interfaceGlobalKey(machineID, interfaceName string) string {
 	if machineID == "" || interfaceName == "" {
 		return ""
 	}
