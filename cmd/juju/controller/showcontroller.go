@@ -22,9 +22,6 @@ func NewShowControllerCommand() cmd.Command {
 
 // Init implements Command.Init.
 func (c *showControllerCommand) Init(args []string) (err error) {
-	if len(args) < 1 {
-		return errors.New("must specify controller name(s)")
-	}
 	c.controllerNames = args
 	return nil
 }
@@ -51,8 +48,19 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *showControllerCommand) Run(ctx *cmd.Context) error {
+	controllerNames := c.controllerNames
+	if len(controllerNames) == 0 {
+		currentController, err := modelcmd.ReadCurrentController()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if currentController == "" {
+			return errors.New("there is no active controller")
+		}
+		controllerNames = []string{currentController}
+	}
 	controllers := make(map[string]ShowControllerDetails)
-	for _, name := range c.controllerNames {
+	for _, name := range controllerNames {
 		one, err := c.store.ControllerByName(name)
 		if err != nil {
 			return errors.Annotatef(err, "failed to get controller %s", name)
@@ -178,10 +186,11 @@ type showControllerCommand struct {
 
 const showControllerDoc = `
 Show extended information about controller(s) as well as related models and accounts.
-Both current and last used model and account are displayed as well.
+The active model and account for each controller are displayed as well.
 
-Controllers to display are specified by controller names.
+Controllers to display are specified by controller names. If no controller names
+are supplied, show-controller will print out the active controller.
 
 arguments:
-<space separated controller names>
+[space separated controller names]
 `
