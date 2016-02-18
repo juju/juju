@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"os"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
@@ -25,7 +23,6 @@ import (
 
 // The GCE-specific config keys.
 const (
-	cfgAuthFile      = "auth-file"
 	cfgPrivateKey    = "private-key"
 	cfgClientID      = "client-id"
 	cfgClientEmail   = "client-email"
@@ -36,7 +33,6 @@ const (
 
 // configFields is the spec for each GCE config value's type.
 var configFields = schema.Fields{
-	cfgAuthFile:      schema.String(),
 	cfgPrivateKey:    schema.String(),
 	cfgClientID:      schema.String(),
 	cfgClientEmail:   schema.String(),
@@ -50,7 +46,6 @@ var configFields = schema.Fields{
 // cloud-images).
 
 var configDefaults = schema.Defaults{
-	cfgAuthFile: "",
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",
 	cfgRegion:        "us-central1",
@@ -61,7 +56,6 @@ var configSecretFields = []string{
 }
 
 var configImmutableFields = []string{
-	cfgAuthFile,
 	cfgPrivateKey,
 	cfgClientID,
 	cfgClientEmail,
@@ -72,6 +66,7 @@ var configImmutableFields = []string{
 
 var configAuthFields = []string{
 	cfgPrivateKey,
+	cfgProjectID,
 	cfgClientID,
 	cfgClientEmail,
 }
@@ -152,13 +147,6 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	return ecfg, nil
-}
-
-func (c *environConfig) authFile() string {
-	if c.attrs[cfgAuthFile] == nil {
-		return ""
-	}
-	return c.attrs[cfgAuthFile].(string)
 }
 
 func (c *environConfig) privateKey() string {
@@ -271,8 +259,6 @@ func (c *environConfig) update(cfg *config.Config) error {
 // individual fields (falling back on the JSON file).
 func parseCredentials(cfg *config.Config) (*google.Credentials, error) {
 	attrs := cfg.UnknownAttrs()
-
-	// Try the auth fields first.
 	values := make(map[string]string)
 	for _, field := range configAuthFields {
 		if existing, ok := attrs[field].(string); ok && existing != "" {
@@ -284,30 +270,7 @@ func parseCredentials(cfg *config.Config) (*google.Credentials, error) {
 			}
 		}
 	}
-	if len(values) > 0 {
-		creds, err := google.NewCredentials(values)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return creds, nil
-	}
-
-	// Fall back to the auth file.
-	filename, ok := attrs[cfgAuthFile].(string)
-	if !ok || filename == "" {
-		// The missing credentials will be caught later.
-		return nil, nil
-	}
-	authFile, err := os.Open(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer authFile.Close()
-	creds, err := google.ParseJSONKey(authFile)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return creds, nil
+	return google.NewCredentials(values)
 }
 
 func applyCredentials(cfg *config.Config, creds *google.Credentials) (*config.Config, error) {
