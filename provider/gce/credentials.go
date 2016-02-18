@@ -56,7 +56,6 @@ func parseJSONAuthFile(filename string) (cloud.Credential, error) {
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)
 	}
-	logger.Debugf("%+v", creds)
 	return cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{
 		"project-id":   creds.ProjectID,
 		"client-id":    creds.ClientID,
