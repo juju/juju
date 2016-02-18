@@ -9,7 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
+	"github.com/juju/retry"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
@@ -62,37 +63,52 @@ func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
 
 type csRetryClient struct {
 	charmstore.Client
-	strategy utils.AttemptStrategy
+	retryArgs retry.CallArgs
 }
 
 func newCSRetryClient(client charmstore.Client) *csRetryClient {
-	strategy := utils.AttemptStrategy{
-		Delay: 1 * time.Minute,
-		Min:   4, // max 5 tries
+	retryArgs := retry.CallArgs{
+		IsFatalError: errorShouldNotRetry,
+		Attempts:     -1, // retry forever...
+		Delay:        1 * time.Minute,
+		Clock:        clock.WallClock,
 	}
 	return &csRetryClient{
-		Client:   client,
-		strategy: strategy,
+		Client:    client,
+		retryArgs: retryArgs,
 	}
 }
 
 // GetResource returns a reader for the resource's data.
 func (client csRetryClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
-	retries := client.strategy.Start()
+	args := client.retryArgs // a copy
+
+	var reader io.ReadCloser
+	args.Func = func() error {
+		csReader, err := client.Client.GetResource(cURL, resourceName, revision)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		reader = csReader
+		return nil
+	}
+
 	var lastErr error
-	for retries.Next() {
-		reader, err := client.Client.GetResource(cURL, resourceName, revision)
-		if err == nil {
-			return reader, nil
-		}
-		if errorShouldNotRetry(err) {
-			return nil, errors.Trace(err)
-		}
-		// Otherwise, remember the error we're hiding and then retry!
-		logger.Errorf("retrying resource download from charm store due to error: %v", err)
+	args.NotifyFunc = func(err error, i int) {
+		// Remember the error we're hiding and then retry!
+		logger.Errorf("(attempt %d) retrying resource download from charm store due to error: %v", i, err)
 		lastErr = err
 	}
-	return nil, errors.Annotate(lastErr, "failed after retrying")
+
+	err := retry.Call(args)
+	if retry.IsAttemptsExceeded(err) {
+		return nil, errors.Annotate(lastErr, "failed after retrying")
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return reader, nil
 }
 
 func errorShouldNotRetry(err error) bool {
