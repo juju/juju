@@ -29,4 +29,7 @@ func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
 
 	_, err = testing.RunCommand(c, s.command, "restore", "--id", "anid", "--file", "afile")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id but not both.")
+
+	_, err = testing.RunCommand(c, s.command, "restore", "--id", "anid", "-b")
+	c.Assert(err, gc.ErrorMatches, "it is not possible to rebootstrap and restore from an id.")
 }
