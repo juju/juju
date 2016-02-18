@@ -52,8 +52,21 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 	if len(errs) > 0 {
 		fmt.Fprintln(ctx.Stderr, strings.Join(errs, "\n"))
 	}
-	// TODO (anastasiamac 2016-02-13) need to sort out what to do with current-controller.
-	return c.out.Write(ctx, details)
+	currentController, err := modelcmd.ReadCurrentController()
+	if err != nil {
+		return errors.Annotate(err, "getting current controller")
+	}
+	if _, ok := controllers[currentController]; !ok {
+		// TODO(axw) move handling of current-controller to
+		// the jujuclient code, and make sure the file is
+		// kept in-sync with the controllers.yaml file.
+		currentController = ""
+	}
+	controllerSet := ControllerSet{
+		Controllers:       details,
+		CurrentController: currentController,
+	}
+	return c.out.Write(ctx, controllerSet)
 }
 
 type listControllersCommand struct {

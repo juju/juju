@@ -186,6 +186,9 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 }
 
 func (s *ShowControllerSuite) TestShowControllerNoArgsNoCurrent(c *gc.C) {
+	err := modelcmd.WriteCurrentController("")
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.expectedErr = regexp.QuoteMeta(`there is no active controller`)
 	s.assertShowControllerFailed(c)
 }

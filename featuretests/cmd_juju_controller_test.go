@@ -57,8 +57,8 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL       USER         SERVER
-dummymodel  dummymodel  admin@local  
+CONTROLLER   MODEL       USER         SERVER
+dummymodel*  dummymodel  admin@local  
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
