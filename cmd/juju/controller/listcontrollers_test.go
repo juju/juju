@@ -36,7 +36,7 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 CONTROLLER                 MODEL     USER         SERVER
 local.aws-test             admin     -            instance-1-2-4.useast.aws.com
-local.mallards             my-model  admin@local  maas-1-05.cluster.mallards
+local.mallards*            my-model  admin@local  maas-1-05.cluster.mallards
 local.mark-test-prodstack  -         -            vm-23532.prodstack.canonical.com
 
 `[1:]
@@ -47,15 +47,17 @@ local.mark-test-prodstack  -         -            vm-23532.prodstack.canonical.c
 
 func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 	s.expectedOutput = `
-local.aws-test:
-  model: admin
-  server: instance-1-2-4.useast.aws.com
-local.mallards:
-  model: my-model
-  user: admin@local
-  server: maas-1-05.cluster.mallards
-local.mark-test-prodstack:
-  server: vm-23532.prodstack.canonical.com
+controllers:
+  local.aws-test:
+    model: admin
+    server: instance-1-2-4.useast.aws.com
+  local.mallards:
+    model: my-model
+    user: admin@local
+    server: maas-1-05.cluster.mallards
+  local.mark-test-prodstack:
+    server: vm-23532.prodstack.canonical.com
+current-controller: local.mallards
 `[1:]
 
 	s.createTestClientStore(c)
@@ -64,7 +66,7 @@ local.mark-test-prodstack:
 
 func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 	s.expectedOutput = `
-{"local.aws-test":{"model":"admin","server":"instance-1-2-4.useast.aws.com"},"local.mallards":{"model":"my-model","user":"admin@local","server":"maas-1-05.cluster.mallards"},"local.mark-test-prodstack":{"server":"vm-23532.prodstack.canonical.com"}}
+{"controllers":{"local.aws-test":{"model":"admin","server":"instance-1-2-4.useast.aws.com"},"local.mallards":{"model":"my-model","user":"admin@local","server":"maas-1-05.cluster.mallards"},"local.mark-test-prodstack":{"server":"vm-23532.prodstack.canonical.com"}},"current-controller":"local.mallards"}
 `[1:]
 
 	s.createTestClientStore(c)

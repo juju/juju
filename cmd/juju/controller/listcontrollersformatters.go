@@ -16,7 +16,7 @@ import (
 const noValueDisplay = "-"
 
 func formatControllersListTabular(value interface{}) ([]byte, error) {
-	controllers, ok := value.(map[string]ControllerItem)
+	controllers, ok := value.(ControllerSet)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", controllers, value)
 	}
@@ -25,7 +25,7 @@ func formatControllersListTabular(value interface{}) ([]byte, error) {
 
 // formatControllersTabular returns a tabular summary of controller/model items
 // sorted by controller name alphabetically.
-func formatControllersTabular(controllers map[string]ControllerItem) ([]byte, error) {
+func formatControllersTabular(set ControllerSet) ([]byte, error) {
 	var out bytes.Buffer
 
 	const (
@@ -44,13 +44,13 @@ func formatControllersTabular(controllers map[string]ControllerItem) ([]byte, er
 	print("CONTROLLER", "MODEL", "USER", "SERVER")
 
 	names := []string{}
-	for name, _ := range controllers {
+	for name, _ := range set.Controllers {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
 	for _, name := range names {
-		c := controllers[name]
+		c := set.Controllers[name]
 		modelName := noValueDisplay
 		if c.ModelName != "" {
 			modelName = c.ModelName
@@ -58,6 +58,9 @@ func formatControllersTabular(controllers map[string]ControllerItem) ([]byte, er
 		userName := noValueDisplay
 		if c.User != "" {
 			userName = c.User
+		}
+		if name == set.CurrentController {
+			name += "*"
 		}
 		print(name, modelName, userName, c.Server)
 	}

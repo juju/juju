@@ -9,13 +9,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type baseControllerSuite struct {
@@ -31,6 +32,9 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.modelsYaml = testModelsYaml
 	s.accountsYaml = testAccountsYaml
 	s.store = nil
+
+	err := modelcmd.WriteCurrentController("local.mallards")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseControllerSuite) createTestClientStore(c *gc.C) {

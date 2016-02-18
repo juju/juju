@@ -11,6 +11,13 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+// ControllerSet contains the set of controllers known to the client,
+// and name of the current controller.
+type ControllerSet struct {
+	Controllers       map[string]ControllerItem `yaml:"controllers" json:"controllers"`
+	CurrentController string                    `yaml:"current-controller" json:"current-controller"`
+}
+
 // ControllerItem defines the serialization behaviour of controller information.
 type ControllerItem struct {
 	ModelName string `yaml:"model,omitempty" json:"model,omitempty"`
@@ -19,8 +26,8 @@ type ControllerItem struct {
 }
 
 // convertControllerDetails takes a map of Controllers and
-// the recently used model for each and
-// creates a list of amalgamated controller and model details.
+// the recently used model for each and creates a list of
+// amalgamated controller and model details.
 func (c *listControllersCommand) convertControllerDetails(storeControllers map[string]jujuclient.ControllerDetails) (map[string]ControllerItem, []string) {
 	if len(storeControllers) == 0 {
 		return nil, nil
