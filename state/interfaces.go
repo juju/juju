@@ -80,12 +80,13 @@ const (
 	// LoopbackInterface is used for loopback interfaces.
 	LoopbackInterface InterfaceType = "loopback"
 
-	// EthernetInterface is used for interfaces representing Ethernet devices.
+	// EthernetInterface is used for interfaces representing Ethernet (IEEE
+	// 802.3) devices.
 	EthernetInterface InterfaceType = "ethernet"
 
-	// VLANInterface is used for interfaces representing IEEE 802.11Q VLAN
+	// VLAN_8021QInterface is used for interfaces representing IEEE 802.1Q VLAN
 	// devices.
-	VLANInterface InterfaceType = "vlan"
+	VLAN_8021QInterface InterfaceType = "802.1q"
 
 	// BondInterface is used for interfaces representing bonding devices.
 	BondInterface InterfaceType = "bond"
@@ -99,7 +100,8 @@ const (
 // type.
 func IsValidInterfaceType(value string) bool {
 	switch InterfaceType(value) {
-	case UnknownInterface, LoopbackInterface, EthernetInterface, VLANInterface, BondInterface, BridgeInterface:
+	case UnknownInterface, LoopbackInterface, EthernetInterface,
+		VLAN_8021QInterface, BondInterface, BridgeInterface:
 		return true
 	}
 	return false

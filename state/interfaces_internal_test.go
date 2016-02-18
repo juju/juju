@@ -147,7 +147,7 @@ func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithValidValue(c *gc.C
 		UnknownInterface,
 		LoopbackInterface,
 		EthernetInterface,
-		VLANInterface,
+		VLAN_8021QInterface,
 		BondInterface,
 		BridgeInterface,
 	}

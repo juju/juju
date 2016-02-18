@@ -140,11 +140,11 @@ func (s *interfacesStateSuite) TestAddInterfaceWithMissingParent(c *gc.C) {
 
 func (s *interfacesStateSuite) TestAddInterfaceNoParentSuccess(c *gc.C) {
 	args := state.AddInterfaceArgs{
-		Name:             "eth0",
+		Name:             "eth0.42",
 		Index:            1,
 		MTU:              9000,
 		ProviderID:       "eni-42",
-		Type:             state.EthernetInterface,
+		Type:             state.VLAN_8021QInterface,
 		HardwareAddress:  "aa:bb:cc:dd:ee:f0",
 		IsAutoStart:      true,
 		IsUp:             true,
