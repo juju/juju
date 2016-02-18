@@ -647,6 +647,7 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
+	var charmModifiedVersion int
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharm to succeed
@@ -662,31 +663,45 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 		}
 		// Make sure the service doesn't have this charm already.
 		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
-		var ops []txn.Op
-		if count, err := services.Find(sel).Count(); err != nil {
+		count, err := services.Find(sel).Count()
+		if err != nil {
 			return nil, errors.Trace(err)
-		} else if count == 1 {
+		}
+		var doc serviceDoc
+		if err := services.FindId(s.doc.DocID).One(&doc); err != nil {
+			return nil, errors.Trace(err)
+		}
+		charmModifiedVersion = doc.CharmModifiedVersion
+		ops := []txn.Op{{
+			C:      servicesC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"charmmodifiedversion", charmModifiedVersion}},
+		}}
+		if count > 0 {
 			// Charm URL already set; just update the force flag.
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
-			ops = []txn.Op{{
+			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
 				Update: bson.D{{"$set", bson.D{{"forcecharm", forceUnits}}}},
-			}}
+			}}...)
 		} else {
 			// Change the charm URL.
-			ops, err = s.changeCharmOps(ch, forceUnits)
+			chng, err := s.changeCharmOps(ch, forceUnits)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			ops = append(ops, chng...)
 		}
+
 		return ops, nil
 	}
 	err := s.st.run(buildTxn)
 	if err == nil {
 		s.doc.CharmURL = ch.URL()
 		s.doc.ForceCharm = forceUnits
+		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
 	return err
 }
