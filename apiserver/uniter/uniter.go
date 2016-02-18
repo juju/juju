@@ -558,7 +558,7 @@ func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults,
 
 // CharmModifiedVersion returns the most CharmModifiedVersion for all given
 // units or services.
-func (u *uniterBaseAPI) CharmModifiedVersion(args params.Entities) (params.IntResults, error) {
+func (u *UniterAPIV3) CharmModifiedVersion(args params.Entities) (params.IntResults, error) {
 	results := params.IntResults{
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
@@ -579,7 +579,7 @@ func (u *uniterBaseAPI) CharmModifiedVersion(args params.Entities) (params.IntRe
 	return results, nil
 }
 
-func (u *uniterBaseAPI) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
+func (u *UniterAPIV3) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
 	tag, err := names.ParseTag(tagStr)
 	if err != nil {
 		return -1, common.ErrPerm
