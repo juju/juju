@@ -72,10 +72,10 @@ func (s *interfacesInternalSuite) TestParentInterfaceReturnsNoErrorWhenParentNam
 }
 
 func (s *interfacesInternalSuite) TestInterfaceGlobalKeyHelper(c *gc.C) {
-	result := interfaceGlobalKey("42", "eno1")
+	result := InterfaceGlobalKey("42", "eno1")
 	c.Assert(result, gc.Equals, "m#42i#eno1")
 
-	result = interfaceGlobalKey("", "")
+	result = InterfaceGlobalKey("", "")
 	c.Assert(result, gc.Equals, "")
 }
 
@@ -91,13 +91,14 @@ func (s *interfacesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
 	c.Check(nic.globalKey(), gc.Equals, "")
 }
 
-func (s *interfacesInternalSuite) TestStringIncludesNameAndMachineID(c *gc.C) {
+func (s *interfacesInternalSuite) TestStringIncludesTypeNameAndMachineID(c *gc.C) {
 	doc := interfaceDoc{
 		MachineID: "42",
 		Name:      "foo",
+		Type:      BondInterface,
 	}
 	result := s.newInterfaceWithDummyState(doc)
-	expectedString := `interface "foo" on machine "42"`
+	expectedString := `bond interface "foo" on machine "42"`
 
 	c.Assert(result.String(), gc.Equals, expectedString)
 }
@@ -141,8 +142,35 @@ func (s *interfacesInternalSuite) TestDNSSettingsAndGatewayAreOptional(c *gc.C) 
 	c.Check(result.GatewayAddress(), gc.Equals, "")
 }
 
+func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithValidValue(c *gc.C) {
+	validTypes := []InterfaceType{
+		UnknownInterface,
+		LoopbackInterface,
+		EthernetInterface,
+		VLANInterface,
+		BondInterface,
+		BridgeInterface,
+	}
+
+	for _, value := range validTypes {
+		result := IsValidInterfaceType(string(value))
+		c.Check(result, jc.IsTrue)
+	}
+}
+
+func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithInvalidValue(c *gc.C) {
+	result := IsValidInterfaceType("")
+	c.Check(result, jc.IsFalse)
+
+	result = IsValidInterfaceType("anything")
+	c.Check(result, jc.IsFalse)
+
+	result = IsValidInterfaceType(" ")
+	c.Check(result, jc.IsFalse)
+}
+
 func (s *interfacesInternalSuite) TestIsValidInterfaceNameWithUnpatchedGOOS(c *gc.C) {
-	result := isValidInterfaceName("valid")
+	result := IsValidInterfaceName("valid")
 	c.Check(result, jc.IsTrue)
 }
 
@@ -151,7 +179,7 @@ func (s *interfacesInternalSuite) TestIsValidInterfaceNameWithValidNamesWhenGOOS
 
 	for i, name := range validUnixInterfaceNames {
 		c.Logf("test #%d: %q -> valid", i, name)
-		result := isValidInterfaceName(name)
+		result := IsValidInterfaceName(name)
 		c.Check(result, jc.IsTrue)
 	}
 }
@@ -163,35 +191,35 @@ var validUnixInterfaceNames = []string{
 func (s *interfacesInternalSuite) TestIsValidInterfaceNameWithInvalidNamesWhenGOOIsLinux(c *gc.C) {
 	s.PatchValue(&runtimeGOOS, "linux") // isolate the test from the host machine OS.
 
-	result := isValidInterfaceName("")
+	result := IsValidInterfaceName("")
 	c.Check(result, jc.IsFalse)
 
 	const tooLongLength = 16
-	result = isValidInterfaceName(strings.Repeat("x", tooLongLength))
+	result = IsValidInterfaceName(strings.Repeat("x", tooLongLength))
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("with-hash#")
+	result = IsValidInterfaceName("with-hash#")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("has spaces")
+	result = IsValidInterfaceName("has spaces")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("has\tabs")
+	result = IsValidInterfaceName("has\tabs")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("has\newline")
+	result = IsValidInterfaceName("has\newline")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("has\r")
+	result = IsValidInterfaceName("has\r")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("has\vtab")
+	result = IsValidInterfaceName("has\vtab")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName(".")
+	result = IsValidInterfaceName(".")
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("..")
+	result = IsValidInterfaceName("..")
 	c.Check(result, jc.IsFalse)
 }
 
@@ -204,7 +232,7 @@ func (s *interfacesInternalSuite) TestIsValidInterfaceNameWithValidNamesWhenGOOS
 
 	for i, name := range validInterfaceNames {
 		c.Logf("test #%d: %q -> valid", i, name)
-		result := isValidInterfaceName(name)
+		result := IsValidInterfaceName(name)
 		c.Check(result, jc.IsTrue)
 	}
 }
@@ -212,14 +240,14 @@ func (s *interfacesInternalSuite) TestIsValidInterfaceNameWithValidNamesWhenGOOS
 func (s *interfacesInternalSuite) TestIsValidInterfaceNameWithInvalidNamesWhenGOOSNonLinux(c *gc.C) {
 	s.PatchValue(&runtimeGOOS, "non-linux") // isolate the test from the host machine OS.
 
-	result := isValidInterfaceName("")
+	result := IsValidInterfaceName("")
 	c.Check(result, jc.IsFalse)
 
 	const wayTooLongLength = 1024
-	result = isValidInterfaceName(strings.Repeat("x", wayTooLongLength))
+	result = IsValidInterfaceName(strings.Repeat("x", wayTooLongLength))
 	c.Check(result, jc.IsFalse)
 
-	result = isValidInterfaceName("hash# not allowed")
+	result = IsValidInterfaceName("hash# not allowed")
 	c.Check(result, jc.IsFalse)
 }
 

@@ -5,11 +5,13 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
 )
@@ -92,6 +94,16 @@ const (
 	BridgeInterface InterfaceType = "bridge"
 )
 
+// IsValidInterfaceType returns whether the given value is a valid interface
+// type.
+func IsValidInterfaceType(value string) bool {
+	switch InterfaceType(value) {
+	case UnknownInterface, LoopbackInterface, EthernetInterface, VLANInterface, BondInterface, BridgeInterface:
+		return true
+	}
+	return false
+}
+
 // Interface represents the state of a machine network interface.
 type Interface struct {
 	st  *State
@@ -170,23 +182,230 @@ func (nic *Interface) ParentInterface() (*Interface, error) {
 		return nil, nil
 	}
 
-	return nic.st.Interface(nic.doc.ParentName)
+	parentGlobalKey := InterfaceGlobalKey(nic.doc.MachineID, nic.doc.ParentName)
+	return nic.st.Interface(parentGlobalKey)
 }
 
-// Interface returns the interface matching the given name. An error satisfying
-// errors.IsNotFound() is returned when no such interface exists.
-func (st *State) Interface(name string) (*Interface, error) {
+// Refresh refreshes the contents of the inteface from the underlying state. It
+// returns an error that satisfies errors.IsNotFound if the interface has been
+// removed.
+func (nic *Interface) Refresh() error {
+	freshCopy, err := nic.st.Interface(nic.globalKey())
+	if errors.IsNotFound(err) {
+		return err
+	} else if err != nil {
+		return errors.Annotatef(err, "cannot refresh interface %s", nic)
+	}
+	nic.doc = freshCopy.doc
+	return nil
+}
+
+// Interface returns the interface matching the given globalKey. An error
+// satisfying errors.IsNotFound() is returned when no such interface exists.
+func (st *State) Interface(globalKey string) (*Interface, error) {
 	interfaces, closer := st.getCollection(interfacesC)
 	defer closer()
 
 	var doc interfaceDoc
-	err := interfaces.FindId(name).One(&doc)
+	err := interfaces.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("interface %q", name)
+		return nil, errors.NotFoundf("interface %q", globalKey)
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot get interface %q", name)
+		return nil, errors.Annotatef(err, "cannot get interface %q", globalKey)
 	}
 	return newInterface(st, doc), nil
+}
+
+// AddInterfaceArgs contains the arguments accepted by Machine.AddInterface().
+type AddInterfaceArgs struct {
+	// Name is the device name of the interface as it appears on the machine.
+	Name string
+
+	// Index is the zero-based device index of the interface as it appears on
+	// the machine.
+	Index uint
+
+	// MTU is the maximum transmission unit the interface can handle.
+	MTU uint
+
+	// ProviderID is a provider-specific ID of the interface. Empty when not
+	// supported by the provider.
+	ProviderID network.Id
+
+	// Type is the type of the interface related to the underlying device.
+	Type InterfaceType
+
+	// HardwareAddress is the hardware address for the interface, usually a MAC
+	// address.
+	HardwareAddress string
+
+	// IsAutoStart is true if the interface should be activated on boot.
+	IsAutoStart bool
+
+	// IsActive is true when the interface is active (enabled).
+	IsActive bool
+
+	// ParentName is the name of the parent interface or empty.
+	ParentName string
+
+	// DNSServers is an optional list of DNS nameservers that apply for this
+	// interface.
+	DNSServers []string
+
+	// DNSDomain is an optional default DNS domain name to use for this
+	// interface.
+	DNSDomain string
+
+	// GatewayAddress is the optional gateway to use for this interface.
+	GatewayAddress string
+}
+
+// AddInterface creates a new interface on the machine, initialized from the
+// given args. ProviderID from args can be empty if not supported by the
+// provider, but when set must be unique within the model or an error is
+// returned. If the machine is not found or not Alive, an error is returned. If
+// an interface with the same name already exists, an error satisfying
+// errors.IsAlreadyExists() is returned. If any of the fields in args contain an
+// invalid value, an error satisfying errors.IsNotValid() is returned. When
+// ParentName is not empty, it must refer to an existing interface on the same
+// machine, otherwise an error satisfying errors.IsNotFound() is returned.
+func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add interface %q to machine %q", args.Name, m.doc.Id)
+
+	if err := validateAddInterfaceArgs(args); err != nil {
+		return nil, err
+	}
+
+	newInterfaceDoc := m.newInterfaceDocFromArgs(args)
+	parentGlobalKey := InterfaceGlobalKey(m.doc.Id, args.ParentName)
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := checkModeLife(m.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			if machineAlive, err := isAlive(m.st, machinesC, m.doc.Id); err != nil {
+				return nil, errors.Trace(err)
+			} else if !machineAlive {
+				return nil, errors.Errorf("machine not found or not alive")
+			}
+
+			if parentGlobalKey != "" {
+				if _, err := m.st.Interface(parentGlobalKey); errors.IsNotFound(err) {
+					return nil, errors.NotFoundf("parent interface %q", args.ParentName)
+				} else if err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
+
+			globalKey := InterfaceGlobalKey(m.doc.Id, args.Name)
+			if _, err := m.st.Interface(globalKey); err == nil {
+				return nil, errors.AlreadyExistsf("interface")
+			} else if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		ops := []txn.Op{
+			assertModelAliveOp(m.st.ModelUUID()),
+			{
+				C:      machinesC,
+				Id:     m.doc.Id,
+				Assert: isAliveDoc,
+			}, {
+				C:      interfacesC,
+				Id:     newInterfaceDoc.DocID,
+				Assert: txn.DocMissing,
+				Insert: newInterfaceDoc,
+			},
+		}
+
+		if parentGlobalKey != "" {
+			parentDocID := m.st.docID(parentGlobalKey)
+			ops = append(ops, txn.Op{
+				C:      interfacesC,
+				Id:     parentDocID,
+				Assert: txn.DocExists,
+			})
+		}
+
+		return ops, nil
+	}
+	err = m.st.run(buildTxn)
+	if err == nil {
+		addedInterface := newInterface(m.st, newInterfaceDoc)
+		// If the ProviderID was not unique adding the interface can fail
+		// without an error. Refreshing catches this by returning NotFoundError.
+		if err := addedInterface.Refresh(); errors.IsNotFound(err) {
+			return nil, errors.Errorf("ProviderID %q not unique", args.ProviderID)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return addedInterface, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// validateAddInterfaceArgs performs a quick sanity check on args before trying
+// to add the interface.
+func validateAddInterfaceArgs(args AddInterfaceArgs) error {
+	if args.Name == "" {
+		return errors.NotValidf("empty Name")
+	}
+	if !IsValidInterfaceName(args.Name) {
+		return errors.NotValidf("Name %q", args.Name)
+	}
+
+	if args.ParentName != "" && !IsValidInterfaceName(args.ParentName) {
+		return errors.NotValidf("ParentName %q", args.ParentName)
+	}
+
+	if !IsValidInterfaceType(string(args.Type)) {
+		return errors.NotValidf("Type %q", args.Type)
+	}
+
+	if args.HardwareAddress != "" {
+		if _, err := net.ParseMAC(args.HardwareAddress); err != nil {
+			return errors.NotValidf("HardwareAddress %q", args.HardwareAddress)
+		}
+	}
+	if args.GatewayAddress != "" && net.ParseIP(args.GatewayAddress) == nil {
+		return errors.NotValidf("GatewayAddress %q", args.GatewayAddress)
+	}
+	return nil
+}
+
+// newInterfaceDocFromArgs returns an interfaceDoc populated from args for the
+// machine.
+func (m *Machine) newInterfaceDocFromArgs(args AddInterfaceArgs) interfaceDoc {
+	globalKey := InterfaceGlobalKey(m.doc.Id, args.Name)
+	interfaceDocID := m.st.docID(globalKey)
+
+	providerID := string(args.ProviderID)
+	if providerID != "" {
+		providerID = m.st.docID(providerID)
+	}
+
+	modelUUID := m.st.ModelUUID()
+
+	return interfaceDoc{
+		DocID:           interfaceDocID,
+		Name:            args.Name,
+		ModelUUID:       modelUUID,
+		Index:           args.Index,
+		MTU:             args.MTU,
+		ProviderID:      providerID,
+		MachineID:       m.doc.Id,
+		Type:            args.Type,
+		HardwareAddress: args.HardwareAddress,
+		IsAutoStart:     args.IsAutoStart,
+		IsActive:        args.IsActive,
+		ParentName:      args.ParentName,
+		DNSServers:      args.DNSServers,
+		DNSDomain:       args.DNSDomain,
+		GatewayAddress:  args.GatewayAddress,
+	}
 }
 
 // DNSServers returns the list of DNS nameservers that apply to this interface,
@@ -208,26 +427,26 @@ func (nic *Interface) GatewayAddress() string {
 }
 
 func (nic *Interface) globalKey() string {
-	return interfaceGlobalKey(nic.doc.MachineID, nic.doc.Name)
+	return InterfaceGlobalKey(nic.doc.MachineID, nic.doc.Name)
 }
 
 // String returns the interface as a human-readable string.
 func (nic *Interface) String() string {
-	return fmt.Sprintf("interface %q on machine %q", nic.doc.Name, nic.doc.MachineID)
+	return fmt.Sprintf("%s interface %q on machine %q", nic.doc.Type, nic.doc.Name, nic.doc.MachineID)
 }
 
-// interfaceGlobalKey returns a (model-unique) global key for an interface. If
+// InterfaceGlobalKey returns a (model-unique) global key for an interface. If
 // either argument is empty, the result is empty.
-func interfaceGlobalKey(machineID, interfaceName string) string {
+func InterfaceGlobalKey(machineID, interfaceName string) string {
 	if machineID == "" || interfaceName == "" {
 		return ""
 	}
 	return "m#" + machineID + "i#" + interfaceName
 }
 
-// isValidInterfaceName returns whether the given interfaceName is a valid
+// IsValidInterfaceName returns whether the given interfaceName is a valid
 // network device name, depending on the runtime.GOOS value.
-func isValidInterfaceName(interfaceName string) bool {
+func IsValidInterfaceName(interfaceName string) bool {
 	if runtimeGOOS == "linux" {
 		return isValidLinuxDeviceName(interfaceName)
 	}
