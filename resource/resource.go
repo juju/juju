@@ -66,6 +66,13 @@ type Resource struct {
 
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time
+
+	// TODO(ericsnow) Change "Outdated" to "UpToDate" so that the
+	// effective default is "outdated".
+
+	// Outdated indicates whether or not the resource is out of sync
+	// with the charm store.
+	Outdated bool
 }
 
 // Validate ensures that the spec is valid.

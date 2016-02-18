@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -230,9 +231,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
-	serviceID := unit.ServiceName()
-
+func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
@@ -252,6 +251,20 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
+	return resourceInfo, resourceReader, nil
+}
+
+// OpenResourceForUnit returns metadata about the resource and
+// a reader for the resource. The resource is associated with
+// the unit once the reader is completely exhausted.
+func (st resourceState) OpenResourceForUnit(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	serviceID := unit.ServiceName()
+
+	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
 	resourceReader = unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
@@ -260,6 +273,45 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// MarkOutdatedResources compares each of the service's resources
+// against those provided and marks any outdated ones accordingly.
+func (st resourceState) MarkOutdatedResources(serviceID string, info []charmresource.Resource) error {
+	serviceResources, err := st.persist.ListResources(serviceID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resources := serviceResources.Resources
+
+	for _, chRes := range info {
+		for _, res := range resources {
+			if res.Name == chRes.Name {
+				if shouldMarkOutdated(res, chRes) {
+					res.Outdated = true
+					if err := st.persist.SetResource(res); err != nil {
+						return errors.Trace(err)
+					}
+				}
+				break
+			}
+		}
+		// TODO(ericsnow) Worry about extras? missing?
+	}
+	return nil
+}
+
+func shouldMarkOutdated(res resource.Resource, chRes charmresource.Resource) bool {
+	if res.Outdated {
+		return false
+	}
+	if res.Origin != charmresource.OriginStore {
+		return false
+	}
+	if reflect.DeepEqual(res.Resource, chRes) {
+		return false
+	}
+	return true
 }
 
 // TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that

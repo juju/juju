@@ -11,14 +11,13 @@ import (
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
@@ -44,6 +43,7 @@ type resources struct{}
 // for the component in a jujud context.
 func (r resources) registerForServer() error {
 	r.registerState()
+	r.registerAgentWorkers()
 	r.registerPublicFacade()
 	r.registerHookContext()
 	return nil
@@ -98,6 +98,16 @@ func (client resourcesAPIClient) Close() error {
 	return client.closeConnFunc()
 }
 
+// registerAgentWorkers adds the resources workers to the agents.
+func (r resources) registerAgentWorkers() {
+	if !markRegistered(resource.ComponentName, "agent-workers") {
+		return
+	}
+
+	factory := resourceadapters.NewWorkerFactory()
+	agent.RegisterWorker(resource.ComponentName+"-charmstore-poller", factory)
+}
+
 // registerState registers the state functionality for resources.
 func (resources) registerState() {
 	if !markRegistered(resource.ComponentName, "state") {
@@ -138,19 +148,6 @@ func (p resourcePersistence) StageResource(res resource.Resource, storagePath st
 	return p.Persistence.StageResource(res, storagePath)
 }
 
-type resourcesCharmCmdBase struct {
-	*charmcmd.CommandBase
-}
-
-// Connect implements cmd.CommandBase
-func (c *resourcesCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
-	client, err := c.CommandBase.Connect()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &charmstoreClient{client}, nil
-}
-
 // registerPublicCommands adds the resources-related commands
 // to the "juju" supercommand.
 func (r resources) registerPublicCommands() {
@@ -160,7 +157,7 @@ func (r resources) registerPublicCommands() {
 
 	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
 		base := charmcmd.NewCommandBase(spec)
-		resBase := &resourcesCharmCmdBase{base}
+		resBase := resourceadapters.NewFakeCharmCmdBase(base)
 		return cmd.NewListCharmResourcesCommand(resBase)
 	})
 
@@ -183,17 +180,6 @@ func (r resources) registerPublicCommands() {
 			},
 		})
 	})
-}
-
-// TODO(ericsnow) Get rid of charmstoreClient once csclient.Client grows the methods.
-
-type charmstoreClient struct {
-	charmcmd.CharmstoreClient
-}
-
-func (charmstoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
-	res := make([][]charmresource.Resource, len(charmURLs))
-	return res, nil
 }
 
 type apicommand interface {
@@ -271,9 +257,14 @@ func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, er
 	return ds.resources.ListResources(ds.unit.ServiceName())
 }
 
+// GetResource implements resource/api/private/server.UnitDataStore.
+func (ds *resourcesUnitDataStore) GetResource(name string) (resource.Resource, error) {
+	return ds.resources.GetResource(ds.unit.ServiceName(), name)
+}
+
 // OpenResource implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	return ds.resources.OpenResource(ds.unit, name)
+	return ds.resources.OpenResourceForUnit(ds.unit, name)
 }
 
 func (r resources) newHookContextFacade(st *corestate.State, unit *corestate.Unit) (interface{}, error) {

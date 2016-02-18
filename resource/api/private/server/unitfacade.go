@@ -19,8 +19,6 @@ const FacadeVersion = 1
 // UnitDataStore exposes the data storage functionality needed here.
 // All functionality is tied to the unit's service.
 type UnitDataStore interface {
-	DownloadDataStore
-
 	// ListResources lists all the resources for the service.
 	ListResources() (resource.ServiceResources, error)
 }
