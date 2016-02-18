@@ -211,7 +211,38 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) ControllerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
+	eUUID, ok := e.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("enviroment UUID in configuration")
+	}
+
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add(fmt.Sprintf("tag.%s", tags.JujuModel), eUUID)
+	filter.Add(fmt.Sprintf("tag.%s", tags.JujuController), "true")
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, environs.ErrNotBootstrapped
+		}
+		return nil, errors.Annotate(err, "adding a group filter for instances")
+	}
+	resp, err := e.ec2().Instances(nil, filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing instances")
+	}
+	var insts []instance.Id
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {
+			inst := &ec2Instance{
+				e:        e,
+				Instance: &r.Instances[i],
+			}
+			insts = append(insts, inst.Id())
+		}
+	}
+	return insts, nil
+
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
