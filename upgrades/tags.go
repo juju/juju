@@ -27,6 +27,13 @@ func addInstanceTags(env environs.Environ, machines []*state.Machine) error {
 		if names.IsContainerMachine(m.Id()) {
 			continue
 		}
+		isManual, err := m.IsManual()
+		if err != nil {
+			return errors.Annotatef(err, "determining if machine %v is manually provisioned", m.Id())
+		}
+		if isManual {
+			continue
+		}
 		instId, err := m.InstanceId()
 		if errors.IsNotProvisioned(err) {
 			continue
