@@ -7,9 +7,11 @@
 package cloud
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -45,41 +47,69 @@ const (
 	EmptyAuthType AuthType = "empty"
 )
 
-// clouds is a struct containing cloud definitions, used for marshalling
-// and unmarshalling.
-type clouds struct {
-	// Clouds is a map of cloud definitions, keyed on cloud name.
-	Clouds map[string]Cloud `yaml:"clouds"`
-}
-
 // Cloud is a cloud definition.
 type Cloud struct {
 	// Type is the type of cloud, eg aws, openstack etc.
-	Type string `yaml:"type"`
+	Type string
 
 	// AuthTypes are the authentication modes supported by the cloud.
-	AuthTypes []AuthType `yaml:"auth-types,omitempty,flow"`
+	AuthTypes []AuthType
 
 	// Endpoint is the default endpoint for the cloud regions, may be
 	// overridden by a region.
-	Endpoint string `yaml:"endpoint,omitempty"`
+	Endpoint string
 
 	// StorageEndpoint is the default storage endpoint for the cloud
 	// regions, may be overridden by a region.
-	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
+	StorageEndpoint string
 
 	// Regions are the regions available in the cloud.
-	Regions map[string]Region `yaml:"regions,omitempty"`
+	Regions map[string]Region
+
+	// DefaultRegion is the default region for the cloud. When parsing
+	// clouds YAML, this is assigned the value of the first region in
+	// the map for the cloud. When marshaling to YAML, the default
+	// region will be the first in the map.
+	DefaultRegion string
 }
 
 // Region is a cloud region.
 type Region struct {
 	// Endpoint is the region's primary endpoint URL.
-	Endpoint string `yaml:"endpoint,omitempty"`
+	Endpoint string
 
 	// StorageEndpoint is the region's storage endpoint URL.
 	// If the cloud/region does not have a storage-specific
 	// endpoint URL, this will be empty.
+	StorageEndpoint string
+}
+
+// clouds contains cloud definitions, used for marshalling and
+// unmarshalling.
+type clouds struct {
+	// Clouds is a map of cloud definitions, keyed on cloud name.
+	Clouds map[string]*cloud `yaml:"clouds"`
+}
+
+// cloud is equivalent to Cloud, for marshalling and unmarshalling.
+type cloud struct {
+	Type            string     `yaml:"type"`
+	AuthTypes       []AuthType `yaml:"auth-types,omitempty,flow"`
+	Endpoint        string     `yaml:"endpoint,omitempty"`
+	StorageEndpoint string     `yaml:"storage-endpoint,omitempty"`
+	Regions         regions    `yaml:"regions,omitempty"`
+}
+
+// regions is a collection of regions, either as a map and/or as a
+// yaml.MapSlice.
+type regions struct {
+	Map   map[string]*region
+	Slice yaml.MapSlice
+}
+
+// region is equivalent to Region, for marshalling and unmarshalling.
+type region struct {
+	Endpoint        string `yaml:"endpoint,omitempty"`
 	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
@@ -137,24 +167,98 @@ func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbac
 // ParseCloudMetadata parses the given yaml bytes into Clouds metadata.
 func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	var metadata clouds
-	err := yaml.Unmarshal(data, &metadata)
-	if err != nil {
+	if err := yaml.Unmarshal(data, &metadata); err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
-	metadata.denormaliseMetadata()
-	return metadata.Clouds, nil
+
+	// Translate to the exported type. For each cloud, we store
+	// the first region for the cloud as its default region.
+	clouds := make(map[string]Cloud)
+	for name, cloud := range metadata.Clouds {
+		var regions map[string]Region
+		if len(cloud.Regions.Map) > 0 {
+			regions = make(map[string]Region)
+			for name, r := range cloud.Regions.Map {
+				regions[name] = Region{r.Endpoint, r.StorageEndpoint}
+			}
+		}
+		meta := Cloud{
+			Type:            cloud.Type,
+			AuthTypes:       cloud.AuthTypes,
+			Endpoint:        cloud.Endpoint,
+			StorageEndpoint: cloud.StorageEndpoint,
+			Regions:         regions,
+		}
+		if len(regions) > 0 {
+			meta.DefaultRegion = fmt.Sprint(cloud.Regions.Slice[0].Key)
+		}
+		meta.denormaliseMetadata()
+		clouds[name] = meta
+	}
+	return clouds, nil
 }
 
-// To keep the metadata concise, attributes on the metadata struct which have the same value for each
-// item may be moved up to a higher level in the tree. denormaliseMetadata descends the tree
-// and fills in any missing attributes with values from a higher level.
-func (metadata *clouds) denormaliseMetadata() {
-	for _, cloud := range metadata.Clouds {
-		for name, region := range cloud.Regions {
-			r := region
-			inherit(&r, &cloud)
-			cloud.Regions[name] = r
+// marshalCloudMetadata marshals the given clouds to YAML.
+func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
+	clouds := clouds{make(map[string]*cloud)}
+	for name, metadata := range cloudsMap {
+		// Put the default region first, and the rest of the regions
+		// ordered by name.
+		var regions regions
+		var names []string
+		for name, r := range metadata.Regions {
+			if name == metadata.DefaultRegion {
+				regions.Slice = append(regions.Slice, yaml.MapItem{
+					name, region{r.Endpoint, r.StorageEndpoint},
+				})
+			} else {
+				names = append(names, name)
+			}
 		}
+		sort.Strings(names)
+		for _, name := range names {
+			r := metadata.Regions[name]
+			regions.Slice = append(regions.Slice, yaml.MapItem{
+				name, region{r.Endpoint, r.StorageEndpoint},
+			})
+		}
+		clouds.Clouds[name] = &cloud{
+			Type:            metadata.Type,
+			AuthTypes:       metadata.AuthTypes,
+			Endpoint:        metadata.Endpoint,
+			StorageEndpoint: metadata.StorageEndpoint,
+			Regions:         regions,
+		}
+	}
+	data, err := yaml.Marshal(clouds)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot marshal cloud metadata")
+	}
+	return data, nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (r regions) MarshalYAML() (interface{}, error) {
+	return r.Slice, nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (r *regions) UnmarshalYAML(f func(interface{}) error) error {
+	if err := f(&r.Map); err != nil {
+		return err
+	}
+	return f(&r.Slice)
+}
+
+// To keep the metadata concise, attributes on the metadata struct which
+// have the same value for each item may be moved up to a higher level in
+// the tree. denormaliseMetadata descends the tree and fills in any missing
+// attributes with values from a higher level.
+func (cloud Cloud) denormaliseMetadata() {
+	for name, region := range cloud.Regions {
+		r := region
+		inherit(&r, &cloud)
+		cloud.Regions[name] = r
 	}
 }
 
@@ -172,7 +276,7 @@ func RegisterStructTags(vals ...interface{}) {
 }
 
 func init() {
-	RegisterStructTags(clouds{}, Cloud{}, Region{})
+	RegisterStructTags(Cloud{}, Region{})
 }
 
 func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {

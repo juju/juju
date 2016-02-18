@@ -60,6 +60,12 @@ func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	c.Assert(rackspace.AuthTypes, jc.SameContents, []cloud.AuthType{"access-key", "userpass"})
 }
 
+func (s *cloudSuite) TestParseCloudsDefaultRegion(c *gc.C) {
+	clouds := parsePublicClouds(c)
+	aws := clouds["aws"]
+	c.Assert(aws.DefaultRegion, gc.Equals, "us-east-1")
+}
+
 func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata("badfile.yaml")
 	c.Assert(err, jc.ErrorIsNil)
