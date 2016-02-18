@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/tomb.v1"
 
 	coreagent "github.com/juju/juju/agent"
@@ -19,7 +18,7 @@ import (
 // ManifoldConfig provides the dependencies for Manifold.
 type ManifoldConfig struct {
 	AgentName              string
-	AgentConfigUpdatedName string
+	StateConfigWatcherName string
 	OpenState              func(coreagent.Config) (*state.State, error)
 	PingInterval           time.Duration
 }
@@ -32,7 +31,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.AgentConfigUpdatedName,
+			config.StateConfigWatcherName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			// First, a sanity check.
@@ -46,19 +45,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			agentConfig := agent.CurrentConfig()
-
-			if _, ok := agentConfig.Tag().(names.MachineTag); !ok {
-				return nil, errors.New("manifold may only be used in a machine agent")
+			// Confirm we're running in a state server by asking the
+			// stateconfigwatcher manifold.
+			var haveStateConfig bool
+			if err := getResource(config.StateConfigWatcherName, &haveStateConfig); err != nil {
+				return nil, err
 			}
-
-			// Can't continue if there's no StateServingInfo available.
-			_, ok := agentConfig.StateServingInfo()
-			if !ok {
+			if !haveStateConfig {
 				return nil, dependency.ErrMissing
 			}
 
-			st, err := config.OpenState(agentConfig)
+			st, err := config.OpenState(agent.CurrentConfig())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

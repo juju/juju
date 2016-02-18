@@ -7,13 +7,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -28,7 +26,9 @@ type ManifoldSuite struct {
 	manifold        dependency.Manifold
 	openStateCalled bool
 	openStateErr    error
+	config          workerstate.ManifoldConfig
 	agent           *mockAgent
+	resources       dt.StubResources
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -38,16 +38,18 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.openStateCalled = false
 	s.openStateErr = nil
-	s.agent = new(mockAgent)
-	s.agent.conf.SetStateServingInfo(params.StateServingInfo{})
-	s.agent.conf.tag = names.NewMachineTag("99")
 
-	s.manifold = workerstate.Manifold(workerstate.ManifoldConfig{
+	s.config = workerstate.ManifoldConfig{
 		AgentName:              "agent",
-		AgentConfigUpdatedName: "agent-config-updated",
+		StateConfigWatcherName: "state-config-watcher",
 		OpenState:              s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
-	})
+	}
+	s.manifold = workerstate.Manifold(s.config)
+	s.resources = dt.StubResources{
+		"agent":                dt.StubResource{Output: new(mockAgent)},
+		"state-config-watcher": dt.StubResource{Output: true},
+	}
 }
 
 func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.State, error) {
@@ -62,44 +64,37 @@ func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.State, error) {
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
 		"agent",
-		"agent-config-updated",
+		"state-config-watcher",
 	})
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Error: dependency.ErrMissing},
-	})
-	worker, err := s.manifold.Start(getResource)
-	c.Check(worker, gc.IsNil)
+	s.resources["agent"] = dt.StubResource{Error: dependency.ErrMissing}
+	w, err := s.startManifold(c)
+	c.Check(w, gc.IsNil)
+	c.Check(err, gc.Equals, dependency.ErrMissing)
+}
+
+func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
+	s.resources["state-config-watcher"] = dt.StubResource{Error: dependency.ErrMissing}
+	w, err := s.startManifold(c)
+	c.Check(w, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
-	manifold := workerstate.Manifold(workerstate.ManifoldConfig{
-		AgentName:              "agent",
-		AgentConfigUpdatedName: "agent-config-updated",
-	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Output: s.agent},
-	})
-	worker, err := manifold.Start(getResource)
-	c.Check(worker, gc.IsNil)
+	s.config.OpenState = nil
+	manifold := workerstate.Manifold(s.config)
+	w, err := manifold.Start(dt.StubGetResource(s.resources))
+	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "OpenState is nil in config")
 }
 
 func (s *ManifoldSuite) TestStartNotStateServer(c *gc.C) {
-	s.agent.conf.ssiSet = false
+	s.resources["state-config-watcher"] = dt.StubResource{Output: false}
 	w, err := s.startManifold(c)
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
-}
-
-func (s *ManifoldSuite) TestNotAMachineAgent(c *gc.C) {
-	s.agent.conf.tag = names.NewUnitTag("foo/0")
-	w, err := s.startManifold(c)
-	c.Check(w, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "manifold may only be used in a machine agent")
 }
 
 func (s *ManifoldSuite) TestStartOpenStateFails(c *gc.C) {
@@ -158,10 +153,7 @@ func (s *ManifoldSuite) mustStartManifold(c *gc.C) worker.Worker {
 }
 
 func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Output: s.agent},
-	})
-	w, err := s.manifold.Start(getResource)
+	w, err := s.manifold.Start(dt.StubGetResource(s.resources))
 	if w != nil {
 		s.AddCleanup(func(*gc.C) { worker.Stop(w) })
 	}
@@ -203,39 +195,14 @@ func checkExitsWithError(c *gc.C, w worker.Worker, expectedErr string) {
 
 type mockAgent struct {
 	coreagent.Agent
-	conf mockConfig
 }
 
 func (ma *mockAgent) CurrentConfig() coreagent.Config {
-	return &ma.conf
-}
-
-func (ma *mockAgent) ChangeConfig(f coreagent.ConfigMutator) error {
-	return f(&ma.conf)
+	return new(mockConfig)
 }
 
 type mockConfig struct {
-	coreagent.ConfigSetter
-	tag    names.Tag
-	ssiSet bool
-	ssi    params.StateServingInfo
-}
-
-func (mc *mockConfig) Tag() names.Tag {
-	return mc.tag
-}
-
-func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
-	if mc.ssiSet {
-		return mc.ssi, true
-	} else {
-		return params.StateServingInfo{}, false
-	}
-}
-
-func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
-	mc.ssiSet = true
-	mc.ssi = info
+	coreagent.Config
 }
 
 type dummyWorker struct {
