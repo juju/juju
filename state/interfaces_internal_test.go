@@ -105,18 +105,18 @@ func (s *interfacesInternalSuite) TestStringIncludesTypeNameAndMachineID(c *gc.C
 
 func (s *interfacesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	doc := interfaceDoc{
-		Name:            "bond0",
-		MachineID:       "99",
-		Index:           uint(42),
-		MTU:             uint(9000),
-		Type:            BondInterface,
-		HardwareAddress: "aa:bb:cc:dd:ee:f0",
-		IsAutoStart:     true,
-		IsActive:        true,
-		ParentName:      "br-bond0",
-		DNSServers:      []string{"ns1.example.com", "127.0.1.1"},
-		DNSDomain:       "fake.example.com",
-		GatewayAddress:  "0.1.2.3",
+		Name:             "bond0",
+		MachineID:        "99",
+		Index:            uint(42),
+		MTU:              uint(9000),
+		Type:             BondInterface,
+		HardwareAddress:  "aa:bb:cc:dd:ee:f0",
+		IsAutoStart:      true,
+		IsUp:             true,
+		ParentName:       "br-bond0",
+		DNSServers:       []string{"ns1.example.com", "127.0.1.1"},
+		DNSSearchDomains: []string{"fake.example.com", "example.com"},
+		GatewayAddress:   "0.1.2.3",
 	}
 	result := s.newInterfaceWithDummyState(doc)
 
@@ -127,10 +127,10 @@ func (s *interfacesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	c.Check(result.Type(), gc.Equals, BondInterface)
 	c.Check(result.HardwareAddress(), gc.Equals, "aa:bb:cc:dd:ee:f0")
 	c.Check(result.IsAutoStart(), jc.IsTrue)
-	c.Check(result.IsActive(), jc.IsTrue)
+	c.Check(result.IsUp(), jc.IsTrue)
 	c.Check(result.ParentName(), gc.Equals, "br-bond0")
 	c.Check(result.DNSServers(), jc.DeepEquals, []string{"ns1.example.com", "127.0.1.1"})
-	c.Check(result.DNSDomain(), gc.Equals, "fake.example.com")
+	c.Check(result.DNSSearchDomains(), jc.DeepEquals, []string{"fake.example.com", "example.com"})
 	c.Check(result.GatewayAddress(), gc.Equals, "0.1.2.3")
 }
 
@@ -138,7 +138,7 @@ func (s *interfacesInternalSuite) TestDNSSettingsAndGatewayAreOptional(c *gc.C) 
 	result := s.newInterfaceWithDummyState(interfaceDoc{})
 
 	c.Check(result.DNSServers(), gc.IsNil)
-	c.Check(result.DNSDomain(), gc.Equals, "")
+	c.Check(result.DNSSearchDomains(), gc.IsNil)
 	c.Check(result.GatewayAddress(), gc.Equals, "")
 }
 
@@ -286,14 +286,7 @@ func (s *interfacesInternalSuite) TestStringLengthBetweenWhenWithinLimit(c *gc.C
 	)
 	for i := minLength; i <= maxLength; i++ {
 		input := strings.Repeat("x", i)
-		result := s.checkStringLengthBetweenSameResultWithSwappedMinMax(c, input, minLength, maxLength)
+		result := stringLengthBetween(input, minLength, maxLength)
 		c.Check(result, jc.IsTrue)
 	}
-}
-
-func (s *interfacesInternalSuite) checkStringLengthBetweenSameResultWithSwappedMinMax(c *gc.C, input string, minLength, maxLength uint) bool {
-	result := stringLengthBetween(input, minLength, maxLength)
-	resultWithSwappedMinMaxLengths := stringLengthBetween(input, maxLength, minLength)
-	c.Check(result, gc.Equals, resultWithSwappedMinMaxLengths)
-	return result
 }

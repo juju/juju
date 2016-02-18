@@ -51,21 +51,22 @@ type interfaceDoc struct {
 	// IsAutoStart is true if the interface should be activated on boot.
 	IsAutoStart bool `bson:"is-auto-start"`
 
-	// IsActive is true when the interface is active (enabled).
-	IsActive bool `bson:"is-active"`
+	// IsUp is true when the interface is up (enabled).
+	IsUp bool `bson:"is-up"`
 
-	// ParentName is the name of the parent interface or empty.
+	// ParentName is the name of the parent interface, which may be empty.
 	ParentName string `bson:"parent-name"`
 
-	// DNSServers is an optional list of DNS nameservers that apply for this
+	// DNSServers is an optional list of DNS nameservers that apply to this
 	// interface.
 	DNSServers []string `bson:"dns-servers,omitempty"`
 
-	// DNSDomain is an optional default DNS domain name to use for this
-	// interface.
-	DNSDomain string `bson:"dns-domain,omitempty"`
+	// DNSSearchDomains is an optional list of DNS domain names used to
+	// construct a fully-qualified domain names (FQDN) from hostnames.
+	DNSSearchDomains []string `bson:"dns-search-domains,omitempty"`
 
-	// GatewayAddress is the optional gateway to use for this interface.
+	// GatewayAddress is the gateway to use for this interface, which may be
+	// empty.
 	GatewayAddress string `bson:"gateway-address,omitempty"`
 }
 
@@ -89,8 +90,8 @@ const (
 	// BondInterface is used for interfaces representing bonding devices.
 	BondInterface InterfaceType = "bond"
 
-	// BridgeInterface is used for interfaces represending an OSI layer-2 bridge
-	// devices.
+	// BridgeInterface is used for interfaces representing an OSI layer-2 bridge
+	// device.
 	BridgeInterface InterfaceType = "bridge"
 )
 
@@ -135,8 +136,7 @@ func (nic *Interface) MTU() uint {
 	return nic.doc.MTU
 }
 
-// ProviderID returns the provider-specific interface ID, if set. The result
-// does not include the model UUID.
+// ProviderID returns the provider-specific interface ID, if set.
 func (nic *Interface) ProviderID() network.Id {
 	localProviderID := nic.st.localID(nic.doc.ProviderID)
 	return network.Id(localProviderID)
@@ -164,9 +164,9 @@ func (nic *Interface) IsAutoStart() bool {
 	return nic.doc.IsAutoStart
 }
 
-// IsActive returns whether the interface is currently active and usable.
-func (nic *Interface) IsActive() bool {
-	return nic.doc.IsActive
+// IsUp returns whether the interface is currently up.
+func (nic *Interface) IsUp() bool {
+	return nic.doc.IsUp
 }
 
 // ParentName returns the name of this interface's parent interface, if set.
@@ -242,21 +242,24 @@ type AddInterfaceArgs struct {
 	// IsAutoStart is true if the interface should be activated on boot.
 	IsAutoStart bool
 
-	// IsActive is true when the interface is active (enabled).
-	IsActive bool
+	// IsUp is true when the interface is up (enabled).
+	IsUp bool
 
-	// ParentName is the name of the parent interface or empty.
+	// ParentName is the name of the parent interface, which may be empty. If
+	// set, it needs to be an existing interface on the same machine. Traffic
+	// originating from an interface egresses from the parent interface.
 	ParentName string
 
 	// DNSServers is an optional list of DNS nameservers that apply for this
 	// interface.
 	DNSServers []string
 
-	// DNSDomain is an optional default DNS domain name to use for this
-	// interface.
-	DNSDomain string
+	// DNSSearchDomains is an optional DNS domain names to use for qualifying
+	// hostnames.
+	DNSSearchDomains []string
 
-	// GatewayAddress is the optional gateway to use for this interface.
+	// GatewayAddress is the gateway to use for this interface, which may be
+	// empty.
 	GatewayAddress string
 }
 
@@ -390,21 +393,21 @@ func (m *Machine) newInterfaceDocFromArgs(args AddInterfaceArgs) interfaceDoc {
 	modelUUID := m.st.ModelUUID()
 
 	return interfaceDoc{
-		DocID:           interfaceDocID,
-		Name:            args.Name,
-		ModelUUID:       modelUUID,
-		Index:           args.Index,
-		MTU:             args.MTU,
-		ProviderID:      providerID,
-		MachineID:       m.doc.Id,
-		Type:            args.Type,
-		HardwareAddress: args.HardwareAddress,
-		IsAutoStart:     args.IsAutoStart,
-		IsActive:        args.IsActive,
-		ParentName:      args.ParentName,
-		DNSServers:      args.DNSServers,
-		DNSDomain:       args.DNSDomain,
-		GatewayAddress:  args.GatewayAddress,
+		DocID:            interfaceDocID,
+		Name:             args.Name,
+		ModelUUID:        modelUUID,
+		Index:            args.Index,
+		MTU:              args.MTU,
+		ProviderID:       providerID,
+		MachineID:        m.doc.Id,
+		Type:             args.Type,
+		HardwareAddress:  args.HardwareAddress,
+		IsAutoStart:      args.IsAutoStart,
+		IsUp:             args.IsUp,
+		ParentName:       args.ParentName,
+		DNSServers:       args.DNSServers,
+		DNSSearchDomains: args.DNSSearchDomains,
+		GatewayAddress:   args.GatewayAddress,
 	}
 }
 
@@ -414,10 +417,10 @@ func (nic *Interface) DNSServers() []string {
 	return nic.doc.DNSServers
 }
 
-// DNSSDomain returns the default DNS domain that applies to this interface, if
-// set.
-func (nic *Interface) DNSDomain() string {
-	return nic.doc.DNSDomain
+// DNSSearchDomains returns the list of DNS domain names used to qualify
+// hostnames. Can be empty when not set.
+func (nic *Interface) DNSSearchDomains() []string {
+	return nic.doc.DNSSearchDomains
 }
 
 // GatewayAddress returns the address of the gateway to use for this interface,
@@ -483,8 +486,5 @@ var whitespaceReplacer = strings.NewReplacer(
 
 func stringLengthBetween(value string, minLength, maxLength uint) bool {
 	length := uint(len(value))
-	if minLength > maxLength {
-		minLength, maxLength = maxLength, minLength
-	}
 	return length >= minLength && length <= maxLength
 }

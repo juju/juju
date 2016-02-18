@@ -5,13 +5,13 @@ package state
 
 // interfaceLinkDoc describes the persistent state of a network interface link.
 type interfaceLinkDoc struct {
-	// DocID is the interface link ID, prefixed by ModelUUID.
+	// DocID is the LinkID, prefixed by ModelUUID.
 	DocID string `bson:"_id"`
 
 	// LinkID is the ID of the link, which is unique within the model.
 	LinkID string `bson:"link-id"`
 
-	// ModelUUID is the UUID of the model this link is part of.
+	// ModelUUID is the UUID of the model this link belongs to.
 	ModelUUID string `bson:"model-uuid"`
 
 	// ProviderID is a provider-specific ID of the link, prefixed by
@@ -30,8 +30,8 @@ type interfaceLinkDoc struct {
 	// Method is the method used to configure this link.
 	Method linkMethod `bson:"method"`
 
-	// IsActive is true when the link is up.
-	IsActive bool `bson:"is-active"`
+	// IsUp is true when the link is up.
+	IsUp bool `bson:"is-up"`
 
 	// Address is the address this link uses.
 	Address string `bson:"address"`

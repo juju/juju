@@ -140,17 +140,17 @@ func (s *interfacesStateSuite) TestAddInterfaceWithMissingParent(c *gc.C) {
 
 func (s *interfacesStateSuite) TestAddInterfaceNoParentSuccess(c *gc.C) {
 	args := state.AddInterfaceArgs{
-		Name:            "eth0",
-		Index:           1,
-		MTU:             9000,
-		ProviderID:      "eni-42",
-		Type:            state.EthernetInterface,
-		HardwareAddress: "aa:bb:cc:dd:ee:f0",
-		IsAutoStart:     true,
-		IsActive:        true,
-		DNSServers:      []string{"ns1.example.com", "127.0.1.1"},
-		DNSDomain:       "example.com",
-		GatewayAddress:  "8.8.8.8",
+		Name:             "eth0",
+		Index:            1,
+		MTU:              9000,
+		ProviderID:       "eni-42",
+		Type:             state.EthernetInterface,
+		HardwareAddress:  "aa:bb:cc:dd:ee:f0",
+		IsAutoStart:      true,
+		IsUp:             true,
+		DNSServers:       []string{"ns1.example.com", "127.0.1.1"},
+		DNSSearchDomains: []string{"example.com"},
+		GatewayAddress:   "8.8.8.8",
 	}
 	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, args)
 }
@@ -176,10 +176,10 @@ func (s *interfacesStateSuite) checkAddedInterfaceMatchesArgs(c *gc.C, addedInte
 	c.Check(addedInterface.Type(), gc.Equals, args.Type)
 	c.Check(addedInterface.HardwareAddress(), gc.Equals, args.HardwareAddress)
 	c.Check(addedInterface.IsAutoStart(), gc.Equals, args.IsAutoStart)
-	c.Check(addedInterface.IsActive(), gc.Equals, args.IsActive)
+	c.Check(addedInterface.IsUp(), gc.Equals, args.IsUp)
 	c.Check(addedInterface.ParentName(), gc.Equals, args.ParentName)
 	c.Check(addedInterface.DNSServers(), jc.DeepEquals, args.DNSServers)
-	c.Check(addedInterface.DNSDomain(), gc.Equals, args.DNSDomain)
+	c.Check(addedInterface.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
 	c.Check(addedInterface.GatewayAddress(), gc.Equals, args.GatewayAddress)
 }
 
