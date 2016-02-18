@@ -33,7 +33,13 @@ var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeCreateClient{}
+	s.fake = &fakeCreateClient{
+		env: params.Model{
+			Name:     "test",
+			UUID:     "fake-model-uuid",
+			OwnerTag: "ignored-for-now",
+		},
+	}
 	s.parser = nil
 	store := configstore.Default
 	s.AddCleanup(func(*gc.C) {
@@ -43,11 +49,11 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	configstore.Default = func() (configstore.Storage, error) {
 		return s.store, nil
 	}
-	// Set up the current environment, and write just enough info
+	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
-	envName := "test-master"
+	controllerName := "local.test-master"
 	s.serverUUID = "fake-server-uuid"
-	info := s.store.CreateInfo(envName)
+	info := s.store.CreateInfo("local.test-master:test-master")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
@@ -58,7 +64,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = info
-	err = modelcmd.WriteCurrentModel(envName)
+	err = modelcmd.WriteCurrentController(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -129,7 +135,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 
 func (s *createSuite) TestCreateExistingName(c *gc.C) {
 	// Make a configstore entry with the same name.
-	info := s.store.CreateInfo("test")
+	info := s.store.CreateInfo("local.test-master:test")
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -263,20 +269,15 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
-	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
+	_, err = s.store.ReadInfo("local.test-master:test")
+	c.Assert(err, gc.ErrorMatches, `model "local.test-master:test" not found`)
 }
 
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
-	s.fake.env = params.Model{
-		Name:     "test",
-		UUID:     "fake-model-uuid",
-		OwnerTag: "ignored-for-now",
-	}
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := s.store.ReadInfo("test")
+	info, err := s.store.ReadInfo("local.test-master:test")
 	c.Assert(err, jc.ErrorIsNil)
 	// Stores the credentials of the original environment
 	c.Assert(info.APICredentials(), jc.DeepEquals, s.server.APICredentials())
@@ -290,16 +291,11 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 }
 
 func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
-	s.fake.env = params.Model{
-		Name:     "test",
-		UUID:     "fake-model-uuid",
-		OwnerTag: "ignored-for-now",
-	}
 	_, err := s.run(c, "test", "--owner", "zeus")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
+	_, err = s.store.ReadInfo("local.test-master:test")
+	c.Assert(err, gc.ErrorMatches, `model "local.test-master:test" not found`)
 }
 
 // fakeCreateClient is used to mock out the behavior of the real
@@ -325,9 +321,8 @@ func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelCo
 	}, nil
 }
 func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
-	var env params.Model
 	if f.err != nil {
-		return env, f.err
+		return params.Model{}, f.err
 	}
 	f.owner = owner
 	f.account = account

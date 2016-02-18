@@ -15,6 +15,7 @@ import (
 )
 
 type UsersCommandSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeModelUsersClient
 }
 
@@ -33,6 +34,7 @@ func (f *fakeModelUsersClient) ModelUserInfo() ([]params.ModelUserInfo, error) {
 }
 
 func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 

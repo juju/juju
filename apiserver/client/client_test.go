@@ -30,7 +30,6 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -233,7 +232,7 @@ func (s *serverSuite) TestShareModelAddLocalUser(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn, gc.Equals, time.Time{})
@@ -256,7 +255,7 @@ func (s *serverSuite) TestShareModelAddRemoteUser(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
@@ -1511,7 +1510,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 
 	// Test that in the abasence of a client-specified
-	// DisablePackageCommands we use what's set in environments.yaml.
+	// DisablePackageCommands we use what's set in environment config.
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(false, false)
 	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}

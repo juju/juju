@@ -90,6 +90,12 @@ type DialOpts struct {
 	// by Open, and any RoundTripper field
 	// the HTTP client is ignored.
 	BakeryClient *httpbakery.Client
+
+	// InsecureSkipVerify skips TLS certificate verification
+	// when connecting to the controller. This should only
+	// be used in tests, or when verification cannot be
+	// performed and the communication need not be secure.
+	InsecureSkipVerify bool
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
