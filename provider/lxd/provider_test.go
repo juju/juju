@@ -38,9 +38,7 @@ func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
 	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, map[string]cloud.Region{
-		"localhost": {},
-	})
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: "localhost"}})
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {

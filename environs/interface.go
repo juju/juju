@@ -107,11 +107,13 @@ type CloudRegionDetector interface {
 	// DetectRetions automatically detects one or more regions
 	// from the environment. This may involve, for example, inspecting
 	// environment variables, or returning special hard-coded regions
-	// (e.g. "localhost" for lxd).
+	// (e.g. "localhost" for lxd). The first item in the list will be
+	// considered the default region for bootstrapping if the user
+	// does not specify one.
 	//
 	// If no regions can be detected, DetectRegions should return
 	// an error satisfying errors.IsNotFound.
-	DetectRegions() (map[string]cloud.Region, error)
+	DetectRegions() ([]cloud.Region, error)
 }
 
 // ModelConfigUpgrader is an interface that an EnvironProvider may

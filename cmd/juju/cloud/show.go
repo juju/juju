@@ -69,30 +69,35 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 type regionDetails struct {
-	Endpoint  string   `yaml:"auth-url"`
-	AuthTypes []string `yaml:"auth-type,omitempty"`
+	Endpoint        string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	StorageEndpoint string `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
 }
 
 type cloudDetails struct {
-	Source    string                   `yaml:"defined"`
-	CloudType string                   `yaml:"type"`
-	AuthTypes []string                 `yaml:"auth-type,omitempty,flow"`
-	Regions   map[string]regionDetails `yaml:"regions,omitempty"`
+	Source          string                   `yaml:"defined,omitempty" json:"defined,omitempty"`
+	CloudType       string                   `yaml:"type" json:"type"`
+	AuthTypes       []string                 `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
+	Endpoint        string                   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	StorageEndpoint string                   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+	Regions         map[string]regionDetails `yaml:"regions,omitempty" json:"regions,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	result := &cloudDetails{
-		Source:    "public",
-		CloudType: cloud.Type,
+		Source:          "public",
+		CloudType:       cloud.Type,
+		Endpoint:        cloud.Endpoint,
+		StorageEndpoint: cloud.StorageEndpoint,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {
 		result.AuthTypes[i] = string(at)
 	}
 	result.Regions = make(map[string]regionDetails)
-	for name, region := range cloud.Regions {
-		result.Regions[name] = regionDetails{
-			Endpoint: region.Endpoint,
+	for _, region := range cloud.Regions {
+		result.Regions[region.Name] = regionDetails{
+			Endpoint:        region.Endpoint,
+			StorageEndpoint: region.Endpoint,
 		}
 	}
 	return result

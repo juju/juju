@@ -1034,7 +1034,7 @@ type noCloudRegionsProvider struct {
 	environs.EnvironProvider
 }
 
-func (noCloudRegionsProvider) DetectRegions() (map[string]cloud.Region, error) {
+func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
@@ -1042,8 +1042,8 @@ type noCredentialsProvider struct {
 	environs.EnvironProvider
 }
 
-func (noCredentialsProvider) DetectRegions() (map[string]cloud.Region, error) {
-	return map[string]cloud.Region{"region": {}}, nil
+func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "region"}}, nil
 }
 
 func (noCredentialsProvider) DetectCredentials() ([]cloud.Credential, error) {
