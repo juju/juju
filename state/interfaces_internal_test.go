@@ -115,7 +115,7 @@ func (s *interfacesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 		IsUp:             true,
 		ParentName:       "br-bond0",
 		DNSServers:       []string{"ns1.example.com", "127.0.1.1"},
-		DNSSearchDomains: []string{"fake.example.com", "example.com"},
+		DNSSearchDomains: []string{"example.org", "example.com"},
 		GatewayAddress:   "0.1.2.3",
 	}
 	result := s.newInterfaceWithDummyState(doc)
@@ -130,7 +130,7 @@ func (s *interfacesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	c.Check(result.IsUp(), jc.IsTrue)
 	c.Check(result.ParentName(), gc.Equals, "br-bond0")
 	c.Check(result.DNSServers(), jc.DeepEquals, []string{"ns1.example.com", "127.0.1.1"})
-	c.Check(result.DNSSearchDomains(), jc.DeepEquals, []string{"fake.example.com", "example.com"})
+	c.Check(result.DNSSearchDomains(), jc.DeepEquals, []string{"example.org", "example.com"})
 	c.Check(result.GatewayAddress(), gc.Equals, "0.1.2.3")
 }
 

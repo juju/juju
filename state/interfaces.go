@@ -62,7 +62,7 @@ type interfaceDoc struct {
 	DNSServers []string `bson:"dns-servers,omitempty"`
 
 	// DNSSearchDomains is an optional list of DNS domain names used to
-	// construct a fully-qualified domain names (FQDN) from hostnames.
+	// construct a fully-qualified hostname.
 	DNSSearchDomains []string `bson:"dns-search-domains,omitempty"`
 
 	// GatewayAddress is the gateway to use for this interface, which may be
