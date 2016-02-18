@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import logging
 import sys
 from tempfile import NamedTemporaryFile
+import os
 
 import yaml
 
@@ -13,7 +14,9 @@ from deploy_stack import (
     check_token,
     configure_logging,
     deploy_dummy_stack,
+    dump_env_logs,
     get_random_string,
+    safe_print_status,
     )
 from jujupy import (
     EnvJujuClient,
@@ -34,15 +37,15 @@ def make_hosted_env_client(client, suffix):
     return hosted_env_client
 
 
-def test_jes_deploy(client, charm_prefix, base_env):
+def test_jes_deploy(client, charm_prefix, log_dir, base_env):
     """Deploy the dummy stack in two hosted environments."""
     # deploy into system env
     deploy_dummy_stack(client, charm_prefix)
 
     # deploy into hosted envs
-    with hosted_environment(client, 'env1') as env1_client:
+    with hosted_environment(client, log_dir, 'env1') as env1_client:
         deploy_dummy_stack(env1_client, charm_prefix)
-        with hosted_environment(client, 'env2') as env2_client:
+        with hosted_environment(client, log_dir, 'env2') as env2_client:
             deploy_dummy_stack(env2_client, charm_prefix)
             # check all the services can talk
             check_services(client)
@@ -89,7 +92,7 @@ def env_token(env_name):
 
 
 @contextmanager
-def hosted_environment(system_client, suffix):
+def hosted_environment(system_client, log_dir, suffix):
     client = make_hosted_env_client(system_client, suffix)
     try:
         with NamedTemporaryFile() as config_file:
@@ -104,7 +107,8 @@ def hosted_environment(system_client, suffix):
                 client.env.environment))
         sys.exit(1)
     finally:
-        # TODO(gz): May want to gather logs from hosted env here.
+        safe_print_status(client)
+        dump_env_logs(client, None, os.path.join(log_dir, suffix))
         client.destroy_model()
 
 
@@ -120,7 +124,7 @@ def main():
     add_basic_testing_arguments(parser, using_jes=True)
     args = parser.parse_args()
     with jes_setup(args) as (client, charm_prefix, base_env):
-        test_jes_deploy(client, charm_prefix, base_env)
+        test_jes_deploy(client, charm_prefix, args.logs, base_env)
 
 
 if __name__ == '__main__':
