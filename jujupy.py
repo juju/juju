@@ -918,24 +918,13 @@ class EnvJujuClient:
         log.info("State-Server backup at %s", backup_file_path)
         return backup_file_path
 
-    def get_restore_client(self, new_name):
-        """Return a juju client that can be bootstrapped, to restore.
-
-        new_name will be used as the controller name.
-        """
-        new_env = self.env.clone()
-        new_env.environment = new_name
-        return self.clone(env=new_env)
-
     def restore_backup(self, backup_file):
-        self.bootstrap()
-        return self.get_juju_output('restore-backup', '--file', backup_file)
+        return self.get_juju_output('restore-backup', '-b', '--constraints',
+                                    'mem=2G', '--file', backup_file)
 
-    @contextmanager
     def restore_backup_async(self, backup_file):
-        with self.bootstrap_async():
-            yield
-        self.juju('restore-backup', ('--file', backup_file))
+        return self.juju_async('restore-backup', ('-b', '--constraints',
+                               'mem=2G', '--file', backup_file))
 
     def enable_ha(self):
         self.juju('enable-ha', ('-n', '3'))
@@ -1037,22 +1026,6 @@ class EnvJujuClient2A2(EnvJujuClient):
         if bootstrap_series is not None:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
-
-    def get_restore_client(self, new_name):
-        """Return a juju client that can restored using -b or equivalent.
-
-        For jujus where -b (or equivalent) is supported, this is the same
-        client, and new_name is ignored.
-        """
-        return self
-
-    def restore_backup(self, backup_file):
-        return self.get_juju_output('restore-backup', '-b', '--constraints',
-                                    'mem=2G', '--file', backup_file)
-
-    def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('-b', '--constraints',
-                               'mem=2G', '--file', backup_file))
 
 
 class EnvJujuClient2A1(EnvJujuClient2A2):
@@ -1730,29 +1703,18 @@ class SimpleEnvironment:
 
 class JujuData(SimpleEnvironment):
 
-    def __init__(self, environment, config=None, juju_home=None,
-                 credentials=None, clouds=None):
+    def __init__(self, environment, config=None, juju_home=None):
         if juju_home is None:
             juju_home = get_juju_home()
         super(JujuData, self).__init__(environment, config, juju_home)
-        if credentials is None:
-            credentials = {}
-        self.credentials = credentials
-        if clouds is None:
-            clouds = {}
-        self.clouds = clouds
+        self.credentials = {}
+        self.clouds = {}
 
     @classmethod
     def from_env(cls, env):
         juju_data = cls(env.environment, env.config, env.juju_home)
         juju_data.load_yaml()
         return juju_data
-
-    def clone(self):
-        result = self.__class__(
-            self.environment, self.config, self.juju_home, self.credentials,
-            self.clouds)
-        return result
 
     def load_yaml(self):
         with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
