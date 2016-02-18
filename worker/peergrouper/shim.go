@@ -33,6 +33,11 @@ func (s *stateShim) Machine(id string) (stateMachine, error) {
 	}, nil
 }
 
+type SpaceReader interface {
+	ID() string
+	Name() string
+}
+
 func (st *stateShim) Space(name string) (SpaceReader, error) {
 	return st.Space(name)
 }

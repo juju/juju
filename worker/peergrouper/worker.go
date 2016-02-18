@@ -277,8 +277,6 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 
 	if w.providerSupportsSpaces && !w.dbSpaceDiscoveryComplete {
 		here.V("stateServerInfo.MongoSpaceDocId", stateServerInfo.MongoSpaceDocId)
-		//space, err := w.st.Space(stateServerInfo.MongoSpaceDocId)
-		//if err != nil {
 		// We want to find a space that contains all Mongo servers so we can
 		// use it to look up the IP address of each Mongo server to be used
 		// to set up the peer group.
@@ -286,16 +284,8 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		spaceStats := network.GenerateSpaceStats(mongoAddresses(info.machines))
 		here.Is(spaceStats)
 		if spaceStats.LargestSpaceContainsAll == false {
-			// TODO(dooferlad) -- thread in if the provider SupportsSpaces
-			// and, if it does, this branch is an error.
-			logger.Warningf("Couldn't find a space containing all peer group machines")
+			return nil, fmt.Errorf("Couldn't find a space containing all peer group machines")
 		} else {
-			// TODO(dooferlad) -- don't let this land without answering...
-			// If the provider supports spaces, will we ever find a space
-			// with a blank name? It turns up when it doesn't... I think.
-			//
-			// Just wondering if named is better than unnamed, but if they
-			// are both real spaces, it probably doesn't matter.
 			info.databaseSpace = spaceStats.LargestSpace
 			space, err := w.st.Space(string(info.databaseSpace))
 			if err != nil {
@@ -307,7 +297,6 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 			}
 			w.dbSpaceDiscoveryComplete = true
 		}
-		//}
 	}
 
 	return info, nil

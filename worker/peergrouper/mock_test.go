@@ -235,11 +235,6 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
 }
 
-type SpaceReader interface {
-	ID() string
-	Name() string
-}
-
 func (st *fakeState) Space(name string) (SpaceReader, error) {
 	foo := []networkingcommon.BackingSpace{
 		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
