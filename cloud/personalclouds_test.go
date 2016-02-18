@@ -30,6 +30,22 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
 				"london": cloud.Region{Endpoint: "http://london/1.0"},
 			},
 		},
+		"azurestack": cloud.Cloud{
+			Type:      "azure",
+			AuthTypes: []cloud.AuthType{"userpass"},
+			Regions: map[string]cloud.Region{
+				"prod": cloud.Region{
+					Endpoint: "http://prod.azurestack.local",
+				},
+				"dev": cloud.Region{
+					Endpoint: "http://dev.azurestack.local",
+				},
+				"test": cloud.Region{
+					Endpoint: "http://test.azurestack.local",
+				},
+			},
+			DefaultRegion: "test",
+		},
 	}
 	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,6 +53,16 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
 clouds:
+  azurestack:
+    type: azure
+    auth-types: [userpass]
+    regions:
+      test:
+        endpoint: http://test.azurestack.local
+      dev:
+        endpoint: http://dev.azurestack.local
+      prod:
+        endpoint: http://prod.azurestack.local
   homestack:
     type: openstack
     auth-types: [userpass, access-key]
@@ -77,6 +103,7 @@ func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]clo
 			Regions: map[string]cloud.Region{
 				"london": cloud.Region{Endpoint: "http://london/1.0"},
 			},
+			DefaultRegion: "london",
 		},
 		"azurestack": cloud.Cloud{
 			Type:            "azure",
@@ -88,6 +115,7 @@ func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]clo
 					StorageEndpoint: "http://storage.azurestack.local",
 				},
 			},
+			DefaultRegion: "local",
 		},
 	})
 }
