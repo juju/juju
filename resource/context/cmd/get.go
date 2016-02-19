@@ -58,10 +58,9 @@ cached copy *may* be out of date at any time after you call
 "resource-get". Consequently, the command should be run at every
 point where it is critical that the resource be up to date.
 
-The "update-status" hook is particularly suited to keeping a resource
-up to date. This hook runs on a regular interval (e.g. 5 min). Thus,
-in the hook the charm may call "resource-get", forcing an update if
-the resource has changed.
+The "upgrade-charm" hook will be fired whenever a new resource has
+become available. Thus, in the hook the charm may call "resource-get",
+forcing an update if the resource has changed.
 
 Note that "resource-get" only provides an FS path to the resource file.
 It does not provide any information about the resource (e.g. revision).
