@@ -142,7 +142,7 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch, cfg.CloudImageBaseURL())
+	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch, cfg.CloudImageBaseURL(), cfg.ImageStream())
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}

@@ -1005,7 +1005,8 @@ func (a *MachineAgent) updateSupportedContainers(
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
 				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
-				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+				cfg.CloudImageBaseURL(), cfg.ImageStream(),
+				container.ImageDownloadURL,
 			})
 	}
 	params := provisioner.ContainerSetupParams{

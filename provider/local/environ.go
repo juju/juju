@@ -270,13 +270,14 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 				caCert = []byte(cert)
 			}
 			baseUrl := ecfg.CloudImageBaseURL()
+			stream := ecfg.ImageStream()
 
 			imageURLGetter = container.NewImageURLGetter(
 				// Explicitly call the non-named constructor so if anyone
 				// adds additional fields, this fails.
 				container.ImageURLGetterConfig{
 					ecfg.stateServerAddr(), uuid, caCert, baseUrl,
-					container.ImageDownloadURL,
+					stream, container.ImageDownloadURL,
 				})
 
 		}
