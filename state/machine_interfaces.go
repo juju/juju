@@ -79,13 +79,13 @@ type AddInterfaceArgs struct {
 
 // AddInterface creates a new interface on the machine, initialized from the
 // given args. ProviderID from args can be empty if not supported by the
-// provider, but when set must be unique within the model or an error is
-// returned. If the machine is not found or not Alive, an error is returned. If
-// an interface with the same name already exists, an error satisfying
-// errors.IsAlreadyExists() is returned. If any of the fields in args contain an
-// invalid value, an error satisfying errors.IsNotValid() is returned. When
-// ParentName is not empty, it must refer to an existing interface on the same
-// machine, otherwise an error satisfying errors.IsNotFound() is returned.
+// provider, but when set must be unique within the model. Errors are returned
+// in the following cases:
+// - ProviderID not unique (when set);
+// - Machine is no longer alive or it's missing;
+// - errors.NotValidError, when any of the fields in args contain invalid values;
+// - errors.NotFoundError, when ParentName is set but cannot be found;
+// - errors.AlreadyExistsError, when Name is set to an existing interface.
 func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add interface %q to machine %q", args.Name, m.doc.Id)
 
