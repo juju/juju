@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -76,6 +77,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 		return leaseClock
 	}
 	s.AddSuiteCleanup(func(*gc.C) { state.GetClock = oldGetClock })
+	all.RegisterForServer()
 }
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
@@ -644,6 +646,18 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade5(c *gc.C) {
 			addRelationUnit{},
 			waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
 			verifyCharm{revision: 2},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		// Upgrade scenarios from steady state.
+		ut(
+			"update resource causes upgrade",
+			quickStart{},
+			pushResource{},
+			waitHooks{"upgrade-charm", "config-changed"},
 		),
 	})
 }

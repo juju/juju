@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -972,6 +973,22 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	url, ok := ctx.unit.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
+}
+
+type pushResource struct{}
+
+func (s pushResource) step(c *gc.C, ctx *context) {
+	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ServiceName(), "the bytes")
+
+	res, err := ctx.st.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = res.SetResource(
+		ctx.unit.ServiceName(),
+		opened.Username,
+		opened.Resource.Resource,
+		opened.ReadCloser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startUpgradeError struct{}
