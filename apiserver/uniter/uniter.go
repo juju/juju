@@ -574,7 +574,7 @@ func (u *UniterAPIV3) CharmModifiedVersion(args params.Entities) (params.IntResu
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Value = ver
+		results.Results[i].Result = ver
 	}
 	return results, nil
 }

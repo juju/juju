@@ -104,7 +104,7 @@ func (s *Service) CharmModifiedVersion() (int, error) {
 		return -1, result.Error
 	}
 
-	return result.Value, nil
+	return result.Result, nil
 }
 
 // CharmURL returns the service's charm URL, and whether units should
