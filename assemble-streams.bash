@@ -177,7 +177,7 @@ retrieve_packages() {
     echo "$(date +%Y-%m-%dT%H:%M:%S)"
     if [[ $IS_LOCAL == "true" ]]; then
         linked_files=$(
-            find $TEST_DEBS_DIR -name 'juju-core_*.deb' -or -name 'juju-*.tgz')
+            find $TEST_DEBS_DIR -name 'juju-core*.deb' -or -name 'juju-*.tgz')
         for linked_file in $linked_files; do
             # We need the real file location which includes series and arch.
             deb_file=$(readlink -f $linked_file)
@@ -188,7 +188,7 @@ retrieve_packages() {
         for archive in $ALL_ARCHIVES; do
             safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
             echo "checking $safe_archive for $RELEASE."
-            lftp -c mirror -I "juju-core_${RELEASE}*.$UPATCH~juj*.deb" $archive;
+            lftp -c mirror -I "juju-core*${RELEASE}*.$UPATCH~juj*.deb" $archive;
         done
         if [ -d $DEST_DEBS/juju-core ]; then
             found=$(find $DEST_DEBS/juju-core/ -name "*deb")
@@ -371,7 +371,7 @@ extract_new_juju() {
     echo "Using juju from a downloaded deb."
     source /etc/lsb-release
     ARCH=$(dpkg --print-architecture)
-    juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
+    juju_cores=$(find $DEST_DEBS -name "juju-core*${RELEASE}*${ARCH}.deb")
     juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
     if [[ $juju_core == "" ]]; then
         juju_core=$(echo "$juju_cores" | head -1)
