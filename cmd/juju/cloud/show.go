@@ -69,6 +69,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 type regionDetails struct {
+	Name            string `yaml:"-" json:"-"`
 	Endpoint        string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	StorageEndpoint string `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
 }
@@ -79,7 +80,10 @@ type cloudDetails struct {
 	AuthTypes       []string                 `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
 	Endpoint        string                   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	StorageEndpoint string                   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
-	Regions         map[string]regionDetails `yaml:"regions,omitempty" json:"regions,omitempty"`
+	// Regions is for when we want to print regions in order for tabular output.
+	Regions         []regionDetails          `yaml:"-" json:"-"`
+	// Regions map is for yaml and json marshalling where format is important but not order.
+	RegionsMap      map[string]regionDetails `yaml:"regions,omitempty" json:"regions,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
@@ -93,12 +97,15 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	for i, at := range cloud.AuthTypes {
 		result.AuthTypes[i] = string(at)
 	}
-	result.Regions = make(map[string]regionDetails)
+	result.RegionsMap = make(map[string]regionDetails)
 	for _, region := range cloud.Regions {
-		result.Regions[region.Name] = regionDetails{
+		r := regionDetails{
+			Name:            region.Name,
 			Endpoint:        region.Endpoint,
 			StorageEndpoint: region.Endpoint,
 		}
+		result.Regions = append(result.Regions, r)
+		result.RegionsMap[region.Name] = r
 	}
 	return result
 }
