@@ -30,7 +30,6 @@ type unit struct {
 	//  storage attachment count
 	//  status history
 	//  opened ports
-	//  meter status
 	//  constraints... inherited from service?
 	//    whether they are or not, a constraints doc is expected
 	//    for every principal unit.

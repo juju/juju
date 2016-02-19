@@ -195,7 +195,11 @@ func (*ModelSerializationSuite) TestModelValidationChecksServices(c *gc.C) {
 }
 
 func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, numUnits int) Service {
-	service := model.AddService(ServiceArgs{Tag: names.NewServiceTag(name)})
+	service := model.AddService(ServiceArgs{
+		Tag:                names.NewServiceTag(name),
+		Settings:           map[string]interface{}{},
+		LeadershipSettings: map[string]interface{}{},
+	})
 	service.SetStatus(minimalStatusArgs())
 	machineId := 0
 	for i := 0; i < numUnits; i++ {
@@ -214,7 +218,11 @@ func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, nu
 }
 
 func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{
+		Owner: names.NewUserTag("owner"),
+		Config: map[string]interface{}{
+			"uuid": "some-uuid",
+		}})
 	s.addServiceToModel(model, "wordpress", 2)
 	s.addServiceToModel(model, "mysql", 1)
 
@@ -234,6 +242,21 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		// Ignoring other aspects of endpoints.
 	})
 	return model, wordpressEndpoint, mysqlEndpoint
+}
+
+func (s *ModelSerializationSuite) wordpressModelWithSettings() Model {
+	model, wordpressEndpoint, mysqlEndpoint := s.wordpressModel()
+
+	wordpressEndpoint.SetUnitSettings("wordpress/0", map[string]interface{}{
+		"key": "value",
+	})
+	wordpressEndpoint.SetUnitSettings("wordpress/1", map[string]interface{}{
+		"key": "value",
+	})
+	mysqlEndpoint.SetUnitSettings("mysql/0", map[string]interface{}{
+		"key": "value",
+	})
+	return model
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksRelationsMissingSettings(c *gc.C) {
@@ -256,17 +279,16 @@ func (s *ModelSerializationSuite) TestModelValidationChecksRelationsMissingSetti
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksRelations(c *gc.C) {
-	model, wordpressEndpoint, mysqlEndpoint := s.wordpressModel()
-
-	wordpressEndpoint.SetUnitSettings("wordpress/0", map[string]interface{}{
-		"key": "value",
-	})
-	wordpressEndpoint.SetUnitSettings("wordpress/1", map[string]interface{}{
-		"key": "value",
-	})
-	mysqlEndpoint.SetUnitSettings("mysql/0", map[string]interface{}{
-		"key": "value",
-	})
+	model := s.wordpressModelWithSettings()
 	err := model.Validate()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelSerializationWithRelations(c *gc.C) {
+	initial := s.wordpressModelWithSettings()
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	model, err := DeserializeModel(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model, jc.DeepEquals, initial)
 }
