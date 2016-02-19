@@ -270,16 +270,12 @@ func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		return
 	}
-
-	switch {
-	case testing.Verbose():
-		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	case logger.IsTraceEnabled():
-		// TODO(rog) 2013-10-11 remove secrets from some requests.
-		// Until secrets are removed, we only log the body of the requests at trace level
-		// which is below the default level of debug.
+	// TODO(rog) 2013-10-11 remove secrets from some requests.
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	if logger.IsTraceEnabled() {
 		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	default:
+	} else {
 		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
 	}
 }
@@ -288,16 +284,12 @@ func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body int
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		return
 	}
-
-	switch {
-	case testing.Verbose():
-		logger.Debugf("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	case logger.IsTraceEnabled():
-		// TODO(rog) 2013-10-11 remove secrets from some responses.
-		// Until secrets are removed, we only log the body of the requests at trace level
-		// which is below the default level of debug.
+	// TODO(rog) 2013-10-11 remove secrets from some responses.
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	if logger.IsTraceEnabled() {
 		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	default:
+	} else {
 		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
 	}
 }
