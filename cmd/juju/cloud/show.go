@@ -6,6 +6,7 @@ package cloud
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -74,12 +75,12 @@ type regionDetails struct {
 }
 
 type cloudDetails struct {
-	Source          string                   `yaml:"defined,omitempty" json:"defined,omitempty"`
-	CloudType       string                   `yaml:"type" json:"type"`
-	AuthTypes       []string                 `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
-	Endpoint        string                   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
-	StorageEndpoint string                   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
-	Regions         map[string]regionDetails `yaml:"regions,omitempty" json:"regions,omitempty"`
+	Source          string        `yaml:"defined,omitempty" json:"defined,omitempty"`
+	CloudType       string        `yaml:"type" json:"type"`
+	AuthTypes       []string      `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
+	Endpoint        string        `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	StorageEndpoint string        `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+	Regions         yaml.MapSlice `yaml:"regions,omitempty" json:"regions,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
@@ -93,12 +94,13 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	for i, at := range cloud.AuthTypes {
 		result.AuthTypes[i] = string(at)
 	}
-	result.Regions = make(map[string]regionDetails)
 	for _, region := range cloud.Regions {
-		result.Regions[region.Name] = regionDetails{
-			Endpoint:        region.Endpoint,
-			StorageEndpoint: region.Endpoint,
-		}
+		result.Regions = append(result.Regions, yaml.MapItem{
+			region.Name, regionDetails{
+				region.Endpoint,
+				region.StorageEndpoint,
+			},
+		})
 	}
 	return result
 }

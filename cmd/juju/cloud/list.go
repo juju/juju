@@ -123,8 +123,8 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 	for _, name := range cloudNames {
 		info := clouds[name]
 		var regions []string
-		for name := range info.Regions {
-			regions = append(regions, name)
+		for _, item := range info.Regions {
+			regions = append(regions, item.Key.(string))
 		}
 		// TODO(wallyworld) - we should be smarter about handling
 		// long region text, for now we'll display the first 7 as
