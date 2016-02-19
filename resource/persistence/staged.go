@@ -76,6 +76,15 @@ func (staged StagedResource) Activate() error {
 		}
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedOps(staged.id)...)
+
+		// When we activate a non-pending staged resource, we increment the
+		// CharmModifiedVersion on the service, since resources are integral to
+		// the high level "version" of the charm.
+		if staged.stored.PendingID == "" {
+			incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ServiceID)
+			ops = append(ops, incOps...)
+		}
+
 		return ops, nil
 	}
 	if err := staged.base.Run(buildTxn); err != nil {

@@ -54,6 +54,10 @@ type Resolver interface {
 type LocalState struct {
 	operation.State
 
+	// CharmModifiedVersion increases any time the charm,
+	// or any part of it, is changed in some way.
+	CharmModifiedVersion int
+
 	// CharmURL reports the currently installed charm URL. This is set
 	// by the committing of deploy (install/upgrade) ops.
 	CharmURL *charm.URL

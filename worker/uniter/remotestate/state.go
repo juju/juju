@@ -35,6 +35,7 @@ type Unit interface {
 }
 
 type Service interface {
+	CharmModifiedVersion() (int, error)
 	CharmURL() (*charm.URL, bool, error)
 	Life() params.Life
 	Refresh() error
