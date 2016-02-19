@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/tomb.v1"
 
 	coreagent "github.com/juju/juju/agent"
@@ -14,6 +15,8 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
+
+var logger = loggo.GetLogger("juju.worker.state")
 
 // ManifoldConfig provides the dependencies for Manifold.
 type ManifoldConfig struct {
@@ -72,6 +75,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			go func() {
 				defer w.tomb.Done()
 				w.tomb.Kill(w.loop())
+				if err := st.Close(); err != nil {
+					logger.Errorf("error closing state: %v", err)
+				}
 			}()
 			return w, nil
 		},
