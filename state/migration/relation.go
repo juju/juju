@@ -17,7 +17,7 @@ type relations struct {
 type relation struct {
 	Id_        int        `yaml:"id"`
 	Key_       string     `yaml:"key"`
-	EndPoints_ *endpoints `yaml:"endpoints"`
+	Endpoints_ *endpoints `yaml:"endpoints"`
 }
 
 // RelationArgs is an argument struct used to specify a relation.
@@ -31,7 +31,7 @@ func newRelation(args RelationArgs) *relation {
 		Id_:  args.Id,
 		Key_: args.Key,
 	}
-	relation.setEndPoints(nil)
+	relation.setEndpoints(nil)
 	return relation
 }
 
@@ -45,26 +45,26 @@ func (r *relation) Key() string {
 	return r.Key_
 }
 
-// EndPoints implements Relation.
-func (r *relation) EndPoints() []EndPoint {
-	result := make([]EndPoint, len(r.EndPoints_.EndPoints_))
-	for i, ep := range r.EndPoints_.EndPoints_ {
+// Endpoints implements Relation.
+func (r *relation) Endpoints() []Endpoint {
+	result := make([]Endpoint, len(r.Endpoints_.Endpoints_))
+	for i, ep := range r.Endpoints_.Endpoints_ {
 		result[i] = ep
 	}
 	return result
 }
 
 // AddEndpoint implements Relation.
-func (r *relation) AddEndpoint(args EndPointArgs) EndPoint {
-	ep := newEndPoint(args)
-	r.EndPoints_.EndPoints_ = append(r.EndPoints_.EndPoints_, ep)
+func (r *relation) AddEndpoint(args EndpointArgs) Endpoint {
+	ep := newEndpoint(args)
+	r.Endpoints_.Endpoints_ = append(r.Endpoints_.Endpoints_, ep)
 	return ep
 }
 
-func (r *relation) setEndPoints(endpointList []*endpoint) {
-	r.EndPoints_ = &endpoints{
+func (r *relation) setEndpoints(endpointList []*endpoint) {
+	r.Endpoints_ = &endpoints{
 		Version:    1,
-		EndPoints_: endpointList,
+		Endpoints_: endpointList,
 	}
 }
 
@@ -128,18 +128,18 @@ func importRelationV1(source map[string]interface{}) (*relation, error) {
 		Key_: valid["key"].(string),
 	}
 
-	endpoints, err := importEndPoints(valid["endpoints"].(map[string]interface{}))
+	endpoints, err := importEndpoints(valid["endpoints"].(map[string]interface{}))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result.setEndPoints(endpoints)
+	result.setEndpoints(endpoints)
 
 	return result, nil
 }
 
 type endpoints struct {
 	Version    int         `yaml:"version"`
-	EndPoints_ []*endpoint `yaml:"endpoints"`
+	Endpoints_ []*endpoint `yaml:"endpoints"`
 }
 
 type endpoint struct {
@@ -154,8 +154,8 @@ type endpoint struct {
 	UnitSettings_ map[string]map[string]interface{} `yaml:"unit-settings"`
 }
 
-// EndPointArgs is an argument struct used to specify a relation.
-type EndPointArgs struct {
+// EndpointArgs is an argument struct used to specify a relation.
+type EndpointArgs struct {
 	ServiceName string
 	Name        string
 	Role        string
@@ -165,7 +165,7 @@ type EndPointArgs struct {
 	Scope       string
 }
 
-func newEndPoint(args EndPointArgs) *endpoint {
+func newEndpoint(args EndpointArgs) *endpoint {
 	return &endpoint{
 		ServiceName_:  args.ServiceName,
 		Name_:         args.Name,
@@ -186,52 +186,52 @@ func (e *endpoint) unitNames() set.Strings {
 	return result
 }
 
-// ServiceName implements EndPoint.
+// ServiceName implements Endpoint.
 func (e *endpoint) ServiceName() string {
 	return e.ServiceName_
 }
 
-// Name implements EndPoint.
+// Name implements Endpoint.
 func (e *endpoint) Name() string {
 	return e.Name_
 }
 
-// Role implements EndPoint.
+// Role implements Endpoint.
 func (e *endpoint) Role() string {
 	return e.Role_
 }
 
-// Interface implements EndPoint.
+// Interface implements Endpoint.
 func (e *endpoint) Interface() string {
 	return e.Interface_
 }
 
-// Optional implements EndPoint.
+// Optional implements Endpoint.
 func (e *endpoint) Optional() bool {
 	return e.Optional_
 }
 
-// Limit implements EndPoint.
+// Limit implements Endpoint.
 func (e *endpoint) Limit() int {
 	return e.Limit_
 }
 
-// Scope implements EndPoint.
+// Scope implements Endpoint.
 func (e *endpoint) Scope() string {
 	return e.Scope_
 }
 
-// Settings implements EndPoint.
+// Settings implements Endpoint.
 func (e *endpoint) Settings(unitName string) map[string]interface{} {
 	return e.UnitSettings_[unitName]
 }
 
-// SetUnitSettings implements EndPoint.
+// SetUnitSettings implements Endpoint.
 func (e *endpoint) SetUnitSettings(unitName string, settings map[string]interface{}) {
 	e.UnitSettings_[unitName] = settings
 }
 
-func importEndPoints(source map[string]interface{}) ([]*endpoint, error) {
+func importEndpoints(source map[string]interface{}) ([]*endpoint, error) {
 	checker := versionedChecker("endpoints")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
@@ -245,10 +245,10 @@ func importEndPoints(source map[string]interface{}) ([]*endpoint, error) {
 		return nil, errors.NotValidf("version %d", version)
 	}
 	endpointList := valid["endpoints"].([]interface{})
-	return importEndPointList(endpointList, importFunc)
+	return importEndpointList(endpointList, importFunc)
 }
 
-func importEndPointList(sourceList []interface{}, importFunc endpointDeserializationFunc) ([]*endpoint, error) {
+func importEndpointList(sourceList []interface{}, importFunc endpointDeserializationFunc) ([]*endpoint, error) {
 	result := make([]*endpoint, 0, len(sourceList))
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
@@ -267,10 +267,10 @@ func importEndPointList(sourceList []interface{}, importFunc endpointDeserializa
 type endpointDeserializationFunc func(map[string]interface{}) (*endpoint, error)
 
 var endpointDeserializationFuncs = map[int]endpointDeserializationFunc{
-	1: importEndPointV1,
+	1: importEndpointV1,
 }
 
-func importEndPointV1(source map[string]interface{}) (*endpoint, error) {
+func importEndpointV1(source map[string]interface{}) (*endpoint, error) {
 	fields := schema.Fields{
 		"service-name":  schema.String(),
 		"name":          schema.String(),

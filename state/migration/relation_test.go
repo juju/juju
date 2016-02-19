@@ -9,146 +9,107 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// type RelationSerializationSuite struct {
-// 	SliceSerializationSuite
-// }
-
-// var _ = gc.Suite(&RelationSerializationSuite{})
-
-// func (s *RelationSerializationSuite) SetUpTest(c *gc.C) {
-// 	s.SliceSerializationSuite.SetUpTest(c)
-// 	s.importName = "relations"
-// 	s.sliceName = "relations"
-// 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
-// 		return importRelations(m)
-// 	}
-// 	s.testFields = func(m map[string]interface{}) {
-// 		m["relations"] = []interface{}{}
-// 	}
-// }
-
-// func minimalRelationMap() map[interface{}]interface{} {
-// 	return map[interface{}]interface{}{
-// 		"name":            "ubuntu/0",
-// 		"machine":         "0",
-// 		"agent-status":    minimalStatusMap(),
-// 		"workload-status": minimalStatusMap(),
-// 		"password-hash":   "secure-hash",
-// 		"tools":           minimalAgentToolsMap(),
-// 	}
-// }
-
-// func minimalRelation() *relation {
-// 	u := newRelation(minimalRelationArgs())
-// 	u.SetAgentStatus(minimalStatusArgs())
-// 	u.SetWorkloadStatus(minimalStatusArgs())
-// 	u.SetTools(minimalAgentToolsArgs())
-// 	return u
-// }
-
-// func minimalRelationArgs() RelationArgs {
-// 	return RelationArgs{
-// 		Tag:          names.NewRelationTag("ubuntu/0"),
-// 		Machine:      names.NewMachineTag("0"),
-// 		PasswordHash: "secure-hash",
-// 	}
-// }
-
-// func (s *RelationSerializationSuite) completeRelation() *relation {
-// 	// This relation is about completeness, not reasonableness. That is why the
-// 	// relation has a principle (normally only for subordinates), and also a list
-// 	// of subordinates.
-// 	args := RelationArgs{
-// 		Tag:          names.NewRelationTag("ubuntu/0"),
-// 		Machine:      names.NewMachineTag("0"),
-// 		PasswordHash: "secure-hash",
-// 		Principal:    names.NewRelationTag("principal/0"),
-// 		Subordinates: []names.RelationTag{
-// 			names.NewRelationTag("sub1/0"),
-// 			names.NewRelationTag("sub2/0"),
-// 		},
-// 		MeterStatusCode: "meter code",
-// 		MeterStatusInfo: "meter info",
-// 	}
-// 	relation := newRelation(args)
-// 	relation.SetAgentStatus(minimalStatusArgs())
-// 	relation.SetWorkloadStatus(minimalStatusArgs())
-// 	relation.SetTools(minimalAgentToolsArgs())
-// 	return relation
-// }
-
-// func (s *RelationSerializationSuite) TestNewRelation(c *gc.C) {
-// 	relation := s.completeRelation()
-
-// 	c.Assert(relation.Tag(), gc.Equals, names.NewRelationTag("ubuntu/0"))
-// 	c.Assert(relation.Name(), gc.Equals, "ubuntu/0")
-// 	c.Assert(relation.Machine(), gc.Equals, names.NewMachineTag("0"))
-// 	c.Assert(relation.PasswordHash(), gc.Equals, "secure-hash")
-// 	c.Assert(relation.Principal(), gc.Equals, names.NewRelationTag("principal/0"))
-// 	c.Assert(relation.Subordinates(), jc.DeepEquals, []names.RelationTag{
-// 		names.NewRelationTag("sub1/0"),
-// 		names.NewRelationTag("sub2/0"),
-// 	})
-// 	c.Assert(relation.MeterStatusCode(), gc.Equals, "meter code")
-// 	c.Assert(relation.MeterStatusInfo(), gc.Equals, "meter info")
-// 	c.Assert(relation.Tools(), gc.NotNil)
-// 	c.Assert(relation.WorkloadStatus(), gc.NotNil)
-// 	c.Assert(relation.AgentStatus(), gc.NotNil)
-// }
-
-// func (s *RelationSerializationSuite) TestMinimalRelationValid(c *gc.C) {
-// 	relation := minimalRelation()
-// 	c.Assert(relation.Validate(), jc.ErrorIsNil)
-// }
-
-// func (s *RelationSerializationSuite) TestMinimalMatches(c *gc.C) {
-// 	bytes, err := yaml.Marshal(minimalRelation())
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	var source map[interface{}]interface{}
-// 	err = yaml.Unmarshal(bytes, &source)
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	c.Assert(source, jc.DeepEquals, minimalRelationMap())
-// }
-
-// func (s *RelationSerializationSuite) TestParsingSerializedData(c *gc.C) {
-// 	initial := relations{
-// 		Version:    1,
-// 		Relations_: []*relation{s.completeRelation()},
-// 	}
-
-// 	bytes, err := yaml.Marshal(initial)
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	var source map[string]interface{}
-// 	err = yaml.Unmarshal(bytes, &source)
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	relations, err := importRelations(source)
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	c.Assert(relations, jc.DeepEquals, initial.Relations_)
-// }
-
-type EndPointSerializationSuite struct {
+type RelationSerializationSuite struct {
 	SliceSerializationSuite
 }
 
-var _ = gc.Suite(&EndPointSerializationSuite{})
+var _ = gc.Suite(&RelationSerializationSuite{})
 
-func (s *EndPointSerializationSuite) SetUpTest(c *gc.C) {
+func (s *RelationSerializationSuite) SetUpTest(c *gc.C) {
+	s.SliceSerializationSuite.SetUpTest(c)
+	s.importName = "relations"
+	s.sliceName = "relations"
+	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
+		return importRelations(m)
+	}
+	s.testFields = func(m map[string]interface{}) {
+		m["relations"] = []interface{}{}
+	}
+}
+
+func (s *RelationSerializationSuite) completeRelation() *relation {
+	relation := newRelation(RelationArgs{
+		Id:  42,
+		Key: "special",
+	})
+
+	endpoint := relation.AddEndpoint(minimalEndpointArgs())
+	u1Settings := map[string]interface{}{
+		"name": "unit one",
+		"key":  42,
+	}
+	u2Settings := map[string]interface{}{
+		"name": "unit two",
+		"foo":  "bar",
+	}
+	endpoint.SetUnitSettings("ubuntu/0", u1Settings)
+	endpoint.SetUnitSettings("ubuntu/1", u2Settings)
+
+	return relation
+}
+
+func (s *RelationSerializationSuite) TestNewRelation(c *gc.C) {
+	relation := newRelation(RelationArgs{
+		Id:  42,
+		Key: "special",
+	})
+
+	c.Assert(relation.Id(), gc.Equals, 42)
+	c.Assert(relation.Key(), gc.Equals, "special")
+	c.Assert(relation.Endpoints(), gc.HasLen, 0)
+}
+
+func (s *RelationSerializationSuite) TestRelationEndpoints(c *gc.C) {
+	relation := s.completeRelation()
+
+	endpoints := relation.Endpoints()
+	c.Assert(endpoints, gc.HasLen, 1)
+
+	ep := endpoints[0]
+	c.Assert(ep.ServiceName(), gc.Equals, "ubuntu")
+	// Not going to check the exact contents, we expect that there
+	// should be two entries.
+	c.Assert(ep.Settings("ubuntu/0"), gc.HasLen, 2)
+}
+
+func (s *RelationSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	initial := relations{
+		Version:    1,
+		Relations_: []*relation{s.completeRelation()},
+	}
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var source map[string]interface{}
+	err = yaml.Unmarshal(bytes, &source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relations, err := importRelations(source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(relations, jc.DeepEquals, initial.Relations_)
+}
+
+type EndpointSerializationSuite struct {
+	SliceSerializationSuite
+}
+
+var _ = gc.Suite(&EndpointSerializationSuite{})
+
+func (s *EndpointSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
 	s.importName = "endpoints"
 	s.sliceName = "endpoints"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
-		return importEndPoints(m)
+		return importEndpoints(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
 		m["endpoints"] = []interface{}{}
 	}
 }
 
-func minimalEndPointMap() map[interface{}]interface{} {
+func minimalEndpointMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"service-name":  "ubuntu",
 		"name":          "juju-meta",
@@ -161,12 +122,12 @@ func minimalEndPointMap() map[interface{}]interface{} {
 	}
 }
 
-func minimalEndPoint() *endpoint {
-	return newEndPoint(minimalEndPointArgs())
+func minimalEndpoint() *endpoint {
+	return newEndpoint(minimalEndpointArgs())
 }
 
-func minimalEndPointArgs() EndPointArgs {
-	return EndPointArgs{
+func minimalEndpointArgs() EndpointArgs {
+	return EndpointArgs{
 		ServiceName: "ubuntu",
 		Name:        "juju-meta",
 		Role:        "peer",
@@ -178,7 +139,7 @@ func minimalEndPointArgs() EndPointArgs {
 }
 
 func endpointWithSettings() *endpoint {
-	endpoint := minimalEndPoint()
+	endpoint := minimalEndpoint()
 	u1Settings := map[string]interface{}{
 		"name": "unit one",
 		"key":  42,
@@ -192,7 +153,7 @@ func endpointWithSettings() *endpoint {
 	return endpoint
 }
 
-func (s *EndPointSerializationSuite) TestNewEndPoint(c *gc.C) {
+func (s *EndpointSerializationSuite) TestNewEndpoint(c *gc.C) {
 	endpoint := endpointWithSettings()
 
 	c.Assert(endpoint.ServiceName(), gc.Equals, "ubuntu")
@@ -212,20 +173,20 @@ func (s *EndPointSerializationSuite) TestNewEndPoint(c *gc.C) {
 	})
 }
 
-func (s *EndPointSerializationSuite) TestMinimalMatches(c *gc.C) {
-	bytes, err := yaml.Marshal(minimalEndPoint())
+func (s *EndpointSerializationSuite) TestMinimalMatches(c *gc.C) {
+	bytes, err := yaml.Marshal(minimalEndpoint())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var source map[interface{}]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(source, jc.DeepEquals, minimalEndPointMap())
+	c.Assert(source, jc.DeepEquals, minimalEndpointMap())
 }
 
-func (s *EndPointSerializationSuite) TestParsingSerializedData(c *gc.C) {
+func (s *EndpointSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	initial := endpoints{
 		Version:    1,
-		EndPoints_: []*endpoint{endpointWithSettings()},
+		Endpoints_: []*endpoint{endpointWithSettings()},
 	}
 
 	bytes, err := yaml.Marshal(initial)
@@ -235,8 +196,8 @@ func (s *EndPointSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	endpoints, err := importEndPoints(source)
+	endpoints, err := importEndpoints(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(endpoints, jc.DeepEquals, initial.EndPoints_)
+	c.Assert(endpoints, jc.DeepEquals, initial.Endpoints_)
 }

@@ -217,13 +217,13 @@ type Relation interface {
 	Id() int
 	Key() string
 
-	EndPoints() []EndPoint
-	AddEndpoint(EndPointArgs) EndPoint
+	Endpoints() []Endpoint
+	AddEndpoint(EndpointArgs) Endpoint
 }
 
-// EndPoint represents one end of a relation. A named end-point provided
+// Endpoint represents one end of a relation. A named end-point provided
 // by the charm that is deployed for the service.
-type EndPoint interface {
+type Endpoint interface {
 	ServiceName() string
 	Name() string
 	// Role, Interface, Optional, Limit, and Scope should all be available

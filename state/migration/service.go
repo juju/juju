@@ -193,7 +193,7 @@ func (s *service) setUnits(unitList []*unit) {
 // Validate implements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
-		return errors.NotValidf("missing name")
+		return errors.NotValidf("service missing name")
 	}
 	if s.Status_ == nil {
 		return errors.NotValidf("service %q missing status", s.Name_)

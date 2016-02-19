@@ -4,8 +4,10 @@
 package migration
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -78,6 +80,10 @@ func (*ModelSerializationSuite) modelMap() map[string]interface{} {
 				minimalServiceMap(),
 			},
 		},
+		"relations": map[string]interface{}{
+			"version":   1,
+			"relations": []interface{}{},
+		},
 	}
 }
 
@@ -124,7 +130,143 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 			"version":  1,
 			"services": []interface{}{},
 		},
+		"relations": map[string]interface{}{
+			"version":   1,
+			"relations": []interface{}{},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, version.Zero)
+}
+
+func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {
+	model := NewModel(ModelArgs{})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, "missing model owner not valid")
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (*ModelSerializationSuite) TestModelValidationChecksMachines(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddMachine(MachineArgs{})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, "machine missing id not valid")
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *ModelSerializationSuite) addMachineToModel(model Model, id string) Machine {
+	machine := model.AddMachine(MachineArgs{Id: names.NewMachineTag(id)})
+	machine.SetInstance(CloudInstanceArgs{InstanceId: "magic"})
+	machine.SetTools(minimalAgentToolsArgs())
+	machine.SetStatus(minimalStatusArgs())
+	return machine
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksMachinesGood(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	s.addMachineToModel(model, "0")
+	err := model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	machine := s.addMachineToModel(model, "0")
+	machine.AddNetworkPorts(NetworkPortsArgs{
+		OpenPorts: []PortRangeArgs{
+			{
+				UnitName: "missing/0",
+				FromPort: 8080,
+				ToPort:   8080,
+				Protocol: "tcp",
+			},
+		},
+	})
+	err := model.Validate()
+	c.Assert(err.Error(), gc.Equals, "unknown unit names in open ports: [missing/0]")
+}
+
+func (*ModelSerializationSuite) TestModelValidationChecksServices(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddService(ServiceArgs{})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, "service missing name not valid")
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, numUnits int) Service {
+	service := model.AddService(ServiceArgs{Tag: names.NewServiceTag(name)})
+	service.SetStatus(minimalStatusArgs())
+	machineId := 0
+	for i := 0; i < numUnits; i++ {
+		machine := s.addMachineToModel(model, fmt.Sprint(machineId))
+		machineId++
+		unit := service.AddUnit(UnitArgs{
+			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
+			Machine: machine.Tag(),
+		})
+		unit.SetTools(minimalAgentToolsArgs())
+		unit.SetAgentStatus(minimalStatusArgs())
+		unit.SetWorkloadStatus(minimalStatusArgs())
+	}
+
+	return service
+}
+
+func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	s.addServiceToModel(model, "wordpress", 2)
+	s.addServiceToModel(model, "mysql", 1)
+
+	// Add a relation between wordpress and mysql.
+	rel := model.AddRelation(RelationArgs{
+		Id:  42,
+		Key: "special key",
+	})
+	wordpressEndpoint := rel.AddEndpoint(EndpointArgs{
+		ServiceName: "wordpress",
+		Name:        "db",
+		// Ignoring other aspects of endpoints.
+	})
+	mysqlEndpoint := rel.AddEndpoint(EndpointArgs{
+		ServiceName: "mysql",
+		Name:        "mysql",
+		// Ignoring other aspects of endpoints.
+	})
+	return model, wordpressEndpoint, mysqlEndpoint
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksRelationsMissingSettings(c *gc.C) {
+	model, _, _ := s.wordpressModel()
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, "missing relation settings for units \\[wordpress/0 wordpress/1\\] in relation 42")
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksRelationsMissingSettings2(c *gc.C) {
+	model, wordpressEndpoint, _ := s.wordpressModel()
+
+	wordpressEndpoint.SetUnitSettings("wordpress/0", map[string]interface{}{
+		"key": "value",
+	})
+	wordpressEndpoint.SetUnitSettings("wordpress/1", map[string]interface{}{
+		"key": "value",
+	})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, "missing relation settings for units \\[mysql/0\\] in relation 42")
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksRelations(c *gc.C) {
+	model, wordpressEndpoint, mysqlEndpoint := s.wordpressModel()
+
+	wordpressEndpoint.SetUnitSettings("wordpress/0", map[string]interface{}{
+		"key": "value",
+	})
+	wordpressEndpoint.SetUnitSettings("wordpress/1", map[string]interface{}{
+		"key": "value",
+	})
+	mysqlEndpoint.SetUnitSettings("mysql/0", map[string]interface{}{
+		"key": "value",
+	})
+	err := model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
 }

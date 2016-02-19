@@ -30,7 +30,7 @@ type ModelArgs struct {
 func NewModel(args ModelArgs) Model {
 	m := &model{
 		Version:             1,
-		Owner_:              args.Owner.Canonical(),
+		Owner_:              args.Owner.Id(),
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
 	}
@@ -190,12 +190,18 @@ func (m *model) setServices(serviceList []*service) {
 
 // Relations implements Model.
 func (m *model) Relations() []Relation {
-	return nil
+	var result []Relation
+	for _, relation := range m.Relations_.Relations_ {
+		result = append(result, relation)
+	}
+	return result
 }
 
 // AddRelation implements Model.
-func (m *model) AddRelation(RelationArgs) Relation {
-	return nil
+func (m *model) AddRelation(args RelationArgs) Relation {
+	relation := newRelation(args)
+	m.Relations_.Relations_ = append(m.Relations_.Relations_, relation)
+	return relation
 }
 
 func (m *model) setRelations(relationList []*relation) {
@@ -207,6 +213,11 @@ func (m *model) setRelations(relationList []*relation) {
 
 // Validate implements Model.
 func (m *model) Validate() error {
+	// A model needs an owner.
+	if m.Owner_ == "" {
+		return errors.NotValidf("missing model owner")
+	}
+
 	unitsWithOpenPorts := set.NewStrings()
 	for _, machine := range m.Machines_.Machines_ {
 		if err := machine.Validate(); err != nil {
@@ -235,7 +246,7 @@ func (m *model) Validate() error {
 	// Make sure that for each endpoint in each relation has settings for all
 	// units of that service.
 	for _, relation := range m.Relations_.Relations_ {
-		for _, ep := range relation.EndPoints_.EndPoints_ {
+		for _, ep := range relation.Endpoints_.Endpoints_ {
 			// Check service exists.
 			service := m.service(ep.ServiceName())
 			if service == nil {
@@ -290,6 +301,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
+		"relations":    schema.StringMap(schema.Any()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -319,26 +331,30 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	userMap := valid["users"].(map[string]interface{})
 	users, err := importUsers(userMap)
 	if err != nil {
-		return nil, errors.Annotatef(err, "users")
+		return nil, errors.Annotate(err, "users")
 	}
 	result.setUsers(users)
 
 	machineMap := valid["machines"].(map[string]interface{})
 	machines, err := importMachines(machineMap)
 	if err != nil {
-		return nil, errors.Annotatef(err, "machines")
+		return nil, errors.Annotate(err, "machines")
 	}
 	result.setMachines(machines)
 
 	serviceMap := valid["services"].(map[string]interface{})
 	services, err := importServices(serviceMap)
 	if err != nil {
-		return nil, errors.Annotatef(err, "services")
+		return nil, errors.Annotate(err, "services")
 	}
 	result.setServices(services)
 
-	// TODO: relations
-	result.setRelations(nil)
+	relationMap := valid["relations"].(map[string]interface{})
+	relations, err := importRelations(relationMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "relations")
+	}
+	result.setRelations(relations)
 
 	return result, nil
 }
