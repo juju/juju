@@ -159,7 +159,6 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	endpoint.ServerUUID = responsePayload.ControllerUUID
 	endpoint.CACert = responsePayload.CACert
 	controllerInfo.SetAPIEndpoint(endpoint)
-	// TODO(wallyworld) - update accounts.yaml
 	controllerInfo.SetAPICredentials(configstore.APICredentials{
 		User:     registrationParams.userTag.Id(),
 		Password: registrationParams.newPassword,
