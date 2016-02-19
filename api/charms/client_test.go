@@ -9,7 +9,6 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -26,17 +25,13 @@ func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
 	var called bool
 	curl := "local:quantal/dummy-1"
 	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
+		func(objType string, version int, id, request string, a, result interface{}) error {
 			called = true
 			c.Check(objType, gc.Equals, "Charms")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "IsMetered")
 
-			args, ok := a.(params.CharmInfo)
+			args, ok := a.(struct{ CharmURL string })
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.CharmURL, gc.DeepEquals, curl)
 			return nil

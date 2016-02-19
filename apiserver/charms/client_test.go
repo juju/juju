@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charms"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -121,7 +120,7 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		expected := &api.CharmInfo{
+		expected := &params.CharmInfo{
 			Revision: aCharm.Revision(),
 			URL:      aCharm.URL().String(),
 			Config:   aCharm.Config(),
@@ -156,7 +155,7 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 
 func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	metered, err := s.api.IsMetered(params.CharmInfo{
+	metered, err := s.api.IsMetered(charms.CharmInfo{
 		CharmURL: charm.URL().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,7 +164,7 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 
 func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	metered, err := s.api.IsMetered(params.CharmInfo{
+	metered, err := s.api.IsMetered(charms.CharmInfo{
 		CharmURL: meteredCharm.URL().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

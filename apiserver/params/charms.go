@@ -3,11 +3,6 @@
 
 package params
 
-// CharmInfo stores parameters for a charms.CharmInfo call.
-type CharmInfo struct {
-	CharmURL string
-}
-
 // CharmsList stores parameters for a charms.List call
 type CharmsList struct {
 	Names []string

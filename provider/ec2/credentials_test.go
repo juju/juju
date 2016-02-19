@@ -14,10 +14,11 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"io/ioutil"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"io/ioutil"
 )
 
 type credentialsSuite struct {

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -25,8 +24,8 @@ var getState = func(st *state.State) charmsAccess {
 // Charms defines the methods on the charms API end point.
 type Charms interface {
 	List(args params.CharmsList) (params.CharmsListResult, error)
-	CharmInfo(args params.CharmInfo) (api.CharmInfo, error)
-	IsMetered(args params.CharmInfo) (bool, error)
+	CharmInfo(CharmInfo) (params.CharmInfo, error)
+	IsMetered(CharmInfo) (bool, error)
 }
 
 // API implements the charms interface and is the concrete
@@ -52,17 +51,22 @@ func NewAPI(
 	}, nil
 }
 
+// CharmInfo holds the url of the requested charm.
+type CharmInfo struct {
+	CharmURL string
+}
+
 // CharmInfo returns information about the requested charm.
-func (a *API) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
+func (a *API) CharmInfo(args CharmInfo) (params.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
-		return api.CharmInfo{}, err
+		return params.CharmInfo{}, err
 	}
 	aCharm, err := a.access.Charm(curl)
 	if err != nil {
-		return api.CharmInfo{}, err
+		return params.CharmInfo{}, err
 	}
-	info := api.CharmInfo{
+	info := params.CharmInfo{
 		Revision: aCharm.Revision(),
 		URL:      curl.String(),
 		Config:   aCharm.Config(),
@@ -97,7 +101,7 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 }
 
 // IsMetered returns whether or not the charm is metered.
-func (a *API) IsMetered(args params.CharmInfo) (params.IsMeteredResult, error) {
+func (a *API) IsMetered(args CharmInfo) (params.IsMeteredResult, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
 		return params.IsMeteredResult{false}, err
