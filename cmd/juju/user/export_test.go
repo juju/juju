@@ -7,21 +7,16 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	RandomPasswordNotify = &randomPasswordNotify
 	ReadPassword         = &readPassword
-	ServerFileNotify     = &serverFileNotify
-	WriteServerFile      = writeServerFile
 )
 
 type AddCommand struct {
 	*addCommand
-}
-
-type CredentialsCommand struct {
-	*credentialsCommand
 }
 
 type ChangePasswordCommand struct {
@@ -32,8 +27,10 @@ type DisenableUserBase struct {
 	*disenableUserBase
 }
 
-func NewAddCommandForTest(api AddUserAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
+	c.SetClientStore(store)
+	c.SetModelApi(modelApi)
 	return modelcmd.WrapController(c), &AddCommand{c}
 }
 
@@ -44,18 +41,13 @@ func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
 		}})
 }
 
-func NewCredentialsCommandForTest() (cmd.Command, *CredentialsCommand) {
-	c := &credentialsCommand{}
-	return modelcmd.WrapController(c), &CredentialsCommand{c}
-}
-
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommandForTest(api ChangePasswordAPI, writer EnvironInfoCredsWriter) (cmd.Command, *ChangePasswordCommand) {
+func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.ClientStore) (cmd.Command, *ChangePasswordCommand) {
 	c := &changePasswordCommand{
-		api:    api,
-		writer: writer,
+		api: api,
 	}
+	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }
 

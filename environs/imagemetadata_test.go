@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -46,7 +47,11 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemStore(),
+		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }

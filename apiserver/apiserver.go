@@ -420,6 +420,11 @@ func (srv *Server) run() {
 			ctxt: httpCtxt,
 		},
 	)
+	handleAll(mux, "/register",
+		&registerUserHandler{
+			ctxt: httpCtxt,
+		},
+	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {
