@@ -31,7 +31,8 @@ type ManifoldsConfig struct {
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
 
-	// XXX
+	// AgentConfigChanged is set whenever the machine agent's config
+	// is updated.
 	AgentConfigChanged *voyeur.Value
 
 	// PreviousAgentVersion passes through the version the machine
@@ -48,7 +49,8 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
-	// XXX
+	// OpenState is function used by the state manifold to create a
+	// *state.State.
 	OpenState func(coreagent.Config) (*state.State, error)
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
@@ -86,13 +88,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// returns.
 		terminationName: terminationworker.Manifold(),
 
-		// XXX
+		// The stateconfigwatcher manifold watches the machine agent's
+		// configuration and reports if state serving info is
+		// present. It will bounce itself if state serving info is
+		// added or removed. It is intended as a dependency just for
+		// the state manifold.
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
 
-		// XXX
+		// The state manifold creates a *state.State and makes it
+		// available to other manifolds. It pings the mongodb session
+		// regularly and will die if pings fail.
 		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
