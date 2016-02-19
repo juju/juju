@@ -43,9 +43,9 @@ func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 	c.Assert(rackspace.Type, gc.Equals, "rackspace")
 	c.Assert(rackspace.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")
 	var regionNames []string
-	for name, region := range rackspace.Regions {
-		regionNames = append(regionNames, name)
-		if name == "LON" {
+	for _, region := range rackspace.Regions {
+		regionNames = append(regionNames, region.Name)
+		if region.Name == "LON" {
 			c.Assert(region.Endpoint, gc.Equals, "https://lon.identity.api.rackspacecloud.com/v2.0")
 		} else {
 			c.Assert(region.Endpoint, gc.Equals, "https://identity.api.rackspacecloud.com/v2.0")

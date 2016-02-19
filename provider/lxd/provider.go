@@ -101,9 +101,9 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
-func (environProvider) DetectRegions() (map[string]cloud.Region, error) {
+func (environProvider) DetectRegions() ([]cloud.Region, error) {
 	// For now we just return a hard-coded "localhost" region,
 	// i.e. the local LXD daemon. We may later want to detect
 	// locally-configured remotes.
-	return map[string]cloud.Region{"localhost": {}}, nil
+	return []cloud.Region{{Name: "localhost"}}, nil
 }

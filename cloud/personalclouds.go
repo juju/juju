@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
 )
@@ -50,9 +49,9 @@ func ParseCloudMetadataFile(file string) (map[string]Cloud, error) {
 // WritePersonalCloudMetadata marshals to YAMl and writes the cloud metadata
 // to the personal cloud file.
 func WritePersonalCloudMetadata(cloudsMap map[string]Cloud) error {
-	data, err := yaml.Marshal(clouds{cloudsMap})
+	data, err := marshalCloudMetadata(cloudsMap)
 	if err != nil {
-		return errors.Annotate(err, "cannot marshal yaml cloud metadata")
+		return errors.Trace(err)
 	}
 	return ioutil.WriteFile(JujuPersonalCloudsPath(), data, os.FileMode(0600))
 }

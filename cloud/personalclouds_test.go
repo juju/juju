@@ -26,9 +26,23 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
 			Type:      "openstack",
 			AuthTypes: []cloud.AuthType{"userpass", "access-key"},
 			Endpoint:  "http://homestack",
-			Regions: map[string]cloud.Region{
-				"london": cloud.Region{Endpoint: "http://london/1.0"},
+			Regions: []cloud.Region{
+				cloud.Region{Name: "london", Endpoint: "http://london/1.0"},
 			},
+		},
+		"azurestack": cloud.Cloud{
+			Type:      "azure",
+			AuthTypes: []cloud.AuthType{"userpass"},
+			Regions: []cloud.Region{{
+				Name:     "prod",
+				Endpoint: "http://prod.azurestack.local",
+			}, {
+				Name:     "dev",
+				Endpoint: "http://dev.azurestack.local",
+			}, {
+				Name:     "test",
+				Endpoint: "http://test.azurestack.local",
+			}},
 		},
 	}
 	err := cloud.WritePersonalCloudMetadata(clouds)
@@ -37,6 +51,16 @@ func (s *personalCloudSuite) TestWritePersonalClouds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, `
 clouds:
+  azurestack:
+    type: azure
+    auth-types: [userpass]
+    regions:
+      prod:
+        endpoint: http://prod.azurestack.local
+      dev:
+        endpoint: http://dev.azurestack.local
+      test:
+        endpoint: http://test.azurestack.local
   homestack:
     type: openstack
     auth-types: [userpass, access-key]
@@ -74,16 +98,17 @@ func (s *personalCloudSuite) assertPersonalClouds(c *gc.C, clouds map[string]clo
 			Type:      "openstack",
 			AuthTypes: []cloud.AuthType{"userpass", "access-key"},
 			Endpoint:  "http://homestack",
-			Regions: map[string]cloud.Region{
-				"london": cloud.Region{Endpoint: "http://london/1.0"},
+			Regions: []cloud.Region{
+				cloud.Region{Name: "london", Endpoint: "http://london/1.0"},
 			},
 		},
 		"azurestack": cloud.Cloud{
 			Type:            "azure",
 			AuthTypes:       []cloud.AuthType{"userpass"},
 			StorageEndpoint: "http://storage.azurestack.local",
-			Regions: map[string]cloud.Region{
-				"local": cloud.Region{
+			Regions: []cloud.Region{
+				cloud.Region{
+					Name:            "local",
 					Endpoint:        "http://azurestack.local",
 					StorageEndpoint: "http://storage.azurestack.local",
 				},

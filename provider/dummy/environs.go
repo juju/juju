@@ -518,8 +518,8 @@ func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
 	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
 }
 
-func (*environProvider) DetectRegions() (map[string]cloud.Region, error) {
-	return map[string]cloud.Region{"dummy": {}}, nil
+func (*environProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "dummy"}}, nil
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
