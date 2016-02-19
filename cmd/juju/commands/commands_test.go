@@ -81,11 +81,10 @@ func (c *stubCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *stubCommand) SetModelName(name string) {
+func (c *stubCommand) SetModelName(name string) error {
 	c.stub.AddCall("SetModelName", name)
-	c.stub.NextErr() // pop one off
-
 	c.envName = name
+	return c.stub.NextErr()
 }
 
 func (c *stubCommand) ModelName() string {

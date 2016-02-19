@@ -11,6 +11,10 @@ import (
 
 var ErrShutdown = errors.New("connection is shut down")
 
+func IsShutdownErr(err error) bool {
+	return errors.Cause(err) == ErrShutdown
+}
+
 // Call represents an active RPC.
 type Call struct {
 	Request

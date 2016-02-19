@@ -39,9 +39,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
-	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver"
@@ -73,9 +71,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
-	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
@@ -84,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/discoverspaces"
-	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
@@ -94,9 +89,9 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -126,7 +121,6 @@ var (
 	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
-	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newResumer               = resumer.NewResumer
@@ -134,6 +128,7 @@ var (
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
 	newMetadataUpdater       = imagemetadataworker.NewWorker
+	newUpgradeMongoWorker    = mongoupgrader.New
 	reportOpenedState        = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 	getUndertakerAPI         = undertakerAPI
@@ -492,6 +487,8 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			LogSource:            a.bufferedLogs,
+			NewDeployContext:     newDeployContext,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -539,6 +536,31 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
+	if !a.mongoInitialized {
+		return nil
+	}
+
+	conf := a.AgentConfigWriter.CurrentConfig()
+	v := conf.MongoVersion()
+
+	logger.Errorf("Got version change %v", ver)
+	// TODO(perrito666) replace with "read-only" mode for environment when
+	// it is available.
+	if ver.NewerThan(v) > 0 {
+		err := a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+			config.SetMongoVersion(mongo.MongoUpgrade)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+
 }
 
 // PrepareRestore will flag the agent to allow only a limited set
@@ -684,13 +706,12 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isModelManager, isUnitHoster bool
+
+	var isModelManager bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageModel:
 			isModelManager = true
-		case multiwatcher.JobHostUnits:
-			isUnitHoster = true
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -706,66 +727,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	// TODO(fwereade): this is *still* a hideous layering violation, but at least
-	// it's confined to jujud rather than extending into the worker itself.
-	// Start this worker first to try and get proxy settings in place
-	// before we do anything else.
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn))
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
-		}
-		return w, nil
-	})
-
-	runner.StartWorker("logsender", func() (worker.Worker, error) {
-		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
-	})
-
 	modelConfig, err := apiConn.Agent().ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
 
-	ignoreMachineAddresses, _ := modelConfig.IgnoreMachineAddresses()
-	// Containers only have machine addresses, so we can't ignore them.
-	if names.IsContainerMachine(agentConfig.Tag().Id()) {
-		ignoreMachineAddresses = false
-	}
-	if ignoreMachineAddresses {
-		logger.Infof("machine addresses not used, only addresses from provider")
-	}
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		accessor := machiner.APIMachineAccessor{apiConn.Machiner()}
-		w, err := newMachiner(machiner.Config{
-			MachineAccessor: accessor,
-			Tag:             agentConfig.Tag().(names.MachineTag),
-			ClearMachineAddressesOnStart: ignoreMachineAddresses,
-			NotifyMachineDead: func() error {
-				return a.writeUninstallAgentFile()
-			},
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machiner worker")
-		}
-		return w, err
-	})
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		addressUpdater := agent.APIHostPortsSetter{a}
-		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start api address updater worker")
-		}
-		return w, nil
-	})
-
-	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-		api, err := apiConn.DiskManager()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-	})
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
 		api, err := apistorageprovisioner.NewState(apiConn, scope)
@@ -791,15 +757,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 	})
 
-	// Start the worker to manage SSH keys.
-	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-		w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
-		}
-		return w, nil
-	})
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -807,18 +764,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return nil, worker.ErrTerminateAgent
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
-	}
-
-	if isUnitHoster {
-		runner.StartWorker("deployer", func() (worker.Worker, error) {
-			apiDeployer := apiConn.Deployer()
-			context := newDeployContext(apiDeployer, agentConfig)
-			w, err := deployer.NewDeployer(apiDeployer, context)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
-			}
-			return w, nil
-		})
 	}
 
 	if isModelManager {
@@ -1060,6 +1005,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				return w, nil
 			})
+			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
+				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
+			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1262,9 +1210,8 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		a.discoveringSpacesMutex.Lock()
-		defer a.discoveringSpacesMutex.Unlock()
 		w, discoveringSpaces := newDiscoverSpaces(apiSt.DiscoverSpaces())
+		a.discoveringSpacesMutex.Lock()
 		if a.discoveringSpaces == nil {
 			// If the discovery channel has not been set, set it here. If
 			// it has been set then the worker has been restarted and we
@@ -1272,6 +1219,7 @@ func (a *MachineAgent) startEnvWorkers(
 			// will block the api.
 			a.discoveringSpaces = discoveringSpaces
 		}
+		a.discoveringSpacesMutex.Unlock()
 		return w, nil
 	})
 
@@ -1477,14 +1425,30 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
 		return err
 	}
-	return a.limitLoginsDuringUpgrade(req)
+
+	if err := a.limitLoginsDuringUpgrade(req); err != nil {
+		return err
+	}
+	return a.limitLoginsDuringMongoUpgrade(req)
+}
+
+func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
+	// If upgrade is running we will not be able to lock AgentConfigWriter
+	// and it also means we are not upgrading mongo.
+	if a.isUpgradeRunning() {
+		return nil
+	}
+	cfg := a.AgentConfigWriter.CurrentConfig()
+	ver := cfg.MongoVersion()
+	if ver == mongo.MongoUpgrade {
+		return errors.New("Upgrading Mongo")
+	}
+	return nil
 }
 
 // limitLoginsUntilSpacesDiscovered will prevent logins from clients until
 // space discovery is completed.
 func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
-	a.discoveringSpacesMutex.Lock()
-	defer a.discoveringSpacesMutex.Unlock()
 	if a.discoveringSpaces == nil {
 		// Space discovery not started.
 		return nil
@@ -1679,11 +1643,12 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo: dialInfo,
-		DataDir:  agentConfig.DataDir(),
-		Port:     servingInfo.StatePort,
-		User:     mongoInfo.Tag.String(),
-		Password: mongoInfo.Password,
+		DialInfo:     dialInfo,
+		DataDir:      agentConfig.DataDir(),
+		Port:         servingInfo.StatePort,
+		User:         mongoInfo.Tag.String(),
+		Password:     mongoInfo.Password,
+		MongoVersion: agentConfig.MongoVersion(),
 	})
 }
 

@@ -32,7 +32,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, envName strin
 		EnvironManager: true,
 	}
 
-	st := newMockState(names.NewUserTag("dummy-admin"), envName, isSystem)
+	st := newMockState(names.NewUserTag("admin"), envName, isSystem)
 	api, err := undertaker.NewUndertaker(st, nil, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
@@ -48,7 +48,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			EnvironManager: true,
 		},
 	} {
-		st := newMockState(names.NewUserTag("dummy-admin"), "dummymodel", true)
+		st := newMockState(names.NewUserTag("admin"), "dummymodel", true)
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
@@ -82,7 +82,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		c.Assert(result.Error, gc.IsNil)
 
 		c.Assert(info.UUID, gc.Equals, env.UUID())
-		c.Assert(info.GlobalName, gc.Equals, "user-dummy-admin/"+test.envName)
+		c.Assert(info.GlobalName, gc.Equals, "user-admin/"+test.envName)
 		c.Assert(info.Name, gc.Equals, test.envName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, params.Dying)

@@ -53,7 +53,7 @@ func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	info := result.Result
 	c.Assert(info.UUID, gc.Equals, coretesting.ModelTag.Id())
 	c.Assert(info.Name, gc.Equals, "dummymodel")
-	c.Assert(info.GlobalName, gc.Equals, "user-dummy-admin@local/dummymodel")
+	c.Assert(info.GlobalName, gc.Equals, "user-admin@local/dummymodel")
 	c.Assert(info.IsSystem, jc.IsTrue)
 	c.Assert(info.Life, gc.Equals, params.Alive)
 	c.Assert(info.TimeOfDeath, gc.IsNil)
@@ -95,7 +95,7 @@ func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
 	envInfo := result.Result
 	c.Assert(envInfo.UUID, gc.Equals, otherSt.ModelUUID())
 	c.Assert(envInfo.Name, gc.Equals, "hosted_env")
-	c.Assert(envInfo.GlobalName, gc.Equals, "user-dummy-admin@local/hosted_env")
+	c.Assert(envInfo.GlobalName, gc.Equals, "user-admin@local/hosted_env")
 	c.Assert(envInfo.IsSystem, jc.IsFalse)
 	c.Assert(envInfo.Life, gc.Equals, params.Alive)
 	c.Assert(envInfo.TimeOfDeath, gc.IsNil)
