@@ -197,10 +197,13 @@ class CandidateTestCase(TestCase):
 
         with patch('subprocess.check_output',
                    side_effect=subprocessor) as co_mock:
-            name = get_package('foo', '1.2.3')
+            name1 = get_package('foo', '1.2.3')
+            name2 = get_package('foo', '2.4.5')
         self.assertEqual(
-            'foo/juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb', name)
-        self.assertEqual(2, co_mock.call_count)
+            'foo/juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb', name1)
+        self.assertEqual(
+            'foo/juju-core2_2.4.5-0ubuntu1~14.04.1~juju1_amd64.deb', name2)
+        self.assertEqual(4, co_mock.call_count)
         output, args, kwargs = co_mock.mock_calls[0]
         self.assertEqual((['lsb_release', '-sr'], ), args)
         output, args, kwargs = co_mock.mock_calls[1]
