@@ -100,9 +100,9 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	}
 	result.RegionsMap = make(map[string]regionDetails)
 	for _, region := range cloud.Regions {
-		r := regionDetails{
-			Name:     region.Name,
-			Endpoint: region.Endpoint,
+		r := regionDetails{Name: region.Name}
+		if region.Endpoint != result.Endpoint {
+			r.Endpoint = region.Endpoint
 		}
 		if region.StorageEndpoint != result.StorageEndpoint {
 			r.StorageEndpoint = region.StorageEndpoint
