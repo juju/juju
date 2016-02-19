@@ -70,6 +70,9 @@ func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 	if err := restore.services(); err != nil {
 		return nil, nil, errors.Annotate(err, "services")
 	}
+	if err := restore.relations(); err != nil {
+		return nil, nil, errors.Annotate(err, "relations")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -87,6 +90,9 @@ type importer struct {
 	dbModel *Model
 	model   migration.Model
 	logger  loggo.Logger
+	// serviceUnits is populate at the end of loading the services, and is a map
+	// of service name to units of that service.
+	serviceUnits map[string][]*Unit
 }
 
 func (i *importer) modelUsers() error {
@@ -380,8 +386,31 @@ func (i *importer) services() error {
 		}
 	}
 
+	if err := i.loadUnits(); err != nil {
+		return errors.Annotate(err, "loading new units from db")
+	}
 	i.logger.Debugf("importing services succeeded")
 	return nil
+}
+
+func (i *importer) loadUnits() error {
+	unitsCollection, closer := i.st.getCollection(unitsC)
+	defer closer()
+
+	docs := []unitDoc{}
+	err := unitsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return errors.Annotate(err, "cannot get all units")
+	}
+
+	result := make(map[string][]*Unit)
+	for _, doc := range docs {
+		units := result[doc.Service]
+		result[doc.Service] = append(units, newUnit(i.st, &doc))
+	}
+	i.serviceUnits = result
+	return nil
+
 }
 
 // makeStatusDoc assumes status is non-nil.
@@ -527,4 +556,85 @@ func (i *importer) makeUnitDoc(s migration.Service, u migration.Unit) (*unitDoc,
 		Life:         Alive,
 		PasswordHash: u.PasswordHash(),
 	}, nil
+}
+
+func (i *importer) relations() error {
+	i.logger.Debugf("importing relations")
+	for _, r := range i.model.Relations() {
+		if err := i.relation(r); err != nil {
+			i.logger.Errorf("error importing relation %s: %s", r.Key(), err)
+			return errors.Annotate(err, r.Key())
+		}
+	}
+
+	i.logger.Debugf("importing relations succeeded")
+	return nil
+}
+
+func (i *importer) relation(rel migration.Relation) error {
+	relationDoc := i.makeRelationDoc(rel)
+	ops := []txn.Op{
+		{
+			C:      relationsC,
+			Id:     relationDoc.Key,
+			Assert: txn.DocMissing,
+			Insert: relationDoc,
+		},
+	}
+
+	dbRelation := newRelation(i.st, relationDoc)
+	// Add an op that adds the relation scope document for each
+	// unit of the service, and an op that adds the relation settings
+	// for each unit.
+	for _, endpoint := range rel.Endpoints() {
+		units := i.serviceUnits[endpoint.ServiceName()]
+		for _, unit := range units {
+			ru, err := dbRelation.Unit(unit)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ruKey := ru.key()
+			ops = append(ops, txn.Op{
+				C:      relationScopesC,
+				Id:     ruKey,
+				Assert: txn.DocMissing,
+				Insert: relationScopeDoc{
+					Key: ruKey,
+				},
+			},
+				createSettingsOp(ruKey, endpoint.Settings(unit.Name())),
+			)
+		}
+	}
+
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (i *importer) makeRelationDoc(rel migration.Relation) *relationDoc {
+	endpoints := rel.Endpoints()
+	doc := &relationDoc{
+		Key:       rel.Key(),
+		Id:        rel.Id(),
+		Endpoints: make([]Endpoint, len(endpoints)),
+		Life:      Alive,
+	}
+	for i, ep := range endpoints {
+		doc.Endpoints[i] = Endpoint{
+			ServiceName: ep.ServiceName(),
+			Relation: charm.Relation{
+				Name:      ep.Name(),
+				Role:      charm.RelationRole(ep.Role()),
+				Interface: ep.Interface(),
+				Optional:  ep.Optional(),
+				Limit:     ep.Limit(),
+				Scope:     charm.RelationScope(ep.Scope()),
+			},
+		}
+		doc.UnitCount += ep.UnitCount()
+	}
+	return doc
 }

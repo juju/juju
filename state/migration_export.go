@@ -439,7 +439,7 @@ func (e *exporter) relations() error {
 			Key: relation.String(),
 		})
 		for _, ep := range relation.Endpoints() {
-			exEndPoint := exRelation.AddEndpoint(migration.EndPointArgs{
+			exEndPoint := exRelation.AddEndpoint(migration.EndpointArgs{
 				ServiceName: ep.ServiceName,
 				Name:        ep.Name,
 				Role:        string(ep.Role),
