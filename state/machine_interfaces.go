@@ -4,10 +4,13 @@
 package state
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -30,8 +33,57 @@ func (m *Machine) Interface(name string) (*Interface, error) {
 	return newInterface(m.st, doc), nil
 }
 
-// AddInterfaceArgs contains the arguments accepted by Machine.AddInterface().
-type AddInterfaceArgs struct {
+// AllInterfaces returns all exiting interfaces of the machine.
+func (m *Machine) AllInterfaces() ([]*Interface, error) {
+	var allInterfaces []*Interface
+	callbackFunc := func(resultDoc *interfaceDoc) {
+		allInterfaces = append(allInterfaces, newInterface(m.st, *resultDoc))
+	}
+
+	if err := m.forEachInterfaceDoc(nil, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allInterfaces, nil
+}
+
+func (m *Machine) forEachInterfaceDoc(selectOnly bson.D, callbackFunc func(resultDoc *interfaceDoc)) error {
+	interfaces, closer := m.st.getCollection(interfacesC)
+	defer closer()
+
+	query := interfaces.Find(bson.D{{"machine-id", m.doc.Id}})
+	if selectOnly != nil {
+		query = query.Select(selectOnly)
+	}
+	iter := query.Iter()
+
+	var resultDoc interfaceDoc
+	for iter.Next(&resultDoc) {
+		callbackFunc(&resultDoc)
+	}
+
+	return errors.Trace(iter.Close())
+}
+
+// RemoveAllInterfaces deletes all existing interfaces of the machine in a
+// single transaction. No error is returned when some or all of the interfaces
+// were already removed.
+func (m *Machine) RemoveAllInterfaces() error {
+	var removeAllInterfacesOps []txn.Op
+	callbackFunc := func(resultDoc *interfaceDoc) {
+		removeOps := removeInterfaceOps(resultDoc.DocID)
+		removeAllInterfacesOps = append(removeAllInterfacesOps, removeOps...)
+	}
+
+	selectDocIDOnly := bson.D{{"_id", 1}}
+	if err := m.forEachInterfaceDoc(selectDocIDOnly, callbackFunc); err != nil {
+		return errors.Trace(err)
+	}
+
+	return m.st.runTransaction(removeAllInterfacesOps)
+}
+
+// InterfaceArgs contains the arguments accepted by Machine.AddInterfaces().
+type InterfaceArgs struct {
 	// Name is the device name of the interface as it appears on the machine.
 	Name string
 
@@ -43,7 +95,7 @@ type AddInterfaceArgs struct {
 	MTU uint
 
 	// ProviderID is a provider-specific ID of the interface. Empty when not
-	// supported by the provider.
+	// supported by the provider. Cannot be unset with UpdateInterface once set.
 	ProviderID network.Id
 
 	// Type is the type of the interface related to the underlying device.
@@ -77,23 +129,33 @@ type AddInterfaceArgs struct {
 	GatewayAddress string
 }
 
-// AddInterface creates a new interface on the machine, initialized from the
-// given args. ProviderID from args can be empty if not supported by the
-// provider, but when set must be unique within the model. Errors are returned
-// in the following cases:
+// AddInterfaces creates one or more interfaces on the machine, each initialized
+// from the items in the given interfacesArgs, and using a single transaction
+// for all. ProviderID field can be empty if not supported by the provider, but
+// when set must be unique within the model. Errors are returned and no changes
+// are applied, in the following cases:
 // - ProviderID not unique (when set);
 // - Machine is no longer alive or it's missing;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
-// - errors.NotFoundError, when ParentName is set but cannot be found;
+// - errors.NotFoundError, when ParentName is set but cannot be found on the
+//   machine or in interfacesArgs;
 // - errors.AlreadyExistsError, when Name is set to an existing interface.
-func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add interface %q to machine %q", args.Name, m.doc.Id)
+func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add interfaces to machine %q", m.doc.Id)
 
-	if err := validateAddInterfaceArgs(args); err != nil {
-		return nil, err
+	if len(interfacesArgs) == 0 {
+		return errors.Errorf("no interfaces to add")
 	}
 
-	newInterfaceDoc := m.newInterfaceDocFromArgs(args)
+	existingProviderIDs, err := m.st.allProviderIDsForModelInterfaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	newDocs, pendingNames, err := m.prepareToAddInterfaces(interfacesArgs, existingProviderIDs)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -103,10 +165,11 @@ func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) 
 			if err := m.ensureStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := m.ensureParentInterfaceExistsWhenSet(args.ParentName); err != nil {
+			existingProviderIDs, err = m.st.allProviderIDsForModelInterfaces()
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := m.ensureInterfaceDoesNotExistYet(args.Name); err != nil {
+			if err := m.ensureInterfaceDocsStillValid(newDocs, pendingNames, existingProviderIDs); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -114,28 +177,81 @@ func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) 
 		ops := []txn.Op{
 			assertModelAliveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
-			insertInterfaceDocOp(newInterfaceDoc),
 		}
-		return m.maybeAssertParentInterfaceExistsOp(args.ParentName, ops), nil
-	}
-	err = m.st.run(buildTxn)
-	if err == nil {
-		addedInterface := newInterface(m.st, newInterfaceDoc)
-		// If the ProviderID was not unique adding the interface can fail
-		// without an error. Refreshing catches this by returning NotFoundError.
-		if err := addedInterface.Refresh(); errors.IsNotFound(err) {
-			return nil, errors.Errorf("ProviderID %q not unique", args.ProviderID)
-		} else if err != nil {
-			return nil, errors.Trace(err)
+
+		for _, newDoc := range newDocs {
+			ops = append(ops, insertInterfaceDocOp(&newDoc))
+			ops = m.maybeAssertParentInterfaceExists(newDoc.ParentName, pendingNames, ops)
 		}
-		return addedInterface, nil
+		return ops, nil
 	}
-	return nil, errors.Trace(err)
+	return m.st.run(buildTxn)
 }
 
-// validateAddInterfaceArgs performs a quick sanity check on args before trying
-// to add the interface.
-func validateAddInterfaceArgs(args AddInterfaceArgs) error {
+func (st *State) allProviderIDsForModelInterfaces() (_ set.Strings, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot get ProviderIDs of all interfaces")
+
+	interfaces, closer := st.getCollection(interfacesC)
+	defer closer()
+
+	allProviderIDs := set.NewStrings()
+	var doc struct {
+		ProviderID string `bson:"providerid,omitempty"`
+	}
+
+	iter := interfaces.Find(nil).Select(bson.D{{"providerid", 1}}).Iter()
+	for iter.Next(&doc) {
+		if doc.ProviderID == "" {
+			continue
+		}
+		localProviderID := st.localID(doc.ProviderID)
+		allProviderIDs.Add(localProviderID)
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allProviderIDs, nil
+}
+
+func (m *Machine) prepareToAddInterfaces(interfacesArgs []InterfaceArgs, existingProviderIDs set.Strings) ([]interfaceDoc, set.Strings, error) {
+	var pendingDocs []interfaceDoc
+	pendingNames := set.NewStrings()
+	allProviderIDs := set.NewStrings(existingProviderIDs.Values()...)
+
+	for _, args := range interfacesArgs {
+		newDoc, err := m.prepareOneAddInterfacesArgs(&args, pendingNames, allProviderIDs)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		pendingNames.Add(args.Name)
+		pendingDocs = append(pendingDocs, *newDoc)
+		if args.ProviderID != "" {
+			allProviderIDs.Add(string(args.ProviderID))
+		}
+	}
+	return pendingDocs, pendingNames, nil
+}
+
+func (m *Machine) prepareOneAddInterfacesArgs(args *InterfaceArgs, pendingNames, allProviderIDs set.Strings) (_ *interfaceDoc, err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid interface %q", args.Name)
+
+	if err := validateAddInterfaceArgs(args); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if pendingNames.Contains(args.Name) {
+		return nil, errors.NewNotValid(nil, "Name specified more than once")
+	}
+
+	if allProviderIDs.Contains(string(args.ProviderID)) {
+		errorMessage := fmt.Sprintf("ProviderID %q not unique", args.ProviderID)
+		return nil, errors.NewNotValid(nil, errorMessage)
+	}
+
+	return m.newInterfaceDocFromArgs(args), nil
+}
+
+func validateAddInterfaceArgs(args *InterfaceArgs) error {
 	if args.Name == "" {
 		return errors.NotValidf("empty Name")
 	}
@@ -143,8 +259,13 @@ func validateAddInterfaceArgs(args AddInterfaceArgs) error {
 		return errors.NotValidf("Name %q", args.Name)
 	}
 
-	if args.ParentName != "" && !IsValidInterfaceName(args.ParentName) {
-		return errors.NotValidf("ParentName %q", args.ParentName)
+	if args.ParentName != "" {
+		if !IsValidInterfaceName(args.ParentName) {
+			return errors.NotValidf("ParentName %q", args.ParentName)
+		}
+		if args.Name == args.ParentName {
+			return errors.NewNotValid(nil, "Name and ParentName must be different")
+		}
 	}
 
 	if !IsValidInterfaceType(string(args.Type)) {
@@ -162,9 +283,7 @@ func validateAddInterfaceArgs(args AddInterfaceArgs) error {
 	return nil
 }
 
-// newInterfaceDocFromArgs returns an interfaceDoc populated from args for the
-// machine.
-func (m *Machine) newInterfaceDocFromArgs(args AddInterfaceArgs) interfaceDoc {
+func (m *Machine) newInterfaceDocFromArgs(args *InterfaceArgs) *interfaceDoc {
 	globalKey := interfaceGlobalKey(m.doc.Id, args.Name)
 	interfaceDocID := m.st.docID(globalKey)
 
@@ -175,7 +294,7 @@ func (m *Machine) newInterfaceDocFromArgs(args AddInterfaceArgs) interfaceDoc {
 
 	modelUUID := m.st.ModelUUID()
 
-	return interfaceDoc{
+	return &interfaceDoc{
 		DocID:            interfaceDocID,
 		Name:             args.Name,
 		ModelUUID:        modelUUID,
@@ -203,12 +322,27 @@ func (m *Machine) ensureStillAlive() error {
 	return nil
 }
 
-func (m *Machine) ensureParentInterfaceExistsWhenSet(parentInterfaceName string) error {
-	if parentInterfaceName == "" {
+func (m *Machine) ensureInterfaceDocsStillValid(newDocs []interfaceDoc, pendingNames, existingProviderIDs set.Strings) error {
+	for _, newDoc := range newDocs {
+		if err := m.maybeEnsureParentInterfaceExists(newDoc.Name, newDoc.ParentName, pendingNames); err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.ensureInterfaceDoesNotExistYet(newDoc.Name); err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.ensureProviderIDIsUniqueWhenSet(&newDoc, existingProviderIDs); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (m *Machine) maybeEnsureParentInterfaceExists(name, parentName string, pendingNames set.Strings) error {
+	if parentName == "" || pendingNames.Contains(parentName) {
 		return nil
 	}
-	if _, err := m.Interface(parentInterfaceName); errors.IsNotFound(err) {
-		return errors.NotFoundf("parent interface %q", parentInterfaceName)
+	if _, err := m.Interface(parentName); errors.IsNotFound(err) {
+		return errors.NotFoundf("parent interface %q of interface %q", parentName, name)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -217,9 +351,21 @@ func (m *Machine) ensureParentInterfaceExistsWhenSet(parentInterfaceName string)
 
 func (m *Machine) ensureInterfaceDoesNotExistYet(interfaceName string) error {
 	if _, err := m.Interface(interfaceName); err == nil {
-		return errors.AlreadyExistsf("interface")
+		return errors.AlreadyExistsf("interface %q", interfaceName)
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (m *Machine) ensureProviderIDIsUniqueWhenSet(newDoc *interfaceDoc, existingProviderIDs set.Strings) error {
+	if newDoc.ProviderID == "" {
+		return nil
+	}
+	localProviderID := m.st.localID(newDoc.ProviderID)
+	if existingProviderIDs.Contains(localProviderID) {
+		errorMessage := fmt.Sprintf("ProviderID %q of interface %q not unique", localProviderID, newDoc.Name)
+		return errors.NewNotValid(nil, errorMessage)
 	}
 	return nil
 }
@@ -232,20 +378,21 @@ func (m *Machine) assertAliveOp() txn.Op {
 	}
 }
 
-func insertInterfaceDocOp(newInterfaceDoc interfaceDoc) txn.Op {
+func insertInterfaceDocOp(newInterfaceDoc *interfaceDoc) txn.Op {
 	return txn.Op{
 		C:      interfacesC,
 		Id:     newInterfaceDoc.DocID,
 		Assert: txn.DocMissing,
-		Insert: newInterfaceDoc,
+		Insert: *newInterfaceDoc,
 	}
 }
 
-func (m *Machine) maybeAssertParentInterfaceExistsOp(parentInterfaceName string, ops []txn.Op) []txn.Op {
-	if parentInterfaceName == "" {
+func (m *Machine) maybeAssertParentInterfaceExists(parentName string, pendingNames set.Strings, ops []txn.Op) []txn.Op {
+	if parentName == "" || pendingNames.Contains(parentName) {
 		return ops
 	}
-	parentGlobalKey := interfaceGlobalKey(m.doc.Id, parentInterfaceName)
+
+	parentGlobalKey := interfaceGlobalKey(m.doc.Id, parentName)
 	parentDocID := m.st.docID(parentGlobalKey)
 	return append(ops, txn.Op{
 		C:      interfacesC,

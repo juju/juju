@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -38,108 +39,129 @@ func (s *interfacesStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceEmptyArgs(c *gc.C) {
-	args := state.AddInterfaceArgs{}
-	s.assertAddInterfaceReturnsNotValidError(c, args, "empty Name not valid")
+func (s *interfacesStateSuite) TestAddInterfacesNoArgs(c *gc.C) {
+	err := s.machine.AddInterfaces()
+	expectedError := fmt.Sprintf("cannot add interfaces to machine %q: no interfaces to add", s.machine.Id())
+	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
-func (s *interfacesStateSuite) assertAddInterfaceReturnsNotValidError(c *gc.C, args state.AddInterfaceArgs, errorCauseMatches string) {
-	err := s.assertAddInterfaceFailsWithCauseForArgs(c, args, errorCauseMatches)
+func (s *interfacesStateSuite) TestAddInterfacesEmptyArgs(c *gc.C) {
+	args := state.InterfaceArgs{}
+	s.assertAddInterfacesReturnsNotValidError(c, args, "empty Name not valid")
+}
+
+func (s *interfacesStateSuite) assertAddInterfacesReturnsNotValidError(c *gc.C, args state.InterfaceArgs, errorCauseMatches string) {
+	err := s.assertAddInterfacesFailsValidationForArgs(c, args, errorCauseMatches)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *interfacesStateSuite) assertAddInterfaceFailsWithCauseForArgs(c *gc.C, args state.AddInterfaceArgs, errorCauseMatches string) error {
-	result, err := s.machine.AddInterface(args)
-	c.Assert(result, gc.IsNil)
-	expectedError := fmt.Sprintf("cannot add interface %q to machine %q: %s", args.Name, s.machine.Id(), errorCauseMatches)
+func (s *interfacesStateSuite) assertAddInterfacesFailsValidationForArgs(c *gc.C, args state.InterfaceArgs, errorCauseMatches string) error {
+	expectedError := fmt.Sprintf("invalid interface %q: %s", args.Name, errorCauseMatches)
+	return s.assertAddInterfacesFailsForArgs(c, args, expectedError)
+}
+
+func (s *interfacesStateSuite) assertAddInterfacesFailsForArgs(c *gc.C, args state.InterfaceArgs, errorCauseMatches string) error {
+	err := s.machine.AddInterfaces(args)
+	expectedError := fmt.Sprintf("cannot add interfaces to machine %q: %s", s.machine.Id(), errorCauseMatches)
 	c.Assert(err, gc.ErrorMatches, expectedError)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, errorCauseMatches)
 	return err
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceInvalidName(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesInvalidName(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name: "bad#name",
 	}
-	s.assertAddInterfaceReturnsNotValidError(c, args, `Name "bad#name" not valid`)
+	s.assertAddInterfacesReturnsNotValidError(c, args, `Name "bad#name" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceInvalidType(c *gc.C) {
-	args := state.AddInterfaceArgs{
-		Name: "ok",
+func (s *interfacesStateSuite) TestAddInterfacesSameNameAndParentName(c *gc.C) {
+	args := state.InterfaceArgs{
+		Name:       "foo",
+		ParentName: "foo",
+	}
+	s.assertAddInterfacesReturnsNotValidError(c, args, `Name and ParentName must be different`)
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesInvalidType(c *gc.C) {
+	args := state.InterfaceArgs{
+		Name: "bar",
 		Type: "bad type",
 	}
-	s.assertAddInterfaceReturnsNotValidError(c, args, `Type "bad type" not valid`)
+	s.assertAddInterfacesReturnsNotValidError(c, args, `Type "bad type" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceInvalidParentName(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesInvalidParentName(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name:       "eth0",
 		ParentName: "bad#name",
 	}
-	s.assertAddInterfaceReturnsNotValidError(c, args, `ParentName "bad#name" not valid`)
+	s.assertAddInterfacesReturnsNotValidError(c, args, `ParentName "bad#name" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceInvalidHardwareAddress(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesInvalidHardwareAddress(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name:            "eth0",
 		Type:            state.EthernetInterface,
 		HardwareAddress: "bad mac",
 	}
-	s.assertAddInterfaceReturnsNotValidError(c, args, `HardwareAddress "bad mac" not valid`)
+	s.assertAddInterfacesReturnsNotValidError(c, args, `HardwareAddress "bad mac" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceInvalidGatewayAddress(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesInvalidGatewayAddress(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name:           "eth0",
 		Type:           state.EthernetInterface,
 		GatewayAddress: "bad ip",
 	}
-	s.assertAddInterfaceReturnsNotValidError(c, args, `GatewayAddress "bad ip" not valid`)
+	s.assertAddInterfacesReturnsNotValidError(c, args, `GatewayAddress "bad ip" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceWhenMachineNotAliveOrGone(c *gc.C) {
+func (s *interfacesStateSuite) TestAddInterfacesWhenMachineNotAliveOrGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := state.AddInterfaceArgs{
+	args := state.InterfaceArgs{
 		Name: "eth0",
 		Type: state.EthernetInterface,
 	}
-	s.assertAddInterfaceFailsWithCauseForArgs(c, args, "machine not found or not alive")
+	s.assertAddInterfacesFailsForArgs(c, args, "machine not found or not alive")
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertAddInterfaceFailsWithCauseForArgs(c, args, "machine not found or not alive")
+	s.assertAddInterfacesFailsForArgs(c, args, "machine not found or not alive")
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceWhenModelNotAlive(c *gc.C) {
+func (s *interfacesStateSuite) TestAddInterfacesWhenModelNotAlive(c *gc.C) {
 	otherModel, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherModel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := state.AddInterfaceArgs{
+	args := state.InterfaceArgs{
 		Name: "eth0",
 		Type: state.EthernetInterface,
 	}
-	_, err = s.otherStateMachine.AddInterface(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add interface "eth0" to machine "0": model is no longer alive`)
+	err = s.otherStateMachine.AddInterfaces(args)
+	expectedError := fmt.Sprintf(
+		"cannot add interfaces to machine %q: model is no longer alive",
+		s.otherStateMachine.Id(),
+	)
+	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceWithMissingParent(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesWithMissingParent(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name:       "eth0",
 		Type:       state.EthernetInterface,
 		ParentName: "br-eth0",
 	}
-	err := s.assertAddInterfaceFailsWithCauseForArgs(c, args, `parent interface "br-eth0" not found`)
+	err := s.assertAddInterfacesFailsForArgs(c, args, `parent interface "br-eth0" of interface "eth0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceNoParentSuccess(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesNoParentSuccess(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name:             "eth0.42",
 		Index:            1,
 		MTU:              9000,
@@ -152,15 +174,17 @@ func (s *interfacesStateSuite) TestAddInterfaceNoParentSuccess(c *gc.C) {
 		DNSSearchDomains: []string{"example.com"},
 		GatewayAddress:   "8.8.8.8",
 	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
 }
 
-func (s *interfacesStateSuite) assertAddInterfaceSucceedsAndResultMatchesArgs(c *gc.C, args state.AddInterfaceArgs) {
-	s.assertMachineAddInterfaceSucceedsAndResultMatchesArgs(c, s.machine, args, s.State.ModelUUID())
+func (s *interfacesStateSuite) assertAddInterfacesSucceedsAndResultMatchesArgs(c *gc.C, args state.InterfaceArgs) {
+	s.assertMachineAddInterfacesSucceedsAndResultMatchesArgs(c, s.machine, args, s.State.ModelUUID())
 }
 
-func (s *interfacesStateSuite) assertMachineAddInterfaceSucceedsAndResultMatchesArgs(c *gc.C, machine *state.Machine, args state.AddInterfaceArgs, modelUUID string) {
-	result, err := machine.AddInterface(args)
+func (s *interfacesStateSuite) assertMachineAddInterfacesSucceedsAndResultMatchesArgs(c *gc.C, machine *state.Machine, args state.InterfaceArgs, modelUUID string) {
+	err := machine.AddInterfaces(args)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := machine.Interface(args.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -168,7 +192,7 @@ func (s *interfacesStateSuite) assertMachineAddInterfaceSucceedsAndResultMatches
 	s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, result, s.machine.Id(), modelUUID)
 }
 
-func (s *interfacesStateSuite) checkAddedInterfaceMatchesArgs(c *gc.C, addedInterface *state.Interface, args state.AddInterfaceArgs) {
+func (s *interfacesStateSuite) checkAddedInterfaceMatchesArgs(c *gc.C, addedInterface *state.Interface, args state.InterfaceArgs) {
 	c.Check(addedInterface.Name(), gc.Equals, args.Name)
 	c.Check(addedInterface.Index(), gc.Equals, args.Index)
 	c.Check(addedInterface.MTU(), gc.Equals, args.MTU)
@@ -189,48 +213,132 @@ func (s *interfacesStateSuite) checkAddedInterfaceMatchesMachineIDAndModelUUID(c
 	c.Check(addedInterface.MachineID(), gc.Equals, machineID)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceNoProviderIDSuccess(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesNoProviderIDSuccess(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name: "eno0",
 		Type: state.EthernetInterface,
 	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
-	args1 := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
+	args1 := state.InterfaceArgs{
 		Name:       "eth0.42",
 		Type:       state.EthernetInterface,
 		ProviderID: "42",
 	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, args1)
+	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args1)
 
 	args2 := args1
 	args2.Name = "br-eth0"
-	s.assertAddInterfaceFailsWithCauseForArgs(c, args2, `ProviderID "42" not unique`)
+	s.assertAddInterfacesFailsValidationForArgs(c, args2, `ProviderID "42" not unique`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
-	args := state.AddInterfaceArgs{
+func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
+	args := state.InterfaceArgs{
 		Name:       "eth0.42",
 		Type:       state.EthernetInterface,
 		ProviderID: "42",
 	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
 
-	s.assertMachineAddInterfaceSucceedsAndResultMatchesArgs(c, s.otherStateMachine, args, s.otherState.ModelUUID())
+	s.assertMachineAddInterfacesSucceedsAndResultMatchesArgs(c, s.otherStateMachine, args, s.otherState.ModelUUID())
 }
 
-func (s *interfacesStateSuite) TestAddInterfaceWithDuplicateNameReturnsAlreadyExistsErrorInSameModel(c *gc.C) {
-	args := state.AddInterfaceArgs{
-		Name:       "eth0.42",
-		Type:       state.EthernetInterface,
-		ProviderID: "42",
+func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndEmptyProviderIDReturnsAlreadyExistsErrorInSameModel(c *gc.C) {
+	args := state.InterfaceArgs{
+		Name: "eth0.42",
+		Type: state.EthernetInterface,
 	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
 
-	err := s.assertAddInterfaceFailsWithCauseForArgs(c, args, `interface already exists`)
+	err := s.assertAddInterfacesFailsForArgs(c, args, `interface "eth0.42" already exists`)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndProviderIDFailsInSameModel(c *gc.C) {
+	args := state.InterfaceArgs{
+		Name:       "foo",
+		Type:       state.EthernetInterface,
+		ProviderID: "42",
+	}
+	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
+
+	s.assertAddInterfacesFailsValidationForArgs(c, args, `ProviderID "42" not unique`)
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesMultipleArgsWithSameNameFails(c *gc.C) {
+	foo1 := state.InterfaceArgs{
+		Name: "foo",
+		Type: state.BridgeInterface,
+	}
+	foo2 := state.InterfaceArgs{
+		Name: "foo",
+		Type: state.EthernetInterface,
+	}
+	err := s.machine.AddInterfaces(foo1, foo2)
+	c.Assert(err, gc.ErrorMatches, `.*invalid interface "foo": Name specified more than once`)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesMultipleArgsChildParentOrderDoesNotMatter(c *gc.C) {
+	allArgs := []state.InterfaceArgs{{
+		Name:       "child1",
+		Type:       state.EthernetInterface,
+		ParentName: "parent1",
+	}, {
+		Name: "parent1",
+		Type: state.BridgeInterface,
+	}, {
+		Name: "parent2",
+		Type: state.BondInterface,
+	}, {
+		Name:       "child2",
+		Type:       state.VLAN_8021QInterface,
+		ParentName: "parent2",
+	}}
+
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
+}
+
+func (s *interfacesStateSuite) addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c *gc.C, allArgs []state.InterfaceArgs) {
+	err := s.machine.AddInterfaces(allArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineID, modelUUID := s.machine.Id(), s.State.ModelUUID()
+	for _, args := range allArgs {
+		nic, err := s.machine.Interface(args.Name)
+		c.Check(err, jc.ErrorIsNil)
+		s.checkAddedInterfaceMatchesArgs(c, nic, args)
+		s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, nic, machineID, modelUUID)
+	}
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesMultipleChildrenOfExistingParentSucceeds(c *gc.C) {
+	parent := s.addSimpleInterface(c)
+	childrenArgs := []state.InterfaceArgs{{
+		Name:       "child1",
+		Type:       state.EthernetInterface,
+		ParentName: parent.Name(),
+	}, {
+		Name:       "child2",
+		Type:       state.UnknownInterface,
+		ParentName: parent.Name(),
+	}}
+
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, childrenArgs)
+}
+
+func (s *interfacesStateSuite) addSimpleInterface(c *gc.C) *state.Interface {
+	args := state.InterfaceArgs{
+		Name: "foo",
+		Type: state.UnknownInterface,
+	}
+	err := s.machine.AddInterfaces(args)
+	c.Assert(err, jc.ErrorIsNil)
+	nic, err := s.machine.Interface(args.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	return nic
 }
 
 func (s *interfacesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
@@ -247,16 +355,6 @@ func (s *interfacesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *interfacesStateSuite) addSimpleInterface(c *gc.C) *state.Interface {
-	args := state.AddInterfaceArgs{
-		Name: "foo",
-		Type: state.UnknownInterface,
-	}
-	nic, err := s.machine.AddInterface(args)
-	c.Assert(err, jc.ErrorIsNil)
-	return nic
-}
-
 func (s *interfacesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
 	nic := s.addSimpleInterface(c)
 
@@ -266,25 +364,21 @@ func (s *interfacesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
 }
 
 func (s *interfacesStateSuite) TestParentInterfaceReturnsInterface(c *gc.C) {
-	parentArgs := state.AddInterfaceArgs{
+	args := []state.InterfaceArgs{{
 		Name: "br-eth0",
 		Type: state.BridgeInterface,
-	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, parentArgs)
-
-	childArgs := state.AddInterfaceArgs{
+	}, {
 		Name:       "eth0",
 		Type:       state.EthernetInterface,
-		ParentName: parentArgs.Name,
-	}
-	s.assertAddInterfaceSucceedsAndResultMatchesArgs(c, childArgs)
+		ParentName: "br-eth0",
+	}}
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
 
-	child, err := s.machine.Interface(childArgs.Name)
+	child, err := s.machine.Interface("eth0")
 	c.Assert(err, jc.ErrorIsNil)
-
 	parent, err := child.ParentInterface()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkAddedInterfaceMatchesArgs(c, parent, parentArgs)
+	s.checkAddedInterfaceMatchesArgs(c, parent, args[0])
 	s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, parent, s.machine.Id(), s.State.ModelUUID())
 }
 
@@ -301,4 +395,189 @@ func (s *interfacesStateSuite) TestMachineInterfaceReturnsInterface(c *gc.C) {
 	result, err := s.machine.Interface(existingInterface.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, existingInterface)
+}
+
+func (s *interfacesStateSuite) TestMachineAllInterfaces(c *gc.C) {
+	s.assertNoInterfacesOnMachine(c, s.machine)
+
+	args := []state.InterfaceArgs{{
+		Name: "br-bond0",
+		Type: state.BridgeInterface,
+	}, {
+		Name:       "bond0",
+		Type:       state.BondInterface,
+		ParentName: "br-bond0",
+	}, {
+		Name:       "eth0",
+		Type:       state.EthernetInterface,
+		ParentName: "bond0",
+	}, {
+		Name:       "eth1",
+		Type:       state.EthernetInterface,
+		ParentName: "bond0",
+	}}
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+
+	results, err := s.machine.AllInterfaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 4)
+	for _, result := range results {
+		c.Check(result, gc.NotNil)
+		c.Check(result.MachineID(), gc.Equals, s.machine.Id())
+		c.Check(result.Name(), gc.Matches, `(br-bond0|bond0|eth0|eth1)`)
+		if result.Name() == "br-bond0" {
+			c.Check(result.ParentName(), gc.Equals, "")
+			continue
+		}
+		c.Check(result.ParentName(), gc.Matches, `(br-bond0|bond0)`)
+	}
+}
+
+func (s *interfacesStateSuite) assertNoInterfacesOnMachine(c *gc.C, machine *state.Machine) {
+	s.assertAllInterfacesOnMachineMatchCount(c, machine, 0)
+}
+
+func (s *interfacesStateSuite) assertAllInterfacesOnMachineMatchCount(c *gc.C, machine *state.Machine, expectedCount int) {
+	results, err := machine.AllInterfaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, expectedCount)
+}
+
+func (s *interfacesStateSuite) TestMachineAllInterfacesOnlyReturnsSameModelInterfaces(c *gc.C) {
+	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.assertNoInterfacesOnMachine(c, s.otherStateMachine)
+
+	args := []state.InterfaceArgs{{
+		Name: "foo",
+		Type: state.EthernetInterface,
+	}, {
+		Name:       "foo.42",
+		Type:       state.VLAN_8021QInterface,
+		ParentName: "foo",
+	}}
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+
+	results, err := s.machine.AllInterfaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0].Name(), gc.Matches, "(foo|foo.42)")
+	c.Assert(results[1].Name(), gc.Matches, "(foo|foo.42)")
+
+	s.assertNoInterfacesOnMachine(c, s.otherStateMachine)
+}
+
+func (s *interfacesStateSuite) TestInterfaceRemoveSuccess(c *gc.C) {
+	existingInterface := s.addSimpleInterface(c)
+
+	s.removeInterfaceAndAssertSuccess(c, existingInterface)
+	s.assertNoInterfacesOnMachine(c, s.machine)
+}
+
+func (s *interfacesStateSuite) removeInterfaceAndAssertSuccess(c *gc.C, givenInterface *state.Interface) {
+	err := givenInterface.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *interfacesStateSuite) TestInterfaceRemoveTwiceStillSucceeds(c *gc.C) {
+	existingInterface := s.addSimpleInterface(c)
+
+	s.removeInterfaceAndAssertSuccess(c, existingInterface)
+	s.removeInterfaceAndAssertSuccess(c, existingInterface)
+	s.assertNoInterfacesOnMachine(c, s.machine)
+}
+
+func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesDeletesAllInterfaces(c *gc.C) {
+	s.assertNoInterfacesOnMachine(c, s.machine)
+
+	args := []state.InterfaceArgs{{
+		Name: "foo",
+		Type: state.EthernetInterface,
+	}, {
+		Name:       "bar",
+		Type:       state.VLAN_8021QInterface,
+		ParentName: "foo",
+	}}
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+
+	err := s.machine.RemoveAllInterfaces()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNoInterfacesOnMachine(c, s.machine)
+}
+
+func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesNoErrorIfNoInterfacesExist(c *gc.C) {
+	s.assertNoInterfacesOnMachine(c, s.machine)
+
+	err := s.machine.RemoveAllInterfaces()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *interfacesStateSuite) TestInterfaceRefreshUpdatesStaleDocData(c *gc.C) {
+	fooInterface := s.addSimpleInterface(c)
+	c.Assert(fooInterface.HardwareAddress(), gc.Equals, "")
+	s.removeInterfaceAndAssertSuccess(c, fooInterface)
+	args := state.InterfaceArgs{
+		Name:            "foo",
+		Type:            state.BondInterface,
+		HardwareAddress: "aa:bb:cc:dd:ee:f0",
+	}
+	err := s.machine.AddInterfaces(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = fooInterface.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fooInterface.HardwareAddress(), gc.Equals, "aa:bb:cc:dd:ee:f0")
+}
+
+func (s *interfacesStateSuite) TestInterfaceRefreshPassesThroughNotFoundError(c *gc.C) {
+	existingInterface := s.addSimpleInterface(c)
+	s.removeInterfaceAndAssertSuccess(c, existingInterface)
+
+	err := existingInterface.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `interface "foo" on machine "0" not found`)
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesRetriesErrAbortedMoreThanOnceWhenNeeded(c *gc.C) {
+	c.ExpectFailure("ProviderID duplicates not checked yet on retry")
+	allArgs := []state.InterfaceArgs{{
+		Name:       "child",
+		Type:       state.EthernetInterface,
+		ProviderID: "42",
+		ParentName: "parent",
+	}, {
+		Name: "parent",
+		Type: state.BridgeInterface,
+	}}
+
+	hooks := []txn.TestHook{{
+		Before: func() {
+			err := s.machine.AddInterfaces(allArgs...)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		After: func() {
+			err := s.machine.RemoveAllInterfaces()
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	}, {
+		Before: func() {
+			barArgs := state.InterfaceArgs{
+				Name:       "bar",
+				Type:       state.EthernetInterface,
+				ProviderID: "42",
+			}
+			err := s.machine.AddInterfaces(barArgs)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		After: func() {
+			barInterface, err := s.machine.Interface("bar")
+			c.Assert(err, jc.ErrorIsNil)
+			s.removeInterfaceAndAssertSuccess(c, barInterface)
+		},
+	}}
+	defer state.SetTestHooks(c, s.State, hooks...).Check()
+	s.assertNoInterfacesOnMachine(c, s.machine)
+
+	err := s.machine.AddInterfaces(allArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAllInterfacesOnMachineMatchCount(c, s.machine, 2)
 }

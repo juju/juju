@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
 )
@@ -207,6 +208,25 @@ func (nic *Interface) Refresh() error {
 	}
 	nic.doc = freshCopy.doc
 	return nil
+}
+
+// Remove deletes the interface, if it exists. No error is returned when the
+// interface was already removed.
+func (nic *Interface) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove %s", nic)
+
+	ops := removeInterfaceOps(nic.doc.DocID)
+	return nic.st.runTransaction(ops)
+}
+
+// removeInterfaceOps returns the operations needed to remove the interface with
+// the given interfaceDocID.
+func removeInterfaceOps(interfaceDocID string) []txn.Op {
+	return []txn.Op{{
+		C:      interfacesC,
+		Id:     interfaceDocID,
+		Remove: true,
+	}}
 }
 
 // DNSServers returns the list of DNS nameservers that apply to this interface,
