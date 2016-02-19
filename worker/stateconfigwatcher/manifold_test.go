@@ -169,7 +169,6 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestClosedVoyeur(c *gc.C) {
-	return
 	w, err := s.manifold.Start(s.goodGetResource)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotExiting(c, w)

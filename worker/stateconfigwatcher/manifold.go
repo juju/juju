@@ -23,7 +23,7 @@ type ManifoldConfig struct {
 }
 
 // Manifold returns a dependency.Manifold which wraps the machine
-// agent's voyeur.Value which gets set whenever it the machine agnet's
+// agent's voyeur.Value which gets set whenever it the machine agent's
 // config is changed. Whenever the config is updated the presence of
 // state serving info is checked and if state serving info was added
 // or removed the manifold worker will bounce itself.
@@ -136,12 +136,12 @@ func (w *stateConfigWatcher) loop() error {
 	}
 }
 
-// Kill is part of the worker.Worker interface.
+// Kill implements worker.Worker.
 func (w *stateConfigWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
-// Wait is part of the worker.Worker interface.
+// Wait implements worker.Worker.
 func (w *stateConfigWatcher) Wait() error {
 	return w.tomb.Wait()
 }
