@@ -221,6 +221,11 @@ func (e *endpoint) Scope() string {
 	return e.Scope_
 }
 
+// UnitCount implements Endpoint.
+func (e *endpoint) UnitCount() int {
+	return len(e.UnitSettings_)
+}
+
 // Settings implements Endpoint.
 func (e *endpoint) Settings(unitName string) map[string]interface{} {
 	return e.UnitSettings_[unitName]

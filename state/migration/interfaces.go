@@ -237,6 +237,9 @@ type Endpoint interface {
 	Limit() int
 	Scope() string
 
+	// UnitCount returns the number of units the endpoint has settings for.
+	UnitCount() int
+
 	Settings(unitName string) map[string]interface{}
 	SetUnitSettings(unitName string, settings map[string]interface{})
 }

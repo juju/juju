@@ -163,6 +163,7 @@ func (s *EndpointSerializationSuite) TestNewEndpoint(c *gc.C) {
 	c.Assert(endpoint.Optional(), jc.IsTrue)
 	c.Assert(endpoint.Limit(), gc.Equals, 1)
 	c.Assert(endpoint.Scope(), gc.Equals, "container")
+	c.Assert(endpoint.UnitCount(), gc.Equals, 2)
 	c.Assert(endpoint.Settings("ubuntu/0"), jc.DeepEquals, map[string]interface{}{
 		"name": "unit one",
 		"key":  42,
