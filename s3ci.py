@@ -99,7 +99,7 @@ def find_package_key(bucket, revision_build):
     suffix = PackageNamer.factory().get_release_package_suffix()
     filtered = [
         (k, f) for k, f in filter_keys(keys, suffix)
-        if f.startswith('juju-core_')]
+        if f.startswith('juju-core')]
     if len(filtered) == 0:
         raise PackageNotFound('Package could not be found.')
     return sorted(filtered, key=lambda x: int(
