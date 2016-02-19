@@ -717,8 +717,11 @@ class TestPackageNamer(TestNamer):
     def test_get_release_package(self):
         package_namer = PackageNamer('amd42', '42.34', 'wacky')
         self.assertEqual(
-            package_namer.get_release_package('27.6'),
-            'juju-core_27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
+            package_namer.get_release_package('1.27.6'),
+            'juju-core_1.27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
+        self.assertEqual(
+            package_namer.get_release_package('2.27.6'),
+            'juju-core2_2.27.6-0ubuntu1~42.34.1~juju1_amd42.deb')
 
 
 class TestJobNamer(TestNamer):

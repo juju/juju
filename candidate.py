@@ -19,6 +19,7 @@ from jujuci import (
     get_artifacts,
     get_credentials,
     JENKINS_URL,
+    PackageNamer,
     PUBLISH_REVISION
 )
 from utility import (
@@ -110,9 +111,7 @@ def get_package(artifacts_path, version):
     """Return the path to the expected juju-core package for the localhost."""
     release = subprocess.check_output(['lsb_release', '-sr']).strip()
     arch = get_deb_arch()
-    major, ignore = version.split('.', 1)
-    if major == '1':
-        major = ''
+    major = PackageNamer.get_package_major(version)
     package_name = 'juju-core{}_{}-0ubuntu1~{}.1~juju1_{}.deb'.format(
         major, version, release, arch)
     package_path = os.path.join(artifacts_path, package_name)
