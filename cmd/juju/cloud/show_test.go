@@ -8,22 +8,21 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
-type showSuite struct{}
+type showSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
+}
 
 var _ = gc.Suite(&showSuite{})
 
 func (s *showSuite) TestShowBadArgs(c *gc.C) {
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	_, err := testing.RunCommand(c, cloud.NewShowCloudCommand())
 	c.Assert(err, gc.ErrorMatches, "no cloud specified")
 }
 
 func (s *showSuite) TestShow(c *gc.C) {
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "aws-china")
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
@@ -34,6 +33,5 @@ auth-types: [access-key]
 regions:
   cn-north-1:
     endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
-    storage-endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
 `[1:])
 }
