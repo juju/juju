@@ -495,7 +495,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgrade1(c *gc.C) {
+func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from steady state.
 		ut(
@@ -519,7 +519,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade1(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgrade2(c *gc.C) {
+func (s *UniterSuite) TestUniterSteadyStateUpgradeForce(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"steady state forced upgrade (identical behaviour)",
@@ -542,7 +542,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade2(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgrade3(c *gc.C) {
+func (s *UniterSuite) TestUniterSteadyStateUpgradeResolve(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"steady state upgrade hook fail and resolve",
@@ -578,7 +578,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade3(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgrade4(c *gc.C) {
+func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"steady state upgrade hook fail and retry",
@@ -623,7 +623,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade4(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSteadyStateUpgrade5(c *gc.C) {
+func (s *UniterSuite) TestUniterSteadyStateUpgradeRelations(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			// This test does an add-relation as quickly as possible

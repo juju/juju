@@ -808,8 +808,6 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 				return
 			}
 		case <-timeout:
-			c.Logf("expected hooks: %#v", ctx.hooks)
-			c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
 			c.Fatalf("never got expected hooks")
 		}
 	}

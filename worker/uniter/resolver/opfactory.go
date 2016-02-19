@@ -49,7 +49,6 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 }
 
 func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
-	logger.Infof("Creating new upgrade op for %q", charmURL)
 	op, err := s.Factory.NewUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
