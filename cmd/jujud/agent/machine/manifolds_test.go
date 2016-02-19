@@ -39,18 +39,20 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	}
 	expectedKeys := []string{
 		"agent",
-		"termination",
 		"api-caller",
-		"upgrade-steps-gate",
+		"apiworkers",
+		"logging-config-updater",
+		"reboot",
+		"serving-info-setter",
+		"state",
+		"state-config-watcher",
+		"termination",
+		"uninstaller",
 		"upgrade-check-gate",
+		"upgrade-steps-gate",
 		"upgrader",
 		"upgradesteps",
 		"upgradewaiter",
-		"uninstaller",
-		"serving-info-setter",
-		"apiworkers",
-		"reboot",
-		"logging-config-updater",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
