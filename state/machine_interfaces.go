@@ -100,53 +100,23 @@ func (m *Machine) AddInterface(args AddInterfaceArgs) (_ *Interface, err error) 
 			if err := checkModeLife(m.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-
-			if machineAlive, err := isAlive(m.st, machinesC, m.doc.Id); err != nil {
+			if err := m.ensureStillAlive(); err != nil {
 				return nil, errors.Trace(err)
-			} else if !machineAlive {
-				return nil, errors.Errorf("machine not found or not alive")
 			}
-
-			if args.ParentName != "" {
-				if _, err := m.Interface(args.ParentName); errors.IsNotFound(err) {
-					return nil, errors.NotFoundf("parent interface %q", args.ParentName)
-				} else if err != nil {
-					return nil, errors.Trace(err)
-				}
+			if err := m.ensureParentInterfaceExistsWhenSet(args.ParentName); err != nil {
+				return nil, errors.Trace(err)
 			}
-
-			if _, err := m.Interface(args.Name); err == nil {
-				return nil, errors.AlreadyExistsf("interface")
-			} else if !errors.IsNotFound(err) {
+			if err := m.ensureInterfaceDoesNotExistYet(args.Name); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
 		ops := []txn.Op{
 			assertModelAliveOp(m.st.ModelUUID()),
-			{
-				C:      machinesC,
-				Id:     m.doc.Id,
-				Assert: isAliveDoc,
-			}, {
-				C:      interfacesC,
-				Id:     newInterfaceDoc.DocID,
-				Assert: txn.DocMissing,
-				Insert: newInterfaceDoc,
-			},
+			m.assertAliveOp(),
+			insertInterfaceDocOp(newInterfaceDoc),
 		}
-
-		if args.ParentName != "" {
-			parentGlobalKey := interfaceGlobalKey(m.doc.Id, args.ParentName)
-			parentDocID := m.st.docID(parentGlobalKey)
-			ops = append(ops, txn.Op{
-				C:      interfacesC,
-				Id:     parentDocID,
-				Assert: txn.DocExists,
-			})
-		}
-
-		return ops, nil
+		return m.maybeAssertParentInterfaceExistsOp(args.ParentName, ops), nil
 	}
 	err = m.st.run(buildTxn)
 	if err == nil {
@@ -222,4 +192,64 @@ func (m *Machine) newInterfaceDocFromArgs(args AddInterfaceArgs) interfaceDoc {
 		DNSSearchDomains: args.DNSSearchDomains,
 		GatewayAddress:   args.GatewayAddress,
 	}
+}
+
+func (m *Machine) ensureStillAlive() error {
+	if machineAlive, err := isAlive(m.st, machinesC, m.doc.Id); err != nil {
+		return errors.Trace(err)
+	} else if !machineAlive {
+		return errors.Errorf("machine not found or not alive")
+	}
+	return nil
+}
+
+func (m *Machine) ensureParentInterfaceExistsWhenSet(parentInterfaceName string) error {
+	if parentInterfaceName == "" {
+		return nil
+	}
+	if _, err := m.Interface(parentInterfaceName); errors.IsNotFound(err) {
+		return errors.NotFoundf("parent interface %q", parentInterfaceName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (m *Machine) ensureInterfaceDoesNotExistYet(interfaceName string) error {
+	if _, err := m.Interface(interfaceName); err == nil {
+		return errors.AlreadyExistsf("interface")
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (m *Machine) assertAliveOp() txn.Op {
+	return txn.Op{
+		C:      machinesC,
+		Id:     m.doc.Id,
+		Assert: isAliveDoc,
+	}
+}
+
+func insertInterfaceDocOp(newInterfaceDoc interfaceDoc) txn.Op {
+	return txn.Op{
+		C:      interfacesC,
+		Id:     newInterfaceDoc.DocID,
+		Assert: txn.DocMissing,
+		Insert: newInterfaceDoc,
+	}
+}
+
+func (m *Machine) maybeAssertParentInterfaceExistsOp(parentInterfaceName string, ops []txn.Op) []txn.Op {
+	if parentInterfaceName == "" {
+		return ops
+	}
+	parentGlobalKey := interfaceGlobalKey(m.doc.Id, parentInterfaceName)
+	parentDocID := m.st.docID(parentGlobalKey)
+	return append(ops, txn.Op{
+		C:      interfacesC,
+		Id:     parentDocID,
+		Assert: txn.DocExists,
+	})
 }
