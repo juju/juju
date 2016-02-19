@@ -5,6 +5,7 @@ package stateconfigwatcher
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/voyeur"
 	"launchpad.net/tomb"
@@ -13,6 +14,8 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
+
+var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")
 
 type ManifoldConfig struct {
 	AgentName          string
@@ -98,34 +101,37 @@ func (w *stateConfigWatcher) loop() error {
 
 	watchCh := make(chan bool)
 	go func() {
-		// Consume the initial event to avoid unnecessary worker
-		// restart churn.
-		if !watch.Next() {
-			return
-		}
-
 		for {
 			if watch.Next() {
 				select {
-				case watchCh <- true:
 				case <-w.tomb.Dying():
 					return
+				case watchCh <- true:
 				}
+			} else {
+				// watcher or voyeur.Value closed.
+				close(watchCh)
+				return
 			}
 		}
 	}()
 
 	for {
 		select {
-		case <-watchCh:
+		case <-w.tomb.Dying():
+			logger.Infof("tomb dying")
+			return tomb.ErrDying
+		case _, ok := <-watchCh:
+			if !ok {
+				return errors.New("config changed value closed")
+			}
 			if w.isStateServer() != lastValue {
 				// State serving info has been set or unset so restart
 				// so that dependents get notified. ErrBounce ensures
 				// that the manifold is restarted quickly.
+				logger.Debugf("state serving info change in agent config")
 				return dependency.ErrBounce
 			}
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
 		}
 	}
 }

@@ -168,6 +168,17 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 	checkExitsWithError(c, w, dependency.ErrBounce)
 }
 
+func (s *ManifoldSuite) TestClosedVoyeur(c *gc.C) {
+	return
+	w, err := s.manifold.Start(s.goodGetResource)
+	c.Assert(err, jc.ErrorIsNil)
+	checkNotExiting(c, w)
+
+	s.agentConfigChanged.Close()
+
+	c.Check(waitForExit(c, w), gc.ErrorMatches, "config changed value closed")
+}
+
 func checkStop(c *gc.C, w worker.Worker) {
 	err := worker.Stop(w)
 	c.Check(err, jc.ErrorIsNil)
@@ -189,16 +200,21 @@ func checkNotExiting(c *gc.C, w worker.Worker) {
 }
 
 func checkExitsWithError(c *gc.C, w worker.Worker, expectedErr error) {
+	c.Check(waitForExit(c, w), gc.Equals, expectedErr)
+}
+
+func waitForExit(c *gc.C, w worker.Worker) error {
 	errCh := make(chan error)
 	go func() {
 		errCh <- w.Wait()
 	}()
 	select {
 	case err := <-errCh:
-		c.Check(err, gc.Equals, expectedErr)
+		return err
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for worker to exit")
 	}
+	panic("can't get here")
 }
 
 type mockAgent struct {
