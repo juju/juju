@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -32,7 +33,9 @@ func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
 }
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance = environProvider{}
 
@@ -47,18 +50,6 @@ func init() {
 	environs.RegisterProvider("cloudsigma", providerInstance)
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
 	registry.RegisterEnvironStorageProviders(providerType)
-}
-
-// Boilerplate returns a default configuration for the environment in yaml format.
-// The text should be a key followed by some number of attributes:
-//    `environName:
-//        type: environTypeName
-//        attr1: val1
-//    `
-// The text is used as a template (see the template package) with one extra template
-// function available, rand, which expands to a random hexadecimal string when invoked.
-func (environProvider) BoilerplateConfig() string {
-	return boilerplateConfig
 }
 
 // Open opens the environment and returns it.
@@ -100,7 +91,25 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 // configuration attributes in the returned environment should
 // be saved to be used later. If the environment is already
 // prepared, this call is equivalent to Open.
-func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		var err error
+		credentialAttributes := args.Credentials.Attributes()
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"username": credentialAttributes["username"],
+			"password": credentialAttributes["password"],
+			"region":   args.CloudRegion,
+			"endpoint": args.CloudEndpoint,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
 	logger.Infof("preparing model %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }
