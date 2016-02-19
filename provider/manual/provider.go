@@ -41,7 +41,7 @@ func (p manualProvider) RestrictedConfigAttributes() []string {
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
-func (p manualProvider) DetectRegions() (map[string]cloud.Region, error) {
+func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 

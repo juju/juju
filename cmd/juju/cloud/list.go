@@ -59,15 +59,22 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	details := make(map[string]*cloudDetails)
+	for name, cloud := range clouds {
+		cloudDetails := makeCloudDetails(cloud)
+		details[name] = cloudDetails
+	}
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
 	for name, cloud := range personalClouds {
 		// Add to result with "local:" prefix.
-		clouds[localPrefix+name] = cloud
+		cloudDetails := makeCloudDetails(cloud)
+		cloudDetails.Source = "local"
+		details[localPrefix+name] = cloudDetails
 	}
-	return c.out.Write(ctxt, clouds)
+	return c.out.Write(ctxt, details)
 }
 
 // Public clouds sorted first, then personal ie has a prefix of "local:".
@@ -86,7 +93,7 @@ func (a cloudSourceOrder) Less(i, j int) bool {
 
 // formatCloudsTabular returns a tabular summary of cloud information.
 func formatCloudsTabular(value interface{}) ([]byte, error) {
-	clouds, ok := value.(map[string]jujucloud.Cloud)
+	clouds, ok := value.(map[string]*cloudDetails)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", clouds, value)
 	}
@@ -116,8 +123,8 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 	for _, name := range cloudNames {
 		info := clouds[name]
 		var regions []string
-		for region, _ := range info.Regions {
-			regions = append(regions, region)
+		for name := range info.Regions {
+			regions = append(regions, name)
 		}
 		// TODO(wallyworld) - we should be smarter about handling
 		// long region text, for now we'll display the first 7 as
@@ -131,7 +138,7 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 		if len(regions) > 7 {
 			regionText = regionText + " ..."
 		}
-		p(name, info.Type, regionText)
+		p(name, info.CloudType, regionText)
 	}
 	tw.Flush()
 

@@ -30,9 +30,10 @@ func (s *showSuite) TestShow(c *gc.C) {
 	c.Assert(out, gc.Equals, `
 defined: public
 type: ec2
-auth-type: [access-key]
+auth-types: [access-key]
 regions:
   cn-north-1:
-    auth-url: https://ec2.cn-north-1.amazonaws.com.cn/
+    endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
+    storage-endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
 `[1:])
 }

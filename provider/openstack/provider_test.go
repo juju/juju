@@ -368,12 +368,12 @@ func (s *localTests) TestDetectRegions(c *gc.C) {
 	s.PatchEnvironment("OS_AUTH_URL", "http://keystone.internal")
 	regions, err := s.detectRegions(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, map[string]cloud.Region{
-		"oceania": {Endpoint: "http://keystone.internal"},
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{
+		{Name: "oceania", Endpoint: "http://keystone.internal"},
 	})
 }
 
-func (s *localTests) detectRegions(c *gc.C) (map[string]cloud.Region, error) {
+func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
 	provider, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider, gc.Implements, new(environs.CloudRegionDetector))

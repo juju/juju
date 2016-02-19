@@ -305,7 +305,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	regionName, region, err := getRegion(cloud, c.Cloud, regionName)
+	region, err := getRegion(cloud, c.Cloud, regionName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -342,7 +342,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		environs.PrepareForBootstrapParams{
 			Config:               cfg,
 			Credentials:          *credential,
-			CloudRegion:          regionName,
+			CloudRegion:          region.Name,
 			CloudEndpoint:        region.Endpoint,
 			CloudStorageEndpoint: region.StorageEndpoint,
 		},
@@ -352,8 +352,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	cloudRegion := c.Cloud
-	if regionName != "" {
-		cloudRegion = fmt.Sprintf("%s/%s", cloudRegion, regionName)
+	if region.Name != "" {
+		cloudRegion = fmt.Sprintf("%s/%s", cloudRegion, region.Name)
 	}
 	ctx.Infof(
 		"Creating Juju controller %q on %s",
@@ -488,53 +488,44 @@ func (c *bootstrapCommand) getCredentials(
 // getRegion returns the cloud.Region to use, based on the specified
 // region name, and the region name selected if none was specified.
 //
-// If no region name is specified, and there is exactly one region,
-// then we use that.
+// If no region name is specified, and there is at least one region,
+// we use the first region in the list.
 //
 // If no region name is specified, and there are no regions at all,
 // then we synthesise a region from the cloud's endpoint information
-// and just pass this on to the provider. In this case, the returned
-// region name will be empty.
-func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (string, jujucloud.Region, error) {
+// and just pass this on to the provider.
+func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.Region, error) {
 	if len(cloud.Regions) == 0 {
 		// The cloud does not specify regions, so assume
 		// that the cloud provider does not have a concept
 		// of regions, or has no pre-defined regions, and
 		// defer validation to the provider.
 		region := jujucloud.Region{
+			regionName,
 			cloud.Endpoint,
 			cloud.StorageEndpoint,
 		}
-		return regionName, region, nil
+		return region, nil
 	}
 	if regionName == "" {
-		if len(cloud.Regions) == 1 {
-			// No region was specified and there is
-			// only one in the cloud; use it.
-			for regionName, region := range cloud.Regions {
-				return regionName, region, nil
-			}
-		} else {
-			return "", jujucloud.Region{}, errors.Errorf(
-				"no region specified, and no default set (expected one of %q)",
-				cloudRegionNames(cloud),
-			)
+		// No region was specified, use the first region in the list.
+		return cloud.Regions[0], nil
+	}
+	for _, region := range cloud.Regions {
+		if region.Name == regionName {
+			return region, nil
 		}
 	}
-	region, ok := cloud.Regions[regionName]
-	if !ok {
-		return "", jujucloud.Region{}, errors.NewNotFound(nil, fmt.Sprintf(
-			"region %q in cloud %q not found (expected one of %q)",
-			regionName, cloudName, cloudRegionNames(cloud),
-		))
-	}
-	return regionName, region, nil
+	return jujucloud.Region{}, errors.NewNotFound(nil, fmt.Sprintf(
+		"region %q in cloud %q not found (expected one of %q)",
+		regionName, cloudName, cloudRegionNames(cloud),
+	))
 }
 
 func cloudRegionNames(cloud *jujucloud.Cloud) []string {
 	var regionNames []string
-	for name := range cloud.Regions {
-		regionNames = append(regionNames, name)
+	for _, region := range cloud.Regions {
+		regionNames = append(regionNames, region.Name)
 	}
 	return regionNames
 }
