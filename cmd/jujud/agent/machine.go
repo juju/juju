@@ -537,10 +537,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 // PrepareRestore will flag the agent to allow only a limited set
