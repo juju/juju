@@ -50,23 +50,19 @@ RELEASE=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
     ubuntu@$instance_name lsb_release -sr)
 ARCH=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
     ubuntu@$instance_name dpkg --print-architecture)
-MAJOR=$(echo "$VERSION" | sed -e 's/\..*//; s/1//')
 
-juju_core_deb="juju-core${MAJOR}_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-juju_local_deb=""
+juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
+juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
 
 if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-if [[ -z $MAJOR ]]; then
-    juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
-    $SCRIPTS/jujuci.py get assemble-streams $juju_local_deb debs
-fi
+$SCRIPTS/jujuci.py get assemble-streams $juju_local_deb debs
 $SCRIPTS/jujuci.py get assemble-streams $juju_core_deb debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
-  debs/*.deb ubuntu@$instance_name:
+  debs/$juju_local_deb debs/$juju_core_deb ubuntu@$instance_name:
 
 set +e
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \

@@ -150,7 +150,7 @@ def mock_package_key(revision_build, build=27, distro_release=None):
     namer = PackageNamer.factory()
     if distro_release is not None:
         namer.distro_release = distro_release
-    package = namer.get_release_package('2.9.6')
+    package = namer.get_release_package('109.6')
     job = JobNamer.factory().get_build_binary_job()
     return mock_key(revision_build, job, build, package)
 

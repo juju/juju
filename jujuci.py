@@ -175,6 +175,13 @@ def get_juju_bin(credentials, workspace):
     return get_juju_binary(credentials, file_name, build_data, workspace)
 
 
+def get_certification_bin(credentials, version, workspace):
+    build_data = get_build_data(JENKINS_URL, credentials,
+                                CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
+    file_name = PackageNamer.factory().get_certification_package(version)
+    return get_juju_binary(credentials, file_name, build_data, workspace)
+
+
 def get_juju_binary(credentials, file_name, build_data, workspace):
     artifact = get_filename_artifact(file_name, build_data)
     target_path = os.path.join(workspace, artifact.file_name)
@@ -335,6 +342,15 @@ def parse_args(args=None):
     parser_get_juju_bin.add_argument('workspace', nargs='?', default='.',
                                      help='The place to store binaries.')
     add_credential_args(parser_get_juju_bin)
+    parser_get_certification_bin = subparsers.add_parser(
+        'get-certification-bin',
+        help='Retrieve and extract juju binaries for certification.')
+    parser_get_certification_bin.add_argument(
+        'version', help='The version to get certification for.')
+    parser_get_certification_bin.add_argument(
+        'workspace', nargs='?', default='.',
+        help='The place to store binaries.')
+    add_credential_args(parser_get_certification_bin)
     parser_get_buildvars = subparsers.add_parser(
         'get-build-vars',
         help='Retrieve the build-vars for a build-revision.')
@@ -410,22 +426,20 @@ class Namer:
 class PackageNamer(Namer):
     """A class knows the names of packages."""
 
-    @staticmethod
-    def get_package_major(version):
-        major, ignore = version.split('.', 1)
-        if major == '1':
-            major = ''
-        return major
-
     def get_release_package_suffix(self):
         return '-0ubuntu1~{distro_release}.1~juju1_{arch}.deb'.format(
             distro_release=self.distro_release, arch=self.arch)
 
     def get_release_package(self, version):
         return (
-            'juju-core{major}_{version}{suffix}'
-            ).format(version=version, suffix=self.get_release_package_suffix(),
-                     major=self.get_package_major(version))
+            'juju-core_{version}{suffix}'
+            ).format(version=version, suffix=self.get_release_package_suffix())
+
+    def get_certification_package(self, version):
+        return (
+            'juju-core_{version}~{distro_release}.1_{arch}.deb'
+            ).format(version=version, distro_release=self.distro_release,
+                     arch=self.arch)
 
 
 class JobNamer(Namer):
@@ -459,6 +473,10 @@ def main(argv):
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'get-juju-bin':
             print_now(get_juju_bin(credentials, args.workspace))
+        elif args.command == 'get-certification-bin':
+            path = get_certification_bin(credentials, args.version,
+                                         args.workspace)
+            print_now(path)
         elif args.command == 'get-build-vars':
             text = get_buildvars(
                 credentials, args.build, env=args.env,

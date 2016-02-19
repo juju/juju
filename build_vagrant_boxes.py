@@ -33,7 +33,7 @@ WORKSPACE = 'WORKSPACE'
 def get_package_globs(series, arch):
     series_number = SERIES_TO_NUMBERS[series]
     return {
-        'core': 'juju-core*%s*_%s.deb' % (series_number, arch),
+        'core': 'juju-core_*%s*_%s.deb' % (series_number, arch),
         'local': 'juju-local_*%s*_all.deb' % series_number,
     }
 
