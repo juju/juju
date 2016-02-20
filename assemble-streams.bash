@@ -150,9 +150,9 @@ init_tools_maybe() {
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
         echo "Seeding devel with $INIT_VERSION proposed agents"
-        cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
+        cp --no-clobber $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
             $DEST_DIST/tools/releases
-        cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
+        cp --no-clobber $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "weekly" ]]; then
         echo "Seeding weekly with $INIT_VERSION proposed agents"
