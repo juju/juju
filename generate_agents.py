@@ -47,7 +47,10 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
             'lftp', '-c', 'mirror', '-I',
             "juju-core*{}*.{}~juj*.deb".format(release, upatch),
             archive], cwd=dest_debs)
-    juju_core_dir = os.path.join(dest_debs, 'juju-core')
+    juju_core_dir = os.path.join(dest_debs, 'juju-core2')
+    if not os.path.isdir(juju_core_dir):
+        # The juju-core2 package was not found, try the juju-core package.
+        juju_core_dir = os.path.join(dest_debs, 'juju-core')
     if os.path.isdir(juju_core_dir):
         debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
         for deb in debs:
@@ -84,8 +87,10 @@ def list_ppas(juju_home):
         return None
     listing = subprocess.check_output(
         ['/bin/bash', '-c', 'source {}; set -u; echo '
-         '"$BUILD_STABLE_ARCH\n'
-         '$BUILD_DEVEL_ARCH\n'
+         '"$BUILD_STABLE2_ARCH\n'
+         '$BUILD_DEVEL2_ARCH\n'
+         '$BUILD_STABLE1_ARCH\n'
+         '$BUILD_DEVEL1_ARCH\n'
          '$BUILD_SUPPORTED_ARCH"'.format(config)])
     return listing.splitlines()
 
