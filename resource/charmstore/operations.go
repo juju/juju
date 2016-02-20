@@ -15,40 +15,34 @@ import (
 
 // Operations exposes the charm store operations needed by the Juju
 // resources feature.
-type Operations interface {
-	// GetResource returns a reader for the resource's data. That data
-	// is streamed from the charm store. It will also be stored in
-	// the cache, if one is set up.
-	GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error)
+type Operations struct {
+	deps  OperationsDeps
+	cache cacheForOperations
 }
 
 // NewOperations returns a new set of charm store operations.
-func NewOperations(deps NewOperationsDeps, cache EntityCache) (Operations, error) {
+func NewOperations(deps OperationsDeps, cache EntityCache) (*Operations, error) {
 	if deps == nil {
 		return nil, errors.Errorf("missing deps")
 	}
 	cfo := cacheForOperations{
 		EntityCache: cache,
 	}
-	ops := &operations{
-		operationsDeps: deps,
-		cache:          cfo,
+	ops := &Operations{
+		deps:  deps,
+		cache: cfo,
 	}
 	return ops, nil
 }
 
-// NewOperationsDeps are the dependencies required by NewOperations().
-type NewOperationsDeps interface {
+// OperationsDeps are the dependencies required by NewOperations().
+type OperationsDeps interface {
 	// NewClient returns a new charm store client to use in operations.
 	NewClient() (Client, error)
 }
 
 // operations is the Operations implementation returned
 // by NewOperations().
-type operations struct {
-	operationsDeps
-	cache cacheForOperations
-}
 
 // GetResource returns a reader for the resource's data. That data is
 // streamed from the charm store.
@@ -57,7 +51,7 @@ type operations struct {
 // resource info is not in the cache then errors.NotFound is returned.
 // If the resource data is not in the cache then it is read from the
 // charm store. In that case it will also be cached.
-func (ops operations) GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
+func (ops Operations) GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
 	res, reader, err := ops.cache.get(name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
@@ -75,7 +69,7 @@ func (ops operations) GetResource(cURL *charm.URL, name string) (resource.Resour
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
-	client, err := ops.NewClient()
+	client, err := ops.deps.NewClient()
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -95,9 +89,4 @@ func (ops operations) GetResource(cURL *charm.URL, name string) (resource.Resour
 	}
 
 	return res, reader, nil
-}
-
-type operationsDeps interface {
-	// NewClient returns a new charm store client to use in operations.
-	NewClient() (Client, error)
 }
