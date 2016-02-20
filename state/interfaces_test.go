@@ -231,7 +231,8 @@ func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateProviderIDFailsInSa
 
 	args2 := args1
 	args2.Name = "br-eth0"
-	s.assertAddInterfacesFailsValidationForArgs(c, args2, `ProviderID "42" not unique`)
+	err := s.assertAddInterfacesFailsValidationForArgs(c, args2, `ProviderID\(s\) not unique: 42`)
+	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
 func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
@@ -264,7 +265,8 @@ func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndProviderIDFa
 	}
 	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
 
-	s.assertAddInterfacesFailsValidationForArgs(c, args, `ProviderID "42" not unique`)
+	err := s.assertAddInterfacesFailsValidationForArgs(c, args, `ProviderID\(s\) not unique: 42`)
+	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
 func (s *interfacesStateSuite) TestAddInterfacesMultipleArgsWithSameNameFails(c *gc.C) {
@@ -602,7 +604,8 @@ func (s *interfacesStateSuite) TestAddInterfacesRollbackWithDuplicateProviderIDs
 	defer state.SetTestHooks(c, s.State, hooks...).Check()
 
 	err := s.machine.AddInterfaces(insertingArgs...)
-	c.Assert(err, gc.ErrorMatches, `.*one or more non-unique ProviderIDs specified: child-id, parent-id`)
+	c.Assert(err, gc.ErrorMatches, `.*ProviderID\(s\) not unique: child-id, parent-id`)
+	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 	s.assertNoInterfacesOnMachine(c, s.machine) // Rollback worked.
 }
 

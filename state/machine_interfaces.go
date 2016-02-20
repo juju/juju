@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -47,13 +46,13 @@ func (m *Machine) AllInterfaces() ([]*Interface, error) {
 	return allInterfaces, nil
 }
 
-func (m *Machine) forEachInterfaceDoc(selectOnly bson.D, callbackFunc func(resultDoc *interfaceDoc)) error {
+func (m *Machine) forEachInterfaceDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *interfaceDoc)) error {
 	interfaces, closer := m.st.getCollection(interfacesC)
 	defer closer()
 
 	query := interfaces.Find(bson.D{{"machine-id", m.doc.Id}})
-	if selectOnly != nil {
-		query = query.Select(selectOnly)
+	if docFieldsToSelect != nil {
+		query = query.Select(docFieldsToSelect)
 	}
 	iter := query.Iter()
 
@@ -96,7 +95,7 @@ type InterfaceArgs struct {
 	MTU uint
 
 	// ProviderID is a provider-specific ID of the interface. Empty when not
-	// supported by the provider. Cannot be unset with UpdateInterface once set.
+	// supported by the provider. Cannot be cleared once set.
 	ProviderID network.Id
 
 	// Type is the type of the interface related to the underlying device.
@@ -135,12 +134,14 @@ type InterfaceArgs struct {
 // for all. ProviderID field can be empty if not supported by the provider, but
 // when set must be unique within the model. Errors are returned and no changes
 // are applied, in the following cases:
-// - ProviderID not unique (when set);
-// - Machine is no longer alive or it's missing;
+// - Zero arguments given;
+// - Machine is no longer alive or missing;
+// - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - errors.NotFoundError, when ParentName is set but cannot be found on the
-//   machine or in interfacesArgs;
+//   machine or given in interfacesArgs;
 // - errors.AlreadyExistsError, when Name is set to an existing interface.
+// - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique;
 func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add interfaces to machine %q", m.doc.Id)
 
@@ -201,9 +202,10 @@ func (st *State) allProviderIDsForModelInterfaces() (_ set.Strings, err error) {
 	}
 
 	pattern := fmt.Sprintf("^%s:.+$", st.ModelUUID())
-	selector := bson.D{{"providerid", bson.D{{"$regex", pattern}}}}
+	modelProviderIDs := bson.D{{"providerid", bson.D{{"$regex", pattern}}}}
+	onlyProviderIDField := bson.D{{"providerid", 1}}
 
-	iter := interfaces.Find(selector).Select(bson.D{{"providerid", 1}}).Iter()
+	iter := interfaces.Find(modelProviderIDs).Select(onlyProviderIDField).Iter()
 	for iter.Next(&doc) {
 		localProviderID := st.localID(doc.ProviderID)
 		allProviderIDs.Add(localProviderID)
@@ -245,8 +247,7 @@ func (m *Machine) prepareOneAddInterfacesArgs(args *InterfaceArgs, pendingNames,
 	}
 
 	if allProviderIDs.Contains(string(args.ProviderID)) {
-		errorMessage := fmt.Sprintf("ProviderID %q not unique", args.ProviderID)
-		return nil, errors.NewNotValid(nil, errorMessage)
+		return nil, NewProviderIDNotUniqueError(args.ProviderID)
 	}
 
 	return m.newInterfaceDocFromArgs(args), nil
@@ -339,6 +340,7 @@ func (m *Machine) maybeEnsureParentInterfaceExists(name, parentName string, pend
 	if parentName == "" || pendingNames.Contains(parentName) {
 		return nil
 	}
+
 	if _, err := m.Interface(parentName); errors.IsNotFound(err) {
 		return errors.NotFoundf("parent interface %q of interface %q", parentName, name)
 	} else if err != nil {
@@ -364,14 +366,14 @@ func (m *Machine) assertAliveOp() txn.Op {
 	}
 }
 
-func (m *Machine) maybeAssertParentInterfaceExists(parentName string, pendingNames set.Strings, ops []txn.Op) []txn.Op {
+func (m *Machine) maybeAssertParentInterfaceExists(parentName string, pendingNames set.Strings, opsSoFar []txn.Op) []txn.Op {
 	if parentName == "" || pendingNames.Contains(parentName) {
-		return ops
+		return opsSoFar
 	}
 
 	parentGlobalKey := interfaceGlobalKey(m.doc.Id, parentName)
 	parentDocID := m.st.docID(parentGlobalKey)
-	return append(ops, assertInterfaceExistsOp(parentDocID))
+	return append(opsSoFar, assertInterfaceExistsOp(parentDocID))
 }
 
 func (m *Machine) rollbackUnlessAllInterfacesInArgsInserted(interfacesArgs []InterfaceArgs) error {
@@ -392,8 +394,8 @@ func (m *Machine) rollbackUnlessAllInterfacesInArgsInserted(interfacesArgs []Int
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// One or more documents were not inserted due to ProviderID unique
-			// index violation, so collect the duplicates and remove all
-			// inserted documents.
+			// index violation, so rollback to the state before AddInterfaces(),
+			// removing all documents possibly inserted.
 			wasAborted = true
 			return removeOps, nil
 		}
@@ -401,8 +403,7 @@ func (m *Machine) rollbackUnlessAllInterfacesInArgsInserted(interfacesArgs []Int
 	}
 	err := m.st.run(buildTxn)
 	if err == nil && wasAborted {
-		idList := strings.Join(usedProviderIDs.SortedValues(), ", ")
-		return errors.Errorf("one or more non-unique ProviderIDs specified: %s", idList)
+		return newProviderIDNotUniqueErrorFromStrings(usedProviderIDs.SortedValues())
 	}
 	return errors.Trace(err)
 }
