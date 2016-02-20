@@ -48,9 +48,10 @@ type OperationsDeps interface {
 // streamed from the charm store.
 //
 // If a cache is set up then the resource is read from there. If the
-// resource info is not in the cache then errors.NotFound is returned.
-// If the resource data is not in the cache then it is read from the
-// charm store. In that case it will also be cached.
+// resource is not in the cache at all then errors.NotFound is returned.
+// If only the resource's details are in the cache (but not the actual
+// file) then the file is read from the charm store. In that case the
+// cache is updated to contain the file too.
 func (ops Operations) GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
 	res, reader, err := ops.cache.get(name)
 	if err != nil {
