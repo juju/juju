@@ -190,7 +190,7 @@ retrieve_packages() {
             safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
             echo "checking $safe_archive for $RELEASE."
             lftp -c mirror -I "juju-core*${RELEASE}*.$UPATCH~juj*.deb" \
-                $archive; || true
+                $archive || true
         done
         if [ -d $DEST_DEBS/juju-core ]; then
             FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core"
