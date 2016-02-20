@@ -21,6 +21,7 @@ import (
 
 // CharmstoreClient exposes the functionality of the charm store client.
 type CharmstoreClient interface {
+	// TODO(ericsnow) Embed github.com/juju/juju/charmstore.Client.
 	io.Closer
 }
 
