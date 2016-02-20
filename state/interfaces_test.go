@@ -487,8 +487,12 @@ func (s *interfacesStateSuite) TestInterfaceRemoveFailsWithExistingChildren(c *g
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = parent.Remove()
-	expectedError := fmt.Sprintf("cannot remove %s: parent interface to: another-child, one-child", parent)
+	expectedError := fmt.Sprintf(
+		"cannot remove %s: parent interface %q has children: another-child, one-child",
+		parent, parent.Name(),
+	)
 	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, jc.Satisfies, state.IsParentInterfaceHasChildrenError)
 }
 
 func (s *interfacesStateSuite) TestInterfaceRemoveSuccess(c *gc.C) {

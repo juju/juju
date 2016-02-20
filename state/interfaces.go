@@ -216,8 +216,9 @@ func (nic *Interface) Refresh() error {
 }
 
 // Remove deletes the interface, if it exists. No error is returned when the
-// interface was already removed. Error is returned if this interface is a
-// parent to one or more existing interfaces.
+// interface was already removed. ErrParentInterfaceHasChildren is returned if
+// this interface is a parent to one or more existing interfaces and therefore
+// cannot be removed.
 func (nic *Interface) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", nic)
 
@@ -233,8 +234,7 @@ func (nic *Interface) Remove() (err error) {
 		return errors.Trace(err)
 	}
 	if !childrenNames.IsEmpty() {
-		names := strings.Join(childrenNames.SortedValues(), ", ")
-		return errors.Errorf("parent interface to: %s", names)
+		return newParentInterfaceHasChildrenError(nic.doc.Name, childrenNames.SortedValues())
 	}
 
 	ops := []txn.Op{removeInterfaceOp(nic.doc.DocID)}

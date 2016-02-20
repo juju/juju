@@ -99,3 +99,38 @@ func IsProviderIDNotUniqueError(err interface{}) bool {
 	_, ok := value.(*ErrProviderIDNotUnique)
 	return ok
 }
+
+// ErrParentInterfaceHasChildren is a standard error to indicate an interface
+// cannot be removed because existing interfaces refer to it as a parent.
+type ErrParentInterfaceHasChildren struct {
+	parentName    string
+	childrenNames []string
+}
+
+func (e *ErrParentInterfaceHasChildren) Error() string {
+	children := strings.Join(e.childrenNames, ", ")
+	return fmt.Sprintf("parent interface %q has children: %s", e.parentName, children)
+}
+
+func newParentInterfaceHasChildrenError(parentName string, childrenNames []string) error {
+	return &ErrParentInterfaceHasChildren{
+		parentName:    parentName,
+		childrenNames: childrenNames,
+	}
+}
+
+// IsParentInterfaceHasChildrenError returns if the given error or its cause is
+// ErrParentInterfaceHasChildren.
+func IsParentInterfaceHasChildrenError(err interface{}) bool {
+	if err == nil {
+		return false
+	}
+	// In case of a wrapped error, check the cause first.
+	value := err
+	cause := errors.Cause(err.(error))
+	if cause != nil {
+		value = cause
+	}
+	_, ok := value.(*ErrParentInterfaceHasChildren)
+	return ok
+}
