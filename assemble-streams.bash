@@ -191,11 +191,18 @@ retrieve_packages() {
             lftp -c mirror -I "juju-core*${RELEASE}*.$UPATCH~juj*.deb" $archive;
         done
         if [ -d $DEST_DEBS/juju-core ]; then
-            found=$(find $DEST_DEBS/juju-core/ -name "*deb")
+            FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core"
+        elif [ -d $DEST_DEBS/juju-core2 ]; then
+            FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core2"
+        else
+            FOUND_PACKAGE_DIR=""
+        fi
+        if [ -n $FOUND_PACKAGE_DIR ]; then
+            found=$(find $FOUND_PACKAGE_DIR/ -name "*deb")
             if [[ $found != "" ]]; then
-                mv $DEST_DEBS/juju-core/*deb ./
+                mv $FOUND_PACKAGE_DIR/*deb ./
             fi
-            rm -r $DEST_DEBS/juju-core
+            rm -r $FOUND_PACKAGE_DIR
         fi
         if [[ -e $JUJU_DIR/juju-qa.s3cfg ]]; then
             echo "checking s3://juju-qa-data/agent-archive for $RELEASE."
