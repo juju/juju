@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// Operations exposes the charm store operations needed by the Juju
-// resources feature.
+// Operations provides the charm-store-related functionality needed by
+// the Juju resources feature.
 type Operations struct {
 	deps  OperationsDeps
 	cache cacheForOperations
@@ -35,14 +35,11 @@ func NewOperations(deps OperationsDeps, cache EntityCache) (*Operations, error) 
 	return ops, nil
 }
 
-// OperationsDeps are the dependencies required by NewOperations().
+// OperationsDeps are the external dependencies of Operations.
 type OperationsDeps interface {
 	// NewClient returns a new charm store client to use in operations.
 	NewClient() (Client, error)
 }
-
-// operations is the Operations implementation returned
-// by NewOperations().
 
 // GetResource returns a reader for the resource's data. That data is
 // streamed from the charm store.

@@ -4,8 +4,6 @@
 package resourceadapters
 
 import (
-	"io"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -46,14 +44,7 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	return opened, nil
 }
 
-type csOps interface {
-	// GetResource returns a reader for the resource's data. That data
-	// is streamed from the charm store. It will also be stored in
-	// the cache, if one is set up.
-	GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error)
-}
-
-func (ro resourceOpener) newCSOps(cURL *charm.URL) (csOps, error) {
+func (ro resourceOpener) newCSOps(cURL *charm.URL) (*charmstore.Operations, error) {
 	deps := newCharmstoreOpener(cURL)
 	cache := &charmstoreEntityCache{
 		st:        ro.st,
