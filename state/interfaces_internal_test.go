@@ -59,9 +59,11 @@ func (s *interfacesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c
 
 	result := s.newInterfaceWithDummyState(interfaceDoc{ProviderID: localProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
+	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 
 	result = s.newInterfaceWithDummyState(interfaceDoc{ProviderID: globalProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
+	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 }
 
 func (s *interfacesInternalSuite) TestParentInterfaceReturnsNoErrorWhenParentNameNotSet(c *gc.C) {

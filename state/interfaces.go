@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -138,8 +140,11 @@ func (nic *Interface) MTU() uint {
 
 // ProviderID returns the provider-specific interface ID, if set.
 func (nic *Interface) ProviderID() network.Id {
-	localProviderID := nic.st.localID(nic.doc.ProviderID)
-	return network.Id(localProviderID)
+	return network.Id(nic.localProviderID())
+}
+
+func (nic *Interface) localProviderID() string {
+	return nic.st.localID(nic.doc.ProviderID)
 }
 
 // MachineID returns the ID of the machine this interface is on.
@@ -190,8 +195,8 @@ func (nic *Interface) ParentInterface() (*Interface, error) {
 	return nic.machineProxy().Interface(nic.doc.ParentName)
 }
 
-// machineProxy is a convenience wrapper for calling Machine.Interface() from
-// *Interface.
+// machineProxy is a convenience wrapper for calling Machine.Interface() or
+// Machine.forEachInterfaceDoc() from *Interface.
 func (nic *Interface) machineProxy() *Machine {
 	return &Machine{st: nic.st, doc: machineDoc{Id: nic.doc.MachineID}}
 }
@@ -211,22 +216,60 @@ func (nic *Interface) Refresh() error {
 }
 
 // Remove deletes the interface, if it exists. No error is returned when the
-// interface was already removed.
+// interface was already removed. Error is returned if this interface is a
+// parent to one or more existing interfaces.
 func (nic *Interface) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", nic)
 
-	ops := removeInterfaceOps(nic.doc.DocID)
+	childrenNames := set.NewStrings()
+	collectChildren := func(resultDoc *interfaceDoc) {
+		if resultDoc.ParentName == nic.doc.Name {
+			childrenNames.Add(resultDoc.Name)
+		}
+	}
+	selectOnly := bson.D{{"_id", 1}, {"name", 1}, {"parent-name", 1}}
+	err = nic.machineProxy().forEachInterfaceDoc(selectOnly, collectChildren)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !childrenNames.IsEmpty() {
+		names := strings.Join(childrenNames.SortedValues(), ", ")
+		return errors.Errorf("parent interface to: %s", names)
+	}
+
+	ops := []txn.Op{removeInterfaceOp(nic.doc.DocID)}
 	return nic.st.runTransaction(ops)
 }
 
-// removeInterfaceOps returns the operations needed to remove the interface with
+// insertInterfaceDocOp returns an operation inserting the given
+// newInterfaceDoc, asserting it does not exist yet.
+func insertInterfaceDocOp(newInterfaceDoc *interfaceDoc) txn.Op {
+	return txn.Op{
+		C:      interfacesC,
+		Id:     newInterfaceDoc.DocID,
+		Assert: txn.DocMissing,
+		Insert: *newInterfaceDoc,
+	}
+}
+
+// removeInterfaceOp returns the operation needed to remove the interface with
 // the given interfaceDocID.
-func removeInterfaceOps(interfaceDocID string) []txn.Op {
-	return []txn.Op{{
+func removeInterfaceOp(interfaceDocID string) txn.Op {
+	return txn.Op{
 		C:      interfacesC,
 		Id:     interfaceDocID,
 		Remove: true,
-	}}
+	}
+}
+
+// assertInterfaceExistsOp returns an operation asserting the interface matching
+// interfaceDocID exists.
+func assertInterfaceExistsOp(interfaceDocID string) txn.Op {
+	return txn.Op{
+		C:      interfacesC,
+		Id:     interfaceDocID,
+		Assert: txn.DocExists,
+	}
 }
 
 // DNSServers returns the list of DNS nameservers that apply to this interface,

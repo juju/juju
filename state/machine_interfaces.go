@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -70,8 +71,8 @@ func (m *Machine) forEachInterfaceDoc(selectOnly bson.D, callbackFunc func(resul
 func (m *Machine) RemoveAllInterfaces() error {
 	var removeAllInterfacesOps []txn.Op
 	callbackFunc := func(resultDoc *interfaceDoc) {
-		removeOps := removeInterfaceOps(resultDoc.DocID)
-		removeAllInterfacesOps = append(removeAllInterfacesOps, removeOps...)
+		removeOp := removeInterfaceOp(resultDoc.DocID)
+		removeAllInterfacesOps = append(removeAllInterfacesOps, removeOp)
 	}
 
 	selectDocIDOnly := bson.D{{"_id", 1}}
@@ -147,17 +148,16 @@ func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
 		return errors.Errorf("no interfaces to add")
 	}
 
-	existingProviderIDs, err := m.st.allProviderIDsForModelInterfaces()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	newDocs, pendingNames, err := m.prepareToAddInterfaces(interfacesArgs, existingProviderIDs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		existingProviderIDs, err := m.st.allProviderIDsForModelInterfaces()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		newDocs, pendingNames, err := m.prepareToAddInterfaces(interfacesArgs, existingProviderIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		if attempt > 0 {
 			if err := checkModeLife(m.st); err != nil {
 				return nil, errors.Trace(err)
@@ -165,11 +165,7 @@ func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
 			if err := m.ensureStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			existingProviderIDs, err = m.st.allProviderIDsForModelInterfaces()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if err := m.ensureInterfaceDocsStillValid(newDocs, pendingNames, existingProviderIDs); err != nil {
+			if err := m.ensureInterfaceDocsStillValid(newDocs, pendingNames); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -185,7 +181,12 @@ func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	if err := m.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	// Even without an error, we still need to verify if any of the newDocs was
+	// not inserted due to ProviderID unique index violation.
+	return m.rollbackUnlessAllInterfacesInArgsInserted(interfacesArgs)
 }
 
 func (st *State) allProviderIDsForModelInterfaces() (_ set.Strings, err error) {
@@ -196,14 +197,14 @@ func (st *State) allProviderIDsForModelInterfaces() (_ set.Strings, err error) {
 
 	allProviderIDs := set.NewStrings()
 	var doc struct {
-		ProviderID string `bson:"providerid,omitempty"`
+		ProviderID string `bson:"providerid"`
 	}
 
-	iter := interfaces.Find(nil).Select(bson.D{{"providerid", 1}}).Iter()
+	pattern := fmt.Sprintf("^%s:.+$", st.ModelUUID())
+	selector := bson.D{{"providerid", bson.D{{"$regex", pattern}}}}
+
+	iter := interfaces.Find(selector).Select(bson.D{{"providerid", 1}}).Iter()
 	for iter.Next(&doc) {
-		if doc.ProviderID == "" {
-			continue
-		}
 		localProviderID := st.localID(doc.ProviderID)
 		allProviderIDs.Add(localProviderID)
 	}
@@ -322,15 +323,12 @@ func (m *Machine) ensureStillAlive() error {
 	return nil
 }
 
-func (m *Machine) ensureInterfaceDocsStillValid(newDocs []interfaceDoc, pendingNames, existingProviderIDs set.Strings) error {
+func (m *Machine) ensureInterfaceDocsStillValid(newDocs []interfaceDoc, pendingNames set.Strings) error {
 	for _, newDoc := range newDocs {
 		if err := m.maybeEnsureParentInterfaceExists(newDoc.Name, newDoc.ParentName, pendingNames); err != nil {
 			return errors.Trace(err)
 		}
 		if err := m.ensureInterfaceDoesNotExistYet(newDoc.Name); err != nil {
-			return errors.Trace(err)
-		}
-		if err := m.ensureProviderIDIsUniqueWhenSet(&newDoc, existingProviderIDs); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -358,32 +356,11 @@ func (m *Machine) ensureInterfaceDoesNotExistYet(interfaceName string) error {
 	return nil
 }
 
-func (m *Machine) ensureProviderIDIsUniqueWhenSet(newDoc *interfaceDoc, existingProviderIDs set.Strings) error {
-	if newDoc.ProviderID == "" {
-		return nil
-	}
-	localProviderID := m.st.localID(newDoc.ProviderID)
-	if existingProviderIDs.Contains(localProviderID) {
-		errorMessage := fmt.Sprintf("ProviderID %q of interface %q not unique", localProviderID, newDoc.Name)
-		return errors.NewNotValid(nil, errorMessage)
-	}
-	return nil
-}
-
 func (m *Machine) assertAliveOp() txn.Op {
 	return txn.Op{
 		C:      machinesC,
 		Id:     m.doc.Id,
 		Assert: isAliveDoc,
-	}
-}
-
-func insertInterfaceDocOp(newInterfaceDoc *interfaceDoc) txn.Op {
-	return txn.Op{
-		C:      interfacesC,
-		Id:     newInterfaceDoc.DocID,
-		Assert: txn.DocMissing,
-		Insert: *newInterfaceDoc,
 	}
 }
 
@@ -394,9 +371,38 @@ func (m *Machine) maybeAssertParentInterfaceExists(parentName string, pendingNam
 
 	parentGlobalKey := interfaceGlobalKey(m.doc.Id, parentName)
 	parentDocID := m.st.docID(parentGlobalKey)
-	return append(ops, txn.Op{
-		C:      interfacesC,
-		Id:     parentDocID,
-		Assert: txn.DocExists,
-	})
+	return append(ops, assertInterfaceExistsOp(parentDocID))
+}
+
+func (m *Machine) rollbackUnlessAllInterfacesInArgsInserted(interfacesArgs []InterfaceArgs) error {
+	usedProviderIDs := set.NewStrings()
+	assertExistsOps := make([]txn.Op, len(interfacesArgs))
+	removeOps := make([]txn.Op, len(interfacesArgs))
+
+	for i, args := range interfacesArgs {
+		interfaceDocID := interfaceGlobalKey(m.doc.Id, args.Name)
+		assertExistsOps[i] = assertInterfaceExistsOp(interfaceDocID)
+		removeOps[i] = removeInterfaceOp(interfaceDocID)
+		if args.ProviderID != "" {
+			usedProviderIDs.Add(string(args.ProviderID))
+		}
+	}
+
+	var wasAborted bool
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			// One or more documents were not inserted due to ProviderID unique
+			// index violation, so collect the duplicates and remove all
+			// inserted documents.
+			wasAborted = true
+			return removeOps, nil
+		}
+		return assertExistsOps, nil
+	}
+	err := m.st.run(buildTxn)
+	if err == nil && wasAborted {
+		idList := strings.Join(usedProviderIDs.SortedValues(), ", ")
+		return errors.Errorf("one or more non-unique ProviderIDs specified: %s", idList)
+	}
+	return errors.Trace(err)
 }

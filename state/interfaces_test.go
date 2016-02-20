@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -466,6 +466,29 @@ func (s *interfacesStateSuite) TestMachineAllInterfacesOnlyReturnsSameModelInter
 	s.assertNoInterfacesOnMachine(c, s.otherStateMachine)
 }
 
+func (s *interfacesStateSuite) TestInterfaceRemoveFailsWithExistingChildren(c *gc.C) {
+	args := []state.InterfaceArgs{{
+		Name: "parent",
+		Type: state.BridgeInterface,
+	}, {
+		Name:       "one-child",
+		Type:       state.EthernetInterface,
+		ParentName: "parent",
+	}, {
+		Name:       "another-child",
+		Type:       state.EthernetInterface,
+		ParentName: "parent",
+	}}
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+
+	parent, err := s.machine.Interface("parent")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = parent.Remove()
+	expectedError := fmt.Sprintf("cannot remove %s: parent interface to: another-child, one-child", parent)
+	c.Assert(err, gc.ErrorMatches, expectedError)
+}
+
 func (s *interfacesStateSuite) TestInterfaceRemoveSuccess(c *gc.C) {
 	existingInterface := s.addSimpleInterface(c)
 
@@ -537,47 +560,104 @@ func (s *interfacesStateSuite) TestInterfaceRefreshPassesThroughNotFoundError(c 
 	c.Assert(err, gc.ErrorMatches, `interface "foo" on machine "0" not found`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesRetriesErrAbortedMoreThanOnceWhenNeeded(c *gc.C) {
-	c.ExpectFailure("ProviderID duplicates not checked yet on retry")
-	allArgs := []state.InterfaceArgs{{
+func (s *interfacesStateSuite) TestAddInterfacesRollbackWithDuplicateProviderIDs(c *gc.C) {
+	insertingArgs := []state.InterfaceArgs{{
 		Name:       "child",
 		Type:       state.EthernetInterface,
-		ProviderID: "42",
+		ProviderID: "child-id",
 		ParentName: "parent",
 	}, {
-		Name: "parent",
-		Type: state.BridgeInterface,
+		Name:       "parent",
+		Type:       state.BridgeInterface,
+		ProviderID: "parent-id",
 	}}
 
-	hooks := []txn.TestHook{{
+	assertTwoExistAndRemoveAll := func() {
+		s.assertAllInterfacesOnMachineMatchCount(c, s.machine, 2)
+		err := s.machine.RemoveAllInterfaces()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	hooks := []jujutxn.TestHook{{
 		Before: func() {
-			err := s.machine.AddInterfaces(allArgs...)
+			// Add the same interfaces to trigger ErrAborted in the first attempt.
+			s.assertNoInterfacesOnMachine(c, s.machine)
+			err := s.machine.AddInterfaces(insertingArgs...)
 			c.Assert(err, jc.ErrorIsNil)
 		},
-		After: func() {
-			err := s.machine.RemoveAllInterfaces()
-			c.Assert(err, jc.ErrorIsNil)
-		},
+		After: assertTwoExistAndRemoveAll,
 	}, {
 		Before: func() {
-			barArgs := state.InterfaceArgs{
-				Name:       "bar",
-				Type:       state.EthernetInterface,
-				ProviderID: "42",
-			}
-			err := s.machine.AddInterfaces(barArgs)
+			// Add interfaces with same ProviderIDs but different names.
+			s.assertNoInterfacesOnMachine(c, s.machine)
+			insertingAlternateArgs := insertingArgs
+			insertingAlternateArgs[0].Name = "other-child"
+			insertingAlternateArgs[0].ParentName = "other-parent"
+			insertingAlternateArgs[1].Name = "other-parent"
+			err := s.machine.AddInterfaces(insertingAlternateArgs...)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		After: assertTwoExistAndRemoveAll,
+	}}
+	defer state.SetTestHooks(c, s.State, hooks...).Check()
+
+	err := s.machine.AddInterfaces(insertingArgs...)
+	c.Assert(err, gc.ErrorMatches, `.*one or more non-unique ProviderIDs specified: child-id, parent-id`)
+	s.assertNoInterfacesOnMachine(c, s.machine) // Rollback worked.
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesWithLightStateChurn(c *gc.C) {
+	allArgs, churnHook := s.prepareAddInterfacesWithStateChurn(c)
+	defer state.SetTestHooks(c, s.State, churnHook).Check()
+	s.assertNoInterfacesOnMachine(c, s.machine)
+
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
+}
+
+func (s *interfacesStateSuite) prepareAddInterfacesWithStateChurn(c *gc.C) ([]state.InterfaceArgs, jujutxn.TestHook) {
+	parentArgs := state.InterfaceArgs{
+		Name: "parent",
+		Type: state.BridgeInterface,
+	}
+	childArgs := state.InterfaceArgs{
+		Name:       "child",
+		Type:       state.EthernetInterface,
+		ParentName: "parent",
+	}
+
+	churnHook := jujutxn.TestHook{
+		Before: func() {
+			s.assertNoInterfacesOnMachine(c, s.machine)
+			err := s.machine.AddInterfaces(parentArgs)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		After: func() {
-			barInterface, err := s.machine.Interface("bar")
+			s.assertAllInterfacesOnMachineMatchCount(c, s.machine, 1)
+			parent, err := s.machine.Interface("parent")
 			c.Assert(err, jc.ErrorIsNil)
-			s.removeInterfaceAndAssertSuccess(c, barInterface)
+			err = parent.Remove()
+			c.Assert(err, jc.ErrorIsNil)
 		},
-	}}
-	defer state.SetTestHooks(c, s.State, hooks...).Check()
+	}
+
+	return []state.InterfaceArgs{parentArgs, childArgs}, churnHook
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesWithModerateStateChurn(c *gc.C) {
+	allArgs, churnHook := s.prepareAddInterfacesWithStateChurn(c)
+	defer state.SetTestHooks(c, s.State, churnHook, churnHook).Check()
+	s.assertNoInterfacesOnMachine(c, s.machine)
+
+	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
+}
+
+func (s *interfacesStateSuite) TestAddInterfacesWithTooMuchStateChurn(c *gc.C) {
+	allArgs, churnHook := s.prepareAddInterfacesWithStateChurn(c)
+	defer state.SetTestHooks(c, s.State, churnHook, churnHook, churnHook).Check()
 	s.assertNoInterfacesOnMachine(c, s.machine)
 
 	err := s.machine.AddInterfaces(allArgs...)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertAllInterfacesOnMachineMatchCount(c, s.machine, 2)
+	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
+
+	s.assertNoInterfacesOnMachine(c, s.machine)
 }
