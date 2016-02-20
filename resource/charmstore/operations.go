@@ -50,7 +50,17 @@ type OperationsDeps interface {
 // file) then the file is read from the charm store. In that case the
 // cache is updated to contain the file too.
 func (ops Operations) GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
-	res, reader, err := ops.cache.get(name)
+	client, err := ops.deps.NewClient()
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+	defer client.Close()
+
+	return getResource(client, ops.cache, cURL, name)
+}
+
+func getResource(client Client, cache cacheForOperations, cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
+	res, reader, err := cache.get(name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -67,12 +77,6 @@ func (ops Operations) GetResource(cURL *charm.URL, name string) (resource.Resour
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
-	client, err := ops.deps.NewClient()
-	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
-	}
-	defer client.Close()
-
 	reader, err = client.GetResource(cURL, res.Name, res.Revision)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -81,7 +85,7 @@ func (ops Operations) GetResource(cURL *charm.URL, name string) (resource.Resour
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	res, reader, err = ops.cache.set(res.Resource, reader)
+	res, reader, err = cache.set(res.Resource, reader)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
