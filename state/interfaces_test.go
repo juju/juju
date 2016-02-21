@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -667,4 +668,92 @@ func (s *interfacesStateSuite) TestAddInterfacesWithTooMuchStateChurn(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
 
 	s.assertNoInterfacesOnMachine(c, s.machine)
+}
+func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
+	// Tested successfully multiple times with:
+	// $ cd $GOPATH/src/github.com/juju/juju/state; go test -c
+	// $ for i in {1..100}; do ./state.test -check.v -check.f HighCon & done
+	// The only observed issue (even with 500 vs 100 runs) is panicking due to
+	// "address already in use" coming from the test mongodb. And even then it
+	// happens in 1 or 2 out of 100 (or even 500) test runs.
+	parentArgs := state.InterfaceArgs{
+		Name: "parent",
+		Type: state.BridgeInterface,
+	}
+	parentArgsWithID := parentArgs
+	parentArgsWithID.ProviderID = "parent-id"
+	childArgs := state.InterfaceArgs{
+		Name:       "child",
+		Type:       state.EthernetInterface,
+		ParentName: "parent",
+	}
+	childArgsWithID := childArgs
+	childArgsWithID.ProviderID = "child-id"
+	// Use a map to randomize iteration order.
+	argsPermutations := map[string][]state.InterfaceArgs{
+		"parent-child-no-ids":        []state.InterfaceArgs{parentArgs, childArgs},
+		"child-parent-no-ids":        []state.InterfaceArgs{childArgs, parentArgs},
+		"child-parent-with-ids":      []state.InterfaceArgs{childArgsWithID, parentArgsWithID},
+		"parent-child-with-ids":      []state.InterfaceArgs{parentArgsWithID, childArgsWithID},
+		"parent-with-id-child-no-id": []state.InterfaceArgs{parentArgsWithID, childArgs},
+		"child-no-id-parent-with-id": []state.InterfaceArgs{childArgs, parentArgsWithID},
+		"child-with-id-parent-no-id": []state.InterfaceArgs{childArgsWithID, parentArgs},
+	}
+	isAlreadyExistsOrProviderIDNotUniqueError := func(err error) bool {
+		return err != nil && (errors.IsAlreadyExists(err) || state.IsProviderIDNotUniqueError(err))
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(argsPermutations))
+	waitAllStarted := make(chan struct{})                 // sync all goroutines to start simultaneously.
+	successfulArgs := make(chan []state.InterfaceArgs, 1) // only 1 success expected.
+	for about, args := range argsPermutations {
+		go func(testAbout string, testArgs []state.InterfaceArgs) {
+			defer wg.Done()
+			<-waitAllStarted
+
+			err := s.machine.AddInterfaces(testArgs...)
+			c.Logf("testing %q -> %v", testAbout, err)
+			if err != nil {
+				c.Assert(err, jc.Satisfies, isAlreadyExistsOrProviderIDNotUniqueError)
+			} else {
+				select {
+				case successfulArgs <- testArgs:
+				default:
+					// successfulArgs is buffered, so if we can't send there was
+					// more than once success.
+					c.Fatalf("unexpected more than one success for args %+v", testArgs)
+				}
+			}
+		}(about, args)
+	}
+	close(waitAllStarted)
+	wg.Wait()
+
+	// Extract the successful parent and child args.
+	addedArgs := <-successfulArgs
+	c.Check(addedArgs, gc.HasLen, 2)
+	var addedChildArgs, addedParentArgs state.InterfaceArgs
+	for _, args := range addedArgs {
+		if args.ParentName == "" {
+			addedParentArgs = args
+		} else {
+			addedChildArgs = args
+		}
+	}
+
+	addedInterfaces, err := s.machine.AllInterfaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addedInterfaces, gc.HasLen, 2)
+	machineID, modelUUID := s.machine.Id(), s.State.ModelUUID()
+	for _, nic := range addedInterfaces {
+		c.Check(nic.Name(), gc.Matches, `(parent|child)`)
+		if nic.Name() == "child" {
+			s.checkAddedInterfaceMatchesArgs(c, nic, addedChildArgs)
+			s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, nic, machineID, modelUUID)
+		} else {
+			s.checkAddedInterfaceMatchesArgs(c, nic, addedParentArgs)
+			s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, nic, machineID, modelUUID)
+		}
+	}
 }
