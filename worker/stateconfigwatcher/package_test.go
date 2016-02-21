@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package voyeur_test
+package stateconfigwatcher_test
 
 import (
 	"testing"

@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"github.com/juju/utils/voyeur"
+
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/state"
@@ -15,6 +17,8 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/reboot"
+	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -26,6 +30,10 @@ type ManifoldsConfig struct {
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
+
+	// AgentConfigChanged is set whenever the machine agent's config
+	// is updated.
+	AgentConfigChanged *voyeur.Value
 
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
@@ -40,6 +48,10 @@ type ManifoldsConfig struct {
 	// coordinate workers that shouldn't do anything until the
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
+
+	// OpenState is function used by the state manifold to create a
+	// *state.State.
+	OpenState func(coreagent.Config) (*state.State, error)
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
@@ -75,6 +87,25 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// in. It has no inputs and its only output is the error it
 		// returns.
 		terminationName: terminationworker.Manifold(),
+
+		// The stateconfigwatcher manifold watches the machine agent's
+		// configuration and reports if state serving info is
+		// present. It will bounce itself if state serving info is
+		// added or removed. It is intended as a dependency just for
+		// the state manifold.
+		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
+		// The state manifold creates a *state.State and makes it
+		// available to other manifolds. It pings the mongodb session
+		// regularly and will die if pings fail.
+		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
+			AgentName:              agentName,
+			StateConfigWatcherName: stateConfigWatcherName,
+			OpenState:              config.OpenState,
+		}),
 
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
@@ -184,6 +215,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 const (
 	agentName                = "agent"
 	terminationName          = "termination"
+	stateConfigWatcherName   = "state-config-watcher"
+	stateName                = "state"
 	apiCallerName            = "api-caller"
 	apiInfoGateName          = "api-info-gate"
 	upgradeStepsGateName     = "upgrade-steps-gate"

@@ -237,11 +237,10 @@ func (a *machineAgentCmd) Init(args []string) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
-	agentConfig := a.currentConfig.CurrentConfig()
 
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
-		Filename:   agent.LogFilename(agentConfig),
+		Filename:   agent.LogFilename(a.currentConfig.CurrentConfig()),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
@@ -301,6 +300,7 @@ func NewMachineAgent(
 	return &MachineAgent{
 		machineId:                   machineId,
 		AgentConfigWriter:           agentConfWriter,
+		configChangedVal:            voyeur.NewValue(true),
 		bufferedLogs:                bufferedLogs,
 		workersStarted:              make(chan struct{}),
 		runner:                      runner,
@@ -320,7 +320,7 @@ type MachineAgent struct {
 	runner           worker.Runner
 	rootDir          string
 	bufferedLogs     logsender.LogRecordCh
-	configChangedVal voyeur.Value
+	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
 
@@ -486,8 +486,10 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{a},
+			AgentConfigChanged:   a.configChangedVal,
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			OpenState:            a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
@@ -534,11 +536,8 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
-	a.configChangedVal.Set(struct{}{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
 }
 
 // PrepareRestore will flag the agent to allow only a limited set
@@ -1014,20 +1013,38 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
+	// Start MongoDB server and dial.
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, err
+	}
+
+	st, _, err := openState(agentConfig, stateWorkerDialOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return st, nil
+}
+
 // StateWorker returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	// Start MongoDB server and dial.
-	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, err
-	}
-	st, m, err := openState(agentConfig, stateWorkerDialOpts)
+	st, err := a.initState(agentConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
+	// TODO(mjs) - needs to move to initState once StateWorker is
+	// reworked.
 	reportOpenedState(st)
+
+	m, err := getMachine(st, agentConfig.Tag())
+	if err != nil {
+		return nil, errors.Annotate(err, "machine lookup")
+	}
 
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)
@@ -1833,6 +1850,14 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 		return nil, nil, worker.ErrTerminateAgent
 	}
 	return st, m, nil
+}
+
+func getMachine(st *state.State, tag names.Tag) (*state.Machine, error) {
+	m0, err := st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	return m0.(*state.Machine), nil
 }
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker
