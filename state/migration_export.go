@@ -427,6 +427,7 @@ func (e *exporter) relations() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	e.logger.Debugf("read %d relations", len(rels))
 
 	relationScopes, err := e.readAllRelationScopes()
 	if err != nil {
@@ -480,6 +481,7 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relation scopes")
 	}
+	e.logger.Debugf("found %d relationScope docs", len(docs))
 
 	result := set.NewStrings()
 	for _, doc := range docs {
@@ -497,6 +499,7 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
+	e.logger.Debugf("found %d unit docs", len(docs))
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
 		units := result[doc.Service]
