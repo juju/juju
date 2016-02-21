@@ -602,9 +602,9 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
+	s.AgentSuite.PatchValue(&resumer.NewResumer, func(st resumer.TransactionResumer) worker.Worker {
 		started.trigger()
-		return resumer.NewResumer(st)
+		return newDummyWorker()
 	})
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)

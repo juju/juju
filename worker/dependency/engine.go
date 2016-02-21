@@ -425,6 +425,7 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 			<-engine.tomb.Dying()
 			return tomb.ErrDying
 		}
+
 		return worker.Wait()
 	}
 
