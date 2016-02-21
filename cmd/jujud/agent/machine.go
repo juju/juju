@@ -89,6 +89,7 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/resumer"
@@ -126,6 +127,7 @@ var (
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
 	newMetadataUpdater       = imagemetadataworker.NewWorker
+	newUpgradeMongoWorker    = mongoupgrader.New
 	reportOpenedState        = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 	getUndertakerAPI         = undertakerAPI
@@ -487,7 +489,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
 			Clock:                clock.WallClock,
-			Scope:                a.CurrentConfig().Tag(),
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -535,6 +536,31 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
+	if !a.mongoInitialized {
+		return nil
+	}
+
+	conf := a.AgentConfigWriter.CurrentConfig()
+	v := conf.MongoVersion()
+
+	logger.Errorf("Got version change %v", ver)
+	// TODO(perrito666) replace with "read-only" mode for environment when
+	// it is available.
+	if ver.NewerThan(v) > 0 {
+		err := a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
+			config.SetMongoVersion(mongo.MongoUpgrade)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+
 }
 
 // PrepareRestore will flag the agent to allow only a limited set
@@ -954,6 +980,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				return w, nil
 			})
+			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
+				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
+			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1156,9 +1185,8 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		a.discoveringSpacesMutex.Lock()
-		defer a.discoveringSpacesMutex.Unlock()
 		w, discoveringSpaces := newDiscoverSpaces(apiSt.DiscoverSpaces())
+		a.discoveringSpacesMutex.Lock()
 		if a.discoveringSpaces == nil {
 			// If the discovery channel has not been set, set it here. If
 			// it has been set then the worker has been restarted and we
@@ -1166,6 +1194,7 @@ func (a *MachineAgent) startEnvWorkers(
 			// will block the api.
 			a.discoveringSpaces = discoveringSpaces
 		}
+		a.discoveringSpacesMutex.Unlock()
 		return w, nil
 	})
 
@@ -1371,14 +1400,30 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
 		return err
 	}
-	return a.limitLoginsDuringUpgrade(req)
+
+	if err := a.limitLoginsDuringUpgrade(req); err != nil {
+		return err
+	}
+	return a.limitLoginsDuringMongoUpgrade(req)
+}
+
+func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) error {
+	// If upgrade is running we will not be able to lock AgentConfigWriter
+	// and it also means we are not upgrading mongo.
+	if a.isUpgradeRunning() {
+		return nil
+	}
+	cfg := a.AgentConfigWriter.CurrentConfig()
+	ver := cfg.MongoVersion()
+	if ver == mongo.MongoUpgrade {
+		return errors.New("Upgrading Mongo")
+	}
+	return nil
 }
 
 // limitLoginsUntilSpacesDiscovered will prevent logins from clients until
 // space discovery is completed.
 func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
-	a.discoveringSpacesMutex.Lock()
-	defer a.discoveringSpacesMutex.Unlock()
 	if a.discoveringSpaces == nil {
 		// Space discovery not started.
 		return nil
@@ -1573,11 +1618,12 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo: dialInfo,
-		DataDir:  agentConfig.DataDir(),
-		Port:     servingInfo.StatePort,
-		User:     mongoInfo.Tag.String(),
-		Password: mongoInfo.Password,
+		DialInfo:     dialInfo,
+		DataDir:      agentConfig.DataDir(),
+		Port:         servingInfo.StatePort,
+		User:         mongoInfo.Tag.String(),
+		Password:     mongoInfo.Password,
+		MongoVersion: agentConfig.MongoVersion(),
 	})
 }
 

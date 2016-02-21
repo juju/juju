@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/worker/upgradewaiter"
 	"github.com/juju/juju/worker/util"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 )
 
@@ -84,13 +83,9 @@ type ManifoldsConfig struct {
 
 	// Clock is used by the storageprovisioner worker.
 	Clock clock.Clock
-
-	// Socpe is used by storageprovisioner worker to determine what if it is
-	// provisioning storage for an environment or a machine.
-	Scope names.Tag
 }
 
-// Manifolds returns ea set of co-configured manifolds covering the
+// Manifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a machine agent.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
@@ -278,21 +273,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
-		// NewStorageProvisioner returns a Worker which manages
-		// provisioning (deprovisioning), and attachment (detachment)
-		// of first-class volumes and filesystems.
-		//
-		// Machine-scoped storage workers will be provided with
-		// a storage directory, while environment-scoped workers
-		// will not. If the directory path is non-empty, then it
-		// will be passed to the storage source via its config.
+		// The storageProvisioner worker manages provisioning
+		// (deprovisioning), and attachment (detachment) of first-class
+		// volumes and filesystems.
 		storageprovisionerName: storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
 				AgentName:         agentName,
 				APICallerName:     apiCallerName,
 				UpgradeWaiterName: upgradeWaiterName},
 			Clock: config.Clock,
-			Scope: config.Scope,
 		}),
 	}
 }

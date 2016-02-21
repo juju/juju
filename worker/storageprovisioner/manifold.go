@@ -22,20 +22,29 @@ import (
 type ManifoldConfig struct {
 	util.PostUpgradeManifoldConfig
 	Clock clock.Clock
-	Scope names.Tag
 }
 
 // Manifold returns a dependency.Manifold that runs a storage provisioner.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	newWorker := func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+		if config.Clock == nil {
+			return nil, dependency.ErrMissing
+		}
+
 		cfg := a.CurrentConfig()
 		api, err := storageprovisioner.NewState(apiCaller, cfg.Tag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		tag, ok := cfg.Tag().(names.MachineTag)
+		if !ok {
+			return nil, errors.Errorf("this manifold may only be used inside a machine agent")
+		}
+
 		storageDir := filepath.Join(cfg.DataDir(), "storage")
 		w, err := NewStorageProvisioner(Config{
-			Scope:       config.Scope,
+			Scope:       tag,
 			StorageDir:  storageDir,
 			Volumes:     api,
 			Filesystems: api,

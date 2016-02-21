@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
@@ -44,6 +45,11 @@ var (
 	FullAPIExposed       exposedAPI = true
 	RestrictedAPIExposed exposedAPI = false
 )
+
+var ShortAttempt = &utils.AttemptStrategy{
+	Total: time.Second * 10,
+	Delay: time.Millisecond * 200,
+}
 
 type upgradeSuite struct {
 	agenttesting.AgentSuite
@@ -274,9 +280,21 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 	toInfo, ok := toConf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	fromInfo.Addrs = toInfo.Addrs
-	apiState, err := api.Open(fromInfo, upgradeTestDialOpts)
-	if apiState != nil {
-		apiState.Close()
+	var err error
+	var apiState api.Connection
+	for a := ShortAttempt.Start(); a.Next(); {
+		apiState, err = api.Open(fromInfo, upgradeTestDialOpts)
+		// If space discovery is still in progress we retry.
+		if err != nil && strings.Contains(err.Error(), "space discovery still in progress") {
+			if !a.HasNext() {
+				return false
+			}
+			continue
+		}
+		if apiState != nil {
+			apiState.Close()
+		}
+		break
 	}
 	return apiState != nil && err == nil
 }
@@ -313,7 +331,11 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	info.Nonce = ""
 
 	apiState, err := api.Open(info, upgradeTestDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		// If space discovery is in progress we'll get an error here
+		// and need to retry.
+		return err
+	}
 	defer apiState.Close()
 
 	// this call should always work

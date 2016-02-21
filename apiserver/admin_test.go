@@ -41,7 +41,7 @@ type loginSuite struct {
 var _ = gc.Suite(&loginSuite{
 	baseLoginSuite{
 		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 0, 1, 2)
+			apiserver.SetAdminApiVersions(srv, 3)
 		},
 	},
 })
@@ -50,46 +50,6 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 }
-
-type loginV0Suite struct {
-	loginSuite
-}
-
-var _ = gc.Suite(&loginV0Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 0)
-			},
-		},
-	},
-})
-
-type loginV1Suite struct {
-	loginSuite
-}
-
-var _ = gc.Suite(&loginV1Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 1)
-			},
-		},
-	},
-})
-
-type loginAncientSuite struct {
-	baseLoginSuite
-}
-
-var _ = gc.Suite(&loginAncientSuite{
-	baseLoginSuite{
-		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetPreFacadeAdminApi(srv)
-		},
-	},
-})
 
 func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
 	return s.setupServerForEnvironment(c, s.State.ModelTag())
@@ -128,7 +88,7 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	}
 
 	var response params.LoginResult
-	err = st.APICall("Admin", 2, "", "Login", request, &response)
+	err = st.APICall("Admin", 3, "", "Login", request, &response)
 	c.Assert(err, gc.ErrorMatches, `.*"bar" is not a valid tag.*`)
 }
 
@@ -225,14 +185,6 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
 	})
-}
-
-func (s *loginV0Suite) TestLoginSetsLogIdentifier(c *gc.C) {
-	s.runLoginSetsLogIdentifier(c)
-}
-
-func (s *loginV1Suite) TestLoginSetsLogIdentifier(c *gc.C) {
-	s.runLoginSetsLogIdentifier(c)
 }
 
 func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
@@ -537,72 +489,6 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	})
 }
 
-func (s *loginV0Suite) TestLoginReportsModelTag(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	// If we call api.Open without giving a username and password, then it
-	// won't call Login, so we can call it ourselves.
-	// We Login without passing an ModelTag, to show that it still lets
-	// us in, and that we can find out the real ModelTag from the
-	// response.
-	adminUser := s.AdminUserTag(c)
-	var result params.LoginResult
-	creds := &params.Creds{
-		AuthTag:  adminUser.String(),
-		Password: "dummy-secret",
-	}
-	err := st.APICall("Admin", 0, "", "Login", creds, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ModelTag, gc.Equals, s.State.ModelTag().String())
-}
-
-func (s *loginV1Suite) TestLoginReportsEnvironAndControllerTag(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-	newEnvTag := otherState.ModelTag()
-
-	st, cleanup := s.setupServerForEnvironment(c, newEnvTag)
-	defer cleanup()
-	var result params.LoginResultV1
-	creds := &params.LoginRequest{
-		AuthTag:     s.AdminUserTag(c).String(),
-		Credentials: "dummy-secret",
-	}
-	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ModelTag, gc.Equals, newEnvTag.String())
-	c.Assert(result.ControllerTag, gc.Equals, s.State.ModelTag().String())
-}
-
-func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	var result params.LoginResultV1
-	userTag := s.AdminUserTag(c)
-	creds := &params.LoginRequest{
-		AuthTag:     userTag.String(),
-		Credentials: "dummy-secret",
-	}
-	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Assert(result.UserInfo.LastConnection, gc.NotNil)
-	c.Assert(result.UserInfo.Identity, gc.Equals, userTag.String())
-	c.Assert(time.Now().Unix()-result.UserInfo.LastConnection.Unix() < 300, jc.IsTrue)
-}
-
-func (s *loginV1Suite) TestLoginRejectV0(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	var result params.LoginResultV1
-	req := &params.LoginRequest{
-		AuthTag:     s.AdminUserTag(c).String(),
-		Credentials: "dummy-secret",
-	}
-	err := st.APICall("Admin", 0, "", "Login", req, &result)
-	c.Assert(err, gc.NotNil)
-}
-
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 	validator := func(params.LoginRequest) error {
 		return nil
@@ -728,75 +614,6 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connec
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
-}
-
-func (s *loginV0Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	var result params.LoginResult
-	adminUser := s.AdminUserTag(c)
-	creds := &params.Creds{
-		AuthTag:  adminUser.String(),
-		Password: "dummy-secret",
-	}
-	err := st.APICall("Admin", 0, "", "Login", creds, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
-	// as a sanity check, ensure that we have Client v0
-	asMap := make(map[string][]int, len(result.Facades))
-	for _, facade := range result.Facades {
-		asMap[facade.Name] = facade.Versions
-	}
-	clientVersions := asMap["Client"]
-	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, 1)
-}
-
-func (s *loginV0Suite) TestLoginRejectV1(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	var result params.LoginResultV1
-	creds := &params.LoginRequest{
-		AuthTag:     s.AdminUserTag(c).String(),
-		Credentials: "dummy-secret",
-	}
-	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	// You shouldn't be able to log into a V0 server with V1 client call
-	// This should fail & API client will degrade to a V0 login attempt.
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *loginV1Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	var result params.LoginResultV1
-	adminUser := s.AdminUserTag(c)
-	creds := &params.LoginRequest{
-		AuthTag:     adminUser.String(),
-		Credentials: "dummy-secret",
-	}
-	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
-	// as a sanity check, ensure that we have Client v0
-	asMap := make(map[string][]int, len(result.Facades))
-	for _, facade := range result.Facades {
-		asMap[facade.Name] = facade.Versions
-	}
-	clientVersions := asMap["Client"]
-	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, 1)
-}
-
-func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
-	st, cleanup := s.setupServer(c)
-	defer cleanup()
-	adminUser := s.AdminUserTag(c)
-	err := st.Login(adminUser, "dummy-secret", "")
-	c.Assert(err, jc.ErrorIsNil)
-	modelTag, err := st.ModelTag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelTag.String(), gc.Equals, apiserver.PreFacadeModelTag.String())
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
