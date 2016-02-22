@@ -68,9 +68,8 @@ type csRetryClient struct {
 
 func newCSRetryClient(client charmstore.Client) *csRetryClient {
 	retryArgs := retry.CallArgs{
-		// We use errorShouldNotRetry here since errors that should not
-		// be retried should cause the retry loop to stop.
-		IsFatalError: errorShouldNotRetry,
+		// The only error that stops the retry loop should be "not found".
+		IsFatalError: errors.IsNotFound,
 		// We want to retry until the charm store either gives us the
 		// resource (and we cache it) or the resource isn't found in the
 		// charm store.
@@ -117,11 +116,4 @@ func (client csRetryClient) GetResource(cURL *charm.URL, resourceName string, re
 	}
 
 	return reader, nil
-}
-
-func errorShouldNotRetry(err error) bool {
-	if errors.IsNotFound(err) {
-		return true
-	}
-	return false
 }
