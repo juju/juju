@@ -35,7 +35,7 @@ func (deps resourcesHandlerDeps) ConnectForUnitAgent(req *http.Request) (*state.
 
 	unit, ok := ent.(*state.Unit)
 	if !ok {
-		logger.Criticalf("unexpected type: %T", ent)
+		logger.Errorf("unexpected type: %T", ent)
 		return nil, nil, errors.Errorf("unexpected type: %T", ent)
 	}
 	return st, unit, nil
