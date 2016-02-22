@@ -63,8 +63,7 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) finish
-	//store := map[string]charmresource.Resource{}
+	store := map[string]charmresource.Resource{}
 	units := map[names.UnitTag][]resource.Resource{}
 
 	var results resource.ServiceResources
@@ -77,12 +76,20 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 		if err != nil {
 			return resource.ServiceResources{}, errors.Trace(err)
 		}
+		if !doc.LastPolled.IsZero() {
+			store[res.Name] = res.Resource
+			continue
+		}
 		if doc.UnitID == "" {
 			results.Resources = append(results.Resources, res)
 			continue
 		}
 		tag := names.NewUnitTag(doc.UnitID)
 		units[tag] = append(units[tag], res)
+	}
+	for _, res := range results.Resources {
+		storeRes := store[res.Name]
+		results.CharmStoreResources = append(results.CharmStoreResources, storeRes)
 	}
 	for tag, res := range units {
 		results.UnitResources = append(results.UnitResources, resource.UnitResources{

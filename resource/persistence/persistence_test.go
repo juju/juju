@@ -38,6 +38,8 @@ func (s *PersistenceSuite) SetUpTest(c *gc.C) {
 
 func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	expected, docs := newResources(c, "a-service", "spam", "eggs")
+	expected.CharmStoreResources[1].Revision += 1
+	docs[3].Revision += 1
 	unitRes, doc := newUnitResource(c, "a-service", "a-service/0", "something")
 	expected.UnitResources = []resource.UnitResources{{
 		Tag: names.NewUnitTag("a-service/0"),
@@ -46,19 +48,19 @@ func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
 		},
 	}}
 	docs = append(docs, doc)
-	s.base.docs = docs
-
+	s.base.ReturnAll = docs
 	p := NewPersistence(s.base)
+
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkResources(c, resources, expected)
 	s.stub.CheckCallNames(c, "All")
 	s.stub.CheckCall(c, 0, "All",
 		"resources",
 		bson.D{{"service-id", "a-service"}},
 		&docs,
 	)
+	c.Check(resources, jc.DeepEquals, expected)
 }
 
 func (s *PersistenceSuite) TestListResourcesNoResources(c *gc.C) {
@@ -78,8 +80,8 @@ func (s *PersistenceSuite) TestListResourcesNoResources(c *gc.C) {
 func (s *PersistenceSuite) TestListResourcesIgnorePending(c *gc.C) {
 	expected, docs := newResources(c, "a-service", "spam", "eggs")
 	expected.Resources = expected.Resources[:1]
-	docs[1].PendingID = "some-unique-ID-001"
-	s.base.docs = docs
+	docs[2].PendingID = "some-unique-ID-001"
+	s.base.ReturnAll = docs
 	p := NewPersistence(s.base)
 
 	resources, err := p.ListResources("a-service")
@@ -113,7 +115,7 @@ func (s *PersistenceSuite) TestListResourcesBaseError(c *gc.C) {
 func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	_, docs := newResources(c, "a-service", "spam", "eggs")
 	docs[0].Timestamp = time.Time{}
-	s.base.docs = docs
+	s.base.ReturnAll = docs
 
 	p := NewPersistence(s.base)
 	_, err := p.ListResources("a-service")
@@ -138,7 +140,7 @@ func (s *PersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
 	expected = expected[1:]
 	expected[0].PendingID = "some-unique-ID-001"
 	docs[1].PendingID = "some-unique-ID-001"
-	s.base.docs = docs
+	s.base.ReturnAll = docs
 	p := NewPersistence(s.base)
 
 	resources, err := p.ListPendingResources("a-service")
@@ -161,7 +163,7 @@ func (s *PersistenceSuite) TestGetResourceOkay(c *gc.C) {
 	pendingDoc := doc // a copy
 	pendingDoc.ID = doc.ID + "#pending-some-unique-ID"
 	pendingDoc.PendingID = "some-unique-ID"
-	s.base.docs = []resourceDoc{
+	s.base.ReturnAll = []resourceDoc{
 		doc,
 		unitDoc,
 		pendingDoc,
@@ -449,14 +451,22 @@ func (s *PersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
 }
 
 func newResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {
-	var resources []resource.Resource
+	var svcResources resource.ServiceResources
 	var docs []resourceDoc
 	for _, name := range names {
 		res, doc := newResource(c, serviceID, name)
-		resources = append(resources, res.Resource)
+		svcResources.Resources = append(svcResources.Resources, res.Resource)
+		svcResources.CharmStoreResources = append(svcResources.CharmStoreResources, res.Resource.Resource)
 		docs = append(docs, doc)
+		csDoc := doc // a copy
+		csDoc.DocID += "#charmstore"
+		csDoc.Username = ""
+		csDoc.Timestamp = time.Time{}
+		csDoc.StoragePath = ""
+		csDoc.LastPolled = time.Now().UTC()
+		docs = append(docs, csDoc)
 	}
-	return resource.ServiceResources{Resources: resources}, docs
+	return svcResources, docs
 }
 
 func newUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {

@@ -66,13 +66,6 @@ type Resource struct {
 
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time
-
-	// TODO(ericsnow) Change "Outdated" to "UpToDate" so that the
-	// effective default is "outdated".
-
-	// Outdated indicates whether or not the resource is out of sync
-	// with the charm store.
-	Outdated bool
 }
 
 // Validate ensures that the spec is valid.
@@ -132,6 +125,13 @@ type ServiceResources struct {
 	// Resources are the current version of the resource for the service that
 	// resource-get will retrieve.
 	Resources []Resource
+
+	// CharmStoreResources provides the resource info from the charm
+	// store for each of the service's resources. The information from
+	// the charm store is current as of the last time the charm store
+	// was polled. Each entry here corresponds to the same indexed entry
+	// in the Resources field.
+	CharmStoreResources []resource.Resource
 
 	// UnitResources reports the currenly-in-use version of resources for each
 	// unit.
