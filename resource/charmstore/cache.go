@@ -35,8 +35,8 @@ type cacheForOperations struct {
 // get retrieves the resource info and data from the cache. If only
 // the info is found then the returned reader will be nil. If no cache
 // is in use then errors.NotFound is returned.
-func (cfo *cacheForOperations) get(name string) (resource.Resource, io.ReadCloser, error) {
-	if cfo == nil || cfo.EntityCache == nil {
+func (cfo cacheForOperations) get(name string) (resource.Resource, io.ReadCloser, error) {
+	if cfo.EntityCache == nil {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
@@ -56,8 +56,8 @@ func (cfo *cacheForOperations) get(name string) (resource.Resource, io.ReadClose
 // if there is one. If no cache is in use then this is a no-op. Note
 // that the returned reader may or may not be the same one that was
 // passed in.
-func (cfo *cacheForOperations) set(chRes charmresource.Resource, reader io.ReadCloser) (resource.Resource, io.ReadCloser, error) {
-	if cfo == nil || cfo.EntityCache == nil {
+func (cfo cacheForOperations) set(chRes charmresource.Resource, reader io.ReadCloser) (resource.Resource, io.ReadCloser, error) {
+	if cfo.EntityCache == nil {
 		res := resource.Resource{
 			Resource: chRes,
 		}
