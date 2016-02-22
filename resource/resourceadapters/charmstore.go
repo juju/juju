@@ -19,7 +19,7 @@ import (
 	corestate "github.com/juju/juju/state"
 )
 
-// EntityState adapts between resource state and charmstore.EntityCache.
+// charmstoreEntityCache adapts between resource state and charmstore.EntityCache.
 type charmstoreEntityCache struct {
 	st        corestate.Resources
 	userID    names.Tag
