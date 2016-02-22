@@ -14,7 +14,7 @@ import (
 )
 
 type rawImageClient interface {
-	ListAliases() ([]shared.ImageAlias, error)
+	ListAliases() (shared.ImageAliases, error)
 }
 
 type imageClient struct {

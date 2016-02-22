@@ -7,8 +7,9 @@ package lxdclient
 
 import (
 	"fmt"
-	"net"
+	/// XXX: jam 2016-02-22 "net"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -84,22 +85,24 @@ func (spec InstanceSpec) config() map[string]string {
 	return resolveMetadata(spec.Metadata)
 }
 
-func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
+func (spec InstanceSpec) info(namespace string) *shared.ContainerInfo {
 	name := spec.Name
 	if namespace != "" {
 		name = namespace + "-" + name
 	}
 
-	return &shared.ContainerState{
+	return &shared.ContainerInfo{
 		Architecture:    0,
 		Config:          spec.config(),
+		CreationDate:    time.Time{},
 		Devices:         shared.Devices{},
 		Ephemeral:       spec.Ephemeral,
 		ExpandedConfig:  map[string]string{},
 		ExpandedDevices: shared.Devices{},
 		Name:            name,
 		Profiles:        spec.Profiles,
-		Status:          shared.ContainerStatus{},
+		Status:          "",
+		StatusCode:      0, // TODO(jam) shared.Success == 200?
 	}
 }
 
@@ -142,7 +145,7 @@ type InstanceSummary struct {
 	Addresses []network.Address
 }
 
-func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
+func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 	archStr, _ := shared.ArchitectureName(info.Architecture)
 	archStr = arch.NormaliseArch(archStr)
 
@@ -157,23 +160,29 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 	}
 
 	var addrs []network.Address
-	for _, info := range info.Status.Ips {
-		addr := network.NewAddress(info.Address)
+	/// XXX: jam 2016-02-22 For now we can't track IPs. The problem is
+	/// that IPs are only on the ContainerState object, but things like
+	/// Architecture and Name are only on the ContainerInfo object.
+	/// ListContainers returns an array of the latter, but we'd have to do
+	/// an extra API request per container to get objects of the former.
+	/// certainly can, but I'd like to know that we need to first.
+	/// for _, info := range info.Status.Ips {
+	/// 	addr := network.NewAddress(info.Address)
 
-		// Ignore loopback devices.
-		// TODO(ericsnow) Move the loopback test to a network.Address method?
-		ip := net.ParseIP(addr.Value)
-		if ip != nil && ip.IsLoopback() {
-			continue
-		}
+	/// 	// Ignore loopback devices.
+	/// 	// TODO(ericsnow) Move the loopback test to a network.Address method?
+	/// 	ip := net.ParseIP(addr.Value)
+	/// 	if ip != nil && ip.IsLoopback() {
+	/// 		continue
+	/// 	}
 
-		addrs = append(addrs, addr)
-	}
+	/// 	addrs = append(addrs, addr)
+	/// }
 
 	// TODO(ericsnow) Factor this out into a function.
-	statusStr := info.Status.Status
+	statusStr := info.Status
 	for status, code := range allStatuses {
-		if info.Status.StatusCode == code {
+		if info.StatusCode == code {
 			statusStr = status
 			break
 		}
@@ -202,7 +211,7 @@ type Instance struct {
 	spec *InstanceSpec
 }
 
-func newInstance(info *shared.ContainerState, spec *InstanceSpec) *Instance {
+func newInstance(info *shared.ContainerInfo, spec *InstanceSpec) *Instance {
 	summary := newInstanceSummary(info)
 	return NewInstance(summary, spec)
 }
