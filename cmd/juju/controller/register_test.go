@@ -207,6 +207,12 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 		APIEndpoints:   []string{s.apiConnection.addr},
 		CACert:         testing.CACert,
 	})
+	account, err := s.store.AccountByName("controller-name", "bob@local")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+		User:     "bob@local",
+		Password: "hunter2",
+	})
 
 	// The command should have logged into the controller with the
 	// information we checked above.

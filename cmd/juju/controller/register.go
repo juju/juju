@@ -159,7 +159,6 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	endpoint.ServerUUID = responsePayload.ControllerUUID
 	endpoint.CACert = responsePayload.CACert
 	controllerInfo.SetAPIEndpoint(endpoint)
-	// TODO(wallyworld) - update accounts.yaml
 	controllerInfo.SetAPICredentials(configstore.APICredentials{
 		User:     registrationParams.userTag.Id(),
 		Password: registrationParams.newPassword,
@@ -168,7 +167,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Store the controller information.
+	// Store the controller and account details.
 	controllerDetails := jujuclient.ControllerDetails{
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
@@ -182,6 +181,15 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	}
 	if err := juju.UpdateControllerAddresses(
 		c.store, legacyStore, registrationParams.controllerName, nil, hostPorts...,
+	); err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails := jujuclient.AccountDetails{
+		User:     registrationParams.userTag.Canonical(),
+		Password: registrationParams.newPassword,
+	}
+	if err := c.store.UpdateAccount(
+		registrationParams.controllerName, accountDetails.User, accountDetails,
 	); err != nil {
 		return errors.Trace(err)
 	}
