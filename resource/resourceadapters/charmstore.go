@@ -68,10 +68,18 @@ type csRetryClient struct {
 
 func newCSRetryClient(client charmstore.Client) *csRetryClient {
 	retryArgs := retry.CallArgs{
+		// We use errorShouldNotRetry here since errors that should not
+		// be retried should cause the retry loop to stop.
 		IsFatalError: errorShouldNotRetry,
-		Attempts:     -1, // retry forever...
-		Delay:        1 * time.Minute,
-		Clock:        clock.WallClock,
+		// We want to retry until the charm store either gives us the
+		// resource (and we cache it) or the resource isn't found in the
+		// charm store.
+		Attempts: -1, // retry forever...
+		// A one minute gives enough time for potential connection
+		// issues to sort themselves out without making the caller wait
+		// for an exceptional amount of time.
+		Delay: 1 * time.Minute,
+		Clock: clock.WallClock,
 	}
 	return &csRetryClient{
 		Client:    client,
