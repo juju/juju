@@ -71,7 +71,6 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		Used:             used,
 		Timestamp:        res.Timestamp,
 		Username:         res.Username,
-		Outdated:         res.Outdated,
 		combinedRevision: combinedRevision(res),
 		combinedOrigin:   combinedOrigin(used, res),
 		usedYesNo:        usedYesNo(used),

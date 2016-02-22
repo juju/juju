@@ -34,7 +34,6 @@ type FormattedSvcResource struct {
 	Used        bool      `json:"used" yaml:"used"`
 	Timestamp   time.Time `json:"timestamp,omitempty" yaml:"timestamp,omitempty"`
 	Username    string    `json:"username,omitempty" yaml:"username,omitempty"`
-	Outdated    bool      `json:"outdated" yaml:"outdated"`
 
 	// These fields are not exported so they won't be serialized, since they are
 	// specific to the tabular output.

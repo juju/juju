@@ -66,7 +66,6 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
 		ID:        "a-service/website",
 		ServiceID: "a-service",
-		Outdated:  true,
 	}
 
 	f := FormatSvcResource(r)
@@ -84,7 +83,6 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Description:      r.Description,
 		Timestamp:        r.Timestamp,
 		Username:         r.Username,
-		Outdated:         true,
 		combinedRevision: "5",
 		usedYesNo:        "yes",
 		combinedOrigin:   "charmstore",
