@@ -75,10 +75,11 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 	}
 
 	reader, err = args.Client.GetResource(args.CharmURL, res.Name, res.Revision)
+	if errors.IsNotFound(err) {
+		msg := "while getting resource from the charm store"
+		return resource.Resource{}, nil, errors.Annotate(err, msg)
+	}
 	if err != nil {
-		if errors.IsNotFound(err) {
-			err = errors.Annotate(err, "(in the charm store)")
-		}
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
