@@ -47,7 +47,6 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
-		Outdated:  true,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
@@ -72,8 +71,6 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 
 		Username:  "a-user",
 		Timestamp: now,
-
-		Outdated: true,
 
 		StoragePath: "service-a-service/resources/spam",
 	})
@@ -257,8 +254,6 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		Outdated: true,
-
 		StoragePath: "service-a-service/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -281,7 +276,6 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
-		Outdated:  true,
 	})
 }
 
@@ -357,7 +351,6 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
-		Outdated:  true,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
@@ -383,8 +376,6 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 
 		Username:  "a-user",
 		Timestamp: now,
-
-		Outdated: true,
 
 		StoragePath: "service-a-service/resources/spam",
 	})
@@ -418,8 +409,6 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		Outdated: true,
-
 		StoragePath: "service-a-service/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -442,7 +431,6 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 		ServiceID: serviceID,
 		Username:  "a-user",
 		Timestamp: now,
-		Outdated:  true,
 	})
 }
 
@@ -510,5 +498,52 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 		Origin: "upload",
 
 		StoragePath: "service-a-service/resources/spam",
+	})
+}
+
+func (s *MongoSuite) TestCharmStoreResource2DocFull(c *gc.C) {
+	content := "some data\n..."
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now().UTC()
+
+	serviceID := "a-service"
+	id := serviceID + "/spam"
+	docID := serviceResourceID("spam") + "#charmstore"
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        "spam",
+			Type:        charmresource.TypeFile,
+			Path:        "spam.tgz",
+			Description: "you need this!",
+		},
+		Origin:      charmresource.OriginStore,
+		Revision:    3,
+		Fingerprint: fp,
+		Size:        int64(len(content)),
+	}
+	doc := charmStoreResource2Doc(docID, charmStoreResource{
+		Resource:   res,
+		id:         id,
+		serviceID:  serviceID,
+		lastPolled: now,
+	})
+
+	c.Check(doc, jc.DeepEquals, &resourceDoc{
+		DocID:     docID,
+		ID:        id,
+		ServiceID: serviceID,
+
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
+
+		Origin:      "store",
+		Revision:    3,
+		Fingerprint: fp.Bytes(),
+		Size:        int64(len(content)),
+
+		LastPolled: now,
 	})
 }

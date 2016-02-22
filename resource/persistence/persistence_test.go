@@ -276,6 +276,35 @@ func (s *PersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	}})
 }
 
+func (s *PersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
+	lastPolled := time.Now().UTC()
+	servicename := "a-service"
+	res, doc := newResource(c, servicename, "spam")
+	expected := doc // a copy
+	expected.DocID += "#charmstore"
+	expected.Username = ""
+	expected.Timestamp = time.Time{}
+	expected.StoragePath = ""
+	expected.LastPolled = lastPolled
+	p := NewPersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, nil, ignoredErr)
+
+	err := p.SetCharmStoreResource(res.ID, res.ServiceID, res.Resource.Resource, lastPolled)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"Run",
+		"RunTransaction",
+	)
+	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/spam#charmstore",
+		Assert: txn.DocMissing,
+		Insert: &expected,
+	}})
+}
+
 func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"

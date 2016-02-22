@@ -18,7 +18,8 @@ import (
 const (
 	resourcesC = "resources"
 
-	stagedIDSuffix = "#staged"
+	stagedIDSuffix     = "#staged"
+	charmstoreIDSuffix = "#charmstore"
 )
 
 // resourceID converts an external resource ID into an internal one.
@@ -37,6 +38,10 @@ func pendingResourceID(id, pendingID string) string {
 	return resourceID(id, "pending", pendingID)
 }
 
+func charmStoreResourceID(id string) string {
+	return serviceResourceID(id) + charmstoreIDSuffix
+}
+
 func unitResourceID(id, unitID string) string {
 	return resourceID(id, "unit", unitID)
 }
@@ -52,6 +57,15 @@ type storedResource struct {
 
 	// storagePath is the path to where the resource content is stored.
 	storagePath string
+}
+
+// charmStoreResource holds the info for a resource as provided by the
+// charm store at as specific point in time.
+type charmStoreResource struct {
+	charmresource.Resource
+	id         string
+	serviceID  string
+	lastPolled time.Time
 }
 
 func newStagedResourceOps(stored storedResource) []txn.Op {
@@ -87,8 +101,8 @@ func newRemoveStagedOps(id string) []txn.Op {
 	}}
 }
 
-func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
-	doc := newUnitResourceDoc(unitID, stored)
+func newInsertResourceOps(stored storedResource) []txn.Op {
+	doc := newResourceDoc(stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -98,8 +112,43 @@ func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 	}}
 }
 
-func newInsertResourceOps(stored storedResource) []txn.Op {
+func newUpdateResourceOps(stored storedResource) []txn.Op {
 	doc := newResourceDoc(stored)
+
+	// TODO(ericsnow) Using "update" doesn't work right...
+	return append([]txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}, newInsertResourceOps(stored)...)
+}
+
+func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
+	doc := newCharmStoreResourceDoc(res)
+
+	return []txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+}
+
+func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
+	doc := newCharmStoreResourceDoc(res)
+
+	// TODO(ericsnow) Using "update" doesn't work right...
+	return append([]txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}, newInsertCharmStoreResourceOps(res)...)
+}
+
+func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
+	doc := newUnitResourceDoc(unitID, stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -119,18 +168,6 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}, newInsertUnitResourceOps(unitID, stored)...)
-}
-
-func newUpdateResourceOps(stored storedResource) []txn.Op {
-	doc := newResourceDoc(stored)
-
-	// TODO(ericsnow) Using "update" doesn't work right...
-	return append([]txn.Op{{
-		C:      resourcesC,
-		Id:     doc.DocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}, newInsertResourceOps(stored)...)
 }
 
 // newResolvePendingResourceOps generates transaction operations that
@@ -156,6 +193,12 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 	} else {
 		return append(ops, newInsertResourceOps(newRes)...)
 	}
+}
+
+// newCharmStoreResourceDoc generates a doc that represents the given resource.
+func newCharmStoreResourceDoc(res charmStoreResource) *resourceDoc {
+	fullID := charmStoreResourceID(res.id)
+	return charmStoreResource2Doc(fullID, res)
 }
 
 // newUnitResourceDoc generates a doc that represents the given resource.
@@ -236,9 +279,22 @@ type resourceDoc struct {
 	Username  string    `bson:"username"`
 	Timestamp time.Time `bson:"timestamp-when-added"`
 
-	Outdated bool `bson:"outdated"`
-
 	StoragePath string `bson:"storage-path"`
+
+	LastPolled time.Time `bson:"timestamp-when-last-polled"`
+}
+
+func charmStoreResource2Doc(id string, res charmStoreResource) *resourceDoc {
+	stored := storedResource{
+		Resource: resource.Resource{
+			Resource:  res.Resource,
+			ID:        res.id,
+			ServiceID: res.serviceID,
+		},
+	}
+	doc := resource2doc(id, stored)
+	doc.LastPolled = res.lastPolled
+	return doc
 }
 
 func unitResource2Doc(id, unitID string, stored storedResource) *resourceDoc {
@@ -271,8 +327,6 @@ func resource2doc(id string, stored storedResource) *resourceDoc {
 
 		Username:  res.Username,
 		Timestamp: res.Timestamp,
-
-		Outdated: res.Outdated,
 
 		StoragePath: stored.storagePath,
 	}
@@ -329,7 +383,6 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 		ServiceID: doc.ServiceID,
 		Username:  doc.Username,
 		Timestamp: doc.Timestamp,
-		Outdated:  doc.Outdated,
 	}
 	if err := res.Validate(); err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")
