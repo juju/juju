@@ -298,7 +298,6 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 
 	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	// TODO(rog) is this really the right error here?
 	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
 }
 
@@ -309,6 +308,5 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 
 	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	// TODO(rog) is this really the right error here?
 	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
 }
