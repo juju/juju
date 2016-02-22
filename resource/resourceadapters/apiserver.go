@@ -17,8 +17,8 @@ import (
 // APIHTTPRequestExtractor provides the functionality to extract an API
 // request from an HTTP request.
 type APIHTTPRequestExtractor struct {
-	// Deps holds the external dependencies of APIHTTPRequestExtractor.
-	Deps APIHTTPRequestExtractorDeps
+	// Connector provides connections to Juju's state.
+	Connector StateConnector
 }
 
 // NewResourceOpener returns a new resource.Opener for the given
@@ -38,7 +38,7 @@ func (ex APIHTTPRequestExtractor) NewResourceOpener(req *http.Request) (resource
 }
 
 func (ex APIHTTPRequestExtractor) extractForUnit(req *http.Request) (*apiHTTPRequest, error) {
-	st, unit, err := ex.Deps.ConnectForUnitAgent(req)
+	st, unit, err := ex.Connector.ConnectForUnitAgent(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -57,9 +57,8 @@ func (ex APIHTTPRequestExtractor) extractForUnit(req *http.Request) (*apiHTTPReq
 	return apiReq, nil
 }
 
-// APIHTTPRequestExtractorDeps exposes the external dependencies
-// of APIHTTPRequestExtractor.
-type APIHTTPRequestExtractorDeps interface {
+// StateConnector exposes ways to connect to Juju's state.
+type StateConnector interface {
 	// ConnectForUser connects to state for an API user.
 	ConnectForUser(*http.Request) (*corestate.State, corestate.Entity, error)
 

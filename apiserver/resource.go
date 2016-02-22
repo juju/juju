@@ -62,7 +62,7 @@ func newResourceHandler(httpCtxt httpContext) http.Handler {
 
 func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 	extractor := resourceadapters.APIHTTPRequestExtractor{
-		Deps: &resourcesHandlerDeps{httpCtxt},
+		Connector: &resourcesHandlerDeps{httpCtxt},
 	}
 	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
 	return internalserver.NewLegacyHTTPHandler(deps)
