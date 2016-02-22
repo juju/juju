@@ -101,13 +101,14 @@ func (s *StagedResourceSuite) TestUnstageOkay(c *gc.C) {
 func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	staged, doc := s.newStagedResource(c, "a-service", "spam")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, nil, ignoredErr)
 
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "One", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCall(c, 2, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -122,13 +123,14 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	staged, doc := s.newStagedResource(c, "a-service", "spam")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, txn.ErrAborted, nil, nil, nil, ignoredErr)
 
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "One", "IncCharmModifiedVersionOps", "RunTransaction", "One", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCall(c, 2, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -138,7 +140,8 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 5, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 6, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocExists,

@@ -556,6 +556,56 @@ func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults,
 	return result, nil
 }
 
+// CharmModifiedVersion returns the most CharmModifiedVersion for all given
+// units or services.
+func (u *UniterAPIV3) CharmModifiedVersion(args params.Entities) (params.IntResults, error) {
+	results := params.IntResults{
+		Results: make([]params.IntResult, len(args.Entities)),
+	}
+
+	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	canAccess, err := accessUnitOrService()
+	if err != nil {
+		return results, err
+	}
+	for i, entity := range args.Entities {
+		ver, err := u.charmModifiedVersion(entity.Tag, canAccess)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = ver
+	}
+	return results, nil
+}
+
+func (u *UniterAPIV3) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
+	tag, err := names.ParseTag(tagStr)
+	if err != nil {
+		return -1, common.ErrPerm
+	}
+	if !canAccess(tag) {
+		return -1, common.ErrPerm
+	}
+	unitOrService, err := u.st.FindEntity(tag)
+	if err != nil {
+		return -1, err
+	}
+	var service *state.Service
+	switch entity := unitOrService.(type) {
+	case *state.Service:
+		service = entity
+	case *state.Unit:
+		service, err = entity.Service()
+		if err != nil {
+			return -1, err
+		}
+	default:
+		return -1, errors.BadRequestf("type %t does not have a CharmModifiedVersion", entity)
+	}
+	return service.CharmModifiedVersion(), nil
+}
+
 // CharmURL returns the charm URL for all given units or services.
 func (u *UniterAPIV3) CharmURL(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{

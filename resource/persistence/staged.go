@@ -4,6 +4,8 @@
 package persistence
 
 import (
+	"bytes"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -76,10 +78,42 @@ func (staged StagedResource) Activate() error {
 		}
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedOps(staged.id)...)
+
+		// If we are changing the bytes for a resource, we increment the
+		// CharmModifiedVersion on the service, since resources are integral to
+		// the high level "version" of the charm.
+		if staged.stored.PendingID == "" {
+			hasNewBytes, err := staged.hasNewBytes()
+			if err != nil {
+				logger.Errorf("can't read existing resource during activate: %v", errors.Details(err))
+				return nil, errors.Trace(err)
+			}
+			if hasNewBytes {
+				incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ServiceID)
+				ops = append(ops, incOps...)
+			}
+		}
+		logger.Debugf("activate ops: %#v", ops)
 		return ops, nil
 	}
 	if err := staged.base.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (staged StagedResource) hasNewBytes() (bool, error) {
+	var current resourceDoc
+	err := staged.base.One(resourcesC, staged.stored.ID, &current)
+	switch {
+	case errors.IsNotFound(err):
+		// if there's no current resource stored, then any non-zero bytes will
+		// be new.
+		return !staged.stored.Fingerprint.IsZero(), nil
+	case err != nil:
+		return false, errors.Annotate(err, "couldn't read existing resource")
+	default:
+		diff := !bytes.Equal(staged.stored.Fingerprint.Bytes(), current.Fingerprint)
+		return diff, nil
+	}
 }

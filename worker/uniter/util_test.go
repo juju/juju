@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -241,8 +242,8 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
-	c.Logf("ctx.hooks: %#v", ctx.hooks)
+	c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
+	c.Logf("expected hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
@@ -970,6 +971,22 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	url, ok := ctx.unit.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
+}
+
+type pushResource struct{}
+
+func (s pushResource) step(c *gc.C, ctx *context) {
+	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ServiceName(), "the bytes")
+
+	res, err := ctx.st.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = res.SetResource(
+		ctx.unit.ServiceName(),
+		opened.Username,
+		opened.Resource.Resource,
+		opened.ReadCloser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startUpgradeError struct{}

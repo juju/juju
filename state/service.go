@@ -33,21 +33,22 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
-	DocID             string     `bson:"_id"`
-	Name              string     `bson:"name"`
-	ModelUUID         string     `bson:"model-uuid"`
-	Series            string     `bson:"series"`
-	Subordinate       bool       `bson:"subordinate"`
-	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:"forcecharm"`
-	Life              Life       `bson:"life"`
-	UnitCount         int        `bson:"unitcount"`
-	RelationCount     int        `bson:"relationcount"`
-	Exposed           bool       `bson:"exposed"`
-	MinUnits          int        `bson:"minunits"`
-	OwnerTag          string     `bson:"ownertag"`
-	TxnRevno          int64      `bson:"txn-revno"`
-	MetricCredentials []byte     `bson:"metric-credentials"`
+	DocID                string     `bson:"_id"`
+	Name                 string     `bson:"name"`
+	ModelUUID            string     `bson:"model-uuid"`
+	Series               string     `bson:"series"`
+	Subordinate          bool       `bson:"subordinate"`
+	CharmURL             *charm.URL `bson:"charmurl"`
+	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
+	ForceCharm           bool       `bson:"forcecharm"`
+	Life                 Life       `bson:"life"`
+	UnitCount            int        `bson:"unitcount"`
+	RelationCount        int        `bson:"relationcount"`
+	Exposed              bool       `bson:"exposed"`
+	MinUnits             int        `bson:"minunits"`
+	OwnerTag             string     `bson:"ownertag"`
+	TxnRevno             int64      `bson:"txn-revno"`
+	MetricCredentials    []byte     `bson:"metric-credentials"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -284,6 +285,12 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 // have subordinate units.
 func (s *Service) IsPrincipal() bool {
 	return !s.doc.Subordinate
+}
+
+// CharmModifiedVersion increases whenever the service's charm is changed in any
+// way.
+func (s *Service) CharmModifiedVersion() int {
+	return s.doc.CharmModifiedVersion
 }
 
 // CharmURL returns the service's charm URL, and whether units should upgrade
@@ -524,6 +531,9 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
 		},
 	}...)
+
+	ops = append(ops, incCharmModifiedVersionOps(s.doc.DocID)...)
+
 	// Add any extra peer relations that need creation.
 	newPeers := s.extraPeerRelations(ch.Meta())
 	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
@@ -637,6 +647,9 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
+	// this value holds the *previous* charm modified version, before this
+	// transaction commits.
+	var charmModifiedVersion int
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharm to succeed
@@ -650,33 +663,65 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 				return nil, ErrDead
 			}
 		}
+
+		// We can't update the in-memory service doc inside the transaction, so
+		// we manually udpate it at the end of the SetCharm method. However, we
+		// have no way of knowing what the charmModifiedVersion will be, since
+		// it's just incrementing the value in the DB (and that might be out of
+		// step with the value we have in memory).  What we have to do is read
+		// the DB, store the charmModifiedVersion we get, run the transaction,
+		// assert in the transaction that the charmModifiedVersion hasn't
+		// changed since we retrieved it, and then we know what its value must
+		// be after this transaction ends.  It's hacky, but there's no real
+		// other way to do it, thanks to the way mgo's transactions work.
+		var doc serviceDoc
+		err := services.FindId(s.doc.DocID).One(&doc)
+		var charmModifiedVersion int
+		switch {
+		case err == mgo.ErrNotFound:
+			// 0 is correct, since no previous charm existed.
+		case err != nil:
+			return nil, errors.Annotate(err, "can't open previous copy of charm")
+		default:
+			charmModifiedVersion = doc.CharmModifiedVersion
+		}
+		ops := []txn.Op{{
+			C:      servicesC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"charmmodifiedversion", charmModifiedVersion}},
+		}}
+
 		// Make sure the service doesn't have this charm already.
 		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
-		var ops []txn.Op
-		if count, err := services.Find(sel).Count(); err != nil {
+		count, err := services.Find(sel).Count()
+		if err != nil {
 			return nil, errors.Trace(err)
-		} else if count == 1 {
+		}
+		if count > 0 {
 			// Charm URL already set; just update the force flag.
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
-			ops = []txn.Op{{
+			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
 				Update: bson.D{{"$set", bson.D{{"forcecharm", forceUnits}}}},
-			}}
+			}}...)
 		} else {
 			// Change the charm URL.
-			ops, err = s.changeCharmOps(ch, forceUnits)
+			chng, err := s.changeCharmOps(ch, forceUnits)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			ops = append(ops, chng...)
 		}
+
 		return ops, nil
 	}
 	err := s.st.run(buildTxn)
 	if err == nil {
 		s.doc.CharmURL = ch.URL()
 		s.doc.ForceCharm = forceUnits
+		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
 	return err
 }
@@ -1467,4 +1512,15 @@ var statusServerities = map[Status]int{
 	StatusTerminated:  60,
 	StatusActive:      50,
 	StatusUnknown:     40,
+}
+
+// incCharmModifiedVersionOps returns the operations necessary to increment
+// the CharmModifiedVersion field for the given service.
+func incCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
+	}}
 }

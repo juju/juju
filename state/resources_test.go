@@ -28,6 +28,9 @@ type ResourcesSuite struct {
 }
 
 func (s *ResourcesSuite) TestFunctional(c *gc.C) {
+	ch := s.ConnSuite.AddTestingCharm(c, "wordpress")
+	s.ConnSuite.AddTestingService(c, "a-service", ch)
+
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -15,6 +15,8 @@ type stubStatePersistence struct {
 
 	docs      []resourceDoc
 	ReturnOne resourceDoc
+
+	ReturnIncCharmModifiedVersionOps []txn.Op
 }
 
 func (s stubStatePersistence) One(collName, id string, doc interface{}) error {
@@ -50,6 +52,14 @@ func (s stubStatePersistence) Run(buildTxn jujutxn.TransactionSource) error {
 	}
 
 	return nil
+}
+
+func (s stubStatePersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
+	s.stub.AddCall("IncCharmModifiedVersionOps", serviceID)
+	// pop off an error so num errors == num calls, even though this call
+	// doesn't actually use the error.
+	s.stub.NextErr()
+	return s.ReturnIncCharmModifiedVersionOps
 }
 
 // See github.com/juju/txn.transactionRunner.Run.
