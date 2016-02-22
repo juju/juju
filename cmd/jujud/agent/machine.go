@@ -66,7 +66,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -886,29 +885,20 @@ func (a *MachineAgent) Restart() error {
 //
 // TODO(mjs)- review the need for this once the dependency engine is
 // in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
+func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	agentConfig := a.CurrentConfig()
 	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, nil, errors.New("no state info available")
+		return nil, errors.New("no state info available")
 	}
 	st, err := state.Open(agentConfig.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-
-	// Ensure storage is available during upgrades.
-	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor, false)
-
-	closer := func() {
-		unregisterSimplestreamsDataSource()
-		st.Close()
-	}
-	return st, closer, nil
+	return st, nil
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -1128,18 +1118,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			return nil, errors.Errorf("unknown job type %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
-}
-
-type stateWorkerCloser struct {
-	stateCloser io.Closer
-}
-
-func (s stateWorkerCloser) Close() error {
-	// This state-dependent data source will be useless once state is closed -
-	// un-register it before closing state.
-	unregisterSimplestreamsDataSource()
-	return s.stateCloser.Close()
+	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
 // startEnvWorkers starts controller workers that need to run per
