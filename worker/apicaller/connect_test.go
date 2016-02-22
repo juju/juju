@@ -1,11 +1,12 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apicaller
+package apicaller_test
 
 import (
 	"fmt"
 
+	"github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +17,16 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
+
+type OnlyConnectSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&OnlyConnectSuite{})
+
+func (s *OnlyConnectSuite) TestFatal(c *gc.C) {
+	c.Fatalf("xxx")
+}
 
 type OpenAPIStateSuite struct {
 	coretesting.BaseSuite

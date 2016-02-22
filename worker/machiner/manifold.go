@@ -5,6 +5,7 @@ package machiner
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -19,7 +20,6 @@ import (
 // Manifold will depend.
 type ManifoldConfig struct {
 	util.PostUpgradeManifoldConfig
-	WriteUninstallFile func() error
 }
 
 // Manifold returns a dependency manifold that runs a machiner worker, using
@@ -59,7 +59,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			Tag:             tag.(names.MachineTag),
 			ClearMachineAddressesOnStart: ignoreMachineAddresses,
 			NotifyMachineDead: func() error {
-				return config.WriteUninstallFile()
+				return agent.SetCanUninstall(a)
 			},
 		})
 		if err != nil {
