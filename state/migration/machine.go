@@ -36,6 +36,8 @@ type machine struct {
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
 
+	Annotations_ map[string]interface{} `yaml:"annotations,omitempty"`
+
 	SupportedContainers_ *[]string `yaml:"supported-containers,omitempty"`
 
 	Containers_ []*machine `yaml:"containers"`
@@ -219,6 +221,16 @@ func (m *machine) SetTools(args AgentToolsArgs) {
 	m.Tools_ = newAgentTools(args)
 }
 
+// Annotations implements Machine.
+func (m *machine) Annotations() map[string]interface{} {
+	return m.Annotations_
+}
+
+// SetAnnotations implements Machine.
+func (m *machine) SetAnnotations(annotations map[string]interface{}) {
+	m.Annotations_ = annotations
+}
+
 // Jobs implements Machine.
 func (m *machine) Jobs() []string {
 	return m.Jobs_
@@ -358,6 +370,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"tools":                schema.StringMap(schema.Any()),
 		"containers":           schema.List(schema.StringMap(schema.Any())),
 		"network-ports":        schema.StringMap(schema.Any()),
+		"annotations":          schema.StringMap(schema.Any()),
 
 		"provider-addresses":        schema.List(schema.StringMap(schema.Any())),
 		"machine-addresses":         schema.List(schema.StringMap(schema.Any())),
@@ -373,6 +386,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"instance":                  schema.Omit,
 		"supported-containers":      schema.Omit,
 		"network-ports":             schema.Omit,
+		"annotations":               schema.Omit,
 		"provider-addresses":        schema.Omit,
 		"machine-addresses":         schema.Omit,
 		"preferred-public-address":  schema.Omit,
@@ -406,6 +420,9 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 			s[i] = containerType.(string)
 		}
 		result.SupportedContainers_ = &s
+	}
+	if annotations, ok := valid["annotations"]; ok {
+		result.Annotations_ = annotations.(map[string]interface{})
 	}
 
 	if instanceMap, ok := valid["instance"]; ok {

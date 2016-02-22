@@ -126,30 +126,40 @@ func (s *ServiceSerializationSuite) TestMinimalMatches(c *gc.C) {
 	c.Assert(source, jc.DeepEquals, minimalServiceMap())
 }
 
-func (s *ServiceSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	svc := minimalService()
+func (s *ServiceSerializationSuite) exportImport(c *gc.C, service_ *service) *service {
 	initial := services{
 		Version:   1,
-		Services_: []*service{svc},
+		Services_: []*service{service_},
 	}
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("-- bytes --\n%s\n", bytes)
-
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("-- map --")
-	serviceMap := source["services"].([]interface{})[0].(map[interface{}]interface{})
-	for key, value := range serviceMap {
-		c.Logf("%s: %v", key, value)
-	}
-
 	services, err := importServices(source)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(services, gc.HasLen, 1)
+	return services[0]
+}
 
-	c.Assert(services, jc.DeepEquals, initial.Services_)
+func (s *ServiceSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	svc := minimalService()
+	service := s.exportImport(c, svc)
+	c.Assert(service, jc.DeepEquals, svc)
+}
+
+func (s *ServiceSerializationSuite) TestAnnotations(c *gc.C) {
+	initial := minimalService()
+	annotations := map[string]interface{}{
+		"string": "value",
+		"int":    42,
+		"bool":   true,
+	}
+	initial.SetAnnotations(annotations)
+
+	service := s.exportImport(c, initial)
+	c.Assert(service.Annotations(), jc.DeepEquals, annotations)
 }

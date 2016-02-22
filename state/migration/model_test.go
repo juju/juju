@@ -139,6 +139,23 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 	c.Assert(model.LatestToolsVersion(), gc.Equals, version.Zero)
 }
 
+func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	annotations := map[string]interface{}{
+		"string": "value",
+		"int":    42,
+		"bool":   true,
+	}
+	initial.SetAnnotations(annotations)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := DeserializeModel(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Annotations(), jc.DeepEquals, annotations)
+}
+
 func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {
 	model := NewModel(ModelArgs{})
 	err := model.Validate()

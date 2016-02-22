@@ -54,6 +54,12 @@ func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 		}
 	}
 
+	if annotations := model.GetAnnotations(); len(annotations) > 0 {
+		if err := newSt.SetAnnotations(model, annotations); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
 		st:      newSt,

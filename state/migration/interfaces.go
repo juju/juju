@@ -18,6 +18,9 @@ type Model interface {
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
 
+	Annotations() map[string]interface{}
+	SetAnnotations(map[string]interface{})
+
 	Users() []User
 	AddUser(UserArgs)
 
@@ -89,6 +92,9 @@ type Machine interface {
 
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
+
+	Annotations() map[string]interface{}
+	SetAnnotations(map[string]interface{})
 
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
@@ -177,6 +183,9 @@ type Service interface {
 	Status() Status
 	SetStatus(StatusArgs)
 
+	Annotations() map[string]interface{}
+	SetAnnotations(map[string]interface{})
+
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
 
@@ -207,6 +216,9 @@ type Unit interface {
 
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
+
+	Annotations() map[string]interface{}
+	SetAnnotations(map[string]interface{})
 
 	Validate() error
 }

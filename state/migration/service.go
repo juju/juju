@@ -34,6 +34,8 @@ type service struct {
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
 	MetricsCredentials_ string                 `yaml:"metrics-creds,omitempty"`
 
+	Annotations_ map[string]interface{} `yaml:"annotations,omitempty"`
+
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
@@ -159,6 +161,16 @@ func (s *service) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
 }
 
+// Annotations implements Service.
+func (s *service) Annotations() map[string]interface{} {
+	return s.Annotations_
+}
+
+// SetAnnotations implements Service.
+func (s *service) SetAnnotations(annotations map[string]interface{}) {
+	s.Annotations_ = annotations
+}
+
 // Units implements Service.
 func (s *service) Units() []Unit {
 	result := make([]Unit, len(s.Units_.Units_))
@@ -262,6 +274,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"settings-refcount":   schema.Int(),
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"metrics-creds":       schema.String(),
+		"annotations":         schema.StringMap(schema.Any()),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
@@ -271,6 +284,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"exposed":       false,
 		"min-units":     int64(0),
 		"metrics-creds": "",
+		"annotations":   schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -300,6 +314,10 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		return nil, errors.Annotate(err, "metrics credentials not valid")
 	}
 	result.MetricsCredentials_ = encodedCreds
+
+	if annotations, ok := valid["annotations"]; ok {
+		result.Annotations_ = annotations.(map[string]interface{})
+	}
 
 	status, err := importStatus(valid["status"].(map[string]interface{}))
 	if err != nil {

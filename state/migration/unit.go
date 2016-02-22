@@ -29,13 +29,13 @@ type unit struct {
 	//  storage constraints
 	//  storage attachment count
 	//  status history
-	//  opened ports
 	//  constraints... inherited from service?
 	//    whether they are or not, a constraints doc is expected
 	//    for every principal unit.
 
-	PasswordHash_ string      `yaml:"password-hash"`
-	Tools_        *agentTools `yaml:"tools"`
+	PasswordHash_ string                 `yaml:"password-hash"`
+	Annotations_  map[string]interface{} `yaml:"annotations,omitempty"`
+	Tools_        *agentTools            `yaml:"tools"`
 
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
@@ -160,6 +160,16 @@ func (u *unit) SetAgentStatus(args StatusArgs) {
 	u.AgentStatus_ = newStatus(args)
 }
 
+// Annotations implements Unit.
+func (u *unit) Annotations() map[string]interface{} {
+	return u.Annotations_
+}
+
+// SetAnnotations implements Unit.
+func (u *unit) SetAnnotations(annotations map[string]interface{}) {
+	u.Annotations_ = annotations
+}
+
 // Validate impelements Unit.
 func (u *unit) Validate() error {
 	if u.Name_ == "" {
@@ -228,6 +238,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"subordinates": schema.List(schema.String()),
 
 		"password-hash": schema.String(),
+		"annotations":   schema.StringMap(schema.Any()),
 		"tools":         schema.StringMap(schema.Any()),
 
 		"meter-status-code": schema.String(),
@@ -236,6 +247,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 	defaults := schema.Defaults{
 		"principal":         "",
 		"subordinates":      schema.Omit,
+		"annotations":       schema.Omit,
 		"meter-status-code": "",
 		"meter-status-info": "",
 	}
@@ -265,6 +277,10 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 			s[i] = subordinate.(string)
 		}
 		result.Subordinates_ = s
+	}
+
+	if annotations, ok := valid["annotations"]; ok {
+		result.Annotations_ = annotations.(map[string]interface{})
 	}
 
 	// Tools and status are required, so we expect them to be there.

@@ -67,6 +67,8 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
+	Annotations_ map[string]interface{} `yaml:"annotations,omitempty"`
+
 	Users_     users     `yaml:"users"`
 	Machines_  machines  `yaml:"machines"`
 	Services_  services  `yaml:"services"`
@@ -102,6 +104,16 @@ func (m *model) Config() map[string]interface{} {
 // LatestToolsVersion implements Model.
 func (m *model) LatestToolsVersion() version.Number {
 	return m.LatestToolsVersion_
+}
+
+// Annotations implements Model.
+func (m *model) Annotations() map[string]interface{} {
+	return m.Annotations_
+}
+
+// SetAnnotations implements Model.
+func (m *model) SetAnnotations(annotations map[string]interface{}) {
+	m.Annotations_ = annotations
 }
 
 // Implement length-based sort with ByLen type.
@@ -301,6 +313,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"owner":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
+		"annotations":  schema.StringMap(schema.Any()),
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
@@ -309,6 +322,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
 		"latest-tools": schema.Omit,
+		"annotations":  schema.Omit,
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -329,6 +343,9 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 			return nil, errors.Trace(err)
 		}
 		result.LatestToolsVersion_ = num
+	}
+	if annotations, ok := valid["annotations"]; ok {
+		result.Annotations_ = annotations.(map[string]interface{})
 	}
 
 	userMap := valid["users"].(map[string]interface{})
