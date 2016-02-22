@@ -303,6 +303,7 @@ var commandNames = []string{
 	"storage",
 	"subnet",
 	"switch",
+	"switch-user",
 	"sync-tools",
 	"unblock",
 	"unexpose",

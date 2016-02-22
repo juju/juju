@@ -109,9 +109,6 @@ type ModelCommandBase struct {
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
-
-	envGetterClient ModelGetter
-	envGetterErr    error
 }
 
 // SetClientStore implements the ModelCommand interface.
@@ -160,20 +157,6 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	return root.Client(), nil
-}
-
-// NewModelGetter returns a new object which implements the
-// ModelGetter interface.
-func (c *ModelCommandBase) NewModelGetter() (ModelGetter, error) {
-	if c.envGetterErr != nil {
-		return nil, c.envGetterErr
-	}
-
-	if c.envGetterClient != nil {
-		return c.envGetterClient, nil
-	}
-
-	return c.NewAPIClient()
 }
 
 // NewAPIRoot returns a new connection to the API server for the environment.
