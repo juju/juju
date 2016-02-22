@@ -9,14 +9,13 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
-	lxdlib "github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdclient"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type configSuite struct {
@@ -61,7 +60,7 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   lxdlib.ConfigPath("juju-testenv"),
+		Dirname:   lxdclient.ConfigPath("juju-testenv"),
 		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "",
@@ -84,7 +83,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   lxdlib.ConfigPath("juju-testenv"),
+		Dirname:   lxdclient.ConfigPath("juju-testenv"),
 		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "10.0.0.1",
