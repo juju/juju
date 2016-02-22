@@ -2,7 +2,6 @@ github.com/Azure/azure-sdk-for-go	git	9f40dc1ee704920d20418200ddf6ec382456bb0e	2
 github.com/ajstarks/svgo	git	89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518	2014-10-04T21:11:59Z
 github.com/altoros/gosigma	git	31228935eec685587914528585da4eb9b073c76d	2015-04-08T14:52:32Z
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	2014-04-29T04:34:05Z
-github.com/camlistore/lock	git	ae27720f340952636b826119b58130b9c1a847a0	2014-07-28T18:10:50Z
 github.com/chai2010/gettext-go	git	783c0fb3da95b06dd89c4ba2771f1dc289ecc27c	2015-06-19T07:42:49Z
 github.com/coreos/go-systemd	git	2d21675230a81a503f4363f4aa3490af06d52bb8	2015-01-26T19:09:17Z
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
