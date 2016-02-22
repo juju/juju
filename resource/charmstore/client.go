@@ -30,5 +30,5 @@ type BaseClient interface {
 	// is streamed from the charm store. The charm's revision, if any,
 	// is ignored. If the identified resource is not in the charm store
 	// then errors.NotFound is returned.
-	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
+	GetResource(cURL *charm.URL, resourceName string, resourceRevision int) (io.ReadCloser, error)
 }
