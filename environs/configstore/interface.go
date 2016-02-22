@@ -4,7 +4,10 @@
 package configstore
 
 import (
-	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/juju/errors"
 )
 
 // DefaultAdminUsername is used as the username to connect as in the
@@ -67,6 +70,25 @@ type Storage interface {
 	// ListSystems returns a slice of existing server names that the Storage
 	// knows about.
 	ListSystems() ([]string, error)
+}
+
+// EnvironInfoName returns a name suitable for use in the Storage.CreateInfo
+// and ReadInfo methods.
+func EnvironInfoName(controller, model string) string {
+	return fmt.Sprintf("%s:%s", controller, model)
+}
+
+// AdminModelName returns the name of the admin model for a given controller.
+//
+// NOTE(axw) when configstore is gone, and CI is updated, we'll get rid of
+// this; the admin model name will always be "admin" in future.
+func AdminModelName(controller string) string {
+	const prefix = "local."
+	if strings.HasPrefix(controller, prefix) {
+		return controller[len(prefix):]
+	}
+	// Hack for tests.
+	return controller
 }
 
 // EnvironInfo holds information associated with an environment.

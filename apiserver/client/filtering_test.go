@@ -36,10 +36,11 @@ func (f *filteringUnitTests) TestMatchPortRanges(c *gc.C) {
 
 func (s *filteringUnitTests) TestMatchSubnet(c *gc.C) {
 
+	// We do not resolve hostnames.
 	match, ok, err := client.MatchSubnet([]string{"localhost"}, "127.0.0.1")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(ok, jc.IsTrue)
-	c.Check(match, jc.IsTrue)
+	c.Check(ok, jc.IsFalse)
+	c.Check(match, jc.IsFalse)
 
 	match, ok, err = client.MatchSubnet([]string{"127.0.0.1"}, "127.0.0.1")
 	c.Check(err, jc.ErrorIsNil)
@@ -48,6 +49,11 @@ func (s *filteringUnitTests) TestMatchSubnet(c *gc.C) {
 
 	match, ok, err = client.MatchSubnet([]string{"localhost"}, "10.0.0.1")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, jc.IsFalse)
 	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchSubnet([]string{"testing.local"}, "testing.local")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsTrue)
 }

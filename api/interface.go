@@ -16,15 +16,12 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -92,6 +89,12 @@ type DialOpts struct {
 	// by Open, and any RoundTripper field
 	// the HTTP client is ignored.
 	BakeryClient *httpbakery.Client
+
+	// InsecureSkipVerify skips TLS certificate verification
+	// when connecting to the controller. This should only
+	// be used in tests, or when verification cannot be
+	// performed and the communication need not be secure.
+	InsecureSkipVerify bool
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -159,16 +162,13 @@ type Connection interface {
 	// prohibitively ugly to do so.
 	Client() *Client
 	Machiner() *machiner.State
-	Resumer() *resumer.API
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
-	DiskManager() (*diskmanager.State, error)
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
-	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
 	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API

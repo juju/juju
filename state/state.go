@@ -332,6 +332,15 @@ func (st *State) Ping() error {
 	return st.session.Ping()
 }
 
+// MongoVersion return the string repre
+func (st *State) MongoVersion() (string, error) {
+	binfo, err := st.session.BuildInfo()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain mongo build info")
+	}
+	return binfo.Version, nil
+}
+
 // MongoSession returns the underlying mongodb session
 // used by the state. It is exposed so that external code
 // can maintain the mongo replica set and should not
@@ -1140,6 +1149,7 @@ type AddServiceArgs struct {
 	NumUnits         int
 	Placement        []*instance.Placement
 	Constraints      constraints.Value
+	Resources        map[string]string
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1256,6 +1266,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	serviceID := st.docID(args.Name)
+
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -1330,6 +1341,20 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 	ops = append(ops, peerOps...)
 
+	if len(args.Resources) > 0 {
+		// Collect pending resource resolution operations.
+		resources, err := st.Resources()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
+	}
+
+	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
 		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
@@ -1357,8 +1382,12 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err = svc.Refresh(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return svc, nil
 }
+
+// TODO(natefinch) DEMO code, revisit after demo!
+var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.

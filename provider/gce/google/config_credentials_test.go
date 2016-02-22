@@ -25,6 +25,7 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 		google.OSEnvClientID:    "abc",
 		google.OSEnvClientEmail: "xyz@g.com",
 		google.OSEnvPrivateKey:  "<some-key>",
+		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(values)
 	c.Assert(err, jc.ErrorIsNil)
@@ -35,6 +36,7 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
+		ProjectID:   "yup",
 	})
 	data := make(map[string]string)
 	err = json.Unmarshal(jsonKey, &data)
@@ -70,6 +72,7 @@ func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
     "private_key": "<some-key>",
     "client_email": "xyz@g.com",
     "client_id": "abc",
+    "project_id": "yup",
     "type": "service_account"
 }`[1:]
 	creds, err := google.ParseJSONKey(bytes.NewBufferString(original))
@@ -81,6 +84,7 @@ func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
+		ProjectID:   "yup",
 	})
 	c.Check(string(jsonKey), gc.Equals, original)
 }
@@ -90,6 +94,7 @@ func (s *credentialsSuite) TestCredentialsValues(c *gc.C) {
 		google.OSEnvClientID:    "abc",
 		google.OSEnvClientEmail: "xyz@g.com",
 		google.OSEnvPrivateKey:  "<some-key>",
+		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(original)
 	c.Assert(err, jc.ErrorIsNil)

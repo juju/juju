@@ -127,14 +127,11 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 
 // Region is specified in the HasRegion interface.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
-	return env.cloudSpec(env.ecfg.region())
-}
-
-func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
-	endpoint := gosigma.ResolveEndpoint(region)
+	env.lock.Lock()
+	defer env.lock.Unlock()
 	return simplestreams.CloudSpec{
-		Region:   region,
-		Endpoint: endpoint,
+		Region:   env.ecfg.region(),
+		Endpoint: env.ecfg.endpoint(),
 	}, nil
 }
 
@@ -142,15 +139,11 @@ func (env *environ) MetadataLookupParams(region string) (*simplestreams.Metadata
 	if region == "" {
 		region = gosigma.DefaultRegion
 	}
-
-	cloudSpec, err := env.cloudSpec(region)
-	if err != nil {
-		return nil, err
-	}
-
+	env.lock.Lock()
+	defer env.lock.Unlock()
 	return &simplestreams.MetadataLookupParams{
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
+		Region:        region,
+		Endpoint:      gosigma.ResolveEndpoint(region),
 		Architectures: arch.AllSupportedArches,
 		Series:        config.PreferredSeries(env.ecfg),
 	}, nil

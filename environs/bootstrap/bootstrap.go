@@ -411,7 +411,8 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 	}
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	datasource := simplestreams.NewURLSignedDataSource("bootstrap metadata", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
@@ -436,29 +437,6 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf("unsupported constraints: %v", unsupported)
-	}
-	return err
-}
-
-// EnsureNotBootstrapped returns nil if the environment is not
-// bootstrapped, and an error if it is or if the function was not able
-// to tell.
-func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := env.ControllerInstances()
-	// If there is no error determining controller instaces,
-	// then we are bootstrapped.
-	switch errors.Cause(err) {
-	case nil:
-		return environs.ErrAlreadyBootstrapped
-	case environs.ErrNoInstances:
-		// TODO(axw) 2015-02-03 #1417526
-		// We should not be relying on this result,
-		// as it is possible for there to be no
-		// controllers despite the environment
-		// being bootstrapped.
-		fallthrough
-	case environs.ErrNotBootstrapped:
-		return nil
 	}
 	return err
 }
