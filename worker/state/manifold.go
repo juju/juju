@@ -28,8 +28,9 @@ type ManifoldConfig struct {
 
 const defaultPingInterval = 15 * time.Second
 
-// Manifold returns a manifold whose worker which wraps a *state.State
-// and will exit if its associated mongodb session dies.
+// Manifold returns a manifold whose worker which wraps a
+// *state.State, which is in turn wrapper by a StateTracker.  It will
+// exit if the State's associated mongodb session dies.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -62,6 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			stTracker := newStateTracker(st)
 
 			pingInterval := config.PingInterval
 			if pingInterval == 0 {
@@ -69,14 +71,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w := &stateWorker{
-				st:           st,
+				stTracker:    stTracker,
 				pingInterval: pingInterval,
 			}
 			go func() {
 				defer w.tomb.Done()
 				w.tomb.Kill(w.loop())
-				if err := st.Close(); err != nil {
-					logger.Errorf("error closing state: %v", err)
+				if err := stTracker.Done(); err != nil {
+					logger.Errorf("error releasing state: %v", err)
 				}
 			}()
 			return w, nil
@@ -85,7 +87,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// outputFunc extracts a *state.State from a *stateWorker.
+// outputFunc extracts a *StateTracker from a *stateWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*stateWorker)
 	if inWorker == nil {
@@ -93,8 +95,8 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case **state.State:
-		*outPointer = inWorker.st
+	case **StateTracker:
+		*outPointer = inWorker.stTracker
 	default:
 		return errors.Errorf("out should be *state.State; got %T", out)
 	}
@@ -103,7 +105,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 type stateWorker struct {
 	tomb         tomb.Tomb
-	st           *state.State
+	stTracker    *StateTracker
 	pingInterval time.Duration
 }
 
@@ -113,7 +115,7 @@ func (w *stateWorker) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-time.After(w.pingInterval):
-			err := w.st.Ping()
+			err := w.stTracker.st.Ping()
 			if err != nil {
 				return errors.Annotate(err, "state ping failed")
 			}
