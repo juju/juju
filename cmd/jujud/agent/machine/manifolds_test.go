@@ -46,6 +46,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"serving-info-setter",
 		"state",
 		"state-config-watcher",
+		"stateworkers",
 		"termination",
 		"uninstaller",
 		"upgrade-check-gate",

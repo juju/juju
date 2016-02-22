@@ -450,7 +450,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return err
 	}
 	a.runner.StartWorker("engine", createEngine)
-	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
@@ -490,6 +489,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			OpenState:            a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
+			StartStateWorkers:    a.startStateWorkers,
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
@@ -617,48 +617,6 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 		case <-restoreWatch.Changes():
 			if err := a.restoreChanged(st); err != nil {
 				return err
-			}
-		case <-stopch:
-			return nil
-		}
-	}
-}
-
-// newStateStarterWorker wraps stateStarter in a simple worker for use in
-// a.runner.StartWorker.
-func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
-	return worker.NewSimpleWorker(a.stateStarter), nil
-}
-
-// stateStarter watches for changes to the agent configuration, and
-// starts or stops the state worker as appropriate. We watch the agent
-// configuration because the agent configuration has all the details
-// that we need to start a controller, whether they have been cached
-// or read from the state.
-//
-// It will stop working as soon as stopch is closed.
-func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
-	confWatch := a.configChangedVal.Watch()
-	defer confWatch.Close()
-	watchCh := make(chan struct{})
-	go func() {
-		for confWatch.Next() {
-			watchCh <- struct{}{}
-		}
-	}()
-	for {
-		select {
-		case <-watchCh:
-			agentConfig := a.CurrentConfig()
-
-			// N.B. StartWorker and StopWorker are idempotent.
-			_, ok := agentConfig.StateServingInfo()
-			if ok {
-				a.runner.StartWorker("state", func() (worker.Worker, error) {
-					return a.StateWorker()
-				})
-			} else {
-				a.runner.StopWorker("state")
 			}
 		case <-stopch:
 			return nil
@@ -1014,22 +972,15 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 		return nil, err
 	}
 
+	reportOpenedState(st)
+
 	return st, nil
 }
 
-// StateWorker returns a worker running all the workers that require
-// a *state.State connection.
-func (a *MachineAgent) StateWorker() (worker.Worker, error) {
+// startStateWorkers returns a worker running all the workers that
+// require a *state.State connection.
+func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
-
-	st, err := a.initState(agentConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(mjs) - needs to move to initState once StateWorker is
-	// reworked.
-	reportOpenedState(st)
 
 	m, err := getMachine(st, agentConfig.Tag())
 	if err != nil {
@@ -1083,10 +1034,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 10)
-			// Each time aipserver worker is restarted, we need a fresh copy of state due
+			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			stateOpener := func() (*state.State, error) {
-				logger.Debugf("opening state for apistate worker")
+				logger.Debugf("opening state for apiserver worker")
 				st, _, err := openState(agentConfig, stateWorkerDialOpts)
 				return st, err
 			}
@@ -1118,7 +1069,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			return nil, errors.Errorf("unknown job type %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+	return runner, nil
 }
 
 // startEnvWorkers starts controller workers that need to run per
