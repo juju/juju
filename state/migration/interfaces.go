@@ -221,7 +221,7 @@ type Relation interface {
 	AddEndpoint(EndpointArgs) Endpoint
 }
 
-// Endpoint represents one end of a relation. A named end-point provided
+// Endpoint represents one end of a relation. A named endpoint provided
 // by the charm that is deployed for the service.
 type Endpoint interface {
 	ServiceName() string

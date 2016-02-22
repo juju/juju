@@ -90,8 +90,8 @@ type importer struct {
 	dbModel *Model
 	model   migration.Model
 	logger  loggo.Logger
-	// serviceUnits is populate at the end of loading the services, and is a map
-	// of service name to units of that service.
+	// serviceUnits is populated at the end of loading the services, and is a
+	// map of service name to units of that service.
 	serviceUnits map[string][]*Unit
 }
 

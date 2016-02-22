@@ -201,10 +201,10 @@ func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, nu
 		LeadershipSettings: map[string]interface{}{},
 	})
 	service.SetStatus(minimalStatusArgs())
-	machineId := 0
 	for i := 0; i < numUnits; i++ {
-		machine := s.addMachineToModel(model, fmt.Sprint(machineId))
-		machineId++
+		// The index i is used as both the machine id and the unit id.
+		// A happy coincidence.
+		machine := s.addMachineToModel(model, fmt.Sprint(i))
 		unit := service.AddUnit(UnitArgs{
 			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
 			Machine: machine.Tag(),

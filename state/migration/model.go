@@ -243,8 +243,12 @@ func (m *model) Validate() error {
 		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
 	}
 
-	// Make sure that for each endpoint in each relation has settings for all
-	// units of that service.
+	return m.validateRelations()
+}
+
+// validateRelations makes sure that for each endpoint in each relation there
+// are settings for all units of that service for that endpoint.
+func (m *model) validateRelations() error {
 	for _, relation := range m.Relations_.Relations_ {
 		for _, ep := range relation.Endpoints_.Endpoints_ {
 			// Check service exists.
@@ -263,7 +267,6 @@ func (m *model) Validate() error {
 			}
 		}
 	}
-
 	return nil
 }
 
