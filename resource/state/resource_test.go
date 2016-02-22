@@ -439,7 +439,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
-func (s *ResourceSuite) TestOpenResourceForUnitOkay(c *gc.C) {
+func (s *ResourceSuite) TestOpenResourceForUniterOkay(c *gc.C) {
 	data := "some data"
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", data)
 	s.persist.ReturnGetResource = opened.Resource
@@ -449,7 +449,7 @@ func (s *ResourceSuite) TestOpenResourceForUnitOkay(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	info, reader, err := st.OpenResourceForUnit(unit, "spam")
+	info, reader, err := st.OpenResourceForUniter(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
@@ -462,18 +462,18 @@ func (s *ResourceSuite) TestOpenResourceForUnitOkay(c *gc.C) {
 	c.Check(b, gc.DeepEquals, []byte(data))
 }
 
-func (s *ResourceSuite) TestOpenResourceForUnitNotFound(c *gc.C) {
+func (s *ResourceSuite) TestOpenResourceForUniterNotFound(c *gc.C) {
 	unit := newUnit(s.stub, "a-service/0")
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResourceForUnit(unit, "spam")
+	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
 	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ResourceSuite) TestOpenResourceForUnitPlaceholder(c *gc.C) {
+func (s *ResourceSuite) TestOpenResourceForUniterPlaceholder(c *gc.C) {
 	res := resourcetesting.NewPlaceholderResource(c, "spam", "a-service")
 	s.persist.ReturnGetResource = res
 	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
@@ -481,13 +481,13 @@ func (s *ResourceSuite) TestOpenResourceForUnitPlaceholder(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResourceForUnit(unit, "spam")
+	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
 	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ResourceSuite) TestOpenResourceForUnitSizeMismatch(c *gc.C) {
+func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
 	s.persist.ReturnGetResource = opened.Resource
 	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
@@ -498,7 +498,7 @@ func (s *ResourceSuite) TestOpenResourceForUnitSizeMismatch(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResourceForUnit(unit, "spam")
+	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
 	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)

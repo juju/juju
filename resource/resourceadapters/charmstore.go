@@ -42,7 +42,7 @@ func (cache *charmstoreEntityCache) OpenResource(name string) (resource.Resource
 	if cache.unit == nil {
 		return resource.Resource{}, nil, errors.NotImplementedf("")
 	}
-	return cache.st.OpenResourceForUnit(cache.unit, name)
+	return cache.st.OpenResourceForUniter(cache.unit, name)
 }
 
 type charmstoreOpener struct {

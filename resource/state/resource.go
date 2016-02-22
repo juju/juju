@@ -253,10 +253,10 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 	return resourceInfo, resourceReader, nil
 }
 
-// OpenResourceForUnit returns metadata about the resource and
+// OpenResourceForUniter returns metadata about the resource and
 // a reader for the resource. The resource is associated with
 // the unit once the reader is completely exhausted.
-func (st resourceState) OpenResourceForUnit(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
 	serviceID := unit.ServiceName()
 
 	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
