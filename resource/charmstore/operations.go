@@ -18,7 +18,7 @@ type GetResourceArgs struct {
 	// Client is the charm store client to use.
 	Client Client
 
-	// EntityCache is the charm store cache to use.
+	// EntityCache is the charm store cache to use. It is optional.
 	Cache EntityCache
 
 	// CharmURL and Name together identify the resource to get.
