@@ -140,10 +140,37 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	w := s.mustStartManifold(c)
 
-	var st *state.State
-	err := s.manifold.Output(w, &st)
+	var stTracker *workerstate.StateTracker
+	err := s.manifold.Output(w, &stTracker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(st, gc.Equals, s.State)
+	c.Assert(stTracker.Done(), jc.ErrorIsNil)
+
+	// Ensure State is closed when the worker is done.
+	checkStop(c, w)
+	assertStateClosed(c, s.State)
+}
+
+func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
+	w := s.mustStartManifold(c)
+
+	var stTracker *workerstate.StateTracker
+	err := s.manifold.Output(w, &stTracker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st, err := stTracker.Use()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Close the worker while the State is still in use.
+	checkStop(c, w)
+	assertStateNotClosed(c, st)
+
+	// Now signal that the State is no longer needed.
+	c.Assert(stTracker.Done(), jc.ErrorIsNil)
+	assertStateClosed(c, st)
 }
 
 func (s *ManifoldSuite) mustStartManifold(c *gc.C) worker.Worker {
