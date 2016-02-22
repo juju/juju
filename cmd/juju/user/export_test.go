@@ -27,6 +27,10 @@ type DisenableUserBase struct {
 	*disenableUserBase
 }
 
+type SwitchUserCommand struct {
+	*switchUserCommand
+}
+
 func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
 	c.SetClientStore(store)
@@ -49,6 +53,14 @@ func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.Cli
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
+}
+
+// NewSwitchUserCommand returns a SwitchUserCommand using the
+// specified client store.
+func NewSwitchUserCommandForTest(store jujuclient.ClientStore) (cmd.Command, *SwitchUserCommand) {
+	cmd := &switchUserCommand{}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &SwitchUserCommand{cmd}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as

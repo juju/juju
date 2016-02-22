@@ -27,9 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 )
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
@@ -169,19 +167,11 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 
 	// Store the controller and account details.
 	controllerDetails := jujuclient.ControllerDetails{
+		APIEndpoints:   registrationParams.controllerAddrs,
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
 	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
-		return errors.Trace(err)
-	}
-	hostPorts, err := network.ParseHostPorts(registrationParams.controllerAddrs...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := juju.UpdateControllerAddresses(
-		c.store, legacyStore, registrationParams.controllerName, nil, hostPorts...,
-	); err != nil {
 		return errors.Trace(err)
 	}
 	accountDetails := jujuclient.AccountDetails{
@@ -190,6 +180,11 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	}
 	if err := c.store.UpdateAccount(
 		registrationParams.controllerName, accountDetails.User, accountDetails,
+	); err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.store.SetCurrentAccount(
+		registrationParams.controllerName, accountDetails.User,
 	); err != nil {
 		return errors.Trace(err)
 	}
