@@ -146,13 +146,7 @@ func (s *uniterResolver) nextOpConflicted(
 		}
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
 	}
-	if remoteState.ForceCharmUpgrade && (localState.CharmModifiedVersion != remoteState.CharmModifiedVersion ||
-		*localState.CharmURL != *remoteState.CharmURL) {
-		if *localState.CharmURL != *remoteState.CharmURL {
-			logger.Debugf("revert upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		} else {
-			logger.Debugf("revert from CharmModifiedVersion %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
-		}
+	if remoteState.ForceCharmUpgrade && charmModified(localState, remoteState) {
 		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
 	return nil, resolver.ErrWaiting
@@ -169,13 +163,7 @@ func (s *uniterResolver) nextOpHookError(
 		return nil, errors.Trace(err)
 	}
 
-	if remoteState.ForceCharmUpgrade && (localState.CharmModifiedVersion != remoteState.CharmModifiedVersion ||
-		*localState.CharmURL != *remoteState.CharmURL) {
-		if *localState.CharmURL != *remoteState.CharmURL {
-			logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		} else {
-			logger.Debugf("upgrade from CharmModifiedVersion %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
-		}
+	if remoteState.ForceCharmUpgrade && charmModified(localState, remoteState) {
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
@@ -221,6 +209,19 @@ func (s *uniterResolver) nextOpHookError(
 	}
 }
 
+func charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
+	if *local.CharmURL != *remote.CharmURL {
+		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		return true
+	}
+
+	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
+		logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		return true
+	}
+	return false
+}
+
 func (s *uniterResolver) nextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
@@ -261,13 +262,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
-	if localState.CharmModifiedVersion != remoteState.CharmModifiedVersion ||
-		*localState.CharmURL != *remoteState.CharmURL {
-		if *localState.CharmURL != *remoteState.CharmURL {
-			logger.Debugf("upgrade charm from %v to %v", localState.CharmURL, remoteState.CharmURL)
-		} else {
-			logger.Debugf("upgrade charm from CharmModifiedVersion %v to %v", localState.CharmModifiedVersion, remoteState.CharmModifiedVersion)
-		}
+	if charmModified(localState, remoteState) {
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 

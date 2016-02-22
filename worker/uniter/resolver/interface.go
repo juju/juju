@@ -51,6 +51,9 @@ type Resolver interface {
 	) (operation.Operation, error)
 }
 
+// LocalState is a cache of the state of the local unit, as needed by the
+// Uniter. It is generally compared to the remote state of the expected state of
+// the unit as stored in the controller.
 type LocalState struct {
 	operation.State
 

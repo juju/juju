@@ -647,6 +647,8 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
+	// this value holds the *previous* charm modified version, before this
+	// transaction commits.
 	var charmModifiedVersion int
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -661,12 +663,17 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 				return nil, ErrDead
 			}
 		}
-		// Make sure the service doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
-		count, err := services.Find(sel).Count()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+
+		// We can't update the in-memory service doc inside the transaction, so
+		// we manually udpate it at the end of the SetCharm method. However, we
+		// have no way of knowing what the charmModifiedVersion will be, since
+		// it's just incrementing the value in the DB (and that might be out of
+		// step with the value we have in memory).  What we have to do is read
+		// the DB, store the charmModifiedVersion we get, run the transaction,
+		// assert in the transaction that the charmModifiedVersion hasn't
+		// changed since we retrieved it, and then we know what its value must
+		// be after this transaction ends.  It's hacky, but there's no real
+		// other way to do it, thanks to the way mgo's transactions work.
 		var doc serviceDoc
 		if err := services.FindId(s.doc.DocID).One(&doc); err != nil {
 			return nil, errors.Trace(err)
@@ -677,6 +684,13 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 			Id:     s.doc.DocID,
 			Assert: bson.D{{"charmmodifiedversion", charmModifiedVersion}},
 		}}
+
+		// Make sure the service doesn't have this charm already.
+		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
+		count, err := services.Find(sel).Count()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if count > 0 {
 			// Charm URL already set; just update the force flag.
 			sameCharm := bson.D{{"charmurl", ch.URL()}}

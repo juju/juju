@@ -1269,14 +1269,16 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
+
+	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
+	// has, by definition, at its initial state.
 	svcDoc := &serviceDoc{
-		DocID:       serviceID,
-		Name:        args.Name,
+		DocID:         serviceID,
+		Name:          args.Name,
 		ModelUUID:     env.UUID(),
-		Series:      args.Series,
-		Subordinate: args.Charm.Meta().Subordinate,
-		CharmURL:    args.Charm.URL(),
-		// We leave CharmModifiedVersion unset, indicating "never".
+		Series:        args.Series,
+		Subordinate:   args.Charm.Meta().Subordinate,
+		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      args.Owner,
