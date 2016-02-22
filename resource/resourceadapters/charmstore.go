@@ -39,10 +39,10 @@ func (cache *charmstoreEntityCache) SetResource(chRes charmresource.Resource, re
 
 // OpenResource implements charmstore.EntityCache.
 func (cache *charmstoreEntityCache) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
-	if cache.unit != nil {
-		return cache.st.OpenResourceForUnit(cache.unit, name)
+	if cache.unit == nil {
+		return resource.Resource{}, nil, errors.NotImplementedf("")
 	}
-	return cache.st.OpenResource(cache.serviceID, name)
+	return cache.st.OpenResourceForUnit(cache.unit, name)
 }
 
 type charmstoreOpener struct {
