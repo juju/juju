@@ -7,6 +7,7 @@ package resource
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -136,6 +137,23 @@ type ServiceResources struct {
 	// UnitResources reports the currenly-in-use version of resources for each
 	// unit.
 	UnitResources []UnitResources
+}
+
+// Outdated returns the list of names for the service's resources which
+// do not match the ones in the charm store.
+func (sr ServiceResources) Outdated() []string {
+	var outdated []string
+	for i, res := range sr.Resources {
+		if res.Origin != resource.OriginStore {
+			continue
+		}
+		csRes := sr.CharmStoreResources[i]
+		if reflect.DeepEqual(res.Resource, csRes) {
+			continue
+		}
+		outdated = append(outdated, res.Name)
+	}
+	return outdated
 }
 
 // UnitResources conains the list of resources used by a unit.
