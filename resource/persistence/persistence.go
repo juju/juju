@@ -187,13 +187,6 @@ func (p Persistence) SetResource(res resource.Resource) error {
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
-		// for any update to a non-pending resource, we increment the
-		// CharmModifiedVersion on the service, since resources are integral to
-		// the high level "version" of the charm.
-		if res.PendingID == "" {
-			incOps := p.base.IncCharmModifiedVersionOps(res.ServiceID)
-			ops = append(ops, incOps...)
-		}
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {

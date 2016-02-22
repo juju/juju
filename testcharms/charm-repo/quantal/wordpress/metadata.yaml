@@ -26,4 +26,3 @@ resources:
     Type: file
     filename: filename.tgz
     comment: One line that is useful when operators need to push it.
-    

@@ -134,8 +134,8 @@ func (s *stubStagedResource) Unstage() error {
 	return nil
 }
 
-func (s *stubStagedResource) Activate() error {
-	s.stub.AddCall("Activate")
+func (s *stubStagedResource) Activate(hasNewBytes bool) error {
+	s.stub.AddCall("Activate", hasNewBytes)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

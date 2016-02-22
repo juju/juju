@@ -60,7 +60,7 @@ func (staged StagedResource) Unstage() error {
 }
 
 // Activate makes the staged resource the active resource.
-func (staged StagedResource) Activate() error {
+func (staged StagedResource) Activate(hasNewBytes bool) error {
 	// TODO(ericsnow) Ensure that the service is still there?
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -77,10 +77,10 @@ func (staged StagedResource) Activate() error {
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedOps(staged.id)...)
 
-		// When we activate a non-pending staged resource, we increment the
+		// If we are changing the bytes for a resource, we increment the
 		// CharmModifiedVersion on the service, since resources are integral to
 		// the high level "version" of the charm.
-		if staged.stored.PendingID == "" {
+		if hasNewBytes && staged.stored.PendingID == "" {
 			incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ServiceID)
 			ops = append(ops, incOps...)
 		}

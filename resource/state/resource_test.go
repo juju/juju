@@ -136,6 +136,7 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
+		"GetResource",
 		"Activate",
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
@@ -270,7 +271,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, nil, failure, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, nil, failure, nil, nil, ignoredErr)
 
 	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
@@ -279,13 +280,14 @@ func (s *ResourceSuite) TestSetResourceSetFailureBasic(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
+		"GetResource",
 		"Activate",
 		"Remove",
 		"Unstage",
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
-	s.stub.CheckCall(c, 4, "Remove", path)
+	s.stub.CheckCall(c, 5, "Remove", path)
 }
 
 func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
@@ -301,7 +303,7 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 	extraErr1 := errors.New("<just not your day>")
 	extraErr2 := errors.New("<wow...just wow>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, nil, failure, extraErr1, extraErr2, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, nil, failure, extraErr1, extraErr2, ignoredErr)
 
 	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
@@ -310,13 +312,14 @@ func (s *ResourceSuite) TestSetResourceSetFailureExtra(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
+		"GetResource",
 		"Activate",
 		"Remove",
 		"Unstage",
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, expected.Size, hash)
-	s.stub.CheckCall(c, 4, "Remove", path)
+	s.stub.CheckCall(c, 5, "Remove", path)
 }
 
 func (s *ResourceSuite) TestUpdatePendingResourceOkay(c *gc.C) {
@@ -338,6 +341,7 @@ func (s *ResourceSuite) TestUpdatePendingResourceOkay(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
+		"GetResource",
 		"Activate",
 	)
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
@@ -374,6 +378,7 @@ func (s *ResourceSuite) TestAddPendingResourceOkay(c *gc.C) {
 		"currentTimestamp",
 		"StageResource",
 		"PutAndCheckHash",
+		"GetResource",
 		"Activate",
 	)
 	s.stub.CheckCall(c, 2, "StageResource", expected, path)
