@@ -46,6 +46,7 @@ import (
 	_ "github.com/juju/juju/apiserver/resumer"
 	_ "github.com/juju/juju/apiserver/service"
 	_ "github.com/juju/juju/apiserver/servicescaler"
+	_ "github.com/juju/juju/apiserver/singular"
 	_ "github.com/juju/juju/apiserver/spaces"
 	_ "github.com/juju/juju/apiserver/statushistory"
 	_ "github.com/juju/juju/apiserver/storage"

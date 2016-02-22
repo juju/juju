@@ -29,9 +29,9 @@ type mongoSuite struct {
 	testing.BaseSuite
 }
 
-var enableUnreliableTests = flag.Bool("juju.unreliabletests", false, "enable unreliable and slow tests")
-
 var _ = gc.Suite(&mongoSuite{})
+
+var enableUnreliableTests = flag.Bool("juju.unreliabletests", false, "enable unreliable and slow tests")
 
 func (*mongoSuite) SetUpSuite(c *gc.C) {
 	if !*enableUnreliableTests {
@@ -102,10 +102,10 @@ func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	assertAgentsQuit(c, globalState)
 }
 
-func startAgents(c *gc.C, notifyCh chan<- event, insts []*gitjujutesting.MgoInstance) []*agent {
-	agents := make([]*agent, len(insts))
+func startAgents(c *gc.C, notifyCh chan<- event, insts []*gitjujutesting.MgoInstance) []*testAgent {
+	agents := make([]*testAgent, len(insts))
 	for i, inst := range insts {
-		a := &agent{
+		a := &testAgent{
 			// Note: we use ids starting from 1 to match
 			// the replica set ids.
 			notify: &notifier{
@@ -153,18 +153,18 @@ func assertAgentsQuit(c *gc.C, globalState *globalAgentState) {
 	}
 }
 
-type agent struct {
+type testAgent struct {
 	notify *notifier
 	worker.Runner
 	hostPort string
 }
 
-func (a *agent) run() error {
+func (a *testAgent) run() error {
 	a.Runner.StartWorker(fmt.Sprint("mongo-", a.notify.id), a.mongoWorker)
 	return a.Runner.Wait()
 }
 
-func (a *agent) mongoWorker() (worker.Worker, error) {
+func (a *testAgent) mongoWorker() (worker.Worker, error) {
 	dialInfo := gitjujutesting.MgoDialInfo(coretesting.Certs, a.hostPort)
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
@@ -190,7 +190,7 @@ func (a *agent) mongoWorker() (worker.Worker, error) {
 	return runner, nil
 }
 
-func (a *agent) worker(session *mgo.Session, stop <-chan struct{}) error {
+func (a *testAgent) worker(session *mgo.Session, stop <-chan struct{}) error {
 	a.notify.workerStarted()
 	defer a.notify.workerStopped()
 	coll := session.DB("foo").C("bar")
