@@ -73,9 +73,9 @@ func (s *CharmStorePollerSuite) TestIntegration(c *gc.C) {
 		"ListResources",
 		"Close",
 		"ID",
-		"MarkOutdatedResources",
+		"SetCharmStoreResources",
 		"ID",
-		"MarkOutdatedResources",
+		"SetCharmStoreResources",
 	)
 }
 
@@ -127,9 +127,9 @@ func (s *CharmStorePollerSuite) TestDo(c *gc.C) {
 		"CharmURL",
 		"ListCharmStoreResources",
 		"ID",
-		"MarkOutdatedResources",
+		"SetCharmStoreResources",
 		"ID",
-		"MarkOutdatedResources",
+		"SetCharmStoreResources",
 	)
 }
 
@@ -160,8 +160,8 @@ func (s *stubCharmStorePollerDeps) ListAllServices() ([]workers.Service, error) 
 	return s.ReturnListAllServices, nil
 }
 
-func (s *stubCharmStorePollerDeps) MarkOutdatedResources(serviceID string, info []charmresource.Resource) error {
-	s.AddCall("MarkOutdatedResources", serviceID, info)
+func (s *stubCharmStorePollerDeps) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
+	s.AddCall("SetCharmStoreResources", serviceID, info, lastPolled)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

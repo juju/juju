@@ -5,6 +5,7 @@ package state
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -42,9 +43,9 @@ type Resources interface {
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
 	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 
-	// MarkOutdatedResources compares each of the service's resources
-	// against those provided and marks any outdated ones accordingly.
-	MarkOutdatedResources(serviceID string, info []charmresource.Resource) error
+	// SetCharmStoreResources sets the "polled" resources for the
+	// service to the provided values.
+	SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error
 
 	// NewResolvePendingResourcesOps generates mongo transaction operations
 	// to set the identified resources as active.

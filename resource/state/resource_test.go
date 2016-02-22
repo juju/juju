@@ -14,7 +14,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
@@ -505,48 +504,26 @@ func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
-func (s *ResourceSuite) TestMarkOutdatedResources(c *gc.C) {
-	resources := newStoreResources(c, "spam", "eggs", "ham", "<>", "bacon", "sausage")
-	resources[1].Outdated = true
-	resources[3] = newUploadResource(c, "bakedbeans", "<data>")
-	s.persist.ReturnListResources = resource.ServiceResources{Resources: resources}
-	var expected []resource.Resource
+func (s *ResourceSuite) TestSetCharmStoreResources(c *gc.C) {
+	lastPolled := time.Now().UTC()
+	resources := newStoreResources(c, "spam", "eggs")
 	var info []charmresource.Resource
 	for _, res := range resources {
-		if res.Origin != charmresource.OriginStore {
-			info = append(info, res.Resource)
-			continue
-		}
-		if res.Name == "bacon" {
-			info = append(info, res.Resource)
-			continue
-		}
-		if res.Outdated {
-			info = append(info, res.Resource)
-			continue
-		}
 		chRes := res.Resource
-		chRes.Revision += 1
 		info = append(info, chRes)
-		res.Outdated = true
-		expected = append(expected, res)
 	}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	err := st.MarkOutdatedResources("a-service", info)
+	err := st.SetCharmStoreResources("a-service", info, lastPolled)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
-		"ListResources",
-		"SetResource",
-		"SetResource",
-		"SetResource",
+		"SetCharmStoreResource",
+		"SetCharmStoreResource",
 	)
-	s.stub.CheckCall(c, 0, "ListResources", "a-service")
-	s.stub.CheckCall(c, 1, "SetResource", expected[0])
-	s.stub.CheckCall(c, 2, "SetResource", expected[1])
-	s.stub.CheckCall(c, 3, "SetResource", expected[2])
+	s.stub.CheckCall(c, 0, "SetCharmStoreResource", "a-service/spam", "a-service", info[0], lastPolled)
+	s.stub.CheckCall(c, 1, "SetCharmStoreResource", "a-service/eggs", "a-service", info[1], lastPolled)
 }
 
 func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
@@ -723,8 +700,4 @@ func newUnit(stub *testing.Stub, name string) *resourcetesting.StubUnit {
 		ReturnName:        name,
 		ReturnServiceName: strings.Split(name, "/")[0],
 	}
-}
-
-func (f fakeUnit) CharmURL() (*charm.URL, bool) {
-	return nil, false
 }
