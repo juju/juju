@@ -675,10 +675,16 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 		// be after this transaction ends.  It's hacky, but there's no real
 		// other way to do it, thanks to the way mgo's transactions work.
 		var doc serviceDoc
-		if err := services.FindId(s.doc.DocID).One(&doc); err != nil {
-			return nil, errors.Trace(err)
+		err := services.FindId(s.doc.DocID).One(&doc)
+		var charmModifiedVersion int
+		switch {
+		case err == mgo.ErrNotFound:
+			// 0 is correct, since no previous charm existed.
+		case err != nil:
+			return nil, errors.Annotate(err, "can't open previous copy of charm")
+		default:
+			charmModifiedVersion = doc.CharmModifiedVersion
 		}
-		charmModifiedVersion = doc.CharmModifiedVersion
 		ops := []txn.Op{{
 			C:      servicesC,
 			Id:     s.doc.DocID,

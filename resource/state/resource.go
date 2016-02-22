@@ -6,7 +6,6 @@ package state
 // TODO(ericsnow) Figure out a way to drop the txn dependency here?
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"path"
@@ -64,7 +63,7 @@ type StagedResource interface {
 	Unstage() error
 
 	// Activate makes the staged resource the active resource.
-	Activate(hasNewBytes bool) error
+	Activate() error
 }
 
 type resourceStorage interface {
@@ -216,12 +215,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 		return errors.Trace(err)
 	}
 
-	hasNewBytes, err := st.hasNewBytes(res)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := staged.Activate(hasNewBytes); err != nil {
+	if err := staged.Activate(); err != nil {
 		if err := st.storage.Remove(storagePath); err != nil {
 			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, res.ServiceID, err)
 		}
@@ -232,20 +226,6 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	}
 
 	return nil
-}
-
-func (st resourceState) hasNewBytes(res resource.Resource) (bool, error) {
-	previous, err := st.GetResource(res.ServiceID, res.Name)
-	switch {
-	case errors.IsNotFound(err):
-		return !res.Fingerprint.IsZero(), nil
-	case err != nil:
-		return false, errors.Annotate(err, "can't read stored version of resource")
-	default:
-		// TODO(natefinch): put an Equals function on Fingerprint.
-		return bytes.Equal(res.Fingerprint.Bytes(), previous.Fingerprint.Bytes()), nil
-	}
-
 }
 
 // OpenResource returns metadata about the resource, and a reader for

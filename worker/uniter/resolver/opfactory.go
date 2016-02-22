@@ -122,11 +122,13 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 		}}
 	}
 
+	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	updateStatusVersion := s.RemoteState.UpdateStatusVersion
 	op = onCommitWrapper{op, func() {
 		// Update UpdateStatusVersion so that the update-status
 		// hook only fires after the next timer.
 		s.LocalState.UpdateStatusVersion = updateStatusVersion
+		s.LocalState.CharmModifiedVersion = charmModifiedVersion
 	}}
 
 	retryHookVersion := s.RemoteState.RetryHookVersion

@@ -651,11 +651,38 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRelations(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
+	// appendStorageMetadata customises the wordpress charm's metadata,
+	// adding a "wp-content" filesystem store. We do it here rather
+	// than in the charm itself to avoid modifying all of the other
+	// scenarios.
+	appendResource := func(c *gc.C, ctx *context, path string) {
+		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		defer func() {
+			err := f.Close()
+			c.Assert(err, jc.ErrorIsNil)
+		}()
+		_, err = io.WriteString(f, `
+resources:
+  data:
+    Type: file
+    filename: filename.tgz
+    comment: One line that is useful when operators need to push it.`)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	s.runUniterTests(c, []uniterTest{
-		// Upgrade scenarios from steady state.
 		ut(
 			"update resource causes upgrade",
-			quickStart{},
+
+			// These steps are just copied from quickstart with a customized
+			// createCharm.
+			createCharm{customize: appendResource},
+			serveCharm{},
+			createUniter{},
+			waitUnitAgent{status: params.StatusIdle},
+			waitHooks(startupHooks(false)),
+			verifyCharm{},
+
 			pushResource{},
 			waitHooks{"upgrade-charm", "config-changed"},
 		),
