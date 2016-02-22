@@ -26,6 +26,20 @@ type GetResourceArgs struct {
 	Name     string
 }
 
+func (args GetResourceArgs) validate() error {
+	if args.Client == nil {
+		return errors.Errorf("missing charm store client")
+	}
+	// FYI, args.Cache may be nil.
+	if args.CharmURL == nil {
+		return errors.Errorf("missing charm URL")
+	}
+	if args.Name == "" {
+		return errors.Errorf("missing resource name")
+	}
+	return nil
+}
+
 // GetResource returns a reader for the resource's data. That data is
 // streamed from the charm store.
 //
@@ -35,6 +49,10 @@ type GetResourceArgs struct {
 // file) then the file is read from the charm store. In that case the
 // cache is updated to contain the file too.
 func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error) {
+	if err := args.validate(); err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
 	cache := cacheForOperations{
 		EntityCache: args.Cache,
 	}
