@@ -6,7 +6,6 @@ package resourceadapters
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/charmstore"
@@ -27,12 +26,26 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	}
 	cURL, _ := ro.unit.CharmURL()
 
-	ops, err := ro.newCSOps(cURL)
+	csOpener := newCharmstoreOpener(cURL)
+	client, err := csOpener.NewClient()
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
+	defer client.Close()
 
-	res, reader, err := ops.GetResource(cURL, name)
+	cache := &charmstoreEntityCache{
+		st:        ro.st,
+		userID:    ro.userID,
+		unit:      ro.unit,
+		serviceID: ro.unit.ServiceName(),
+	}
+
+	res, reader, err := charmstore.GetResource(charmstore.GetResourceArgs{
+		Client:   client,
+		Cache:    cache,
+		CharmURL: cURL,
+		Name:     name,
+	})
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
@@ -42,20 +55,4 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 		ReadCloser: reader,
 	}
 	return opened, nil
-}
-
-func (ro resourceOpener) newCSOps(cURL *charm.URL) (*charmstore.Operations, error) {
-	deps := newCharmstoreOpener(cURL)
-	cache := &charmstoreEntityCache{
-		st:        ro.st,
-		userID:    ro.userID,
-		unit:      ro.unit,
-		serviceID: ro.unit.ServiceName(),
-	}
-	ops, err := charmstore.NewOperations(deps, cache)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return ops, nil
 }

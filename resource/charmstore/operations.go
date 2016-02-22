@@ -13,32 +13,17 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// Operations provides the charm-store-related functionality needed by
-// the Juju resources feature.
-type Operations struct {
-	deps  OperationsDeps
-	cache cacheForOperations
-}
+// GetResourceArgs holds the arguments to GetResource().
+type GetResourceArgs struct {
+	// Client is the charm store client to use.
+	Client Client
 
-// NewOperations returns a new set of charm store operations.
-func NewOperations(deps OperationsDeps, cache EntityCache) (*Operations, error) {
-	if deps == nil {
-		return nil, errors.Errorf("missing deps")
-	}
-	cfo := cacheForOperations{
-		EntityCache: cache,
-	}
-	ops := &Operations{
-		deps:  deps,
-		cache: cfo,
-	}
-	return ops, nil
-}
+	// EntityCache is the charm store cache to use.
+	Cache EntityCache
 
-// OperationsDeps are the external dependencies of Operations.
-type OperationsDeps interface {
-	// NewClient returns a new charm store client to use in operations.
-	NewClient() (Client, error)
+	// CharmURL and Name together identify the resource to get.
+	CharmURL *charm.URL
+	Name     string
 }
 
 // GetResource returns a reader for the resource's data. That data is
@@ -49,18 +34,12 @@ type OperationsDeps interface {
 // If only the resource's details are in the cache (but not the actual
 // file) then the file is read from the charm store. In that case the
 // cache is updated to contain the file too.
-func (ops Operations) GetResource(cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
-	client, err := ops.deps.NewClient()
-	if err != nil {
-		return resource.Resource{}, nil, errors.Trace(err)
+func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error) {
+	cache := cacheForOperations{
+		EntityCache: args.Cache,
 	}
-	defer client.Close()
 
-	return getResource(client, ops.cache, cURL, name)
-}
-
-func getResource(client Client, cache cacheForOperations, cURL *charm.URL, name string) (resource.Resource, io.ReadCloser, error) {
-	res, reader, err := cache.get(name)
+	res, reader, err := cache.get(args.Name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -77,7 +56,7 @@ func getResource(client Client, cache cacheForOperations, cURL *charm.URL, name 
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
-	reader, err = client.GetResource(cURL, res.Name, res.Revision)
+	reader, err = args.Client.GetResource(args.CharmURL, res.Name, res.Revision)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = errors.Annotate(err, "(in the charm store)")
