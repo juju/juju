@@ -124,7 +124,7 @@ func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWrite
 // HandleDownload implements LegacyHTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) HandleDownload(opener resource.Opener, req *http.Request) (resource.Opened, error) {
 	name := api.ExtractDownloadRequest(req)
-	return HandleDownload(name, opener)
+	return opener.OpenResource(name)
 }
 
 // Copy implements LegacyHTTPHandlerDeps.
