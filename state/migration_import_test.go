@@ -281,6 +281,45 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 }
 
+func (s *MigrationImportSuite) TestRelations(c *gc.C) {
+	// Need to remove owner from service.
+	ignored := s.Owner
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), ignored)
+	state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"), ignored)
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: wordpress})
+
+	ru, err := rel.Unit(wordpress_0)
+	c.Assert(err, jc.ErrorIsNil)
+	relSettings := map[string]interface{}{
+		"name": "wordpress/0",
+	}
+	err = ru.EnterScope(relSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer newSt.Close()
+
+	newWordpress, err := newSt.Service("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+	units, err := newWordpress.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+
+	ru, err = rels[0].Unit(units[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings, err := ru.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
+}
+
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 	err := unit.OpenPorts("tcp", 1234, 2345)

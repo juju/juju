@@ -5,6 +5,7 @@ package migration
 
 import (
 	"encoding/base64"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -167,6 +168,14 @@ func (s *service) Units() []Unit {
 	return result
 }
 
+func (s *service) unitNames() set.Strings {
+	result := set.NewStrings()
+	for _, u := range s.Units_.Units_ {
+		result.Add(u.Name())
+	}
+	return result
+}
+
 // AddUnit implements Service.
 func (s *service) AddUnit(args UnitArgs) Unit {
 	u := newUnit(args)
@@ -184,7 +193,7 @@ func (s *service) setUnits(unitList []*unit) {
 // Validate implements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
-		return errors.NotValidf("missing name")
+		return errors.NotValidf("service missing name")
 	}
 	if s.Status_ == nil {
 		return errors.NotValidf("service %q missing status", s.Name_)

@@ -280,7 +280,7 @@ func (m *machine) setNetworkPorts(networkPortsList []*networkPorts) {
 // Validate implements Machine.
 func (m *machine) Validate() error {
 	if m.Id_ == "" {
-		return errors.NotValidf("missing id")
+		return errors.NotValidf("machine missing id")
 	}
 	if m.Status_ == nil {
 		return errors.NotValidf("machine %q missing status", m.Id_)

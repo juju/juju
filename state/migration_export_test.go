@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -205,6 +206,70 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	opened := network.OpenPorts()
 	c.Assert(opened, gc.HasLen, 1)
 	c.Assert(opened[0].UnitName(), gc.Equals, unit.Name())
+}
+
+func (s *MigrationExportSuite) TestRelations(c *gc.C) {
+	// Need to remove owner from service.
+	ignored := s.Owner
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), ignored)
+	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"), ignored)
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	msEp, wpEp := eps[0], eps[1]
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: mysql})
+
+	ru, err := rel.Unit(wordpress_0)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressSettings := map[string]interface{}{
+		"name": "wordpress/0",
+	}
+	err = ru.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err = rel.Unit(mysql_0)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlSettings := map[string]interface{}{
+		"name": "mysql/0",
+	}
+	err = ru.EnterScope(mysqlSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := model.Relations()
+	c.Assert(rels, gc.HasLen, 1)
+
+	exRel := rels[0]
+	c.Assert(exRel.Id(), gc.Equals, rel.Id())
+	c.Assert(exRel.Key(), gc.Equals, rel.String())
+
+	exEps := exRel.Endpoints()
+	c.Assert(exEps, gc.HasLen, 2)
+
+	checkEndpoint := func(
+		exEndpoint migration.Endpoint,
+		unitName string,
+		ep state.Endpoint,
+		settings map[string]interface{},
+	) {
+		c.Logf("%#v", exEndpoint)
+		c.Check(exEndpoint.ServiceName(), gc.Equals, ep.ServiceName)
+		c.Check(exEndpoint.Name(), gc.Equals, ep.Name)
+		c.Check(exEndpoint.UnitCount(), gc.Equals, 1)
+		c.Check(exEndpoint.Settings(unitName), jc.DeepEquals, settings)
+		c.Check(exEndpoint.Role(), gc.Equals, string(ep.Role))
+		c.Check(exEndpoint.Interface(), gc.Equals, ep.Interface)
+		c.Check(exEndpoint.Optional(), gc.Equals, ep.Optional)
+		c.Check(exEndpoint.Limit(), gc.Equals, ep.Limit)
+		c.Check(exEndpoint.Scope(), gc.Equals, string(ep.Scope))
+	}
+	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
+	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
 }
 
 type goodToken struct{}

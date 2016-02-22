@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state/migration"
@@ -54,6 +55,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.services(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.relations(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -69,6 +73,9 @@ type exporter struct {
 	logger   loggo.Logger
 	settings map[string]settingsDoc
 	status   map[string]bson.M
+	// Map of service name to units. Populated as part
+	// of the services export.
+	units map[string][]*Unit
 }
 
 func (e *exporter) modelUsers() error {
@@ -306,7 +313,7 @@ func (e *exporter) services() error {
 		return errors.Trace(err)
 	}
 
-	units, err := e.readAllUnits()
+	e.units, err = e.readAllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -317,7 +324,7 @@ func (e *exporter) services() error {
 	}
 
 	for _, service := range services {
-		serviceUnits := units[service.Name()]
+		serviceUnits := e.units[service.Name()]
 		if err := e.addService(service, refcounts, serviceUnits, meterStatus); err != nil {
 			return errors.Trace(err)
 		}
@@ -415,6 +422,74 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	return nil
 }
 
+func (e *exporter) relations() error {
+	rels, err := e.st.AllRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d relations", len(rels))
+
+	relationScopes, err := e.readAllRelationScopes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, relation := range rels {
+		exRelation := e.model.AddRelation(migration.RelationArgs{
+			Id:  relation.Id(),
+			Key: relation.String(),
+		})
+		for _, ep := range relation.Endpoints() {
+			exEndPoint := exRelation.AddEndpoint(migration.EndpointArgs{
+				ServiceName: ep.ServiceName,
+				Name:        ep.Name,
+				Role:        string(ep.Role),
+				Interface:   ep.Interface,
+				Optional:    ep.Optional,
+				Limit:       ep.Limit,
+				Scope:       string(ep.Scope),
+			})
+			// We expect a relationScope and settings for each of the
+			// units of the specified service.
+			units := e.units[ep.ServiceName]
+			for _, unit := range units {
+				ru, err := relation.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				key := ru.key()
+				if !relationScopes.Contains(key) {
+					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
+				}
+				settingsDoc, found := e.settings[key]
+				if !found {
+					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
+				}
+				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
+			}
+		}
+	}
+	return nil
+}
+
+func (e *exporter) readAllRelationScopes() (set.Strings, error) {
+	relationScopes, closer := e.st.getCollection(relationScopesC)
+	defer closer()
+
+	docs := []relationScopeDoc{}
+	err := relationScopes.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all relation scopes")
+	}
+	e.logger.Debugf("found %d relationScope docs", len(docs))
+
+	result := set.NewStrings()
+	for _, doc := range docs {
+		result.Add(doc.Key)
+	}
+	return result, nil
+}
+
 func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	unitsCollection, closer := e.st.getCollection(unitsC)
 	defer closer()
@@ -424,6 +499,7 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
+	e.logger.Debugf("found %d unit docs", len(docs))
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
 		units := result[doc.Service]

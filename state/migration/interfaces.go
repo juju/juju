@@ -27,6 +27,9 @@ type Model interface {
 	Services() []Service
 	AddService(ServiceArgs) Service
 
+	Relations() []Relation
+	AddRelation(RelationArgs) Relation
+
 	Validate() error
 }
 
@@ -206,4 +209,37 @@ type Unit interface {
 	SetAgentStatus(StatusArgs)
 
 	Validate() error
+}
+
+// Relation represents a relationship between two services,
+// or a peer relation between different instances of a service.
+type Relation interface {
+	Id() int
+	Key() string
+
+	Endpoints() []Endpoint
+	AddEndpoint(EndpointArgs) Endpoint
+}
+
+// Endpoint represents one end of a relation. A named endpoint provided
+// by the charm that is deployed for the service.
+type Endpoint interface {
+	ServiceName() string
+	Name() string
+	// Role, Interface, Optional, Limit, and Scope should all be available
+	// through the Charm associated with the Service. There is no real need
+	// for this information to be denormalised like this. However, for now,
+	// since the import may well take place before the charms have been loaded
+	// into the model, we'll send this information over.
+	Role() string
+	Interface() string
+	Optional() bool
+	Limit() int
+	Scope() string
+
+	// UnitCount returns the number of units the endpoint has settings for.
+	UnitCount() int
+
+	Settings(unitName string) map[string]interface{}
+	SetUnitSettings(unitName string, settings map[string]interface{})
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 type MigrationSuite struct{}
@@ -34,6 +35,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// settings reference counts are only used for services
 		settingsrefsC,
+
+		// relation
+		relationsC,
+		relationScopesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -94,10 +99,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		charmsC,
 		leasesC,
 		"payloads",
-
-		// relation
-		relationsC,
-		relationScopesC,
 
 		// storage
 		blockDevicesC,
@@ -362,6 +363,51 @@ func (s *MigrationSuite) TestMeterStatusDocFields(c *gc.C) {
 		"Info",
 	)
 	s.AssertExportedFields(c, meterStatusDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID itself isn't migrated
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		"Key",
+		"Id",
+		"Endpoints",
+		// Life isn't exported, only alive.
+		"Life",
+		// UnitCount isn't explicitly exported, but defined by the stored
+		// unit settings data for the relation endpoint.
+		"UnitCount",
+	)
+	s.AssertExportedFields(c, relationDoc{}, fields)
+	// We also need to check the Endpoint and nested charm.Relation field.
+	endpointFields := set.NewStrings("ServiceName", "Relation")
+	s.AssertExportedFields(c, Endpoint{}, endpointFields)
+	charmRelationFields := set.NewStrings(
+		"Name",
+		"Role",
+		"Interface",
+		"Optional",
+		"Limit",
+		"Scope",
+	)
+	s.AssertExportedFields(c, charm.Relation{}, charmRelationFields)
+}
+
+func (s *MigrationSuite) TestRelationScopeDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// DocID itself isn't migrated
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		"Key",
+		// Departing isn't exported as we only deal with live, stable systems.
+		"Departing",
+	)
+	s.AssertExportedFields(c, relationScopeDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
