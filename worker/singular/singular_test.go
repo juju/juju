@@ -6,7 +6,6 @@ package singular_test
 import (
 	"fmt"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -17,15 +16,11 @@ import (
 	"github.com/juju/juju/worker/singular"
 )
 
-var _ = gc.Suite(&singularSuite{})
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 type singularSuite struct {
 	testing.BaseSuite
 }
+
+var _ = gc.Suite(&singularSuite{})
 
 func (*singularSuite) TestWithMasterError(c *gc.C) {
 	expectErr := fmt.Errorf("an error")
