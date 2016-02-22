@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state/storage"
 )
@@ -80,17 +79,4 @@ func (d environmentStorageDataSource) Priority() int {
 // RequireSigned is defined in simplestreams.DataSource.
 func (d environmentStorageDataSource) RequireSigned() bool {
 	return d.requireSigned
-}
-
-// registerSimplestreamsDataSource registers a environmentStorageDataSource.
-func registerSimplestreamsDataSource(stor storage.Storage, requireSigned bool) {
-	ds := NewModelStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA, requireSigned)
-	environs.RegisterUserImageDataSourceFunc(storageDataSourceId, func(environs.Environ) (simplestreams.DataSource, error) {
-		return ds, nil
-	})
-}
-
-// unregisterSimplestreamsDataSource de-registers an environmentStorageDataSource.
-func unregisterSimplestreamsDataSource() {
-	environs.UnregisterImageDataSourceFunc(storageDataSourceId)
 }

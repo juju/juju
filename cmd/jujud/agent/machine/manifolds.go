@@ -55,7 +55,7 @@ type ManifoldsConfig struct {
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
-	OpenStateForUpgrade func() (*state.State, func(), error)
+	OpenStateForUpgrade func() (*state.State, error)
 
 	// WriteUninstallFile is a function the uninstaller manifold uses
 	// to write the agent uninstall file.
