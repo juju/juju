@@ -180,11 +180,6 @@ func FindInstanceSpec(
 	return
 }
 
-func ControlBucketName(e environs.Environ) string {
-	env := e.(*joyentEnviron)
-	return env.Storage().(*JoyentStorage).GetContainerName()
-}
-
 func CreateContainer(s *JoyentStorage) error {
 	return s.createContainer()
 }
