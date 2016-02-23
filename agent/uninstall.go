@@ -16,6 +16,8 @@ const (
 	UninstallFile = "uninstall-agent"
 )
 
+// XXX this has to match the use of UninstallFile in the provider/manual
+// package.
 func uninstallFile(a Agent) string {
 	return filepath.Join(a.CurrentConfig().DataDir(), UninstallFile)
 }

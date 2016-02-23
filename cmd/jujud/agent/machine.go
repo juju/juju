@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
@@ -1072,16 +1073,18 @@ func (a *MachineAgent) startEnvWorkers(
 	logger.Infof("starting workers for env %s", modelUUID)
 
 	// Establish API connection for this model.
-	modelAgent := model.Agent(a, st.ModelUUID())
+	modelAgent, err := model.WrapAgent(a, st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	conn, err := apicaller.OnlyConnect(modelAgent, apicaller.APIOpen)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Create a runner for workers specific to this model.
-	// Either the State or API connection failing will be
-	// considered fatal, killing the runner and all its
-	// workers.
+	// Create a runner for workers specific to this model. Either
+	// the State or API connection failing will be considered fatal,
+	// killing the runner and all its workers.
 	runner := newConnRunner(st, conn)
 	defer func() {
 		if err != nil && runner != nil {
@@ -1287,16 +1290,19 @@ func (a *MachineAgent) newRunnersForAPIConn(
 	api.Connection,
 	error,
 ) {
-	// Establish API connection for this environment.
-	modelAgent := model.Agent(a, st.ModelUUID())
+	// Establish API connection for this model.
+	modelAgent, err := model.WrapAgent(a, st.ModelUUID())
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
 	conn, err := apicaller.OnlyConnect(modelAgent, apicaller.APIOpen)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
 
-	// Create a runner for workers specific to this
-	// environment. Either the State or API connection failing will be
-	// considered fatal, killing the runner and all its workers.
+	// Create a runner for workers specific to this model. Either
+	// the State or API connection failing will be considered fatal,
+	// killing the runner and all its workers.
 	runner := newConnRunner(st, conn)
 	defer func() {
 		if err != nil && runner != nil {
@@ -1304,16 +1310,16 @@ func (a *MachineAgent) newRunnersForAPIConn(
 			runner.Wait()
 		}
 	}()
-	// Close the API connection when the runner for this environment dies.
+	// Close the API connection when the runner for this model dies.
 	go func() {
 		runner.Wait()
 		err := conn.Close()
 		if err != nil {
-			logger.Errorf("failed to close API connection for env %s: %v", st.ModelUUID(), err)
+			logger.Errorf("failed to close API connection for model %s: %v", st.ModelUUID(), err)
 		}
 	}()
 
-	// Create a singular runner for this environment.
+	// Create a singular runner for this model.
 	machine, err := ssSt.Machine(a.machineId)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -1882,7 +1888,7 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 
 func (a *MachineAgent) uninstallAgent() error {
 	// We should only uninstall if the uninstall file is present.
-	if agent.CanUninstall(a) {
+	if !agent.CanUninstall(a) {
 		logger.Infof("ignoring uninstall request")
 		return nil
 	}

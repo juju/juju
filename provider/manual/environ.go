@@ -231,9 +231,11 @@ exit 0
 `
 	script = fmt.Sprintf(
 		script,
+		// XXX this has to match the implementation of uninstallFile
+		// in the agent package.
 		utils.ShQuote(path.Join(
 			agent.DefaultPaths.DataDir,
-			agent.UninstallAgentFile,
+			agent.UninstallFile,
 		)),
 		terminationworker.TerminationSignal,
 		mongo.ServiceName,

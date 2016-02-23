@@ -68,7 +68,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName: AgentName,
+			AgentName:     AgentName,
+			APIOpen:       apicaller.APIOpen,
+			NewConnection: apicaller.ScaryConnect,
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
