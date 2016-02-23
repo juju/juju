@@ -1,13 +1,12 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -15,8 +14,6 @@ import (
 
 	"github.com/juju/juju/resource"
 )
-
-var logger = loggo.GetLogger("juju.resource.persistence")
 
 // ResourcePersistenceBase exposes the core persistence functionality
 // needed for resources.

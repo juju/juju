@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/resource/cmd"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
-	"github.com/juju/juju/resource/persistence"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
@@ -130,7 +129,7 @@ type resourceState struct {
 
 // Persistence implements resource/state.RawState.
 func (st resourceState) Persistence() state.Persistence {
-	persist := persistence.NewResourcePersistence(st.persist)
+	persist := corestate.NewResourcePersistence(st.persist)
 	return resourcePersistence{persist}
 }
 
@@ -140,12 +139,12 @@ func (st resourceState) Storage() state.Storage {
 }
 
 type resourcePersistence struct {
-	*persistence.ResourcePersistence
+	*corestate.ResourcePersistence
 }
 
 // StageResource implements state.resourcePersistence.
 func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
-	return p.Persistence.StageResource(res, storagePath)
+	return p.ResourcePersistence.StageResource(res, storagePath)
 }
 
 // registerPublicCommands adds the resources-related commands

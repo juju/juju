@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"github.com/juju/errors"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
-	statetest "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/statetest"
 )
 
 var _ = gc.Suite(&StagedResourceSuite{})
@@ -30,7 +30,7 @@ func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *StagedResourceSuite) newStagedResource(c *gc.C, serviceID, name string) (*StagedResource, resourceDoc) {
-	stored, doc := newResource(c, serviceID, name)
+	stored, doc := newPersistenceResource(c, serviceID, name)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 	staged := &StagedResource{
