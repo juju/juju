@@ -7,7 +7,6 @@ package resource
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -148,7 +147,8 @@ func (sr ServiceResources) Outdated() []string {
 			continue
 		}
 		csRes := sr.CharmStoreResources[i]
-		if reflect.DeepEqual(res.Resource, csRes) {
+		// If the revision is the same then all the other info must be.
+		if res.Revision == csRes.Revision {
 			continue
 		}
 		outdated = append(outdated, res.Name)
