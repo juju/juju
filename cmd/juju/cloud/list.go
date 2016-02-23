@@ -55,18 +55,33 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 const localPrefix = "local:"
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
+	details, err := getCloudDetails()
 	if err != nil {
 		return err
+	}
+	return c.out.Write(ctxt, details)
+}
+
+func getCloudDetails() (map[string]*cloudDetails, error) {
+	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
+	if err != nil {
+		return nil, err
 	}
 	details := make(map[string]*cloudDetails)
 	for name, cloud := range clouds {
 		cloudDetails := makeCloudDetails(cloud)
 		details[name] = cloudDetails
 	}
+
+	// LXD is magic
+	details["lxd"] = &cloudDetails{
+		Source:    "built-in",
+		CloudType: "lxd",
+	}
+
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for name, cloud := range personalClouds {
 		// Add to result with "local:" prefix.
@@ -74,7 +89,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		cloudDetails.Source = "local"
 		details[localPrefix+name] = cloudDetails
 	}
-	return c.out.Write(ctxt, details)
+	return details, nil
 }
 
 // Public clouds sorted first, then personal ie has a prefix of "local:".

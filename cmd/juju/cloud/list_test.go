@@ -29,6 +29,8 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws-china[ ]*ec2[ ]*cn-north-1.*`)
+	// LXD should be there too.
+	c.Assert(out, gc.Matches, `.*lxd[ ]*lxd[ ].*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
