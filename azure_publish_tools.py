@@ -14,6 +14,7 @@ import hashlib
 import mimetypes
 from operator import attrgetter
 import os
+import socket
 import sys
 
 from azure.storage import BlobService
@@ -136,10 +137,18 @@ def publish_local_file(blob_service, sync_file):
                 index += 1
             else:
                 break
-    blob_service.put_block_list(
-        JUJU_DIST, sync_file.path, block_ids,
-        x_ms_blob_content_type=sync_file.mimetype,
-        x_ms_blob_content_md5=sync_file.md5content)
+    for i in range(0, 3):
+        try:
+            blob_service.put_block_list(
+                JUJU_DIST, sync_file.path, block_ids,
+                x_ms_blob_content_type=sync_file.mimetype,
+                x_ms_blob_content_md5=sync_file.md5content)
+            break
+        except socket.error as e:
+            if e.errno not in (socket.errno.ECONNREFUSED,
+                               socket.errno.ENETUNREACH,
+                               socket.errno.ETIMEDOUT):
+                raise
 
 
 def list_published_files(blob_service, purpose):
