@@ -141,10 +141,9 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 
 func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	annotations := map[string]interface{}{
-		"string": "value",
-		"int":    42,
-		"bool":   true,
+	annotations := map[string]string{
+		"string":  "value",
+		"another": "one",
 	}
 	initial.SetAnnotations(annotations)
 

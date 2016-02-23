@@ -70,7 +70,7 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Annotations_ map[string]interface{} `yaml:"annotations,omitempty"`
+	Annotations_ map[string]string `yaml:"annotations,omitempty"`
 
 	Users_     users     `yaml:"users"`
 	Machines_  machines  `yaml:"machines"`
@@ -304,7 +304,6 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"owner":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
-		"annotations":  schema.StringMap(schema.Any()),
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
@@ -313,8 +312,8 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
 		"latest-tools": schema.Omit,
-		"annotations":  schema.Omit,
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -339,9 +338,6 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 			return nil, errors.Trace(err)
 		}
 		result.LatestToolsVersion_ = num
-	}
-	if annotations, ok := valid["annotations"]; ok {
-		result.Annotations_ = annotations.(map[string]interface{})
 	}
 
 	userMap := valid["users"].(map[string]interface{})

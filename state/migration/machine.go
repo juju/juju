@@ -38,7 +38,7 @@ type machine struct {
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
 
-	Annotations_ map[string]interface{} `yaml:"annotations,omitempty"`
+	Annotations_ map[string]string `yaml:"annotations,omitempty"`
 
 	SupportedContainers_ *[]string `yaml:"supported-containers,omitempty"`
 
@@ -361,7 +361,6 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"tools":                schema.StringMap(schema.Any()),
 		"containers":           schema.List(schema.StringMap(schema.Any())),
 		"network-ports":        schema.StringMap(schema.Any()),
-		"annotations":          schema.StringMap(schema.Any()),
 
 		"provider-addresses":        schema.List(schema.StringMap(schema.Any())),
 		"machine-addresses":         schema.List(schema.StringMap(schema.Any())),
@@ -377,12 +376,12 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"instance":                  schema.Omit,
 		"supported-containers":      schema.Omit,
 		"network-ports":             schema.Omit,
-		"annotations":               schema.Omit,
 		"provider-addresses":        schema.Omit,
 		"machine-addresses":         schema.Omit,
 		"preferred-public-address":  schema.Omit,
 		"preferred-private-address": schema.Omit,
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)

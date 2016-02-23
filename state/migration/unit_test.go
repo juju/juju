@@ -139,10 +139,9 @@ func (s *UnitSerializationSuite) TestParsingSerializedData(c *gc.C) {
 
 func (s *UnitSerializationSuite) TestAnnotations(c *gc.C) {
 	initial := minimalUnit()
-	annotations := map[string]interface{}{
-		"string": "value",
-		"int":    42,
-		"bool":   true,
+	annotations := map[string]string{
+		"string":  "value",
+		"another": "one",
 	}
 	initial.SetAnnotations(annotations)
 

@@ -36,7 +36,7 @@ type service struct {
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
 	MetricsCredentials_ string                 `yaml:"metrics-creds,omitempty"`
 
-	Annotations_ map[string]interface{} `yaml:"annotations,omitempty"`
+	Annotations_ map[string]string `yaml:"annotations,omitempty"`
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`

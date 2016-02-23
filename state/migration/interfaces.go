@@ -14,8 +14,8 @@ import (
 // HasAnnotations defines the common methods for setting and
 // getting annotations for the various entities.
 type HasAnnotations interface {
-	Annotations() map[string]interface{}
-	SetAnnotations(map[string]interface{})
+	Annotations() map[string]string
+	SetAnnotations(map[string]string)
 }
 
 // Model is a database agnostic representation of an existing model.

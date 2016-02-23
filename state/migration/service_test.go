@@ -153,10 +153,9 @@ func (s *ServiceSerializationSuite) TestParsingSerializedData(c *gc.C) {
 
 func (s *ServiceSerializationSuite) TestAnnotations(c *gc.C) {
 	initial := minimalService()
-	annotations := map[string]interface{}{
-		"string": "value",
-		"int":    42,
-		"bool":   true,
+	annotations := map[string]string{
+		"string":  "value",
+		"another": "one",
 	}
 	initial.SetAnnotations(annotations)
 

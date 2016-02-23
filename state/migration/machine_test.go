@@ -212,10 +212,9 @@ func (s *MachineSerializationSuite) TestNetworkPorts(c *gc.C) {
 
 func (s *MachineSerializationSuite) TestAnnotations(c *gc.C) {
 	initial := minimalMachine("42")
-	annotations := map[string]interface{}{
-		"string": "value",
-		"int":    42,
-		"bool":   true,
+	annotations := map[string]string{
+		"string":  "value",
+		"another": "one",
 	}
 	initial.SetAnnotations(annotations)
 

@@ -35,9 +35,9 @@ type unit struct {
 	//    whether they are or not, a constraints doc is expected
 	//    for every principal unit.
 
-	PasswordHash_ string                 `yaml:"password-hash"`
-	Annotations_  map[string]interface{} `yaml:"annotations,omitempty"`
-	Tools_        *agentTools            `yaml:"tools"`
+	PasswordHash_ string            `yaml:"password-hash"`
+	Annotations_  map[string]string `yaml:"annotations,omitempty"`
+	Tools_        *agentTools       `yaml:"tools"`
 
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
