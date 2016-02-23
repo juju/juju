@@ -18,8 +18,8 @@ import (
 const (
 	resourcesC = "resources"
 
-	stagedIDSuffix     = "#staged"
-	charmstoreIDSuffix = "#charmstore"
+	resourcesStagedIDSuffix     = "#staged"
+	resourcesCharmstoreIDSuffix = "#charmstore"
 )
 
 // resourceID converts an external resource ID into an internal one.
@@ -39,7 +39,7 @@ func pendingResourceID(id, pendingID string) string {
 }
 
 func charmStoreResourceID(id string) string {
-	return serviceResourceID(id) + charmstoreIDSuffix
+	return serviceResourceID(id) + resourcesCharmstoreIDSuffix
 }
 
 func unitResourceID(id, unitID string) string {
@@ -48,7 +48,7 @@ func unitResourceID(id, unitID string) string {
 
 // stagedID converts an external resource ID into an internal staged one.
 func stagedID(id string) string {
-	return serviceResourceID(id) + stagedIDSuffix
+	return serviceResourceID(id) + resourcesStagedIDSuffix
 }
 
 // storedResource holds all model-stored information for a resource.
