@@ -41,6 +41,10 @@ type resourcePersistence interface {
 	// SetResource stores the info for the resource.
 	SetResource(args resource.Resource) error
 
+	// SetCharmStoreResource stores the resource info that was retrieved
+	// from the charm store.
+	SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error
+
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
 
@@ -272,6 +276,20 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// SetCharmStoreResources sets the "polled" resources for the
+// service to the provided values.
+func (st resourceState) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
+	for _, chRes := range info {
+		id := newResourceID(serviceID, chRes.Name)
+		if err := st.persist.SetCharmStoreResource(id, serviceID, chRes, lastPolled); err != nil {
+			return errors.Trace(err)
+		}
+		// TODO(ericsnow) Worry about extras? missing?
+	}
+
+	return nil
 }
 
 // TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that

@@ -504,6 +504,28 @@ func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
+func (s *ResourceSuite) TestSetCharmStoreResources(c *gc.C) {
+	lastPolled := time.Now().UTC()
+	resources := newStoreResources(c, "spam", "eggs")
+	var info []charmresource.Resource
+	for _, res := range resources {
+		chRes := res.Resource
+		info = append(info, chRes)
+	}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	err := st.SetCharmStoreResources("a-service", info, lastPolled)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"SetCharmStoreResource",
+		"SetCharmStoreResource",
+	)
+	s.stub.CheckCall(c, 0, "SetCharmStoreResource", "a-service/spam", "a-service", info[0], lastPolled)
+	s.stub.CheckCall(c, 1, "SetCharmStoreResource", "a-service/eggs", "a-service", info[1], lastPolled)
+}
+
 func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
 	doc1 := map[string]string{"a": "1"}
 	doc2 := map[string]string{"b": "2"}
@@ -643,6 +665,25 @@ func newUploadResources(c *gc.C, names ...string) []resource.Resource {
 func newUploadResource(c *gc.C, name, data string) resource.Resource {
 	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
 	return opened.Resource
+}
+
+func newStoreResources(c *gc.C, names ...string) []resource.Resource {
+	var resources []resource.Resource
+	for _, name := range names {
+		res := newStoreResource(c, name, name)
+		resources = append(resources, res)
+	}
+	return resources
+}
+
+func newStoreResource(c *gc.C, name, data string) resource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	res := opened.Resource
+	res.Origin = charmresource.OriginStore
+	res.Revision = 1
+	res.Username = ""
+	res.Timestamp = time.Time{}
+	return res
 }
 
 func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resource {

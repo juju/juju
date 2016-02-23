@@ -30,7 +30,7 @@ type fakeCharmStoreClient struct {
 }
 
 // ListResources implements resource/charmstore.Client as a noop.
-func (fakeCharmStoreClient) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
+func (fakeCharmStoreClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
 	res := make([][]charmresource.Resource, len(charmURLs))
 	return res, nil
 }

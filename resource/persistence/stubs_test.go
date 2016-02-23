@@ -13,7 +13,7 @@ import (
 type stubStatePersistence struct {
 	stub *testing.Stub
 
-	docs      []resourceDoc
+	ReturnAll []resourceDoc
 	ReturnOne resourceDoc
 
 	ReturnIncCharmModifiedVersionOps []txn.Op
@@ -37,7 +37,7 @@ func (s stubStatePersistence) All(collName string, query, docs interface{}) erro
 	}
 
 	actual := docs.(*[]resourceDoc)
-	*actual = s.docs
+	*actual = s.ReturnAll
 	return nil
 }
 

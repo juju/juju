@@ -4,10 +4,13 @@
 package persistence
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -60,6 +63,7 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
+	store := map[string]charmresource.Resource{}
 	units := map[names.UnitTag][]resource.Resource{}
 
 	var results resource.ServiceResources
@@ -72,12 +76,20 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 		if err != nil {
 			return resource.ServiceResources{}, errors.Trace(err)
 		}
+		if !doc.LastPolled.IsZero() {
+			store[res.Name] = res.Resource
+			continue
+		}
 		if doc.UnitID == "" {
 			results.Resources = append(results.Resources, res)
 			continue
 		}
 		tag := names.NewUnitTag(doc.UnitID)
 		units[tag] = append(units[tag], res)
+	}
+	for _, res := range results.Resources {
+		storeRes := store[res.Name]
+		results.CharmStoreResources = append(results.CharmStoreResources, storeRes)
 	}
 	for tag, res := range units {
 		results.UnitResources = append(results.UnitResources, resource.UnitResources{
@@ -183,6 +195,40 @@ func (p Persistence) SetResource(res resource.Resource) error {
 			ops = newInsertResourceOps(stored)
 		case 1:
 			ops = newUpdateResourceOps(stored)
+		default:
+			// Either insert or update will work so we should not get here.
+			return nil, errors.New("setting the resource failed")
+		}
+		return ops, nil
+	}
+	if err := p.base.Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// SetCharmStoreResource stores the resource info that was retrieved
+// from the charm store.
+func (p Persistence) SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error {
+	if err := res.Validate(); err != nil {
+		return errors.Annotate(err, "bad resource")
+	}
+
+	csRes := charmStoreResource{
+		Resource:   res,
+		id:         id,
+		serviceID:  serviceID,
+		lastPolled: lastPolled,
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// This is an "upsert".
+		var ops []txn.Op
+		switch attempt {
+		case 0:
+			ops = newInsertCharmStoreResourceOps(csRes)
+		case 1:
+			ops = newUpdateCharmStoreResourceOps(csRes)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")

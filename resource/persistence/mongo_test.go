@@ -500,3 +500,50 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 		StoragePath: "service-a-service/resources/spam",
 	})
 }
+
+func (s *MongoSuite) TestCharmStoreResource2DocFull(c *gc.C) {
+	content := "some data\n..."
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now().UTC()
+
+	serviceID := "a-service"
+	id := serviceID + "/spam"
+	docID := serviceResourceID("spam") + "#charmstore"
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        "spam",
+			Type:        charmresource.TypeFile,
+			Path:        "spam.tgz",
+			Description: "you need this!",
+		},
+		Origin:      charmresource.OriginStore,
+		Revision:    3,
+		Fingerprint: fp,
+		Size:        int64(len(content)),
+	}
+	doc := charmStoreResource2Doc(docID, charmStoreResource{
+		Resource:   res,
+		id:         id,
+		serviceID:  serviceID,
+		lastPolled: now,
+	})
+
+	c.Check(doc, jc.DeepEquals, &resourceDoc{
+		DocID:     docID,
+		ID:        id,
+		ServiceID: serviceID,
+
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
+
+		Origin:      "store",
+		Revision:    3,
+		Fingerprint: fp.Bytes(),
+		Size:        int64(len(content)),
+
+		LastPolled: now,
+	})
+}

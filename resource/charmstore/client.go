@@ -24,7 +24,7 @@ type BaseClient interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error)
+	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
 
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
