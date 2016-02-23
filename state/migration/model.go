@@ -34,6 +34,7 @@ func NewModel(args ModelArgs) Model {
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
 	}
+	m.hasAnnotations.annotations = &m.Annotations_
 	m.setUsers(nil)
 	m.setMachines(nil)
 	m.setServices(nil)
@@ -60,6 +61,8 @@ func DeserializeModel(bytes []byte) (Model, error) {
 }
 
 type model struct {
+	hasAnnotations `yaml:"-"`
+
 	Version int `yaml:"version"`
 
 	Owner_  string                 `yaml:"owner"`
@@ -104,16 +107,6 @@ func (m *model) Config() map[string]interface{} {
 // LatestToolsVersion implements Model.
 func (m *model) LatestToolsVersion() version.Number {
 	return m.LatestToolsVersion_
-}
-
-// Annotations implements Model.
-func (m *model) Annotations() map[string]interface{} {
-	return m.Annotations_
-}
-
-// SetAnnotations implements Model.
-func (m *model) SetAnnotations(annotations map[string]interface{}) {
-	m.Annotations_ = annotations
 }
 
 // Implement length-based sort with ByLen type.
@@ -307,8 +300,6 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 }
 
 func importModelV1(source map[string]interface{}) (*model, error) {
-	result := &model{Version: 1}
-
 	fields := schema.Fields{
 		"owner":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
@@ -334,8 +325,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	result.Owner_ = valid["owner"].(string)
-	result.Config_ = valid["config"].(map[string]interface{})
+	result := &model{
+		Version: 1,
+		Owner_:  valid["owner"].(string),
+		Config_: valid["config"].(map[string]interface{}),
+	}
+	result.hasAnnotations.annotations = &result.Annotations_
+	result.importAnnotations(valid)
 
 	if availableTools, ok := valid["latest-tools"]; ok {
 		num, err := version.Parse(availableTools.(string))

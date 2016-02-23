@@ -11,15 +11,21 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// HasAnnotations defines the common methods for setting and
+// getting annotations for the various entities.
+type HasAnnotations interface {
+	Annotations() map[string]interface{}
+	SetAnnotations(map[string]interface{})
+}
+
 // Model is a database agnostic representation of an existing model.
 type Model interface {
+	HasAnnotations
+
 	Tag() names.ModelTag
 	Owner() names.UserTag
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
-
-	Annotations() map[string]interface{}
-	SetAnnotations(map[string]interface{})
 
 	Users() []User
 	AddUser(UserArgs)
@@ -68,6 +74,8 @@ type AgentTools interface {
 // Machine represents an existing live machine or container running in the
 // model.
 type Machine interface {
+	HasAnnotations
+
 	Id() string
 	Tag() names.MachineTag
 	Nonce() string
@@ -92,9 +100,6 @@ type Machine interface {
 
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
-
-	Annotations() map[string]interface{}
-	SetAnnotations(map[string]interface{})
 
 	Containers() []Machine
 	AddContainer(MachineArgs) Machine
@@ -166,6 +171,8 @@ type Status interface {
 
 // Service represents a deployed charm in a model.
 type Service interface {
+	HasAnnotations
+
 	Tag() names.ServiceTag
 	Name() string
 	Series() string
@@ -183,9 +190,6 @@ type Service interface {
 	Status() Status
 	SetStatus(StatusArgs)
 
-	Annotations() map[string]interface{}
-	SetAnnotations(map[string]interface{})
-
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
 
@@ -194,6 +198,8 @@ type Service interface {
 
 // Unit represents an instance of a service in a model.
 type Unit interface {
+	HasAnnotations
+
 	Tag() names.UnitTag
 	Name() string
 	Machine() names.MachineTag
@@ -216,9 +222,6 @@ type Unit interface {
 
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
-
-	Annotations() map[string]interface{}
-	SetAnnotations(map[string]interface{})
 
 	Validate() error
 }

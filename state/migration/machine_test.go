@@ -46,17 +46,18 @@ func minimalMachineMap(id string, containers ...interface{}) map[interface{}]int
 }
 
 func minimalMachine(id string, containers ...*machine) *machine {
-	return &machine{
-		Id_:           id,
-		Nonce_:        "a-nonce",
-		PasswordHash_: "some-hash",
-		Instance_:     minimalCloudInstance(),
-		Series_:       "zesty",
-		Tools_:        minimalAgentTools(),
-		Jobs_:         []string{"host-units"},
-		Containers_:   containers,
-		Status_:       minimalStatus(),
-	}
+	m := newMachine(MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	m.Containers_ = containers
+	m.SetInstance(minimalCloudInstanceArgs())
+	m.SetTools(minimalAgentToolsArgs())
+	m.SetStatus(minimalStatusArgs())
+	return m
 }
 
 func (s *MachineSerializationSuite) machineArgs(id string) MachineArgs {
@@ -210,7 +211,7 @@ func (s *MachineSerializationSuite) TestNetworkPorts(c *gc.C) {
 }
 
 func (s *MachineSerializationSuite) TestAnnotations(c *gc.C) {
-	initial := newMachine(s.machineArgs("42"))
+	initial := minimalMachine("42")
 	annotations := map[string]interface{}{
 		"string": "value",
 		"int":    42,

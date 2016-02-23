@@ -18,6 +18,8 @@ type services struct {
 }
 
 type service struct {
+	hasAnnotations `yaml:"-"`
+
 	Name_        string `yaml:"name"`
 	Series_      string `yaml:"series"`
 	Subordinate_ bool   `yaml:"subordinate,omitempty"`
@@ -78,6 +80,7 @@ func newService(args ServiceArgs) *service {
 		LeadershipSettings_: args.LeadershipSettings,
 		MetricsCredentials_: creds,
 	}
+	svc.hasAnnotations.annotations = &svc.Annotations_
 	svc.setUnits(nil)
 	return svc
 }
@@ -159,16 +162,6 @@ func (s *service) Status() Status {
 // SetStatus implements Service.
 func (s *service) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
-}
-
-// Annotations implements Service.
-func (s *service) Annotations() map[string]interface{} {
-	return s.Annotations_
-}
-
-// SetAnnotations implements Service.
-func (s *service) SetAnnotations(annotations map[string]interface{}) {
-	s.Annotations_ = annotations
 }
 
 // Units implements Service.
@@ -259,8 +252,6 @@ var serviceDeserializationFuncs = map[int]serviceDeserializationFunc{
 }
 
 func importServiceV1(source map[string]interface{}) (*service, error) {
-	result := &service{}
-
 	fields := schema.Fields{
 		"name":                schema.String(),
 		"series":              schema.String(),
@@ -295,17 +286,20 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	result.Name_ = valid["name"].(string)
-	result.Series_ = valid["series"].(string)
-	result.Subordinate_ = valid["subordinate"].(bool)
-	result.CharmURL_ = valid["charm-url"].(string)
-	result.ForceCharm_ = valid["force-charm"].(bool)
-	result.Exposed_ = valid["exposed"].(bool)
-	result.MinUnits_ = int(valid["min-units"].(int64))
-
-	result.Settings_ = valid["settings"].(map[string]interface{})
-	result.SettingsRefCount_ = int(valid["settings-refcount"].(int64))
-	result.LeadershipSettings_ = valid["leadership-settings"].(map[string]interface{})
+	result := &service{
+		Name_:               valid["name"].(string),
+		Series_:             valid["series"].(string),
+		Subordinate_:        valid["subordinate"].(bool),
+		CharmURL_:           valid["charm-url"].(string),
+		ForceCharm_:         valid["force-charm"].(bool),
+		Exposed_:            valid["exposed"].(bool),
+		MinUnits_:           int(valid["min-units"].(int64)),
+		Settings_:           valid["settings"].(map[string]interface{}),
+		SettingsRefCount_:   int(valid["settings-refcount"].(int64)),
+		LeadershipSettings_: valid["leadership-settings"].(map[string]interface{}),
+	}
+	result.hasAnnotations.annotations = &result.Annotations_
+	result.importAnnotations(valid)
 
 	encodedCreds := valid["metrics-creds"].(string)
 	// The model stores the creds encoded, but we want to make sure that
@@ -314,10 +308,6 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		return nil, errors.Annotate(err, "metrics credentials not valid")
 	}
 	result.MetricsCredentials_ = encodedCreds
-
-	if annotations, ok := valid["annotations"]; ok {
-		result.Annotations_ = annotations.(map[string]interface{})
-	}
 
 	status, err := importStatus(valid["status"].(map[string]interface{}))
 	if err != nil {

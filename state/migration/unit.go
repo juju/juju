@@ -15,6 +15,8 @@ type units struct {
 }
 
 type unit struct {
+	hasAnnotations `yaml:"-"`
+
 	Name_ string `yaml:"name"`
 
 	Machine_ string `yaml:"machine"`
@@ -60,7 +62,7 @@ func newUnit(args UnitArgs) *unit {
 	for _, s := range args.Subordinates {
 		subordinates = append(subordinates, s.Id())
 	}
-	return &unit{
+	u := &unit{
 		Name_:            args.Tag.Id(),
 		Machine_:         args.Machine.Id(),
 		PasswordHash_:    args.PasswordHash,
@@ -69,6 +71,8 @@ func newUnit(args UnitArgs) *unit {
 		MeterStatusCode_: args.MeterStatusCode,
 		MeterStatusInfo_: args.MeterStatusInfo,
 	}
+	u.hasAnnotations.annotations = &u.Annotations_
+	return u
 }
 
 // Tag implements Unit.
@@ -158,16 +162,6 @@ func (u *unit) AgentStatus() Status {
 // SetAgentStatus implements Unit.
 func (u *unit) SetAgentStatus(args StatusArgs) {
 	u.AgentStatus_ = newStatus(args)
-}
-
-// Annotations implements Unit.
-func (u *unit) Annotations() map[string]interface{} {
-	return u.Annotations_
-}
-
-// SetAnnotations implements Unit.
-func (u *unit) SetAnnotations(annotations map[string]interface{}) {
-	u.Annotations_ = annotations
 }
 
 // Validate impelements Unit.
@@ -269,6 +263,8 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		MeterStatusCode_: valid["meter-status-code"].(string),
 		MeterStatusInfo_: valid["meter-status-info"].(string),
 	}
+	result.hasAnnotations.annotations = &result.Annotations_
+	result.importAnnotations(valid)
 
 	if subordinates, ok := valid["subordinates"]; ok {
 		subordinatesList := subordinates.([]interface{})
@@ -277,10 +273,6 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 			s[i] = subordinate.(string)
 		}
 		result.Subordinates_ = s
-	}
-
-	if annotations, ok := valid["annotations"]; ok {
-		result.Annotations_ = annotations.(map[string]interface{})
 	}
 
 	// Tools and status are required, so we expect them to be there.

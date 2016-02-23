@@ -17,6 +17,8 @@ type machines struct {
 }
 
 type machine struct {
+	hasAnnotations `yaml:"-"`
+
 	Id_            string         `yaml:"id"`
 	Nonce_         string         `yaml:"nonce"`
 	PasswordHash_  string         `yaml:"password-hash"`
@@ -74,6 +76,7 @@ func newMachine(args MachineArgs) *machine {
 		ContainerType_: args.ContainerType,
 		Jobs_:          jobs,
 	}
+	m.hasAnnotations.annotations = &m.Annotations_
 	if args.SupportedContainers != nil {
 		supported := make([]string, len(*args.SupportedContainers))
 		copy(supported, *args.SupportedContainers)
@@ -221,16 +224,6 @@ func (m *machine) SetTools(args AgentToolsArgs) {
 	m.Tools_ = newAgentTools(args)
 }
 
-// Annotations implements Machine.
-func (m *machine) Annotations() map[string]interface{} {
-	return m.Annotations_
-}
-
-// SetAnnotations implements Machine.
-func (m *machine) SetAnnotations(annotations map[string]interface{}) {
-	m.Annotations_ = annotations
-}
-
 // Jobs implements Machine.
 func (m *machine) Jobs() []string {
 	return m.Jobs_
@@ -354,8 +347,6 @@ var machineDeserializationFuncs = map[int]machineDeserializationFunc{
 }
 
 func importMachineV1(source map[string]interface{}) (*machine, error) {
-	result := &machine{}
-
 	fields := schema.Fields{
 		"id":                   schema.String(),
 		"nonce":                schema.String(),
@@ -401,12 +392,16 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	result.Id_ = valid["id"].(string)
-	result.Nonce_ = valid["nonce"].(string)
-	result.PasswordHash_ = valid["password-hash"].(string)
-	result.Placement_ = valid["placement"].(string)
-	result.Series_ = valid["series"].(string)
-	result.ContainerType_ = valid["container-type"].(string)
+	result := &machine{
+		Id_:            valid["id"].(string),
+		Nonce_:         valid["nonce"].(string),
+		PasswordHash_:  valid["password-hash"].(string),
+		Placement_:     valid["placement"].(string),
+		Series_:        valid["series"].(string),
+		ContainerType_: valid["container-type"].(string),
+	}
+	result.hasAnnotations.annotations = &result.Annotations_
+	result.importAnnotations(valid)
 
 	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {
 		for _, job := range jobs {
@@ -420,9 +415,6 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 			s[i] = containerType.(string)
 		}
 		result.SupportedContainers_ = &s
-	}
-	if annotations, ok := valid["annotations"]; ok {
-		result.Annotations_ = annotations.(map[string]interface{})
 	}
 
 	if instanceMap, ok := valid["instance"]; ok {
