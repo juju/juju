@@ -1125,18 +1125,23 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
-func setupJujuNetworking() (string, error) {
-	eni := "/etc/network/interfaces"
-	script := fmt.Sprintf("%s\npython -c %q --backup-filename=%q --filename=%q --bridge-name=%q\n",
-		bridgeScriptPythonBashDef,
-		"$python_script",
-		eni+"-orig",
-		eni,
-		instancecfg.DefaultBridgeName)
-	return script, nil
+func setupJujuNetworking() string {
+	s := fmt.Sprintf(`
+juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
+if [ -n %[1]q ]; then
+    trap 'rm -f %[2]q' EXIT;
+    if [ -x %[2]q ]; then
+         %[2]q --bridge-name=%[3]q --interface-to-bridge=%[1]q --one-time-backup --activate %[4]q;
+    fi;
+fi`,
+		"$juju_ipv4_interface_to_bridge",
+		bridgeScriptPath,
+		instancecfg.DefaultBridgeName,
+		"/etc/network/interfaces")
+	return s
 }
 
-func renderEtcNetworkInterfacesScript() (string, error) {
+func renderEtcNetworkInterfacesScript() string {
 	return setupJujuNetworking()
 }
 
@@ -1177,12 +1182,9 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 				)
 				break
 			}
-			bridgeScript, err := setupJujuNetworking()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			cloudcfg.AddPackage("bridge-utils")
-			cloudcfg.AddRunCmd(bridgeScript)
+			cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
+			cloudcfg.AddScripts(setupJujuNetworking())
 		}
 	}
 	return cloudcfg, nil
