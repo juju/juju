@@ -99,6 +99,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		charmsC,
 		leasesC,
 		"payloads",
+		"resources",
 		endpointBindingsC,
 
 		// storage
