@@ -146,7 +146,6 @@ func (s *interfacesInternalSuite) TestDNSSettingsAndGatewayAreOptional(c *gc.C) 
 
 func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithValidValue(c *gc.C) {
 	validTypes := []InterfaceType{
-		UnknownInterface,
 		LoopbackInterface,
 		EthernetInterface,
 		VLAN_8021QInterface,
@@ -168,6 +167,9 @@ func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithInvalidValue(c *gc
 	c.Check(result, jc.IsFalse)
 
 	result = IsValidInterfaceType(" ")
+	c.Check(result, jc.IsFalse)
+
+	result = IsValidInterfaceType(string(UnknownInterface))
 	c.Check(result, jc.IsFalse)
 }
 

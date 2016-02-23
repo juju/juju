@@ -163,10 +163,10 @@ func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
 			if err := checkModeLife(m.st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := m.ensureStillAlive(); err != nil {
+			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := m.ensureInterfaceDocsStillValid(newDocs, pendingNames); err != nil {
+			if err := m.areInterfaceDocsStillValid(newDocs, pendingNames); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -191,7 +191,7 @@ func (m *Machine) AddInterfaces(interfacesArgs ...InterfaceArgs) (err error) {
 }
 
 func (st *State) allProviderIDsForModelInterfaces() (_ set.Strings, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot get ProviderIDs of all interfaces")
+	defer errors.DeferredAnnotatef(&err, "cannot get ProviderIDs for all interfaces")
 
 	interfaces, closer := st.getCollection(interfacesC)
 	defer closer()
@@ -315,7 +315,7 @@ func (m *Machine) newInterfaceDocFromArgs(args *InterfaceArgs) *interfaceDoc {
 	}
 }
 
-func (m *Machine) ensureStillAlive() error {
+func (m *Machine) isStillAlive() error {
 	if machineAlive, err := isAlive(m.st, machinesC, m.doc.Id); err != nil {
 		return errors.Trace(err)
 	} else if !machineAlive {
@@ -324,7 +324,7 @@ func (m *Machine) ensureStillAlive() error {
 	return nil
 }
 
-func (m *Machine) ensureInterfaceDocsStillValid(newDocs []interfaceDoc, pendingNames set.Strings) error {
+func (m *Machine) areInterfaceDocsStillValid(newDocs []interfaceDoc, pendingNames set.Strings) error {
 	for _, newDoc := range newDocs {
 		if err := m.maybeEnsureParentInterfaceExists(newDoc.Name, newDoc.ParentName, pendingNames); err != nil {
 			return errors.Trace(err)
@@ -368,6 +368,9 @@ func (m *Machine) assertAliveOp() txn.Op {
 
 func (m *Machine) maybeAssertParentInterfaceExists(parentName string, pendingNames set.Strings, opsSoFar []txn.Op) []txn.Op {
 	if parentName == "" || pendingNames.Contains(parentName) {
+		// Without a parent set, no need to add an assertion the parent exists.
+		// Likewise, if the parent is set and pending insertion, it won't exist
+		// yet.
 		return opsSoFar
 	}
 

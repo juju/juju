@@ -41,7 +41,7 @@ func (s *interfacesStateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *interfacesStateSuite) TestAddInterfacesNoArgs(c *gc.C) {
-	err := s.machine.AddInterfaces()
+	err := s.machine.AddInterfaces() // takes varargs, which includes none.
 	expectedError := fmt.Sprintf("cannot add interfaces to machine %q: no interfaces to add", s.machine.Id())
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -145,8 +145,8 @@ func (s *interfacesStateSuite) TestAddInterfacesWhenModelNotAlive(c *gc.C) {
 	}
 	err = s.otherStateMachine.AddInterfaces(args)
 	expectedError := fmt.Sprintf(
-		"cannot add interfaces to machine %q: model is no longer alive",
-		s.otherStateMachine.Id(),
+		"cannot add interfaces to machine %q: model %q is no longer alive",
+		s.otherStateMachine.Id(), otherModel.Name(),
 	)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -325,7 +325,7 @@ func (s *interfacesStateSuite) TestAddInterfacesMultipleChildrenOfExistingParent
 		ParentName: parent.Name(),
 	}, {
 		Name:       "child2",
-		Type:       state.UnknownInterface,
+		Type:       state.EthernetInterface,
 		ParentName: parent.Name(),
 	}}
 
@@ -335,7 +335,7 @@ func (s *interfacesStateSuite) TestAddInterfacesMultipleChildrenOfExistingParent
 func (s *interfacesStateSuite) addSimpleInterface(c *gc.C) *state.Interface {
 	args := state.InterfaceArgs{
 		Name: "foo",
-		Type: state.UnknownInterface,
+		Type: state.EthernetInterface,
 	}
 	err := s.machine.AddInterfaces(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -463,8 +463,8 @@ func (s *interfacesStateSuite) TestMachineAllInterfacesOnlyReturnsSameModelInter
 	results, err := s.machine.AllInterfaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
-	c.Assert(results[0].Name(), gc.Matches, "(foo|foo.42)")
-	c.Assert(results[1].Name(), gc.Matches, "(foo|foo.42)")
+	c.Assert(results[0].Name(), gc.Equals, "foo")
+	c.Assert(results[1].Name(), gc.Equals, "foo.42")
 
 	s.assertNoInterfacesOnMachine(c, s.otherStateMachine)
 }
@@ -516,7 +516,7 @@ func (s *interfacesStateSuite) TestInterfaceRemoveTwiceStillSucceeds(c *gc.C) {
 	s.assertNoInterfacesOnMachine(c, s.machine)
 }
 
-func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesDeletesAllInterfaces(c *gc.C) {
+func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesSuccess(c *gc.C) {
 	s.assertNoInterfacesOnMachine(c, s.machine)
 
 	args := []state.InterfaceArgs{{
@@ -539,32 +539,6 @@ func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesNoErrorIfNoInterfac
 
 	err := s.machine.RemoveAllInterfaces()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *interfacesStateSuite) TestInterfaceRefreshUpdatesStaleDocData(c *gc.C) {
-	fooInterface := s.addSimpleInterface(c)
-	c.Assert(fooInterface.HardwareAddress(), gc.Equals, "")
-	s.removeInterfaceAndAssertSuccess(c, fooInterface)
-	args := state.InterfaceArgs{
-		Name:            "foo",
-		Type:            state.BondInterface,
-		HardwareAddress: "aa:bb:cc:dd:ee:f0",
-	}
-	err := s.machine.AddInterfaces(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = fooInterface.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fooInterface.HardwareAddress(), gc.Equals, "aa:bb:cc:dd:ee:f0")
-}
-
-func (s *interfacesStateSuite) TestInterfaceRefreshPassesThroughNotFoundError(c *gc.C) {
-	existingInterface := s.addSimpleInterface(c)
-	s.removeInterfaceAndAssertSuccess(c, existingInterface)
-
-	err := existingInterface.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `interface "foo" on machine "0" not found`)
 }
 
 func (s *interfacesStateSuite) TestAddInterfacesRollbackWithDuplicateProviderIDs(c *gc.C) {
@@ -669,12 +643,14 @@ func (s *interfacesStateSuite) TestAddInterfacesWithTooMuchStateChurn(c *gc.C) {
 
 	s.assertNoInterfacesOnMachine(c, s.machine)
 }
+
 func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
 	// Tested successfully multiple times with:
 	// $ cd $GOPATH/src/github.com/juju/juju/state; go test -c
 	// $ for i in {1..100}; do ./state.test -check.v -check.f HighCon & done
-	// The only observed issue (even with 500 vs 100 runs) is panicking due to
-	// "address already in use" coming from the test mongodb. And even then it
+	// The only observed issue (even with 500 vs 100 runs) is MgoSuite.SetUpTest()
+	// panicking due to/ "address already in use" coming from the test mongod
+	// instance, not the production code being tested below. And even then it
 	// happens in 1 or 2 out of 100 (or even 500) test runs.
 	parentArgs := state.InterfaceArgs{
 		Name: "parent",
@@ -721,8 +697,8 @@ func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
 				case successfulArgs <- testArgs:
 				default:
 					// successfulArgs is buffered, so if we can't send there was
-					// more than once success.
-					c.Fatalf("unexpected more than one success for args %+v", testArgs)
+					// more than on success.
+					c.Fatalf("unexpected: more than one success for args %+v", testArgs)
 				}
 			}
 		}(about, args)

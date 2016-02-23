@@ -100,8 +100,9 @@ const (
 // type.
 func IsValidInterfaceType(value string) bool {
 	switch InterfaceType(value) {
-	case UnknownInterface, LoopbackInterface, EthernetInterface,
-		VLAN_8021QInterface, BondInterface, BridgeInterface:
+	case LoopbackInterface, EthernetInterface,
+		VLAN_8021QInterface,
+		BondInterface, BridgeInterface:
 		return true
 	}
 	return false
@@ -201,21 +202,7 @@ func (nic *Interface) machineProxy() *Machine {
 	return &Machine{st: nic.st, doc: machineDoc{Id: nic.doc.MachineID}}
 }
 
-// Refresh refreshes the contents of the inteface from the underlying state. It
-// returns an error that satisfies errors.IsNotFound if the interface has been
-// removed.
-func (nic *Interface) Refresh() error {
-	freshCopy, err := nic.machineProxy().Interface(nic.doc.Name)
-	if errors.IsNotFound(err) {
-		return err
-	} else if err != nil {
-		return errors.Annotatef(err, "cannot refresh interface %s", nic)
-	}
-	nic.doc = freshCopy.doc
-	return nil
-}
-
-// Remove deletes the interface, if it exists. No error is returned when the
+// Remove removes the interface, if it exists. No error is returned when the
 // interface was already removed. ErrParentInterfaceHasChildren is returned if
 // this interface is a parent to one or more existing interfaces and therefore
 // cannot be removed.
