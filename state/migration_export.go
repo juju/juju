@@ -78,7 +78,7 @@ type exporter struct {
 	model   migration.Model
 	logger  loggo.Logger
 
-	annotations map[string]annatatorDoc
+	annotations map[string]annotatorDoc
 	settings    map[string]settingsDoc
 	status      map[string]bson.M
 	// Map of service name to units. Populated as part
@@ -573,12 +573,12 @@ func (e *exporter) readAllAnnotations() error {
 // getAnnotations doesn't really care if there are any there or not
 // for the key, but if they were there, they are removed so we can
 // check at the end of the export for anything we have forgotten.
-func (e *exporter) getAnnotations(key string) map[string]interface{} {
-	result, found := e.annotations(key)
+func (e *exporter) getAnnotations(key string) map[string]string {
+	result, found := e.annotations[key]
 	if found {
 		delete(e.annotations, key)
 	}
-	return result
+	return result.Annotations
 }
 
 func (e *exporter) readAllSettings() error {

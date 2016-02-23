@@ -40,14 +40,26 @@ func (s *MigrationImportSuite) importModel(c *gc.C) (*state.Model, *state.State)
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	newEnv, newSt, err := s.State.Import(in)
+	newModel, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
-	return newEnv, newSt
+	return newModel, newSt
 }
 
-func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
+func (s *MigrationImportSuite) assertAnnotations(c *gc.C, newSt *state.State, entity state.GlobalEntity) {
+	annotations, err := newSt.Annotations(entity)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(annotations, jc.DeepEquals, testAnnotations)
+}
+
+func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
+
+	original, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.SetAnnotations(original, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,20 +67,19 @@ func (s *MigrationImportSuite) TestNewEnv(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	newEnv, newSt, err := s.State.Import(in)
+	newModel, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
-	original, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
+	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
+	s.assertAnnotations(c, newSt, newModel)
 
-	c.Assert(newEnv.Owner(), gc.Equals, original.Owner())
-	c.Assert(newEnv.LatestToolsVersion(), gc.Equals, latestTools)
 	originalConfig, err := original.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	originalAttrs := originalConfig.AllAttrs()
 
-	newConfig, err := newEnv.Config()
+	newConfig, err := newModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	newAttrs := newConfig.AllAttrs()
 
@@ -129,7 +140,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
 	delta := s.newModelUser(c, "delta@external", true, time.Time{})
 
-	newEnv, newSt := s.importModel(c)
+	newModel, newSt := s.importModel(c)
 	defer newSt.Close()
 
 	// Check the import values of the users.
@@ -140,7 +151,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	}
 
 	// Also make sure that there aren't any more.
-	allUsers, err := newEnv.Users()
+	allUsers, err := newModel.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allUsers, gc.HasLen, 3)
 }
@@ -167,6 +178,8 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Let's add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, nil)
+	err := s.State.SetAnnotations(machine1, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// machine1 should have some instance data.
 	hardware, err := machine1.HardwareCharacteristics()
@@ -200,6 +213,8 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	parentId, isContainer := container.ParentId()
 	c.Assert(parentId, gc.Equals, parent.Id())
 	c.Assert(isContainer, jc.IsTrue)
+
+	s.assertAnnotations(c, newSt, parent)
 }
 
 func (s *MigrationImportSuite) TestServices(c *gc.C) {
@@ -217,6 +232,8 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the service.
 	c.Assert(service.SetExposed(), jc.ErrorIsNil)
+	err = s.State.SetAnnotations(service, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 
 	allServices, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -249,11 +266,14 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
+	s.assertAnnotations(c, newSt, imported)
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, nil)
 	err := exported.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
@@ -279,6 +299,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	meterStatus, err := imported.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
+	s.assertAnnotations(c, newSt, imported)
 }
 
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {
