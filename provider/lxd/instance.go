@@ -41,7 +41,9 @@ func (inst *environInstance) Status() string {
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
 	// TODO(ericsnow) This may need to be more dynamic.
-	return inst.raw.Addresses, nil
+	// return inst.raw.Addresses, nil
+	/// XXX: jam fix this
+	return nil, nil
 }
 
 func findInst(id instance.Id, instances []instance.Instance) instance.Instance {

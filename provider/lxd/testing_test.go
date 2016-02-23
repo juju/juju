@@ -237,7 +237,8 @@ func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Ins
 		Status:    lxdclient.StatusRunning,
 		Hardware:  *s.Hardware,
 		Metadata:  s.Metadata,
-		Addresses: s.Addresses,
+		// XXX: jam
+		// Addresses: s.Addresses,
 	}
 	instanceSpec := lxdclient.InstanceSpec{
 		Name:      name,
