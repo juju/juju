@@ -80,7 +80,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	}
 	s.allocate = &AllocateBudget{AllocationSpec: ""}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `invalid budget specification, expecting <budget>:<limit>`)
+	c.Assert(err, gc.ErrorMatches, `invalid allocation, expecting <budget>:<limit>`)
 
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +105,7 @@ func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
-	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "WARNING: Allocation not created - service unreachable.\n")
+	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "WARNING: Budget allocation not created - service unreachable.\n")
 }
 
 func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {

@@ -54,7 +54,21 @@ func Configure(params ConfigureParams) error {
 // to have been returned by cloudinit ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
 	logger.Tracef("Running script on %s: %s", params.Host, script)
-	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
+
+	// bash will read a byte at a time when consuming commands
+	// from stdin. We avoid sending the entire script -- which
+	// will be very large when uploading tools -- directly to
+	// bash for this reason. Instead, run cat which will write
+	// the script to disk, and then execute it from there.
+	cmd := ssh.Command(params.Host, []string{
+		`sudo /bin/bash -c '
+set -e
+tmpfile=$(mktemp)
+trap "rm -f $tmpfile" EXIT
+cat > $tmpfile
+/bin/bash $tmpfile
+'`}, nil)
+
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()

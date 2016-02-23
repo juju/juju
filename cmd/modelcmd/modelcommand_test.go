@@ -260,32 +260,20 @@ const testUser = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-
-	modelTag := names.NewModelTag(s.State.ModelUUID())
-	s.controllerName = "my-controller"
-	s.modelName = modelTag.Id()
-
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
+	s.controllerName = "my-controller"
+	s.modelName = "my-model"
+	modelTag := names.NewModelTag(s.State.ModelUUID())
 	apiInfo := s.APIInfo(c)
 
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := store.CreateInfo(s.controllerName + ":" + s.modelName)
-	cfg.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses: apiInfo.Addrs,
-		Hostnames: []string{"0.1.2.3"},
-		CACert:    apiInfo.CACert,
-		ModelUUID: modelTag.Id(),
-	})
-	err = cfg.Write()
-	cfg.SetAPICredentials(configstore.APICredentials{
-		User:     "",
-		Password: "",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
+		Servers:        []string{"0.1.2.3"},
+		APIEndpoints:   apiInfo.Addrs,
+		ControllerUUID: apiInfo.ModelTag.Id(),
+		CACert:         apiInfo.CACert,
+	}
 	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
 			s.modelName: {modelTag.Id()},
@@ -298,8 +286,7 @@ func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 		return testUser
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.controllerName, s.modelName, nil, nil)
-	cmd.SetClientStore(s.store)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -309,10 +296,9 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.controllerName, s.modelName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	// TODO(rog) is this really the right error here?
-	c.Assert(err, gc.ErrorMatches, `bootstrap config not found`)
+	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -320,8 +306,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.controllerName, s.modelName, nil, nil)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	// TODO(rog) is this really the right error here?
-	c.Assert(err, gc.ErrorMatches, `bootstrap config not found`)
+	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
 }

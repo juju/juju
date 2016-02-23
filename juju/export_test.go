@@ -8,8 +8,7 @@ import (
 
 var (
 	ProviderConnectDelay   = &providerConnectDelay
-	GetConfig              = getConfig
-	EnvironInfoUserTag     = environInfoUserTag
+	GetBootstrapConfig     = getBootstrapConfig
 	MaybePreferIPv6        = &maybePreferIPv6
 	ResolveOrDropHostnames = &resolveOrDropHostnames
 	ServerAddress          = &serverAddress
