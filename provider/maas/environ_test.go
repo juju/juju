@@ -205,7 +205,7 @@ func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
@@ -216,7 +216,7 @@ func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	testCase := func(expectedConfig []string) {
-		cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
+		cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 		c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedConfig)
@@ -226,8 +226,7 @@ func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 
 	// Now test with the flag off.
 	s.SetFeatureFlags() // clear the flags.
-	modifyNetworkScript, err := maas.RenderEtcNetworkInterfacesScript()
-	c.Assert(err, jc.ErrorIsNil)
+	modifyNetworkScript := maas.RenderEtcNetworkInterfacesScript()
 	script := expectedCloudinitConfig
 	script = append(script, modifyNetworkScript)
 	testCase(script)
@@ -240,7 +239,7 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	cfg := getSimpleTestConfig(c, attrs)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)

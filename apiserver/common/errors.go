@@ -108,8 +108,8 @@ func OperationBlockedError(msg string) error {
 		msg = "the operation has been blocked"
 	}
 	return &params.Error{
-		Code:    params.CodeOperationBlocked,
 		Message: msg,
+		Code:    params.CodeOperationBlocked,
 	}
 }
 

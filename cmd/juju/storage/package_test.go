@@ -38,11 +38,11 @@ func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
 }
 
 type SubStorageSuite struct {
-	jujutesting.BaseSuite
+	jujutesting.FakeJujuXDGDataHomeSuite
 }
 
 func (s *SubStorageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {

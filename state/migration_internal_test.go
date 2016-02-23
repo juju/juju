@@ -99,6 +99,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		charmsC,
 		leasesC,
 		"payloads",
+		"resources",
+		endpointBindingsC,
 
 		// storage
 		blockDevicesC,
@@ -223,6 +225,10 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"SupportedContainers",
 		"SupportedContainersKnown",
 		"Tools",
+
+		// Ignored at this stage, could be an issue if mongo 3.0 isn't
+		// available.
+		"StopMongoUntilVersion",
 	)
 	todo := set.NewStrings(
 		"Principals",

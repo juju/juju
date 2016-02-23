@@ -29,15 +29,15 @@ func (s *JujuXDGDataHomeSuite) TestErrorHome(c *gc.C) {
 	// Invalid juju home leads to panic when retrieving.
 	f := func() { _ = osenv.JujuXDGDataHome() }
 	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
-	f = func() { _ = osenv.JujuXDGDataHomePath("environments.yaml") }
+	f = func() { _ = osenv.JujuXDGDataHomePath("current-environment") }
 	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
 }
 
 func (s *JujuXDGDataHomeSuite) TestHomePath(c *gc.C) {
 	testJujuHome := c.MkDir()
 	osenv.SetJujuXDGDataHome(testJujuHome)
-	envPath := osenv.JujuXDGDataHomePath("environments.yaml")
-	c.Assert(envPath, gc.Equals, filepath.Join(testJujuHome, "environments.yaml"))
+	envPath := osenv.JujuXDGDataHomePath("current-environment")
+	c.Assert(envPath, gc.Equals, filepath.Join(testJujuHome, "current-environment"))
 }
 
 func (s *JujuXDGDataHomeSuite) TestIsHomeSet(c *gc.C) {

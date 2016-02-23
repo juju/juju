@@ -20,10 +20,13 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -43,8 +46,17 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		dummy.Reset()
 		loggo.ResetLoggers()
 	})
-	env, err := environs.PrepareFromName(
-		"erewhemos", modelcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":      "erewhemos",
+		"type":      "dummy",
+		"conroller": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
+		configstore.NewMem(), jujuclienttesting.NewMemStore(), cfg.Name(),
+		environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
@@ -347,4 +359,15 @@ Finding tools in .*
 		FileType: "tar.gz",
 		SHA256:   sha256,
 	})
+}
+
+func (s *ToolsMetadataSuite) TestToolsDataSourceHasKey(c *gc.C) {
+	ds := toolsDataSources("test.me")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with public key with Juju-known public key for tools.
+	// Bugs #1542127, #1542131
+	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, simplestreams.SimplestreamsJujuPublicKey)
 }

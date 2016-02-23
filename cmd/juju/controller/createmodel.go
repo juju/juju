@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewCreateModelCommand returns a command to create an model.
@@ -110,7 +111,7 @@ func (c *createModelCommand) getAPI() (CreateEnvironmentAPI, error) {
 func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 	client, err := c.getAPI()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -143,7 +144,9 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info = store.CreateInfo(c.Name)
+		info = store.CreateInfo(
+			configstore.EnvironInfoName(c.ControllerName(), c.Name),
+		)
 		info.SetAPICredentials(creds)
 		endpoint.ModelUUID = ""
 		if err := info.Write(); err != nil {
@@ -183,14 +186,23 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		return errors.Trace(err)
 	}
 	if creatingForSelf {
-		// update the cached details with the environment uuid
+		// update the cached details with the model uuid
 		endpoint.ModelUUID = env.UUID
 		info.SetAPIEndpoint(endpoint)
 		if err := info.Write(); err != nil {
 			return errors.Trace(err)
 		}
+		store := c.ClientStore()
+		controllerName := c.ControllerName()
+		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
+			env.UUID,
+		}); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
+			return errors.Trace(err)
+		}
 		ctx.Infof("created model %q", c.Name)
-		return modelcmd.SetCurrentModel(ctx, c.Name)
 	} else {
 		ctx.Infof("created model %q for %q", c.Name, c.Owner)
 	}

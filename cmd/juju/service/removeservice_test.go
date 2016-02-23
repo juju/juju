@@ -7,12 +7,14 @@ import (
 	"net/http"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -88,7 +90,10 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
 	// Destroy a service that does not exist.
 	err := runRemoveService(c, "gargleblaster")
-	c.Assert(err, gc.ErrorMatches, `service "gargleblaster" not found`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `service "gargleblaster" not found`,
+		Code:    "not found",
+	})
 	s.stub.CheckNoCalls(c)
 }
 

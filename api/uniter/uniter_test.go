@@ -45,9 +45,18 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 		s.controllerMachine = testing.AddControllerMachine(c, s.State)
 	}
 
+	// Bind wordpress:db to space "internal"
+	bindings := map[string]string{
+		"db": "internal",
+	}
+	_, err := s.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.
-	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
+	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineBoundServiceCharmAndUnit(c, "wordpress", bindings)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.SetPassword(password)
@@ -60,16 +69,31 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName string, bindings map[string]string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
-	service := s.AddTestingService(c, serviceName, charm)
+
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(state.AddServiceArgs{
+		Name:             serviceName,
+		Owner:            owner,
+		Charm:            charm,
+		EndpointBindings: bindings,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
+
 	return machine, service, charm, unit
+}
+
+func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
+	return s.addMachineBoundServiceCharmAndUnit(c, serviceName, nil)
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {

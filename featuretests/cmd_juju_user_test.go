@@ -30,7 +30,8 @@ var _ = gc.Suite(&UserSuite{})
 
 func (s *UserSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	modelcmd.WriteCurrentModel("dummymodel")
+	err := modelcmd.WriteCurrentController("dummymodel")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -45,10 +46,38 @@ func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error
 func (s *UserSuite) TestUserAdd(c *gc.C) {
 	ctx, err := s.RunUserCommand(c, "add-user", "test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), jc.HasPrefix, `user "test" added`)
+	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
+}
+
+func (s *UserSuite) TestUserAddShareModel(c *gc.C) {
+	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "amodel",
+	})
+	defer sharedModelState.Close()
+
+	ctx, err := s.RunUserCommand(c, "add-user", "test", "--share", "amodel")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
+	user, err := s.State.User(names.NewLocalUserTag("test"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
+
+	// Check model is shared with expected users.
+	sharedModel, err := sharedModelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	users, err := sharedModel.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	var modelUserTags = make([]names.UserTag, len(users))
+	for i, u := range users {
+		modelUserTags[i] = u.UserTag()
+	}
+	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
+		user.Tag().(names.UserTag),
+		names.NewLocalUserTag("admin"),
+	})
 }
 
 func (s *UserSuite) TestUserChangePassword(c *gc.C) {
@@ -68,7 +97,7 @@ func (s *UserSuite) TestUserInfo(c *gc.C) {
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
 	ctx, err := s.RunUserCommand(c, "show-user")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), jc.Contains, "user-name: dummy-admin")
+	c.Assert(testing.Stdout(ctx), jc.Contains, "user-name: admin")
 }
 
 func (s *UserSuite) TestUserDisable(c *gc.C) {
@@ -95,7 +124,7 @@ func (s *UserSuite) TestUserList(c *gc.C) {
 	periodPattern := `(just now|\d+ \S+ ago)`
 	expected := fmt.Sprintf(`
 NAME\s+DISPLAY NAME\s+DATE CREATED\s+LAST CONNECTION
-dummy-admin\s+dummy-admin\s+%s\s+%s
+admin\s+admin\s+%s\s+%s
 
 `[1:], periodPattern, periodPattern)
 	c.Assert(testing.Stdout(ctx), gc.Matches, expected)

@@ -373,12 +373,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
 	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
-	setDyingOps := []txn.Op{{
+	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, cleanupOp, minUnitsOp}
+	}
+	setDyingOps := []txn.Op{setDyingOp, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
@@ -1425,6 +1426,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		})
 	}
 	isUnassigned := bson.D{{"machineid", ""}}
+
 	asserts := append(isAliveDoc, isUnassigned...)
 	ops = append(ops, txn.Op{
 		C:      unitsC,

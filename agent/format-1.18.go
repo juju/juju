@@ -57,6 +57,7 @@ type format_1_18Serialization struct {
 	StatePort      int    `yaml:",omitempty"`
 	SharedSecret   string `yaml:",omitempty"`
 	SystemIdentity string `yaml:",omitempty"`
+	MongoVersion   string `yaml:",omitempty"`
 }
 
 func init() {
@@ -148,6 +149,10 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		}
 
 	}
+	// Mongo version is set, we might be running a version other than default.
+	if format.MongoVersion != "" {
+		config.mongoVersion = format.MongoVersion
+	}
 	return config, nil
 }
 
@@ -186,6 +191,9 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 	if config.apiDetails != nil {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
+	}
+	if config.mongoVersion != "" {
+		format.MongoVersion = string(config.mongoVersion)
 	}
 	return goyaml.Marshal(format)
 }

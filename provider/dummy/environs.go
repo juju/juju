@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -102,15 +103,6 @@ func SampleConfig() testing.Attrs {
 // received string will appear in the info field of the machine's status
 func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
-}
-
-// AdminUserTag returns the user tag used to bootstrap the dummy environment.
-// The dummy bootstrapping is handled slightly differently, and the user is
-// created as part of the bootstrap process.  This method is used to provide
-// tests a way to get to the user name that was used to initialise the
-// database, and as such, is the owner of the initial environment.
-func AdminUserTag() names.UserTag {
-	return names.NewLocalUserTag("dummy-admin")
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -234,10 +226,11 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu             sync.Mutex
-	ops            chan<- Operation
-	statePolicy    state.Policy
-	supportsSpaces bool
+	mu                     sync.Mutex
+	ops                    chan<- Operation
+	statePolicy            state.Policy
+	supportsSpaces         bool
+	supportsSpaceDiscovery bool
 	// We have one state for each environment name.
 	state      map[int]*environState
 	maxStateId int
@@ -321,6 +314,7 @@ func Reset() {
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 	providerInstance.supportsSpaces = true
+	providerInstance.supportsSpaceDiscovery = false
 }
 
 func (state *environState) destroy() {
@@ -404,6 +398,17 @@ func SetSupportsSpaces(supports bool) bool {
 	return current
 }
 
+// SetSupportsSpaceDiscovery allows to enable and disable
+// SupportsSpaceDiscovery for tests.
+func SetSupportsSpaceDiscovery(supports bool) bool {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	current := p.supportsSpaceDiscovery
+	p.supportsSpaceDiscovery = supports
+	return current
+}
+
 // Listen closes the previously registered listener (if any).
 // Subsequent operations on any dummy environment can be received on c
 // (if not nil).
@@ -454,9 +459,10 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"broken":   "",
-	"secret":   "pork",
-	"state-id": schema.Omit,
+	"broken":     "",
+	"secret":     "pork",
+	"state-id":   schema.Omit,
+	"controller": false,
 }
 
 type environConfig struct {
@@ -502,6 +508,18 @@ func (p *environProvider) Schema() environschema.Fields {
 		panic(err)
 	}
 	return fields
+}
+
+func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
+}
+
+func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
+	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
+}
+
+func (*environProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "dummy"}}, nil
 }
 
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
@@ -566,7 +584,8 @@ func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*conf
 	return cfg, nil
 }
 
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err
@@ -615,17 +634,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 		"secret": ecfg.secret(),
 	}, nil
 }
-
-func (*environProvider) BoilerplateConfig() string {
-	return `
-# Fake configuration for dummy provider.
-dummy:
-    type: dummy
-
-`[1:]
-}
-
-var errBroken = errors.New("broken model")
 
 // Override for testing - the data directory with which the state api server is initialised.
 var DataDir = ""
@@ -722,7 +730,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// user is constructed with an empty password here.
 		// It is set just below.
 		st, err := state.Initialize(
-			AdminUserTag(), info, cfg,
+			names.NewUserTag("admin@local"), info, cfg,
 			mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
@@ -1052,6 +1060,51 @@ func (env *environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
+		return false, err
+	}
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.supportsSpaceDiscovery {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Spaces is specified on environs.Networking.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	if err := env.checkBroken("Spaces"); err != nil {
+		return []network.SpaceInfo{}, err
+	}
+	return []network.SpaceInfo{{
+		ProviderId: network.Id("foo"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("1"),
+			AvailabilityZones: []string{"zone1"},
+		}, {
+			ProviderId:        network.Id("2"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		ProviderId: network.Id("Another Foo 99!"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("3"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		ProviderId: network.Id("foo-"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("4"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		ProviderId: network.Id("---"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("5"),
+			AvailabilityZones: []string{"zone1"},
+		}}}}, nil
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {
@@ -1253,6 +1306,12 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
+	p := &providerInstance
+	if p.supportsSpaceDiscovery {
+		// Space discovery needs more subnets to work with.
+		return env.subnetsForSpaceDiscovery(estate)
+	}
+
 	allSubnets := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
@@ -1334,6 +1393,38 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 		Env:        env.name,
 		InstanceId: instId,
 		SubnetIds:  subnetIds,
+		Info:       result,
+	}
+	return result, nil
+}
+
+func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.SubnetInfo, error) {
+	result := []network.SubnetInfo{{
+		ProviderId:        network.Id("1"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.1.0/24",
+	}, {
+		ProviderId:        network.Id("2"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.2.0/24",
+		VLANTag:           1,
+	}, {
+		ProviderId:        network.Id("3"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.3.0/24",
+	}, {
+		ProviderId:        network.Id("4"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.4.0/24",
+	}, {
+		ProviderId:        network.Id("5"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.5.0/24",
+	}}
+	estate.ops <- OpSubnets{
+		Env:        env.name,
+		InstanceId: instance.UnknownId,
+		SubnetIds:  []network.Id{},
 		Info:       result,
 	}
 	return result, nil
