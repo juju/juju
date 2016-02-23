@@ -232,7 +232,6 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"subordinates": schema.List(schema.String()),
 
 		"password-hash": schema.String(),
-		"annotations":   schema.StringMap(schema.Any()),
 		"tools":         schema.StringMap(schema.Any()),
 
 		"meter-status-code": schema.String(),
@@ -241,10 +240,10 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 	defaults := schema.Defaults{
 		"principal":         "",
 		"subordinates":      schema.Omit,
-		"annotations":       schema.Omit,
 		"meter-status-code": "",
 		"meter-status-info": "",
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)

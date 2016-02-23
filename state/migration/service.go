@@ -265,7 +265,6 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"settings-refcount":   schema.Int(),
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"metrics-creds":       schema.String(),
-		"annotations":         schema.StringMap(schema.Any()),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
@@ -275,8 +274,8 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"exposed":       false,
 		"min-units":     int64(0),
 		"metrics-creds": "",
-		"annotations":   schema.Omit,
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
