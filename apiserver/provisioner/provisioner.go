@@ -1246,3 +1246,60 @@ func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo)
 	}
 	return subnet, nil
 }
+
+// InstanceStatus returns the instance status for each given entity.
+// Only machine tags are accepted.
+func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResults, error) {
+	result := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		mTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err == nil {
+			var statusInfo status.StatusInfo
+			statusInfo, err = machine.InstanceStatus()
+			result.Results[i].Status = statusInfo.Status
+			result.Results[i].Info = statusInfo.Message
+			result.Results[i].Data = statusInfo.Data
+			result.Results[i].Since = statusInfo.Since
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SetInstanceStatus updates the instance status for each given
+// entity. Only machine tags are accepted.
+func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		logger.Errorf("failed to get an authorisation function: %v", err)
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		mTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, mTag)
+		if err == nil {
+			err = machine.SetInstanceStatus(arg.Status, arg.Info, arg.Data)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}

@@ -135,6 +135,25 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
 
+func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceStatus, info, err := apiMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceStatus, gc.Equals, status.StatusPending)
+	c.Assert(info, gc.Equals, "")
+	err = apiMachine.SetInstanceStatus(status.StatusStarted, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	instanceStatus, info, err = apiMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceStatus, gc.Equals, status.StatusStarted)
+	c.Assert(info, gc.Equals, "blah")
+	statusInfo, err := s.machine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+}
+
 func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
