@@ -79,7 +79,7 @@ func newAPIFromStore(
 	bClient *httpbakery.Client,
 ) (api.Connection, error) {
 
-	controllerDetails, err := store.ControllerByName(controllerName)
+	actualControllerName, controllerDetails, err := jujuclient.LocalControllerByName(store, controllerName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller details")
 	}
@@ -88,20 +88,20 @@ func newAPIFromStore(
 	// TODO(axw) allow the account name to be specified.
 	// TODO(axw) store macaroons in the account details? Need to check with
 	// rogpeppe/cmars/ashipika.
-	accountName, err := store.CurrentAccount(controllerName)
+	accountName, err := store.CurrentAccount(actualControllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "getting current account name")
 	}
 	var accountDetails *jujuclient.AccountDetails
 	if accountName != "" {
-		accountDetails, err = store.AccountByName(controllerName, accountName)
+		accountDetails, err = store.AccountByName(actualControllerName, accountName)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting account details")
 		}
 	}
 	var modelDetails *jujuclient.ModelDetails
 	if modelName != "" {
-		modelDetails, err = store.ModelByName(controllerName, modelName)
+		modelDetails, err = store.ModelByName(actualControllerName, modelName)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting model details")
 		}
@@ -145,7 +145,7 @@ func newAPIFromStore(
 		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getBootstrapConfig(legacyStore, controllerName, modelName)
+		cfg, err := getBootstrapConfig(legacyStore, actualControllerName, modelName)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +171,7 @@ func newAPIFromStore(
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
 	hostPorts := st.APIHostPorts()
-	if localerr := UpdateControllerAddresses(store, legacyStore, controllerName, hostPorts, addrConnectedTo); localerr != nil {
+	if localerr := UpdateControllerAddresses(store, legacyStore, actualControllerName, hostPorts, addrConnectedTo); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -422,7 +422,7 @@ func UpdateControllerAddresses(
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
 
-	controllerDetails, err := store.ControllerByName(controllerName)
+	actualControllerName, controllerDetails, err := jujuclient.LocalControllerByName(store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -482,6 +482,6 @@ func UpdateControllerAddresses(
 	// Write the new controller data.
 	controllerDetails.Servers = hosts
 	controllerDetails.APIEndpoints = addrs
-	err = store.UpdateController(controllerName, *controllerDetails)
+	err = store.UpdateController(actualControllerName, *controllerDetails)
 	return errors.Trace(err)
 }

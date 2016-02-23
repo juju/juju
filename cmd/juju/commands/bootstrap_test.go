@@ -456,7 +456,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = coretesting.RunCommand(c, newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
-	c.Assert(err, gc.ErrorMatches, `controller "dev" already exists`)
+	c.Assert(err, gc.ErrorMatches, `controller "local.dev" already exists`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
@@ -489,7 +489,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
-	c.Assert(err, gc.ErrorMatches, `error reading controller "devcontroller" info: oh noes`)
+	c.Assert(err, gc.ErrorMatches, `error reading controller "local.devcontroller" info: oh noes`)
 }
 
 // When attempting to bootstrap, check that when prepare errors out,
@@ -527,7 +527,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
 	store := jujuclient.NewFileClientStore()
-	err := store.UpdateController("devcontroller", jujuclient.ControllerDetails{
+	err := store.UpdateController("local.devcontroller", jujuclient.ControllerDetails{
 		CACert:         "x",
 		ControllerUUID: "y",
 	})
@@ -743,7 +743,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	)
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
-Creating Juju controller "devcontroller" on dummy-cloud/region-1
+Creating Juju controller "local.devcontroller" on dummy-cloud/region-1
 Bootstrapping model "devcontroller"
 Starting new instance for initial controller
 Building tools to upload (1.7.3.1-raring-%s)
@@ -827,7 +827,7 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
 		c, newBootstrapCommand(), "ctrl", "no-cloud-regions",
 		"--config", "default-series=precise",
 	)
-	c.Check(coretesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
+	c.Check(coretesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"local.ctrl\" on no-cloud-regions(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -837,7 +837,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
 		c, newBootstrapCommand(), "ctrl", "dummy-cloud-without-regions",
 		"--config", "default-series=precise",
 	)
-	c.Check(coretesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on dummy-cloud-without-regions(.|\n)*")
+	c.Check(coretesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"local.ctrl\" on dummy-cloud-without-regions(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -853,7 +853,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 	// enable the lxd provider to take the lxd remote from the region
 	// name.
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"Creating Juju controller \"ctrl\" on dummy-cloud-without-regions/my-region(.|\n)*")
+		"Creating Juju controller \"local.ctrl\" on dummy-cloud-without-regions/my-region(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -41,7 +41,7 @@ func Prepare(
 	args PrepareForBootstrapParams,
 ) (_ Environ, resultErr error) {
 
-	_, err := store.ControllerByName(controllerName)
+	_, _, err := jujuclient.LocalControllerByName(store, controllerName)
 	if err == nil {
 		return nil, errors.AlreadyExistsf("controller %q", controllerName)
 	} else if !errors.IsNotFound(err) {
