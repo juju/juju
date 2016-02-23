@@ -168,7 +168,7 @@ func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOu
 
 func (s *filesystemListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		storage.NewFilesystemListCommand(s.mockAPI),
+		storage.NewFilesystemListCommand(s.mockAPI, s.store),
 		args...)
 }
 

@@ -96,6 +96,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	controllerName := c.ControllerName()
+	accountName := c.AccountName()
 	modelName := c.ModelName()
 	cfgInfo, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
 	if err != nil {
@@ -129,7 +130,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
 	}
 
-	err = store.RemoveModel(controllerName, modelName)
+	err = store.RemoveModel(controllerName, accountName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

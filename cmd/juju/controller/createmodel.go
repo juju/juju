@@ -150,12 +150,13 @@ func (c *createModelCommand) Run(ctx *cmd.Context) error {
 	}
 	if modelOwner == currentAccount.User {
 		controllerName := c.ControllerName()
-		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
+		accountName := c.AccountName()
+		if err := store.UpdateModel(controllerName, accountName, c.Name, jujuclient.ModelDetails{
 			model.UUID,
 		}); err != nil {
 			return errors.Trace(err)
 		}
-		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
+		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
 		ctx.Infof("created model %q", c.Name)

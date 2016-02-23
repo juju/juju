@@ -19,6 +19,8 @@ import (
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -31,10 +33,11 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api       *fakeDestroyAPI
-	clientapi *fakeDestroyAPIClient
-	store     configstore.Storage
-	apierror  error
+	api         *fakeDestroyAPI
+	clientapi   *fakeDestroyAPIClient
+	legacyStore configstore.Storage
+	store       *jujuclienttesting.MemStore
+	apierror    error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -122,8 +125,13 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.apierror = nil
 
 	var err error
-	s.store, err = configstore.Default()
+	s.legacyStore, err = configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 
 	var envList = []struct {
 		name         string
@@ -146,7 +154,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		},
 	}
 	for _, env := range envList {
-		info := s.store.CreateInfo(env.name)
+		info := s.legacyStore.CreateInfo(env.name)
 		uuid := env.modelUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:  []string{"localhost"},
@@ -182,7 +190,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.apierror)
+	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.store, s.apierror)
 }
 
 func checkControllerExistsInStore(c *gc.C, name string, store configstore.Storage) {
@@ -225,7 +233,7 @@ func (s *DestroySuite) TestDestroyControllerNotFoundNotRemovedFromStore(c *gc.C)
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: local.test1 not found")
 	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
@@ -233,7 +241,7 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: connection refused")
 	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroy(c *gc.C) {
@@ -241,21 +249,21 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
 	s.api.err = errors.NotFoundf(`controller "test3"`)
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
-	checkControllerExistsInStore(c, "test3:test3", s.store)
+	checkControllerExistsInStore(c, "test3:test3", s.legacyStore)
 }
 
 func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
@@ -263,11 +271,11 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	c.Assert(s.api.destroyAll, jc.IsFalse)
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *DestroySuite) resetController(c *gc.C) {
-	info := s.store.CreateInfo("local.test1:test1")
+	info := s.legacyStore.CreateInfo("local.test1:test1")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
@@ -295,7 +303,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
@@ -308,7 +316,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
@@ -321,7 +329,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("command took too long")
 		}
-		checkControllerRemovedFromStore(c, "local.test1", s.store)
+		checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 
 		// Add the local.test1 controller back into the store for the next test
 		s.resetController(c)

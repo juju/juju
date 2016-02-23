@@ -253,7 +253,7 @@ func (c *MemStore) SetCurrentAccount(controllerName, accountName string) error {
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	if _, ok := accounts.Accounts[accountName]; !ok {
 		return errors.NotFoundf("account %s:%s", controllerName, accountName)
@@ -269,7 +269,7 @@ func (c *MemStore) AllAccounts(controllerName string) (map[string]jujuclient.Acc
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("controller %s", controllerName)
+		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	return accounts.Accounts, nil
 }
@@ -281,7 +281,7 @@ func (c *MemStore) CurrentAccount(controllerName string) (string, error) {
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return "", errors.NotFoundf("controller %s", controllerName)
+		return "", errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	if accounts.CurrentAccount == "" {
 		return "", errors.NotFoundf("current account for controller %s", controllerName)
@@ -299,7 +299,7 @@ func (c *MemStore) AccountByName(controllerName, accountName string) (*jujuclien
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("controller %s", controllerName)
+		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	details, ok := accounts.Accounts[accountName]
 	if !ok {
@@ -318,7 +318,7 @@ func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	if _, ok := accounts.Accounts[accountName]; !ok {
 		return errors.NotFoundf("account %s:%s", controllerName, accountName)
