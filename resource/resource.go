@@ -138,10 +138,10 @@ type ServiceResources struct {
 	UnitResources []UnitResources
 }
 
-// Outdated returns the list of names for the service's resources which
-// do not match the ones in the charm store.
-func (sr ServiceResources) Outdated() []string {
-	var outdated []string
+// Updates returns the list of charm store resources corresponding to
+// the service's resources that are out of date.
+func (sr ServiceResources) Updates() []resource.Resource {
+	var updates []resource.Resource
 	for i, res := range sr.Resources {
 		if res.Origin != resource.OriginStore {
 			continue
@@ -151,9 +151,9 @@ func (sr ServiceResources) Outdated() []string {
 		if res.Revision == csRes.Revision {
 			continue
 		}
-		outdated = append(outdated, res.Name)
+		updates = append(updates, csRes)
 	}
-	return outdated
+	return updates
 }
 
 // UnitResources conains the list of resources used by a unit.

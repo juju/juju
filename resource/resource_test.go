@@ -207,7 +207,7 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 	c.Check(res.RevisionString(), gc.Equals, "7")
 }
 
-func (s *ResourceSuite) TestOutdatedUploaded(c *gc.C) {
+func (s *ResourceSuite) TestUpdatesUploaded(c *gc.C) {
 	csRes := newStoreResource(c, "spam", "a-service", 2)
 	res := csRes // a copy
 	res.Origin = charmresource.OriginUpload
@@ -220,14 +220,16 @@ func (s *ResourceSuite) TestOutdatedUploaded(c *gc.C) {
 		},
 	}
 
-	outdated := sr.Outdated()
+	updates := sr.Updates()
 
-	c.Check(outdated, gc.HasLen, 0)
+	c.Check(updates, gc.HasLen, 0)
 }
 
-func (s *ResourceSuite) TestOutdatedDifferent(c *gc.C) {
+func (s *ResourceSuite) TestUpdatesDifferent(c *gc.C) {
 	spam := newStoreResource(c, "spam", "a-service", 2)
 	eggs := newStoreResource(c, "eggs", "a-service", 3)
+	expected := eggs.Resource
+	expected.Revision += 1
 	sr := resource.ServiceResources{
 		Resources: []resource.Resource{
 			spam,
@@ -235,19 +237,18 @@ func (s *ResourceSuite) TestOutdatedDifferent(c *gc.C) {
 		},
 		CharmStoreResources: []charmresource.Resource{
 			spam.Resource,
-			eggs.Resource,
+			expected,
 		},
 	}
-	sr.CharmStoreResources[1].Revision += 1
 	c.Logf("%#v", sr.Resources)
 	c.Logf("%#v", sr.CharmStoreResources)
 
-	outdated := sr.Outdated()
+	updates := sr.Updates()
 
-	c.Check(outdated, jc.DeepEquals, []string{"eggs"})
+	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
 }
 
-func (s *ResourceSuite) TestOutdatedNone(c *gc.C) {
+func (s *ResourceSuite) TestUpdatesNone(c *gc.C) {
 	spam := newStoreResource(c, "spam", "a-service", 2)
 	eggs := newStoreResource(c, "eggs", "a-service", 3)
 	sr := resource.ServiceResources{
@@ -261,9 +262,9 @@ func (s *ResourceSuite) TestOutdatedNone(c *gc.C) {
 		},
 	}
 
-	outdated := sr.Outdated()
+	updates := sr.Updates()
 
-	c.Check(outdated, gc.HasLen, 0)
+	c.Check(updates, gc.HasLen, 0)
 }
 
 func newStoreResource(c *gc.C, name, serviceID string, revision int) resource.Resource {
