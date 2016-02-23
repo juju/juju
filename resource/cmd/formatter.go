@@ -54,6 +54,14 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	}
 }
 
+// FormatresourceUpdate converts a charm.resource into a FormattedResourceUpdate.
+func FormatResourceUpdate(res charmresource.Resource) FormattedResourceUpdate {
+	return FormattedResourceUpdate{
+		Name:     res.Name,
+		Revision: res.Revision,
+	}
+}
+
 // FormatSvcResource converts the resource info into a FormattedServiceResource.
 func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	used := !res.IsPlaceholder()

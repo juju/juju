@@ -46,7 +46,7 @@ func FormatCharmTabular(value interface{}) ([]byte, error) {
 // FormatSvcTabular returns a tabular summary of resources.
 func FormatSvcTabular(value interface{}) ([]byte, error) {
 	switch resources := value.(type) {
-	case []FormattedSvcResource:
+	case FormattedServiceInfo:
 		return formatServiceTabular(resources), nil
 	case []FormattedUnitResource:
 		return formatUnitTabular(resources), nil
@@ -59,22 +59,17 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 	}
 }
 
-func formatServiceTabular(resources []FormattedSvcResource) []byte {
+func formatServiceTabular(info FormattedServiceInfo) []byte {
 	// TODO(ericsnow) sort the rows first?
 
 	var out bytes.Buffer
 
 	fmt.Fprintln(&out, "[Service]")
-
-	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
-
-	// Write the header.
-	// We do not print a section label.
 	fmt.Fprintln(tw, "RESOURCE\tSUPPLIED BY\tREVISION")
 
 	// Print each info to its own row.
-	for _, r := range resources {
+	for _, r := range info.Resources {
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%v\t%v\t%v\n",
 			r.Name,
@@ -82,6 +77,20 @@ func formatServiceTabular(resources []FormattedSvcResource) []byte {
 			r.combinedRevision,
 		)
 	}
+	tw.Flush()
+
+	if len(info.Updates) > 0 {
+		fmt.Fprintln(&out, "")
+		fmt.Fprintln(&out, "[Updates Available]")
+		fmt.Fprintln(tw, "RESOURCE\tREVISION")
+		for _, r := range info.Updates {
+			fmt.Fprintf(tw, "%v\t%v\n",
+				r.Name,
+				r.Revision,
+			)
+		}
+	}
+
 	tw.Flush()
 
 	return out.Bytes()

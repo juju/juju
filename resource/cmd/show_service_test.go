@@ -72,50 +72,79 @@ This command shows the resources required by and those in use by an existing ser
 }
 
 func (s *ShowServiceSuite) TestRun(c *gc.C) {
-	data := []resource.ServiceResources{{
-		Resources: []resource.Resource{
-			{
-				Resource: charmresource.Resource{
+	data := []resource.ServiceResources{
+		{
+			Resources: []resource.Resource{
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "openjdk",
+							Description: "the java runtime",
+						},
+						Origin:   charmresource.OriginStore,
+						Revision: 7,
+					},
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "website",
+							Description: "your website data",
+						},
+						Origin: charmresource.OriginUpload,
+					},
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "rsc1234",
+							Description: "a big description",
+						},
+						Origin:   charmresource.OriginStore,
+						Revision: 15,
+					},
+					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "website2",
+							Description: "awesome data",
+						},
+						Origin: charmresource.OriginUpload,
+					},
+					Username:  "Bill User",
+					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				},
+			},
+			StoreResources: []charmresource.Resource{
+				{
+					// This resource has a higher revision than the corresponding one
+					// above.
 					Meta: charmresource.Meta{
 						Name:        "openjdk",
 						Description: "the java runtime",
+						Type:        charmresource.TypeFile,
+						Path:        "foobar",
 					},
+					Revision: 10,
 					Origin:   charmresource.OriginStore,
-					Revision: 7,
 				},
-			},
-			{
-				Resource: charmresource.Resource{
-					Meta: charmresource.Meta{
-						Name:        "website",
-						Description: "your website data",
-					},
-					Origin: charmresource.OriginUpload,
-				},
-			},
-			{
-				Resource: charmresource.Resource{
+				{
+					// This resource is the same revision as the corresponding one
+					// above.
 					Meta: charmresource.Meta{
 						Name:        "rsc1234",
 						Description: "a big description",
+						Type:        charmresource.TypeFile,
+						Path:        "foobar",
 					},
-					Origin:   charmresource.OriginStore,
 					Revision: 15,
+					Origin:   charmresource.OriginStore,
 				},
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
-			{
-				Resource: charmresource.Resource{
-					Meta: charmresource.Meta{
-						Name:        "website2",
-						Description: "awesome data",
-					},
-					Origin: charmresource.OriginUpload,
-				},
-				Username:  "Bill User",
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-			},
-		}}}
+		},
+	}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := &ShowServiceCommand{
@@ -135,6 +164,10 @@ openjdk  charmstore  7
 website  upload      -
 rsc1234  charmstore  15
 website2 Bill User   2012-12-12T12:12
+
+[Updates Available]
+RESOURCE REVISION
+openjdk  10
 
 `[1:])
 

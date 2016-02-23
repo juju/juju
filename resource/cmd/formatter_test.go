@@ -230,3 +230,25 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 		},
 	)
 }
+
+func (s *DetailFormatterSuite) TestFormatResourceUpdate(c *gc.C) {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader("something"))
+	c.Assert(err, jc.ErrorIsNil)
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        "website",
+			Description: "your website data",
+			Type:        charmresource.TypeFile,
+			Path:        "foobar",
+		},
+		Revision:    5,
+		Origin:      charmresource.OriginStore,
+		Fingerprint: fp,
+		Size:        10,
+	}
+	update := FormatResourceUpdate(res)
+	c.Assert(update, gc.Equals, FormattedResourceUpdate{
+		Name:     "website",
+		Revision: 5,
+	})
+}

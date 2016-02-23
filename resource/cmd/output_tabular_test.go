@@ -110,7 +110,9 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := []FormattedSvcResource{FormatSvcResource(res)}
+	formatted := FormattedServiceInfo{
+		Resources: []FormattedSvcResource{FormatSvcResource(res)},
+	}
 
 	data, err := FormatSvcTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +152,7 @@ openjdk  7
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	res := []resource.Resource{
 		{
 			Resource: charmresource.Resource{
@@ -195,10 +197,37 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted := make([]FormattedSvcResource, len(res))
-	for i := range res {
-		formatted[i] = FormatSvcResource(res[i])
+	charmResources := []charmresource.Resource{
+		{
+			// This resource has a higher revision than the corresponding one
+			// above.
+			Meta: charmresource.Meta{
+				Name:        "openjdk",
+				Description: "the java runtime",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
+			},
+			Revision: 10,
+			Origin:   charmresource.OriginStore,
+		},
+		{
+			// This resource is the same revision as the corresponding one
+			// above.
+			Meta: charmresource.Meta{
+				Name:        "openjdk2",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
+			},
+			Revision: 8,
+			Origin:   charmresource.OriginStore,
+		},
 	}
+
+	formatted := formatServiceResources(resource.ServiceResources{
+		Resources:      res,
+		StoreResources: charmResources,
+	})
 
 	data, err := FormatSvcTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,6 +240,10 @@ openjdk  charmstore  7
 website  upload      -
 openjdk2 charmstore  8
 website2 Bill User   2012-12-12T12:12
+
+[Updates Available]
+RESOURCE REVISION
+openjdk  10
 `[1:])
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -126,13 +127,7 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 		return c.out.Write(ctx, formatted)
 	}
 
-	res := make([]FormattedSvcResource, len(sr.Resources))
-
-	for i, r := range sr.Resources {
-		res[i] = FormatSvcResource(r)
-	}
-
-	return c.out.Write(ctx, res)
+	return c.out.Write(ctx, formatServiceResources(sr))
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
@@ -176,6 +171,27 @@ func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDe
 		}
 	}
 	return formatted, nil
+}
+
+func formatServiceResources(sr resource.ServiceResources) FormattedServiceInfo {
+	formatted := FormattedServiceInfo{
+		Resources: make([]FormattedSvcResource, len(sr.Resources)),
+	}
+
+	storeResources := make(map[string]charmresource.Resource, len(sr.StoreResources))
+	for _, r := range sr.StoreResources {
+		storeResources[r.Name] = r
+	}
+
+	for i, r := range sr.Resources {
+		formatted.Resources[i] = FormatSvcResource(r)
+		if update, ok := storeResources[r.Name]; ok {
+			if update.Revision != r.Revision {
+				formatted.Updates = append(formatted.Updates, FormatResourceUpdate(update))
+			}
+		}
+	}
+	return formatted
 }
 
 func unitResources(unit, service string, v resource.ServiceResources) ([]resource.Resource, error) {
