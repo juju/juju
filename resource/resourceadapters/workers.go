@@ -4,6 +4,8 @@
 package resourceadapters
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
@@ -24,16 +26,14 @@ func NewWorkerFactory() *WorkerFactory {
 // NewModelWorker implements cmd/jujud/agent.WorkerFactory.
 func (wf WorkerFactory) NewModelWorker(_ string, st *state.State) (newWorker func() (worker.Worker, error), supported bool) {
 	wfs := &workerFactoryState{st: st}
-	poller := workers.NewCharmStorePoller(wfs, newCharmStoreClient)
+	csOpener := charmstoreOpener{}
+	poller := workers.NewCharmStorePoller(wfs, func() (workers.CharmStoreClient, error) {
+		return csOpener.NewClient()
+	})
 	newWorker = func() (worker.Worker, error) {
 		return poller.NewWorker(), nil
 	}
 	return newWorker, true
-}
-
-func newCharmStoreClient() (workers.CharmStoreClient, error) {
-	// TODO(ericsnow) Return an actual charm store client.
-	return newFakeCharmStoreClient(nil), nil
 }
 
 type workerFactoryState struct {
@@ -53,12 +53,12 @@ func (wfs *workerFactoryState) ListAllServices() ([]workers.Service, error) {
 	return services, nil
 }
 
-// MarkOutdatedResources compares each of the service's resources
-// against those provided and marks any outdated ones accordingly.
-func (wfs *workerFactoryState) MarkOutdatedResources(serviceID string, info []charmresource.Resource) error {
+// SetCharmStoreResources sets the "polled from the charm store"
+// resources for the service to the provided values.
+func (wfs *workerFactoryState) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
 	resources, err := wfs.st.Resources()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return resources.MarkOutdatedResources(serviceID, info)
+	return resources.SetCharmStoreResources(serviceID, info, lastPolled)
 }
