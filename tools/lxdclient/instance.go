@@ -7,15 +7,12 @@ package lxdclient
 
 import (
 	"fmt"
-	/// XXX: jam 2016-02-22 "net"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
-
-	"github.com/juju/juju/network"
 )
 
 // Constants related to user metadata.
@@ -140,9 +137,6 @@ type InstanceSummary struct {
 
 	// Metadata is the instance metadata.
 	Metadata map[string]string
-
-	// Addresses
-	Addresses []network.Address
 }
 
 func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
@@ -159,26 +153,6 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 		fmt.Sscanf(raw, "%d", &mem)
 	}
 
-	var addrs []network.Address
-	/// XXX: jam 2016-02-22 For now we can't track IPs. The problem is
-	/// that IPs are only on the ContainerState object, but things like
-	/// Architecture and Name are only on the ContainerInfo object.
-	/// ListContainers returns an array of the latter, but we'd have to do
-	/// an extra API request per container to get objects of the former.
-	/// certainly can, but I'd like to know that we need to first.
-	/// for _, info := range info.Status.Ips {
-	/// 	addr := network.NewAddress(info.Address)
-
-	/// 	// Ignore loopback devices.
-	/// 	// TODO(ericsnow) Move the loopback test to a network.Address method?
-	/// 	ip := net.ParseIP(addr.Value)
-	/// 	if ip != nil && ip.IsLoopback() {
-	/// 		continue
-	/// 	}
-
-	/// 	addrs = append(addrs, addr)
-	/// }
-
 	// TODO(ericsnow) Factor this out into a function.
 	statusStr := info.Status
 	for status, code := range allStatuses {
@@ -194,7 +168,6 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 		Name:      info.Name,
 		Status:    statusStr,
 		Metadata:  metadata,
-		Addresses: addrs,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
