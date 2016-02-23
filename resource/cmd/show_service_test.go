@@ -117,7 +117,7 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 				},
 			},
-			StoreResources: []charmresource.Resource{
+			CharmStoreResources: []charmresource.Resource{
 				{
 					// This resource has a higher revision than the corresponding one
 					// above.

@@ -54,14 +54,6 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	}
 }
 
-// FormatresourceUpdate converts a charm.resource into a FormattedResourceUpdate.
-func FormatResourceUpdate(res charmresource.Resource) FormattedResourceUpdate {
-	return FormattedResourceUpdate{
-		Name:     res.Name,
-		Revision: res.Revision,
-	}
-}
-
 // FormatSvcResource converts the resource info into a FormattedServiceResource.
 func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	used := !res.IsPlaceholder()
@@ -83,6 +75,22 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		combinedOrigin:   combinedOrigin(used, res),
 		usedYesNo:        usedYesNo(used),
 	}
+}
+
+func formatServiceResources(sr resource.ServiceResources) FormattedServiceInfo {
+	updates := sr.Updates()
+	formatted := FormattedServiceInfo{
+		Resources: make([]FormattedSvcResource, len(sr.Resources)),
+		Updates:   make([]FormattedCharmResource, len(updates)),
+	}
+
+	for i, r := range sr.Resources {
+		formatted.Resources[i] = FormatSvcResource(r)
+	}
+	for i, u := range updates {
+		formatted.Updates[i] = FormatCharmResource(u)
+	}
+	return formatted
 }
 
 // FormatDetailResource converts the arguments into a FormattedServiceResource.

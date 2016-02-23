@@ -21,15 +21,8 @@ type FormattedCharmResource struct {
 // FormattedServiceInfo holds the formatted representation of the information
 // about a service's resources.
 type FormattedServiceInfo struct {
-	Resources []FormattedSvcResource    `json:"resources,omitempty" yaml:"resources,omitempty"`
-	Updates   []FormattedResourceUpdate `json:"updates,omitempty" yaml:"updates,omitempty"`
-}
-
-// FormattedResourceUpdate holds the formatted representation of an update
-// available for one of the service's resources.
-type FormattedResourceUpdate struct {
-	Name     string `json:"name" yaml:"name"`
-	Revision int    `json:"revision" yaml:"revision"`
+	Resources []FormattedSvcResource   `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Updates   []FormattedCharmResource `json:"updates,omitempty" yaml:"updates,omitempty"`
 }
 
 // FormattedSvcResource holds the formatted representation of a resource's info.

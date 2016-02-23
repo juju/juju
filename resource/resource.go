@@ -136,11 +136,35 @@ type ServiceResources struct {
 	// UnitResources reports the currenly-in-use version of resources for each
 	// unit.
 	UnitResources []UnitResources
+}
 
-	// StoreResources holds the current revision of resources as defined in the
-	// charm store (which may be different from what the charm or units are
-	// currently using).
-	StoreResources []resource.Resource
+// Updates returns the list of charm store resources corresponding to
+// the service's resources that are out of date.
+func (sr ServiceResources) Updates() []resource.Resource {
+
+	storeResources := map[string]resource.Resource{}
+	for _, r := range sr.CharmStoreResources {
+		storeResources[r.Name] = r
+	}
+
+	var updates []resource.Resource
+	for _, res := range sr.Resources {
+		// we don't show updates for resources that have been uploaded by a
+		// user.
+		if res.Origin != resource.OriginStore {
+			continue
+		}
+		csRes, ok := storeResources[res.Name]
+		if !ok {
+			continue
+		}
+		// If the revision is the same then all the other info must be.
+		if res.Revision == csRes.Revision {
+			continue
+		}
+		updates = append(updates, csRes)
+	}
+	return updates
 }
 
 // Updates returns the list of charm store resources corresponding to

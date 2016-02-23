@@ -169,6 +169,7 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 				Meta: charmresource.Meta{
 					Name:        "website",
 					Description: "your website data",
+					Type:        charmresource.TypeFile,
 				},
 				Origin: charmresource.OriginUpload,
 			},
@@ -204,8 +205,6 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 			Meta: charmresource.Meta{
 				Name:        "openjdk",
 				Description: "the java runtime",
-				Type:        charmresource.TypeFile,
-				Path:        "foobar",
 			},
 			Revision: 10,
 			Origin:   charmresource.OriginStore,
@@ -222,11 +221,21 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 			Revision: 8,
 			Origin:   charmresource.OriginStore,
 		},
+		{
+			// This resource has been overridden by an uploaded resource above,
+			// so we won't show it as an available update.
+			Meta: charmresource.Meta{
+				Name:        "website2",
+				Description: "your website data",
+			},
+			Revision: 99,
+			Origin:   charmresource.OriginStore,
+		},
 	}
 
 	formatted := formatServiceResources(resource.ServiceResources{
-		Resources:      res,
-		StoreResources: charmResources,
+		Resources:           res,
+		CharmStoreResources: charmResources,
 	})
 
 	data, err := FormatSvcTabular(formatted)

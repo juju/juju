@@ -77,6 +77,10 @@ func formatServiceTabular(info FormattedServiceInfo) []byte {
 			r.combinedRevision,
 		)
 	}
+
+	// Don't forget to flush!  The Tab writer won't actually write to the output
+	// until you flush, which would then have its output incorrectly ordered
+	// with the below fmt.Fprintlns.
 	tw.Flush()
 
 	if len(info.Updates) > 0 {
