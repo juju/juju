@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/worker"
 )
 
+const charmStorePollPeriod = 1 * time.day
+
 // Service exposes the functionality of the Juju entity needed here.
 type Service interface {
 	// ID identifies the service in the model.
@@ -61,7 +63,7 @@ func NewCharmStorePoller(st DataStore, newClient func() (CharmStoreClient, error
 	}
 	return &CharmStorePoller{
 		CharmStorePollerDeps: deps,
-		Period:               5 * time.Minute, // TODO(ericsnow) This is probably too frequent.
+		Period:               charmStorePollPeriod,
 	}
 }
 
