@@ -48,7 +48,7 @@ func (s *ResourcePersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	}}
 	docs = append(docs, doc)
 	s.base.ReturnAll = docs
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,7 +63,7 @@ func (s *ResourcePersistenceSuite) TestListResourcesOkay(c *gc.C) {
 }
 
 func (s *ResourcePersistenceSuite) TestListResourcesNoResources(c *gc.C) {
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,7 +81,7 @@ func (s *ResourcePersistenceSuite) TestListResourcesIgnorePending(c *gc.C) {
 	expected.Resources = expected.Resources[:1]
 	docs[2].PendingID = "some-unique-ID-001"
 	s.base.ReturnAll = docs
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *ResourcePersistenceSuite) TestListResourcesBaseError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	_, err := p.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -116,7 +116,7 @@ func (s *ResourcePersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	docs[0].Timestamp = time.Time{}
 	s.base.ReturnAll = docs
 
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	_, err := p.ListResources("a-service")
 
 	c.Check(err, gc.ErrorMatches, `got invalid data from DB.*`)
@@ -140,7 +140,7 @@ func (s *ResourcePersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
 	expected[0].PendingID = "some-unique-ID-001"
 	docs[1].PendingID = "some-unique-ID-001"
 	s.base.ReturnAll = docs
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	resources, err := p.ListPendingResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,7 +168,7 @@ func (s *ResourcePersistenceSuite) TestGetResourceOkay(c *gc.C) {
 		pendingDoc,
 	}
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	res, storagePath, err := p.GetResource("a-service/spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +182,7 @@ func (s *ResourcePersistenceSuite) TestGetResourceOkay(c *gc.C) {
 func (s *ResourcePersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	res, doc := newResource(c, "a-service", "spam")
 	doc.DocID += "#staged"
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
@@ -205,7 +205,7 @@ func (s *ResourcePersistenceSuite) TestStageResourceOkay(c *gc.C) {
 
 func (s *ResourcePersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	_, err := p.StageResource(res.Resource, "")
 
@@ -216,7 +216,7 @@ func (s *ResourcePersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) 
 func (s *ResourcePersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	res, _ := newResource(c, "a-service", "spam")
 	res.Resource.Timestamp = time.Time{}
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	_, err := p.StageResource(res.Resource, res.storagePath)
 
@@ -230,7 +230,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	res, doc := newResource(c, servicename, "spam")
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
@@ -256,7 +256,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	s.base.ReturnOne = doc
 	expected := doc // a copy
 	expected.StoragePath = ""
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(notFound, nil, nil, ignoredErr)
@@ -287,7 +287,7 @@ func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	expected.Timestamp = time.Time{}
 	expected.StoragePath = ""
 	expected.LastPolled = lastPolled
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
@@ -311,7 +311,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	unitname := "a-service/0"
 	res, doc := newUnitResource(c, servicename, unitname, "eggs")
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
@@ -331,7 +331,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"
 	res, _ := newUnitResource(c, servicename, unitname, "eggs")
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	s.stub.SetErrors(notFound)
 
@@ -345,7 +345,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 	res, doc := newUnitResource(c, "a-service", "a-service/0", "spam")
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, txn.ErrAborted, nil, ignoredErr)
 
@@ -376,7 +376,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	res, doc := newUnitResource(c, "a-service", "a-service/0", "spam")
 	s.base.ReturnOne = doc
 	res.Timestamp = time.Time{}
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	err := p.SetUnitResource("a-service/0", res)
 
@@ -394,7 +394,7 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	doc.DocID = pendingResourceID(stored.ID, pendingID)
 	doc.PendingID = pendingID
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,7 +429,7 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	s.base.ReturnOne = doc
 	notFound := errors.NewNotFound(nil, "")
 	s.stub.SetErrors(nil, notFound)
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)

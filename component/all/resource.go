@@ -130,7 +130,7 @@ type resourceState struct {
 
 // Persistence implements resource/state.RawState.
 func (st resourceState) Persistence() state.Persistence {
-	persist := persistence.NewPersistence(st.persist)
+	persist := persistence.NewResourcePersistence(st.persist)
 	return resourcePersistence{persist}
 }
 
@@ -140,7 +140,7 @@ func (st resourceState) Storage() state.Storage {
 }
 
 type resourcePersistence struct {
-	*persistence.Persistence
+	*persistence.ResourcePersistence
 }
 
 // StageResource implements state.resourcePersistence.

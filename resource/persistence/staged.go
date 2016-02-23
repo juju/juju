@@ -15,7 +15,7 @@ import (
 // until finalized, at which point it moves out of the staging area and
 // replaces the current active resource info.
 type StagedResource struct {
-	base   PersistenceBase
+	base   ResourcePersistenceBase
 	id     string
 	stored storedResource
 }

@@ -223,7 +223,7 @@ func newStagedDoc(stored storedResource) *resourceDoc {
 }
 
 // resources returns the resource docs for the given service.
-func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
+func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) {
 	logger.Tracef("querying db for resources for %q", serviceID)
 	var docs []resourceDoc
 	query := bson.D{{"service-id", serviceID}}
@@ -235,7 +235,7 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 }
 
 // getOne returns the resource that matches the provided model ID.
-func (p Persistence) getOne(resID string) (resourceDoc, error) {
+func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q", resID)
 	id := serviceResourceID(resID)
 	var doc resourceDoc
@@ -246,7 +246,7 @@ func (p Persistence) getOne(resID string) (resourceDoc, error) {
 }
 
 // getOnePending returns the resource that matches the provided model ID.
-func (p Persistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
+func (p ResourcePersistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q (pending %q)", resID, pendingID)
 	id := pendingResourceID(resID, pendingID)
 	var doc resourceDoc
