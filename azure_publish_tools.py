@@ -131,10 +131,18 @@ def publish_local_file(blob_service, sync_file):
             data = local_file.read(CHUNK_SIZE)
             if data:
                 block_id = base64.b64encode(str(index))
-                blob_service.put_block(
-                    JUJU_DIST, sync_file.path, data, block_id)
-                block_ids.append(block_id)
-                index += 1
+                for i in range(0, 3):
+                    try:
+                        blob_service.put_block(
+                            JUJU_DIST, sync_file.path, data, block_id)
+                        block_ids.append(block_id)
+                        index += 1
+                        break
+                    except socket.error as e:
+                        if e.errno not in (socket.errno.ECONNREFUSED,
+                                           socket.errno.ENETUNREACH,
+                                           socket.errno.ETIMEDOUT):
+                            raise
             else:
                 break
     for i in range(0, 3):
