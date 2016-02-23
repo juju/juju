@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	statetest "github.com/juju/juju/state/testing"
 )
 
 var _ = gc.Suite(&PersistenceSuite{})
@@ -24,16 +25,14 @@ type PersistenceSuite struct {
 	testing.IsolationSuite
 
 	stub *testing.Stub
-	base *stubStatePersistence
+	base *statetest.StubPersistence
 }
 
 func (s *PersistenceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.base = &stubStatePersistence{
-		stub: s.stub,
-	}
+	s.base = statetest.NewStubPersistence(s.stub)
 }
 
 func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {

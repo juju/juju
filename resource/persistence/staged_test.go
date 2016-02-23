@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
+
+	statetest "github.com/juju/juju/state/testing"
 )
 
 var _ = gc.Suite(&StagedResourceSuite{})
@@ -17,16 +19,14 @@ type StagedResourceSuite struct {
 	testing.IsolationSuite
 
 	stub *testing.Stub
-	base *stubStatePersistence
+	base *statetest.StubPersistence
 }
 
 func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.base = &stubStatePersistence{
-		stub: s.stub,
-	}
+	s.base = statetest.NewStubPersistence(s.stub)
 }
 
 func (s *StagedResourceSuite) newStagedResource(c *gc.C, serviceID, name string) (*StagedResource, resourceDoc) {
