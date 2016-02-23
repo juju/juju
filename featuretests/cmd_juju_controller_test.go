@@ -5,8 +5,6 @@ package featuretests
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -15,9 +13,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -45,11 +41,8 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	modelManager := modelmanager.NewClient(conn)
-	_, err = modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	modelManager := modelmanager.NewClient(s.APIState)
+	_, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
 		"authorized-keys": "ssh-key",
 		"controller":      isServer,
@@ -59,7 +52,12 @@ func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
-	c.Assert(testing.Stdout(context), gc.Equals, "dummymodel\n")
+	expectedOutput := `
+CONTROLLER   MODEL       USER         SERVER
+dummymodel*  dummymodel  admin@local  
+
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
 }
 
 func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
@@ -67,37 +65,10 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME        OWNER              LAST CONNECTION\n"+
-		"dummymodel  dummy-admin@local  just now\n"+
-		"new-model   dummy-admin@local  never connected\n"+
+		"NAME        OWNER        LAST CONNECTION\n"+
+		"dummymodel  admin@local  just now\n"+
+		"new-model   admin@local  never connected\n"+
 		"\n")
-}
-
-func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoModelUser: true,
-		Password:    "super-secret",
-	})
-	apiInfo := s.APIInfo(c)
-	serverFile := modelcmd.ServerFile{
-		Addresses: apiInfo.Addrs,
-		CACert:    apiInfo.CACert,
-		Username:  user.Name(),
-		Password:  "super-secret",
-	}
-	serverFilePath := filepath.Join(c.MkDir(), "server.yaml")
-	content, err := goyaml.Marshal(serverFile)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(serverFilePath, []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.run(c, "login", "--server", serverFilePath, "just-a-controller")
-
-	// Make sure that the saved server details are sufficient to connect
-	// to the api server.
-	api, err := juju.NewAPIFromName("just-a-controller", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	api.Close()
 }
 
 func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
@@ -107,14 +78,11 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 	// a config value for 'controller'.
 	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "controller=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, `
-created model "new-model"
-dummymodel (controller) -> new-model
-`[1:])
+	c.Check(testing.Stderr(context), gc.Equals, "created model \"new-model\"\n")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("new-model", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
@@ -216,17 +184,14 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	client := undertakerapi.NewClient(conn)
+	client := undertakerapi.NewClient(s.APIState)
 
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := testing.NewClock(startTime)
 	undertaker.NewUndertaker(client, mClock)
 
 	store, err := configstore.Default()
-	_, err = store.ReadInfo("dummymodel")
+	_, err = store.ReadInfo("dummymodel:dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "kill-controller", "dummymodel", "-y")

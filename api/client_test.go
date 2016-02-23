@@ -488,17 +488,12 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
-	// Backwards compatibility, passing ModelTag = "" should just work
-	info.ModelTag = names.NewModelTag("")
-	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	apistate.Close()
 
-	// Passing in the correct model UUID should also work
+	// Passing in the correct model UUID should work
 	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = environ.ModelTag()
-	apistate, err = api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 

@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/azure"
@@ -20,6 +21,8 @@ const (
 	configAttrTenantId           = "tenant-id"
 	configAttrAppPassword        = "application-password"
 	configAttrLocation           = "location"
+	configAttrEndpoint           = "endpoint"
+	configAttrStorageEndpoint    = "storage-endpoint"
 	configAttrStorageAccountType = "storage-account-type"
 
 	// The below bits are internal book-keeping things, rather than
@@ -44,6 +47,8 @@ const (
 
 var configFields = schema.Fields{
 	configAttrLocation:                schema.String(),
+	configAttrEndpoint:                schema.String(),
+	configAttrStorageEndpoint:         schema.String(),
 	configAttrAppId:                   schema.String(),
 	configAttrSubscriptionId:          schema.String(),
 	configAttrTenantId:                schema.String(),
@@ -67,6 +72,8 @@ var requiredConfigAttributes = []string{
 	configAttrSubscriptionId,
 	configAttrTenantId,
 	configAttrLocation,
+	configAttrEndpoint,
+	configAttrStorageEndpoint,
 	configAttrControllerResourceGroup,
 }
 
@@ -89,6 +96,8 @@ type azureModelConfig struct {
 	token                   *azure.ServicePrincipalToken
 	subscriptionId          string
 	location                string // canonicalized
+	endpoint                string
+	storageEndpoint         string
 	storageAccount          string
 	storageAccountKey       string
 	storageAccountType      storage.AccountType
@@ -161,6 +170,8 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 	}
 
 	location := canonicalLocation(validated[configAttrLocation].(string))
+	endpoint := validated[configAttrEndpoint].(string)
+	storageEndpoint := validated[configAttrStorageEndpoint].(string)
 	appId := validated[configAttrAppId].(string)
 	subscriptionId := validated[configAttrSubscriptionId].(string)
 	tenantId := validated[configAttrTenantId].(string)
@@ -182,6 +193,12 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		)
 	}
 
+	// The Azure storage code wants the endpoint host only, not the URL.
+	storageEndpointURL, err := url.Parse(storageEndpoint)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing storage endpoint URL")
+	}
+
 	token, err := azure.NewServicePrincipalToken(
 		appId, appPassword, tenantId,
 		azure.AzureResourceManagerScope,
@@ -195,6 +212,8 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		token,
 		subscriptionId,
 		location,
+		endpoint,
+		storageEndpointURL.Host,
 		storageAccount,
 		storageAccountKey,
 		storage.AccountType(storageAccountType),
@@ -223,72 +242,3 @@ func canonicalLocation(s string) string {
 	s = strings.Replace(s, " ", "", -1)
 	return strings.ToLower(s)
 }
-
-// TODO(axw) update with prose re credentials
-var boilerplateYAML = `
-# https://juju.ubuntu.com/docs/config-azure.html
-azure:
-    type: azure
-
-    # NOTE: below we refer to the "Azure CLI", which is a CLI for Azure
-    # provided by Microsoft. Please see the documentation for this at:
-    #   https://azure.microsoft.com/en-us/documentation/articles/xplat-cli/
-
-    # application-id is the ID of an application you create in Azure Active
-    # Directory for Juju to use. For instructions on how to do this, see:
-    #   https://azure.microsoft.com/en-us/documentation/articles/resource-group-authenticate-service-principal
-    application-id: 00000000-0000-0000-0000-000000000000
-
-    # application-password is the password specified when creating the
-    # application in Azure Active Directory.
-    application-password: XXX
-
-    # subscription-id defines the Azure account subscription ID to
-    # manage resources in. You can list your account subscriptions
-    # with the Azure CLI's "account list" action: "azure account list".
-    # The ID associated with each account is the subscription ID.
-    subscription-id: 00000000-0000-0000-0000-000000000000
-
-    # tenant-id is the ID of the Azure tenant, which identifies the Azure
-    # Active Directory instance. You can obtain this ID by using the Azure
-    # CLI's "account show" action. First list your accounts with
-    # "azure account list", and then feed the account ID to
-    # "azure account show" to obtain the properties of the account, including
-    # the tenant ID.
-    tenant-id: 00000000-0000-0000-0000-000000000000
-
-    # storage-account-type specifies the type of the storage account,
-    # which defines the replication strategy and support for different
-    # disk types.
-    storage-account-type: Standard_LRS
-
-    # location specifies the Azure data center ("location") where
-    # instances will be started, for example: West US, North Europe.
-    location: West US
-
-    # image-stream chooses an stream from which to select OS images. This
-    # can be "released" (default), or "daily".
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`[1:]

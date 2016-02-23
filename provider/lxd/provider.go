@@ -8,11 +8,14 @@ package lxd
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance environProvider
 
@@ -27,7 +30,8 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -96,9 +100,10 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return ecfg.secret(), nil
 }
 
-// BoilerplateConfig implements environs.EnvironProvider.
-func (environProvider) BoilerplateConfig() string {
-	// boilerplateConfig is kept in config.go, in the hope that people editing
-	// config will keep it up to date.
-	return boilerplateConfig
+// DetectRegions implements environs.CloudRegionDetector.
+func (environProvider) DetectRegions() ([]cloud.Region, error) {
+	// For now we just return a hard-coded "localhost" region,
+	// i.e. the local LXD daemon. We may later want to detect
+	// locally-configured remotes.
+	return []cloud.Region{{Name: "localhost"}}, nil
 }

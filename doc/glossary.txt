@@ -100,34 +100,6 @@ for services. But I could just be missing something obvious. Note that certain
 settings, such as "name" and "type", and "region" in the ec2 provider, will
 need to be immutable, and I'm not sure whether that's implemented yet.]
 
-A `models file` is a YAML file containing model configurations.
-Juju cannot operate without a valid models file, which must be saved at
-`$JUJU_DATA/environments.yaml` or `$XDG_DATA_HOME/juju/environments.yaml` or
-`~/.local/share/juju/environments.yaml` on the client machine.
-
-The simplest functional models file looks like this:
-
-  environments:
-    aws:
-      type: ec2
-      admin-secret: <password string>
-      control-bucket: <globally unique S3 bucket name>
-
-The "name" of the single defined model is determined by its key in the
-environments map ("aws"), and the "authorized-keys" can be safely omitted so
-long as the client machine has a public key with a standard name saved in
-`~/.ssh`. Because it's using the "ec2" provider type, it also has to specify
-a "control-bucket" key; the "access-key" and "secret-key" settings are also
-required, but can be omitted if the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-environment variables are set in the client process. The "region" setting
-defaults to "us-east-1"; there are other possible settings but they're not
-relevant here.
-
-[NOTE: there is much more to model configuration than has been discussed
-here. "authorized-keys-path" and "default-series" both apply to every provider,
-the ec2 provider offers many not mentioned here, and it will only get worse with
-each new provider...]
-
 Services
 --------
 

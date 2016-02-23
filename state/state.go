@@ -332,6 +332,15 @@ func (st *State) Ping() error {
 	return st.session.Ping()
 }
 
+// MongoVersion return the string repre
+func (st *State) MongoVersion() (string, error) {
+	binfo, err := st.session.BuildInfo()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain mongo build info")
+	}
+	return binfo.Version, nil
+}
+
 // MongoSession returns the underlying mongodb session
 // used by the state. It is exposed so that external code
 // can maintain the mongo replica set and should not
@@ -1296,31 +1305,21 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		NeverSet: true,
 	}
 
-	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern): Drop requested networks across the board in a
-		// follow-up.
-		createRequestedNetworksOp(st, svc.globalKey(), nil),
-		endpointBindingsOp,
-		createStorageConstraintsOp(svc.globalKey(), args.Storage),
-		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
-		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOp(st, svc.globalKey(), statusDoc),
-		{
-			C:      settingsrefsC,
-			Id:     st.docID(svc.settingsKey()),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount:  1,
-				ModelUUID: st.ModelUUID()},
-		}, {
-			C:      servicesC,
-			Id:     serviceID,
-			Assert: txn.DocMissing,
-			Insert: svcDoc,
+	// The addServiceOps does not include the environment alive assertion,
+	// so we add it here.
+	ops := append(
+		[]txn.Op{
+			env.assertAliveOp(),
+			endpointBindingsOp,
 		},
-	}
+		addServiceOps(st, addServiceOpsArgs{
+			serviceDoc:       svcDoc,
+			statusDoc:        statusDoc,
+			constraints:      args.Constraints,
+			storage:          args.Storage,
+			settings:         map[string]interface{}(args.Settings),
+			settingsRefCount: 1,
+		})...)
 
 	// Collect peer relation addition operations.
 	//
@@ -1347,7 +1346,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
-		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+		unitName, unitOps, err := svc.addServiceUnitOps(serviceAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

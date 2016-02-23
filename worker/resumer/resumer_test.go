@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/worker"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -37,8 +39,8 @@ func (s *ResumerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ResumerSuite) TestRunStopWithMockState(c *gc.C) {
-	rr := resumer.NewResumer(s.mockState)
-	c.Assert(rr.Stop(), gc.IsNil)
+	w := resumer.NewResumer(s.mockState)
+	c.Assert(worker.Stop(w), gc.IsNil)
 }
 
 func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
@@ -48,8 +50,10 @@ func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 	resumer.SetInterval(testInterval)
 	defer resumer.RestoreInterval()
 
-	rr := resumer.NewResumer(s.mockState)
-	defer func() { c.Assert(rr.Stop(), gc.IsNil) }()
+	w := resumer.NewResumer(s.mockState)
+	defer func() {
+		c.Assert(worker.Stop(w), gc.IsNil)
+	}()
 
 	time.Sleep(10 * testInterval)
 
@@ -67,13 +71,18 @@ func (s *ResumerSuite) TestResumeTransactionsFailure(c *gc.C) {
 	resumer.SetInterval(testInterval)
 	defer resumer.RestoreInterval()
 
-	rr := resumer.NewResumer(s.mockState)
-	defer func() { c.Assert(rr.Stop(), gc.IsNil) }()
+	w := resumer.NewResumer(s.mockState)
+	defer func() {
+		c.Assert(worker.Stop(w), gc.IsNil)
+	}()
 
 	// For 4 intervals between 2 and 3 calls should be made.
 	time.Sleep(4 * testInterval)
 	s.mockState.CheckNumCallsBetween(c, 2, 3)
 }
+
+// TODO(waigani) This could be a simpler and more robust if the resumer took a
+// Clock.
 
 // transactionResumerMock is used to check the
 // calls of ResumeTransactions().

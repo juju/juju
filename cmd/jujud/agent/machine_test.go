@@ -77,6 +77,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
@@ -134,7 +135,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.MaybeInitiateMongo)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
@@ -601,9 +602,9 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
+	s.AgentSuite.PatchValue(&resumer.NewResumer, func(st resumer.TransactionResumer) worker.Worker {
 		started.trigger()
-		return resumer.NewResumer(st)
+		return newDummyWorker()
 	})
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
@@ -1466,7 +1467,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newDiskManager, newWorker)
+	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1474,6 +1475,30 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	started.assertTriggered(c, "diskmanager worker to start")
+}
+
+func (s *MachineSuite) TestMongoUpgradeWorker(c *gc.C) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(*state.State, string, mongoupgrader.StopMongo) (worker.Worker, error) {
+		close(started)
+		return worker.NewNoOpWorker(), nil
+	}
+	s.PatchValue(&newUpgradeMongoWorker, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	s.State.StartSync()
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for mongo upgrader worker to start")
+	}
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
@@ -1696,12 +1721,15 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
 		case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 		default:
 		}
-		return machiner.NewMachiner(cfg)
+
+		// The test just cares that NewMachiner is called with the correct
+		// value, nothing else is done with the worker.
+		return newDummyWorker(), nil
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
