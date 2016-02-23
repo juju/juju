@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-const charmStorePollPeriod = 1 * time.day
+const charmStorePollPeriod = 24 * time.Hour
 
 // Service exposes the functionality of the Juju entity needed here.
 type Service interface {

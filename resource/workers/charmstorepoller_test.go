@@ -83,7 +83,7 @@ func (s *CharmStorePollerSuite) TestNewCharmStorePoller(c *gc.C) {
 	poller := workers.NewCharmStorePoller(s.deps, s.deps.NewClient)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(poller.Period, gc.Equals, 5*time.Minute)
+	c.Check(poller.Period, gc.Equals, 24*time.Hour)
 }
 
 func (s *CharmStorePollerSuite) TestNewWorker(c *gc.C) {
