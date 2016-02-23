@@ -220,7 +220,8 @@ func (s *ResourceSuite) TestUpdatesUploaded(c *gc.C) {
 		},
 	}
 
-	updates := sr.Updates()
+	updates, err := sr.Updates()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updates, gc.HasLen, 0)
 }
@@ -240,10 +241,31 @@ func (s *ResourceSuite) TestUpdatesDifferent(c *gc.C) {
 			expected,
 		},
 	}
-	c.Logf("%#v", sr.Resources)
-	c.Logf("%#v", sr.CharmStoreResources)
 
-	updates := sr.Updates()
+	updates, err := sr.Updates()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
+}
+
+func (s *ResourceSuite) TestUpdatesBadOrdering(c *gc.C) {
+	spam := newStoreResource(c, "spam", "a-service", 2)
+	eggs := newStoreResource(c, "eggs", "a-service", 3)
+	expected := eggs.Resource
+	expected.Revision += 1
+	sr := resource.ServiceResources{
+		Resources: []resource.Resource{
+			spam,
+			eggs,
+		},
+		CharmStoreResources: []charmresource.Resource{
+			expected,
+			spam.Resource,
+		},
+	}
+
+	updates, err := sr.Updates()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
 }
@@ -262,7 +284,8 @@ func (s *ResourceSuite) TestUpdatesNone(c *gc.C) {
 		},
 	}
 
-	updates := sr.Updates()
+	updates, err := sr.Updates()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updates, gc.HasLen, 0)
 }
