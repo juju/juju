@@ -241,24 +241,24 @@ var scenarioStatus = &params.FullStatus{
 			},
 			Units: map[string]params.UnitStatus{
 				"wordpress/0": {
-					Workload: params.AgentStatus{
+					WorkloadStatus: params.AgentStatus{
 						Status: "error",
 						Info:   "blam",
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
-					UnitAgent: params.AgentStatus{
+					JujuStatus: params.AgentStatus{
 						Status: "idle",
 						Data:   make(map[string]interface{}),
 					},
 					Machine: "1",
 					Subordinates: map[string]params.UnitStatus{
 						"logging/0": {
-							Workload: params.AgentStatus{
+							WorkloadStatus: params.AgentStatus{
 								Status: "unknown",
 								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
-							UnitAgent: params.AgentStatus{
+							JujuStatus: params.AgentStatus{
 								Status: "allocating",
 								Data:   map[string]interface{}{},
 							},
@@ -266,12 +266,12 @@ var scenarioStatus = &params.FullStatus{
 					},
 				},
 				"wordpress/1": {
-					Workload: params.AgentStatus{
+					WorkloadStatus: params.AgentStatus{
 						Status: "unknown",
 						Info:   "Waiting for agent initialization to finish",
 						Data:   make(map[string]interface{}),
 					},
-					UnitAgent: params.AgentStatus{
+					JujuStatus: params.AgentStatus{
 						Status: "allocating",
 						Info:   "",
 						Data:   make(map[string]interface{}),
@@ -280,12 +280,12 @@ var scenarioStatus = &params.FullStatus{
 					Machine: "2",
 					Subordinates: map[string]params.UnitStatus{
 						"logging/1": {
-							Workload: params.AgentStatus{
+							WorkloadStatus: params.AgentStatus{
 								Status: "unknown",
 								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
-							UnitAgent: params.AgentStatus{
+							JujuStatus: params.AgentStatus{
 								Status: "allocating",
 								Info:   "",
 								Data:   make(map[string]interface{}),

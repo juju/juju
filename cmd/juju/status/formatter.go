@@ -166,7 +166,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 
 	out := unitStatus{
 		WorkloadStatusInfo: sf.getWorkloadStatusInfo(info.unit),
-		AgentStatusInfo:    sf.getAgentStatusInfo(info.unit),
+		JujuStatusInfo:     sf.getAgentStatusInfo(info.unit),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
 		PublicAddress:      info.unit.PublicAddress,
@@ -208,37 +208,36 @@ func (sf *statusFormatter) getStatusInfoContents(inst params.AgentStatus) status
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
-		Err:     unit.Workload.Err,
-		Current: unit.Workload.Status,
-		Message: unit.Workload.Info,
-		Version: unit.Workload.Version,
+		Err:     unit.WorkloadStatus.Err,
+		Current: unit.WorkloadStatus.Status,
+		Message: unit.WorkloadStatus.Info,
+		Version: unit.WorkloadStatus.Version,
 	}
-	if unit.Workload.Since != nil {
-		info.Since = common.FormatTime(unit.Workload.Since, sf.isoTime)
+	if unit.WorkloadStatus.Since != nil {
+		info.Since = common.FormatTime(unit.WorkloadStatus.Since, sf.isoTime)
 	}
 	return info
 }
 
 func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
-		Err:     unit.UnitAgent.Err,
-		Current: unit.UnitAgent.Status,
-		Message: unit.UnitAgent.Info,
-		Version: unit.UnitAgent.Version,
+		Err:     unit.JujuStatus.Err,
+		Current: unit.JujuStatus.Status,
+		Message: unit.JujuStatus.Info,
+		Version: unit.JujuStatus.Version,
 	}
-	if unit.UnitAgent.Since != nil {
-		info.Since = common.FormatTime(unit.UnitAgent.Since, sf.isoTime)
+	if unit.JujuStatus.Since != nil {
+		info.Since = common.FormatTime(unit.JujuStatus.Since, sf.isoTime)
 	}
 	return info
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
-	if unit.Workload.Status == status.StatusError {
+	if unit.WorkloadStatus.Status == status.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
-				unit.Workload.Info = unit.Workload.Info + " for " + ep.String()
-				unit.AgentStateInfo = unit.Workload.Info
+				unit.WorkloadStatus.Info = unit.WorkloadStatus.Info + " for " + ep.String()
 			}
 		}
 	}
@@ -269,7 +268,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 }
 
 func getRelationIdFromData(unit *params.UnitStatus) int {
-	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
+	if relationId_, ok := unit.WorkloadStatus.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
 		} else {

@@ -560,11 +560,11 @@ var _ = gc.Suite(&clientSuite{})
 func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
-			unit.Workload.Since = nil
-			unit.UnitAgent.Since = nil
+			unit.WorkloadStatus.Since = nil
+			unit.JujuStatus.Since = nil
 			for id, subord := range unit.Subordinates {
-				subord.Workload.Since = nil
-				subord.UnitAgent.Since = nil
+				subord.WorkloadStatus.Since = nil
+				subord.JujuStatus.Since = nil
 				unit.Subordinates[id] = subord
 			}
 			service.Units[unitId] = unit

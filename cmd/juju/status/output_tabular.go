@@ -137,15 +137,15 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
-		agentDoing := agentDoing(u.AgentStatusInfo)
+		agentDoing := agentDoing(u.JujuStatusInfo)
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)
 		}
 		p(
 			indent("", level*2, name),
 			u.WorkloadStatusInfo.Current,
-			u.AgentStatusInfo.Current,
-			u.AgentStatusInfo.Version,
+			u.JujuStatusInfo.Current,
+			u.JujuStatusInfo.Version,
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,

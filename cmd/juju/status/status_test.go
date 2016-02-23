@@ -655,7 +655,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -680,7 +680,7 @@ var statusTests = []testCase{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -774,7 +774,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -799,7 +799,7 @@ var statusTests = []testCase{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -835,7 +835,7 @@ var statusTests = []testCase{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -871,7 +871,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -908,7 +908,7 @@ var statusTests = []testCase{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -944,7 +944,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -982,7 +982,7 @@ var statusTests = []testCase{
 									"current": "terminated",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1006,7 +1006,7 @@ var statusTests = []testCase{
 									"message": "You Require More Vespene Gas",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1075,7 +1075,7 @@ var statusTests = []testCase{
 									"message": "hook failed: some-relation-changed for mysql:server",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1102,7 +1102,7 @@ var statusTests = []testCase{
 									"message": "Waiting for agent initialization to finish",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1168,7 +1168,7 @@ var statusTests = []testCase{
 									"message": "hook failed: some-relation-changed for mysql:server",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1195,7 +1195,7 @@ var statusTests = []testCase{
 									"message": "Waiting for agent initialization to finish",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1251,7 +1251,7 @@ var statusTests = []testCase{
 									"message": "Waiting for agent initialization to finish",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1308,7 +1308,7 @@ var statusTests = []testCase{
 									"message": "agent is lost, sorry! See 'juju status-history dummy-service/0'",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "lost",
 									"message": "agent is not communicating with the server",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1398,7 +1398,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1424,7 +1424,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1451,7 +1451,7 @@ var statusTests = []testCase{
 									"message": "Waiting for agent initialization to finish",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1478,7 +1478,7 @@ var statusTests = []testCase{
 									"message": "Waiting for agent initialization to finish",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1551,7 +1551,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1563,7 +1563,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1575,7 +1575,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1661,7 +1661,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1671,7 +1671,7 @@ var statusTests = []testCase{
 											"current": "active",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"agent-status": M{
+										"juju-status": M{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
@@ -1700,7 +1700,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1711,7 +1711,7 @@ var statusTests = []testCase{
 											"message": "somehow lost in all those logs",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"agent-status": M{
+										"juju-status": M{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
@@ -1765,7 +1765,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1775,7 +1775,7 @@ var statusTests = []testCase{
 											"current": "active",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"agent-status": M{
+										"juju-status": M{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
@@ -1804,7 +1804,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1815,7 +1815,7 @@ var statusTests = []testCase{
 											"message": "somehow lost in all those logs",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"agent-status": M{
+										"juju-status": M{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
@@ -1868,7 +1868,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1878,7 +1878,7 @@ var statusTests = []testCase{
 											"current": "active",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"agent-status": M{
+										"juju-status": M{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
@@ -1966,7 +1966,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -1978,7 +1978,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2044,7 +2044,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2098,7 +2098,7 @@ var statusTests = []testCase{
 									"message": "Waiting for agent initialization to finish",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2151,7 +2151,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2207,7 +2207,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2262,7 +2262,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2353,7 +2353,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2376,7 +2376,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2388,7 +2388,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -2404,7 +2404,7 @@ var statusTests = []testCase{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"agent-status": M{
+								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
@@ -3250,7 +3250,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 			"foo": serviceStatus{
 				Units: map[string]unitStatus{
 					"foo/0": unitStatus{
-						AgentStatusInfo: statusInfoContents{
+						JujuStatusInfo: statusInfoContents{
 							Current: status.StatusExecuting,
 							Message: "running config-changed hook",
 						},
@@ -3260,7 +3260,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 						},
 					},
 					"foo/1": unitStatus{
-						AgentStatusInfo: statusInfoContents{
+						JujuStatusInfo: statusInfoContents{
 							Current: status.StatusExecuting,
 							Message: "running action backup database",
 						},
@@ -3760,7 +3760,7 @@ var statusTimeTest = test(
 								"message": "Waiting for agent initialization to finish",
 								"since":   "01 Apr 15 01:23+10:00",
 							},
-							"agent-status": M{
+							"juju-status": M{
 								"current": "allocating",
 								"since":   "01 Apr 15 01:23+10:00",
 							},

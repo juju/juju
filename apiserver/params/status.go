@@ -72,19 +72,11 @@ type MeterStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	// UnitAgent holds the status for a unit's agent.
-	UnitAgent AgentStatus
+	// JujuStatus holds the status for a unit's agent.
+	JujuStatus AgentStatus
 
-	// Workload holds the status for a unit's workload
-	Workload AgentStatus
-
-	// Until Juju 2.0, we need to continue to return legacy agent state values
-	// as top level struct attributes when the "FullStatus" API is called.
-	AgentState     status.Status
-	AgentStateInfo string
-	AgentVersion   string
-	Life           string
-	Err            error
+	// WorkloadStatus holds the status for a unit's workload
+	WorkloadStatus AgentStatus
 
 	Machine       string
 	OpenedPorts   []string

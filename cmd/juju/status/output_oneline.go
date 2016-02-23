@@ -20,7 +20,7 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	return formatOneline(value, func(out *bytes.Buffer, format, uName string, u unitStatus, level int) {
 		status := fmt.Sprintf(
 			"agent:%s, workload:%s",
-			u.AgentStatusInfo.Current,
+			u.JujuStatusInfo.Current,
 			u.WorkloadStatusInfo.Current,
 		)
 		fmt.Fprintf(out, format,

@@ -796,11 +796,7 @@ type lifer interface {
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
 func processUnitAndAgentStatus(unit *state.Unit, unitStatus *params.UnitStatus) {
-	unitStatus.UnitAgent, unitStatus.Workload = processUnitStatus(unit)
-
-	unitStatus.AgentVersion = unitStatus.UnitAgent.Version
-	unitStatus.Life = unitStatus.UnitAgent.Life
-	unitStatus.Err = unitStatus.UnitAgent.Err
+	unitStatus.JujuStatus, unitStatus.WorkloadStatus = processUnitStatus(unit)
 
 	processUnitLost(unit, unitStatus)
 
@@ -862,16 +858,16 @@ func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.Age
 }
 
 func canBeLost(unitStatus *params.UnitStatus) bool {
-	switch unitStatus.UnitAgent.Status {
+	switch unitStatus.JujuStatus.Status {
 	case status.StatusAllocating:
 		return false
 	case status.StatusExecuting:
-		return unitStatus.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
+		return unitStatus.JujuStatus.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model
 	// to tell us when we've hit this point, instead of piggybacking on top of
 	// status and/or status history.
-	isInstalled := unitStatus.Workload.Status != status.StatusMaintenance || unitStatus.Workload.Info != status.MessageInstalling
+	isInstalled := unitStatus.WorkloadStatus.Status != status.StatusMaintenance || unitStatus.WorkloadStatus.Info != status.MessageInstalling
 	return isInstalled
 }
 
@@ -893,12 +889,12 @@ func processUnitLost(unit *state.Unit, unitStatus *params.UnitStatus) {
 		// If the unit is in error, it would be bad to throw away
 		// the error information as when the agent reconnects, that
 		// error information would then be lost.
-		if unitStatus.Workload.Status != status.StatusError {
-			unitStatus.Workload.Status = status.StatusUnknown
-			unitStatus.Workload.Info = fmt.Sprintf("agent is lost, sorry! See 'juju status-history %s'", unit.Name())
+		if unitStatus.WorkloadStatus.Status != status.StatusError {
+			unitStatus.WorkloadStatus.Status = status.StatusUnknown
+			unitStatus.WorkloadStatus.Info = fmt.Sprintf("agent is lost, sorry! See 'juju status-history %s'", unit.Name())
 		}
-		unitStatus.UnitAgent.Status = status.StatusLost
-		unitStatus.UnitAgent.Info = "agent is not communicating with the server"
+		unitStatus.JujuStatus.Status = status.StatusLost
+		unitStatus.JujuStatus.Info = "agent is not communicating with the server"
 	}
 }
 

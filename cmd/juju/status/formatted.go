@@ -101,7 +101,7 @@ type meterStatus struct {
 type unitStatus struct {
 	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status"`
-	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status"`
+	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
