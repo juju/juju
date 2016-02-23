@@ -28,6 +28,7 @@ const (
 type DataStore interface {
 	resourceInfoStore
 	UploadDataStore
+	Units(serviceID string) (unitIDs []string, err error)
 }
 
 // Facade is the public API facade for resources.
@@ -72,6 +73,8 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			}
 			continue
 		}
+
+		units := f.store.Units(tag.Id())
 
 		svcRes, err := f.store.ListResources(tag.Id())
 		if err != nil {
