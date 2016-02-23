@@ -436,7 +436,7 @@ func (s *store) SetCurrentAccount(controllerName, accountName string) error {
 	}
 	accounts, ok := controllerAccounts[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("account %s:%s", controllerName, accountName)
 	}
 	if accounts.CurrentAccount == accountName {
 		return nil
