@@ -74,16 +74,23 @@ func (csp CharmStorePoller) NewWorker() worker.Worker {
 	return csp.NewPeriodicWorker(csp.Do, csp.Period)
 }
 
+func shouldStop(stop <-chan struct{}) bool {
+	select {
+	case <-stop:
+		return true
+	default:
+		return false
+	}
+}
+
 // Do performs a single polling iteration.
 func (csp CharmStorePoller) Do(stop <-chan struct{}) error {
 	services, err := csp.ListAllServices()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	select {
-	case <-stop:
+	if shouldStop(stop) {
 		return nil
-	default:
 	}
 
 	var cURLs []*charm.URL
@@ -94,10 +101,8 @@ func (csp CharmStorePoller) Do(stop <-chan struct{}) error {
 		}
 		cURLs = append(cURLs, cURL)
 	}
-	select {
-	case <-stop:
+	if shouldStop(stop) {
 		return nil
-	default:
 	}
 
 	chResources, err := csp.ListCharmStoreResources(cURLs)
@@ -107,10 +112,8 @@ func (csp CharmStorePoller) Do(stop <-chan struct{}) error {
 
 	lastPolled := time.Now().UTC()
 	for i, service := range services {
-		select {
-		case <-stop:
+		if shouldStop(stop) {
 			return nil
-		default:
 		}
 
 		serviceID := service.ID().Id()
