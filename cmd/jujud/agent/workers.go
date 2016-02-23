@@ -18,7 +18,7 @@ type WorkerFactory interface {
 	// NewModelWorker returns a "new worker" func that may be used to
 	// start a state worker for the state's model. If model workers are
 	// not supported then false is returned (for "supported").
-	NewModelWorker(name string, st *state.State) (newWorker func() (worker.Worker, error), supported bool)
+	NewModelWorker(st *state.State) (newWorker func() (worker.Worker, error), supported bool)
 }
 
 var registeredWorkers = map[string]WorkerFactory{}

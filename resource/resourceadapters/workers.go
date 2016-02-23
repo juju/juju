@@ -24,7 +24,7 @@ func NewWorkerFactory() *WorkerFactory {
 }
 
 // NewModelWorker implements cmd/jujud/agent.WorkerFactory.
-func (wf WorkerFactory) NewModelWorker(_ string, st *state.State) (newWorker func() (worker.Worker, error), supported bool) {
+func (wf WorkerFactory) NewModelWorker(st *state.State) (newWorker func() (worker.Worker, error), supported bool) {
 	wfs := &workerFactoryState{st: st}
 	csOpener := charmstoreOpener{}
 	poller := workers.NewCharmStorePoller(wfs, func() (workers.CharmStoreClient, error) {

@@ -1265,7 +1265,7 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 
 	for name, factory := range registeredWorkers {
-		newWorker, supported := factory.NewModelWorker(name, st)
+		newWorker, supported := factory.NewModelWorker(st)
 		if !supported {
 			continue
 		}
