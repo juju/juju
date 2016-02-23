@@ -12,24 +12,17 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// WorkerFactory exposes functionality for creating workers
-// for an agent.
-type WorkerFactory interface {
-	// NewModelWorker returns a "new worker" func that may be used to
-	// start a state worker for the state's model. If model workers are
-	// not supported then false is returned (for "supported").
-	NewModelWorker(st *state.State) (newWorker func() (worker.Worker, error), supported bool)
-}
+type modelWorkerFactoryFunc func(st *state.State) func() (worker.Worker, error)
 
-var registeredWorkers = map[string]WorkerFactory{}
+var registeredModelWorkers = map[string]modelWorkerFactoryFunc{}
 
-// RegisterWorker adds a worker factory for the named worker
+// RegisterModelWorker adds a worker factory for the named worker
 // to the registry. If the name is already registered then
 // errors.AlreadyExists is returned.
-func RegisterWorker(name string, factory WorkerFactory) error {
-	if _, ok := registeredWorkers[name]; ok {
+func RegisterModelWorker(name string, factory modelWorkerFactoryFunc) error {
+	if _, ok := registeredModelWorkers[name]; ok {
 		return errors.NewAlreadyExists(nil, fmt.Sprintf("worker %q already registered", name))
 	}
-	registeredWorkers[name] = factory
+	registeredModelWorkers[name] = factory
 	return nil
 }

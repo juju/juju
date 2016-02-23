@@ -88,14 +88,11 @@ func newStubWorkerFactory(stub *testing.Stub) *stubWorkerFactory {
 	return factory
 }
 
-func (s *stubWorkerFactory) NewModelWorker(name string, st *state.State) (func() (worker.Worker, error), bool) {
-	s.AddCall("NewModelWorker", name, st)
+func (s *stubWorkerFactory) NewModelWorker(st *state.State) func() (worker.Worker, error) {
+	s.AddCall("NewModelWorker", st)
 	s.NextErr() // Pop one off.
 
-	if s.ReturnNewModelWorker == nil {
-		return nil, false
-	}
-	return s.ReturnNewModelWorker, true
+	return s.ReturnNewModelWorker
 }
 
 func (s *stubWorkerFactory) newWorker() (worker.Worker, error) {

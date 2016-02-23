@@ -1264,11 +1264,8 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 
-	for name, factory := range registeredWorkers {
-		newWorker, supported := factory.NewModelWorker(st)
-		if !supported {
-			continue
-		}
+	for name, factory := range registeredModelWorkers {
+		newWorker := factory(st)
 		singularRunner.StartWorker(name, newWorker)
 	}
 

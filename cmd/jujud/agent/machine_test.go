@@ -800,9 +800,9 @@ func (s *MachineSuite) TestManageModelRunsStatusHistoryPruner(c *gc.C) {
 func (s *MachineSuite) TestManageModelRunsRegisteredWorkers(c *gc.C) {
 	stub := &gitjujutesting.Stub{}
 	factory := newStubWorkerFactory(stub)
-	err := RegisterWorker("testing-spam", factory)
+	err := RegisterModelWorker("testing-spam", factory.NewModelWorker)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { delete(registeredWorkers, "testing-spam") }()
+	defer func() { delete(registeredModelWorkers, "testing-spam") }()
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -813,8 +813,8 @@ func (s *MachineSuite) TestManageModelRunsRegisteredWorkers(c *gc.C) {
 	runner.waitForWorker(c, "testing-spam")
 
 	stub.CheckCallNames(c, "NewModelWorker")
-	expectedState := stub.Calls()[0].Args[1] // yuck
-	stub.CheckCall(c, 0, "NewModelWorker", "testing-spam", expectedState)
+	expectedState := stub.Calls()[0].Args[0] // yuck
+	stub.CheckCall(c, 0, "NewModelWorker", expectedState)
 }
 
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {

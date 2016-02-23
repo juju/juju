@@ -105,7 +105,7 @@ func (r resources) registerAgentWorkers() {
 	}
 
 	factory := resourceadapters.NewWorkerFactory()
-	agent.RegisterWorker(resource.ComponentName+"-charmstore-poller", factory)
+	agent.RegisterModelWorker(resource.ComponentName+"-charmstore-poller", factory.NewModelWorker)
 }
 
 // registerState registers the state functionality for resources.
