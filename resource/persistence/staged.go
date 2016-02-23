@@ -27,9 +27,9 @@ func (staged StagedResource) stage() error {
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newStagedResourceOps(staged.stored)
+			ops = newInsertStagedResourceOps(staged.stored)
 		case 1:
-			ops = newEnsureStagedSameOps(staged.stored)
+			ops = newEnsureStagedResourceSameOps(staged.stored)
 		default:
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
@@ -52,7 +52,7 @@ func (staged StagedResource) Unstage() error {
 			return nil, errors.New("unstaging the resource failed")
 		}
 
-		ops := newRemoveStagedOps(staged.id)
+		ops := newRemoveStagedResourceOps(staged.id)
 		return ops, nil
 	}
 	if err := staged.base.Run(buildTxn); err != nil {
@@ -77,7 +77,7 @@ func (staged StagedResource) Activate() error {
 			return nil, errors.New("setting the resource failed")
 		}
 		// No matter what, we always remove any staging.
-		ops = append(ops, newRemoveStagedOps(staged.id)...)
+		ops = append(ops, newRemoveStagedResourceOps(staged.id)...)
 
 		// If we are changing the bytes for a resource, we increment the
 		// CharmModifiedVersion on the service, since resources are integral to

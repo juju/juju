@@ -46,8 +46,9 @@ func unitResourceID(id, unitID string) string {
 	return resourceID(id, "unit", unitID)
 }
 
-// stagedID converts an external resource ID into an internal staged one.
-func stagedID(id string) string {
+// stagedResourceID converts an external resource ID into an internal
+// staged one.
+func stagedResourceID(id string) string {
 	return serviceResourceID(id) + resourcesStagedIDSuffix
 }
 
@@ -68,8 +69,8 @@ type charmStoreResource struct {
 	lastPolled time.Time
 }
 
-func newStagedResourceOps(stored storedResource) []txn.Op {
-	doc := newStagedDoc(stored)
+func newInsertStagedResourceOps(stored storedResource) []txn.Op {
+	doc := newStagedResourceDoc(stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -79,8 +80,8 @@ func newStagedResourceOps(stored storedResource) []txn.Op {
 	}}
 }
 
-func newEnsureStagedSameOps(stored storedResource) []txn.Op {
-	doc := newStagedDoc(stored)
+func newEnsureStagedResourceSameOps(stored storedResource) []txn.Op {
+	doc := newStagedResourceDoc(stored)
 
 	// Other than cause the txn to abort, we don't do anything here.
 	return []txn.Op{{
@@ -90,8 +91,8 @@ func newEnsureStagedSameOps(stored storedResource) []txn.Op {
 	}}
 }
 
-func newRemoveStagedOps(id string) []txn.Op {
-	fullID := stagedID(id)
+func newRemoveStagedResourceOps(id string) []txn.Op {
+	fullID := stagedResourceID(id)
 
 	// We don't assert that it exists. We want "missing" to be a noop.
 	return []txn.Op{{
@@ -216,9 +217,10 @@ func newResourceDoc(stored storedResource) *resourceDoc {
 	return resource2doc(fullID, stored)
 }
 
-// newStagedDoc generates a staging doc that represents the given resource.
-func newStagedDoc(stored storedResource) *resourceDoc {
-	stagedID := stagedID(stored.ID)
+// newStagedResourceDoc generates a staging doc that represents
+// the given resource.
+func newStagedResourceDoc(stored storedResource) *resourceDoc {
+	stagedID := stagedResourceID(stored.ID)
 	return resource2doc(stagedID, stored)
 }
 
