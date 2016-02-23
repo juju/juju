@@ -50,8 +50,8 @@ func FormatSvcTabular(value interface{}) ([]byte, error) {
 		return formatServiceTabular(resources), nil
 	case []FormattedUnitResource:
 		return formatUnitTabular(resources), nil
-	case []FormattedDetailResource:
-		return formatDetailTabular(resources), nil
+	case FormattedServiceDetails:
+		return formatServiceDetailTabular(resources), nil
 	case FormattedUnitDetails:
 		return formatUnitDetailTabular(resources), nil
 	default:
@@ -83,11 +83,17 @@ func formatServiceTabular(info FormattedServiceInfo) []byte {
 	// with the below fmt.Fprintlns.
 	tw.Flush()
 
-	if len(info.Updates) > 0 {
-		fmt.Fprintln(&out, "")
-		fmt.Fprintln(&out, "[Updates Available]")
+	writeUpdates(info.Updates, &out, tw)
+
+	return out.Bytes()
+}
+
+func writeUpdates(updates []FormattedCharmResource, out *bytes.Buffer, tw *tabwriter.Writer) {
+	if len(updates) > 0 {
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "[Updates Available]")
 		fmt.Fprintln(tw, "RESOURCE\tREVISION")
-		for _, r := range info.Updates {
+		for _, r := range updates {
 			fmt.Fprintf(tw, "%v\t%v\n",
 				r.Name,
 				r.Revision,
@@ -96,8 +102,6 @@ func formatServiceTabular(info FormattedServiceInfo) []byte {
 	}
 
 	tw.Flush()
-
-	return out.Bytes()
 }
 
 func formatUnitTabular(resources []FormattedUnitResource) []byte {
@@ -127,21 +131,21 @@ func formatUnitTabular(resources []FormattedUnitResource) []byte {
 	return out.Bytes()
 }
 
-func formatDetailTabular(resources []FormattedDetailResource) []byte {
+func formatServiceDetailTabular(resources FormattedServiceDetails) []byte {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
 	var out bytes.Buffer
 	fmt.Fprintln(&out, "[Units]")
 
-	sort.Sort(byUnitID(resources))
+	sort.Sort(byUnitID(resources.Resources))
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 
 	// Write the header.
 	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")
 
-	for _, r := range resources {
+	for _, r := range resources.Resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
 			r.unitNumber,
 			r.Expected.Name,
@@ -150,6 +154,9 @@ func formatDetailTabular(resources []FormattedDetailResource) []byte {
 		)
 	}
 	tw.Flush()
+
+	writeUpdates(resources.Updates, &out, tw)
+
 	return out.Bytes()
 }
 

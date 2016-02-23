@@ -53,7 +53,9 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 		Args:    "service-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
-This command shows the resources required by and those in use by an existing service or unit in your model.
+This command shows the resources required by and those in use by an existing
+service or unit in your model.  When run for a service, it will also show any
+updates available for resources from the charmstore.
 `,
 	}
 }
@@ -119,9 +121,17 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
 	if c.details {
-		formatted, err := detailedResources("", sr)
+		details, err := detailedResources("", sr)
 		if err != nil {
 			return errors.Trace(err)
+		}
+		updates := sr.Updates()
+		formatted := FormattedServiceDetails{
+			Resources: details,
+			Updates:   make([]FormattedCharmResource, len(updates)),
+		}
+		for i, u := range updates {
+			formatted.Updates[i] = FormatCharmResource(u)
 		}
 		return c.out.Write(ctx, formatted)
 	}

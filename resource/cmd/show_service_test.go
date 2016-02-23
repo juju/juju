@@ -66,7 +66,9 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 		Args:    "service-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
-This command shows the resources required by and those in use by an existing service or unit in your model.
+This command shows the resources required by and those in use by an existing
+service or unit in your model.  When run for a service, it will also show any
+updates available for resources from the charmstore.
 `,
 	})
 }

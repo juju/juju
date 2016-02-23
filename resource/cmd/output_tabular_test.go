@@ -268,20 +268,26 @@ type DetailsTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *DetailsTabularSuite) TestFormatDetailsOkay(c *gc.C) {
-	data := []FormattedDetailResource{
-		{
-			UnitID:     "svc/10",
-			unitNumber: 10,
-			Unit:       fakeFmtSvcRes("data", "1"),
-			Expected:   fakeFmtSvcRes("data", "1"),
+func (s *DetailsTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
+	res := charmRes(c, "spam", ".tgz", "...", "")
+	updates := []FormattedCharmResource{FormatCharmResource(res)}
+
+	data := FormattedServiceDetails{
+		Resources: []FormattedDetailResource{
+			{
+				UnitID:     "svc/10",
+				unitNumber: 10,
+				Unit:       fakeFmtSvcRes("data", "1"),
+				Expected:   fakeFmtSvcRes("data", "1"),
+			},
+			{
+				UnitID:     "svc/5",
+				unitNumber: 5,
+				Unit:       fakeFmtSvcRes("config", "2"),
+				Expected:   fakeFmtSvcRes("config", "3"),
+			},
 		},
-		{
-			UnitID:     "svc/5",
-			unitNumber: 5,
-			Unit:       fakeFmtSvcRes("config", "2"),
-			Expected:   fakeFmtSvcRes("config", "3"),
-		},
+		Updates: updates,
 	}
 
 	output, err := FormatSvcTabular(data)
@@ -292,6 +298,10 @@ func (s *DetailsTabularSuite) TestFormatDetailsOkay(c *gc.C) {
 UNIT RESOURCE REVISION EXPECTED
 5    config   combRev2 combRev3
 10   data     combRev1 combRev1
+
+[Updates Available]
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
