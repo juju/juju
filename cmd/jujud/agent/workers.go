@@ -15,10 +15,6 @@ import (
 // WorkerFactory exposes functionality for creating workers
 // for an agent.
 type WorkerFactory interface {
-	stateWorkerFactory
-}
-
-type stateWorkerFactory interface {
 	// NewModelWorker returns a "new worker" func that may be used to
 	// start a state worker for the state's model. If model workers are
 	// not supported then false is returned (for "supported").
