@@ -111,6 +111,9 @@ func (csp CharmStorePoller) Do(stop <-chan struct{}) error {
 	}
 
 	lastPolled := time.Now().UTC()
+	// Note: since we used "services" to compose the list of charm URL
+	// s passed to the charm store client, there is a one-to-one
+	// correspondence between "services" and "chResources".
 	for i, service := range services {
 		if shouldStop(stop) {
 			return nil
