@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -22,7 +23,7 @@ type SubnetSuite struct {
 
 var _ = gc.Suite(&SubnetSuite{})
 
-func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
+func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        "foo",
 		CIDR:              "192.168.1.0/24",
@@ -33,188 +34,302 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 		SpaceName:         "foo",
 	}
 
-	assertSubnet := func(subnet *state.Subnet) {
-		c.Assert(subnet.ProviderId(), gc.Equals, "foo")
-		c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24")
-		c.Assert(subnet.VLANTag(), gc.Equals, 79)
-		c.Assert(subnet.AllocatableIPLow(), gc.Equals, "192.168.1.0")
-		c.Assert(subnet.AllocatableIPHigh(), gc.Equals, "192.168.1.1")
-		c.Assert(subnet.AvailabilityZone(), gc.Equals, "Timbuktu")
-		c.Assert(subnet.String(), gc.Equals, "192.168.1.0/24")
-		c.Assert(subnet.GoString(), gc.Equals, "192.168.1.0/24")
-		c.Assert(subnet.SpaceName(), gc.Equals, "foo")
-	}
-
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSubnet(subnet)
+	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
 
 	// check it's been stored in state by fetching it back again
 	subnetFromDB, err := s.State.Subnet("192.168.1.0/24")
 	c.Assert(err, jc.ErrorIsNil)
-	assertSubnet(subnetFromDB)
+	s.assertSubnetMatchesInfo(c, subnetFromDB, subnetInfo)
 }
 
-func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
+func (s *SubnetSuite) assertSubnetMatchesInfo(c *gc.C, subnet *state.Subnet, info state.SubnetInfo) {
+	c.Assert(subnet.ProviderId(), gc.Equals, info.ProviderId)
+	c.Assert(subnet.CIDR(), gc.Equals, info.CIDR)
+	c.Assert(subnet.VLANTag(), gc.Equals, info.VLANTag)
+	c.Assert(subnet.AllocatableIPLow(), gc.Equals, info.AllocatableIPLow)
+	c.Assert(subnet.AllocatableIPHigh(), gc.Equals, info.AllocatableIPHigh)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, info.AvailabilityZone)
+	c.Assert(subnet.String(), gc.Equals, info.CIDR)
+	c.Assert(subnet.GoString(), gc.Equals, info.CIDR)
+	c.Assert(subnet.SpaceName(), gc.Equals, info.SpaceName)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithEmptyCIDR(c *gc.C) {
 	subnetInfo := state.SubnetInfo{}
-	_, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, `adding subnet "": missing CIDR`)
-
-	subnetInfo.CIDR = "foobar"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches,
-		`adding subnet "foobar": invalid CIDR address: foobar`,
-	)
-
-	errPrefix := `adding subnet "192.168.0.1/24": `
-	subnetInfo.CIDR = "192.168.0.1/24"
-	subnetInfo.VLANTag = 4095
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches,
-		errPrefix+"invalid VLAN tag 4095: must be between 0 and 4094",
-	)
-
-	eitherOrMsg := errPrefix + "either both AllocatableIPLow and AllocatableIPHigh must be set or neither set"
-	subnetInfo.VLANTag = 0
-	subnetInfo.AllocatableIPHigh = "192.168.0.1"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, eitherOrMsg)
-
-	subnetInfo.AllocatableIPLow = "192.168.0.1"
-	subnetInfo.AllocatableIPHigh = ""
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, eitherOrMsg)
-
-	// invalid IP address
-	subnetInfo.AllocatableIPHigh = "foobar"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, errPrefix+`invalid AllocatableIPHigh "foobar"`)
-
-	// invalid IP address
-	subnetInfo.AllocatableIPLow = "foobar"
-	subnetInfo.AllocatableIPHigh = "192.168.0.1"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, errPrefix+`invalid AllocatableIPLow "foobar"`)
-
-	// IP address out of range
-	subnetInfo.AllocatableIPHigh = "172.168.1.0"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, errPrefix+`invalid AllocatableIPHigh "172.168.1.0"`)
-
-	// IP address out of range
-	subnetInfo.AllocatableIPHigh = "192.168.0.1"
-	subnetInfo.AllocatableIPLow = "172.168.1.0"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, errPrefix+`invalid AllocatableIPLow "172.168.1.0"`)
-
-	// valid case
-	subnetInfo.AllocatableIPLow = "192.168.0.1"
-	subnetInfo.ProviderId = "testing uniqueness"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
-
-	// ProviderId should be unique as well as CIDR
-	subnetInfo.CIDR = "192.0.0.0/0"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches,
-		`adding subnet "192.0.0.0/0": ProviderId "testing uniqueness" not unique`,
-	)
-
-	// empty provider id should be allowed to be not unique
-	subnetInfo.ProviderId = ""
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	subnetInfo.CIDR = "192.0.0.1/1"
-	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, "missing CIDR")
 }
 
-func (s *SubnetSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
-	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
+func (s *SubnetSuite) assertAddSubnetForInfoFailsWithSuffix(c *gc.C, subnetInfo state.SubnetInfo, errorSuffix string) error {
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	errorMessage := fmt.Sprintf("adding subnet %q: %s", subnetInfo.CIDR, errorSuffix)
+	c.Assert(err, gc.ErrorMatches, errorMessage)
+	c.Assert(subnet, gc.IsNil)
+	return err
+}
 
+func (s *SubnetSuite) TestAddSubnetFailsWithInvalidCIDR(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "foobar"}
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, "invalid CIDR address: foobar")
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithOutOfRangeVLANTag(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.0.1/24", VLANTag: 4095}
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, "invalid VLAN tag 4095: must be between 0 and 4094")
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWhenAllocatableIPHighSetButAllocatableIPLowNotSet(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.0.1/24", AllocatableIPHigh: "192.168.0.1"}
+	s.assertAddSubnetForInfoFailsWithSuffix(
+		c, subnetInfo,
+		"either both AllocatableIPLow and AllocatableIPHigh must be set or neither set",
+	)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWhenAllocatableIPLowSetButAllocatableIPHighNotSet(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.0.1/24", AllocatableIPLow: "192.168.0.1"}
+	s.assertAddSubnetForInfoFailsWithSuffix(
+		c, subnetInfo,
+		"either both AllocatableIPLow and AllocatableIPHigh must be set or neither set",
+	)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithInvalidAllocatableIPHigh(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.0.1/24",
+		AllocatableIPLow:  "192.168.0.1",
+		AllocatableIPHigh: "foobar",
+	}
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, `invalid AllocatableIPHigh "foobar"`)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithInvalidAllocatableIPLow(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.0.1/24",
+		AllocatableIPLow:  "foobar",
+		AllocatableIPHigh: "192.168.0.1",
+	}
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, `invalid AllocatableIPLow "foobar"`)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithOutOfRangeAllocatableIPHigh(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.0.1/24",
+		AllocatableIPLow:  "192.168.0.1",
+		AllocatableIPHigh: "172.168.1.0",
+	}
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, `invalid AllocatableIPHigh "172.168.1.0"`)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithOutOfRangeAllocatableIPLow(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.0.1/24",
+		AllocatableIPLow:  "172.168.1.0",
+		AllocatableIPHigh: "192.168.0.10",
+	}
+	s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, `invalid AllocatableIPLow "172.168.1.0"`)
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWithAlreadyExistsForDuplicateCIDRInSameModel(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.0.1/24"}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
+
+	err = s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, `subnet "192.168.0.1/24" already exists`)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+}
+
+func (s *SubnetSuite) TestAddSubnetSucceedsForDuplicateCIDRInDifferentModels(c *gc.C) {
+	subnetInfo1 := state.SubnetInfo{CIDR: "192.168.0.1/24"}
+	subnetInfo2 := state.SubnetInfo{CIDR: "10.0.0.0/24"}
+	subnet1State := s.NewStateForModelNamed(c, "other-model")
+
+	subnet1, subnet2 := s.addTwoSubnetsInDifferentModelsAssertSuccessAndReturnBoth(c, subnetInfo1, subnetInfo2, subnet1State)
+	s.assertSubnetMatchesInfo(c, subnet1, subnetInfo1)
+	s.assertSubnetMatchesInfo(c, subnet2, subnetInfo2)
+}
+
+func (s *SubnetSuite) addTwoSubnetsInDifferentModelsAssertSuccessAndReturnBoth(c *gc.C, info1, info2 state.SubnetInfo, otherState *state.State) (*state.Subnet, *state.Subnet) {
+	subnet1, err := otherState.AddSubnet(info1)
+	c.Assert(err, jc.ErrorIsNil)
+	subnet2, err := s.State.AddSubnet(info2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return subnet1, subnet2
+}
+
+func (s *SubnetSuite) TestAddSubnetFailsWhenProviderIdNotUniqueInSameModel(c *gc.C) {
+	subnetInfo1 := state.SubnetInfo{CIDR: "192.168.0.1/24", ProviderId: "foo"}
+	subnetInfo2 := state.SubnetInfo{CIDR: "10.0.0.0/24", ProviderId: "foo"}
+
+	s.addTwoSubnetsAndAssertSecondFailsWithSuffix(c, subnetInfo1, subnetInfo2, `ProviderId "foo" not unique`)
+}
+
+func (s *SubnetSuite) addTwoSubnetsAndAssertSecondFailsWithSuffix(c *gc.C, info1, info2 state.SubnetInfo, errorSuffix string) {
+	s.addTwoSubnetsInDifferentModelsAndAssertSecondFailsWithSuffix(c, info1, info2, s.State, errorSuffix)
+}
+
+func (s *SubnetSuite) addTwoSubnetsInDifferentModelsAndAssertSecondFailsWithSuffix(c *gc.C, info1, info2 state.SubnetInfo, otherState *state.State, errorSuffix string) {
+	_, err := otherState.AddSubnet(info1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertAddSubnetForInfoFailsWithSuffix(c, info2, errorSuffix)
+}
+
+func (s *SubnetSuite) TestAddSubnetSucceedsWhenProviderIdNotUniqueInDifferentModels(c *gc.C) {
+	subnetInfo1 := state.SubnetInfo{CIDR: "192.168.0.1/24", ProviderId: "foo"}
+	subnetInfo2 := state.SubnetInfo{CIDR: "10.0.0.0/24", ProviderId: "foo"}
+	subnet1State := s.NewStateForModelNamed(c, "other-model")
+
+	subnet1, subnet2 := s.addTwoSubnetsInDifferentModelsAssertSuccessAndReturnBoth(c, subnetInfo1, subnetInfo2, subnet1State)
+	s.assertSubnetMatchesInfo(c, subnet1, subnetInfo1)
+	s.assertSubnetMatchesInfo(c, subnet2, subnetInfo2)
+}
+
+func (s *SubnetSuite) TestAddSubnetSucceedsForDifferentCIDRsAndEmptyProviderIdInSameModel(c *gc.C) {
+	subnetInfo1 := state.SubnetInfo{CIDR: "192.168.0.1/24", ProviderId: ""}
+	subnetInfo2 := state.SubnetInfo{CIDR: "10.0.0.0/24", ProviderId: ""}
+
+	subnet1, subnet2 := s.addTwoSubnetsAssertSuccessAndReturnBoth(c, subnetInfo1, subnetInfo2)
+	s.assertSubnetMatchesInfo(c, subnet1, subnetInfo1)
+	s.assertSubnetMatchesInfo(c, subnet2, subnetInfo2)
+}
+
+func (s *SubnetSuite) addTwoSubnetsAssertSuccessAndReturnBoth(c *gc.C, info1, info2 state.SubnetInfo) (*state.Subnet, *state.Subnet) {
+	return s.addTwoSubnetsInDifferentModelsAssertSuccessAndReturnBoth(c, info1, info2, s.State)
+}
+
+func (s *SubnetSuite) TestAddSubnetSucceedsForDifferentCIDRsAndEmptyProviderIdInDifferentModels(c *gc.C) {
+	subnetInfo1 := state.SubnetInfo{CIDR: "192.168.0.1/24", ProviderId: ""}
+	subnetInfo2 := state.SubnetInfo{CIDR: "10.0.0.0/24", ProviderId: ""}
+	subnet1State := s.NewStateForModelNamed(c, "other-model")
+
+	subnet1, subnet2 := s.addTwoSubnetsInDifferentModelsAssertSuccessAndReturnBoth(c, subnetInfo1, subnetInfo2, subnet1State)
+	s.assertSubnetMatchesInfo(c, subnet1, subnetInfo1)
+	s.assertSubnetMatchesInfo(c, subnet2, subnetInfo2)
+}
+
+func (s *SubnetSuite) TestEnsureDeadSetsLifeToDeadWhenAlive(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.0.1/24")
+
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
+	s.refreshAndAssertSubnetLifeIs(c, subnet, state.Dead)
+}
+
+func (s *SubnetSuite) addAliveSubnet(c *gc.C, cidr string) *state.Subnet {
+	subnetInfo := state.SubnetInfo{CIDR: cidr}
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.Life(), gc.Equals, state.Alive)
 
-	// This should fail - not dead yet!
-	err = subnet.Remove()
-	c.Assert(err, gc.ErrorMatches,
-		`cannot remove subnet "192.168.1.0/24": subnet is not dead`,
-	)
-
-	err = subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnet.Life(), gc.Equals, state.Dead)
-
-	// EnsureDead a second time should also not be an error
-	err = subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnet.Life(), gc.Equals, state.Dead)
-
-	// check the change was persisted
-	subnetCopy, err := s.State.Subnet("192.168.1.0/24")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnetCopy.Life(), gc.Equals, state.Dead)
-
-	// Remove should now work
-	err = subnet.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.Subnet("192.168.1.0/24")
-	c.Assert(err, gc.ErrorMatches, `subnet "192.168.1.0/24" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// removing a second time should be a no-op
-	err = subnet.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	return subnet
 }
 
-func (s *SubnetSuite) TestSubnetRemoveKillsAddresses(c *gc.C) {
-	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
-	subnet, err := s.State.AddSubnet(subnetInfo)
+func (s *SubnetSuite) ensureDeadAndAssertLifeIsDead(c *gc.C, subnet *state.Subnet) {
+	err := subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.Life(), gc.Equals, state.Dead)
+}
 
-	_, err = s.State.AddIPAddress(
-		network.NewAddress("192.168.1.0"),
-		subnet.ID(),
-	)
+func (s *SubnetSuite) refreshAndAssertSubnetLifeIs(c *gc.C, subnet *state.Subnet, expectedLife state.Life) {
+	err := subnet.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddIPAddress(
-		network.NewAddress("192.168.1.1"),
-		subnet.ID(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.Life(), gc.Equals, expectedLife)
+}
 
-	err = subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = subnet.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+func (s *SubnetSuite) TestEnsureDeadSetsLifeToDeadWhenNotAlive(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.0.1/24")
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
 
-	_, err = s.State.IPAddress("192.168.1.0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.IPAddress("192.168.1.1")
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
+}
+
+func (s *SubnetSuite) TestRemoveFailsIfStillAlive(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.0.1/24")
+
+	err := subnet.Remove()
+	c.Assert(err, gc.ErrorMatches, `cannot remove subnet "192.168.0.1/24": subnet is not dead`)
+	s.refreshAndAssertSubnetLifeIs(c, subnet, state.Alive)
+}
+
+func (s *SubnetSuite) TestRemoveSucceedsWhenSubnetIsNotAlive(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.0.1/24")
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
+
+	s.removeSubnetAndAssertNotFound(c, subnet)
+}
+
+func (s *SubnetSuite) removeSubnetAndAssertNotFound(c *gc.C, subnet *state.Subnet) {
+	err := subnet.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSubnetWithCIDRNotFound(c, subnet.CIDR())
+}
+
+func (s *SubnetSuite) assertSubnetWithCIDRNotFound(c *gc.C, cidr string) {
+	_, err := s.State.Subnet(cidr)
+	s.assertSubnetNotFoundError(c, err)
+}
+
+func (s *SubnetSuite) assertSubnetNotFoundError(c *gc.C, err error) {
+	c.Assert(err, gc.ErrorMatches, "subnet .* not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *SubnetSuite) TestRefresh(c *gc.C) {
-	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
+func (s *SubnetSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.0.1/24")
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
+	s.removeSubnetAndAssertNotFound(c, subnet)
 
-	subnet, err := s.State.AddSubnet(subnetInfo)
+	err := subnet.Remove()
+	c.Assert(err, gc.ErrorMatches, `cannot remove subnet "192.168.0.1/24": not found or not dead`)
+}
+
+func (s *SubnetSuite) TestRemoveKillsAddedIPAddresses(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.1.0/24")
+	s.addIPAddressForSubnet(c, "192.168.1.0", subnet)
+	s.addIPAddressForSubnet(c, "192.168.1.1", subnet)
+
+	err := subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = subnet.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	subnetCopy, err := s.State.Subnet("192.168.1.0/24")
+	s.assertIPAddressNotFound(c, "192.168.1.0")
+	s.assertIPAddressNotFound(c, "192.168.1.1")
+}
+
+func (s *SubnetSuite) addIPAddressForSubnet(c *gc.C, ipAddress string, subnet *state.Subnet) {
+	_, err := s.State.AddIPAddress(network.NewAddress(ipAddress), subnet.ID())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SubnetSuite) assertIPAddressNotFound(c *gc.C, ipAddress string) {
+	_, err := s.State.IPAddress(ipAddress)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *SubnetSuite) TestRefreshUpdatesStaleDocData(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "fc00::/64")
+	subnetCopy, err := s.State.Subnet("fc00::/64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
 	c.Assert(subnetCopy.Life(), gc.Equals, state.Alive)
+
 	err = subnetCopy.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnetCopy.Life(), gc.Equals, state.Dead)
+}
+
+func (s *SubnetSuite) TestRefreshFailsWithNotFoundWhenRemoved(c *gc.C) {
+	subnet := s.addAliveSubnet(c, "192.168.1.0/24")
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
+	s.removeSubnetAndAssertNotFound(c, subnet)
+
+	err := subnet.Refresh()
+	s.assertSubnetNotFoundError(c, err)
 }
 
 func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
@@ -243,19 +358,23 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestPickNewAddressNoAddresses(c *gc.C) {
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "",
-		AllocatableIPHigh: "",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	subnet := s.addAliveSubnet(c, "192.168.1.0/24")
 
-	_, err = subnet.PickNewAddress()
+	_, err := subnet.PickNewAddress()
 	c.Assert(err, gc.ErrorMatches, "no allocatable IP addresses for subnet .*")
 }
 
-func (s *SubnetSuite) getSubnetForAddressPicking(c *gc.C, allocatableHigh string) *state.Subnet {
+func (s *SubnetSuite) TestPickNewAddressWhenSubnetIsDead(c *gc.C) {
+	subnet := s.addSubnetWithAllocatableIPHigh(c, "192.168.1.0")
+	s.ensureDeadAndAssertLifeIsDead(c, subnet)
+
+	_, err := subnet.PickNewAddress()
+	c.Assert(err, gc.ErrorMatches,
+		`cannot pick address: subnet "192.168.1.0/24" is not alive`,
+	)
+}
+
+func (s *SubnetSuite) addSubnetWithAllocatableIPHigh(c *gc.C, allocatableHigh string) *state.Subnet {
 	subnetInfo := state.SubnetInfo{
 		CIDR:              "192.168.1.0/24",
 		AllocatableIPLow:  "192.168.1.0",
@@ -266,32 +385,16 @@ func (s *SubnetSuite) getSubnetForAddressPicking(c *gc.C, allocatableHigh string
 	return subnet
 }
 
-func (s *SubnetSuite) TestPickNewAddressWhenSubnetIsDead(c *gc.C) {
-	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
-	err := subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Calling it twice is ok.
-	err = subnet.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = subnet.PickNewAddress()
-	c.Assert(err, gc.ErrorMatches,
-		`cannot pick address: subnet "192.168.1.0/24" is not alive`,
-	)
-}
-
 func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
-	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
-	addr := network.NewAddress("192.168.1.0")
-	_, err := s.State.AddIPAddress(addr, subnet.ID())
+	subnet := s.addSubnetWithAllocatableIPHigh(c, "192.168.1.0")
+	s.addIPAddressForSubnet(c, "192.168.1.0", subnet)
 
-	_, err = subnet.PickNewAddress()
+	_, err := subnet.PickNewAddress()
 	c.Assert(err, gc.ErrorMatches, "allocatable IP addresses exhausted for subnet .*")
 }
 
 func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
-	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
+	subnet := s.addSubnetWithAllocatableIPHigh(c, "192.168.1.0")
 
 	addr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
@@ -299,10 +402,8 @@ func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestPickNewAddressSkipsAllocated(c *gc.C) {
-	subnet := s.getSubnetForAddressPicking(c, "192.168.1.1")
-
-	addr := network.NewAddress("192.168.1.0")
-	_, err := s.State.AddIPAddress(addr, subnet.ID())
+	subnet := s.addSubnetWithAllocatableIPHigh(c, "192.168.1.1")
+	s.addIPAddressForSubnet(c, "192.168.1.0", subnet)
 
 	ipAddr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,7 +428,7 @@ func (s *SubnetSuite) TestPickNewAddressRace(c *gc.C) {
 	s.PatchValue(&state.PickAddress, &mockPickAddress)
 
 	// 192.168.1.0 and 192.168.1.1 are the only valid addresses
-	subnet := s.getSubnetForAddressPicking(c, "192.168.1.1")
+	subnet := s.addSubnetWithAllocatableIPHigh(c, "192.168.1.1")
 
 	waiter := sync.WaitGroup{}
 	waiter.Add(2)

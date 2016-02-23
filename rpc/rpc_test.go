@@ -770,7 +770,7 @@ func (*rpcSuite) TestErrorCode(c *gc.C) {
 	client, srvDone, _, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `request error: message \(code\)`)
+	c.Assert(err, gc.ErrorMatches, `message \(code\)`)
 	c.Assert(errors.Cause(err).(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
 }
 
@@ -952,7 +952,7 @@ func testBadCall(
 	if expectedErrCode != "" {
 		msg += " (" + expectedErrCode + ")"
 	}
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("request error: "+msg))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(msg))
 
 	// Test that there was a notification for the client request.
 	c.Assert(clientNotifier.clientRequests, gc.HasLen, 1)
@@ -1026,10 +1026,10 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 		X: map[string]int{"hello": 65},
 	}
 	err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
-	c.Assert(err, gc.ErrorMatches, `request error: json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go value of type \[\]string`)
 
 	err = client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
-	c.Assert(err, gc.ErrorMatches, `request error: json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, gc.ErrorMatches, `json: cannot unmarshal object into Go value of type \[\]string`)
 
 	arg1 := struct {
 		X []string
@@ -1103,7 +1103,7 @@ func (*rpcSuite) TestServerRequestWhenNotServing(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
-	c.Assert(err, gc.ErrorMatches, "request error: request error: no service")
+	c.Assert(err, gc.ErrorMatches, "no service")
 }
 
 func (*rpcSuite) TestChangeAPI(c *gc.C) {
@@ -1112,11 +1112,11 @@ func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	var s stringVal
 	err := client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
-	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "NewlyAvailable" \(not implemented\)`)
+	c.Assert(err, gc.ErrorMatches, `unknown object type "NewlyAvailable" \(not implemented\)`)
 	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "ChangeAPIMethods" \(not implemented\)`)
+	c.Assert(err, gc.ErrorMatches, `unknown object type "ChangeAPIMethods" \(not implemented\)`)
 	err = client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s, gc.Equals, stringVal{"new method result"})
@@ -1131,7 +1131,7 @@ func (*rpcSuite) TestChangeAPIToNil(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "RemoveAPI"}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, "request error: no service")
+	c.Assert(err, gc.ErrorMatches, "no service")
 }
 
 func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
@@ -1162,7 +1162,7 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	done <- fmt.Errorf("an error")
 	select {
 	case r := <-result:
-		c.Assert(r, gc.ErrorMatches, "request error: transformed: an error")
+		c.Assert(r, gc.ErrorMatches, "transformed: an error")
 	case <-time.After(3 * time.Second):
 		c.Fatalf("timeout on channel read")
 	}

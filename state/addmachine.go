@@ -526,10 +526,8 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, statusDoc statusDoc, cons c
 	prereqOps = []txn.Op{
 		createConstraintsOp(st, globalKey, cons),
 		createStatusOp(st, globalKey, statusDoc),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
+		// TODO(dimitern): Drop requested networks across the board in a
+		// follow-up.
 		createRequestedNetworksOp(st, globalKey, networks),
 		createMachineBlockDevicesOp(mdoc.Id),
 	}

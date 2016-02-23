@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/subnets"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -26,7 +27,7 @@ type SubnetsSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     subnets.API
+	facade     subnets.SubnetsAPI
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
@@ -76,7 +77,7 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 }
 
 // AssertAllSpacesResult makes it easier to verify AllSpaces results.
-func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []common.BackingSpace) {
+func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []networkingcommon.BackingSpace) {
 	seen := set.Strings{}
 	results := []params.SpaceResult{}
 	for _, space := range expected {
@@ -521,7 +522,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{"", nil},
 		{"", nil},
 	}
-	expectedBackingInfos := []common.BackingSubnetInfo{{
+	expectedBackingInfos := []networkingcommon.BackingSubnetInfo{{
 		ProviderId:        "sn-ipv6",
 		CIDR:              "2001:db8::/32",
 		VLANTag:           0,

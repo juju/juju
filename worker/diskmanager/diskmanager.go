@@ -41,7 +41,7 @@ var DefaultListBlockDevices ListBlockDevicesFunc
 
 // NewWorker returns a worker that lists block devices
 // attached to the machine, and records them in state.
-func NewWorker(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
+var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
 	var old []storage.BlockDevice
 	f := func(stop <-chan struct{}) error {
 		return doWork(l, b, &old)

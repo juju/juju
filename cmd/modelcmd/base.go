@@ -14,7 +14,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 )
 
 var errNoNameSpecified = errors.New("no name specified")
@@ -28,11 +32,18 @@ type CommandBase interface {
 	closeContext()
 }
 
+// ModelAPI provides access to the model client facade methods.
+type ModelAPI interface {
+	ListModels(user string) ([]base.UserModel, error)
+	Close() error
+}
+
 // JujuCommandBase is a convenience type for embedding that need
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
 	apiContext *apiContext
+	modelApi   ModelAPI
 }
 
 // closeContext closes the command's API context
@@ -45,13 +56,33 @@ func (c *JujuCommandBase) closeContext() {
 	}
 }
 
+// SetModelApi sets the api used to access model information.
+func (c *JujuCommandBase) SetModelApi(api ModelAPI) {
+	c.modelApi = api
+}
+
+func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
+	if c.modelApi != nil {
+		return c.modelApi, nil
+	}
+	conn, err := c.NewAPIRoot(store, controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.modelApi = modelmanager.NewClient(conn)
+	return c.modelApi, nil
+}
+
 // NewAPIRoot returns a new connection to the API server for the given
-// model or system.
-func (c *JujuCommandBase) NewAPIRoot(modelOrControllerName string) (api.Connection, error) {
+// model or controller.
+func (c *JujuCommandBase) NewAPIRoot(
+	store jujuclient.ClientStore,
+	controllerName, modelName string,
+) (api.Connection, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(modelOrControllerName)
+	return c.apiContext.newAPIRoot(store, controllerName, modelName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -73,6 +104,66 @@ func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connec
 		return nil, errors.Trace(err)
 	}
 	return c.apiContext.apiOpen(info, opts)
+}
+
+// RefreshModels refreshes the local models cache for the current user
+// on the specified controller.
+func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+	accountName, err := store.CurrentAccount(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails, err := store.AccountByName(controllerName, accountName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelManager, err := c.modelAPI(store, controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer modelManager.Close()
+
+	// TODO(axw) remove this when we stop using configstore.
+	legacyStore, err := configstore.Default()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerInfo, err := legacyStore.ReadInfo(
+		configstore.EnvironInfoName(
+			controllerName,
+			configstore.AdminModelName(controllerName),
+		),
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	models, err := modelManager.ListModels(accountDetails.User)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, model := range models {
+		modelDetails := jujuclient.ModelDetails{model.UUID}
+		if err := store.UpdateModel(controllerName, model.Name, modelDetails); err != nil {
+			return errors.Trace(err)
+		}
+		environInfoName := configstore.EnvironInfoName(controllerName, model.Name)
+		modelInfo, err := legacyStore.ReadInfo(environInfoName)
+		if errors.IsNotFound(err) {
+			modelInfo = legacyStore.CreateInfo(environInfoName)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		apiEndpoint := controllerInfo.APIEndpoint()
+		apiEndpoint.ModelUUID = modelDetails.ModelUUID
+		modelInfo.SetAPIEndpoint(apiEndpoint)
+		modelInfo.SetAPICredentials(controllerInfo.APICredentials())
+		if err := modelInfo.Write(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // initAPIContext lazily initializes c.apiContext. Doing this lazily means that
@@ -174,21 +265,11 @@ func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connectio
 
 // newAPIRoot establishes a connection to the API server for
 // the named system or model.
-func (ctx *apiContext) newAPIRoot(name string) (api.Connection, error) {
-	if name == "" {
+func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	if controllerName == "" && modelName == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
-	return juju.NewAPIFromName(name, ctx.client)
-}
-
-// newAPIClient returns an api.Client connecte to the API server
-// for the named system or model.
-func (ctx *apiContext) newAPIClient(name string) (*api.Client, error) {
-	root, err := ctx.newAPIRoot(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return root.Client(), nil
+	return juju.NewAPIConnection(store, controllerName, modelName, ctx.client)
 }
 
 // httpClient returns an http.Client that contains the loaded

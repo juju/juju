@@ -34,10 +34,10 @@ func NewDestroyCommand() cmd.Command {
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
-	return modelcmd.Wrap(
+	return modelcmd.WrapController(
 		&destroyCommand{},
-		modelcmd.ModelSkipFlags,
-		modelcmd.ModelSkipDefault,
+		modelcmd.ControllerSkipFlags,
+		modelcmd.ControllerSkipDefault,
 	)
 }
 
@@ -96,7 +96,10 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.ModelName())
+	controllerName := c.ControllerName()
+	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
+		controllerName, configstore.AdminModelName(controllerName),
+	))
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
@@ -104,11 +107,11 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ModelName())
+		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ControllerName())
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.ModelName()); err != nil {
+		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
 			return err
 		}
 	}
@@ -133,7 +136,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
 	}
 
-	ctx.Infof("Destroying controller %q", c.ModelName())
+	ctx.Infof("Destroying controller %q", c.ControllerName())
 	if c.destroyEnvs {
 		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
 
@@ -147,24 +150,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 	}
-	return environs.Destroy(controllerEnviron, store)
-}
-
-// destroyControllerViaClient attempts to destroy the controller using the client
-// endpoint for older juju controllers which do not implement controller.DestroyController
-func (c *destroyCommand) destroyControllerViaClient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
-	api, err := c.getClientAPI()
-	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
-	}
-	defer api.Close()
-
-	err = api.DestroyModel()
-	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, nil)
-	}
-
-	return environs.Destroy(controllerEnviron, store)
+	return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
@@ -195,7 +181,7 @@ To remove all blocks in the controller, please run:
 		}
 		return cmd.ErrSilent
 	}
-	logger.Errorf(stdFailureMsg, c.ModelName())
+	logger.Errorf(stdFailureMsg, c.ControllerName())
 	return destroyErr
 }
 
@@ -248,7 +234,7 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the controller
 // destroy and controller kill commands require.
 type destroyCommandBase struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 	assumeYes bool
 
 	// The following fields are for mocking out
@@ -292,7 +278,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 	case 0:
 		return errors.New("no controller specified")
 	case 1:
-		c.SetModelName(args[0])
+		c.SetControllerName(args[0])
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
