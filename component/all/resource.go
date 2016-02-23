@@ -84,7 +84,9 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 		return nil, errors.Trace(err)
 	}
 
-	return server.NewFacade(rst), nil
+	// TODO(katco): Pass in function which will retrieve the latest
+	// versions of resources for the service ID.
+	return server.NewFacade(rst, nil), nil
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.

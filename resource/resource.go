@@ -129,6 +129,10 @@ type ServiceResources struct {
 	// UnitResources reports the currenly-in-use version of resources for each
 	// unit.
 	UnitResources []UnitResources
+
+	// Updates is a list of resources that have updates from the
+	// charm-store available.
+	Updates []resource.Resource
 }
 
 // UnitResources conains the list of resources used by a unit.
