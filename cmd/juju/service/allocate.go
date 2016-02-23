@@ -28,6 +28,8 @@ type AllocateBudget struct {
 	AllocationSpec string
 	APIClient      apiClient
 	allocated      bool
+	Budget         string
+	Limit          string
 }
 
 // SetFlags is part of the DeployStep interface.
@@ -58,6 +60,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	if err != nil {
 		return errors.Trace(err)
 	}
+	a.Budget, a.Limit = allocBudget, allocLimit
 	a.APIClient, err = getApiClient(client)
 	if err != nil {
 		return errors.Annotate(err, "could not create API client")
