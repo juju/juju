@@ -73,10 +73,12 @@ func getCloudDetails() (map[string]*cloudDetails, error) {
 		details[name] = cloudDetails
 	}
 
-	// LXD is magic
-	details["lxd"] = &cloudDetails{
-		Source:    "built-in",
-		CloudType: "lxd",
+	// Add in built in providers like "lxd" and "manual".
+	for _, p := range jujucloud.BuiltInProviders {
+		details[p] = &cloudDetails{
+			Source:    "built-in",
+			CloudType: p,
+		}
 	}
 
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
