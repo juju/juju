@@ -27,7 +27,7 @@ var registeredWorkers = map[string]WorkerFactory{}
 // to the registry. If the name is already registered then
 // errors.AlreadyExists is returned.
 func RegisterWorker(name string, factory WorkerFactory) error {
-	if existing, ok := registeredWorkers[name]; ok && factory != existing {
+	if _, ok := registeredWorkers[name]; ok {
 		return errors.NewAlreadyExists(nil, fmt.Sprintf("worker %q already registered", name))
 	}
 	registeredWorkers[name] = factory
