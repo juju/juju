@@ -92,7 +92,6 @@ import (
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -122,7 +121,6 @@ var (
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
@@ -742,13 +740,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("resumer", func() (worker.Worker, error) {
-			// The action of resumer is so subtle that it is not tested,
-			// because we can't figure out how to do so without
-			// brutalising the transaction log.
-			return newResumer(apiConn.Resumer()), nil
-		})
-
 		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
 			inner := func(<-chan struct{}) error {
 				agentConfig := a.CurrentConfig()

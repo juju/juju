@@ -309,4 +309,5 @@ const (
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
 	storageprovisionerName   = "storage-provisioner-machine"
+	resumerName              = "resumer"
 )

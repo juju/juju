@@ -9,8 +9,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 )
 
 var (
