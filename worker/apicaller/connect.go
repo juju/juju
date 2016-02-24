@@ -130,8 +130,8 @@ func connectFallback(
 // ScaryConnect logs into the API using the supplied agent's credentials,
 // like OnlyConnect; and then:
 //
-//   * activates and returns the scorched-earth ErrTerminateAgent if the
-//     agent entity is dead, or unauthorized for all known passwords;
+//   * returns ErrTerminateAgent if the agent entity is dead or unauthorized
+//     for all known passwords;
 //   * if the agent's config does not specify a model, tries to record
 //     the model we just connected to;
 //   * replaces insecure credentials with freshly (locally) generated ones
@@ -151,20 +151,15 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	}
 	oldPassword := agentConfig.OldPassword()
 
-	// Before we try talking to the API, set up handling for errors
-	// that indicate we should terminate. But! ErrTerminateAgent
-	// won't be handled as we expect unless we *also* write a magic
-	// file in a particular location.
+	// Note: the ErrTerminateAgent returned when the connection is
+	// known to be invalid or impossible will *not* terminate a
+	// machine agent *unless* someone calls agent.SetCanUninstall.
 	//
-	// (Presumably this was because something was generating those
-	// errors when they actually shouldn't, and was uninstalling
-	// agents inappropriately, and we needed to work around that..?
-	// that'd be a really *bad* reason but it also feels plausible.)
-	//
-	// Regardless, it's neither sane nor safe to drop that -- agents
-	// spontaneously uninstalling themselves would be no fun -- and
-	// so we have to do the magic here as well. It's horrible, but
-	// it's the lesser evil.
+	// It's not sensible to do it in here, because calling that
+	// func for a unit agent -- *or* for a model agent, which
+	// looks like a machine agent on casual inspection -- will
+	// cause the hosting machine agent to suicide if it gets a
+	// particular signal, and that would be Very Bad.
 	defer func() {
 		cause := errors.Cause(err)
 		switch {
@@ -174,9 +169,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		default:
 			return
 		}
-		if err = agent.SetCanUninstall(a); err == nil {
-			err = worker.ErrTerminateAgent
-		}
+		return worker.ErrTerminateAgent
 	}()
 
 	// Start connection...
@@ -184,7 +177,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// ...and make sure we close it if anything goes wrong...
+	// ...and make sure we close it if anything goes wrong.
 	defer func() {
 		if err != nil {
 			if err := conn.Close(); err != nil {
@@ -193,8 +186,8 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		}
 	}()
 
-	// ...and now that's all in place we can move on to the meat
-	// of the func, as hinted at in the name "Scary".
+	// Update the agent config if necessary; then get the entity we're
+	// connecting as, or fail out if it's dead.
 	maybeSetAgentModelTag(a, conn)
 	entity, err := getEntity(conn, agentConfig.Tag())
 	if err != nil {

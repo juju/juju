@@ -96,12 +96,14 @@ func MoreImportantError(err0, err1 error) error {
 	return err1
 }
 
-// AgentDone processes the error returned by
-// an exiting agent.
+// AgentDone processes the error returned by an exiting agent.
 func AgentDone(logger loggo.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
 	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
+		// These errors are swallowed here because we want to exit
+		// the agent process without error, to avoid the init system
+		// restarting us.
 		err = nil
 	}
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {

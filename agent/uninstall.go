@@ -7,11 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/juju/names"
 )
 
 const (
 	// UninstallFile is the name of the file inside the data dir that,
-	// if it exists, will cause a machine agent to uninstall itself
+	// if it exists, will cause the machine agent to uninstall itself
 	// when it receives the termination signal or ErrTerminateAgent.
 	UninstallFile = "uninstall-agent"
 )
@@ -22,9 +24,15 @@ func uninstallFile(a Agent) string {
 	return filepath.Join(a.CurrentConfig().DataDir(), UninstallFile)
 }
 
-// SetCanUninstall creates the uninstall file in the agent's data dir.
+// SetCanUninstall creates the uninstall file in the data dir. It does
+// nothing if the supplied agent doesn't have a machine tag.
 func SetCanUninstall(a Agent) error {
-	logger.Errorf("marking agent ready for uninstall")
+	tag := a.CurrentConfig().Tag()
+	if _, ok := tag.(names.MachineTag); !ok {
+		logger.Debugf("cannot uninstall non-machine agent %q", tag)
+		return nil
+	}
+	logger.Infof("marking agent ready for uninstall")
 	return ioutil.WriteFile(uninstallFile(a), nil, 0644)
 }
 
