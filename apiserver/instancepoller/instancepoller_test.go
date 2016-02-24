@@ -529,8 +529,8 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: status.StatusInfo{Status: status.Status("foo")}})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: status.StatusInfo{Status: status.Status("")}})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.InstanceStatus(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
@@ -562,8 +562,8 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 		errors.New("FAIL"),                   // m2.InstanceStatus()
 		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
 	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: status.StatusInfo{Status: status.Status("foo")}})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: status.StatusInfo{Status: status.Status("")}})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.InstanceStatus(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,8 +582,8 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: status.StatusInfo{Status: status.Status("foo")}})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: status.StatusInfo{Status: status.Status("")}})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.SetInstanceStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -627,8 +627,8 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 		errors.New("FAIL"),                   // m2.SetInstanceStatus()
 		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
 	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: status.StatusInfo{Status: status.Status("foo")}})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: status.StatusInfo{Status: status.Status("")}})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.SetInstanceStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -696,4 +696,8 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 	s.st.CheckFindEntityCall(c, 1, "2")
 	s.st.CheckCall(c, 2, "IsManual")
 	s.st.CheckFindEntityCall(c, 3, "3")
+}
+
+func statusInfo(st string) status.StatusInfo {
+	return status.StatusInfo{Status: status.Status(st)}
 }

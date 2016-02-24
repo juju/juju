@@ -977,7 +977,7 @@ func (environ *maasEnviron) getDeploymentSubstatus(systemId string) string {
 		if sysId == systemId {
 			message, err := resultMap["substatus_message"].GetString()
 			if err != nil {
-				logger.Warningf("COULD NOT GET STRING for substatus_message: %v", resultMap["substatus_message"])
+				logger.Warningf("could not get string for substatus_message: %v", resultMap["substatus_message"])
 				return ""
 			}
 			return message

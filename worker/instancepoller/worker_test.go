@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -91,14 +92,8 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 				return checkInstanceInfo(i, m, "running")
 			}
 			instanceStatus, err := m.InstanceStatus()
-			if i%2 == 0 {
-				// Even machines not provisioned yet.
-				//c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-				// TODO(perrito666) is this breaking anything?
-				c.Assert(instanceStatus.Info, gc.Equals, "")
-			} else {
-				c.Assert(instanceStatus.Info, gc.Equals, "")
-			}
+			c.Logf("instance message is: %q", instanceStatus.Info)
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0
@@ -125,14 +120,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			}
 			// Machines in second half still have no addresses, nor status.
 			instanceStatus, err := m.InstanceStatus()
-			if i%2 == 0 {
-				// Even machines not provisioned yet.
-				// TODO(perrito666) check why we can no longer throw IsCodeNotProvisioned
-				//c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-				c.Assert(instanceStatus.Info, gc.Equals, "")
-			} else {
-				c.Assert(instanceStatus.Info, gc.Equals, "")
-			}
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0

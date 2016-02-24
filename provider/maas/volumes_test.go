@@ -134,7 +134,8 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
+		// status, substatus or status info.
+		return "provisioning", "substatus"
 	}
 
 	instance := maasInstance{&obj, statusGetter}

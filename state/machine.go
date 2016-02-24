@@ -198,12 +198,12 @@ func machineGlobalKey(id string) string {
 	return "m#" + id
 }
 
-// machineGlobalKey returns the global database key for the identified machine.
+// machineGlobalInstanceKey returns the global database key for the identified machine's instance.
 func machineGlobalInstanceKey(id string) string {
 	return machineGlobalKey(id) + "#instance"
 }
 
-// globalKey returns the global database key for the machine.
+// globalInstanceKey returns the global database key for the machinei's instance.
 func (m *Machine) globalInstanceKey() string {
 	return machineGlobalInstanceKey(m.doc.Id)
 }
@@ -1038,12 +1038,16 @@ func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, d
 
 // InstanceStatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this machine instance.
+// Instance represents the provider underlying [v]hardware or container where
+// this juju machine is deployed.
 func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalInstanceKey(), size)
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this machine.
+// Machine refers to what juju calls Machine which is an entity representing
+// the underlying [v]hardware and its characteristics.
 func (u *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalKey(), size)
 }
@@ -1695,14 +1699,6 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 	if err != nil {
 		return mStatus, err
 	}
-	if mStatus.Status == status.StatusPending {
-		instStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
-		if err != nil {
-			return mStatus, err
-		}
-		mStatus.Message = instStatus.Message
-	}
-
 	return mStatus, nil
 }
 

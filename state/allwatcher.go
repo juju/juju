@@ -156,14 +156,22 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		if err != nil {
 			return errors.Annotatef(err, "retrieving machine %q", m.Id)
 		}
-		machine := entity.(*Machine)
+		machine, ok := entity.(status.StatusGetter)
+		if !ok {
+			return errors.Errorf("the given entity does not support Status %v", entity)
+		}
 		jujuStatus, err := machine.Status()
 		if err != nil {
 			return errors.Annotatef(err, "retrieving juju status for machine %q", m.Id)
 		}
 		info.JujuStatus = multiwatcher.NewStatusInfo(jujuStatus, err)
 
-		machineStatus, err := machine.InstanceStatus()
+		inst := machine.(status.InstanceStatusGetter)
+		if !ok {
+			return errors.Errorf("the given entity does not support InstanceStatus %v", entity)
+		}
+
+		machineStatus, err := inst.InstanceStatus()
 		if err != nil {
 			return errors.Annotatef(err, "retrieving instance status for machine %q", m.Id)
 		}

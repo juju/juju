@@ -19,9 +19,10 @@ func (manualBootstrapInstance) Id() instance.Id {
 }
 
 func (manualBootstrapInstance) Status() instance.InstanceStatus {
+	// We asume that if we are deploying in manual provider the
+	// underlying machine is clearly running.
 	return instance.InstanceStatus{
-		Status:  status.StatusUnknown,
-		Message: "",
+		Status: status.StatusRunning,
 	}
 }
 

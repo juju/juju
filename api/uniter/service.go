@@ -144,14 +144,14 @@ func (s *Service) serviceOwnerTag() (names.UserTag, error) {
 
 // SetStatus sets the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
-func (s *Service) SetStatus(unitName string, unitStatus status.Status, info string, data map[string]interface{}) error {
+func (s *Service) SetStatus(unitName string, serviceStatus status.Status, info string, data map[string]interface{}) error {
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    tag.String(),
-				Status: unitStatus,
+				Status: serviceStatus,
 				Info:   info,
 				Data:   data,
 			},

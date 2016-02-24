@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
@@ -18,8 +17,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
-
-var logger = loggo.GetLogger("juju.state.multiwatcher")
 
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").

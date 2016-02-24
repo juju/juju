@@ -48,7 +48,7 @@ func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 // Status returns a juju status based on the maas instance returned
 // status message.
 func (mi *maasInstance) Status() instance.InstanceStatus {
-	maasInstanceStatus := status.StatusUnknown
+	maasInstanceStatus := status.StatusEmpty
 	statusMsg, substatus := mi.statusGetter(mi.Id())
 	switch statusMsg {
 	case "":
@@ -57,7 +57,7 @@ func (mi *maasInstance) Status() instance.InstanceStatus {
 	case "Deployed":
 		maasInstanceStatus = status.StatusRunning
 	case "Deploying":
-		maasInstanceStatus = status.StatusProvisioning
+		maasInstanceStatus = status.StatusAllocating
 		if substatus != "" {
 			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
 		}
@@ -66,6 +66,9 @@ func (mi *maasInstance) Status() instance.InstanceStatus {
 		if substatus != "" {
 			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
 		}
+	default:
+		maasInstanceStatus = status.StatusEmpty
+		statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
 	}
 
 	return instance.InstanceStatus{

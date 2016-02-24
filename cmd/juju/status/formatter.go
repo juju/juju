@@ -87,10 +87,10 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	var out machineStatus
 
 	out = machineStatus{
-		JujuStatus:    sf.getStatusInfoContents(machine.JujuStatus),
+		JujuStatus:    sf.getStatusInfoContents(machine.AgentStatus),
 		DNSName:       machine.DNSName,
 		InstanceId:    machine.InstanceId,
-		MachineStatus: sf.getStatusInfoContents(machine.MachineStatus),
+		MachineStatus: sf.getStatusInfoContents(machine.InstanceStatus),
 		Series:        machine.Series,
 		Id:            machine.Id,
 		Containers:    make(map[string]machineStatus),
@@ -192,7 +192,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	return out
 }
 
-func (sf *statusFormatter) getStatusInfoContents(inst params.AgentStatus) statusInfoContents {
+func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) statusInfoContents {
 	info := statusInfoContents{
 		Err:     inst.Err,
 		Current: inst.Status,
@@ -221,13 +221,13 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusI
 
 func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
-		Err:     unit.JujuStatus.Err,
-		Current: unit.JujuStatus.Status,
-		Message: unit.JujuStatus.Info,
-		Version: unit.JujuStatus.Version,
+		Err:     unit.AgentStatus.Err,
+		Current: unit.AgentStatus.Status,
+		Message: unit.AgentStatus.Info,
+		Version: unit.AgentStatus.Version,
 	}
-	if unit.JujuStatus.Since != nil {
-		info.Since = common.FormatTime(unit.JujuStatus.Since, sf.isoTime)
+	if unit.AgentStatus.Since != nil {
+		info.Since = common.FormatTime(unit.AgentStatus.Since, sf.isoTime)
 	}
 	return info
 }

@@ -35,18 +35,18 @@ type FullStatus struct {
 
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
-	JujuStatus AgentStatus
+	AgentStatus    DetailedStatus
+	InstanceStatus DetailedStatus
 
-	DNSName       string
-	InstanceId    instance.Id
-	MachineStatus AgentStatus
-	Series        string
-	Id            string
-	Containers    map[string]MachineStatus
-	Hardware      string
-	Jobs          []multiwatcher.MachineJob
-	HasVote       bool
-	WantsVote     bool
+	DNSName    string
+	InstanceId instance.Id
+	Series     string
+	Id         string
+	Containers map[string]MachineStatus
+	Hardware   string
+	Jobs       []multiwatcher.MachineJob
+	HasVote    bool
+	WantsVote  bool
 }
 
 // ServiceStatus holds status info about a service.
@@ -61,7 +61,7 @@ type ServiceStatus struct {
 	SubordinateTo []string
 	Units         map[string]UnitStatus
 	MeterStatuses map[string]MeterStatus
-	Status        AgentStatus
+	Status        DetailedStatus
 }
 
 // MeterStatus represents the meter status of a unit.
@@ -72,11 +72,11 @@ type MeterStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	// JujuStatus holds the status for a unit's agent.
-	JujuStatus AgentStatus
+	// AgentStatus holds the status for a unit's agent.
+	AgentStatus DetailedStatus
 
 	// WorkloadStatus holds the status for a unit's workload
-	WorkloadStatus AgentStatus
+	WorkloadStatus DetailedStatus
 
 	Machine       string
 	OpenedPorts   []string
@@ -126,8 +126,8 @@ func (epStatus *EndpointStatus) String() string {
 	return epStatus.ServiceName + ":" + epStatus.Name
 }
 
-// AgentStatus holds status info about a machine or unit agent.
-type AgentStatus struct {
+// DetailedStatus holds status info about a machine or unit agent.
+type DetailedStatus struct {
 	Status  status.Status
 	Info    string
 	Data    map[string]interface{}
@@ -157,7 +157,7 @@ type StatusHistoryArgs struct {
 
 // StatusHistoryResults holds a slice of statuses.
 type StatusHistoryResults struct {
-	Statuses []AgentStatus
+	Statuses []DetailedStatus
 }
 
 const (
@@ -210,20 +210,20 @@ type ServiceStatusResults struct {
 type HistoryKind string
 
 const (
-	// KindCombined represents all possible kinds.
-	KindCombined HistoryKind = "combined"
-	// KindAgent represent a unit agent status history entry.
-	KindAgent HistoryKind = "agent"
+	// KindUnit represents agent and workload combined.
+	KindUnit HistoryKind = "unit"
+	// KindUnitAgent represent a unit agent status history entry.
+	KindUnitAgent HistoryKind = "juju-unit"
 	// KindWorkload represents a charm workload status history entry.
 	KindWorkload HistoryKind = "workload"
 	// KindMachineInstance represents an entry for a machine instance.
-	KindMachineInstance = "machineinstance"
-	// KindMachine represents an entry for a machine.
-	KindMachine = "machine"
+	KindMachineInstance = "machine"
+	// KindMachine represents an entry for a machine agent.
+	KindMachine = "juju-machine"
 	// KindContainerInstance represents an entry for a container instance.
-	KindContainerInstance = "containerinstance"
-	// KindMachine represents an entry for a container.
-	KindContainer = "container"
+	KindContainerInstance = "container"
+	// KindContainer represents an entry for a container agent.
+	KindContainer = "juju-container"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying" or "dead").

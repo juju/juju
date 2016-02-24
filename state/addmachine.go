@@ -180,7 +180,6 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 			return nil, errors.Trace(err)
 		}
 		mdocs = append(mdocs, mdoc)
-		logger.Warningf("------------------ appending doc for id: %v", mdoc.DocID)
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
@@ -193,7 +192,6 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, errors.New("model is no longer alive"))
 	}
-	logger.Warningf("----------- AddMachines inserted the doc")
 	return ms, nil
 }
 

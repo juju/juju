@@ -32,7 +32,7 @@ func (kvm *kvmInstance) Status() instance.InstanceStatus {
 		}
 	}
 	return instance.InstanceStatus{
-		Status:  status.StatusRunning,
+		Status:  status.StatusStopped,
 		Message: "stopped",
 	}
 }

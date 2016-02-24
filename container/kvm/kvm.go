@@ -163,7 +163,7 @@ func (manager *containerManager) CreateContainer(
 		logger.Warningf("failed to parse hardware: %v", err)
 	}
 
-	callback(status.StatusProvisioning, "Creating container; it might take some time", nil)
+	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", instanceConfig.Constraints)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")

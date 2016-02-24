@@ -561,10 +561,10 @@ func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
 			unit.WorkloadStatus.Since = nil
-			unit.JujuStatus.Since = nil
+			unit.AgentStatus.Since = nil
 			for id, subord := range unit.Subordinates {
 				subord.WorkloadStatus.Since = nil
-				subord.JujuStatus.Since = nil
+				subord.AgentStatus.Since = nil
 				unit.Subordinates[id] = subord
 			}
 			service.Units[unitId] = unit
@@ -573,8 +573,8 @@ func clearSinceTimes(status *params.FullStatus) {
 		status.Services[serviceId] = service
 	}
 	for id, machine := range status.Machines {
-		machine.JujuStatus.Since = nil
-		machine.MachineStatus.Since = nil
+		machine.AgentStatus.Since = nil
+		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
 }

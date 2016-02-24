@@ -85,7 +85,7 @@ func EnsureCloneTemplate(
 	}
 	logger.Infof("template does not exist, creating")
 
-	callback(status.StatusProvisioning, "Creating template container; downloading image may take some time", nil)
+	callback(status.StatusAllocating, "Creating template container; downloading image may take some time", nil)
 
 	userData, err := containerinit.TemplateUserData(
 		series,
@@ -161,7 +161,7 @@ func EnsureCloneTemplate(
 		return nil, err
 	}
 	logger.Infof("template container started, now wait for it to stop")
-	callback(status.StatusProvisioning, "Template container created; waiting for cloud-init to complete", nil)
+	callback(status.StatusAllocating, "Template container created; waiting for cloud-init to complete", nil)
 	// Perhaps we should wait for it to finish, and the question becomes "how
 	// long do we wait for it to complete?"
 

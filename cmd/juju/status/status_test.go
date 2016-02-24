@@ -167,7 +167,6 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-
 		"series":   "quantal",
 		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
@@ -531,7 +530,6 @@ var statusTests = []testCase{
 						"instance-id": "i-missing",
 						"juju-status": M{
 							"current": "pending",
-							"message": "missing",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"machine-status": M{
@@ -3458,25 +3456,35 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	// When I run juju status --format yaml 0/lxc/0
 	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxc/0")
 	c.Assert(string(stderr), gc.Equals, "")
-	// Then I should receive output equal to:
-	const expected = `
-model: dummymodel
-machines:
-  "0":
-    agent-state: started
-    dns-name: dummymodel-0.dns
-    instance-id: dummymodel-0
-    series: quantal
-    containers:
-      0/lxc/0:
-        agent-state: pending
-        instance-id: pending
-        series: quantal
-    hardware: arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M
-    controller-member-status: adding-vote
-services: {}
-`
-	c.Assert(string(stdout), gc.Equals, expected[1:])
+	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+	const expected = "" +
+		"model: dummymodel\n" +
+		"machines:\n" +
+		"  \"0\":\n" +
+		"    juju-status:\n" +
+		"      current: started\n" +
+		"      since: 01 Apr 15 01:23+10:00\n" +
+		"    dns-name: dummymodel-0.dns\n" +
+		"    instance-id: dummymodel-0\n" +
+		"    machine-status:\n" +
+		"      current: pending\n" +
+		"      since: 01 Apr 15 01:23+10:00\n" +
+		"    series: quantal\n" +
+		"    containers:\n" +
+		"      0/lxc/0:\n" +
+		"        juju-status:\n" +
+		"          current: pending\n" +
+		"          since: 01 Apr 15 01:23+10:00\n" +
+		"        instance-id: pending\n" +
+		"        machine-status:\n" +
+		"          current: pending\n" +
+		"          since: 01 Apr 15 01:23+10:00\n" +
+		"        series: quantal\n" +
+		"    hardware: arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M\n" +
+		"    controller-member-status: adding-vote\n" +
+		"services: {}\n"
+
+	c.Assert(string(out), gc.Equals, expected)
 }
 
 // Scenario: One unit is in an errored state and user filters to errored
@@ -3787,15 +3795,15 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 	status := &params.FullStatus{
 		Machines: map[string]params.MachineStatus{
 			"1": params.MachineStatus{
-				JujuStatus: params.AgentStatus{
+				AgentStatus: params.DetailedStatus{
 					Status: "error",
 					Info:   "<error while provisioning>",
 				},
-				InstanceId:    "pending",
-				MachineStatus: params.AgentStatus{},
-				Series:        "trusty",
-				Id:            "1",
-				Jobs:          []multiwatcher.MachineJob{"JobHostUnits"},
+				InstanceId:     "pending",
+				InstanceStatus: params.DetailedStatus{},
+				Series:         "trusty",
+				Id:             "1",
+				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
 			},
 		},
 	}

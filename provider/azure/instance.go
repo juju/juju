@@ -42,7 +42,7 @@ func (inst *azureInstance) Status() instance.InstanceStatus {
 	// when querying a single VM. This means the results of AllInstances
 	// or Instances would have the instance view missing.
 	return instance.InstanceStatus{
-		Status:  status.StatusUnknown,
+		Status:  status.StatusEmpty,
 		Message: to.String(inst.Properties.ProvisioningState),
 	}
 

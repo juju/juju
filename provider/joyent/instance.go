@@ -23,11 +23,24 @@ func (inst *joyentInstance) Id() instance.Id {
 }
 
 func (inst *joyentInstance) Status() instance.InstanceStatus {
-	return instance.InstanceStatus{
-		Status:  status.StatusUnknown,
-		Message: inst.machine.State,
+	instStatus := inst.machine.State
+	jujuStatus := status.StatusPending
+	switch instStatus {
+	case "configured", "incomplete", "unavailable", "provisioning":
+		jujuStatus = status.StatusAllocating
+	case "ready", "running":
+		jujuStatus = status.StatusRunning
+	case "halting", "stopping", "shutting_down", "off", "down", "installed", "stopped", "destroyed", "unreachable":
+		jujuStatus = status.StatusEmpty
+	case "failed":
+		jujuStatus = status.StatusProvisioningError
+	default:
+		jujuStatus = status.StatusEmpty
 	}
-
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 func (inst *joyentInstance) Addresses() ([]network.Address, error) {

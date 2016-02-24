@@ -34,11 +34,22 @@ func (inst *environInstance) Id() instance.Id {
 
 // Status implements instance.Instance.
 func (inst *environInstance) Status() instance.InstanceStatus {
-	return instance.InstanceStatus{
-		Status:  status.StatusUnknown,
-		Message: inst.base.Status(),
+	instStatus := inst.base.Status()
+	jujuStatus := status.StatusProvisioning
+	switch instStatus {
+	case "PROVISIONING", "STAGING":
+		jujuStatus = status.StatusProvisioning
+	case "RUNNING":
+		jujuStatus = status.StatusRunning
+	case "STOPPING", "TERMINATED":
+		jujuStatus = status.StatusEmpty
+	default:
+		jujuStatus = status.StatusEmpty
 	}
-
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 // Addresses implements instance.Instance.

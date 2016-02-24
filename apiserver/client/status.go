@@ -22,10 +22,10 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
-func agentStatusFromStatusInfo(s []status.StatusInfo, kind params.HistoryKind) []params.AgentStatus {
-	result := []params.AgentStatus{}
+func agentStatusFromStatusInfo(s []status.StatusInfo, kind params.HistoryKind) []params.DetailedStatus {
+	result := []params.DetailedStatus{}
 	for _, v := range s {
-		result = append(result, params.AgentStatus{
+		result = append(result, params.DetailedStatus{
 			Status: v.Status,
 			Info:   v.Message,
 			Data:   v.Data,
@@ -37,7 +37,7 @@ func agentStatusFromStatusInfo(s []status.StatusInfo, kind params.HistoryKind) [
 
 }
 
-type sortableStatuses []params.AgentStatus
+type sortableStatuses []params.DetailedStatus
 
 func (s sortableStatuses) Len() int {
 	return len(s)
@@ -49,14 +49,14 @@ func (s sortableStatuses) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
-// unitStatus returns a list of status history entries for unit agents or workloads.
-func (c *Client) unitStatus(unitName string, size int, kind params.HistoryKind) ([]params.AgentStatus, error) {
+// unitStatusHistory returns a list of status history entries for unit agents or workloads.
+func (c *Client) unitStatusHistory(unitName string, size int, kind params.HistoryKind) ([]params.DetailedStatus, error) {
 	unit, err := c.api.stateAccessor.Unit(unitName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statuses := []params.AgentStatus{}
-	if kind == params.KindCombined || kind == params.KindWorkload {
+	statuses := []params.DetailedStatus{}
+	if kind == params.KindUnit || kind == params.KindWorkload {
 		unitStatuses, err := unit.StatusHistory(size)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -64,16 +64,16 @@ func (c *Client) unitStatus(unitName string, size int, kind params.HistoryKind) 
 		statuses = agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)
 
 	}
-	if kind == params.KindCombined || kind == params.KindAgent {
+	if kind == params.KindUnit || kind == params.KindUnitAgent {
 		agentStatuses, err := unit.AgentHistory().StatusHistory(size)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		statuses = append(statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
+		statuses = append(statuses, agentStatusFromStatusInfo(agentStatuses, params.KindUnitAgent)...)
 	}
 
 	sort.Sort(sortableStatuses(statuses))
-	if kind == params.KindCombined {
+	if kind == params.KindUnit {
 		if len(statuses) > size {
 			statuses = statuses[len(statuses)-size:]
 		}
@@ -82,7 +82,8 @@ func (c *Client) unitStatus(unitName string, size int, kind params.HistoryKind) 
 	return statuses, nil
 }
 
-func (c *Client) machineInstanceStatus(machineName string, size int, kind params.HistoryKind) ([]params.AgentStatus, error) {
+// machineInstanceStatusHistory returns status history for the instance of a given machine.
+func (c *Client) machineInstanceStatusHistory(machineName string, size int, kind params.HistoryKind) ([]params.DetailedStatus, error) {
 	machine, err := c.api.stateAccessor.Machine(machineName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -94,7 +95,8 @@ func (c *Client) machineInstanceStatus(machineName string, size int, kind params
 	return agentStatusFromStatusInfo(sInfo, kind), nil
 }
 
-func (c *Client) machineStatus(machineName string, size int, kind params.HistoryKind) ([]params.AgentStatus, error) {
+// machineStatusHistory returns status history for the given machine.
+func (c *Client) machineStatusHistory(machineName string, size int, kind params.HistoryKind) ([]params.DetailedStatus, error) {
 	machine, err := c.api.stateAccessor.Machine(machineName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -112,36 +114,36 @@ func (c *Client) StatusHistory(args params.StatusHistoryArgs) (params.StatusHist
 		return params.StatusHistoryResults{}, errors.Errorf("invalid history size: %d", args.Size)
 	}
 	history := params.StatusHistoryResults{}
-	statuses := []params.AgentStatus{}
+	statuses := []params.DetailedStatus{}
 	var err error
 	switch args.Kind {
-	case params.KindCombined, params.KindWorkload, params.KindAgent:
-		statuses, err = c.unitStatus(args.Name, args.Size, args.Kind)
+	case params.KindUnit, params.KindWorkload, params.KindUnitAgent:
+		statuses, err = c.unitStatusHistory(args.Name, args.Size, args.Kind)
 		if err != nil {
-			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching unit status history")
+			return params.StatusHistoryResults{}, errors.Annotatef(err, "fetching unit status history for %q", args.Name)
 		}
 	case params.KindMachineInstance:
-		mIStatuses, err := c.machineInstanceStatus(args.Name, args.Size, params.KindMachineInstance)
+		mIStatuses, err := c.machineInstanceStatusHistory(args.Name, args.Size, params.KindMachineInstance)
 		if err != nil {
 			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching machine instance status history")
 		}
 		statuses = mIStatuses
 	case params.KindMachine:
-		mStatuses, err := c.machineStatus(args.Name, args.Size, params.KindMachine)
+		mStatuses, err := c.machineStatusHistory(args.Name, args.Size, params.KindMachine)
 		if err != nil {
-			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching machine status history")
+			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching juju agent status history for machine")
 		}
 		statuses = mStatuses
 	case params.KindContainerInstance:
-		cIStatuses, err := c.machineStatus(args.Name, args.Size, params.KindContainerInstance)
+		cIStatuses, err := c.machineStatusHistory(args.Name, args.Size, params.KindContainerInstance)
 		if err != nil {
-			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching machine status history")
+			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching container status history")
 		}
 		statuses = cIStatuses
 	case params.KindContainer:
-		cStatuses, err := c.machineStatus(args.Name, args.Size, params.KindContainer)
+		cStatuses, err := c.machineStatusHistory(args.Name, args.Size, params.KindContainer)
 		if err != nil {
-			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching machine status history")
+			return params.StatusHistoryResults{}, errors.Annotate(err, "fetching juju agent status history for container")
 		}
 		statuses = cStatuses
 	}
@@ -505,14 +507,14 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 	var err error
 	status.Id = machine.Id()
 	agentStatus := processMachine(machine)
-	status.JujuStatus = agentStatus
+	status.AgentStatus = agentStatus
 
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
 	status.HasVote = machine.HasVote()
 	sInfo, err := machine.InstanceStatus()
-	populateStatusFromStatusInfoAndErr(&status.MachineStatus, sInfo, err)
+	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInfo, err)
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
@@ -796,22 +798,19 @@ type lifer interface {
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
 func processUnitAndAgentStatus(unit *state.Unit, unitStatus *params.UnitStatus) {
-	unitStatus.JujuStatus, unitStatus.WorkloadStatus = processUnitStatus(unit)
-
+	unitStatus.AgentStatus, unitStatus.WorkloadStatus = processUnitStatus(unit)
 	processUnitLost(unit, unitStatus)
-
-	return
 }
 
 // populateStatusFromGetter creates status information for machines, units.
-func populateStatusFromGetter(agent *params.AgentStatus, getter status.StatusGetter) {
+func populateStatusFromGetter(agent *params.DetailedStatus, getter status.StatusGetter) {
 	statusInfo, err := getter.Status()
 	populateStatusFromStatusInfoAndErr(agent, statusInfo, err)
 }
 
 // populateStatusFromStatusInfoAndErr creates AgentStatus from the typical output
 // of a status getter.
-func populateStatusFromStatusInfoAndErr(agent *params.AgentStatus, statusInfo status.StatusInfo, err error) {
+func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo status.StatusInfo, err error) {
 	agent.Err = err
 	agent.Status = statusInfo.Status
 	agent.Info = statusInfo.Message
@@ -821,7 +820,7 @@ func populateStatusFromStatusInfoAndErr(agent *params.AgentStatus, statusInfo st
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func processMachine(machine *state.Machine) (out params.AgentStatus) {
+func processMachine(machine *state.Machine) (out params.DetailedStatus) {
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
@@ -843,7 +842,7 @@ func processMachine(machine *state.Machine) (out params.AgentStatus) {
 }
 
 // processUnit retrieves version and status information for the given unit.
-func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.AgentStatus) {
+func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
 	// First determine the agent status information.
 	unitAgent := unit.Agent()
 	populateStatusFromGetter(&agentStatus, unitAgent)
@@ -858,11 +857,11 @@ func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.Age
 }
 
 func canBeLost(unitStatus *params.UnitStatus) bool {
-	switch unitStatus.JujuStatus.Status {
+	switch unitStatus.AgentStatus.Status {
 	case status.StatusAllocating:
 		return false
 	case status.StatusExecuting:
-		return unitStatus.JujuStatus.Info != operation.RunningHookMessage(string(hooks.Install))
+		return unitStatus.AgentStatus.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model
 	// to tell us when we've hit this point, instead of piggybacking on top of
@@ -893,8 +892,8 @@ func processUnitLost(unit *state.Unit, unitStatus *params.UnitStatus) {
 			unitStatus.WorkloadStatus.Status = status.StatusUnknown
 			unitStatus.WorkloadStatus.Info = fmt.Sprintf("agent is lost, sorry! See 'juju status-history %s'", unit.Name())
 		}
-		unitStatus.JujuStatus.Status = status.StatusLost
-		unitStatus.JujuStatus.Info = "agent is not communicating with the server"
+		unitStatus.AgentStatus.Status = status.StatusLost
+		unitStatus.AgentStatus.Info = "agent is not communicating with the server"
 	}
 }
 

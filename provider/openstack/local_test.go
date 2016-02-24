@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -650,9 +651,9 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
-	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status().Message, gc.Equals, nova.StatusActive)
-	err := env.StopInstances(inst.Id())
+	inst, _ := testing.AssertStartInstance(c, s.env, "100")
+	c.Assert(inst.Status().Status, gc.Equals, status.StatusRunning)
+	err := s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

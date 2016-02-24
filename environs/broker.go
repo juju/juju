@@ -67,6 +67,7 @@ type StartInstanceParams struct {
 	// that may be used to start this instance.
 	ImageMetadata []*imagemetadata.ImageMetadata
 
+	// StatusCallback is a callback to be used by the instance to report changes in status.
 	StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
 }
 

@@ -42,15 +42,6 @@ func init() {
 	common.RegisterStandardFacade("Provisioner", 2, NewProvisionerAPI)
 }
 
-// InstanceStateCapableMachine represents a machine whose instance status
-// can be set and queried.
-type InstanceStateCapableMachine interface {
-	state.Entity
-
-	InstanceStatus() (status.StatusInfo, error)
-	SetInstanceStatus(status.Status, string, map[string]interface{}) error
-}
-
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.Remover

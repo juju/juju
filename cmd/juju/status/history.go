@@ -38,13 +38,13 @@ This command will report the history of status changes for
 a given unit.
 The statuses for the unit workload and/or agent are available.
 -type supports:
-    agent: will show statuses for the unit's agent
-    workload: will show statuses for the unit's workload
-    combined: will show all statuses combined
-    machine: will show statuses for machines
-    machineinstance: will show instance status for machines
-    container: will show container statuses
-    containerinstance: will show instance statuses for containers
+    juju-unit: will show statuses for the unit's juju agent.
+    workload: will show statuses for the unit's workload.
+    unit: will show workload and juju agent combined for the specified unit.
+    juju-machine: will show statuses for machine's juju agent.
+    machine: will show statuses for machines.
+    juju-container: will show statuses for the container's juju agent.
+    container: will show statuses for containers.
  and sorted by time of occurrence.
 `
 
@@ -85,7 +85,7 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	}
 	kind := params.HistoryKind(c.outputContent)
 	switch kind {
-	case params.KindCombined, params.KindAgent, params.KindWorkload,
+	case params.KindUnit, params.KindUnitAgent, params.KindWorkload,
 		params.KindMachineInstance, params.KindMachine, params.KindContainer,
 		params.KindContainerInstance:
 		return nil

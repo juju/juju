@@ -1176,7 +1176,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetInstanceStatus(status.StatusRunning, "ALIVE", map[string]interface{}{})
+	err = s.machine.SetInstanceStatus(status.StatusRunning, "alive", map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reload machine and check result.
@@ -1185,7 +1185,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	machineStatus, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineStatus.Status, gc.DeepEquals, status.StatusRunning)
-	c.Assert(machineStatus.Message, gc.DeepEquals, "ALIVE")
+	c.Assert(machineStatus.Message, gc.DeepEquals, "alive")
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {

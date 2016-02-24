@@ -31,6 +31,11 @@ type StatusGetter interface {
 	Status() (StatusInfo, error)
 }
 
+// InstanceStatusGetter represents a type whose instance status can be read.
+type InstanceStatusGetter interface {
+	InstanceStatus() (StatusInfo, error)
+}
+
 // StatusHistoryGetter instances can fetch their status history.
 type StatusHistoryGetter interface {
 	StatusHistory(size int) ([]StatusInfo, error)
@@ -172,6 +177,7 @@ const (
 
 // InstanceStatus
 const (
+	StatusEmpty             Status = ""
 	StatusProvisioning      Status = "allocating"
 	StatusRunning           Status = "running"
 	StatusProvisioningError Status = "provisioning error"
@@ -189,6 +195,19 @@ const (
 	PreparingStorageMessage = "preparing storage"
 )
 
+func (status Status) KnownInstanceStatus() bool {
+	switch status {
+	case
+		StatusPending,
+		StatusProvisioningError,
+		StatusAllocating,
+		StatusRunning,
+		StatusUnknown:
+		return true
+	}
+	return false
+}
+
 // KnownAgentStatus returns true if status has a known value for an agent.
 // It includes every status that has ever been valid for a unit or machine agent.
 // This is used by the apiserver client facade to filter out unknown values.
@@ -202,9 +221,8 @@ func (status Status) KnownAgentStatus() bool {
 		StatusExecuting,
 		StatusIdle:
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 // KnownWorkloadStatus returns true if status has a known value for a workload.

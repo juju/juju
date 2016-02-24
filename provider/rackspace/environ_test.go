@@ -262,8 +262,8 @@ func (e *fakeInstance) Id() instance.Id {
 func (e *fakeInstance) Status() instance.InstanceStatus {
 	e.Push("Status")
 	return instance.InstanceStatus{
-		Status:  status.StatusUnknown,
-		Message: "A MESSAGE",
+		Status:  status.StatusProvisioning,
+		Message: "a message",
 	}
 }
 

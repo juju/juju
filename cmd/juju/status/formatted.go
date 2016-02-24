@@ -38,7 +38,6 @@ type machineStatus struct {
 	DNSName       string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	InstanceId    instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	MachineStatus statusInfoContents       `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
-	Life          string                   `json:"life,omitempty" yaml:"life,omitempty"`
 	Series        string                   `json:"series,omitempty" yaml:"series,omitempty"`
 	Id            string                   `json:"-" yaml:"-"`
 	Containers    map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`

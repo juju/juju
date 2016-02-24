@@ -58,7 +58,7 @@ func reverseStatusInfo(si []status.StatusInfo) []status.StatusInfo {
 	return result
 }
 
-func checkStatusInfo(c *gc.C, obtained []params.AgentStatus, expected []status.StatusInfo) {
+func checkStatusInfo(c *gc.C, obtained []params.DetailedStatus, expected []status.StatusInfo) {
 	c.Assert(len(obtained), gc.Equals, len(expected))
 	lastTimestamp := int64(0)
 	for i, obtainedInfo := range obtained {
@@ -75,7 +75,7 @@ func checkStatusInfo(c *gc.C, obtained []params.AgentStatus, expected []status.S
 func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
 	_, err := s.api.StatusHistory(params.StatusHistoryArgs{
 		Name: "unit",
-		Kind: params.KindCombined,
+		Kind: params.KindUnit,
 		Size: 0,
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid history size: 0")
@@ -127,7 +127,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 	})
 	h, err := s.api.StatusHistory(params.StatusHistoryArgs{
 		Name: "unit/0",
-		Kind: params.KindAgent,
+		Kind: params.KindUnitAgent,
 		Size: 10,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -159,7 +159,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 	})
 	h, err := s.api.StatusHistory(params.StatusHistoryArgs{
 		Name: "unit/0",
-		Kind: params.KindCombined,
+		Kind: params.KindUnit,
 		Size: 3,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,7 +168,6 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 		s.st.unitHistory[0],
 		s.st.agentHistory[0],
 	}
-	c.Logf("%v", h.Statuses)
 	checkStatusInfo(c, h.Statuses, expected)
 }
 

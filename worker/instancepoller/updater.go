@@ -198,7 +198,9 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 					machineStatus = statusInfo.Status
 				}
 			}
-			if instInfo.status.Status != status.StatusProvisioning && instInfo.status.Status != status.StatusPending {
+			// the extra condition below (checking allocating/pending) is here to improve user experience
+			// without it the instance status will say "pending" for +10 minutes after the agent comes up to "started"
+			if instInfo.status.Status != status.StatusAllocating && instInfo.status.Status != status.StatusPending {
 				if len(instInfo.addresses) > 0 && machineStatus == status.StatusStarted {
 					// We've got at least one address and a status and instance is started, so poll infrequently.
 					pollInterval = LongPoll
