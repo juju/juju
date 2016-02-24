@@ -12,10 +12,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.cloud")
 
 type listCloudsCommand struct {
 	cmd.CommandBase
@@ -62,6 +66,31 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	return c.out.Write(ctxt, details)
 }
 
+// builtInProviders returns cloud information for those
+// providers which are built in to Juju.
+func builtInProviders() map[string]jujucloud.Cloud {
+	builtIn := make(map[string]jujucloud.Cloud)
+	for _, name := range jujucloud.BuiltInProviderNames {
+		provider, err := environs.Provider(name)
+		if err != nil {
+			// Should never happen
+			panic(err)
+		}
+		var regions []jujucloud.Region
+		if detector, ok := provider.(environs.CloudRegionDetector); ok {
+			regions, err = detector.DetectRegions()
+			if err != nil && !errors.IsNotFound(err) {
+				logger.Warningf("could not detect regions for %q: %v", name, err)
+			}
+		}
+		builtIn[name] = jujucloud.Cloud{
+			Type:    name,
+			Regions: regions,
+		}
+	}
+	return builtIn
+}
+
 func getCloudDetails() (map[string]*cloudDetails, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
@@ -74,11 +103,10 @@ func getCloudDetails() (map[string]*cloudDetails, error) {
 	}
 
 	// Add in built in providers like "lxd" and "manual".
-	for _, p := range jujucloud.BuiltInProviders {
-		details[p] = &cloudDetails{
-			Source:    "built-in",
-			CloudType: p,
-		}
+	for name, cloud := range builtInProviders() {
+		cloudDetails := makeCloudDetails(cloud)
+		cloudDetails.Source = "built-in"
+		details[name] = cloudDetails
 	}
 
 	personalClouds, err := jujucloud.PersonalCloudMetadata()

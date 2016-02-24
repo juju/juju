@@ -121,8 +121,8 @@ type region struct {
 	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
-// BuiltInProviders work out of the box.
-var BuiltInProviders = []string{"lxd", "manual"}
+// BuiltInProviderNames work out of the box.
+var BuiltInProviderNames = []string{"lxd", "manual"}
 
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
