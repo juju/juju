@@ -42,10 +42,13 @@ var provisionalProviders = map[string]string{
 }
 
 const bootstrapDoc = `
-bootstrap starts a new model of the current type (it will return an error
-if the model has already been bootstrapped).  Bootstrapping a model
-will provision a new machine in the model and run the juju controller on
+bootstrap starts a new controller in the specified cloud (it will return
+an error if a controller with the same name has already been bootstrapped).
+Bootstrapping a controller will provision a new machine and run the controller on
 that machine.
+
+The controller will be setup with an intial controller model called "admin" as well
+as a hosted model which can be used to run workloads.
 
 If boostrap-constraints are specified in the bootstrap command, 
 they will apply to the machine provisioned for the juju controller, 
@@ -86,6 +89,9 @@ is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is
 By default, Juju will bootstrap using the exact same version as the client.
 
 See Also:
+   juju help glossary
+   juju list-controllers
+   juju list-models
    juju help switch
    juju help constraints
    juju help set-constraints
@@ -123,6 +129,7 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
 		Purpose: "start up an environment from scratch",
+		Args:    "<controllername> <cloud>[/<region>]",
 		Doc:     bootstrapDoc,
 	}
 }

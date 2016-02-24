@@ -72,7 +72,7 @@ func (s *SwitchUserCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewSwitchUserCommandForTest(nil)
+		wrappedCommand, command := user.NewSwitchUserCommandForTest(s.store)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)

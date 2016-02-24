@@ -26,37 +26,52 @@ import (
 
 type ModelCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store jujuclient.ClientStore
+	store *jujuclienttesting.MemStore
 }
 
 func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
+
+	err := modelcmd.WriteCurrentController("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["foo"] = &jujuclient.ControllerAccounts{
+		Accounts: map[string]jujuclient.AccountDetails{
+			"bar@baz": {User: "b@r", Password: "hunter2"},
+		},
+		CurrentAccount: "bar@baz",
+	}
 }
 
 var _ = gc.Suite(&ModelCommandSuite{})
 
 func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
+	err := modelcmd.WriteCurrentController("")
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := modelcmd.GetCurrentModel(s.store)
+	c.Assert(env, gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentAccount(c *gc.C) {
+	delete(s.store.Accounts, "foo")
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentModel(c *gc.C) {
-	err := modelcmd.WriteCurrentController("fubar")
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerCurrentModel(c *gc.C) {
-	err := modelcmd.WriteCurrentController("fubar")
+func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerAccountModel(c *gc.C) {
+	err := s.store.UpdateModel("foo", "bar@baz", "mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateModel("fubar", "mymodel", jujuclient.ModelDetails{"uuid"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("fubar", "mymodel")
+	err = s.store.SetCurrentModel("foo", "bar@baz", "mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := modelcmd.GetCurrentModel(s.store)
@@ -74,11 +89,9 @@ func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
 func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuModelEnvKey, "magic")
 
-	err := modelcmd.WriteCurrentController("fubar")
+	err := s.store.UpdateModel("foo", "bar@baz", "mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateModel("fubar", "mymodel", jujuclient.ModelDetails{"uuid"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("fubar", "mymodel")
+	err = s.store.SetCurrentModel("foo", "bar@baz", "mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := modelcmd.GetCurrentModel(s.store)
@@ -97,11 +110,9 @@ func (s *ModelCommandSuite) TestModelCommandInitExplicitLongForm(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
-	err := modelcmd.WriteCurrentController("fubar")
+	err := s.store.UpdateModel("foo", "bar@baz", "mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateModel("fubar", "mymodel", jujuclient.ModelDetails{"uuid"})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("fubar", "mymodel")
+	err = s.store.SetCurrentModel("foo", "bar@baz", "mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	s.testEnsureModelName(c, "mymodel")
 }
@@ -175,19 +186,20 @@ func initTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*te
 
 type ConnectionEndpointSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store    configstore.Storage
-	endpoint configstore.APIEndpoint
+	legacyStore configstore.Storage
+	store       *jujuclienttesting.MemStore
+	endpoint    configstore.APIEndpoint
 }
 
 var _ = gc.Suite(&ConnectionEndpointSuite{})
 
 func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.store = configstore.NewMem()
+	s.legacyStore = configstore.NewMem()
 	s.PatchValue(modelcmd.GetConfigStore, func() (configstore.Storage, error) {
-		return s.store, nil
+		return s.legacyStore, nil
 	})
-	newInfo := s.store.CreateInfo("ctrl:model-name")
+	newInfo := s.legacyStore.CreateInfo("ctrl:model-name")
 	newInfo.SetAPICredentials(configstore.APICredentials{
 		User:     "foo",
 		Password: "foopass",
@@ -201,10 +213,15 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	newInfo.SetAPIEndpoint(s.endpoint)
 	err := newInfo.Write()
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	cmd, err := initTestCommand(c, nil, "-m", "ctrl:model-name")
+	cmd, err := initTestCommand(c, s.store, "-m", "ctrl:model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +229,7 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 }
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	cmd, err := initTestCommand(c, nil, "-m", "ctrl:no-such-model")
+	cmd, err := initTestCommand(c, s.store, "-m", "ctrl:no-such-model")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmd.ConnectionEndpoint(false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -227,14 +244,13 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 		ModelUUID: "fake-uuid",
 	}
 	s.PatchValue(modelcmd.EndpointRefresher, func(_ *modelcmd.ModelCommandBase) (io.Closer, error) {
-		info, err := s.store.ReadInfo("ctrl:model-name")
+		info, err := s.legacyStore.ReadInfo("ctrl:model-name")
 		info.SetAPIEndpoint(newEndpoint)
 		err = info.Write()
 		c.Assert(err, jc.ErrorIsNil)
 		return new(closer), nil
 	})
-
-	cmd, err := initTestCommand(c, nil, "-m", "ctrl:model-name")
+	cmd, err := initTestCommand(c, s.store, "-m", "ctrl:model-name")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint, err := cmd.ConnectionEndpoint(true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,6 +269,7 @@ type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
 	store          *jujuclienttesting.MemStore
 	controllerName string
+	accountName    string
 	modelName      string
 }
 
@@ -263,6 +280,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.AddModelUser(c, testUser)
 
 	s.controllerName = "my-controller"
+	s.accountName = "my@account"
 	s.modelName = "my-model"
 	modelTag := names.NewModelTag(s.State.ModelUUID())
 	apiInfo := s.APIInfo(c)
@@ -274,9 +292,20 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 		ControllerUUID: apiInfo.ModelTag.Id(),
 		CACert:         apiInfo.CACert,
 	}
-	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
-		Models: map[string]jujuclient.ModelDetails{
-			s.modelName: {modelTag.Id()},
+	s.store.Accounts[s.controllerName] = &jujuclient.ControllerAccounts{
+		Accounts: map[string]jujuclient.AccountDetails{
+			// Empty password forces use of macaroons.
+			s.accountName: {User: s.accountName},
+		},
+		CurrentAccount: s.accountName,
+	}
+	s.store.Models[s.controllerName] = jujuclient.ControllerAccountModels{
+		AccountModels: map[string]*jujuclient.AccountModels{
+			s.accountName: {
+				Models: map[string]jujuclient.ModelDetails{
+					s.modelName: {modelTag.Id()},
+				},
+			},
 		},
 	}
 }
@@ -286,7 +315,7 @@ func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 		return testUser
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -296,7 +325,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 		return ""
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
 }
@@ -306,7 +335,7 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 		return "testUnknown@nowhere"
 	}
 
-	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.modelName)
+	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
 	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
 }

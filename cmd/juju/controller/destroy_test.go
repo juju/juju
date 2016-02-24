@@ -37,7 +37,7 @@ type baseDestroySuite struct {
 	api         *fakeDestroyAPI
 	clientapi   *fakeDestroyAPIClient
 	legacyStore configstore.Storage
-	store       jujuclient.ClientStore
+	store       *jujuclienttesting.MemStore
 	apierror    error
 }
 
@@ -130,6 +130,11 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
 
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
+
 	var modelList = []struct {
 		name         string
 		serverUUID   string
@@ -157,7 +162,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 			APIEndpoints:   []string{"localhost"},
 			CACert:         testing.CACert,
 		})
-		s.store.UpdateModel(controllerName, modelName, jujuclient.ModelDetails{
+		s.store.UpdateModel(controllerName, "admin@local", modelName, jujuclient.ModelDetails{
 			ModelUUID: model.modelUUID,
 		})
 
@@ -198,7 +203,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.apierror, s.store)
+	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.store, s.apierror)
 }
 
 func checkControllerExistsInStore(c *gc.C, name string, store configstore.Storage) {

@@ -35,11 +35,16 @@ type CreateModelCommand struct {
 
 // NewCreateModelCommandForTest returns a CreateModelCommand with
 // the api provided as specified.
-func NewCreateModelCommandForTest(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) (cmd.Command, *CreateModelCommand) {
+func NewCreateModelCommandForTest(
+	api CreateEnvironmentAPI,
+	store jujuclient.ClientStore,
+	parser func(interface{}) (interface{}, error),
+) (cmd.Command, *CreateModelCommand) {
 	c := &createModelCommand{
 		api:          api,
 		configParser: parser,
 	}
+	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &CreateModelCommand{c}
 }
 
@@ -70,19 +75,21 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
 func NewDestroyCommandForTest(
-	api destroyControllerAPI, clientapi destroyClientAPI, apierr error,
-	testStore jujuclient.ClientStore,
+	api destroyControllerAPI,
+	clientapi destroyClientAPI,
+	store jujuclient.ClientStore,
+	apierr error,
 ) cmd.Command {
-	destroyCmd := &destroyCommand{
+	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
 	}
-	destroyCmd.SetClientStore(testStore)
+	cmd.SetClientStore(store)
 	return modelcmd.WrapController(
-		destroyCmd,
+		cmd,
 		modelcmd.ControllerSkipFlags,
 		modelcmd.ControllerSkipDefault,
 	)
@@ -93,10 +100,10 @@ func NewDestroyCommandForTest(
 func NewKillCommandForTest(
 	api destroyControllerAPI,
 	clientapi destroyClientAPI,
+	store jujuclient.ClientStore,
 	apierr error,
 	clock clock.Clock,
 	apiOpen modelcmd.APIOpener,
-	testStore jujuclient.ClientStore,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
@@ -105,7 +112,7 @@ func NewKillCommandForTest(
 			apierr:    apierr,
 		},
 	}
-	kill.SetClientStore(testStore)
+	kill.SetClientStore(store)
 	return wrapKillCommand(kill, apiOpen, clock)
 }
 

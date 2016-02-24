@@ -38,7 +38,7 @@ func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error
 
 func (s *KillSuite) newKillCommand() cmd.Command {
 	return controller.NewKillCommandForTest(
-		s.api, s.clientapi, s.apierror, &mockClock{}, nil, s.store)
+		s.api, s.clientapi, s.store, s.apierror, &mockClock{}, nil)
 }
 
 func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
@@ -133,10 +133,10 @@ func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
-	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock.WallClock, modelcmd.OpenFunc(testDialer), s.store)
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
 	_, err := testing.RunCommand(c, cmd, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
@@ -147,12 +147,12 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 		<-stop
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock, modelcmd.OpenFunc(testDialer), s.store)
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, modelcmd.OpenFunc(testDialer))
 	ctx, err := testing.RunCommand(c, cmd, "local.test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")

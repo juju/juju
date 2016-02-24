@@ -67,10 +67,9 @@ func NewUnshareCommandForTest(api UnshareEnvironmentAPI) (cmd.Command, *UnshareC
 }
 
 // NewUsersCommandForTest returns a UsersCommand with the api provided as specified.
-func NewUsersCommandForTest(api UsersAPI) cmd.Command {
-	cmd := &usersCommand{
-		api: api,
-	}
+func NewUsersCommandForTest(api UsersAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &usersCommand{api: api}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
