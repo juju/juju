@@ -27,6 +27,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
 
 	tag0 := names.NewUnitTag("a-service/0")
+	tag1 := names.NewUnitTag("a-service/1")
 
 	chres1 := res1.Resource
 	chres2 := res2.Resource
@@ -59,6 +60,11 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 	}
 
+	s.data.ReturnUnits = []names.UnitTag{
+		tag0,
+		tag1,
+	}
+
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
@@ -82,6 +88,13 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 					Resources: []api.Resource{
 						apiRes1,
 						apiRes2,
+					},
+				},
+				{
+					// we should have a listing for every unit, even if they
+					// have no resources.
+					Entity: params.Entity{
+						Tag: "unit-a-service-1",
 					},
 				},
 			},
