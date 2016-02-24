@@ -40,6 +40,7 @@ type service struct {
 	Units_ units `yaml:"units"`
 
 	// relation count also assumed by the relation sequence
+	hasConstraints `yaml:"constraints"`
 
 	// Requested Networks
 	// Storage Constraints

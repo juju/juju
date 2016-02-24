@@ -30,15 +30,14 @@ type unit struct {
 	//  storage attachment count
 	//  status history
 	//  opened ports
-	//  constraints... inherited from service?
-	//    whether they are or not, a constraints doc is expected
-	//    for every principal unit.
 
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
 
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
+
+	hasConstraints `yaml:"constraints"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Service in the Model.

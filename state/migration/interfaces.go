@@ -11,8 +11,15 @@ import (
 	"github.com/juju/juju/version"
 )
 
+type HasConstraints interface {
+	Constraints() Constraints
+	SetConstraints(ConstraintsArgs)
+}
+
 // Model is a database agnostic representation of an existing model.
 type Model interface {
+	HasConstraints
+
 	Tag() names.ModelTag
 	Owner() names.UserTag
 	Config() map[string]interface{}
@@ -65,6 +72,8 @@ type AgentTools interface {
 // Machine represents an existing live machine or container running in the
 // model.
 type Machine interface {
+	HasConstraints
+
 	Id() string
 	Tag() names.MachineTag
 	Nonce() string
@@ -136,8 +145,8 @@ type PortRange interface {
 	Protocol() string
 }
 
-// CloudInstance holds information about particular deployment
-// constraints for services.
+// CloudInstance holds information particular to a machine
+// instance in a cloud.
 type CloudInstance interface {
 	InstanceId() string
 	Status() string
@@ -150,8 +159,8 @@ type CloudInstance interface {
 	AvailabilityZone() string
 }
 
-// Constraints holds information particular to a machine
-// instance in a cloud.
+// Constraints holds information about particular deployment
+// constraints for entities.
 type Constraints interface {
 	Architecture() string
 	Container() string
@@ -175,6 +184,8 @@ type Status interface {
 
 // Service represents a deployed charm in a model.
 type Service interface {
+	HasConstraints
+
 	Tag() names.ServiceTag
 	Name() string
 	Series() string
@@ -189,9 +200,6 @@ type Service interface {
 	LeadershipSettings() map[string]interface{}
 	MetricsCredentials() []byte
 
-	Constraints() Constraints
-	SetConstraints(ConstraintsArgs)
-
 	Status() Status
 	SetStatus(StatusArgs)
 
@@ -203,6 +211,8 @@ type Service interface {
 
 // Unit represents an instance of a service in a model.
 type Unit interface {
+	HasConstraints
+
 	Tag() names.UnitTag
 	Name() string
 	Machine() names.MachineTag

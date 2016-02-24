@@ -176,3 +176,34 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 		Tags_:   convertToStringSlice(valid["tags"]),
 	}, nil
 }
+
+type hasConstraints *constraints
+
+// Constraints implements HasConstraints.
+func (c *hasConstraints) Constraints() Constraints {
+	if c == nil || *c == nil {
+		return nil
+	}
+	return *a
+}
+
+// SetAnnotations implements HasConstraints.
+func (c *hasConstraints) SetConstraints(args ConstraintsArgs) {
+	*c = newConstraints(args)
+}
+
+func (c *hasConstraints) importConstraints(valid map[string]interface{}) error {
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		*c = constraints
+	}
+	return nil
+}
+
+func addAnnotationSchema(fields schema.Fields, defaults schema.Defaults) {
+	fields["constraints"] = schema.StringMap(schema.Any())
+	defaults["constraints"] = schema.Omit
+}

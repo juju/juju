@@ -41,6 +41,8 @@ type machine struct {
 	Containers_ []*machine `yaml:"containers"`
 
 	NetworkPorts_ *versionedNetworkPorts `yaml:"network-ports,omitempty"`
+
+	hasConstraints `yaml:"constraints"`
 }
 
 // MachineArgs is an argument struct used to add a machine to the Model.

@@ -72,6 +72,8 @@ type model struct {
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
 
+	hasConstraints `yaml:"constraints"`
+
 	// TODO:
 	// Spaces
 	// Storage
