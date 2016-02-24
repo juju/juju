@@ -88,9 +88,6 @@ type LinkLayerDeviceArgs struct {
 	// Name is the name of the device as it appears on the machine.
 	Name string
 
-	// Index is the zero-based index of the device as it appears on the machine.
-	Index uint
-
 	// MTU is the maximum transmission unit the device can handle.
 	MTU uint
 
@@ -284,7 +281,6 @@ func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *link
 		DocID:       linkLayerDeviceDocID,
 		Name:        args.Name,
 		ModelUUID:   modelUUID,
-		Index:       args.Index,
 		MTU:         args.MTU,
 		ProviderID:  providerID,
 		MachineID:   m.doc.Id,

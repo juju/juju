@@ -109,7 +109,6 @@ func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C
 	doc := linkLayerDeviceDoc{
 		Name:        "bond0",
 		MachineID:   "99",
-		Index:       uint(42),
 		MTU:         uint(9000),
 		Type:        BondDevice,
 		MACAddress:  "aa:bb:cc:dd:ee:f0",
@@ -121,7 +120,6 @@ func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C
 
 	c.Check(result.Name(), gc.Equals, "bond0")
 	c.Check(result.MachineID(), gc.Equals, "99")
-	c.Check(result.Index(), gc.Equals, uint(42))
 	c.Check(result.MTU(), gc.Equals, uint(9000))
 	c.Check(result.Type(), gc.Equals, BondDevice)
 	c.Check(result.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:f0")

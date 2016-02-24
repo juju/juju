@@ -28,9 +28,6 @@ type linkLayerDeviceDoc struct {
 	// ModelUUID is the UUID of the model this device belongs to.
 	ModelUUID string `bson:"model-uuid"`
 
-	// Index is the zero-based index of the device as it appears on the machine.
-	Index uint `bson:"index"`
-
 	// MTU is the maximum transmission unit the device can handle.
 	MTU uint `bson:"mtu"`
 
@@ -112,11 +109,6 @@ func (dev *LinkLayerDevice) DocID() string {
 // Name returns the name of the device, as it appears on the machine.
 func (dev *LinkLayerDevice) Name() string {
 	return dev.doc.Name
-}
-
-// Index returns the index of the device, as it appears on the machine.
-func (dev *LinkLayerDevice) Index() uint {
-	return dev.doc.Index
 }
 
 // MTU returns the maximum transmission unit the device can handle.

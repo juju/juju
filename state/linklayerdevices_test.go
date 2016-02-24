@@ -155,7 +155,6 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithMissingParent(c 
 func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesNoParentSuccess(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:        "eth0.42",
-		Index:       1,
 		MTU:         9000,
 		ProviderID:  "eni-42",
 		Type:        state.VLAN_8021QDevice,
@@ -183,7 +182,6 @@ func (s *linkLayerDevicesStateSuite) assertMachineAddLinkLayerDevicesSucceedsAnd
 
 func (s *linkLayerDevicesStateSuite) checkAddedDeviceMatchesArgs(c *gc.C, addedDevice *state.LinkLayerDevice, args state.LinkLayerDeviceArgs) {
 	c.Check(addedDevice.Name(), gc.Equals, args.Name)
-	c.Check(addedDevice.Index(), gc.Equals, args.Index)
 	c.Check(addedDevice.MTU(), gc.Equals, args.MTU)
 	c.Check(addedDevice.ProviderID(), gc.Equals, args.ProviderID)
 	c.Check(addedDevice.Type(), gc.Equals, args.Type)
