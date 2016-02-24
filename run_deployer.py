@@ -97,6 +97,7 @@ def assess_deployer(args, client):
     """Run juju-deployer, based on command line configuration values."""
     if args.allow_native_deploy:
         client.deploy_bundle(args.bundle_path)
+        client.wait_for_started()
     else:
         client.deployer(args.bundle_path, args.bundle_name)
     client.wait_for_workloads()
