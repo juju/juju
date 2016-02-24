@@ -46,17 +46,18 @@ func minimalMachineMap(id string, containers ...interface{}) map[interface{}]int
 }
 
 func minimalMachine(id string, containers ...*machine) *machine {
-	return &machine{
-		Id_:           id,
-		Nonce_:        "a-nonce",
-		PasswordHash_: "some-hash",
-		Instance_:     minimalCloudInstance(),
-		Series_:       "zesty",
-		Tools_:        minimalAgentTools(),
-		Jobs_:         []string{"host-units"},
-		Containers_:   containers,
-		Status_:       minimalStatus(),
-	}
+	m := newMachine(MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	m.Containers_ = containers
+	m.SetInstance(minimalCloudInstanceArgs())
+	m.SetTools(minimalAgentToolsArgs())
+	m.SetStatus(minimalStatusArgs())
+	return m
 }
 
 func (s *MachineSerializationSuite) machineArgs(id string) MachineArgs {
@@ -209,6 +210,37 @@ func (s *MachineSerializationSuite) TestNetworkPorts(c *gc.C) {
 	s.AssertPortRange(c, opened[0], args[1].OpenPorts[0])
 }
 
+func (s *MachineSerializationSuite) TestAnnotations(c *gc.C) {
+	initial := minimalMachine("42")
+	annotations := map[string]string{
+		"string":  "value",
+		"another": "one",
+	}
+	initial.SetAnnotations(annotations)
+
+	machine := s.exportImport(c, initial)
+	c.Assert(machine.Annotations(), jc.DeepEquals, annotations)
+}
+
+func (s *MachineSerializationSuite) exportImport(c *gc.C, machine_ *machine) *machine {
+	initial := machines{
+		Version:   1,
+		Machines_: []*machine{machine_},
+	}
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var source map[string]interface{}
+	err = yaml.Unmarshal(bytes, &source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machines, err := importMachines(source)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	return machines[0]
+}
+
 func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	// TODO: need to fully specify a machine.
 	args := s.machineArgs("0")
@@ -236,22 +268,8 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	// Make sure the machine is valid.
 	c.Assert(m.Validate(), jc.ErrorIsNil)
 
-	initial := machines{
-		Version:   1,
-		Machines_: []*machine{m},
-	}
-
-	bytes, err := yaml.Marshal(initial)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var source map[string]interface{}
-	err = yaml.Unmarshal(bytes, &source)
-	c.Assert(err, jc.ErrorIsNil)
-
-	machines, err := importMachines(source)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(machines, jc.DeepEquals, initial.Machines_)
+	machine := s.exportImport(c, m)
+	c.Assert(machine, jc.DeepEquals, m)
 }
 
 type CloudInstanceSerializationSuite struct {

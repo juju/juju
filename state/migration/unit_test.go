@@ -112,10 +112,10 @@ func (s *UnitSerializationSuite) TestMinimalMatches(c *gc.C) {
 	c.Assert(source, jc.DeepEquals, minimalUnitMap())
 }
 
-func (s *UnitSerializationSuite) TestParsingSerializedData(c *gc.C) {
+func (s *UnitSerializationSuite) exportImport(c *gc.C, unit_ *unit) *unit {
 	initial := units{
 		Version: 1,
-		Units_:  []*unit{s.completeUnit()},
+		Units_:  []*unit{unit_},
 	}
 
 	bytes, err := yaml.Marshal(initial)
@@ -127,6 +127,24 @@ func (s *UnitSerializationSuite) TestParsingSerializedData(c *gc.C) {
 
 	units, err := importUnits(source)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	return units[0]
+}
 
-	c.Assert(units, jc.DeepEquals, initial.Units_)
+func (s *UnitSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	initial := s.completeUnit()
+	unit := s.exportImport(c, initial)
+	c.Assert(unit, jc.DeepEquals, initial)
+}
+
+func (s *UnitSerializationSuite) TestAnnotations(c *gc.C) {
+	initial := minimalUnit()
+	annotations := map[string]string{
+		"string":  "value",
+		"another": "one",
+	}
+	initial.SetAnnotations(annotations)
+
+	unit := s.exportImport(c, initial)
+	c.Assert(unit.Annotations(), jc.DeepEquals, annotations)
 }

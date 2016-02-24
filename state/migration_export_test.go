@@ -14,6 +14,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var testAnnotations = map[string]string{
+	"string":  "value",
+	"another": "one",
+}
+
 type MigrationSuite struct {
 	ConnSuite
 }
@@ -32,6 +37,10 @@ type MigrationExportSuite struct {
 var _ = gc.Suite(&MigrationExportSuite{})
 
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
+	stModel, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetAnnotations(stModel, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
 	model, err := s.State.Export()
@@ -45,6 +54,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
+	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 }
 
 func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
@@ -95,6 +105,8 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	// Add a machine with an LXC container.
 	machine1 := s.Factory.MakeMachine(c, nil)
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
+	err := s.State.SetAnnotations(machine1, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,6 +117,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	exported := machines[0]
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Series(), gc.Equals, machine1.Series())
+	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	exTools := exported.Tools()
@@ -129,6 +142,8 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetAnnotations(service, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,6 +155,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(exported.Name(), gc.Equals, service.Name())
 	c.Assert(exported.Tag(), gc.Equals, service.ServiceTag())
 	c.Assert(exported.Series(), gc.Equals, service.Series())
+	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
@@ -167,6 +183,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.SetAnnotations(unit, testAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -185,6 +203,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
+	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 }
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {

@@ -15,6 +15,8 @@ type units struct {
 }
 
 type unit struct {
+	hasAnnotations `yaml:"annotations,omitempty"`
+
 	Name_ string `yaml:"name"`
 
 	Machine_ string `yaml:"machine"`
@@ -29,7 +31,6 @@ type unit struct {
 	//  storage constraints
 	//  storage attachment count
 	//  status history
-	//  opened ports
 
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
@@ -238,6 +239,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"meter-status-code": "",
 		"meter-status-info": "",
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -256,6 +258,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		MeterStatusCode_: valid["meter-status-code"].(string),
 		MeterStatusInfo_: valid["meter-status-info"].(string),
 	}
+	result.importAnnotations(valid)
 
 	result.Subordinates_ = convertToStringSlice(valid["subordinates"])
 

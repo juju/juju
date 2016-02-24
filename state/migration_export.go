@@ -34,6 +34,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.readAllAnnotations(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	envConfig, found := export.settings[modelGlobalKey]
 	if !found {
@@ -46,6 +49,7 @@ func (st *State) Export() (migration.Model, error) {
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 	}
 	export.model = migration.NewModel(args)
+	export.model.SetAnnotations(export.getAnnotations(dbModel.globalKey()))
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -63,16 +67,20 @@ func (st *State) Export() (migration.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	export.logExtras()
+
 	return export.model, nil
 }
 
 type exporter struct {
-	st       *State
-	dbModel  *Model
-	model    migration.Model
-	logger   loggo.Logger
-	settings map[string]settingsDoc
-	status   map[string]bson.M
+	st      *State
+	dbModel *Model
+	model   migration.Model
+	logger  loggo.Logger
+
+	annotations map[string]annotatorDoc
+	settings    map[string]settingsDoc
+	status      map[string]bson.M
 	// Map of service name to units. Populated as part
 	// of the services export.
 	units map[string][]*Unit
@@ -231,6 +239,8 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 		exMachine.AddNetworkPorts(args)
 	}
 
+	exMachine.SetAnnotations(e.getAnnotations(machine.globalKey()))
+
 	return exMachine, nil
 }
 
@@ -369,6 +379,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 		return errors.Annotatef(err, "status for service %s", service.Name())
 	}
 	exService.SetStatus(statusArgs)
+	exService.SetAnnotations(e.getAnnotations(service.globalKey()))
 
 	for _, unit := range units {
 		agentKey := unit.globalAgentKey()
@@ -417,6 +428,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			SHA256:  tools.SHA256,
 			Size:    tools.Size,
 		})
+		exUnit.SetAnnotations(e.getAnnotations(unit.globalKey()))
 	}
 
 	return nil
@@ -541,6 +553,34 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 	return result, nil
 }
 
+func (e *exporter) readAllAnnotations() error {
+	annotations, closer := e.st.getCollection(annotationsC)
+	defer closer()
+
+	var docs []annotatorDoc
+	if err := annotations.Find(nil).All(&docs); err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d annotations", len(docs))
+
+	e.annotations = make(map[string]annotatorDoc)
+	for _, doc := range docs {
+		e.annotations[doc.GlobalKey] = doc
+	}
+	return nil
+}
+
+// getAnnotations doesn't really care if there are any there or not
+// for the key, but if they were there, they are removed so we can
+// check at the end of the export for anything we have forgotten.
+func (e *exporter) getAnnotations(key string) map[string]string {
+	result, found := e.annotations[key]
+	if found {
+		delete(e.annotations, key)
+	}
+	return result.Annotations
+}
+
 func (e *exporter) readAllSettings() error {
 	settings, closer := e.st.getCollection(settingsC)
 	defer closer()
@@ -642,4 +682,15 @@ func (e *exporter) readAllSettingsRefCounts() (map[string]int, error) {
 	}
 
 	return result, nil
+}
+
+func (e *exporter) logExtras() {
+	// As annotations are saved into the model, they are removed from the
+	// exporter's map. If there are any left at the end, we are missing
+	// things. Not an error just now, just a warning that we have missed
+	// something. Could potentially be an error at a later date when
+	// migrations are complete (but probably not).
+	for key, doc := range e.annotations {
+		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
+	}
 }

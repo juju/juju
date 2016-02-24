@@ -18,6 +18,8 @@ type services struct {
 }
 
 type service struct {
+	hasAnnotations `yaml:"annotations,omitempty"`
+
 	Name_        string `yaml:"name"`
 	Series_      string `yaml:"series"`
 	Subordinate_ bool   `yaml:"subordinate,omitempty"`
@@ -249,8 +251,6 @@ var serviceDeserializationFuncs = map[int]serviceDeserializationFunc{
 }
 
 func importServiceV1(source map[string]interface{}) (*service, error) {
-	result := &service{}
-
 	fields := schema.Fields{
 		"name":                schema.String(),
 		"series":              schema.String(),
@@ -274,6 +274,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"min-units":     int64(0),
 		"metrics-creds": "",
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -283,17 +284,19 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	result.Name_ = valid["name"].(string)
-	result.Series_ = valid["series"].(string)
-	result.Subordinate_ = valid["subordinate"].(bool)
-	result.CharmURL_ = valid["charm-url"].(string)
-	result.ForceCharm_ = valid["force-charm"].(bool)
-	result.Exposed_ = valid["exposed"].(bool)
-	result.MinUnits_ = int(valid["min-units"].(int64))
-
-	result.Settings_ = valid["settings"].(map[string]interface{})
-	result.SettingsRefCount_ = int(valid["settings-refcount"].(int64))
-	result.LeadershipSettings_ = valid["leadership-settings"].(map[string]interface{})
+	result := &service{
+		Name_:               valid["name"].(string),
+		Series_:             valid["series"].(string),
+		Subordinate_:        valid["subordinate"].(bool),
+		CharmURL_:           valid["charm-url"].(string),
+		ForceCharm_:         valid["force-charm"].(bool),
+		Exposed_:            valid["exposed"].(bool),
+		MinUnits_:           int(valid["min-units"].(int64)),
+		Settings_:           valid["settings"].(map[string]interface{}),
+		SettingsRefCount_:   int(valid["settings-refcount"].(int64)),
+		LeadershipSettings_: valid["leadership-settings"].(map[string]interface{}),
+	}
+	result.importAnnotations(valid)
 
 	encodedCreds := valid["metrics-creds"].(string)
 	// The model stores the creds encoded, but we want to make sure that

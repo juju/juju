@@ -11,6 +11,15 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// HasAnnotations defines the common methods for setting and
+// getting annotations for the various entities.
+type HasAnnotations interface {
+	Annotations() map[string]string
+	SetAnnotations(map[string]string)
+}
+
+// HasConstraints defines the common methods for setting and
+// getting constraints for the various entities.
 type HasConstraints interface {
 	Constraints() Constraints
 	SetConstraints(ConstraintsArgs)
@@ -18,6 +27,7 @@ type HasConstraints interface {
 
 // Model is a database agnostic representation of an existing model.
 type Model interface {
+	HasAnnotations
 	HasConstraints
 
 	Tag() names.ModelTag
@@ -72,6 +82,7 @@ type AgentTools interface {
 // Machine represents an existing live machine or container running in the
 // model.
 type Machine interface {
+	HasAnnotations
 	HasConstraints
 
 	Id() string
@@ -184,6 +195,7 @@ type Status interface {
 
 // Service represents a deployed charm in a model.
 type Service interface {
+	HasAnnotations
 	HasConstraints
 
 	Tag() names.ServiceTag
@@ -211,6 +223,7 @@ type Service interface {
 
 // Unit represents an instance of a service in a model.
 type Unit interface {
+	HasAnnotations
 	HasConstraints
 
 	Tag() names.UnitTag
