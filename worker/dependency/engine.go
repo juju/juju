@@ -463,6 +463,9 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog 
 // a worker. It must only be called from the loop goroutine.
 func (engine *engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
 	logger.Debugf("%q manifold worker stopped: %v", name, err)
+	if filter := engine.manifolds[name].Filter; filter != nil {
+		err = filter(err)
+	}
 
 	// Copy current info and check for reasons to stop the engine.
 	info := engine.current[name]
