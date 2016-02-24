@@ -64,7 +64,7 @@ var (
 )
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
-	spacesJson, err := spaces.CallGet("list", nil)
+	spacesJson, err := spaces.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
