@@ -60,7 +60,6 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   lxdclient.ConfigPath("juju-testenv"),
 		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "",
@@ -83,7 +82,6 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   lxdclient.ConfigPath("juju-testenv"),
 		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "10.0.0.1",
