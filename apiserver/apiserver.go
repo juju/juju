@@ -320,13 +320,12 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 
 func (srv *Server) run() {
 	logger.Infof("listening on %q", srv.lis.Addr())
+
 	defer func() {
 		addr := srv.lis.Addr().String() // Addr not valid after close
 		err := srv.lis.Close()
 		logger.Infof("closed listening socket %q with final error: %v", addr, err)
-	}()
 
-	defer func() {
 		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
 		srv.tomb.Done()
