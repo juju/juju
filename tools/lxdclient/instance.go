@@ -143,7 +143,7 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 	archStr := arch.NormaliseArch(info.Architecture)
 
 	var numCores uint = 0 // default to all
-	if raw := info.Config["limits.cpus"]; raw != "" {
+	if raw := info.Config["limits.cpu"]; raw != "" {
 		fmt.Sscanf(raw, "%d", &numCores)
 	}
 
