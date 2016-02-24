@@ -620,7 +620,7 @@ var isModelAliveDoc = bson.D{
 func checkModeLife(st *State) error {
 	env, err := st.Model()
 	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-		return errors.New("model is no longer alive")
+		return errors.Errorf("model %q is no longer alive", env.Name())
 	} else if err != nil {
 		return errors.Annotate(err, "unable to read model")
 	}

@@ -59,9 +59,11 @@ func (s *interfacesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c
 
 	result := s.newInterfaceWithDummyState(interfaceDoc{ProviderID: localProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
+	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 
 	result = s.newInterfaceWithDummyState(interfaceDoc{ProviderID: globalProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
+	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 }
 
 func (s *interfacesInternalSuite) TestParentInterfaceReturnsNoErrorWhenParentNameNotSet(c *gc.C) {
@@ -144,7 +146,6 @@ func (s *interfacesInternalSuite) TestDNSSettingsAndGatewayAreOptional(c *gc.C) 
 
 func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithValidValue(c *gc.C) {
 	validTypes := []InterfaceType{
-		UnknownInterface,
 		LoopbackInterface,
 		EthernetInterface,
 		VLAN_8021QInterface,
@@ -166,6 +167,9 @@ func (s *interfacesInternalSuite) TestIsValidInterfaceTypeWithInvalidValue(c *gc
 	c.Check(result, jc.IsFalse)
 
 	result = IsValidInterfaceType(" ")
+	c.Check(result, jc.IsFalse)
+
+	result = IsValidInterfaceType(string(UnknownInterface))
 	c.Check(result, jc.IsFalse)
 }
 
