@@ -61,7 +61,7 @@ func newUnit(args UnitArgs) *unit {
 	for _, s := range args.Subordinates {
 		subordinates = append(subordinates, s.Id())
 	}
-	u := &unit{
+	return &unit{
 		Name_:            args.Tag.Id(),
 		Machine_:         args.Machine.Id(),
 		PasswordHash_:    args.PasswordHash,
@@ -70,7 +70,6 @@ func newUnit(args UnitArgs) *unit {
 		MeterStatusCode_: args.MeterStatusCode,
 		MeterStatusInfo_: args.MeterStatusInfo,
 	}
-	return u
 }
 
 // Tag implements Unit.
