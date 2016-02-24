@@ -6,14 +6,14 @@
 package lxdclient
 
 import (
-	"path"
+	"github.com/lxc/lxd"
+	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/lxc/lxd"
 )
 
-var logger = loggo.GetLogger("juju.container.lxd.lxdclient")
+var logger = loggo.GetLogger("juju.tools.lxdclient")
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
@@ -31,11 +31,9 @@ func Connect(cfg Config) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Call cfg.Write here if necessary?
-
 	remote := cfg.Remote.ID()
 
-	raw, err := newRawClient(remote, cfg.Dirname)
+	raw, err := newRawClient(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -51,18 +49,28 @@ func Connect(cfg Config) (*Client, error) {
 }
 
 var lxdNewClient = lxd.NewClient
+var lxdNewClientFromInfo = lxd.NewClientFromInfo
 var lxdLoadConfig = lxd.LoadConfig
 
-func newRawClient(remote, configDir string) (*lxd.Client, error) {
-	logger.Debugf("loading LXD client config from %q", configDir)
-
-	cfg, err := lxdLoadConfig(path.Join(configDir, "config.yml"))
-	if err != nil {
-		return nil, errors.Trace(err)
+func newRawClient(cfg Config) (*lxd.Client, error) {
+	logger.Debugf("using LXD remote %q", cfg.Remote.ID())
+	remote := cfg.Remote.ID()
+	host := cfg.Remote.Host
+	if remote == remoteIDForLocal || host == "" {
+		host = "unix://" + lxdshared.VarPath("unix.socket")
 	}
-
-	logger.Debugf("using LXD remote %q", remote)
-	client, err := lxdNewClient(cfg, remote)
+	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
+		Name: cfg.Remote.ID(),
+		Addr: host,
+		// TODO: jam 2016-02-24 get this information from
+		// 	'Remote'
+		ClientPEMCert: string(cfg.Remote.Cert.CertPEM),
+		ClientPEMKey:  string(cfg.Remote.Cert.KeyPEM),
+		// TODO: jam 2016-02-24 we should be caching the LXD server
+		// certificate somewhere, and passing it in here so that our
+		// connection is properly validated.
+		ServerPEMCert: "",
+	})
 	if err != nil {
 		if remote == remoteIDForLocal {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")

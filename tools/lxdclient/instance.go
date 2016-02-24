@@ -89,7 +89,7 @@ func (spec InstanceSpec) info(namespace string) *shared.ContainerInfo {
 	}
 
 	return &shared.ContainerInfo{
-		Architecture:    0,
+		Architecture:    "",
 		Config:          spec.config(),
 		CreationDate:    time.Time{},
 		Devices:         shared.Devices{},
@@ -99,7 +99,7 @@ func (spec InstanceSpec) info(namespace string) *shared.ContainerInfo {
 		Name:            name,
 		Profiles:        spec.Profiles,
 		Status:          "",
-		StatusCode:      0, // TODO(jam) shared.Success == 200?
+		StatusCode:      0,
 	}
 }
 
@@ -140,8 +140,7 @@ type InstanceSummary struct {
 }
 
 func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
-	archStr, _ := shared.ArchitectureName(info.Architecture)
-	archStr = arch.NormaliseArch(archStr)
+	archStr := arch.NormaliseArch(info.Architecture)
 
 	var numCores uint = 0 // default to all
 	if raw := info.Config["limits.cpus"]; raw != "" {
@@ -165,9 +164,9 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 	metadata := extractMetadata(info.Config)
 
 	return InstanceSummary{
-		Name:      info.Name,
-		Status:    statusStr,
-		Metadata:  metadata,
+		Name:     info.Name,
+		Status:   statusStr,
+		Metadata: metadata,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
