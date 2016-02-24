@@ -15,8 +15,6 @@ type units struct {
 }
 
 type unit struct {
-	hasAnnotations `yaml:"annotations,omitempty"`
-
 	Name_ string `yaml:"name"`
 
 	Machine_ string `yaml:"machine"`
@@ -38,7 +36,9 @@ type unit struct {
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
 
-	hasConstraints `yaml:"constraints"`
+	hasAnnotations `yaml:"annotations,omitempty"`
+
+	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Service in the Model.
@@ -160,6 +160,19 @@ func (u *unit) SetAgentStatus(args StatusArgs) {
 	u.AgentStatus_ = newStatus(args)
 }
 
+// Constraints implements HasConstraints.
+func (u *unit) Constraints() Constraints {
+	if u.Constraints_ == nil {
+		return nil
+	}
+	return u.Constraints_
+}
+
+// SetConstraints implements HasConstraints.
+func (u *unit) SetConstraints(args ConstraintsArgs) {
+	u.Constraints_ = newConstraints(args)
+}
+
 // Validate impelements Unit.
 func (u *unit) Validate() error {
 	if u.Name_ == "" {
@@ -240,6 +253,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"meter-status-info": "",
 	}
 	addAnnotationSchema(fields, defaults)
+	addConstraintsSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -259,6 +273,14 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		MeterStatusInfo_: valid["meter-status-info"].(string),
 	}
 	result.importAnnotations(valid)
+
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Constraints_ = constraints
+	}
 
 	result.Subordinates_ = convertToStringSlice(valid["subordinates"])
 

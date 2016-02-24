@@ -222,6 +222,19 @@ func (s *MachineSerializationSuite) TestAnnotations(c *gc.C) {
 	c.Assert(machine.Annotations(), jc.DeepEquals, annotations)
 }
 
+func (s *MachineSerializationSuite) TestConstraints(c *gc.C) {
+	initial := minimalMachine("42")
+	args := ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * gig,
+		RootDisk:     40 * gig,
+	}
+	initial.SetConstraints(args)
+
+	machine := s.exportImport(c, initial)
+	c.Assert(machine.Constraints(), jc.DeepEquals, newConstraints(args))
+}
+
 func (s *MachineSerializationSuite) exportImport(c *gc.C, machine_ *machine) *machine {
 	initial := machines{
 		Version:   1,

@@ -148,3 +148,16 @@ func (s *UnitSerializationSuite) TestAnnotations(c *gc.C) {
 	unit := s.exportImport(c, initial)
 	c.Assert(unit.Annotations(), jc.DeepEquals, annotations)
 }
+
+func (s *UnitSerializationSuite) TestConstraints(c *gc.C) {
+	initial := minimalUnit()
+	args := ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * gig,
+		RootDisk:     40 * gig,
+	}
+	initial.SetConstraints(args)
+
+	unit := s.exportImport(c, initial)
+	c.Assert(unit.Constraints(), jc.DeepEquals, newConstraints(args))
+}

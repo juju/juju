@@ -60,8 +60,6 @@ func DeserializeModel(bytes []byte) (Model, error) {
 }
 
 type model struct {
-	hasAnnotations `yaml:"annotations,omitempty"`
-
 	Version int `yaml:"version"`
 
 	Owner_  string                 `yaml:"owner"`
@@ -74,7 +72,9 @@ type model struct {
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
 
-	hasConstraints `yaml:"constraints"`
+	hasAnnotations `yaml:"annotations,omitempty"`
+
+	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
 	// TODO:
 	// Spaces
@@ -215,6 +215,19 @@ func (m *model) setRelations(relationList []*relation) {
 	}
 }
 
+// Constraints implements HasConstraints.
+func (m *model) Constraints() Constraints {
+	if m.Constraints_ == nil {
+		return nil
+	}
+	return m.Constraints_
+}
+
+// SetConstraints implements HasConstraints.
+func (m *model) SetConstraints(args ConstraintsArgs) {
+	m.Constraints_ = newConstraints(args)
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -313,6 +326,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"latest-tools": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
+	addConstraintsSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -329,6 +343,14 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		Config_: valid["config"].(map[string]interface{}),
 	}
 	result.importAnnotations(valid)
+
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Constraints_ = constraints
+	}
 
 	if availableTools, ok := valid["latest-tools"]; ok {
 		num, err := version.Parse(availableTools.(string))
