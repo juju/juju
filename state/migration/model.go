@@ -34,7 +34,6 @@ func NewModel(args ModelArgs) Model {
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
 	}
-	m.hasAnnotations.annotations = &m.Annotations_
 	m.setUsers(nil)
 	m.setMachines(nil)
 	m.setServices(nil)
@@ -61,7 +60,7 @@ func DeserializeModel(bytes []byte) (Model, error) {
 }
 
 type model struct {
-	hasAnnotations `yaml:"-"`
+	hasAnnotations `yaml:"annotations,omitempty"`
 
 	Version int `yaml:"version"`
 
@@ -69,8 +68,6 @@ type model struct {
 	Config_ map[string]interface{} `yaml:"config"`
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
-
-	Annotations_ map[string]string `yaml:"annotations,omitempty"`
 
 	Users_     users     `yaml:"users"`
 	Machines_  machines  `yaml:"machines"`
@@ -329,7 +326,6 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		Owner_:  valid["owner"].(string),
 		Config_: valid["config"].(map[string]interface{}),
 	}
-	result.hasAnnotations.annotations = &result.Annotations_
 	result.importAnnotations(valid)
 
 	if availableTools, ok := valid["latest-tools"]; ok {

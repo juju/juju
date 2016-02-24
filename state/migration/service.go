@@ -18,7 +18,7 @@ type services struct {
 }
 
 type service struct {
-	hasAnnotations `yaml:"-"`
+	hasAnnotations `yaml:"annotations,omitempty"`
 
 	Name_        string `yaml:"name"`
 	Series_      string `yaml:"series"`
@@ -35,8 +35,6 @@ type service struct {
 	SettingsRefCount_   int                    `yaml:"settings-refcount"`
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
 	MetricsCredentials_ string                 `yaml:"metrics-creds,omitempty"`
-
-	Annotations_ map[string]string `yaml:"annotations,omitempty"`
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
@@ -80,7 +78,6 @@ func newService(args ServiceArgs) *service {
 		LeadershipSettings_: args.LeadershipSettings,
 		MetricsCredentials_: creds,
 	}
-	svc.hasAnnotations.annotations = &svc.Annotations_
 	svc.setUnits(nil)
 	return svc
 }
@@ -297,7 +294,6 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		SettingsRefCount_:   int(valid["settings-refcount"].(int64)),
 		LeadershipSettings_: valid["leadership-settings"].(map[string]interface{}),
 	}
-	result.hasAnnotations.annotations = &result.Annotations_
 	result.importAnnotations(valid)
 
 	encodedCreds := valid["metrics-creds"].(string)

@@ -15,7 +15,7 @@ type units struct {
 }
 
 type unit struct {
-	hasAnnotations `yaml:"-"`
+	hasAnnotations `yaml:"annotations,omitempty"`
 
 	Name_ string `yaml:"name"`
 
@@ -35,9 +35,8 @@ type unit struct {
 	//    whether they are or not, a constraints doc is expected
 	//    for every principal unit.
 
-	PasswordHash_ string            `yaml:"password-hash"`
-	Annotations_  map[string]string `yaml:"annotations,omitempty"`
-	Tools_        *agentTools       `yaml:"tools"`
+	PasswordHash_ string      `yaml:"password-hash"`
+	Tools_        *agentTools `yaml:"tools"`
 
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
@@ -71,7 +70,6 @@ func newUnit(args UnitArgs) *unit {
 		MeterStatusCode_: args.MeterStatusCode,
 		MeterStatusInfo_: args.MeterStatusInfo,
 	}
-	u.hasAnnotations.annotations = &u.Annotations_
 	return u
 }
 
@@ -262,7 +260,6 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		MeterStatusCode_: valid["meter-status-code"].(string),
 		MeterStatusInfo_: valid["meter-status-info"].(string),
 	}
-	result.hasAnnotations.annotations = &result.Annotations_
 	result.importAnnotations(valid)
 
 	if subordinates, ok := valid["subordinates"]; ok {

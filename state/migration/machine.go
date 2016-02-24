@@ -17,7 +17,7 @@ type machines struct {
 }
 
 type machine struct {
-	hasAnnotations `yaml:"-"`
+	hasAnnotations `yaml:"annotations,omitempty"`
 
 	Id_            string         `yaml:"id"`
 	Nonce_         string         `yaml:"nonce"`
@@ -37,8 +37,6 @@ type machine struct {
 
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
-
-	Annotations_ map[string]string `yaml:"annotations,omitempty"`
 
 	SupportedContainers_ *[]string `yaml:"supported-containers,omitempty"`
 
@@ -76,7 +74,6 @@ func newMachine(args MachineArgs) *machine {
 		ContainerType_: args.ContainerType,
 		Jobs_:          jobs,
 	}
-	m.hasAnnotations.annotations = &m.Annotations_
 	if args.SupportedContainers != nil {
 		supported := make([]string, len(*args.SupportedContainers))
 		copy(supported, *args.SupportedContainers)
@@ -399,7 +396,6 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		Series_:        valid["series"].(string),
 		ContainerType_: valid["container-type"].(string),
 	}
-	result.hasAnnotations.annotations = &result.Annotations_
 	result.importAnnotations(valid)
 
 	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {

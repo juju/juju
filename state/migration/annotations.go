@@ -15,18 +15,16 @@ import (
 // to the annotations needs to be set. This allows the accessor and setter
 // methods to work. This type is composed without a name so the methods get
 // promoted so they satisfy the HasAnnotations interface.
-type hasAnnotations struct {
-	annotations *map[string]string
-}
+type hasAnnotations map[string]string
 
 // Annotations implements HasAnnotations.
-func (a *hasAnnotations) Annotations() map[string]string {
-	return *a.annotations
+func (a hasAnnotations) Annotations() map[string]string {
+	return a
 }
 
 // SetAnnotations implements HasAnnotations.
 func (a *hasAnnotations) SetAnnotations(annotations map[string]string) {
-	*a.annotations = annotations
+	*a = annotations
 }
 
 func (a *hasAnnotations) importAnnotations(valid map[string]interface{}) {
