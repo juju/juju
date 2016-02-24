@@ -26,11 +26,11 @@ type StubStore struct {
 	ModelByNameFunc     func(controller, account, model string) (*jujuclient.ModelDetails, error)
 
 	UpdateAccountFunc     func(controllerName, accountName string, details jujuclient.AccountDetails) error
-	SetCurrentAccountFunc   func(controllerName, accountName string) error
-	AllAccountsFunc         func(controllerName string) (map[string]jujuclient.AccountDetails, error)
-	CurrentAccountFunc      func(controllerName string) (string, error)
-	AccountByNameFunc       func(controllerName, accountName string) (*jujuclient.AccountDetails, error)
-	RemoveAccountFunc       func(controllerName, accountName string) error
+	SetCurrentAccountFunc func(controllerName, accountName string) error
+	AllAccountsFunc       func(controllerName string) (map[string]jujuclient.AccountDetails, error)
+	CurrentAccountFunc    func(controllerName string) (string, error)
+	AccountByNameFunc     func(controllerName, accountName string) (*jujuclient.AccountDetails, error)
+	RemoveAccountFunc     func(controllerName, accountName string) error
 
 	CredentialsForCloudFunc func(string) (*cloud.CloudCredential, error)
 	AllCredentialsFunc      func() (map[string]cloud.CloudCredential, error)

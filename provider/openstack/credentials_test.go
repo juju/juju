@@ -72,7 +72,7 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
-	c.Assert(credentials[0], jc.DeepEquals, environs.NamedCredential{Credential: cloud.NewCredential(
+	c.Assert(credentials[0], jc.DeepEquals, environs.LabeledCredential{Credential: cloud.NewCredential(
 		cloud.AccessKeyAuthType, map[string]string{
 			"access-key":  "key-id",
 			"secret-key":  "secret-access-key",
@@ -89,7 +89,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
-	c.Assert(credentials[0], jc.DeepEquals, environs.NamedCredential{Credential: cloud.NewCredential(
+	c.Assert(credentials[0], jc.DeepEquals, environs.LabeledCredential{Credential: cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
 			"username":    "bob",
 			"password":    "dobbs",

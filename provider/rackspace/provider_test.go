@@ -86,7 +86,7 @@ func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSc
 	return nil
 }
 
-func (p *fakeProvider) DetectCredentials() ([]environs.NamedCredential, error) {
+func (p *fakeProvider) DetectCredentials() ([]environs.LabeledCredential, error) {
 	p.Push("DetectCredentials")
 	return nil, errors.NotFoundf("credentials")
 }

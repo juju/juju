@@ -1046,6 +1046,6 @@ func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (noCredentialsProvider) DetectCredentials() ([]environs.NamedCredential, error) {
+func (noCredentialsProvider) DetectCredentials() ([]environs.LabeledCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }

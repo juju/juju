@@ -28,8 +28,8 @@ type mockProvider struct {
 	aCredential jujucloud.Credential
 }
 
-func (p *mockProvider) DetectCredentials() ([]environs.NamedCredential, error) {
-	return []environs.NamedCredential{{
+func (p *mockProvider) DetectCredentials() ([]environs.LabeledCredential, error) {
+	return []environs.LabeledCredential{{
 		Label:      "label",
 		Credential: p.aCredential,
 	}}, nil

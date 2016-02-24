@@ -46,7 +46,7 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (OpenstackCredentials) DetectCredentials() ([]environs.NamedCredential, error) {
+func (OpenstackCredentials) DetectCredentials() ([]environs.LabeledCredential, error) {
 	creds := identity.CredentialsFromEnv()
 	if creds.TenantName == "" {
 		return nil, errors.NewNotFound(nil, "OS_TENANT_NAME environment variable not set")
@@ -78,5 +78,5 @@ func (OpenstackCredentials) DetectCredentials() ([]environs.NamedCredential, err
 			},
 		)
 	}
-	return []environs.NamedCredential{{Credential: credential}}, nil
+	return []environs.LabeledCredential{{Credential: credential}}, nil
 }

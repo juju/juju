@@ -40,7 +40,7 @@ type AccountDetails struct {
 type CredentialsGetter interface {
 	// CredentialsForCloud gets credentials for the named cloud.
 	CredentialsForCloud(string) (*cloud.CloudCredential, error)
-	
+
 	// AllCredentials gets all credentials.
 	AllCredentials() (map[string]cloud.CloudCredential, error)
 }

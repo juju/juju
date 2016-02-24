@@ -30,6 +30,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]environs.NamedCredential, error) {
+func (environProviderCredentials) DetectCredentials() ([]environs.LabeledCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }

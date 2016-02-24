@@ -115,16 +115,16 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			continue
 		}
 		// TODO(wallyworld) - use --replace option
-		var creds []environs.NamedCredential
-		if detectCredentils, ok := provider.(environs.ProviderCredentials); ok {
-			creds, err = detectCredentils.DetectCredentials()
+		var creds []environs.LabeledCredential
+		if detectCredentials, ok := provider.(environs.ProviderCredentials); ok {
+			creds, err = detectCredentials.DetectCredentials()
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Warningf("could not detect credentials for %q: %v", cloudName, err)
 			}
 			if errors.IsNotFound(err) {
 				continue
 			}
-			// TOOD(wallyworld) - add default credentials and region
+			// TODO(wallyworld) - add default credentials and region
 			cloudCredential := jujucloud.CloudCredential{
 				AuthCredentials: make(map[string]jujucloud.Credential),
 			}
