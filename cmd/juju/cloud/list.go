@@ -73,8 +73,10 @@ func builtInProviders() map[string]jujucloud.Cloud {
 	for _, name := range jujucloud.BuiltInProviderNames {
 		provider, err := environs.Provider(name)
 		if err != nil {
-			// Should never happen
-			panic(err)
+			// Should never happen but it will on go 1.2
+			// because lxd provider is not built.
+			logger.Warningf("cloud %q not available on this platform", name)
+			continue
 		}
 		var regions []jujucloud.Region
 		if detector, ok := provider.(environs.CloudRegionDetector); ok {
