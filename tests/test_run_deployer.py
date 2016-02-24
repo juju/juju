@@ -168,6 +168,7 @@ class TestAssessDeployer(tests.TestCase):
         client_mock = Mock(spec=EnvJujuClient)
         assess_deployer(args, client_mock)
         client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
+        client_mock.wait_for_started.assert_called_once_with()
         client_mock.wait_for_workloads.assert_called_once_with()
 
 
