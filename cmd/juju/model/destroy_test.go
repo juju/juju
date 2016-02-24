@@ -18,6 +18,7 @@ import (
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -26,7 +27,7 @@ type DestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api         *fakeDestroyAPI
 	configstore configstore.Storage
-	store       jujuclient.ClientStore
+	store       *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&DestroySuite{})
@@ -82,6 +83,10 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 
 	err = modelcmd.WriteCurrentController("test1")
 	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {

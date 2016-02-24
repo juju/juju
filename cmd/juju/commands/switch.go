@@ -27,7 +27,7 @@ func newSwitchCommand() cmd.Command {
 
 type switchCommand struct {
 	modelcmd.JujuCommandBase
-	RefreshModels          func(jujuclient.ClientStore, string) error
+	RefreshModels          func(jujuclient.ClientStore, string, string) error
 	ReadCurrentController  func() (string, error)
 	WriteCurrentController func(string) error
 
@@ -130,13 +130,17 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		newName = modelcmd.JoinModelName(controllerName, modelName)
 	}
 
-	err = c.Store.SetCurrentModel(controllerName, modelName)
+	accountName, err := c.Store.CurrentAccount(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.Store.SetCurrentModel(controllerName, accountName, modelName)
 	if errors.IsNotFound(err) {
 		// The model isn't known locally, so we must query the controller.
-		if err := c.RefreshModels(c.Store, controllerName); err != nil {
+		if err := c.RefreshModels(c.Store, controllerName, accountName); err != nil {
 			return errors.Annotate(err, "refreshing models cache")
 		}
-		err := c.Store.SetCurrentModel(controllerName, modelName)
+		err := c.Store.SetCurrentModel(controllerName, accountName, modelName)
 		if errors.IsNotFound(err) {
 			return unknownSwitchTargetError(c.Target)
 		} else if err != nil {
@@ -172,15 +176,20 @@ func (c *switchCommand) name(controllerName string, machineReadable bool) (strin
 	if controllerName == "" {
 		return "", nil
 	}
-	modelName, err := c.Store.CurrentModel(controllerName)
+	accountName, err := c.Store.CurrentAccount(controllerName)
 	if err == nil {
-		return modelcmd.JoinModelName(controllerName, modelName), nil
-	}
-	if errors.IsNotFound(err) {
-		if machineReadable {
-			return controllerName, nil
+		modelName, err := c.Store.CurrentModel(controllerName, accountName)
+		if err == nil {
+			return modelcmd.JoinModelName(controllerName, modelName), nil
+		} else if !errors.IsNotFound(err) {
+			return "", errors.Trace(err)
 		}
-		return fmt.Sprintf("%s (controller)", controllerName), nil
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
 	}
-	return "", errors.Trace(err)
+	// No current account or model.
+	if machineReadable {
+		return controllerName, nil
+	}
+	return fmt.Sprintf("%s (controller)", controllerName), nil
 }

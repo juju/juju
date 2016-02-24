@@ -41,15 +41,15 @@ local.mallards:
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
-  models:
-    admin:
-      uuid: abc
-    my-model:
-      uuid: def
-  current-model: my-model
   accounts:
     admin@local:
       user: admin@local
+      models:
+        admin:
+          uuid: abc
+        my-model:
+          uuid: def
+      current-model: my-model
     bob@local:
       user: bob@local
     bob@remote:
@@ -77,16 +77,16 @@ local.mallards:
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
-  models:
-    admin:
-      uuid: abc
-    my-model:
-      uuid: def
-  current-model: my-model
   accounts:
     admin@local:
       user: admin@local
       password: hunter2
+      models:
+        admin:
+          uuid: abc
+        my-model:
+          uuid: def
+      current-model: my-model
     bob@local:
       user: bob@local
       password: huntert00
@@ -108,10 +108,13 @@ local.aws-test:
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
-  models:
-    admin:
-      uuid: ghi
-  current-model: admin
+  accounts:
+    admin@local:
+      user: admin@local
+      models:
+        admin:
+          uuid: ghi
+      current-model: admin
 `[1:]
 	s.assertShowController(c, "local.aws-test")
 }
@@ -125,10 +128,13 @@ local.aws-test:
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
-  models:
-    admin:
-      uuid: ghi
-  current-model: admin
+  accounts:
+    admin@local:
+      user: admin@local
+      models:
+        admin:
+          uuid: ghi
+      current-model: admin
 local.mark-test-prodstack:
   details:
     servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
@@ -147,7 +153,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}
+{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "local.aws-test")
@@ -156,7 +162,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin"},"local.mark-test-prodstack":{"details":{"servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"user":"admin@local"}}}}
+{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}},"local.mark-test-prodstack":{"details":{"servers":["vm-23532.prodstack.canonical.com","great.test.server.hostname.co.nz"],"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert"},"accounts":{"admin@local":{"user":"admin@local"}}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "local.aws-test", "local.mark-test-prodstack")
 }
@@ -178,7 +184,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}
+{"local.aws-test":{"details":{"servers":["instance-1-2-4.useast.aws.com"],"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}}}
 `[1:]
 	err := modelcmd.WriteCurrentController("local.aws-test")
 	c.Assert(err, jc.ErrorIsNil)

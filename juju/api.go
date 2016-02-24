@@ -42,17 +42,21 @@ var errAborted = fmt.Errorf("aborted")
 var defaultAPIOpen = api.Open
 
 // NewAPIConnection returns an api.Connection to the specified Juju controller,
-// optionally scoped to the specified model name.
+// with specified account credentials, optionally scoped to the specified model
+// name.
 func NewAPIConnection(
 	store jujuclient.ClientStore,
-	controllerName, modelName string,
+	controllerName, accountName, modelName string,
 	bClient *httpbakery.Client,
 ) (api.Connection, error) {
 	legacyStore, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := newAPIFromStore(controllerName, modelName, legacyStore, store, defaultAPIOpen, bClient)
+	st, err := newAPIFromStore(
+		controllerName, accountName, modelName,
+		legacyStore, store, defaultAPIOpen, bClient,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -72,7 +76,7 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 // newAPIFromStore implements the bulk of NewAPIConnection but is separate for
 // testing purposes.
 func newAPIFromStore(
-	controllerName, modelName string,
+	controllerName, accountName, modelName string,
 	legacyStore configstore.Storage,
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
@@ -85,13 +89,8 @@ func newAPIFromStore(
 	}
 
 	// There may be no current account, in which case we'll use macaroons.
-	// TODO(axw) allow the account name to be specified.
-	// TODO(axw) store macaroons in the account details? Need to check with
-	// rogpeppe/cmars/ashipika.
-	accountName, err := store.CurrentAccount(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Annotate(err, "getting current account name")
-	}
+	// TODO(axw) store macaroons in the account details, and require the
+	// account name to be specified.
 	var accountDetails *jujuclient.AccountDetails
 	if accountName != "" {
 		accountDetails, err = store.AccountByName(controllerName, accountName)
@@ -101,7 +100,7 @@ func newAPIFromStore(
 	}
 	var modelDetails *jujuclient.ModelDetails
 	if modelName != "" {
-		modelDetails, err = store.ModelByName(controllerName, modelName)
+		modelDetails, err = store.ModelByName(controllerName, accountName, modelName)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting model details")
 		}
@@ -215,7 +214,7 @@ func apiInfoConnect(
 		Addrs:  controller.APIEndpoints,
 		CACert: controller.CACert,
 	}
-	if account != nil {
+	if account != nil && account.Password != "" {
 		apiInfo.Tag = names.NewUserTag(account.User)
 		apiInfo.Password = account.Password
 	} else {
@@ -260,7 +259,7 @@ func apiConfigConnect(
 	if err != nil {
 		return nil, err
 	}
-	if accountDetails != nil {
+	if accountDetails != nil && accountDetails.Password != "" {
 		apiInfo.Tag = names.NewUserTag(accountDetails.User)
 		apiInfo.Password = accountDetails.Password
 	} else {
