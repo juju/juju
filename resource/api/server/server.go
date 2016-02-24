@@ -95,14 +95,15 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			unitResources[unitRes.Tag] = unitRes
 		}
 
-		for _, tag := range units {
+		result.UnitResources = make([]api.UnitResources, len(units))
+		for i, tag := range units {
 			apiRes := api.UnitResources{
 				Entity: params.Entity{Tag: tag.String()},
 			}
 			for _, res := range unitResources[tag].Resources {
 				apiRes.Resources = append(apiRes.Resources, api.Resource2API(res))
 			}
-			result.UnitResources = append(result.UnitResources, apiRes)
+			result.UnitResources[i] = apiRes
 		}
 
 		result.CharmStoreResources = make([]api.CharmResource, len(svcRes.CharmStoreResources))
@@ -111,6 +112,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 		}
 
 		r.Results[i] = result
+
 	}
 	return r, nil
 }
