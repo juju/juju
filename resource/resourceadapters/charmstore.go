@@ -13,7 +13,9 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
+	corecharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/charmstore"
 	corestate "github.com/juju/juju/state"
@@ -56,9 +58,33 @@ func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
 
 // NewClient opens a new charm store client.
 func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
-	// TODO(ericsnow) Return an actual charm store client.
-	client := newFakeCharmStoreClient(nil)
+	// TODO(ericsnow) Use an actual charm store client.
+	base := (*csclient.Client)(nil)
+	// TODO(ericsnow) closer will be meaningful once we factor out the
+	// Juju HTTP context (a la cmd/juju/charmcmd/store.go).
+	closer := io.Closer(nil)
+	client := newCharmStoreClient(base, closer)
 	return newCSRetryClient(client), nil
+}
+
+type charmStoreClient struct {
+	charmstore.BaseClient
+	io.Closer
+}
+
+func newCharmStoreClient(base *csclient.Client, closer io.Closer) *charmStoreClient {
+	return &charmStoreClient{
+		BaseClient: corecharmstore.NewClient(base),
+		Closer:     closer,
+	}
+}
+
+// Close implements io.Closer.
+func (client charmStoreClient) Close() error {
+	if client.Closer == nil {
+		return nil
+	}
+	return client.Closer.Close()
 }
 
 type csRetryClient struct {

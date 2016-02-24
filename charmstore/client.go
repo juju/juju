@@ -6,9 +6,15 @@ package charmstore
 import (
 	"io"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 )
+
+var logger = loggo.GetLogger("juju.charmstore")
 
 // Client exposes the functionality of the charm store, as provided
 // by github.com/juju/charmrepo/csclient.Client.
@@ -29,6 +35,11 @@ type Client interface {
 	// data, but may be nil if no result is desired.
 	Get(path string, result interface{}) error
 
+	// Latest returns the most up-to-date information about each of the
+	// identified charms at their latest revision. The revisions in the
+	// provided URLs are ignored.
+	Latest([]*charm.URL) ([]CharmInfoResult, error)
+
 	// TODO(ericsnow) Just embed resource/charmstore.BaseClient?
 
 	// ListResources composes, for each of the identified charms, the
@@ -42,4 +53,91 @@ type Client interface {
 	// is ignored. If the identified resource is not in the charm store
 	// then errors.NotFound is returned.
 	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
+}
+
+// client adapts csclient.Client to the needs of Juju.
+type client struct {
+	*csclient.Client
+	fakeCharmStoreClient
+}
+
+// NewClient returns a Juju charm store client that wraps the provided
+// client.
+func NewClient(base *csclient.Client) Client {
+	return newClient(base)
+}
+
+func newClient(base *csclient.Client) *client {
+	return &client{
+		Client: base,
+	}
+}
+
+// Latest implements Client.
+func (client client) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
+	return nil, errors.NotImplementedf("")
+}
+
+type modelClient struct {
+	*client
+	modelUUID string
+}
+
+// NewModelClient returns a Juju charm store client that wraps the
+// provided client. The returned client is specific to the Juju model
+// identified by the given UUID.
+func NewModelClient(base *csclient.Client, modelUUID string) Client {
+	return &modelClient{
+		client:    newClient(base),
+		modelUUID: modelUUID,
+	}
+}
+
+// Latest implements Client.
+func (client modelClient) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
+	// We must use charmrepo.CharmStore since csclient.Client does not
+	// have the "Latest" method.
+	repo := charmrepo.NewCharmStoreFromClient(client.Client)
+	repo = repo.WithJujuAttrs(map[string]string{
+		"environment_uuid": client.modelUUID,
+	})
+
+	// Do a bulk call to get the revision info for all charms.
+	logger.Infof("retrieving revision information for %d charms", len(refs))
+	revResults, err := repo.Latest(refs...)
+	if err != nil {
+		err = errors.Annotate(err, "finding charm revision info")
+		logger.Infof(err.Error())
+		return nil, err
+	}
+
+	// Extract the results.
+	var results []CharmInfoResult
+	for i, ref := range refs {
+		revResult := revResults[i]
+
+		var result CharmInfoResult
+		if revResult.Err != nil {
+			result.Error = errors.Trace(revResult.Err)
+		} else {
+			result.URL = ref.WithRevision(revResult.Revision)
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+// TODO(ericsnow) Remove the fake once the charm store adds support.
+
+type fakeCharmStoreClient struct{}
+
+// ListResources implements Client as a noop.
+func (fakeCharmStoreClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
+	res := make([][]charmresource.Resource, len(charmURLs))
+	return res, nil
+}
+
+// GetResource implements Client as a noop.
+func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
+	return nil, errors.NotFoundf("resource %q", resourceName)
 }
