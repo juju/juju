@@ -100,28 +100,29 @@ func IsProviderIDNotUniqueError(err interface{}) bool {
 	return ok
 }
 
-// ErrParentInterfaceHasChildren is a standard error to indicate an interface
-// cannot be removed because existing interfaces refer to it as a parent.
-type ErrParentInterfaceHasChildren struct {
+// ErrParentDeviceHasChildren is a standard error to indicate a network
+// link-layer device cannot be removed because other existing devices refer to
+// it as their parent.
+type ErrParentDeviceHasChildren struct {
 	parentName    string
 	childrenNames []string
 }
 
-func (e *ErrParentInterfaceHasChildren) Error() string {
+func (e *ErrParentDeviceHasChildren) Error() string {
 	children := strings.Join(e.childrenNames, ", ")
-	return fmt.Sprintf("parent interface %q has children: %s", e.parentName, children)
+	return fmt.Sprintf("parent device %q has children: %s", e.parentName, children)
 }
 
-func newParentInterfaceHasChildrenError(parentName string, childrenNames []string) error {
-	return &ErrParentInterfaceHasChildren{
+func newParentDeviceHasChildrenError(parentName string, childrenNames []string) error {
+	return &ErrParentDeviceHasChildren{
 		parentName:    parentName,
 		childrenNames: childrenNames,
 	}
 }
 
-// IsParentInterfaceHasChildrenError returns if the given error or its cause is
-// ErrParentInterfaceHasChildren.
-func IsParentInterfaceHasChildrenError(err interface{}) bool {
+// IsParentDeviceHasChildrenError returns if the given error or its cause is
+// ErrParentDeviceHasChildren.
+func IsParentDeviceHasChildrenError(err interface{}) bool {
 	if err == nil {
 		return false
 	}
@@ -131,6 +132,6 @@ func IsParentInterfaceHasChildrenError(err interface{}) bool {
 	if cause != nil {
 		value = cause
 	}
-	_, ok := value.(*ErrParentInterfaceHasChildren)
+	_, ok := value.(*ErrParentDeviceHasChildren)
 	return ok
 }
