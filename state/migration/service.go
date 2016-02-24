@@ -29,6 +29,8 @@ type service struct {
 	MinUnits_   int     `yaml:"min-units,omitempty"`
 	Status_     *status `yaml:"status"`
 
+	Constraints_ *constraints `yaml:"constraints"`
+
 	Settings_           map[string]interface{} `yaml:"settings"`
 	SettingsRefCount_   int                    `yaml:"settings-refcount"`
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
@@ -40,7 +42,6 @@ type service struct {
 	// relation count also assumed by the relation sequence
 
 	// Requested Networks
-	// Constraints
 	// Storage Constraints
 	// Annotations
 	// Status history

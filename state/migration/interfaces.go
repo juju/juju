@@ -189,6 +189,9 @@ type Service interface {
 	LeadershipSettings() map[string]interface{}
 	MetricsCredentials() []byte
 
+	Constraints() Constraints
+	SetConstraints(ConstraintsArgs)
+
 	Status() Status
 	SetStatus(StatusArgs)
 
