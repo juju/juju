@@ -7,6 +7,7 @@ package lxdclient
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -149,7 +150,16 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 
 	var mem uint = 0 // default to all
 	if raw := info.Config["limits.memory"]; raw != "" {
-		fmt.Sscanf(raw, "%d", &mem)
+		result, err := shared.ParseByteSizeString(raw)
+		if err != nil {
+			logger.Errorf("failed to parse %s into bytes, ignoring...", raw)
+			mem = 0
+		} else if mem > math.MaxUint32 {
+			logger.Errorf("byte string %s overflowed uint32: %s", raw)
+			mem = math.MaxUint32
+		} else {
+			mem = uint(result)
+		}
 	}
 
 	// TODO(ericsnow) Factor this out into a function.
