@@ -24,6 +24,12 @@ type ConstraintsArgs struct {
 }
 
 func newConstraints(args ConstraintsArgs) *constraints {
+	// If the ConstraintsArgs are all empty, then we return
+	// nil to indicate that there are no constraints.
+	if args.empty() {
+		return nil
+	}
+
 	tags := make([]string, len(args.Tags))
 	copy(tags, args.Tags)
 	spaces := make([]string, len(args.Spaces))
@@ -180,4 +186,16 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 func addConstraintsSchema(fields schema.Fields, defaults schema.Defaults) {
 	fields["constraints"] = schema.StringMap(schema.Any())
 	defaults["constraints"] = schema.Omit
+}
+
+func (c ConstraintsArgs) empty() bool {
+	return c.Architecture == "" &&
+		c.Container == "" &&
+		c.CpuCores == 0 &&
+		c.CpuPower == 0 &&
+		c.InstanceType == "" &&
+		c.Memory == 0 &&
+		c.RootDisk == 0 &&
+		c.Spaces == nil &&
+		c.Tags == nil
 }

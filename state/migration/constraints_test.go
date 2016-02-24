@@ -22,20 +22,6 @@ func (s *ConstraintsSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func minimalConstraintsMap() map[interface{}]interface{} {
-	return map[interface{}]interface{}{
-		"version": 1,
-	}
-}
-
-func minimalConstraints() *constraints {
-	return newConstraints(minimalConstraintsArgs())
-}
-
-func minimalConstraintsArgs() ConstraintsArgs {
-	return ConstraintsArgs{}
-}
-
 func (s *ConstraintsSerializationSuite) allArgs() ConstraintsArgs {
 	return ConstraintsArgs{
 		Architecture: "amd64",
@@ -79,14 +65,9 @@ func (s *ConstraintsSerializationSuite) TestNewConstraints(c *gc.C) {
 	c.Assert(instance.Tags(), jc.DeepEquals, []string{"much", "strong"})
 }
 
-func (s *ConstraintsSerializationSuite) TestMinimalMatches(c *gc.C) {
-	bytes, err := yaml.Marshal(minimalConstraints())
-	c.Assert(err, jc.ErrorIsNil)
-
-	var source map[interface{}]interface{}
-	err = yaml.Unmarshal(bytes, &source)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(source, jc.DeepEquals, minimalConstraintsMap())
+func (s *ConstraintsSerializationSuite) TestNewConstraintsEmpty(c *gc.C) {
+	instance := newConstraints(ConstraintsArgs{})
+	c.Assert(instance, gc.IsNil)
 }
 
 func (s *ConstraintsSerializationSuite) TestParsingSerializedData(c *gc.C) {
