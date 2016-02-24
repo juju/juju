@@ -13,10 +13,20 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+// StoreResourceGetter provides the functionality for getting a resource
+// file from the charm store.
+type StoreResourceGetter interface {
+	// GetResource returns a reader for the resource's data. That data
+	// is streamed from the charm store. The charm's revision, if any,
+	// is ignored. If the identified resource is not in the charm store
+	// then errors.NotFound is returned.
+	GetResource(cURL *charm.URL, resourceName string, resourceRevision int) (io.ReadCloser, error)
+}
+
 // GetResourceArgs holds the arguments to GetResource().
 type GetResourceArgs struct {
 	// Client is the charm store client to use.
-	Client Client
+	Client StoreResourceGetter
 
 	// EntityCache is the charm store cache to use. It is optional.
 	Cache EntityCache

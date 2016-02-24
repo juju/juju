@@ -159,7 +159,7 @@ func (r resources) registerPublicCommands() {
 
 	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
 		base := charmcmd.NewCommandBase(spec)
-		resBase := resourceadapters.NewFakeCharmCmdBase(base)
+		resBase := &resourceadapters.CharmCmdBase{base}
 		return cmd.NewListCharmResourcesCommand(resBase)
 	})
 

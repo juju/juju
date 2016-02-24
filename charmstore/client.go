@@ -26,21 +26,21 @@ var logger = loggo.GetLogger("juju.charmstore")
 //  - UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
 //  - UploadBundleWithRevision()
 type Client interface {
-	// TODO(ericsnow) Replace use of Get with use of more specific API methods?
-
-	// Get makes a GET request to the given path in the charm store. The
-	// path must have a leading slash, but must not include the host
-	// name or version prefix. The result is parsed as JSON into the
-	// given result value, which should be a pointer to the expected
-	// data, but may be nil if no result is desired.
-	Get(path string, result interface{}) error
+	BaseClient
+	// TODO(ericsnow) Move this over to BaseClient once it supports it.
+	ResourcesClient
+	io.Closer
 
 	// Latest returns the most up-to-date information about each of the
 	// identified charms at their latest revision. The revisions in the
 	// provided URLs are ignored.
 	Latest([]*charm.URL) ([]CharmInfoResult, error)
+}
 
-	// TODO(ericsnow) Just embed resource/charmstore.BaseClient?
+// ResourcesClient exposes the charm store client functionality for
+// dealing with resources.
+type ResourcesClient interface {
+	// TODO(ericsnow) Just embed resource/charmstore.BaseClient (or vice-versa)?
 
 	// ListResources composes, for each of the identified charms, the
 	// list of details for each of the charm's resources. Those details
@@ -55,27 +55,52 @@ type Client interface {
 	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
 }
 
+// BaseClient exposes the functionality Juju needs which csclient.Client
+// provides.
+type BaseClient interface {
+	// TODO(ericsnow) Replace use of Get with use of more specific API
+	// methods? We only use Get() for authorization on the Juju client
+	// side.
+
+	// Get makes a GET request to the given path in the charm store. The
+	// path must have a leading slash, but must not include the host
+	// name or version prefix. The result is parsed as JSON into the
+	// given result value, which should be a pointer to the expected
+	// data, but may be nil if no result is desired.
+	Get(path string, result interface{}) error
+}
+
 // client adapts csclient.Client to the needs of Juju.
 type client struct {
 	*csclient.Client
 	fakeCharmStoreClient
+	io.Closer
 }
 
 // NewClient returns a Juju charm store client that wraps the provided
 // client.
-func NewClient(base *csclient.Client) Client {
-	return newClient(base)
+func NewClient(base *csclient.Client, closer io.Closer) Client {
+	return newClient(base, closer)
 }
 
-func newClient(base *csclient.Client) *client {
+func newClient(base *csclient.Client, closer io.Closer) *client {
 	return &client{
 		Client: base,
+		Closer: closer,
 	}
 }
 
 // Latest implements Client.
 func (client client) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
 	return nil, errors.NotImplementedf("")
+}
+
+// Close implements Client.
+func (client client) Close() error {
+	if client.Closer == nil {
+		return nil
+	}
+	return client.Closer.Close()
 }
 
 type modelClient struct {
@@ -86,9 +111,9 @@ type modelClient struct {
 // NewModelClient returns a Juju charm store client that wraps the
 // provided client. The returned client is specific to the Juju model
 // identified by the given UUID.
-func NewModelClient(base *csclient.Client, modelUUID string) Client {
+func NewModelClient(base *csclient.Client, closer io.Closer, modelUUID string) Client {
 	return &modelClient{
-		client:    newClient(base),
+		client:    newClient(base, closer),
 		modelUUID: modelUUID,
 	}
 }

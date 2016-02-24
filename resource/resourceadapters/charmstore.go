@@ -15,15 +15,14 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
-	corecharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/charmstore"
-	corestate "github.com/juju/juju/state"
+	"github.com/juju/juju/state"
 )
 
 // charmstoreEntityCache adapts between resource state and charmstore.EntityCache.
 type charmstoreEntityCache struct {
-	st        corestate.Resources
+	st        state.Resources
 	userID    names.Tag
 	unit      resource.Unit
 	serviceID string
@@ -63,28 +62,8 @@ func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
 	// TODO(ericsnow) closer will be meaningful once we factor out the
 	// Juju HTTP context (a la cmd/juju/charmcmd/store.go).
 	closer := io.Closer(nil)
-	client := newCharmStoreClient(base, closer)
+	client := charmstore.NewClient(base, closer)
 	return newCSRetryClient(client), nil
-}
-
-type charmStoreClient struct {
-	charmstore.BaseClient
-	io.Closer
-}
-
-func newCharmStoreClient(base *csclient.Client, closer io.Closer) *charmStoreClient {
-	return &charmStoreClient{
-		BaseClient: corecharmstore.NewClient(base),
-		Closer:     closer,
-	}
-}
-
-// Close implements io.Closer.
-func (client charmStoreClient) Close() error {
-	if client.Closer == nil {
-		return nil
-	}
-	return client.Closer.Close()
 }
 
 type csRetryClient struct {

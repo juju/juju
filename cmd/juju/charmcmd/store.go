@@ -4,7 +4,6 @@
 package charmcmd
 
 import (
-	"io"
 	"net/http"
 	"os"
 
@@ -13,19 +12,13 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+
+	"github.com/juju/juju/charmstore"
 )
 
 // TODO(ericsnow) Factor out code from cmd/juju/commands/common.go and
 // cmd/envcmd/base.go into cmd/charmstore.go and cmd/apicontext.go. Then
 // use those here instead of copy-and-pasting here.
-
-// CharmstoreClient exposes the functionality of the charm store client.
-type CharmstoreClient interface {
-	// TODO(ericsnow) Embed github.com/juju/juju/charmstore.Client.
-	// As a bonus, if it embedded io.Closer we wouldn't need the
-	// interface here.
-	io.Closer
-}
 
 ///////////////////
 // The charmstoreSpec code is based loosely on code in cmd/juju/commands/deploy.go.
@@ -34,7 +27,7 @@ type CharmstoreClient interface {
 // store client.
 type CharmstoreSpec interface {
 	// Connect connects to the specified charm store.
-	Connect() (CharmstoreClient, error)
+	Connect() (charmstore.Client, error)
 }
 
 type charmstoreSpec struct {
@@ -54,7 +47,7 @@ func newCharmstoreSpec() CharmstoreSpec {
 }
 
 // Connect implements CharmstoreSpec.
-func (cs charmstoreSpec) Connect() (CharmstoreClient, error) {
+func (cs charmstoreSpec) Connect() (charmstore.Client, error) {
 	params, apiContext, err := cs.connect()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -66,10 +59,7 @@ func (cs charmstoreSpec) Connect() (CharmstoreClient, error) {
 		VisitWebPage: params.VisitWebPage,
 	})
 
-	csClient := &charmstoreClient{
-		Client:     baseClient,
-		apiContext: apiContext,
-	}
+	csClient := charmstore.NewClient(baseClient, apiContext)
 	return csClient, nil
 }
 
@@ -84,19 +74,6 @@ func (cs charmstoreSpec) connect() (charmrepo.NewCharmStoreParams, *apiContext, 
 	params := cs.params // a copy
 	params.HTTPClient = apiContext.HTTPClient()
 	return params, apiContext, nil
-}
-
-///////////////////
-// charmstoreClient is based loosely on cmd/juju/commands/common.go.
-
-type charmstoreClient struct {
-	*csclient.Client
-	*apiContext
-}
-
-// Close implements io.Closer.
-func (cs *charmstoreClient) Close() error {
-	return cs.apiContext.Close()
 }
 
 ///////////////////
