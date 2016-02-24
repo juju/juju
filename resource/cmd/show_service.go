@@ -121,18 +121,11 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
 	if c.details {
-		details, err := detailedResources("", sr)
+		formatted, err := FormatServiceDetails(sr)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		updates := sr.Updates()
-		formatted := FormattedServiceDetails{
-			Resources: details,
-			Updates:   make([]FormattedCharmResource, len(updates)),
-		}
-		for i, u := range updates {
-			formatted.Updates[i] = FormatCharmResource(u)
-		}
+
 		return c.out.Write(ctx, formatted)
 	}
 
@@ -163,26 +156,6 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 
 }
 
-func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDetailResource, error) {
-	var formatted []FormattedDetailResource
-	for _, ur := range sr.UnitResources {
-		if unit == "" || unit == ur.Tag.Id() {
-			units := resourceMap(ur.Resources)
-			for _, svc := range sr.Resources {
-				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name])
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				formatted = append(formatted, f)
-			}
-			if unit != "" {
-				break
-			}
-		}
-	}
-	return formatted, nil
-}
-
 func unitResources(unit, service string, v resource.ServiceResources) ([]resource.Resource, error) {
 	for _, res := range v.UnitResources {
 		if res.Tag.Id() == unit {
@@ -193,12 +166,4 @@ func unitResources(unit, service string, v resource.ServiceResources) ([]resourc
 	// resources and a unit that doesn't exist. This requires a serverside
 	// change.
 	return nil, nil
-}
-
-func resourceMap(resources []resource.Resource) map[string]resource.Resource {
-	m := make(map[string]resource.Resource, len(resources))
-	for _, res := range resources {
-		m[res.Name] = res
-	}
-	return m
 }

@@ -64,8 +64,8 @@ type FormattedDetailResource struct {
 // FormattedServiceDetails is the data for the tabular output for juju resources
 // <service> --details.
 type FormattedServiceDetails struct {
-	Resources []FormattedDetailResource
-	Updates   []FormattedCharmResource `json:"updates,omitempty" yaml:"updates,omitempty"`
+	Resources []FormattedDetailResource `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Updates   []FormattedCharmResource  `json:"updates,omitempty" yaml:"updates,omitempty"`
 }
 
 // FormattedDetailResource is the data for the tabular output for juju resources
