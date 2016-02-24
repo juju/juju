@@ -9,17 +9,18 @@ import (
 
 // Instead of copy / pasting the Annotations, SetAnnotations, and the import
 // three lines into every entity that has annotations, we provide a helper
-// struct used in composition. Each entity still needs to define the
-// annotations map to be serialized. For the two locations where entities are
-// created (the new<entity> function, and the import functions), the pointer
-// to the annotations needs to be set. This allows the accessor and setter
-// methods to work. This type is composed without a name so the methods get
-// promoted so they satisfy the HasAnnotations interface.
+// struct used in composition. This allows the accessor and setter methods to
+// work. This type is composed without a name so the methods get promoted so
+// they satisfy the HasAnnotations interface, but it does require that the
+// name is serialized as "annotations".
 type hasAnnotations map[string]string
 
 // Annotations implements HasAnnotations.
-func (a hasAnnotations) Annotations() map[string]string {
-	return a
+func (a *hasAnnotations) Annotations() map[string]string {
+	if a == nil {
+		return nil
+	}
+	return *a
 }
 
 // SetAnnotations implements HasAnnotations.
