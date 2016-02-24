@@ -74,12 +74,6 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			continue
 		}
 
-		units, err := f.store.Units(tag.Id())
-		if err != nil {
-			r.Results[i] = errorResult(err)
-			continue
-		}
-
 		svcRes, err := f.store.ListResources(tag.Id())
 		if err != nil {
 			r.Results[i] = errorResult(err)
@@ -93,6 +87,12 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 		unitResources := make(map[names.UnitTag]resource.UnitResources, len(svcRes.UnitResources))
 		for _, unitRes := range svcRes.UnitResources {
 			unitResources[unitRes.Tag] = unitRes
+		}
+
+		units, err := f.store.Units(tag.Id())
+		if err != nil {
+			r.Results[i] = errorResult(err)
+			continue
 		}
 
 		result.UnitResources = make([]api.UnitResources, len(units))

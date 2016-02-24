@@ -91,7 +91,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			},
 		}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
 
@@ -108,7 +108,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
 		Results: []api.ResourcesResult{{}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 }
 
 func (s *ListResourcesSuite) TestError(c *gc.C) {

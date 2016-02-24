@@ -27,13 +27,13 @@ func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
 	return fp
 }
 
-type helpersSuite struct {
+type HelpersSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&helpersSuite{})
+var _ = gc.Suite(&HelpersSuite{})
 
-func (helpersSuite) TestResource2API(c *gc.C) {
+func (HelpersSuite) TestResource2API(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -79,7 +79,7 @@ func (helpersSuite) TestResource2API(c *gc.C) {
 	})
 }
 
-func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -230,7 +230,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	c.Check(resources, jc.DeepEquals, serviceResource)
 }
 
-func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -332,7 +332,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*got bad data from server.*")
 }
 
-func (helpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        "spam",
@@ -363,7 +363,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Not(gc.Equals), failure)
 }
 
-func (helpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 	apiRes := api.Resource{
 		CharmResource: api.CharmResource{
 			Name:        "spam",
@@ -393,7 +393,7 @@ func (helpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (helpersSuite) TestAPI2Resource(c *gc.C) {
+func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 	now := time.Now()
 	res, err := api.API2Resource(api.Resource{
 		CharmResource: api.CharmResource{
@@ -441,7 +441,7 @@ func (helpersSuite) TestAPI2Resource(c *gc.C) {
 	c.Check(res, jc.DeepEquals, expected)
 }
 
-func (helpersSuite) TestCharmResource2API(c *gc.C) {
+func (HelpersSuite) TestCharmResource2API(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	res := charmresource.Resource{
@@ -472,7 +472,7 @@ func (helpersSuite) TestCharmResource2API(c *gc.C) {
 	})
 }
 
-func (helpersSuite) TestAPI2CharmResource(c *gc.C) {
+func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
 	res, err := api.API2CharmResource(api.CharmResource{
 		Name:        "spam",
 		Type:        "file",
