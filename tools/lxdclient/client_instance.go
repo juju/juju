@@ -15,6 +15,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/network"
 )
 
 // TODO(ericsnow) We probably need to address some of the things that
@@ -29,6 +31,7 @@ type rawInstanceClient interface {
 	Delete(name string) (*lxd.Response, error)
 
 	WaitForSuccess(waitURL string) error
+	ContainerState(name string) (*shared.ContainerState, error)
 }
 
 type instanceClient struct {
@@ -300,4 +303,47 @@ func checkInstanceName(name string, instances []Instance) bool {
 		}
 	}
 	return false
+}
+
+func lxdAddressFamilyToNetworkType(netType string) (network.AddressType, error) {
+	switch netType {
+	case "inet":
+		return network.IPv4Address, nil
+	case "inet6":
+		return network.IPv6Address, nil
+	default:
+		return "", errors.Errorf("invalid LXD family type %s", netType)
+	}
+}
+
+func (client *instanceClient) Addresses(name string) ([]network.Address, error) {
+	state, err := client.raw.ContainerState(name)
+	if err != nil {
+		return nil, err
+	}
+
+	networks := state.Network
+	if networks == nil {
+		return []network.Address{}, nil
+	}
+
+	addrs := []network.Address{}
+
+	for name, net := range networks {
+		for _, addr := range net.Addresses {
+			type_, err := lxdAddressFamilyToNetworkType(addr.Family)
+			if err != nil {
+				return nil, err
+			}
+
+			// TODO: do we need scope/space/spaceid here?
+			addrs = append(addrs, network.Address{
+				Value:       addr.Address,
+				Type:        type_,
+				NetworkName: name,
+			})
+		}
+	}
+
+	return addrs, nil
 }

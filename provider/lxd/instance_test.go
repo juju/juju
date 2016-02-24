@@ -48,7 +48,6 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
-	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
