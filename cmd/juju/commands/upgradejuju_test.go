@@ -91,37 +91,31 @@ var upgradeJujuTests = []struct {
 }, {
 	about:          "major version upgrade to incompatible version",
 	currentVersion: "2.0.0-quantal-amd64",
-	agentVersion:   "2.0.0",
 	args:           []string{"--version", "5.2.0"},
-	expectErr:      "cannot upgrade to version incompatible with CLI",
+	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
 	about:          "major version downgrade to incompatible version",
 	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot upgrade to version incompatible with CLI",
+	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
 	about:          "invalid --series",
 	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
 	args:           []string{"--series", "precise&quantal"},
 	expectInitErr:  `invalid value "precise&quantal" for flag --series: .*`,
 }, {
 	about:          "--series without --upload-tools",
 	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
 	args:           []string{"--series", "precise,quantal"},
 	expectInitErr:  "--series requires --upload-tools",
 }, {
 	about:          "--upload-tools with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "4.2.0",
 	args:           []string{"--upload-tools", "--version", "3.1.0"},
-	expectErr:      "cannot upgrade to version incompatible with CLI",
+	expectInitErr:  "cannot upgrade to version incompatible with CLI",
 }, {
 	about:          "--upload-tools with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
-	agentVersion:   "3.2.7",
 	args:           []string{"--upload-tools", "--version", "3.2.8.4"},
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
@@ -174,26 +168,12 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--version", "2.3-dev0"},
 	expectVersion:  "2.3-dev0",
 }, {
-	about:          "specified major version from 1.25.4",
-	tools:          []string{"2.0.1-quantal-amd64"},
-	currentVersion: "1.25.4-quantal-amd64",
-	agentVersion:   "1.25.4",
-	args:           []string{"--version", "2.0.1"},
-	expectVersion:  "2.0.1",
-}, {
-	about:          "specified major version from 1.26-alpha2",
-	tools:          []string{"2.0.0-quantal-amd64"},
-	currentVersion: "1.25.4-quantal-amd64",
-	agentVersion:   "1.26-alpha2",
-	args:           []string{"--version", "2.0.0"},
-	expectVersion:  "2.0.0",
-}, {
-	about:          "specified valid major upgrade with no tools available",
-	tools:          []string{"1.25.4-quantal-amd64"},
-	currentVersion: "1.25.4-quantal-amd64",
-	agentVersion:   "1.25.4",
-	args:           []string{"--version", "2.0.0"},
-	expectErr:      "no matching tools available",
+	about:          "specified major version",
+	tools:          []string{"3.2.0-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
+	agentVersion:   "2.8.2",
+	args:           []string{"--version", "3.2.0"},
+	expectVersion:  "3.2.0",
 }, {
 	about:          "specified version missing, but already set",
 	currentVersion: "3.0.0-quantal-amd64",
@@ -240,7 +220,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot upgrade a 4.2.0 environment with a 3.2.0 client",
+	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
 }, {
 	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
@@ -701,75 +681,6 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 	for _, answer := range []string{"n", "N", "no", "foo"} {
 		run(answer, expectNoUpgrade)
 	}
-}
-
-func (s *UpgradeJujuSuite) TestMinimumVersionForMajorUpgrade(c *gc.C) {
-	versions := []version.Binary{
-		version.MustParseBinary("1.25.2-trusty-amd64"),
-		version.MustParseBinary("1.24.7-trusty-amd64"),
-	}
-	for _, vers := range versions {
-		c.Logf("testing TestMinimumVersionForMajorUpgrade with version: %s", vers.Number)
-		s.PatchValue(&version.Current, vers)
-		updateAttrs := map[string]interface{}{
-			"agent-version": vers.Number.String(),
-		}
-		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-
-		com := &UpgradeJujuCommand{}
-		err = coretesting.InitCommand(envcmd.Wrap(com), []string{"--version", "2.0.4"})
-		c.Assert(err, jc.ErrorIsNil)
-
-		ctx := coretesting.Context(c)
-		err = com.Run(ctx)
-		c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
-
-		output := coretesting.Stderr(ctx)
-		c.Assert(output, gc.Equals, "Upgrades to juju 2.0 must first go through juju 1.25.4 or higher.\n")
-	}
-}
-
-func (s *UpgradeJujuSuite) TestMajorVersionRestriction(c *gc.C) {
-	for _, vers := range []string{"2.1.4", "3.0.0"} {
-		c.Logf("testing TestMajorVersionRestriction with version: %s", vers)
-		s.PatchValue(&version.Current, version.MustParseBinary("1.25.4-trusty-amd64"))
-		updateAttrs := map[string]interface{}{
-			"agent-version": "1.25.4",
-		}
-		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-		com := &UpgradeJujuCommand{}
-		err = coretesting.InitCommand(envcmd.Wrap(com), []string{"--version", vers})
-		c.Assert(err, jc.ErrorIsNil)
-
-		ctx := coretesting.Context(c)
-		err = com.Run(ctx)
-		c.Check(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
-
-		output := coretesting.Stderr(ctx)
-		c.Check(output, gc.Equals, "Upgrades to "+vers+" must first go through juju 2.0.\n")
-	}
-}
-
-func (s *UpgradeJujuSuite) TestMinFromAndMaxToMajorVersion(c *gc.C) {
-	s.PatchValue(&version.Current, version.MustParseBinary("1.25.1-trusty-amd64"))
-	updateAttrs := map[string]interface{}{
-		"agent-version": "1.25.1",
-	}
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	com := &UpgradeJujuCommand{}
-	err = coretesting.InitCommand(envcmd.Wrap(com), []string{"--version", "2.1.4"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := coretesting.Context(c)
-	err = com.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, "cannot upgrade to version incompatible with CLI")
-
-	output := coretesting.Stderr(ctx)
-	c.Assert(output, gc.Equals, "Upgrades to 2.1.4 must first go through juju 2.0.\n"+
-		"Upgrades to juju 2.0 must first go through juju 1.25.4 or higher.\n")
 }
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
