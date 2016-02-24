@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// interfacesStateSuite contains white-box tests for network interfaces, which
-// include access to mongo.
-type interfacesStateSuite struct {
+// linkLayerDevicesStateSuite contains white-box tests for link-layer network
+// devices, which include access to mongo.
+type linkLayerDevicesStateSuite struct {
 	ConnSuite
 
 	machine *state.Machine
@@ -26,9 +26,9 @@ type interfacesStateSuite struct {
 	otherStateMachine *state.Machine
 }
 
-var _ = gc.Suite(&interfacesStateSuite{})
+var _ = gc.Suite(&linkLayerDevicesStateSuite{})
 
-func (s *interfacesStateSuite) SetUpTest(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
@@ -40,388 +40,373 @@ func (s *interfacesStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesNoArgs(c *gc.C) {
-	err := s.machine.AddInterfaces() // takes varargs, which includes none.
-	expectedError := fmt.Sprintf("cannot add interfaces to machine %q: no interfaces to add", s.machine.Id())
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesNoArgs(c *gc.C) {
+	err := s.machine.AddLinkLayerDevices() // takes varargs, which includes none.
+	expectedError := fmt.Sprintf("cannot add link-layer devices to machine %q: no devices to add", s.machine.Id())
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesEmptyArgs(c *gc.C) {
-	args := state.InterfaceArgs{}
-	s.assertAddInterfacesReturnsNotValidError(c, args, "empty Name not valid")
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesEmptyArgs(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{}
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, "empty Name not valid")
 }
 
-func (s *interfacesStateSuite) assertAddInterfacesReturnsNotValidError(c *gc.C, args state.InterfaceArgs, errorCauseMatches string) {
-	err := s.assertAddInterfacesFailsValidationForArgs(c, args, errorCauseMatches)
+func (s *linkLayerDevicesStateSuite) assertAddLinkLayerDevicesReturnsNotValidError(c *gc.C, args state.LinkLayerDeviceArgs, errorCauseMatches string) {
+	err := s.assertAddLinkLayerDevicesFailsValidationForArgs(c, args, errorCauseMatches)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *interfacesStateSuite) assertAddInterfacesFailsValidationForArgs(c *gc.C, args state.InterfaceArgs, errorCauseMatches string) error {
-	expectedError := fmt.Sprintf("invalid interface %q: %s", args.Name, errorCauseMatches)
-	return s.assertAddInterfacesFailsForArgs(c, args, expectedError)
+func (s *linkLayerDevicesStateSuite) assertAddLinkLayerDevicesFailsValidationForArgs(c *gc.C, args state.LinkLayerDeviceArgs, errorCauseMatches string) error {
+	expectedError := fmt.Sprintf("invalid device %q: %s", args.Name, errorCauseMatches)
+	return s.assertAddLinkLayerDevicesFailsForArgs(c, args, expectedError)
 }
 
-func (s *interfacesStateSuite) assertAddInterfacesFailsForArgs(c *gc.C, args state.InterfaceArgs, errorCauseMatches string) error {
-	err := s.machine.AddInterfaces(args)
-	expectedError := fmt.Sprintf("cannot add interfaces to machine %q: %s", s.machine.Id(), errorCauseMatches)
+func (s *linkLayerDevicesStateSuite) assertAddLinkLayerDevicesFailsForArgs(c *gc.C, args state.LinkLayerDeviceArgs, errorCauseMatches string) error {
+	err := s.machine.AddLinkLayerDevices(args)
+	expectedError := fmt.Sprintf("cannot add link-layer devices to machine %q: %s", s.machine.Id(), errorCauseMatches)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 	return err
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesInvalidName(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidName(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name: "bad#name",
 	}
-	s.assertAddInterfacesReturnsNotValidError(c, args, `Name "bad#name" not valid`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `Name "bad#name" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesSameNameAndParentName(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesSameNameAndParentName(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
 		ParentName: "foo",
 	}
-	s.assertAddInterfacesReturnsNotValidError(c, args, `Name and ParentName must be different`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `Name and ParentName must be different`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesInvalidType(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidType(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name: "bar",
 		Type: "bad type",
 	}
-	s.assertAddInterfacesReturnsNotValidError(c, args, `Type "bad type" not valid`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `Type "bad type" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesInvalidParentName(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidParentName(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",
 		ParentName: "bad#name",
 	}
-	s.assertAddInterfacesReturnsNotValidError(c, args, `ParentName "bad#name" not valid`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "bad#name" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesInvalidHardwareAddress(c *gc.C) {
-	args := state.InterfaceArgs{
-		Name:            "eth0",
-		Type:            state.EthernetInterface,
-		HardwareAddress: "bad mac",
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidMACAddress(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:       "eth0",
+		Type:       state.EthernetDevice,
+		MACAddress: "bad mac",
 	}
-	s.assertAddInterfacesReturnsNotValidError(c, args, `HardwareAddress "bad mac" not valid`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `MACAddress "bad mac" not valid`)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesInvalidGatewayAddress(c *gc.C) {
-	args := state.InterfaceArgs{
-		Name:           "eth0",
-		Type:           state.EthernetInterface,
-		GatewayAddress: "bad ip",
-	}
-	s.assertAddInterfacesReturnsNotValidError(c, args, `GatewayAddress "bad ip" not valid`)
-}
-
-func (s *interfacesStateSuite) TestAddInterfacesWhenMachineNotAliveOrGone(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWhenMachineNotAliveOrGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := state.InterfaceArgs{
+	args := state.LinkLayerDeviceArgs{
 		Name: "eth0",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}
-	s.assertAddInterfacesFailsForArgs(c, args, "machine not found or not alive")
+	s.assertAddLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertAddInterfacesFailsForArgs(c, args, "machine not found or not alive")
+	s.assertAddLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWhenModelNotAlive(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWhenModelNotAlive(c *gc.C) {
 	otherModel, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherModel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := state.InterfaceArgs{
+	args := state.LinkLayerDeviceArgs{
 		Name: "eth0",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}
-	err = s.otherStateMachine.AddInterfaces(args)
+	err = s.otherStateMachine.AddLinkLayerDevices(args)
 	expectedError := fmt.Sprintf(
-		"cannot add interfaces to machine %q: model %q is no longer alive",
+		"cannot add link-layer devices to machine %q: model %q is no longer alive",
 		s.otherStateMachine.Id(), otherModel.Name(),
 	)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithMissingParent(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithMissingParent(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "br-eth0",
 	}
-	err := s.assertAddInterfacesFailsForArgs(c, args, `parent interface "br-eth0" of interface "eth0" not found`)
+	err := s.assertAddLinkLayerDevicesFailsForArgs(c, args, `parent device "br-eth0" of device "eth0" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesNoParentSuccess(c *gc.C) {
-	args := state.InterfaceArgs{
-		Name:             "eth0.42",
-		Index:            1,
-		MTU:              9000,
-		ProviderID:       "eni-42",
-		Type:             state.VLAN_8021QInterface,
-		HardwareAddress:  "aa:bb:cc:dd:ee:f0",
-		IsAutoStart:      true,
-		IsUp:             true,
-		DNSServers:       []string{"ns1.example.com", "127.0.1.1"},
-		DNSSearchDomains: []string{"example.com"},
-		GatewayAddress:   "8.8.8.8",
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesNoParentSuccess(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:        "eth0.42",
+		Index:       1,
+		MTU:         9000,
+		ProviderID:  "eni-42",
+		Type:        state.VLAN_8021QDevice,
+		MACAddress:  "aa:bb:cc:dd:ee:f0",
+		IsAutoStart: true,
+		IsUp:        true,
 	}
-	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
 
-func (s *interfacesStateSuite) assertAddInterfacesSucceedsAndResultMatchesArgs(c *gc.C, args state.InterfaceArgs) {
-	s.assertMachineAddInterfacesSucceedsAndResultMatchesArgs(c, s.machine, args, s.State.ModelUUID())
+func (s *linkLayerDevicesStateSuite) assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c *gc.C, args state.LinkLayerDeviceArgs) {
+	s.assertMachineAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, s.machine, args, s.State.ModelUUID())
 }
 
-func (s *interfacesStateSuite) assertMachineAddInterfacesSucceedsAndResultMatchesArgs(c *gc.C, machine *state.Machine, args state.InterfaceArgs, modelUUID string) {
-	err := machine.AddInterfaces(args)
+func (s *linkLayerDevicesStateSuite) assertMachineAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c *gc.C, machine *state.Machine, args state.LinkLayerDeviceArgs, modelUUID string) {
+	err := machine.AddLinkLayerDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := machine.Interface(args.Name)
+	result, err := machine.LinkLayerDevice(args.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	s.checkAddedInterfaceMatchesArgs(c, result, args)
-	s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, result, s.machine.Id(), modelUUID)
+	s.checkAddedDeviceMatchesArgs(c, result, args)
+	s.checkAddedDeviceMatchesMachineIDAndModelUUID(c, result, s.machine.Id(), modelUUID)
 }
 
-func (s *interfacesStateSuite) checkAddedInterfaceMatchesArgs(c *gc.C, addedInterface *state.Interface, args state.InterfaceArgs) {
-	c.Check(addedInterface.Name(), gc.Equals, args.Name)
-	c.Check(addedInterface.Index(), gc.Equals, args.Index)
-	c.Check(addedInterface.MTU(), gc.Equals, args.MTU)
-	c.Check(addedInterface.ProviderID(), gc.Equals, args.ProviderID)
-	c.Check(addedInterface.Type(), gc.Equals, args.Type)
-	c.Check(addedInterface.HardwareAddress(), gc.Equals, args.HardwareAddress)
-	c.Check(addedInterface.IsAutoStart(), gc.Equals, args.IsAutoStart)
-	c.Check(addedInterface.IsUp(), gc.Equals, args.IsUp)
-	c.Check(addedInterface.ParentName(), gc.Equals, args.ParentName)
-	c.Check(addedInterface.DNSServers(), jc.DeepEquals, args.DNSServers)
-	c.Check(addedInterface.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
-	c.Check(addedInterface.GatewayAddress(), gc.Equals, args.GatewayAddress)
+func (s *linkLayerDevicesStateSuite) checkAddedDeviceMatchesArgs(c *gc.C, addedDevice *state.LinkLayerDevice, args state.LinkLayerDeviceArgs) {
+	c.Check(addedDevice.Name(), gc.Equals, args.Name)
+	c.Check(addedDevice.Index(), gc.Equals, args.Index)
+	c.Check(addedDevice.MTU(), gc.Equals, args.MTU)
+	c.Check(addedDevice.ProviderID(), gc.Equals, args.ProviderID)
+	c.Check(addedDevice.Type(), gc.Equals, args.Type)
+	c.Check(addedDevice.MACAddress(), gc.Equals, args.MACAddress)
+	c.Check(addedDevice.IsAutoStart(), gc.Equals, args.IsAutoStart)
+	c.Check(addedDevice.IsUp(), gc.Equals, args.IsUp)
+	c.Check(addedDevice.ParentName(), gc.Equals, args.ParentName)
 }
 
-func (s *interfacesStateSuite) checkAddedInterfaceMatchesMachineIDAndModelUUID(c *gc.C, addedInterface *state.Interface, machineID, modelUUID string) {
-	globalKey := fmt.Sprintf("m#%si#%s", machineID, addedInterface.Name())
-	c.Check(addedInterface.DocID(), gc.Equals, modelUUID+":"+globalKey)
-	c.Check(addedInterface.MachineID(), gc.Equals, machineID)
+func (s *linkLayerDevicesStateSuite) checkAddedDeviceMatchesMachineIDAndModelUUID(c *gc.C, addedDevice *state.LinkLayerDevice, machineID, modelUUID string) {
+	globalKey := fmt.Sprintf("m#%s#d#%s", machineID, addedDevice.Name())
+	c.Check(addedDevice.DocID(), gc.Equals, modelUUID+":"+globalKey)
+	c.Check(addedDevice.MachineID(), gc.Equals, machineID)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesNoProviderIDSuccess(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesNoProviderIDSuccess(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name: "eno0",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}
-	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
-	args1 := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
+	args1 := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ProviderID: "42",
 	}
-	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args1)
+	s.assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args1)
 
 	args2 := args1
 	args2.Name = "br-eth0"
-	err := s.assertAddInterfacesFailsValidationForArgs(c, args2, `ProviderID\(s\) not unique: 42`)
+	err := s.assertAddLinkLayerDevicesFailsValidationForArgs(c, args2, `ProviderID\(s\) not unique: 42`)
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ProviderID: "42",
 	}
-	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 
-	s.assertMachineAddInterfacesSucceedsAndResultMatchesArgs(c, s.otherStateMachine, args, s.otherState.ModelUUID())
+	s.assertMachineAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, s.otherStateMachine, args, s.otherState.ModelUUID())
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndEmptyProviderIDReturnsAlreadyExistsErrorInSameModel(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithDuplicateNameAndEmptyProviderIDReturnsAlreadyExistsErrorInSameModel(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name: "eth0.42",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}
-	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 
-	err := s.assertAddInterfacesFailsForArgs(c, args, `interface "eth0.42" already exists`)
+	err := s.assertAddLinkLayerDevicesFailsForArgs(c, args, `device "eth0.42" already exists`)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithDuplicateNameAndProviderIDFailsInSameModel(c *gc.C) {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithDuplicateNameAndProviderIDFailsInSameModel(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ProviderID: "42",
 	}
-	s.assertAddInterfacesSucceedsAndResultMatchesArgs(c, args)
+	s.assertAddLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 
-	err := s.assertAddInterfacesFailsValidationForArgs(c, args, `ProviderID\(s\) not unique: 42`)
+	err := s.assertAddLinkLayerDevicesFailsValidationForArgs(c, args, `ProviderID\(s\) not unique: 42`)
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesMultipleArgsWithSameNameFails(c *gc.C) {
-	foo1 := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesMultipleArgsWithSameNameFails(c *gc.C) {
+	foo1 := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}
-	foo2 := state.InterfaceArgs{
+	foo2 := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}
-	err := s.machine.AddInterfaces(foo1, foo2)
-	c.Assert(err, gc.ErrorMatches, `.*invalid interface "foo": Name specified more than once`)
+	err := s.machine.AddLinkLayerDevices(foo1, foo2)
+	c.Assert(err, gc.ErrorMatches, `.*invalid device "foo": Name specified more than once`)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesMultipleArgsChildParentOrderDoesNotMatter(c *gc.C) {
-	allArgs := []state.InterfaceArgs{{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesMultipleArgsChildParentOrderDoesNotMatter(c *gc.C) {
+	allArgs := []state.LinkLayerDeviceArgs{{
 		Name:       "child1",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "parent1",
 	}, {
 		Name: "parent1",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}, {
 		Name: "parent2",
-		Type: state.BondInterface,
+		Type: state.BondDevice,
 	}, {
 		Name:       "child2",
-		Type:       state.VLAN_8021QInterface,
+		Type:       state.VLAN_8021QDevice,
 		ParentName: "parent2",
 	}}
 
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
 }
 
-func (s *interfacesStateSuite) addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c *gc.C, allArgs []state.InterfaceArgs) {
-	err := s.machine.AddInterfaces(allArgs...)
+func (s *linkLayerDevicesStateSuite) addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c *gc.C, allArgs []state.LinkLayerDeviceArgs) {
+	err := s.machine.AddLinkLayerDevices(allArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineID, modelUUID := s.machine.Id(), s.State.ModelUUID()
 	for _, args := range allArgs {
-		nic, err := s.machine.Interface(args.Name)
+		device, err := s.machine.LinkLayerDevice(args.Name)
 		c.Check(err, jc.ErrorIsNil)
-		s.checkAddedInterfaceMatchesArgs(c, nic, args)
-		s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, nic, machineID, modelUUID)
+		s.checkAddedDeviceMatchesArgs(c, device, args)
+		s.checkAddedDeviceMatchesMachineIDAndModelUUID(c, device, machineID, modelUUID)
 	}
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesMultipleChildrenOfExistingParentSucceeds(c *gc.C) {
-	parent := s.addSimpleInterface(c)
-	childrenArgs := []state.InterfaceArgs{{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesMultipleChildrenOfExistingParentSucceeds(c *gc.C) {
+	parent := s.addSimpleDevice(c)
+	childrenArgs := []state.LinkLayerDeviceArgs{{
 		Name:       "child1",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: parent.Name(),
 	}, {
 		Name:       "child2",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: parent.Name(),
 	}}
 
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, childrenArgs)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, childrenArgs)
 }
 
-func (s *interfacesStateSuite) addSimpleInterface(c *gc.C) *state.Interface {
-	args := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) addSimpleDevice(c *gc.C) *state.LinkLayerDevice {
+	args := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}
-	err := s.machine.AddInterfaces(args)
+	err := s.machine.AddLinkLayerDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
-	nic, err := s.machine.Interface(args.Name)
+	device, err := s.machine.LinkLayerDevice(args.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	return nic
+	return device
 }
 
-func (s *interfacesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	nic := s.addSimpleInterface(c)
+func (s *linkLayerDevicesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
+	device := s.addSimpleDevice(c)
 
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := nic.Machine()
+	result, err := device.Machine()
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *interfacesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
-	nic := s.addSimpleInterface(c)
+func (s *linkLayerDevicesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
+	device := s.addSimpleDevice(c)
 
-	result, err := nic.Machine()
+	result, err := device.Machine()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.machine)
 }
 
-func (s *interfacesStateSuite) TestParentInterfaceReturnsInterface(c *gc.C) {
-	args := []state.InterfaceArgs{{
+func (s *linkLayerDevicesStateSuite) TestParentDeviceReturnsLinkLayerDevice(c *gc.C) {
+	args := []state.LinkLayerDeviceArgs{{
 		Name: "br-eth0",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}, {
 		Name:       "eth0",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "br-eth0",
 	}}
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
 
-	child, err := s.machine.Interface("eth0")
+	child, err := s.machine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)
-	parent, err := child.ParentInterface()
+	parent, err := child.ParentDevice()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkAddedInterfaceMatchesArgs(c, parent, args[0])
-	s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, parent, s.machine.Id(), s.State.ModelUUID())
+	s.checkAddedDeviceMatchesArgs(c, parent, args[0])
+	s.checkAddedDeviceMatchesMachineIDAndModelUUID(c, parent, s.machine.Id(), s.State.ModelUUID())
 }
 
-func (s *interfacesStateSuite) TestMachineInterfaceReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	result, err := s.machine.Interface("missing")
+func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsNotFoundErrorWhenMissing(c *gc.C) {
+	result, err := s.machine.LinkLayerDevice("missing")
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `interface "missing" on machine "0" not found`)
+	c.Assert(err, gc.ErrorMatches, `device "missing" on machine "0" not found`)
 }
 
-func (s *interfacesStateSuite) TestMachineInterfaceReturnsInterface(c *gc.C) {
-	existingInterface := s.addSimpleInterface(c)
+func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsLinkLayerDevice(c *gc.C) {
+	existingDevice := s.addSimpleDevice(c)
 
-	result, err := s.machine.Interface(existingInterface.Name())
+	result, err := s.machine.LinkLayerDevice(existingDevice.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, existingInterface)
+	c.Assert(result, jc.DeepEquals, existingDevice)
 }
 
-func (s *interfacesStateSuite) TestMachineAllInterfaces(c *gc.C) {
-	s.assertNoInterfacesOnMachine(c, s.machine)
+func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevices(c *gc.C) {
+	s.assertNoDevicesOnMachine(c, s.machine)
 
-	args := []state.InterfaceArgs{{
+	args := []state.LinkLayerDeviceArgs{{
 		Name: "br-bond0",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}, {
 		Name:       "bond0",
-		Type:       state.BondInterface,
+		Type:       state.BondDevice,
 		ParentName: "br-bond0",
 	}, {
 		Name:       "eth0",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "bond0",
 	}, {
 		Name:       "eth1",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "bond0",
 	}}
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
 
-	results, err := s.machine.AllInterfaces()
+	results, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 4)
 	for _, result := range results {
@@ -436,215 +421,215 @@ func (s *interfacesStateSuite) TestMachineAllInterfaces(c *gc.C) {
 	}
 }
 
-func (s *interfacesStateSuite) assertNoInterfacesOnMachine(c *gc.C, machine *state.Machine) {
-	s.assertAllInterfacesOnMachineMatchCount(c, machine, 0)
+func (s *linkLayerDevicesStateSuite) assertNoDevicesOnMachine(c *gc.C, machine *state.Machine) {
+	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, machine, 0)
 }
 
-func (s *interfacesStateSuite) assertAllInterfacesOnMachineMatchCount(c *gc.C, machine *state.Machine, expectedCount int) {
-	results, err := machine.AllInterfaces()
+func (s *linkLayerDevicesStateSuite) assertAllLinkLayerDevicesOnMachineMatchCount(c *gc.C, machine *state.Machine, expectedCount int) {
+	results, err := machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, expectedCount)
 }
 
-func (s *interfacesStateSuite) TestMachineAllInterfacesOnlyReturnsSameModelInterfaces(c *gc.C) {
-	s.assertNoInterfacesOnMachine(c, s.machine)
-	s.assertNoInterfacesOnMachine(c, s.otherStateMachine)
+func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevicesOnlyReturnsSameModelDevices(c *gc.C) {
+	s.assertNoDevicesOnMachine(c, s.machine)
+	s.assertNoDevicesOnMachine(c, s.otherStateMachine)
 
-	args := []state.InterfaceArgs{{
+	args := []state.LinkLayerDeviceArgs{{
 		Name: "foo",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}, {
 		Name:       "foo.42",
-		Type:       state.VLAN_8021QInterface,
+		Type:       state.VLAN_8021QDevice,
 		ParentName: "foo",
 	}}
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
 
-	results, err := s.machine.AllInterfaces()
+	results, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0].Name(), gc.Equals, "foo")
 	c.Assert(results[1].Name(), gc.Equals, "foo.42")
 
-	s.assertNoInterfacesOnMachine(c, s.otherStateMachine)
+	s.assertNoDevicesOnMachine(c, s.otherStateMachine)
 }
 
-func (s *interfacesStateSuite) TestInterfaceRemoveFailsWithExistingChildren(c *gc.C) {
-	args := []state.InterfaceArgs{{
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveFailsWithExistingChildren(c *gc.C) {
+	args := []state.LinkLayerDeviceArgs{{
 		Name: "parent",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}, {
 		Name:       "one-child",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "parent",
 	}, {
 		Name:       "another-child",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "parent",
 	}}
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
 
-	parent, err := s.machine.Interface("parent")
+	parent, err := s.machine.LinkLayerDevice("parent")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = parent.Remove()
 	expectedError := fmt.Sprintf(
-		"cannot remove %s: parent interface %q has children: another-child, one-child",
+		"cannot remove %s: parent device %q has children: another-child, one-child",
 		parent, parent.Name(),
 	)
 	c.Assert(err, gc.ErrorMatches, expectedError)
-	c.Assert(err, jc.Satisfies, state.IsParentInterfaceHasChildrenError)
+	c.Assert(err, jc.Satisfies, state.IsParentDeviceHasChildrenError)
 }
 
-func (s *interfacesStateSuite) TestInterfaceRemoveSuccess(c *gc.C) {
-	existingInterface := s.addSimpleInterface(c)
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveSuccess(c *gc.C) {
+	existingDevice := s.addSimpleDevice(c)
 
-	s.removeInterfaceAndAssertSuccess(c, existingInterface)
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.removeDeviceAndAssertSuccess(c, existingDevice)
+	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
-func (s *interfacesStateSuite) removeInterfaceAndAssertSuccess(c *gc.C, givenInterface *state.Interface) {
-	err := givenInterface.Remove()
+func (s *linkLayerDevicesStateSuite) removeDeviceAndAssertSuccess(c *gc.C, givenDevice *state.LinkLayerDevice) {
+	err := givenDevice.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *interfacesStateSuite) TestInterfaceRemoveTwiceStillSucceeds(c *gc.C) {
-	existingInterface := s.addSimpleInterface(c)
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveTwiceStillSucceeds(c *gc.C) {
+	existingDevice := s.addSimpleDevice(c)
 
-	s.removeInterfaceAndAssertSuccess(c, existingInterface)
-	s.removeInterfaceAndAssertSuccess(c, existingInterface)
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.removeDeviceAndAssertSuccess(c, existingDevice)
+	s.removeDeviceAndAssertSuccess(c, existingDevice)
+	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
-func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesSuccess(c *gc.C) {
-	s.assertNoInterfacesOnMachine(c, s.machine)
+func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesSuccess(c *gc.C) {
+	s.assertNoDevicesOnMachine(c, s.machine)
 
-	args := []state.InterfaceArgs{{
+	args := []state.LinkLayerDeviceArgs{{
 		Name: "foo",
-		Type: state.EthernetInterface,
+		Type: state.EthernetDevice,
 	}, {
 		Name:       "bar",
-		Type:       state.VLAN_8021QInterface,
+		Type:       state.VLAN_8021QDevice,
 		ParentName: "foo",
 	}}
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, args)
 
-	err := s.machine.RemoveAllInterfaces()
+	err := s.machine.RemoveAllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
-func (s *interfacesStateSuite) TestMachineRemoveAllInterfacesNoErrorIfNoInterfacesExist(c *gc.C) {
-	s.assertNoInterfacesOnMachine(c, s.machine)
+func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoErrorIfNoDevicesExist(c *gc.C) {
+	s.assertNoDevicesOnMachine(c, s.machine)
 
-	err := s.machine.RemoveAllInterfaces()
+	err := s.machine.RemoveAllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesRollbackWithDuplicateProviderIDs(c *gc.C) {
-	insertingArgs := []state.InterfaceArgs{{
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesRollbackWithDuplicateProviderIDs(c *gc.C) {
+	insertingArgs := []state.LinkLayerDeviceArgs{{
 		Name:       "child",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ProviderID: "child-id",
 		ParentName: "parent",
 	}, {
 		Name:       "parent",
-		Type:       state.BridgeInterface,
+		Type:       state.BridgeDevice,
 		ProviderID: "parent-id",
 	}}
 
 	assertTwoExistAndRemoveAll := func() {
-		s.assertAllInterfacesOnMachineMatchCount(c, s.machine, 2)
-		err := s.machine.RemoveAllInterfaces()
+		s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, 2)
+		err := s.machine.RemoveAllLinkLayerDevices()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	hooks := []jujutxn.TestHook{{
 		Before: func() {
-			// Add the same interfaces to trigger ErrAborted in the first attempt.
-			s.assertNoInterfacesOnMachine(c, s.machine)
-			err := s.machine.AddInterfaces(insertingArgs...)
+			// Add the same devices to trigger ErrAborted in the first attempt.
+			s.assertNoDevicesOnMachine(c, s.machine)
+			err := s.machine.AddLinkLayerDevices(insertingArgs...)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		After: assertTwoExistAndRemoveAll,
 	}, {
 		Before: func() {
-			// Add interfaces with same ProviderIDs but different names.
-			s.assertNoInterfacesOnMachine(c, s.machine)
+			// Add devices with same ProviderIDs but different names.
+			s.assertNoDevicesOnMachine(c, s.machine)
 			insertingAlternateArgs := insertingArgs
 			insertingAlternateArgs[0].Name = "other-child"
 			insertingAlternateArgs[0].ParentName = "other-parent"
 			insertingAlternateArgs[1].Name = "other-parent"
-			err := s.machine.AddInterfaces(insertingAlternateArgs...)
+			err := s.machine.AddLinkLayerDevices(insertingAlternateArgs...)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		After: assertTwoExistAndRemoveAll,
 	}}
 	defer state.SetTestHooks(c, s.State, hooks...).Check()
 
-	err := s.machine.AddInterfaces(insertingArgs...)
+	err := s.machine.AddLinkLayerDevices(insertingArgs...)
 	c.Assert(err, gc.ErrorMatches, `.*ProviderID\(s\) not unique: child-id, parent-id`)
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
-	s.assertNoInterfacesOnMachine(c, s.machine) // Rollback worked.
+	s.assertNoDevicesOnMachine(c, s.machine) // Rollback worked.
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithLightStateChurn(c *gc.C) {
-	allArgs, churnHook := s.prepareAddInterfacesWithStateChurn(c)
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithLightStateChurn(c *gc.C) {
+	allArgs, churnHook := s.prepareAddLinkLayerDevicesWithStateChurn(c)
 	defer state.SetTestHooks(c, s.State, churnHook).Check()
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.assertNoDevicesOnMachine(c, s.machine)
 
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
 }
 
-func (s *interfacesStateSuite) prepareAddInterfacesWithStateChurn(c *gc.C) ([]state.InterfaceArgs, jujutxn.TestHook) {
-	parentArgs := state.InterfaceArgs{
+func (s *linkLayerDevicesStateSuite) prepareAddLinkLayerDevicesWithStateChurn(c *gc.C) ([]state.LinkLayerDeviceArgs, jujutxn.TestHook) {
+	parentArgs := state.LinkLayerDeviceArgs{
 		Name: "parent",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}
-	childArgs := state.InterfaceArgs{
+	childArgs := state.LinkLayerDeviceArgs{
 		Name:       "child",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "parent",
 	}
 
 	churnHook := jujutxn.TestHook{
 		Before: func() {
-			s.assertNoInterfacesOnMachine(c, s.machine)
-			err := s.machine.AddInterfaces(parentArgs)
+			s.assertNoDevicesOnMachine(c, s.machine)
+			err := s.machine.AddLinkLayerDevices(parentArgs)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		After: func() {
-			s.assertAllInterfacesOnMachineMatchCount(c, s.machine, 1)
-			parent, err := s.machine.Interface("parent")
+			s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, 1)
+			parent, err := s.machine.LinkLayerDevice("parent")
 			c.Assert(err, jc.ErrorIsNil)
 			err = parent.Remove()
 			c.Assert(err, jc.ErrorIsNil)
 		},
 	}
 
-	return []state.InterfaceArgs{parentArgs, childArgs}, churnHook
+	return []state.LinkLayerDeviceArgs{parentArgs, childArgs}, churnHook
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithModerateStateChurn(c *gc.C) {
-	allArgs, churnHook := s.prepareAddInterfacesWithStateChurn(c)
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithModerateStateChurn(c *gc.C) {
+	allArgs, churnHook := s.prepareAddLinkLayerDevicesWithStateChurn(c)
 	defer state.SetTestHooks(c, s.State, churnHook, churnHook).Check()
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.assertNoDevicesOnMachine(c, s.machine)
 
-	s.addInterfacesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
+	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, allArgs)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithTooMuchStateChurn(c *gc.C) {
-	allArgs, churnHook := s.prepareAddInterfacesWithStateChurn(c)
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithTooMuchStateChurn(c *gc.C) {
+	allArgs, churnHook := s.prepareAddLinkLayerDevicesWithStateChurn(c)
 	defer state.SetTestHooks(c, s.State, churnHook, churnHook, churnHook).Check()
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.assertNoDevicesOnMachine(c, s.machine)
 
-	err := s.machine.AddInterfaces(allArgs...)
+	err := s.machine.AddLinkLayerDevices(allArgs...)
 	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
 
-	s.assertNoInterfacesOnMachine(c, s.machine)
+	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
-func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithHighConcurrency(c *gc.C) {
 	// Tested successfully multiple times with:
 	// $ cd $GOPATH/src/github.com/juju/juju/state; go test -c
 	// $ for i in {1..100}; do ./state.test -check.v -check.f HighCon & done
@@ -652,28 +637,28 @@ func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
 	// panicking due to/ "address already in use" coming from the test mongod
 	// instance, not the production code being tested below. And even then it
 	// happens in 1 or 2 out of 100 (or even 500) test runs.
-	parentArgs := state.InterfaceArgs{
+	parentArgs := state.LinkLayerDeviceArgs{
 		Name: "parent",
-		Type: state.BridgeInterface,
+		Type: state.BridgeDevice,
 	}
 	parentArgsWithID := parentArgs
 	parentArgsWithID.ProviderID = "parent-id"
-	childArgs := state.InterfaceArgs{
+	childArgs := state.LinkLayerDeviceArgs{
 		Name:       "child",
-		Type:       state.EthernetInterface,
+		Type:       state.EthernetDevice,
 		ParentName: "parent",
 	}
 	childArgsWithID := childArgs
 	childArgsWithID.ProviderID = "child-id"
 	// Use a map to randomize iteration order.
-	argsPermutations := map[string][]state.InterfaceArgs{
-		"parent-child-no-ids":        []state.InterfaceArgs{parentArgs, childArgs},
-		"child-parent-no-ids":        []state.InterfaceArgs{childArgs, parentArgs},
-		"child-parent-with-ids":      []state.InterfaceArgs{childArgsWithID, parentArgsWithID},
-		"parent-child-with-ids":      []state.InterfaceArgs{parentArgsWithID, childArgsWithID},
-		"parent-with-id-child-no-id": []state.InterfaceArgs{parentArgsWithID, childArgs},
-		"child-no-id-parent-with-id": []state.InterfaceArgs{childArgs, parentArgsWithID},
-		"child-with-id-parent-no-id": []state.InterfaceArgs{childArgsWithID, parentArgs},
+	argsPermutations := map[string][]state.LinkLayerDeviceArgs{
+		"parent-child-no-ids":        []state.LinkLayerDeviceArgs{parentArgs, childArgs},
+		"child-parent-no-ids":        []state.LinkLayerDeviceArgs{childArgs, parentArgs},
+		"child-parent-with-ids":      []state.LinkLayerDeviceArgs{childArgsWithID, parentArgsWithID},
+		"parent-child-with-ids":      []state.LinkLayerDeviceArgs{parentArgsWithID, childArgsWithID},
+		"parent-with-id-child-no-id": []state.LinkLayerDeviceArgs{parentArgsWithID, childArgs},
+		"child-no-id-parent-with-id": []state.LinkLayerDeviceArgs{childArgs, parentArgsWithID},
+		"child-with-id-parent-no-id": []state.LinkLayerDeviceArgs{childArgsWithID, parentArgs},
 	}
 	isAlreadyExistsOrProviderIDNotUniqueError := func(err error) bool {
 		return err != nil && (errors.IsAlreadyExists(err) || state.IsProviderIDNotUniqueError(err))
@@ -681,14 +666,14 @@ func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
 
 	var wg sync.WaitGroup
 	wg.Add(len(argsPermutations))
-	waitAllStarted := make(chan struct{})                 // sync all goroutines to start simultaneously.
-	successfulArgs := make(chan []state.InterfaceArgs, 1) // only 1 success expected.
+	waitAllStarted := make(chan struct{})                       // sync all goroutines to start simultaneously.
+	successfulArgs := make(chan []state.LinkLayerDeviceArgs, 1) // only 1 success expected.
 	for about, args := range argsPermutations {
-		go func(testAbout string, testArgs []state.InterfaceArgs) {
+		go func(testAbout string, testArgs []state.LinkLayerDeviceArgs) {
 			defer wg.Done()
 			<-waitAllStarted
 
-			err := s.machine.AddInterfaces(testArgs...)
+			err := s.machine.AddLinkLayerDevices(testArgs...)
 			c.Logf("testing %q -> %v", testAbout, err)
 			if err != nil {
 				c.Assert(err, jc.Satisfies, isAlreadyExistsOrProviderIDNotUniqueError)
@@ -709,7 +694,7 @@ func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
 	// Extract the successful parent and child args.
 	addedArgs := <-successfulArgs
 	c.Check(addedArgs, gc.HasLen, 2)
-	var addedChildArgs, addedParentArgs state.InterfaceArgs
+	var addedChildArgs, addedParentArgs state.LinkLayerDeviceArgs
 	for _, args := range addedArgs {
 		if args.ParentName == "" {
 			addedParentArgs = args
@@ -718,18 +703,17 @@ func (s *interfacesStateSuite) TestAddInterfacesWithHighConcurrency(c *gc.C) {
 		}
 	}
 
-	addedInterfaces, err := s.machine.AllInterfaces()
+	addedDevices, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addedInterfaces, gc.HasLen, 2)
+	c.Assert(addedDevices, gc.HasLen, 2)
 	machineID, modelUUID := s.machine.Id(), s.State.ModelUUID()
-	for _, nic := range addedInterfaces {
-		c.Check(nic.Name(), gc.Matches, `(parent|child)`)
-		if nic.Name() == "child" {
-			s.checkAddedInterfaceMatchesArgs(c, nic, addedChildArgs)
-			s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, nic, machineID, modelUUID)
+	for _, device := range addedDevices {
+		c.Check(device.Name(), gc.Matches, `(parent|child)`)
+		if device.Name() == "child" {
+			s.checkAddedDeviceMatchesArgs(c, device, addedChildArgs)
 		} else {
-			s.checkAddedInterfaceMatchesArgs(c, nic, addedParentArgs)
-			s.checkAddedInterfaceMatchesMachineIDAndModelUUID(c, nic, machineID, modelUUID)
+			s.checkAddedDeviceMatchesArgs(c, device, addedParentArgs)
 		}
+		s.checkAddedDeviceMatchesMachineIDAndModelUUID(c, device, machineID, modelUUID)
 	}
 }

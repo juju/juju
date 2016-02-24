@@ -16,291 +16,255 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// interfaceDoc describes the persistent state of a machine network interface.
-type interfaceDoc struct {
-	// DocID is the interface global key, prefixed by ModelUUID.
+// linkLayerDeviceDoc describes the persistent state of a link-layer network
+// device for a machine.
+type linkLayerDeviceDoc struct {
+	// DocID is the link-layer device global key, prefixed by ModelUUID.
 	DocID string `bson:"_id"`
 
-	// Name is the device name of the interface as it appears on the machine.
+	// Name is the name of the network device as it appears on the machine.
 	Name string `bson:"name"`
 
-	// ModelUUID is the UUID of the model this interface is part of.
+	// ModelUUID is the UUID of the model this device belongs to.
 	ModelUUID string `bson:"model-uuid"`
 
-	// Index is the zero-based device index of the interface as it appears on
-	// the machine.
+	// Index is the zero-based index of the device as it appears on the machine.
 	Index uint `bson:"index"`
 
-	// MTU is the maximum transmission unit the interface can handle.
+	// MTU is the maximum transmission unit the device can handle.
 	MTU uint `bson:"mtu"`
 
-	// ProviderID is a provider-specific ID of the interface, prefixed by
+	// ProviderID is a provider-specific ID of the device, prefixed by
 	// ModelUUID. Empty when not supported by the provider.
 	ProviderID string `bson:"providerid,omitempty"`
 
-	// MachineID is the ID of the machine where this interface is located.
+	// MachineID is the ID of the machine this device belongs to.
 	MachineID string `bson:"machine-id"`
 
-	// Type is the type of the interface related to the underlying device.
-	Type InterfaceType `bson:"type"`
+	// Type is the undelying type of the device.
+	Type LinkLayerDeviceType `bson:"type"`
 
-	// HardwareAddress is the hardware address for the interface, usually a MAC
-	// address.
-	HardwareAddress string `bson:"hardware-address"`
+	// MACAddress is the media access control (MAC) address of the device.
+	MACAddress string `bson:"mac-address"`
 
-	// IsAutoStart is true if the interface should be activated on boot.
+	// IsAutoStart is true if the device should be activated on boot.
 	IsAutoStart bool `bson:"is-auto-start"`
 
-	// IsUp is true when the interface is up (enabled).
+	// IsUp is true when the device is up (enabled).
 	IsUp bool `bson:"is-up"`
 
-	// ParentName is the name of the parent interface, which may be empty.
+	// ParentName is the name of the parent device, which may be empty.
 	ParentName string `bson:"parent-name"`
-
-	// DNSServers is an optional list of DNS nameservers that apply to this
-	// interface.
-	DNSServers []string `bson:"dns-servers,omitempty"`
-
-	// DNSSearchDomains is an optional list of DNS domain names used to
-	// construct a fully-qualified hostname.
-	DNSSearchDomains []string `bson:"dns-search-domains,omitempty"`
-
-	// GatewayAddress is the gateway to use for this interface, which may be
-	// empty.
-	GatewayAddress string `bson:"gateway-address,omitempty"`
 }
 
-// InterfaceType defines the type of a machine network interface.
-type InterfaceType string
+// LinkLayerDeviceType defines the type of a link-layer network device.
+type LinkLayerDeviceType string
 
 const (
-	// UnknownInterface is used for interfaces with unknown type.
-	UnknownInterface InterfaceType = "unknown"
+	// UnknownDevice represents a device of unknown type.
+	UnknownDevice LinkLayerDeviceType = "unknown"
 
-	// LoopbackInterface is used for loopback interfaces.
-	LoopbackInterface InterfaceType = "loopback"
+	// LoopbackDevice is used for loopback devices.
+	LoopbackDevice LinkLayerDeviceType = "loopback"
 
-	// EthernetInterface is used for interfaces representing Ethernet (IEEE
-	// 802.3) devices.
-	EthernetInterface InterfaceType = "ethernet"
+	// EthernetDevice is used for Ethernet (IEEE 802.3) devices.
+	EthernetDevice LinkLayerDeviceType = "ethernet"
 
-	// VLAN_8021QInterface is used for interfaces representing IEEE 802.1Q VLAN
-	// devices.
-	VLAN_8021QInterface InterfaceType = "802.1q"
+	// VLAN_8021QDevice is used for IEEE 802.1Q VLAN devices.
+	VLAN_8021QDevice LinkLayerDeviceType = "802.1q"
 
-	// BondInterface is used for interfaces representing bonding devices.
-	BondInterface InterfaceType = "bond"
+	// BondDevice is used for bonding devices.
+	BondDevice LinkLayerDeviceType = "bond"
 
-	// BridgeInterface is used for interfaces representing an OSI layer-2 bridge
-	// device.
-	BridgeInterface InterfaceType = "bridge"
+	// BridgeDevice is used for OSI layer-2 bridge devices.
+	BridgeDevice LinkLayerDeviceType = "bridge"
 )
 
-// IsValidInterfaceType returns whether the given value is a valid interface
-// type.
-func IsValidInterfaceType(value string) bool {
-	switch InterfaceType(value) {
-	case LoopbackInterface, EthernetInterface,
-		VLAN_8021QInterface,
-		BondInterface, BridgeInterface:
+// IsValidLinkLayerDeviceType returns whether the given value is a valid
+// link-layer network device type.
+func IsValidLinkLayerDeviceType(value string) bool {
+	switch LinkLayerDeviceType(value) {
+	case LoopbackDevice, EthernetDevice,
+		VLAN_8021QDevice,
+		BondDevice, BridgeDevice:
 		return true
 	}
 	return false
 }
 
-// Interface represents the state of a machine network interface.
-type Interface struct {
+// LinkLayerDevice represents the state of a link-layer network device for a
+// machine.
+type LinkLayerDevice struct {
 	st  *State
-	doc interfaceDoc
+	doc linkLayerDeviceDoc
 }
 
-func newInterface(st *State, doc interfaceDoc) *Interface {
-	return &Interface{st: st, doc: doc}
+func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
+	return &LinkLayerDevice{st: st, doc: doc}
 }
 
-// DocID returns the globally unique interface ID, including the model UUID as
-// prefix.
-func (nic *Interface) DocID() string {
-	return nic.st.docID(nic.doc.DocID)
+// DocID returns the globally unique ID of the link-layer device, including the
+// model UUID as prefix.
+func (dev *LinkLayerDevice) DocID() string {
+	return dev.st.docID(dev.doc.DocID)
 }
 
-// Name returns the interface name as it appears on its machine.
-func (nic *Interface) Name() string {
-	return nic.doc.Name
+// Name returns the name of the device, as it appears on the machine.
+func (dev *LinkLayerDevice) Name() string {
+	return dev.doc.Name
 }
 
-// Index returns the interface's device index as it appears on its machine.
-func (nic *Interface) Index() uint {
-	return nic.doc.Index
+// Index returns the index of the device, as it appears on the machine.
+func (dev *LinkLayerDevice) Index() uint {
+	return dev.doc.Index
 }
 
-// MTU returns the maximum transmission unit the interface can handle.
-func (nic *Interface) MTU() uint {
-	return nic.doc.MTU
+// MTU returns the maximum transmission unit the device can handle.
+func (dev *LinkLayerDevice) MTU() uint {
+	return dev.doc.MTU
 }
 
-// ProviderID returns the provider-specific interface ID, if set.
-func (nic *Interface) ProviderID() network.Id {
-	return network.Id(nic.localProviderID())
+// ProviderID returns the provider-specific device ID, if set.
+func (dev *LinkLayerDevice) ProviderID() network.Id {
+	return network.Id(dev.localProviderID())
 }
 
-func (nic *Interface) localProviderID() string {
-	return nic.st.localID(nic.doc.ProviderID)
+func (dev *LinkLayerDevice) localProviderID() string {
+	return dev.st.localID(dev.doc.ProviderID)
 }
 
-// MachineID returns the ID of the machine this interface is on.
-func (nic *Interface) MachineID() string {
-	return nic.doc.MachineID
+// MachineID returns the ID of the machine this device belongs to.
+func (dev *LinkLayerDevice) MachineID() string {
+	return dev.doc.MachineID
 }
 
-// Machine returns the Machine of this interface.
-func (nic *Interface) Machine() (*Machine, error) {
-	return nic.st.Machine(nic.doc.MachineID)
+// Machine returns the Machine this device belongs to.
+func (dev *LinkLayerDevice) Machine() (*Machine, error) {
+	return dev.st.Machine(dev.doc.MachineID)
 }
 
-// Type returns the type of the interface.
-func (nic *Interface) Type() InterfaceType {
-	return nic.doc.Type
+// Type returns this device's underlying type.
+func (dev *LinkLayerDevice) Type() LinkLayerDeviceType {
+	return dev.doc.Type
 }
 
-// HardwareAddress returns the hardware address of the interface, usually a MAC
-// address.
-func (nic *Interface) HardwareAddress() string {
-	return nic.doc.HardwareAddress
+// MACAddress returns the media access control (MAC) address of the device.
+func (dev *LinkLayerDevice) MACAddress() string {
+	return dev.doc.MACAddress
 }
 
-// IsAutoStart returns whether the interface is configured to automatically
-// start on boot.
-func (nic *Interface) IsAutoStart() bool {
-	return nic.doc.IsAutoStart
+// IsAutoStart returns whether the device is set to automatically start on boot.
+func (dev *LinkLayerDevice) IsAutoStart() bool {
+	return dev.doc.IsAutoStart
 }
 
-// IsUp returns whether the interface is currently up.
-func (nic *Interface) IsUp() bool {
-	return nic.doc.IsUp
+// IsUp returns whether the device is currently up.
+func (dev *LinkLayerDevice) IsUp() bool {
+	return dev.doc.IsUp
 }
 
-// ParentName returns the name of this interface's parent interface, if set.
-func (nic *Interface) ParentName() string {
-	return nic.doc.ParentName
+// ParentName returns the name of this device's parent device, if set.
+func (dev *LinkLayerDevice) ParentName() string {
+	return dev.doc.ParentName
 }
 
-// ParentInterface returns the Interface corresponding to this interface's
-// parent (if specified). When no parent interface name is set, it returns nil
-// and no error.
-func (nic *Interface) ParentInterface() (*Interface, error) {
-	if nic.doc.ParentName == "" {
+// ParentDevice returns the LinkLayerDevice corresponding to the parent device
+// of this device, if set. When no parent device name is set, it returns nil and
+// no error.
+func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
+	if dev.doc.ParentName == "" {
 		return nil, nil
 	}
 
-	return nic.machineProxy().Interface(nic.doc.ParentName)
+	return dev.machineProxy().LinkLayerDevice(dev.doc.ParentName)
 }
 
-// machineProxy is a convenience wrapper for calling Machine.Interface() or
-// Machine.forEachInterfaceDoc() from *Interface.
-func (nic *Interface) machineProxy() *Machine {
-	return &Machine{st: nic.st, doc: machineDoc{Id: nic.doc.MachineID}}
+// machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()
+// or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice.
+func (dev *LinkLayerDevice) machineProxy() *Machine {
+	return &Machine{st: dev.st, doc: machineDoc{Id: dev.doc.MachineID}}
 }
 
-// Remove removes the interface, if it exists. No error is returned when the
-// interface was already removed. ErrParentInterfaceHasChildren is returned if
-// this interface is a parent to one or more existing interfaces and therefore
-// cannot be removed.
-func (nic *Interface) Remove() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot remove %s", nic)
+// Remove removes the device, if it exists. No error is returned when the device
+// was already removed. ErrParentDeviceHasChildren is returned if this device is
+// a parent to one or more existing devices and therefore cannot be removed.
+func (dev *LinkLayerDevice) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove %s", dev)
 
 	childrenNames := set.NewStrings()
-	collectChildren := func(resultDoc *interfaceDoc) {
-		if resultDoc.ParentName == nic.doc.Name {
+	collectChildren := func(resultDoc *linkLayerDeviceDoc) {
+		if resultDoc.ParentName == dev.doc.Name {
 			childrenNames.Add(resultDoc.Name)
 		}
 	}
 	selectOnly := bson.D{{"_id", 1}, {"name", 1}, {"parent-name", 1}}
-	err = nic.machineProxy().forEachInterfaceDoc(selectOnly, collectChildren)
+	err = dev.machineProxy().forEachLinkLayerDeviceDoc(selectOnly, collectChildren)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !childrenNames.IsEmpty() {
-		return newParentInterfaceHasChildrenError(nic.doc.Name, childrenNames.SortedValues())
+		return newParentDeviceHasChildrenError(dev.doc.Name, childrenNames.SortedValues())
 	}
 
-	ops := []txn.Op{removeInterfaceOp(nic.doc.DocID)}
-	return nic.st.runTransaction(ops)
+	ops := []txn.Op{removeLinkLayerDeviceOp(dev.doc.DocID)}
+	return dev.st.runTransaction(ops)
 }
 
-// insertInterfaceDocOp returns an operation inserting the given
-// newInterfaceDoc, asserting it does not exist yet.
-func insertInterfaceDocOp(newInterfaceDoc *interfaceDoc) txn.Op {
+// insertLinkLayerDeviceDocOp returns an operation inserting the given newDoc,
+// asserting it does not exist yet.
+func insertLinkLayerDeviceDocOp(newDoc *linkLayerDeviceDoc) txn.Op {
 	return txn.Op{
-		C:      interfacesC,
-		Id:     newInterfaceDoc.DocID,
+		C:      linkLayerDevicesC,
+		Id:     newDoc.DocID,
 		Assert: txn.DocMissing,
-		Insert: *newInterfaceDoc,
+		Insert: *newDoc,
 	}
 }
 
-// removeInterfaceOp returns the operation needed to remove the interface with
-// the given interfaceDocID.
-func removeInterfaceOp(interfaceDocID string) txn.Op {
+// removeLinkLayerDeviceOp returns the operation needed to remove the document
+// matching the given linkLayerDeviceDocID.
+func removeLinkLayerDeviceOp(linkLayerDeviceDocID string) txn.Op {
 	return txn.Op{
-		C:      interfacesC,
-		Id:     interfaceDocID,
+		C:      linkLayerDevicesC,
+		Id:     linkLayerDeviceDocID,
 		Remove: true,
 	}
 }
 
-// assertInterfaceExistsOp returns an operation asserting the interface matching
-// interfaceDocID exists.
-func assertInterfaceExistsOp(interfaceDocID string) txn.Op {
+// assertLinkLayerDeviceExistsOp returns an operation asserting the document
+// matching linkLayerDeviceDocID exists.
+func assertLinkLayerDeviceExistsOp(linkLayerDeviceDocID string) txn.Op {
 	return txn.Op{
-		C:      interfacesC,
-		Id:     interfaceDocID,
+		C:      linkLayerDevicesC,
+		Id:     linkLayerDeviceDocID,
 		Assert: txn.DocExists,
 	}
 }
 
-// DNSServers returns the list of DNS nameservers that apply to this interface,
-// if they are known, or an empty slice otherwise.
-func (nic *Interface) DNSServers() []string {
-	return nic.doc.DNSServers
+// String returns a human-readable representation of the device.
+func (dev *LinkLayerDevice) String() string {
+	return fmt.Sprintf("%s device %q on machine %q", dev.doc.Type, dev.doc.Name, dev.doc.MachineID)
 }
 
-// DNSSearchDomains returns the list of DNS domain names used to qualify
-// hostnames. Can be empty when not set.
-func (nic *Interface) DNSSearchDomains() []string {
-	return nic.doc.DNSSearchDomains
+func (dev *LinkLayerDevice) globalKey() string {
+	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.Name)
 }
 
-// GatewayAddress returns the address of the gateway to use for this interface,
-// if set.
-func (nic *Interface) GatewayAddress() string {
-	return nic.doc.GatewayAddress
-}
-
-// String returns the interface as a human-readable string.
-func (nic *Interface) String() string {
-	return fmt.Sprintf("%s interface %q on machine %q", nic.doc.Type, nic.doc.Name, nic.doc.MachineID)
-}
-
-func (nic *Interface) globalKey() string {
-	return interfaceGlobalKey(nic.doc.MachineID, nic.doc.Name)
-}
-
-func interfaceGlobalKey(machineID, interfaceName string) string {
-	if machineID == "" || interfaceName == "" {
+func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
+	if machineID == "" || deviceName == "" {
 		return ""
 	}
-	return "m#" + machineID + "i#" + interfaceName
+	return "m#" + machineID + "#d#" + deviceName
 }
 
-// IsValidInterfaceName returns whether the given interfaceName is a valid
-// network device name, depending on the runtime.GOOS value.
-func IsValidInterfaceName(interfaceName string) bool {
+// IsValidLinkLayerDeviceName returns whether the given name is a valid network
+// link-layer device name, depending on the runtime.GOOS value.
+func IsValidLinkLayerDeviceName(name string) bool {
 	if runtimeGOOS == "linux" {
-		return isValidLinuxDeviceName(interfaceName)
+		return isValidLinuxDeviceName(name)
 	}
-	hasHash := strings.Contains(interfaceName, "#")
-	return !hasHash && stringLengthBetween(interfaceName, 1, 255)
+	hasHash := strings.Contains(name, "#")
+	return !hasHash && stringLengthBetween(name, 1, 255)
 }
 
 // runtimeGOOS is defined to allow patching in tests.
@@ -312,11 +276,11 @@ var runtimeGOOS = runtime.GOOS
 // - length from 1 to 15 ASCII characters
 // - literal "." and ".." as names are not allowed.
 // Additionally, we don't allow "#" in the name.
-func isValidLinuxDeviceName(deviceName string) bool {
-	hasWhitespace := whitespaceReplacer.Replace(deviceName) != deviceName
-	isDot, isDoubleDot := deviceName == ".", deviceName == ".."
-	hasValidLength := stringLengthBetween(deviceName, 1, 15)
-	hasHash := strings.Contains(deviceName, "#")
+func isValidLinuxDeviceName(name string) bool {
+	hasWhitespace := whitespaceReplacer.Replace(name) != name
+	isDot, isDoubleDot := name == ".", name == ".."
+	hasValidLength := stringLengthBetween(name, 1, 15)
+	hasHash := strings.Contains(name, "#")
 
 	return hasValidLength && !(hasHash || hasWhitespace || isDot || isDoubleDot)
 }
