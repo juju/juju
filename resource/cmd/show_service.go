@@ -53,7 +53,9 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 		Args:    "service-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
-This command shows the resources required by and those in use by an existing service or unit in your model.
+This command shows the resources required by and those in use by an existing
+service or unit in your model.  When run for a service, it will also show any
+updates available for resources from the charmstore.
 `,
 	}
 }
@@ -119,20 +121,19 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
 	if c.details {
-		formatted, err := detailedResources("", sr)
+		formatted, err := FormatServiceDetails(sr)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
 		return c.out.Write(ctx, formatted)
 	}
 
-	res := make([]FormattedSvcResource, len(sr.Resources))
-
-	for i, r := range sr.Resources {
-		res[i] = FormatSvcResource(r)
+	formatted, err := formatServiceResources(sr)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	return c.out.Write(ctx, res)
+	return c.out.Write(ctx, formatted)
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
@@ -158,26 +159,6 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 
 }
 
-func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDetailResource, error) {
-	var formatted []FormattedDetailResource
-	for _, ur := range sr.UnitResources {
-		if unit == "" || unit == ur.Tag.Id() {
-			units := resourceMap(ur.Resources)
-			for _, svc := range sr.Resources {
-				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name])
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				formatted = append(formatted, f)
-			}
-			if unit != "" {
-				break
-			}
-		}
-	}
-	return formatted, nil
-}
-
 func unitResources(unit, service string, v resource.ServiceResources) ([]resource.Resource, error) {
 	for _, res := range v.UnitResources {
 		if res.Tag.Id() == unit {
@@ -188,12 +169,4 @@ func unitResources(unit, service string, v resource.ServiceResources) ([]resourc
 	// resources and a unit that doesn't exist. This requires a serverside
 	// change.
 	return nil, nil
-}
-
-func resourceMap(resources []resource.Resource) map[string]resource.Resource {
-	m := make(map[string]resource.Resource, len(resources))
-	for _, res := range resources {
-		m[res.Name] = res
-	}
-	return m
 }
