@@ -59,13 +59,24 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	if remote == remoteIDForLocal || host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
 	}
+
+	clientCert := ""
+	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
+		clientCert = string(cfg.Remote.Cert.CertPEM)
+	}
+
+	clientKey := ""
+	if cfg.Remote.Cert != nil && cfg.Remote.Cert.KeyPEM != nil {
+		clientKey = string(cfg.Remote.Cert.KeyPEM)
+	}
+
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
 		Name: cfg.Remote.ID(),
 		Addr: host,
 		// TODO: jam 2016-02-24 get this information from
 		// 	'Remote'
-		ClientPEMCert: string(cfg.Remote.Cert.CertPEM),
-		ClientPEMKey:  string(cfg.Remote.Cert.KeyPEM),
+		ClientPEMCert: clientCert,
+		ClientPEMKey:  clientKey,
 		// TODO: jam 2016-02-24 we should be caching the LXD server
 		// certificate somewhere, and passing it in here so that our
 		// connection is properly validated.
