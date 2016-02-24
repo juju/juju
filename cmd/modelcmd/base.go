@@ -82,7 +82,11 @@ func (c *JujuCommandBase) NewAPIRoot(
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(store, controllerName, modelName)
+	actualControllerName, _, err := jujuclient.LocalControllerByName(store, controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext.newAPIRoot(store, actualControllerName, modelName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded

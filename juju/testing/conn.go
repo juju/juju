@@ -299,10 +299,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
-	controller, err := s.ControllerStore.ControllerByName("local.dummymodel")
+	controller, err := s.ControllerStore.ControllerByName("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
-	err = s.ControllerStore.UpdateController("local.dummymodel", *controller)
+	err = s.ControllerStore.UpdateController("dummymodel", *controller)
 	c.Assert(err, jc.ErrorIsNil)
 	err = modelcmd.WriteCurrentController("dummymodel")
 	c.Assert(err, jc.ErrorIsNil)
