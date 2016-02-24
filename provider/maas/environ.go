@@ -102,6 +102,45 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 	return subnetsMap, nil
 }
 
+func fetchAllSpaces(spaces gomaasapi.MAASObject) ([]network.SpaceInfo, error) {
+	spacesJson, err := spaces.CallGet("list", nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spacesArray, err := spacesJson.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spaceList := []network.SpaceInfo{}
+	for _, spaceJson := range spacesArray {
+		spaceMap, err := spaceJson.GetMap()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerIdRaw, err := spaceMap["id"].GetFloat64()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
+		subnetsArray, err := spaceMap["subnets"].GetArray()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnetJson := range subnetsArray {
+			subnetMap, err := subnetJson.GetMap()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnet, err := subnetMap["cidr"].GetString()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnetsMap[subnet] = providerId
+		}
+	}
+	return subnetsMap, nil
+}
+
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
 	return err
