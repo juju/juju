@@ -442,7 +442,33 @@ func (s *EngineSuite) TestErrUninstall(c *gc.C) {
 	mh2.AssertOneStart(c)
 }
 
-func (s *EngineSuite) TestFilterError(c *gc.C) {
+func (s *EngineSuite) TestFilterStartError(c *gc.C) {
+	engine, err := dependency.NewEngine(dependency.EngineConfig{
+		IsFatal:     func(error) bool { return true },
+		WorstError:  func(err, _ error) error { return err },
+		ErrorDelay:  coretesting.ShortWait / 2,
+		BounceDelay: coretesting.ShortWait / 10,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	startErr := errors.New("grr crunch")
+	filterErr := errors.New("mew hiss")
+
+	err = engine.Install("task", dependency.Manifold{
+		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+			return nil, startErr
+		},
+		Filter: func(in error) error {
+			c.Check(in, gc.Equals, startErr)
+			return filterErr
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = engine.Wait()
+	c.Check(err, gc.Equals, filterErr)
+}
+
+func (s *EngineSuite) TestFilterWorkerError(c *gc.C) {
 	engine, err := dependency.NewEngine(dependency.EngineConfig{
 		IsFatal:     func(error) bool { return true },
 		WorstError:  func(err, _ error) error { return err },
