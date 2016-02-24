@@ -35,6 +35,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 	store.Accounts["foo"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "bar@baz",
 	}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "foo")
 }
 
@@ -47,6 +48,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	store.Accounts["explicit"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "bar@baz",
 	}
+	store.Controllers["explicit"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "explicit", "-c", "explicit")
 	testEnsureControllerName(c, store, "explicit", "--controller", "explicit")
 }
@@ -102,25 +104,31 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestLocalNameFound(c *gc.C) {
-	name, err := modelcmd.ResolveControllerByName(s.store, "local.controller")
+	name, err := modelcmd.ResolveControllerName(s.store, "local.controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.DeepEquals, "local.controller")
 }
 
 func (s *ControllerSuite) TestLocalNameFallback(c *gc.C) {
-	name, err := modelcmd.ResolveControllerByName(s.store, "controller")
+	name, err := modelcmd.ResolveControllerName(s.store, "controller")
 	c.Assert(name, gc.DeepEquals, "local.controller")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestNonLocalController(c *gc.C) {
-	name, err := modelcmd.ResolveControllerByName(s.store, "anothercontroller")
+	name, err := modelcmd.ResolveControllerName(s.store, "anothercontroller")
 	c.Assert(name, gc.DeepEquals, "anothercontroller")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ControllerSuite) TestOnlyLocalController(c *gc.C) {
+	name, err := modelcmd.ResolveControllerName(s.store, "local.anothercontroller")
+	c.Assert(name, gc.DeepEquals, "local.anothercontroller")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ControllerSuite) TestNotFound(c *gc.C) {
-	_, err := modelcmd.ResolveControllerByName(s.store, "foo")
+	_, err := modelcmd.ResolveControllerName(s.store, "foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// We should report on the passed in controller name.
 	c.Assert(err, gc.ErrorMatches, ".* foo .*")

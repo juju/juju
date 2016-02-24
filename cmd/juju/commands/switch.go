@@ -101,7 +101,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// If the target identifies a controller, then set that as the current controller.
 	var newControllerName string
-	if newControllerName, err = modelcmd.ResolveControllerByName(c.Store, c.Target); err == nil {
+	if newControllerName, err = modelcmd.ResolveControllerName(c.Store, c.Target); err == nil {
 		if newControllerName == currentControllerName {
 			newName = currentName
 			return nil
@@ -123,7 +123,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	newControllerName, modelName := modelcmd.SplitModelName(c.Target)
 	if newControllerName != "" {
 		// A controller was specified so see if we should use a local version.
-		newControllerName, err = modelcmd.ResolveControllerByName(c.Store, newControllerName)
+		newControllerName, err = modelcmd.ResolveControllerName(c.Store, newControllerName)
 		if err == nil {
 			newName = modelcmd.JoinModelName(newControllerName, modelName)
 		} else {
