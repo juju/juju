@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/jujuclient"
 )
 
 // NewDestroyCommand returns a command to destroy a controller.
@@ -98,15 +97,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	controllerName := c.ControllerName()
-	// See if controller name should be thunked to local.controllername"
-	actualControllerName, _, err := jujuclient.LocalControllerByName(c.ClientStore(), controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if err == nil {
-		controllerName = actualControllerName
-	}
-
 	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
 		controllerName, configstore.AdminModelName(controllerName),
 	))

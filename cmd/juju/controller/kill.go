@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/jujuclient"
 )
 
 const killDoc = `
@@ -90,13 +89,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	controllerName := c.ControllerName()
-	actualControllerName, _, err := jujuclient.LocalControllerByName(c.ClientStore(), controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if err == nil {
-		controllerName = actualControllerName
-	}
 	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
 		controllerName, configstore.AdminModelName(controllerName),
 	))

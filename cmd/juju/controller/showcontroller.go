@@ -61,9 +61,13 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 	}
 	controllers := make(map[string]ShowControllerDetails)
 	for _, name := range controllerNames {
-		actualName, one, err := jujuclient.LocalControllerByName(c.store, name)
+		actualName, err := modelcmd.ResolveControllerByName(c.store, name)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get controller %s", name)
+			return err
+		}
+		one, err := c.store.ControllerByName(actualName)
+		if err != nil {
+			return err
 		}
 		controllers[name] = c.convertControllerForShow(actualName, one)
 	}
