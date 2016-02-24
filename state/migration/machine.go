@@ -627,11 +627,6 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	var tags []string
-	if vtags, ok := valid["tags"]; ok {
-		tags = vtags.([]string)
-	}
-
 	return &cloudInstance{
 		Version:           1,
 		InstanceId_:       valid["instance-id"].(string),
@@ -641,7 +636,7 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		RootDisk_:         valid["root-disk"].(uint64),
 		CpuCores_:         valid["cpu-cores"].(uint64),
 		CpuPower_:         valid["cpu-power"].(uint64),
-		Tags_:             tags,
+		Tags_:             convertToStringSlice(valid["tags"]),
 		AvailabilityZone_: valid["availability-zone"].(string),
 	}, nil
 }

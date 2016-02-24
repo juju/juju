@@ -136,8 +136,8 @@ type PortRange interface {
 	Protocol() string
 }
 
-// CloudInstance holds information particular to a machine
-// instance in a cloud.
+// CloudInstance holds information about particular deployment
+// constraints for services.
 type CloudInstance interface {
 	InstanceId() string
 	Status() string
@@ -148,6 +148,21 @@ type CloudInstance interface {
 	CpuPower() uint64
 	Tags() []string
 	AvailabilityZone() string
+}
+
+// Constraints holds information particular to a machine
+// instance in a cloud.
+type Constraints interface {
+	Architecture() string
+	Container() string
+	CpuCores() uint64
+	CpuPower() uint64
+	InstanceType() string
+	Memory() uint64
+	RootDisk() uint64
+
+	Spaces() []string
+	Tags() []string
 }
 
 // Status represents an agent, service, or workload status.

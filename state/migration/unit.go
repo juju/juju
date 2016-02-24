@@ -258,14 +258,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		MeterStatusInfo_: valid["meter-status-info"].(string),
 	}
 
-	if subordinates, ok := valid["subordinates"]; ok {
-		subordinatesList := subordinates.([]interface{})
-		s := make([]string, len(subordinatesList))
-		for i, subordinate := range subordinatesList {
-			s[i] = subordinate.(string)
-		}
-		result.Subordinates_ = s
-	}
+	result.Subordinates_ = convertToStringSlice(valid["subordinates"])
 
 	// Tools and status are required, so we expect them to be there.
 	tools, err := importAgentTools(valid["tools"].(map[string]interface{}))
