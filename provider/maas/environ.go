@@ -1929,7 +1929,7 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
-	spacesJson, err := spacesClient.CallGet("list", nil)
+	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
