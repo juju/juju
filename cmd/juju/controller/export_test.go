@@ -69,15 +69,20 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
-func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return modelcmd.WrapController(
-		&destroyCommand{
-			destroyCommandBase: destroyCommandBase{
-				api:       api,
-				clientapi: clientapi,
-				apierr:    apierr,
-			},
+func NewDestroyCommandForTest(
+	api destroyControllerAPI, clientapi destroyClientAPI, apierr error,
+	testStore jujuclient.ClientStore,
+) cmd.Command {
+	destroyCmd := &destroyCommand{
+		destroyCommandBase: destroyCommandBase{
+			api:       api,
+			clientapi: clientapi,
+			apierr:    apierr,
 		},
+	}
+	destroyCmd.SetClientStore(testStore)
+	return modelcmd.WrapController(
+		destroyCmd,
 		modelcmd.ControllerSkipFlags,
 		modelcmd.ControllerSkipDefault,
 	)
@@ -91,6 +96,7 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen modelcmd.APIOpener,
+	testStore jujuclient.ClientStore,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
@@ -99,6 +105,7 @@ func NewKillCommandForTest(
 			apierr:    apierr,
 		},
 	}
+	kill.SetClientStore(testStore)
 	return wrapKillCommand(kill, apiOpen, clock)
 }
 

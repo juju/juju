@@ -130,6 +130,12 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 			return errors.Trace(err)
 		}
 		controllerName = currentController
+	} else {
+		var err error
+		controllerName, _, err = jujuclient.LocalControllerByName(c.store, controllerName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	c.controllerName, c.modelName = controllerName, modelName
 	return nil
