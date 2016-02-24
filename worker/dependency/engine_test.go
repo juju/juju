@@ -442,6 +442,33 @@ func (s *EngineSuite) TestErrUninstall(c *gc.C) {
 	mh2.AssertOneStart(c)
 }
 
+func (s *EngineSuite) TestFilterError(c *gc.C) {
+	engine, err := dependency.NewEngine(dependency.EngineConfig{
+		IsFatal:     func(error) bool { return true },
+		WorstError:  func(err, _ error) error { return err },
+		ErrorDelay:  coretesting.ShortWait / 2,
+		BounceDelay: coretesting.ShortWait / 10,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	injectErr := errors.New("arg squish")
+	filterErr := errors.New("blam dink")
+
+	mh := newManifoldHarness()
+	manifold := mh.Manifold()
+	manifold.Filter = func(in error) error {
+		c.Check(in, gc.Equals, injectErr)
+		return filterErr
+	}
+	err = engine.Install("task", manifold)
+	c.Assert(err, jc.ErrorIsNil)
+	mh.AssertOneStart(c)
+
+	mh.InjectError(c, injectErr)
+	err = engine.Wait()
+	c.Check(err, gc.Equals, filterErr)
+}
+
 // TestWorstError starts an engine with two manifolds that always error
 // with fatal errors. We test that the most important error is the one
 // returned by the engine.
