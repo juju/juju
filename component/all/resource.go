@@ -71,27 +71,6 @@ func (r resources) registerPublicFacade() {
 	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
 }
 
-type dataStore struct {
-	corestate.Resources
-	st *corestate.State
-}
-
-// Units returns the unitIDs for all units in the service
-func (d dataStore) Units(serviceID string) (unitIDs []string, err error) {
-	svc, err := d.st.Service(serviceID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	units, err := svc.AllUnits()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, u := range units {
-		unitIDs = append(unitIDs, u.Tag().Id())
-	}
-	return unitIDs
-}
-
 // newPublicFacade is passed into common.RegisterStandardFacade
 // in registerPublicFacade.
 func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
@@ -104,9 +83,9 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ds := dataStore{
+	ds := resourceadapters.DataStore{
 		Resources: rst,
-		st:        st,
+		State:     st,
 	}
 	return server.NewFacade(ds), nil
 }

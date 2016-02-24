@@ -28,13 +28,13 @@ const (
 type DataStore interface {
 	resourceInfoStore
 	UploadDataStore
-	Units(serviceID string) (unitIDs []string, err error)
+	Units(serviceID string) (units []names.UnitTag, err error)
 }
 
 // Facade is the public API facade for resources.
 type Facade struct {
 	// store is the data source for the facade.
-	store resourceInfoStore
+	store DataStore
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
@@ -74,7 +74,11 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			continue
 		}
 
-		units := f.store.Units(tag.Id())
+		units, err := f.store.Units(tag.Id())
+		if err != nil {
+			r.Results[i] = errorResult(err)
+			continue
+		}
 
 		svcRes, err := f.store.ListResources(tag.Id())
 		if err != nil {
@@ -86,14 +90,19 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 		for _, res := range svcRes.Resources {
 			result.Resources = append(result.Resources, api.Resource2API(res))
 		}
+		unitResources := make(map[names.UnitTag]resource.UnitResources, len(svcRes.UnitResources))
 		for _, unitRes := range svcRes.UnitResources {
-			unit := api.UnitResources{
-				Entity: params.Entity{Tag: unitRes.Tag.String()},
+			unitResources[unitRes.Tag] = unitRes
+		}
+
+		for _, tag := range units {
+			apiRes := api.UnitResources{
+				Entity: params.Entity{Tag: tag.String()},
 			}
-			for _, res := range unitRes.Resources {
-				unit.Resources = append(unit.Resources, api.Resource2API(res))
+			for _, res := range unitResources[tag].Resources {
+				apiRes.Resources = append(apiRes.Resources, api.Resource2API(res))
 			}
-			result.UnitResources = append(result.UnitResources, unit)
+			result.UnitResources = append(result.UnitResources, apiRes)
 		}
 
 		result.CharmStoreResources = make([]api.CharmResource, len(svcRes.CharmStoreResources))
