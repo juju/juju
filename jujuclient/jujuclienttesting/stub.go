@@ -6,6 +6,7 @@ package jujuclienttesting
 import (
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -25,11 +26,15 @@ type StubStore struct {
 	ModelByNameFunc     func(controller, account, model string) (*jujuclient.ModelDetails, error)
 
 	UpdateAccountFunc     func(controllerName, accountName string, details jujuclient.AccountDetails) error
-	SetCurrentAccountFunc func(controllerName, accountName string) error
-	AllAccountsFunc       func(controllerName string) (map[string]jujuclient.AccountDetails, error)
-	CurrentAccountFunc    func(controllerName string) (string, error)
-	AccountByNameFunc     func(controllerName, accountName string) (*jujuclient.AccountDetails, error)
-	RemoveAccountFunc     func(controllerName, accountName string) error
+	SetCurrentAccountFunc   func(controllerName, accountName string) error
+	AllAccountsFunc         func(controllerName string) (map[string]jujuclient.AccountDetails, error)
+	CurrentAccountFunc      func(controllerName string) (string, error)
+	AccountByNameFunc       func(controllerName, accountName string) (*jujuclient.AccountDetails, error)
+	RemoveAccountFunc       func(controllerName, accountName string) error
+
+	CredentialsForCloudFunc func(string) (*cloud.CloudCredential, error)
+	AllCredentialsFunc      func() (map[string]cloud.CloudCredential, error)
+	UpdateCredentialsFunc   func(cloudName string, details cloud.CloudCredential) error
 }
 
 func NewStubStore() *StubStore {
@@ -87,6 +92,15 @@ func NewStubStore() *StubStore {
 		return result.Stub.NextErr()
 	}
 
+	result.CredentialsForCloudFunc = func(string) (*cloud.CloudCredential, error) {
+		return nil, result.Stub.NextErr()
+	}
+	result.AllCredentialsFunc = func() (map[string]cloud.CloudCredential, error) {
+		return nil, result.Stub.NextErr()
+	}
+	result.UpdateCredentialsFunc = func(cloudName string, details cloud.CloudCredential) error {
+		return result.Stub.NextErr()
+	}
 	return result
 }
 
@@ -184,4 +198,22 @@ func (c *StubStore) AccountByName(controllerName, accountName string) (*jujuclie
 func (c *StubStore) RemoveAccount(controllerName, accountName string) error {
 	c.MethodCall(c, "RemoveAccount", controllerName, accountName)
 	return c.RemoveAccountFunc(controllerName, accountName)
+}
+
+// CredentialsForCloud implements CredentialsGetter.
+func (c *StubStore) CredentialsForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	c.MethodCall(c, "CredentialsForCloud", cloudName)
+	return c.CredentialsForCloudFunc(cloudName)
+}
+
+// AllCredentials implements CredentialsGetter.
+func (c *StubStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	c.MethodCall(c, "AllCredentials")
+	return c.AllCredentialsFunc()
+}
+
+// UpdateCredentials implements CredentialsUpdater.
+func (c *StubStore) UpdateCredentials(cloudName string, details cloud.CloudCredential) error {
+	c.MethodCall(c, "UpdateCredentials", cloudName, details)
+	return c.UpdateCredentialsFunc(cloudName, details)
 }

@@ -36,5 +36,5 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
-	c.Assert(credentials[0], jc.DeepEquals, cloud.NewEmptyCredential())
+	c.Assert(credentials[0], jc.DeepEquals, environs.NamedCredential{Credential: cloud.NewEmptyCredential()})
 }

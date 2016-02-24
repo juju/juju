@@ -489,7 +489,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
-	c.Assert(err, gc.ErrorMatches, `error reading controller "devcontroller" info: oh noes`)
+	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
 }
 
 // When attempting to bootstrap, check that when prepare errors out,
@@ -1046,6 +1046,6 @@ func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (noCredentialsProvider) DetectCredentials() ([]cloud.Credential, error) {
+func (noCredentialsProvider) DetectCredentials() ([]environs.NamedCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }
