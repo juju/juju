@@ -77,9 +77,13 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	}
 }
 
-func formatServiceResources(sr resource.ServiceResources) FormattedServiceInfo {
-	updates := sr.Updates()
-	formatted := FormattedServiceInfo{
+func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo, error) {
+	var formatted FormattedServiceInfo
+	updates, err := sr.Updates()
+	if err != nil {
+		return formatted, errors.Trace(err)
+	}
+	formatted = FormattedServiceInfo{
 		Resources: make([]FormattedSvcResource, len(sr.Resources)),
 		Updates:   make([]FormattedCharmResource, len(updates)),
 	}
@@ -90,7 +94,7 @@ func formatServiceResources(sr resource.ServiceResources) FormattedServiceInfo {
 	for i, u := range updates {
 		formatted.Updates[i] = FormatCharmResource(u)
 	}
-	return formatted
+	return formatted, nil
 }
 
 // FormatServiceDetails converts a ServiceResources value into a formatted value
@@ -101,7 +105,10 @@ func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails
 	if err != nil {
 		return formatted, errors.Trace(err)
 	}
-	updates := sr.Updates()
+	updates, err := sr.Updates()
+	if err != nil {
+		return formatted, errors.Trace(err)
+	}
 	formatted = FormattedServiceDetails{
 		Resources: details,
 		Updates:   make([]FormattedCharmResource, len(updates)),

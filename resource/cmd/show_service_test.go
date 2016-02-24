@@ -144,6 +144,20 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 					Revision: 15,
 					Origin:   charmresource.OriginStore,
 				},
+				{
+					Meta: charmresource.Meta{
+						Name:        "website",
+						Description: "your website data",
+					},
+					Origin: charmresource.OriginUpload,
+				},
+				{
+					Meta: charmresource.Meta{
+						Name:        "website2",
+						Description: "awesome data",
+					},
+					Origin: charmresource.OriginUpload,
+				},
 			},
 		},
 	}
@@ -156,8 +170,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	}
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stderr, gc.Equals, "")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
 [Service]
@@ -266,6 +280,30 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
 		},
+		CharmStoreResources: []charmresource.Resource{
+			{
+				Meta: charmresource.Meta{
+					Name:        "alpha",
+					Description: "a big comment",
+				},
+				Origin:   charmresource.OriginStore,
+				Revision: 15,
+			},
+			{
+				Meta: charmresource.Meta{
+					Name:        "charlie",
+					Description: "awesome data",
+				},
+				Origin: charmresource.OriginUpload,
+			},
+			{
+				Meta: charmresource.Meta{
+					Name:        "beta",
+					Description: "more data",
+				},
+				Origin: charmresource.OriginUpload,
+			},
+		},
 		UnitResources: []resource.UnitResources{
 			{
 				Tag: names.NewUnitTag("svc/10"),
@@ -346,8 +384,8 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	}
 
 	code, stdout, stderr := runCmd(c, cmd, "svc", "--details")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stderr, gc.Equals, "")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
 [Units]

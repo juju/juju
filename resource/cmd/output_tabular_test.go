@@ -231,12 +231,20 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 			Revision: 99,
 			Origin:   charmresource.OriginStore,
 		},
+		{
+			Meta: charmresource.Meta{
+				Name:        "website",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+			},
+		},
 	}
 
-	formatted := formatServiceResources(resource.ServiceResources{
+	formatted, err := formatServiceResources(resource.ServiceResources{
 		Resources:           res,
 		CharmStoreResources: charmResources,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := FormatSvcTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)

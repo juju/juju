@@ -129,7 +129,10 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 		return c.out.Write(ctx, formatted)
 	}
 
-	formatted := formatServiceResources(sr)
+	formatted, err := formatServiceResources(sr)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return c.out.Write(ctx, formatted)
 }
 
