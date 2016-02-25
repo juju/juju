@@ -142,7 +142,10 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 					existingCredNames.Add(n)
 				}
 				newCredNames := set.NewStrings()
-				for n := range detected.AuthCredentials {
+				for n, cred := range detected.AuthCredentials {
+					if cred.AuthType() == jujucloud.EmptyAuthType {
+						continue
+					}
 					newCredNames.Add(credentialLabel(n))
 				}
 				if !existingCredNames.Intersection(newCredNames).IsEmpty() {
