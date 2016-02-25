@@ -51,7 +51,7 @@ var configSchema = environschema.Fields{
 		Immutable:   true,
 	},
 	cfgServerPEMCert: {
-		Description: `The server cert of the LXD host machine.`,
+		Description: `The certificate of the LXD server on the host machine.`,
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
@@ -88,7 +88,9 @@ var (
 		return names
 	}()
 
-	configSecretFields = []string{}
+	configSecretFields = []string{
+		cfgClientKey, // only priviledged agents should get to talk to LXD
+	}
 )
 
 func updateDefaults(defaults schema.Defaults, updates schema.Defaults) schema.Defaults {
