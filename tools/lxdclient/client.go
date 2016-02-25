@@ -79,7 +79,7 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 		// TODO: jam 2016-02-24 we should be caching the LXD server
 		// certificate somewhere, and passing it in here so that our
 		// connection is properly validated.
-		ServerPEMCert: "",
+		ServerPEMCert: cfg.ServerPEMCert,
 	})
 	if err != nil {
 		if remote == remoteIDForLocal {

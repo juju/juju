@@ -19,6 +19,10 @@ type Config struct {
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
 	Remote Remote
+
+	// ServerPEMCert is the certificate to be supplied as the acceptable
+	// server certificate when connecting to the remote.
+	ServerPEMCert string
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -71,30 +75,37 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	}
 
 	// Update the server config and authorized certs.
-	if err := prepareRemote(cfg, *remote.Cert); err != nil {
+	serverCert, err := prepareRemote(cfg, *remote.Cert)
+	if err != nil {
 		return cfg, errors.Trace(err)
 	}
 
 	cfg.Remote = remote
+	cfg.ServerPEMCert = serverCert
 	return cfg, nil
 }
 
-func prepareRemote(cfg Config, newCert Cert) error {
+func prepareRemote(cfg Config, newCert Cert) (string, error) {
 	client, err := Connect(cfg)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Make sure the LXD service is configured to listen to local https
 	// requests, rather than only via the Unix socket.
 	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Make sure the LXD service will allow our certificate to connect
 	if err := client.AddCert(newCert); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	return nil
+	st, err := client.ServerStatus()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return st.Environment.Certificate, nil
 }
