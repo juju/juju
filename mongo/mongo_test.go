@@ -657,7 +657,7 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 		},
 		Port: environs.DefaultStatePort}}
 
-	address := mongo.SelectPeerHostPort(hostPorts, network.SpaceName(""))
+	address := mongo.SelectPeerHostPort(hostPorts, network.SpaceName(""), false)
 	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(environs.DefaultStatePort))
 }
 

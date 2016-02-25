@@ -70,16 +70,6 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	// Filter out any LXC bridge addresses. See LP bug #1416928.
 	hpsToSet := make([][]network.HostPort, 0, len(addresses))
 	for _, hostPorts := range addresses {
-		// First try to keep only addresses in the default space where all API servers are on.
-		defaultSpaceHPs, ok := network.SelectHostPortBySpace(hostPorts, []network.SpaceName{network.DefaultSpace})
-		if ok {
-			hpsToSet = append(hpsToSet, defaultSpaceHPs)
-			continue
-		} else {
-			// As a fallback, use the old behavior.
-			logger.Warningf("cannot determine API addresses by space %q (using all as fallback)", network.DefaultSpace)
-		}
-
 		// Strip ports, filter, then add ports again.
 		filtered := network.FilterLXCAddresses(network.HostsWithoutPort(hostPorts))
 		hps := make([]network.HostPort, 0, len(filtered))

@@ -141,14 +141,28 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
-		"server":  "db",
-		"client":  "client",
-		"cluster": "", // inherited from defaults in AddService.
-		// New endpoints use empty defaults.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"server": "db",
+		"client": "client",
 	})
+}
+
+func endpointNames(c *gc.C, service *state.Service) (endpointNames []string) {
+	eps, err := service.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, ep := range eps {
+		endpointNames = append(endpointNames, ep.Relation.Name)
+	}
+	return endpointNames
+}
+
+func expectedBindings(c *gc.C, service *state.Service, initialBindings map[string]string) map[string]string {
+	expectedBindings := map[string]string{}
+	for _, name := range endpointNames(c, service) {
+		if v, ok := initialBindings[name]; ok {
+			expectedBindings[name] = v
+		}
+	}
+	return expectedBindings
 }
 
 func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
@@ -162,7 +176,7 @@ func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
 
 	initialBindings := map[string]string{
 		"$pull":     "db",
-		"$set.foo":  "",
+		"$set.foo":  "db",
 		"cli ent .": "client",
 		".":         "db",
 	}
@@ -197,30 +211,14 @@ peers:
 	weirdService := s.AddTestingServiceWithBindings(c, "weird", weirdOldCharm, initialBindings)
 	readBindings, err := weirdService.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedBindings := map[string]string{
-		"cli ent .": "client",
-		"foo":       "",
-		"$":         "",
-		".":         "db",
-		"$set.foo":  "",
-		"$pull":     "db",
-	}
-	c.Check(readBindings, jc.DeepEquals, expectedBindings)
+
+	c.Check(readBindings, jc.DeepEquals, expectedBindings(c, weirdService, initialBindings))
 
 	err = weirdService.SetCharm(weirdNewCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	readBindings, err = weirdService.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-
-	expectedBindings = map[string]string{
-		"ser$ver2":  "",
-		"cli ent 2": "",
-		"$":         "",
-		".":         "db",
-		"$set.foo":  "",
-		"$pull":     "db",
-	}
-	c.Check(readBindings, jc.DeepEquals, expectedBindings)
+	c.Check(readBindings, jc.DeepEquals, expectedBindings(c, weirdService, initialBindings))
 }
 
 var metaBase = `
@@ -728,11 +726,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 
 	oldBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(oldBindings, jc.DeepEquals, map[string]string{
-		"server":  "",
-		"kludge":  "",
-		"cluster": "",
-	})
+	c.Assert(oldBindings, jc.DeepEquals, map[string]string{})
 	_, err = s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("admin", "", nil, false)
@@ -771,12 +765,8 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 				newBindings, err := s.mysql.EndpointBindings()
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(newBindings, jc.DeepEquals, map[string]string{
-					"server":  "db", // from the first change.
-					"foo":     "",
-					"client":  "",
-					"baz":     "",
+					"server":  "db",    // from the first change.
 					"cluster": "admin", // from the second change.
-					"just":    "",
 				})
 			},
 		},
@@ -2287,7 +2277,6 @@ func (s *ServiceSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings, jc.DeepEquals, map[string]string{
 		"server":  "db",
-		"client":  "",
 		"cluster": "ha",
 	})
 
@@ -2307,9 +2296,8 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
-		"kludge":  "db",
-		"client":  "db",
-		"cluster": "",
+		"kludge": "db",
+		"client": "db",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
 
@@ -2320,14 +2308,7 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// These two should be preserved from oldCharm.
-		"client":  "db",
-		"cluster": "",
-		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": "",
-		// All the remaining are new and use the empty default.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"client": "db",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
@@ -2345,15 +2326,7 @@ func (s *ServiceSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
-		// The following two exist for both oldCharm and newCharm.
-		"client":  "",
-		"cluster": "",
-		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": "",
-		// All the remaining are new and use the empty default.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"client": "db",
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 

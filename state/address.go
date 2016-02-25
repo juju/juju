@@ -109,21 +109,8 @@ type apiHostPortsDoc struct {
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
-	// Filter any addresses not on the default space, if possible.
-	// All API servers need to be accessible there.
-	var hpsToSet [][]network.HostPort
-	for _, hps := range netHostsPorts {
-		defaultSpaceHPs, ok := network.SelectHostPortBySpace(hps, []network.SpaceName{network.DefaultSpace})
-		if !ok {
-			logger.Warningf("cannot determine API addresses in space %q to use as API endpoints; using all addresses", network.DefaultSpace)
-			hpsToSet = netHostsPorts
-			break
-		}
-		hpsToSet = append(hpsToSet, defaultSpaceHPs)
-	}
-
 	doc := apiHostPortsDoc{
-		APIHostPorts: fromNetworkHostsPorts(hpsToSet),
+		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		existing, err := st.APIHostPorts()
@@ -147,7 +134,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 	if err := st.run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", hpsToSet)
+	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
 	return nil
 }
 

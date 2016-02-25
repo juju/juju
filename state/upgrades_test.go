@@ -534,8 +534,8 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 		"server": "",
 	}
 	expectedInitialAndFinal := map[string]map[string]string{
-		"wp-no-bindings":      wpAllDefaults,
-		"wp-default-bindings": wpAllDefaults,
+		"wp-no-bindings":      noBindings,
+		"wp-default-bindings": noBindings,
 		"wp-given-bindings": map[string]string{
 			"url":             "apps",
 			"logging-dir":     "",
@@ -547,8 +547,8 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 			"foo-bar":         "",
 		},
 
-		"ms-no-bindings":      msAllDefaults,
-		"ms-default-bindings": msAllDefaults,
+		"ms-no-bindings":      noBindings,
+		"ms-default-bindings": noBindings,
 		"ms-given-bindings": map[string]string{
 			"server": "db",
 		},

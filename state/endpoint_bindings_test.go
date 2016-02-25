@@ -70,14 +70,7 @@ peers:
 `
 	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings, 2)
 	s.newMeta = newCharm.Meta()
-	s.newDefaults = map[string]string{
-		"foo1": "",
-		"foo2": "",
-		"bar2": "",
-		"bar3": "",
-		"self": "",
-		"me":   "",
-	}
+	s.newDefaults = map[string]string{}
 
 	// Add some spaces to use in bindings, but notably NOT the default space, as
 	// it should be always allowed.
@@ -98,14 +91,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		updated        map[string]string
 		removed        []string
 	}{{
-		about:   "defaults used when both newMap and oldMap are nil",
-		newMap:  nil,
-		oldMap:  nil,
-		meta:    s.oldMeta,
-		updated: s.copyMap(s.oldDefaults),
-		removed: nil,
-	}, {
-		about:  "oldMap overrides defaults, newMap is nil",
+		about:  "oldMap used when newMap is nil. Unbound endpoints are removed.",
 		newMap: nil,
 		oldMap: map[string]string{
 			"foo1": "client",
@@ -118,9 +104,9 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "",
 		},
-		removed: nil,
+		removed: []string{"bar1"},
 	}, {
-		about: "oldMap overrides defaults, newMap overrides oldMap",
+		about: "newMap overrides oldMap",
 		newMap: map[string]string{
 			"foo1":      "",
 			"self":      "db",
@@ -140,7 +126,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		removed: nil,
 	}, {
-		about: "newMap overrides defaults, oldMap is nil",
+		about: "newMap used when oldMap is nil",
 		newMap: map[string]string{
 			"self": "db",
 		},
@@ -152,9 +138,9 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "",
 		},
-		removed: nil,
+		removed: []string{"bar1", "foo1"},
 	}, {
-		about:  "obsolete entries in oldMap missing in defaults are removed",
+		about:  "obsolete entries in oldMap are removed",
 		newMap: nil,
 		oldMap: map[string]string{
 			"any-old-thing": "boo",

@@ -31,13 +31,13 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu          sync.Mutex
-	errors      errorPatterns
-	machines    map[string]*fakeMachine
-	controllers voyeur.Value // of *state.ControllerInfo
-	statuses    voyeur.Value // of statuses collection
-	session     *fakeMongoSession
-	check       func(st *fakeState) error
+	mu              sync.Mutex
+	errors          errorPatterns
+	machines        map[string]*fakeMachine
+	controllers     voyeur.Value // of *state.ControllerInfo
+	statuses        voyeur.Value // of statuses collection
+	session         *fakeMongoSession
+	check           func(st *fakeState) error
 	mongoSpaceDocId string
 }
 

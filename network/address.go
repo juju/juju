@@ -260,7 +260,12 @@ func SelectAddressBySpace(addresses []Address, spaceNames []SpaceName) (Address,
 
 // SelectHostPortBySpace picks the first HostPort from the given slice that has
 // the given space name associated.
-func SelectHostPortBySpace(hps []HostPort, spaceNames []SpaceName) ([]HostPort, bool) {
+func SelectHostsPortBySpaces(hps []HostPort, spaceNames []SpaceName) ([]HostPort, bool) {
+	if len(spaceNames) == 0 {
+		logger.Debugf("host ports not filtered - no spaces given.")
+		return hps, false
+	}
+
 	var selectedHostPorts []HostPort
 	for _, hp := range hps {
 		for _, spaceName := range spaceNames {
@@ -276,36 +281,15 @@ func SelectHostPortBySpace(hps []HostPort, spaceNames []SpaceName) ([]HostPort, 
 	}
 
 	logger.Warningf("no hostPorts found in spaces %q", spaceNames)
-	return []HostPort{}, false
+	return hps, false
 }
 
 // SelectControllerAddress returns the most suitable address to use as a Juju
-// Controller (API/state server) endpoint given the list of addresses. It first
-// tries to find the first address bound to the DefaultSpace, failing that uses
-// the older address selection method based on scope. The second return is false
-// when no address can be returned. When machineLocal is true and an address
-// can't be selected by space both ScopeCloudLocal and ScopeMachineLocal
-// addresses are considered during the selection, otherwise just ScopeCloudLocal
-// are.
-//
-// TODO(dimitern): This needs to change to not assume the default space name is
-// always "default", once we can determine this. Also, in case we're using
-// IPv6-only deployments on MAAS, it's still possible to get a node provisioned
-// with an IPv6 address not part of the default space (which should be possible
-// to detect early and/or prevent by using stricter node selection constraints).
-//
-// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119282343
+// Controller (API/state server) endpoint given the list of addresses.
+// The second return value is false when no address can be returned.
+// When machineLocal is true both ScopeCloudLocal and ScopeMachineLocal
+// addresses are considered during the selection, otherwise just ScopeCloudLocal are.
 func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, []SpaceName{DefaultSpace})
-	if ok {
-		logger.Debugf(
-			"selected %q as controller address, using space %q",
-			defaultSpaceAddress.Value, DefaultSpace,
-		)
-		return defaultSpaceAddress, true
-	}
-	// Fallback to using the legacy and error-prone approach using scope
-	// selection instead.
 	internalAddress, ok := SelectInternalAddress(addresses, machineLocal)
 	logger.Debugf(
 		"selected %q as controller address, using scope %q",
@@ -317,18 +301,20 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 // SelectControllerHostPort returns the most suitable HostPort (as string) to
 // use as a Juju Controller (API/state server) endpoint given the list of
 // hostPorts. It first tries to find the first HostPort bound to the
-// DefaultSpace, failing that uses the older selection method based on scope.
+// spaces provided, then, if that fails, uses the older selection method based on scope.
 // When machineLocal is true and an address can't be selected by space both
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
-func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool, space SpaceName) []string {
-	defaultSpaceHPs, ok := SelectHostPortBySpace(hostPorts, []SpaceName{space})
-	if ok {
-		logger.Debugf(
-			"selected %q as controller host:port, using spaces %q",
-			defaultSpaceHPs, DefaultSpace,
-		)
-		return HostPortsToStrings(defaultSpaceHPs)
+func SelectControllerHostPorts(hostPorts []HostPort, machineLocal bool, spaces []SpaceName, spaceNameValid bool) []string {
+	if spaceNameValid {
+		filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces)
+		if ok {
+			logger.Debugf(
+				"selected %q as controller host:port, using spaces %q",
+				filteredHostPorts, spaces,
+			)
+			return HostPortsToStrings(filteredHostPorts)
+		}
 	}
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.

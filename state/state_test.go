@@ -1916,11 +1916,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	// expected.
 	bindings, err := svc.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, map[string]string{
-		"server":  "",
-		"client":  "",
-		"cluster": "",
-	})
+	c.Assert(bindings, jc.DeepEquals, map[string]string{})
 
 	// Removing the service also removes its bindings.
 	err = svc.Destroy()
@@ -1955,7 +1951,6 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	bindings, err := svc.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, map[string]string{
-		"server":  "", // inherited from defaults.
 		"client":  "client",
 		"cluster": "db",
 	})
@@ -2003,7 +1998,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		expectedError: `unknown space "invalid" not valid`,
 	}, {
 		about:         "known endpoint bound correctly and an extra endpoint",
-		bindings:      map[string]string{"server": "db", "foo": ""},
+		bindings:      map[string]string{"server": "db", "foo": "public"},
 		expectedError: `unknown endpoint "foo" not valid`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)

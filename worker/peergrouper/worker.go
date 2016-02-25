@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dooferlad/here"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	"launchpad.net/tomb"
@@ -270,33 +269,42 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, fmt.Errorf("cannot get replica set members: %v", err)
 	}
 	info.machines = w.machines
-	stateServerInfo, err := w.st.StateServerInfo()
+
+	stateInfo, err := w.st.StateServerInfo()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get state server info: %v", err)
 	}
 
-	if w.providerSupportsSpaces && !w.dbSpaceDiscoveryComplete {
-		here.V("stateServerInfo.MongoSpaceDocId", stateServerInfo.MongoSpaceDocId)
-		// We want to find a space that contains all Mongo servers so we can
-		// use it to look up the IP address of each Mongo server to be used
-		// to set up the peer group.
+	if stateInfo.MongoSpaceDocId == "" {
+		if w.providerSupportsSpaces && !w.dbSpaceDiscoveryComplete {
+			// We want to find a space that contains all Mongo servers so we can
+			// use it to look up the IP address of each Mongo server to be used
+			// to set up the peer group.
 
-		spaceStats := network.GenerateSpaceStats(mongoAddresses(info.machines))
-		here.Is(spaceStats)
-		if spaceStats.LargestSpaceContainsAll == false {
-			return nil, fmt.Errorf("Couldn't find a space containing all peer group machines")
-		} else {
-			info.databaseSpace = spaceStats.LargestSpace
-			space, err := w.st.Space(string(info.databaseSpace))
-			if err != nil {
-				return nil, fmt.Errorf("Error looking up space: %v", err)
+			spaceStats := network.GenerateSpaceStats(mongoAddresses(info.machines))
+			if spaceStats.LargestSpaceContainsAll == false {
+				return nil, fmt.Errorf("Couldn't find a space containing all peer group machines")
+			} else {
+				info.mongoSpace = spaceStats.LargestSpace
+				info.mongoSpaceValid = true
+				space, err := w.st.Space(string(info.mongoSpace))
+				if err != nil {
+					return nil, fmt.Errorf("Error looking up space: %v", err)
+				}
+				err = w.st.SetMongoSpaceDocId(space.ID())
+				if err != nil {
+					return nil, fmt.Errorf("cannot save database space: %v", err)
+				}
+				w.dbSpaceDiscoveryComplete = true
 			}
-			err = w.st.SetMongoSpaceDocId(space.ID())
-			if err != nil {
-				return nil, fmt.Errorf("cannot save database space: %v", err)
-			}
-			w.dbSpaceDiscoveryComplete = true
 		}
+	} else {
+		space, err := w.st.Space(stateInfo.MongoSpaceDocId)
+		if err != nil {
+			return nil, fmt.Errorf("Error looking up space: %v", err)
+		}
+		info.mongoSpace = network.SpaceName(space.Name())
+		info.mongoSpaceValid = true
 	}
 
 	return info, nil
@@ -507,22 +515,15 @@ type machine struct {
 	apiHostPorts   []network.HostPort
 	mongoHostPorts []network.HostPort
 
-	worker         *pgWorker
-	stm            stateMachine
-	machineWatcher state.NotifyWatcher
+	worker          *pgWorker
+	stm             stateMachine
+	machineWatcher  state.NotifyWatcher
+	mongoSpace      network.SpaceName
+	mongoSpaceValid bool
 }
 
-func (m *machine) mongoHostPort(space network.SpaceName) string {
-	// TODO(dooferlad): somehow pick one of these.
-	// * not localhost
-	// * on the same subnet as other mongo servers?
-	//    * We don't actually know that two machines on the same subnet can talk to each other,
-	//      only that if they can they have a direct route. If for some reason there is a firewall
-	//      in the way, we need to know about it.
-	//    * Best thing to do would be have the user explictly tell us which space to use and, if
-	//      they don't, just pick the first space we can find with all the Mongo servers in.
-
-	return mongo.SelectPeerHostPort(m.mongoHostPorts, space)
+func (m *machine) mongoHostPort() string {
+	return mongo.SelectPeerHostPort(m.mongoHostPorts, m.mongoSpace, m.mongoSpaceValid)
 }
 
 func (m *machine) String() string {
@@ -530,7 +531,7 @@ func (m *machine) String() string {
 }
 
 func (m *machine) GoString() string {
-	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.mongoHostPort(network.SpaceName(network.DefaultSpace)))
+	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.mongoHostPort())
 }
 
 func (w *pgWorker) newMachine(stm stateMachine) *machine {

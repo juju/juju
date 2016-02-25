@@ -405,19 +405,13 @@ func (s *serviceSuite) TestClientServicesDeployWithBindings(c *gc.C) {
 	s.State.AddSpace("a-space", "", nil, true)
 	expected := map[string]string{
 		"endpoint": "a-space",
-		"ring":     "",
-		"admin":    "",
 	}
 	endpointBindings := map[string]string{"endpoint": "a-space"}
 	s.testClientServicesDeployWithBindings(c, endpointBindings, expected)
 }
 
 func (s *serviceSuite) TestClientServicesDeployWithDefaultBindings(c *gc.C) {
-	expected := map[string]string{
-		"endpoint": "",
-		"ring":     "",
-		"admin":    "",
-	}
+	expected := map[string]string{}
 	s.testClientServicesDeployWithBindings(c, nil, expected)
 }
 
