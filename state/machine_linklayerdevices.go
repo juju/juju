@@ -23,15 +23,29 @@ func (m *Machine) LinkLayerDevice(name string) (*LinkLayerDevice, error) {
 	linkLayerDevices, closer := m.st.getCollection(linkLayerDevicesC)
 	defer closer()
 
+	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(name)
+	deviceAsString := m.deviceAsStringFromName(name)
+
 	var doc linkLayerDeviceDoc
-	globalKey := linkLayerDeviceGlobalKey(m.doc.Id, name)
-	err := linkLayerDevices.FindId(globalKey).One(&doc)
+	err := linkLayerDevices.FindId(linkLayerDeviceDocID).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("device %q on machine %q", name, m.doc.Id)
+		return nil, errors.NotFoundf("%s", deviceAsString)
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot get device %q on machine %q", name, m.doc.Id)
+		return nil, errors.Annotatef(err, "cannot get %s", deviceAsString)
 	}
 	return newLinkLayerDevice(m.st, doc), nil
+}
+
+func (m *Machine) linkLayerDeviceDocIDFromName(deviceName string) string {
+	return m.st.docID(m.linkLayerDeviceGlobalKeyFromName(deviceName))
+}
+
+func (m *Machine) linkLayerDeviceGlobalKeyFromName(deviceName string) string {
+	return linkLayerDeviceGlobalKey(m.doc.Id, deviceName)
+}
+
+func (m *Machine) deviceAsStringFromName(deviceName string) string {
+	return fmt.Sprintf("device %q on machine %q", deviceName, m.doc.Id)
 }
 
 // AllLinkLayerDevices returns all exiting link-layer devices of the machine.
@@ -71,8 +85,8 @@ func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFu
 func (m *Machine) RemoveAllLinkLayerDevices() error {
 	var removeAllDevicesOps []txn.Op
 	callbackFunc := func(resultDoc *linkLayerDeviceDoc) {
-		removeOp := removeLinkLayerDeviceOp(resultDoc.DocID)
-		removeAllDevicesOps = append(removeAllDevicesOps, removeOp)
+		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
+		removeAllDevicesOps = append(removeAllDevicesOps, removeOps...)
 	}
 
 	selectDocIDOnly := bson.D{{"_id", 1}}
@@ -162,10 +176,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 
 		for _, newDoc := range newDocs {
-			ops = append(ops, insertLinkLayerDeviceDocOp(&newDoc))
-			if newDoc.ParentName != "" {
-				ops = m.assertParentDeviceExists(newDoc.ParentName, ops)
-			}
+			ops = append(ops, m.insertLinkLayerDeviceOps(&newDoc)...)
 		}
 		return ops, nil
 	}
@@ -174,7 +185,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	}
 	// Even without an error, we still need to verify if any of the newDocs was
 	// not inserted due to ProviderID unique index violation.
-	return m.rollbackUnlessAllLinkLayerDevicesInArgsInserted(devicesArgs)
+	return m.rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesArgs)
 }
 
 func (st *State) allProviderIDsForModelLinkLayerDevices() (_ set.Strings, err error) {
@@ -270,8 +281,7 @@ func validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) error {
 }
 
 func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *linkLayerDeviceDoc {
-	globalKey := linkLayerDeviceGlobalKey(m.doc.Id, args.Name)
-	linkLayerDeviceDocID := m.st.docID(globalKey)
+	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(args.Name)
 
 	providerID := string(args.ProviderID)
 	if providerID != "" {
@@ -344,39 +354,61 @@ func (m *Machine) assertAliveOp() txn.Op {
 	}
 }
 
-func (m *Machine) assertParentDeviceExists(parentName string, opsSoFar []txn.Op) []txn.Op {
-	parentGlobalKey := linkLayerDeviceGlobalKey(m.doc.Id, parentName)
-	parentDocID := m.st.docID(parentGlobalKey)
-	return append(opsSoFar, assertLinkLayerDeviceExistsOp(parentDocID))
+func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) []txn.Op {
+	modelUUID, linkLayerDeviceDocID := newDoc.ModelUUID, newDoc.DocID
+
+	var ops []txn.Op
+	if newDoc.ParentName != "" {
+		parentDocID := m.linkLayerDeviceDocIDFromName(newDoc.ParentName)
+		ops = append(ops, incrementDeviceNumChildrenOp(parentDocID))
+	}
+	return append(ops,
+		insertLinkLayerDeviceDocOp(newDoc),
+		insertLinkLayerDevicesRefsOp(modelUUID, linkLayerDeviceDocID),
+	)
 }
 
-func (m *Machine) rollbackUnlessAllLinkLayerDevicesInArgsInserted(devicesArgs []LinkLayerDeviceArgs) error {
+func (m *Machine) rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesArgs []LinkLayerDeviceArgs) error {
 	usedProviderIDs := set.NewStrings()
-	assertExistsOps := make([]txn.Op, len(devicesArgs))
-	removeOps := make([]txn.Op, len(devicesArgs))
+	allDevicesDocIDs := set.NewStrings()
+	var assertAllWithProviderIDAddedOps []txn.Op
 
-	for i, args := range devicesArgs {
-		deviceDocID := linkLayerDeviceGlobalKey(m.doc.Id, args.Name)
-		assertExistsOps[i] = assertLinkLayerDeviceExistsOp(deviceDocID)
-		removeOps[i] = removeLinkLayerDeviceOp(deviceDocID)
-		if args.ProviderID != "" {
-			usedProviderIDs.Add(string(args.ProviderID))
+	for _, args := range devicesArgs {
+		linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(args.Name)
+		allDevicesDocIDs.Add(linkLayerDeviceDocID)
+
+		if args.ProviderID == "" {
+			continue
 		}
+		usedProviderIDs.Add(string(args.ProviderID))
+		assertAllWithProviderIDAddedOps = append(
+			assertAllWithProviderIDAddedOps,
+			assertLinkLayerDeviceExistsOp(linkLayerDeviceDocID),
+		)
+	}
+	if len(assertAllWithProviderIDAddedOps) == 0 {
+		// No devices added with ProviderID, so no chance for some of them to
+		// have caused unique ProviderID index violation.
+		return nil
 	}
 
-	var wasAborted bool
+	var oneOrMoreWithProviderIDNotAdded bool
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			// One or more documents were not inserted due to ProviderID unique
-			// index violation, so rollback to the state before
-			// AddLinkLayerDevices(), removing all documents possibly inserted.
-			wasAborted = true
-			return removeOps, nil
+			// When one or more documents were not inserted due to ProviderID
+			// unique index violation, ensure we arrive at the state before
+			// AddLinkLayerDevices() was called.
+			oneOrMoreWithProviderIDNotAdded = true
+			var removeAllAddedOps []txn.Op
+			for _, docID := range allDevicesDocIDs.Values() {
+				removeAllAddedOps = append(removeAllAddedOps, removeLinkLayerDeviceUnconditionallyOps(docID)...)
+			}
+			return removeAllAddedOps, nil
 		}
-		return assertExistsOps, nil
+		return assertAllWithProviderIDAddedOps, nil
 	}
 	err := m.st.run(buildTxn)
-	if err == nil && wasAborted {
+	if err == nil && oneOrMoreWithProviderIDNotAdded {
 		return newProviderIDNotUniqueErrorFromStrings(usedProviderIDs.SortedValues())
 	}
 	return errors.Trace(err)

@@ -16,7 +16,7 @@ type linkLayerDevicesRefsDoc struct {
 	// DocID is the (parent) device DocID (global key prefixed by ModelUUID).
 	DocID string `bson:"_id"`
 
-	// ModelUUID is the UUID of the model this interface belongs to.
+	// ModelUUID is the UUID of the model the device belongs to.
 	ModelUUID string `bson:"model-uuid"`
 
 	// NumChildren is number of devices on the same machine which refer to this
@@ -55,7 +55,7 @@ func removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID string) txn.Op {
 }
 
 // getParentDeviceNumChildrenRefs returns the NumChildren value for the given
-// parentDeviceDocID. If the interfacesRefsDoc is missing, a NotFoundError and
+// linkLayerDeviceDocID. If the linkLayerDevicesRefsDoc is missing, no error and
 // zero children are returned.
 func getParentDeviceNumChildrenRefs(st *State, linkLayerDeviceDocID string) (int, error) {
 	devicesRefs, closer := st.getCollection(linkLayerDevicesRefsC)
@@ -64,7 +64,7 @@ func getParentDeviceNumChildrenRefs(st *State, linkLayerDeviceDocID string) (int
 	var doc linkLayerDevicesRefsDoc
 	err := devicesRefs.FindId(linkLayerDeviceDocID).One(&doc)
 	if err == mgo.ErrNotFound {
-		return 0, errors.NotFoundf("number of children for device %q", linkLayerDeviceDocID)
+		return 0, nil
 	} else if err != nil {
 		return 0, errors.Trace(err)
 	}
@@ -75,7 +75,7 @@ func getParentDeviceNumChildrenRefs(st *State, linkLayerDeviceDocID string) (int
 // NumChildren value of the linkLayerDevicesRefsDoc matching the given
 // linkLayerDeviceDocID, and asserting the document has NumChildren >= 0.
 func incrementDeviceNumChildrenOp(linkLayerDeviceDocID string) txn.Op {
-	hasZeroOrMoreChildren := bson.D{{"$gte", bson.D{{"num-children", 0}}}}
+	hasZeroOrMoreChildren := bson.D{{"num-children", bson.D{{"$gte", 0}}}}
 	return txn.Op{
 		C:      linkLayerDevicesRefsC,
 		Id:     linkLayerDeviceDocID,
@@ -88,7 +88,7 @@ func incrementDeviceNumChildrenOp(linkLayerDeviceDocID string) txn.Op {
 // NumChildren value of the linkLayerDevicesRefsDoc matching the given
 // linkLayerDeviceDocID, and asserting the document has NumChildren >= 1.
 func decrementDeviceNumChildrenOp(linkLayerDeviceDocID string) txn.Op {
-	hasAtLeastOneMoreChild := bson.D{{"$gte", bson.D{{"num-children", 1}}}}
+	hasAtLeastOneMoreChild := bson.D{{"num-children", bson.D{{"$gte", 1}}}}
 	return txn.Op{
 		C:      linkLayerDevicesRefsC,
 		Id:     linkLayerDeviceDocID,
