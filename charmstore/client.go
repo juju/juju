@@ -18,18 +18,10 @@ import (
 
 var logger = loggo.GetLogger("juju.charmstore")
 
-// Client exposes the functionality of the charm store, as provided
-// by github.com/juju/charmrepo/csclient.Client.
-//
-// Note that the following csclient.Client methods are used as well,
-// but only in tests:
-//  - Put(path string, val interface{}) error
-//  - UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error)
-//  - UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
-//  - UploadBundleWithRevision()
+// Client provides the common interface for the charm store client needs
+// of Juju.
 type Client interface {
 	BaseClient
-	// TODO(ericsnow) Move this over to BaseClient once it supports it.
 	ResourcesClient
 	io.Closer
 
@@ -39,9 +31,19 @@ type Client interface {
 	AsRepo(modelUUID string) Repo
 }
 
-// BaseClient exposes the functionality Juju needs which csclient.Client
-// provides.
+// BaseClient exposes the functionality of the charm store, as provided
+// by github.com/juju/charmrepo/csclient.Client.
+//
+// Note that the following csclient.Client methods are used as well,
+// but only in tests:
+//  - Put(path string, val interface{}) error
+//  - UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error)
+//  - UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
+//  - UploadBundleWithRevision()
 type BaseClient interface {
+	// TODO(ericsnow) Embed ResourcesClient here once the charm store
+	// supports it.
+
 	// TODO(ericsnow) Replace use of Get with use of more specific API
 	// methods? We only use Get() for authorization on the Juju client
 	// side.
