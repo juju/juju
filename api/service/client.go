@@ -135,13 +135,24 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 	return charm.ParseURL(result.Result)
 }
 
+// SetCharmConfig holds the configuration for setting a new version of a charm
+// on a service.
+type SetCharmConfig struct {
+	ServiceName string
+	CharmUrl    string
+	ForceSeries bool
+	ForceUnits  bool
+	ResourceIDs map[string]string
+}
+
 // SetCharm sets the charm for a given service.
-func (c *Client) SetCharm(serviceName string, charmUrl string, forceSeries, forceUnits bool) error {
+func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	args := params.ServiceSetCharm{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		ForceSeries: forceSeries,
-		ForceUnits:  forceUnits,
+		ServiceName: cfg.ServiceName,
+		CharmUrl:    cfg.CharmUrl,
+		ForceSeries: cfg.ForceSeries,
+		ForceUnits:  cfg.ForceUnits,
+		ResourceIDs: cfg.ResourceIDs,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }

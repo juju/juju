@@ -36,6 +36,8 @@ type upgradeCharmCommand struct {
 	SwitchURL   string
 	CharmPath   string
 	Revision    int // defaults to -1 (latest)
+	// Resources is a map of resource name to filename to be uploaded on upgrade.
+	Resources map[string]string
 }
 
 const upgradeCharmDoc = `
@@ -112,6 +114,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "upgrade to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
+	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
 }
 
 func (c *upgradeCharmCommand) Init(args []string) error {
@@ -185,9 +188,25 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return block.ProcessBlockedError(
-		serviceClient.SetCharm(c.ServiceName, addedURL.String(), c.ForceSeries, c.ForceUnits),
-		block.BlockChange)
+	charmInfo, err := client.CharmInfo(addedURL.String())
+	if err != nil {
+		return err
+	}
+
+	ids, err := handleResources(c, c.Resources, c.ServiceName, charmInfo.Meta.Resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cfg := apiservice.SetCharmConfig{
+		ServiceName: c.ServiceName,
+		CharmUrl:    addedURL.String(),
+		ForceSeries: c.ForceSeries,
+		ForceUnits:  c.ForceUnits,
+		ResourceIDs: ids,
+	}
+
+	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different

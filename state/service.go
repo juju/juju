@@ -467,7 +467,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
+func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
@@ -541,6 +541,19 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if len(resourceIDs) > 0 {
+		// Collect pending resource resolution operations.
+		resources, err := s.st.Resources()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resOps, err := resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
+	}
+
 	// Get all relations - we need to check them later.
 	relations, err := s.Relations()
 	if err != nil {
@@ -593,7 +606,7 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 // If forceUnits is true, units will be upgraded even if they are in an error state.
 // If forceSeries is true, the charm will be used even if it's the service's series
 // is not supported by the charm.
-func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
+func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
 	if ch.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change a service's subordinacy")
 	}
@@ -708,7 +721,7 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 			}}...)
 		} else {
 			// Change the charm URL.
-			chng, err := s.changeCharmOps(ch, forceUnits)
+			chng, err := s.changeCharmOps(ch, forceUnits, resourceIDs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -224,10 +224,11 @@ type ServiceUpdate struct {
 
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
-	ServiceName string `json:"servicename"`
-	CharmUrl    string `json:"charmurl"`
-	ForceUnits  bool   `json:"forceunits"`
-	ForceSeries bool   `json:"forceseries"`
+	ServiceName string            `json:"servicename"`
+	CharmUrl    string            `json:"charmurl"`
+	ForceUnits  bool              `json:"forceunits"`
+	ForceSeries bool              `json:"forceseries"`
+	ResourceIDs map[string]string `json:"resourceids"`
 }
 
 // ServiceExpose holds the parameters for making the service Expose call.
