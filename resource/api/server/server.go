@@ -88,7 +88,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			continue
 		}
 
-		r.Results[i] = ServiceResources2APIResult(tag, svcRes, units)
+		r.Results[i] = api.ServiceResources2APIResult(svcRes, units)
 	}
 	return r, nil
 }
