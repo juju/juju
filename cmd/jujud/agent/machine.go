@@ -1216,11 +1216,6 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 
-	for name, factory := range registeredModelWorkers {
-		newWorker := factory(st)
-		singularRunner.StartWorker(name, newWorker)
-	}
-
 	return runner, nil
 }
 
