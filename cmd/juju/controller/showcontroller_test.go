@@ -4,7 +4,6 @@
 package controller_test
 
 import (
-	"fmt"
 	"regexp"
 
 	"github.com/juju/cmd"
@@ -174,7 +173,7 @@ func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
 	errStore := jujuclienttesting.NewStubStore()
 	errStore.SetErrors(errors.New(msg))
 	s.store = errStore
-	s.expectedErr = fmt.Sprintf("failed to get controller %s: %v", "test1", msg)
+	s.expectedErr = msg
 
 	s.assertShowControllerFailed(c, "test1")
 	errStore.CheckCallNames(c, "ControllerByName")
@@ -202,7 +201,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgsNoCurrent(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerNotFound(c *gc.C) {
 	s.createTestClientStore(c)
 
-	s.expectedErr = `failed to get controller whoops: controller whoops not found`
+	s.expectedErr = `controller whoops not found`
 	s.assertShowControllerFailed(c, "whoops")
 }
 

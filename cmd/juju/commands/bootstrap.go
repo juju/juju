@@ -217,9 +217,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 }
 
 var bootstrappedControllerName = func(controllerName string) string {
-	// TODO(axw) re-enable this once we've got CI updated.
-	return controllerName
-	//return fmt.Sprintf("local.%s", controllerName)
+	return fmt.Sprintf("local.%s", controllerName)
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
@@ -363,6 +361,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	// Set the current controller so "juju status" can be run while
+	// bootstrapping is underway.
+	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
+		return errors.Trace(err)
+	}
+
 	cloudRegion := c.Cloud
 	if region.Name != "" {
 		cloudRegion = fmt.Sprintf("%s/%s", cloudRegion, region.Name)
@@ -436,9 +440,6 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
-		return errors.Trace(err)
-	}
 	if err := c.SetModelName(cfg.Name()); err != nil {
 		return errors.Trace(err)
 	}

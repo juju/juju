@@ -5,19 +5,16 @@ package modelcmd_test
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -182,79 +179,6 @@ func initTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*te
 	cmd.SetClientStore(store)
 	wrapped := modelcmd.Wrap(cmd)
 	return cmd, cmdtesting.InitCommand(wrapped, args)
-}
-
-type ConnectionEndpointSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
-	legacyStore configstore.Storage
-	store       *jujuclienttesting.MemStore
-	endpoint    configstore.APIEndpoint
-}
-
-var _ = gc.Suite(&ConnectionEndpointSuite{})
-
-func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.legacyStore = configstore.NewMem()
-	s.PatchValue(modelcmd.GetConfigStore, func() (configstore.Storage, error) {
-		return s.legacyStore, nil
-	})
-	newInfo := s.legacyStore.CreateInfo("ctrl:model-name")
-	newInfo.SetAPICredentials(configstore.APICredentials{
-		User:     "foo",
-		Password: "foopass",
-	})
-	s.endpoint = configstore.APIEndpoint{
-		Addresses: []string{"0.1.2.3"},
-		Hostnames: []string{"foo.invalid"},
-		CACert:    "certificated",
-		ModelUUID: "fake-uuid",
-	}
-	newInfo.SetAPIEndpoint(s.endpoint)
-	err := newInfo.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.store = jujuclienttesting.NewMemStore()
-	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
-	}
-}
-
-func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	cmd, err := initTestCommand(c, s.store, "-m", "ctrl:model-name")
-	c.Assert(err, jc.ErrorIsNil)
-	endpoint, err := cmd.ConnectionEndpoint(false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endpoint, gc.DeepEquals, s.endpoint)
-}
-
-func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	cmd, err := initTestCommand(c, s.store, "-m", "ctrl:no-such-model")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = cmd.ConnectionEndpoint(false)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `model "ctrl:no-such-model" not found`)
-}
-
-func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
-	newEndpoint := configstore.APIEndpoint{
-		Addresses: []string{"0.1.2.3"},
-		Hostnames: []string{"foo.example.com"},
-		CACert:    "certificated",
-		ModelUUID: "fake-uuid",
-	}
-	s.PatchValue(modelcmd.EndpointRefresher, func(_ *modelcmd.ModelCommandBase) (io.Closer, error) {
-		info, err := s.legacyStore.ReadInfo("ctrl:model-name")
-		info.SetAPIEndpoint(newEndpoint)
-		err = info.Write()
-		c.Assert(err, jc.ErrorIsNil)
-		return new(closer), nil
-	})
-	cmd, err := initTestCommand(c, s.store, "-m", "ctrl:model-name")
-	c.Assert(err, jc.ErrorIsNil)
-	endpoint, err := cmd.ConnectionEndpoint(true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endpoint, gc.DeepEquals, newEndpoint)
 }
 
 type closer struct{}

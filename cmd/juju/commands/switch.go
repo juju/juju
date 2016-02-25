@@ -99,17 +99,18 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}
 
-	// If the name identifies a controller, then set that as the current one.
-	if _, err := c.Store.ControllerByName(c.Target); err == nil {
-		if c.Target == currentControllerName {
+	// If the target identifies a controller, then set that as the current controller.
+	var newControllerName string
+	if newControllerName, err = modelcmd.ResolveControllerName(c.Store, c.Target); err == nil {
+		if newControllerName == currentControllerName {
 			newName = currentName
 			return nil
 		} else {
-			newName, err = c.name(c.Target, false)
+			newName, err = c.name(newControllerName, false)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			return errors.Trace(c.WriteCurrentController(c.Target))
+			return errors.Trace(c.WriteCurrentController(newControllerName))
 		}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -119,28 +120,34 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// the given name. The name can be qualified with the controller
 	// name (<controller>:<model>), or unqualified; in the latter
 	// case, the model must exist in the current controller.
-	controllerName, modelName := modelcmd.SplitModelName(c.Target)
-	if controllerName != "" {
-		newName = c.Target
+	newControllerName, modelName := modelcmd.SplitModelName(c.Target)
+	if newControllerName != "" {
+		// A controller was specified so see if we should use a local version.
+		newControllerName, err = modelcmd.ResolveControllerName(c.Store, newControllerName)
+		if err == nil {
+			newName = modelcmd.JoinModelName(newControllerName, modelName)
+		} else {
+			newName = c.Target
+		}
 	} else {
 		if currentControllerName == "" {
 			return unknownSwitchTargetError(c.Target)
 		}
-		controllerName = currentControllerName
-		newName = modelcmd.JoinModelName(controllerName, modelName)
+		newControllerName = currentControllerName
+		newName = modelcmd.JoinModelName(newControllerName, modelName)
 	}
 
-	accountName, err := c.Store.CurrentAccount(controllerName)
+	accountName, err := c.Store.CurrentAccount(newControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = c.Store.SetCurrentModel(controllerName, accountName, modelName)
+	err = c.Store.SetCurrentModel(newControllerName, accountName, modelName)
 	if errors.IsNotFound(err) {
 		// The model isn't known locally, so we must query the controller.
-		if err := c.RefreshModels(c.Store, controllerName, accountName); err != nil {
+		if err := c.RefreshModels(c.Store, newControllerName, accountName); err != nil {
 			return errors.Annotate(err, "refreshing models cache")
 		}
-		err := c.Store.SetCurrentModel(controllerName, accountName, modelName)
+		err := c.Store.SetCurrentModel(newControllerName, accountName, modelName)
 		if errors.IsNotFound(err) {
 			return unknownSwitchTargetError(c.Target)
 		} else if err != nil {
@@ -149,8 +156,8 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if currentControllerName != controllerName {
-		if err := c.WriteCurrentController(controllerName); err != nil {
+	if currentControllerName != newControllerName {
+		if err := c.WriteCurrentController(newControllerName); err != nil {
 			return errors.Trace(err)
 		}
 	}
