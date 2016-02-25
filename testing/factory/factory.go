@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
@@ -75,6 +76,7 @@ type MachineParams struct {
 	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
+	Constraints     constraints.Value
 	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
@@ -261,6 +263,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
+		Constraints: params.Constraints,
 	}
 
 	m, err := factory.st.AddMachineInsideMachine(
@@ -301,6 +304,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
+		Constraints: params.Constraints,
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
