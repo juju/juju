@@ -193,7 +193,15 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	ids, err := handleResources(c, c.Resources, c.ServiceName, charmInfo.Meta.Resources)
+	metaRes := charmInfo.Meta.Resources
+	// only include resource metadata for the files we're actually uploading
+	for name, _ := range charmInfo.Meta.Resources {
+		if _, ok := c.Resources[name]; !ok {
+			delete(metaRes, name)
+		}
+	}
+
+	ids, err := handleResources(c, c.Resources, c.ServiceName, metaRes)
 	if err != nil {
 		return errors.Trace(err)
 	}
