@@ -17,6 +17,9 @@ type machines struct {
 }
 
 type machine struct {
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
+
 	Id_            string         `yaml:"id"`
 	Nonce_         string         `yaml:"nonce"`
 	PasswordHash_  string         `yaml:"password-hash"`
@@ -342,8 +345,6 @@ var machineDeserializationFuncs = map[int]machineDeserializationFunc{
 }
 
 func importMachineV1(source map[string]interface{}) (*machine, error) {
-	result := &machine{}
-
 	fields := schema.Fields{
 		"id":                   schema.String(),
 		"nonce":                schema.String(),
@@ -378,6 +379,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"preferred-public-address":  schema.Omit,
 		"preferred-private-address": schema.Omit,
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -387,12 +389,15 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	result.Id_ = valid["id"].(string)
-	result.Nonce_ = valid["nonce"].(string)
-	result.PasswordHash_ = valid["password-hash"].(string)
-	result.Placement_ = valid["placement"].(string)
-	result.Series_ = valid["series"].(string)
-	result.ContainerType_ = valid["container-type"].(string)
+	result := &machine{
+		Id_:            valid["id"].(string),
+		Nonce_:         valid["nonce"].(string),
+		PasswordHash_:  valid["password-hash"].(string),
+		Placement_:     valid["placement"].(string),
+		Series_:        valid["series"].(string),
+		ContainerType_: valid["container-type"].(string),
+	}
+	result.importAnnotations(valid)
 
 	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {
 		for _, job := range jobs {

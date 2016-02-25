@@ -60,6 +60,9 @@ func DeserializeModel(bytes []byte) (Model, error) {
 }
 
 type model struct {
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
+
 	Version int `yaml:"version"`
 
 	Owner_  string                 `yaml:"owner"`
@@ -295,8 +298,6 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 }
 
 func importModelV1(source map[string]interface{}) (*model, error) {
-	result := &model{Version: 1}
-
 	fields := schema.Fields{
 		"owner":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
@@ -310,6 +311,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	defaults := schema.Defaults{
 		"latest-tools": schema.Omit,
 	}
+	addAnnotationSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -320,8 +322,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	result.Owner_ = valid["owner"].(string)
-	result.Config_ = valid["config"].(map[string]interface{})
+	result := &model{
+		Version: 1,
+		Owner_:  valid["owner"].(string),
+		Config_: valid["config"].(map[string]interface{}),
+	}
+	result.importAnnotations(valid)
 
 	if availableTools, ok := valid["latest-tools"]; ok {
 		num, err := version.Parse(availableTools.(string))

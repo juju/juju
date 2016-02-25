@@ -54,6 +54,12 @@ func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 		}
 	}
 
+	if annotations := model.Annotations(); len(annotations) > 0 {
+		if err := newSt.SetAnnotations(dbModel, annotations); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
 		st:      newSt,
@@ -209,6 +215,13 @@ func (i *importer) machine(m migration.Machine) error {
 
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
+	}
+
+	if annotations := m.Annotations(); len(annotations) > 0 {
+		machine := newMachine(i.st, mdoc)
+		if err := i.st.SetAnnotations(machine, annotations); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Now that this machine exists in the database, process each of the
@@ -456,6 +469,13 @@ func (i *importer) service(s migration.Service) error {
 		return errors.Trace(err)
 	}
 
+	if annotations := s.Annotations(); len(annotations) > 0 {
+		svc := newService(i.st, sdoc)
+		if err := i.st.SetAnnotations(svc, annotations); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	for _, unit := range s.Units() {
 		if err := i.unit(s, unit); err != nil {
 			return errors.Trace(err)
@@ -499,6 +519,13 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
+	}
+
+	if annotations := u.Annotations(); len(annotations) > 0 {
+		u := newUnit(i.st, udoc)
+		if err := i.st.SetAnnotations(u, annotations); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
