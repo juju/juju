@@ -218,7 +218,7 @@ func (s *Service) Install() error {
 		return errors.Trace(err)
 	}
 	if installed {
-		return errors.Errorf("Service %s already installed", s.Service.Name)
+		return errors.Errorf("Service %s already installed", s.Name())
 	}
 
 	logger.Infof("Installing Service %v", s.Name())
