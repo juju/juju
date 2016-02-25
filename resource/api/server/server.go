@@ -92,6 +92,12 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			}
 			result.UnitResources = append(result.UnitResources, unit)
 		}
+
+		result.CharmStoreResources = make([]api.CharmResource, len(svcRes.CharmStoreResources))
+		for i, chRes := range svcRes.CharmStoreResources {
+			result.CharmStoreResources[i] = api.CharmResource2API(chRes)
+		}
+
 		r.Results[i] = result
 	}
 	return r, nil

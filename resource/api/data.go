@@ -96,6 +96,10 @@ type ResourcesResult struct {
 	// Resources is the list of resources for the service.
 	Resources []Resource
 
+	// CharmStoreResources is the list of resources associated with the charm in
+	// the charmstore.
+	CharmStoreResources []CharmResource
+
 	// UnitResources contains a list of the resources for each unit in the
 	// service.
 	UnitResources []UnitResources
