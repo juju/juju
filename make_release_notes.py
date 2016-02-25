@@ -26,7 +26,7 @@ This release replaces version {previous}.
 
 ## Getting Juju
 
-juju-core {version} is available for Wily and backported to earlier
+juju-core {version} is available for Xenial and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/devel
@@ -34,10 +34,6 @@ series in the following PPA:
 Windows, Centos, and OS X users will find installers at:
 
     https://launchpad.net/juju-core/+milestone/{version}
-
-Development releases use the "devel" simple-streams. You must configure
-the `agent-stream` option in your environments.yaml to use the matching
-juju agents.
 
 Upgrading from stable releases to development releases is not
 supported. You can upgrade test environments to development releases
@@ -70,7 +66,7 @@ This release may replace version {previous} on {release_date}.
 
 ## Getting Juju
 
-juju-core {version} is available for Wily and backported to earlier
+juju-core {version} is available for Xenial and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/proposed
@@ -207,6 +203,8 @@ def main(argv):
     resolved_text = make_resolved_text(bugs)
     text = make_notes(args.milestone, purpose, resolved_text, args.previous)
     save_notes(text, args.file_name)
+    print('These are the bugs the package fixes:')
+    print(' '.join([str(i) for i, t in bugs]))
     return 0
 
 
