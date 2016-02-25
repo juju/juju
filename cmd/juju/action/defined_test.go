@@ -31,7 +31,7 @@ var _ = gc.Suite(&DefinedSuite{})
 
 func (s *DefinedSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = action.NewDefinedCommand()
+	s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
 }
 
 func (s *DefinedSuite) TestHelp(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *DefinedSuite) TestInit(c *gc.C) {
 		for _, modelFlag := range s.modelFlags {
 			c.Logf("test %d should %s: juju actions defined %s", i,
 				t.should, strings.Join(t.args, " "))
-			s.wrappedCommand, s.command = action.NewDefinedCommand()
+			s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
 			args := append([]string{modelFlag, "dummymodel"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
@@ -130,7 +130,7 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 				defer restore()
 
 				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
-				s.wrappedCommand, s.command = action.NewDefinedCommand()
+				s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
 				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {

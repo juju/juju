@@ -13,10 +13,11 @@ var (
 
 // NewModelCommandBase returns a new ModelCommandBase with the given client
 // store, controller name, and model name.
-func NewModelCommandBase(store jujuclient.ClientStore, controller, model string) *ModelCommandBase {
+func NewModelCommandBase(store jujuclient.ClientStore, controller, account, model string) *ModelCommandBase {
 	return &ModelCommandBase{
 		store:          store,
 		controllerName: controller,
+		accountName:    account,
 		modelName:      model,
 	}
 }
