@@ -310,7 +310,7 @@ def copy_remote_logs(remote, directory):
             winrm.exceptions.WinRMTransportError) as e:
         # The juju logs will not exist if cloud-init failed.
         logging.warning("Could not retrieve some or all logs:")
-        if getattr(e, 'output'):
+        if getattr(e, 'output', None):
             logging.warning(e.output)
         else:
             logging.warning(str(e))
