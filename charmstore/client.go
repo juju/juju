@@ -132,16 +132,24 @@ func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]Cha
 		return nil, errors.Trace(err)
 	}
 
+	// Do a bulk call to get the latest info for each charm's resources.
+	chResources, err := client.ListResources(cURLs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Extract the results.
 	var results []CharmInfoResult
 	for i, cURL := range cURLs {
 		revResult := revResults[i]
+		resources := chResources[i]
 
 		var result CharmInfoResult
 		if revResult.Err != nil {
 			result.Error = errors.Trace(revResult.Err)
 		} else {
 			result.URL = cURL.WithRevision(revResult.Revision)
+			result.Resources = resources
 		}
 		results = append(results, result)
 	}
