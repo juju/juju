@@ -15,7 +15,7 @@ import (
 type StateTrackerSuite struct {
 	statetesting.StateSuite
 	st           *state.State
-	stateTracker *workerstate.StateTracker
+	stateTracker workerstate.StateTracker
 }
 
 var _ = gc.Suite(&StateTrackerSuite{})
@@ -37,7 +37,7 @@ func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 	assertStateClosed(c, s.State)
 
 	err = s.stateTracker.Done()
-	c.Assert(err, gc.Equals, workerstate.ErrStateAlreadyClosed)
+	c.Assert(err, gc.Equals, workerstate.ErrStateClosed)
 	assertStateClosed(c, s.State)
 }
 
@@ -88,7 +88,7 @@ func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 
 	st, err := s.stateTracker.Use()
 	c.Check(st, gc.IsNil)
-	c.Check(err, gc.Equals, workerstate.ErrStateAlreadyClosed)
+	c.Check(err, gc.Equals, workerstate.ErrStateClosed)
 }
 
 func assertStateNotClosed(c *gc.C, st *state.State) {

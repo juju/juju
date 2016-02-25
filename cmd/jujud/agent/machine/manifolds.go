@@ -57,6 +57,13 @@ type ManifoldsConfig struct {
 	// use to establish a connection to state.
 	OpenStateForUpgrade func() (*state.State, error)
 
+	// StartStateWorkers is function called by the stateworkers
+	// manifold to start workers which rely on a *state.State but
+	// which haven't been converted to run directly under the
+	// dependency engine yet. This will go once these workers have
+	// been converted.
+	StartStateWorkers func(*state.State) (worker.Worker, error)
+
 	// WriteUninstallFile is a function the uninstaller manifold uses
 	// to write the agent uninstall file.
 	WriteUninstallFile func() error
@@ -105,6 +112,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
 			OpenState:              config.OpenState,
+		}),
+
+		// The stateworkers manifold starts workers which rely on a
+		// *state.State but which haven't been converted to run
+		// directly under the dependency engine yet. This manifold
+		// will be removed once all such workers have been converted.
+		stateWorkersName: StateWorkersManifold(StateWorkersConfig{
+			StateName:         stateName,
+			StartStateWorkers: config.StartStateWorkers,
 		}),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -217,6 +233,7 @@ const (
 	terminationName          = "termination"
 	stateConfigWatcherName   = "state-config-watcher"
 	stateName                = "state"
+	stateWorkersName         = "stateworkers"
 	apiCallerName            = "api-caller"
 	apiInfoGateName          = "api-info-gate"
 	upgradeStepsGateName     = "upgrade-steps-gate"
