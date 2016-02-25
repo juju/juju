@@ -305,14 +305,14 @@ func checkInstanceName(name string, instances []Instance) bool {
 	return false
 }
 
-func lxdAddressFamilyToNetworkType(netType string) (network.AddressType, error) {
-	switch netType {
+func lxdAddressFamilyToNetworkType(addrFamily string) (network.AddressType, error) {
+	switch addrFamily {
 	case "inet":
 		return network.IPv4Address, nil
 	case "inet6":
 		return network.IPv6Address, nil
 	default:
-		return "", errors.Errorf("invalid LXD family type %s", netType)
+		return "", errors.Errorf("invalid LXD address family type %s", addrFamily)
 	}
 }
 

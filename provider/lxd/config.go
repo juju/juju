@@ -89,7 +89,7 @@ var (
 	}()
 
 	configSecretFields = []string{
-		cfgClientKey, // only priviledged agents should get to talk to LXD
+		cfgClientKey, // only privileged agents should get to talk to LXD
 	}
 )
 
