@@ -131,6 +131,9 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["test2"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["test3"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}
@@ -233,7 +236,7 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo:foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
@@ -296,6 +299,7 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 }
 
 func (s *DestroySuite) resetController(c *gc.C) {
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
 	info := s.legacyStore.CreateInfo("local.test1:test1")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},

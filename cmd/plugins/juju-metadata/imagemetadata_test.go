@@ -46,6 +46,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	err := modelcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}

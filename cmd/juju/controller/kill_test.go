@@ -58,7 +58,7 @@ func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
 
 func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 	_, err := s.runKillCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo:foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
 func (s *KillSuite) TestKillNonControllerEnvFails(c *gc.C) {
