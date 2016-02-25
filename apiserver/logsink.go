@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -110,18 +109,11 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 	go func() {
 		var m params.LogRecord
 		for {
-			// The read deadline is used to allow the goroutine to
-			// come up for air (even when the other end is not
-			// sending) and check if it should stop.
-			socket.SetReadDeadline(time.Now().Add(time.Second))
+			// Receive() blocks until data arrives but will also be
+			// unblocked when the API handler calls socket.Close as it
+			// finishes.
 			if err := websocket.JSON.Receive(socket, &m); err != nil {
-				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-					if h.running() {
-						continue
-					}
-				} else if err != io.EOF {
-					logger.Errorf("error while receiving logs: %v", err)
-				}
+				logger.Debugf("logsink receive error: %v", err)
 				return
 			}
 
