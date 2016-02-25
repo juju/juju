@@ -140,7 +140,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	w := s.mustStartManifold(c)
 
-	var stTracker *workerstate.StateTracker
+	var stTracker workerstate.StateTracker
 	err := s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -157,7 +157,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
 	w := s.mustStartManifold(c)
 
-	var stTracker *workerstate.StateTracker
+	var stTracker workerstate.StateTracker
 	err := s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
 

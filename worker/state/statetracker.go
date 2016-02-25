@@ -11,52 +11,60 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var ErrStateAlreadyClosed = errors.New("state already closed")
+var ErrStateClosed = errors.New("state closed")
 
-// StateTracker wraps a *state.State, closing it when there are no
-// longer any references to it.
+// StateTracker describes a type which wraps and manages the lifetime
+// of a *state.State.
+type StateTracker interface {
+	// Use returns wrapped State, recording the use of
+	// it. ErrStateClosed is returned if the State is closed.
+	Use() (*state.State, error)
+
+	// Done records that there's one less user of the wrapped State,
+	// closing it if there's no more users. ErrStateClosed is returned
+	// if the State has already been closed (indicating that Done has
+	// called too many times).
+	Done() error
+}
+
+// stateTracker wraps a *state.State, keeping a reference count and
+// closing the State when there are no longer any references to it. It
+// implements StateTracker.
 //
-// The Use method will return the wrapped *state.State and increment
-// the reference count. The Done method will decrement the reference
-// count, closing the State when the reference count hits 0. The
-// reference count starts at 1. Done should be called exactly 1 +
+// The reference count starts at 1. Done should be called exactly 1 +
 // number of calls to Use.
-type StateTracker struct {
+type stateTracker struct {
 	mu         sync.Mutex
 	st         *state.State
 	references int
 }
 
-func newStateTracker(st *state.State) *StateTracker {
-	return &StateTracker{
+func newStateTracker(st *state.State) StateTracker {
+	return &stateTracker{
 		st:         st,
 		references: 1,
 	}
 }
 
-// Use increments the reference count for the wrapped State and
-// returns it. ErrStateAlreadyClosed is returned if the State has
-// already been closed.
-func (c *StateTracker) Use() (*state.State, error) {
+// Use implements StateTracker.
+func (c *stateTracker) Use() (*state.State, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.references == 0 {
-		return nil, ErrStateAlreadyClosed
+		return nil, ErrStateClosed
 	}
 	c.references++
 	return c.st, nil
 }
 
-// Done decrements the reference count for the wrapped State, closing
-// it if the reference count becomes 0. ErrStateAlreadyClosed is
-// returned if the State has already been closed.
-func (c *StateTracker) Done() error {
+// Done implements StateTracker.
+func (c *stateTracker) Done() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.references == 0 {
-		return ErrStateAlreadyClosed
+		return ErrStateClosed
 	}
 	c.references--
 	if c.references == 0 {

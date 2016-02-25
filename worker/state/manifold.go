@@ -95,7 +95,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case **StateTracker:
+	case *StateTracker:
 		*outPointer = inWorker.stTracker
 	default:
 		return errors.Errorf("out should be *state.State; got %T", out)
@@ -105,18 +105,23 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 type stateWorker struct {
 	tomb         tomb.Tomb
-	stTracker    *StateTracker
+	stTracker    StateTracker
 	pingInterval time.Duration
 }
 
 func (w *stateWorker) loop() error {
+	st, err := w.stTracker.Use()
+	if err != nil {
+		return errors.Annotate(err, "failed to obtain state")
+	}
+	defer w.stTracker.Done()
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-time.After(w.pingInterval):
-			err := w.stTracker.st.Ping()
-			if err != nil {
+			if err := st.Ping(); err != nil {
 				return errors.Annotate(err, "state ping failed")
 			}
 		}
