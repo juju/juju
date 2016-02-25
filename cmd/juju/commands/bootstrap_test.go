@@ -55,7 +55,7 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
-	store           jujuclient.CredentialsStore
+	store           jujuclient.CredentialStore
 	legacyMemStore  configstore.Storage
 }
 
@@ -127,7 +127,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 	return modelcmd.Wrap(&bootstrapCommand{
-		credentialsStore: s.store,
+		CredentialStore: s.store,
 	})
 }
 
@@ -497,7 +497,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 
 	store := jujuclienttesting.NewStubStore()
 	store.SetErrors(errors.New("oh noes"))
-	cmd := &bootstrapCommand{credentialsStore: store}
+	cmd := &bootstrapCommand{CredentialStore: store}
 	cmd.SetClientStore(store)
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)

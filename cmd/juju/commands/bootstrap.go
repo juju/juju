@@ -101,7 +101,7 @@ See Also:
 
 func newBootstrapCommand() cmd.Command {
 	return modelcmd.Wrap(&bootstrapCommand{
-		credentialsStore: jujuclient.NewFileCredentialsStore(),
+		CredentialStore: jujuclient.NewFileCredentialStore(),
 	})
 }
 
@@ -109,7 +109,7 @@ func newBootstrapCommand() cmd.Command {
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
-	credentialsStore jujuclient.CredentialsStore
+	CredentialStore jujuclient.CredentialStore
 
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
@@ -467,7 +467,7 @@ func credentialByName(
 	store jujuclient.CredentialGetter, cloudName, credentialName string,
 ) (_ *jujucloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
 
-	cloudCredentials, err := store.CredentialsForCloud(cloudName)
+	cloudCredentials, err := store.CredentialForCloud(cloudName)
 	if err != nil {
 		return nil, "", "", errors.Annotate(err, "loading credentials")
 	}
@@ -495,7 +495,7 @@ func (c *bootstrapCommand) getCredentials(
 ) (_ *jujucloud.Credential, region string, _ error) {
 
 	credential, credentialName, defaultRegion, err := credentialByName(
-		c.credentialsStore, cloudName, c.CredentialName,
+		c.CredentialStore, cloudName, c.CredentialName,
 	)
 	if err != nil {
 		return nil, "", errors.Trace(err)

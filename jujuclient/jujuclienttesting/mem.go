@@ -330,14 +330,14 @@ func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
 	return nil
 }
 
-// UpdateCredentials implements CredentialsUpdater.
-func (c *MemStore) UpdateCredentials(cloudName string, details cloud.CloudCredential) error {
+// UpdateCredential implements CredentialsUpdater.
+func (c *MemStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	c.Credentials[cloudName] = details
 	return nil
 }
 
-// CredentialsForCloud implements CredentialsGetter.
-func (c *MemStore) CredentialsForCloud(cloudName string) (*cloud.CloudCredential, error) {
+// CredentialForCloud implements CredentialsGetter.
+func (c *MemStore) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
 	if result, ok := c.Credentials[cloudName]; ok {
 		return &result, nil
 	}

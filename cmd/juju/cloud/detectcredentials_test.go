@@ -17,7 +17,7 @@ import (
 
 type detectCredentialsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store       jujuclient.CredentialsStore
+	store       jujuclient.CredentialStore
 	aCredential jujucloud.Credential
 }
 
@@ -48,7 +48,7 @@ func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
 
 func (s *detectCredentialsSuite) TestDetectCredentials(c *gc.C) {
 	s.detectCredentials(c, "test")
-	creds, err := s.store.CredentialsForCloud("test")
+	creds, err := s.store.CredentialForCloud("test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds.AuthCredentials["label"], jc.DeepEquals, s.aCredential)
 }

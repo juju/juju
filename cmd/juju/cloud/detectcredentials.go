@@ -45,13 +45,13 @@ GCE
     1. A JSON file whose path is specified by the GOOGLE_APPLICATION_CREDENTIALS environment variable
     2. A JSON file in a knowm location eg on Linux $HOME/.config/gcloud/application_default_credentials.json
     
-Openstack (see below)
+OpenStack (see below)
   Credentials are located in:
     1. On Linux, $HOME/.novarc
     2. Environment variables OS_USERNAME, OS_PASSWORD, OS_TENANT_NAME 
     
-Some standard credentials locations may apply for more than one cloud. Fox example, there may be more than one
-Openstack cloud defined. In such cases, the cloud name may be specified and only credentials for that cloud are
+Some standard credentials locations may apply for more than one cloud. For example, there may be more than one
+OpenStack cloud defined. In such cases, the cloud name may be specified and only credentials for that cloud are
 searched, and when found, applied to that cloud specifically.
 
 Example:
@@ -67,7 +67,7 @@ See Also:
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.
 func NewDetectCredentialsCommand() cmd.Command {
 	return &detectCredentialsCommand{
-		store: jujuclient.NewFileCredentialsStore(),
+		store: jujuclient.NewFileCredentialStore(),
 	}
 }
 
@@ -133,7 +133,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			for _, cred := range creds {
 				cloudCredential.AuthCredentials[cred.Label] = cred.Credential
 			}
-			if err := c.store.UpdateCredentials(cloudName, cloudCredential); err != nil {
+			if err := c.store.UpdateCredential(cloudName, cloudCredential); err != nil {
 				return errors.Annotatef(err, "cannot add credentials for cloud %q", cloudName)
 			}
 		}

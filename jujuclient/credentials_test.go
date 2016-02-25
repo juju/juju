@@ -14,7 +14,7 @@ import (
 
 type CredentialsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store       jujuclient.CredentialsStore
+	store       jujuclient.CredentialStore
 	cloudName   string
 	credentials cloud.CloudCredential
 }
@@ -23,7 +23,7 @@ var _ = gc.Suite(&CredentialsSuite{})
 
 func (s *CredentialsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.store = jujuclient.NewFileCredentialsStore()
+	s.store = jujuclient.NewFileCredentialStore()
 	s.cloudName = "testcloud"
 	s.credentials = cloud.CloudCredential{
 		DefaultCredential: "peter",
@@ -35,44 +35,44 @@ func (s *CredentialsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *CredentialsSuite) TestCredentialsForCloudNoFile(c *gc.C) {
-	found, err := s.store.CredentialsForCloud(s.cloudName)
+func (s *CredentialsSuite) TestCredentialForCloudNoFile(c *gc.C) {
+	found, err := s.store.CredentialForCloud(s.cloudName)
 	c.Assert(err, gc.ErrorMatches, "credentials for cloud testcloud not found")
 	c.Assert(found, gc.IsNil)
 }
 
-func (s *CredentialsSuite) TestCredentialsForCloudNoneExists(c *gc.C) {
+func (s *CredentialsSuite) TestCredentialForCloudNoneExists(c *gc.C) {
 	writeTestCredentialsFile(c)
-	found, err := s.store.CredentialsForCloud(s.cloudName)
+	found, err := s.store.CredentialForCloud(s.cloudName)
 	c.Assert(err, gc.ErrorMatches, "credentials for cloud testcloud not found")
 	c.Assert(found, gc.IsNil)
 }
 
-func (s *CredentialsSuite) TestCredentialsForCloud(c *gc.C) {
+func (s *CredentialsSuite) TestCredentialForCloud(c *gc.C) {
 	name := firstTestCloudName(c)
-	found, err := s.store.CredentialsForCloud(name)
+	found, err := s.store.CredentialForCloud(name)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.getCredentials(c)[name]
 	c.Assert(found, gc.DeepEquals, &expected)
 }
 
-func (s *CredentialsSuite) TestUpdateCredentialsAddFirst(c *gc.C) {
-	err := s.store.UpdateCredentials(s.cloudName, s.credentials)
+func (s *CredentialsSuite) TestUpdateCredentialAddFirst(c *gc.C) {
+	err := s.store.UpdateCredential(s.cloudName, s.credentials)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
-func (s *CredentialsSuite) TestUpdateCredentialsAddNew(c *gc.C) {
+func (s *CredentialsSuite) TestUpdateCredentialAddNew(c *gc.C) {
 	s.assertCredentialsNotExists(c)
-	err := s.store.UpdateCredentials(s.cloudName, s.credentials)
+	err := s.store.UpdateCredential(s.cloudName, s.credentials)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }
 
-func (s *CredentialsSuite) TestUpdateCredentials(c *gc.C) {
+func (s *CredentialsSuite) TestUpdateCredential(c *gc.C) {
 	s.cloudName = firstTestCloudName(c)
 
-	err := s.store.UpdateCredentials(s.cloudName, s.credentials)
+	err := s.store.UpdateCredential(s.cloudName, s.credentials)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
 }

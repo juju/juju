@@ -45,7 +45,7 @@ type credentialsMap struct {
 // NewListCredentialsCommand returns a command to list cloud credentials.
 func NewListCredentialsCommand() cmd.Command {
 	return &listCredentialsCommand{
-		store: jujuclient.NewFileCredentialsStore(),
+		store: jujuclient.NewFileCredentialStore(),
 	}
 }
 

@@ -32,9 +32,9 @@ type StubStore struct {
 	AccountByNameFunc     func(controllerName, accountName string) (*jujuclient.AccountDetails, error)
 	RemoveAccountFunc     func(controllerName, accountName string) error
 
-	CredentialsForCloudFunc func(string) (*cloud.CloudCredential, error)
+	CredentialForCloudFunc func(string) (*cloud.CloudCredential, error)
 	AllCredentialsFunc      func() (map[string]cloud.CloudCredential, error)
-	UpdateCredentialsFunc   func(cloudName string, details cloud.CloudCredential) error
+	UpdateCredentialFunc   func(cloudName string, details cloud.CloudCredential) error
 }
 
 func NewStubStore() *StubStore {
@@ -92,13 +92,13 @@ func NewStubStore() *StubStore {
 		return result.Stub.NextErr()
 	}
 
-	result.CredentialsForCloudFunc = func(string) (*cloud.CloudCredential, error) {
+	result.CredentialForCloudFunc = func(string) (*cloud.CloudCredential, error) {
 		return nil, result.Stub.NextErr()
 	}
 	result.AllCredentialsFunc = func() (map[string]cloud.CloudCredential, error) {
 		return nil, result.Stub.NextErr()
 	}
-	result.UpdateCredentialsFunc = func(cloudName string, details cloud.CloudCredential) error {
+	result.UpdateCredentialFunc = func(cloudName string, details cloud.CloudCredential) error {
 		return result.Stub.NextErr()
 	}
 	return result
@@ -200,10 +200,10 @@ func (c *StubStore) RemoveAccount(controllerName, accountName string) error {
 	return c.RemoveAccountFunc(controllerName, accountName)
 }
 
-// CredentialsForCloud implements CredentialsGetter.
-func (c *StubStore) CredentialsForCloud(cloudName string) (*cloud.CloudCredential, error) {
-	c.MethodCall(c, "CredentialsForCloud", cloudName)
-	return c.CredentialsForCloudFunc(cloudName)
+// CredentialForCloud implements CredentialsGetter.
+func (c *StubStore) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	c.MethodCall(c, "CredentialForCloud", cloudName)
+	return c.CredentialForCloudFunc(cloudName)
 }
 
 // AllCredentials implements CredentialsGetter.
@@ -212,8 +212,8 @@ func (c *StubStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 	return c.AllCredentialsFunc()
 }
 
-// UpdateCredentials implements CredentialsUpdater.
-func (c *StubStore) UpdateCredentials(cloudName string, details cloud.CloudCredential) error {
-	c.MethodCall(c, "UpdateCredentials", cloudName, details)
-	return c.UpdateCredentialsFunc(cloudName, details)
+// UpdateCredential implements CredentialsUpdater.
+func (c *StubStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	c.MethodCall(c, "UpdateCredential", cloudName, details)
+	return c.UpdateCredentialFunc(cloudName, details)
 }

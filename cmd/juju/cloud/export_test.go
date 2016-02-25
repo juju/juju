@@ -13,7 +13,7 @@ func NewListCredentialsCommandForTest(testStore jujuclient.CredentialGetter) *li
 	}
 }
 
-func NewDetectCredentialsCommandForTest(testStore jujuclient.CredentialsStore) *detectCredentialsCommand {
+func NewDetectCredentialsCommandForTest(testStore jujuclient.CredentialStore) *detectCredentialsCommand {
 	return &detectCredentialsCommand{
 		store: testStore,
 	}

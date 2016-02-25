@@ -35,9 +35,9 @@ func NewFileClientStore() ClientStore {
 	return &store{}
 }
 
-// NewFileCredentialsStore returns a new filesystem-based credentials store
+// NewFileCredentialStore returns a new filesystem-based credentials store
 // that manages credentials in $XDG_DATA_HOME/juju.
-func NewFileCredentialsStore() CredentialsStore {
+func NewFileCredentialStore() CredentialStore {
 	return &store{}
 }
 
@@ -647,8 +647,8 @@ func (s *store) RemoveAccount(controllerName, accountName string) error {
 	return errors.Trace(WriteAccountsFile(controllerAccounts))
 }
 
-// UpdateCredentials implements CredentialsUpdater.
-func (s *store) UpdateCredentials(cloudName string, details cloud.CloudCredential) error {
+// UpdateCredential implements CredentialUpdater.
+func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	lock, err := s.lock("update-credentials")
 	if err != nil {
 		return errors.Annotatef(err, "cannot update credentials for %v", cloudName)
@@ -668,8 +668,8 @@ func (s *store) UpdateCredentials(cloudName string, details cloud.CloudCredentia
 	return WriteCredentialsFile(all)
 }
 
-// CredentialsForCloud implements CredentialsGetter.
-func (s *store) CredentialsForCloud(cloudName string) (*cloud.CloudCredential, error) {
+// CredentialForCloud implements CredentialGetter.
+func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
 	cloudCredentials, err := s.AllCredentials()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -681,7 +681,7 @@ func (s *store) CredentialsForCloud(cloudName string) (*cloud.CloudCredential, e
 	return &credentials, nil
 }
 
-// AllCredentials implements CredentialsGetter.
+// AllCredentials implements CredentialGetter.
 func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
 	cloudCredentials, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
