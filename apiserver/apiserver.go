@@ -375,14 +375,13 @@ func (srv *Server) run() {
 	// registered first.
 	mux := pat.New()
 
-	srvDying := srv.tomb.Dying()
 	httpCtxt := httpContext{
 		srv: srv,
 	}
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
 	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
-	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt, srvDying))
+	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
 	handleAll(mux, "/model/:modeluuid"+resourceapi.HTTPEndpointPattern,
 		newResourceHandler(httpCtxt),
