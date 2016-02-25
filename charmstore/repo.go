@@ -12,10 +12,6 @@ import (
 type Repo interface {
 	charmrepo.Interface
 
-	// WithJujuAttrs returns a repository Interface with the Juju
-	// metadata attributes set.
-	//WithJujuAttrs(attrs map[string]string) Repo
-
 	// Latest returns the most up-to-date information about each of the
 	// identified charms at their latest revision. The revisions in the
 	// provided URLs are ignored.
