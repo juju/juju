@@ -11,7 +11,8 @@ import (
 
 // Useful test constants.
 
-const gig uint64 = 1024 * 1024 * 1024
+// Constraints and CloudInstance store megabytes
+const gig uint64 = 1024
 
 // None of the tests in this package require mongo.
 func TestPackage(t *testing.T) {
