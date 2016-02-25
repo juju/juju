@@ -188,7 +188,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	}
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
 		BootstrapConstraints: cons,
-		EnvironConstraints:   cons,
+		ModelConstraints:     cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true

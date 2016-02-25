@@ -531,7 +531,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)})
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -561,7 +561,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
@@ -577,7 +577,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
@@ -593,7 +593,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-global", eUUID)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()

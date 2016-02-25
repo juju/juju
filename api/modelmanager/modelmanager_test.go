@@ -41,10 +41,11 @@ func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
 
 	// Numbers coming over the api are floats, not ints.
 	c.Assert(result, jc.DeepEquals, params.ModelConfig{
-		"type":       "dummy",
-		"ca-cert":    coretesting.CACert,
-		"state-port": float64(1234),
-		"api-port":   float64(apiPort),
+		"type":            "dummy",
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"ca-cert":         coretesting.CACert,
+		"state-port":      float64(1234),
+		"api-port":        float64(apiPort),
 	})
 
 }
@@ -58,7 +59,7 @@ func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 func (s *modelmanagerSuite) TestCreateModelMissingConfig(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	_, err := modelManager.CreateModel("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `creating config from values failed: name: expected string, got nothing`)
+	c.Assert(err, gc.ErrorMatches, `failed to create config: creating config from values failed: name: expected string, got nothing`)
 }
 
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {

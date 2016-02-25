@@ -179,7 +179,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	}
 
 	cons := c.constraints
-	args := bootstrap.BootstrapParams{EnvironConstraints: cons, UploadTools: c.uploadTools}
+	args := bootstrap.BootstrapParams{ModelConstraints: cons, UploadTools: c.uploadTools}
 	if err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}

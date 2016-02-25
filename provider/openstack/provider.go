@@ -898,13 +898,9 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for _, g := range groups {
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("UUID in environ config")
-	}
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
-		eUUID,
+		e.Config().UUID(),
 	)
 
 	var server *nova.Entity
@@ -1112,10 +1108,7 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 	}
 	instsById := make(map[string]instance.Instance)
 	cfg := e.Config()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
+	eUUID := cfg.UUID()
 	for _, server := range servers {
 		modelUUID, ok := server.Metadata[tags.JujuModel]
 		if !ok || modelUUID != eUUID {
@@ -1155,7 +1148,7 @@ func resourceName(tag names.Tag, envName string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	eUUID, _ := e.Config().UUID()
+	eUUID := e.Config().UUID()
 	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", eUUID))
 	return filter
 }

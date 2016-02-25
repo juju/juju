@@ -10,13 +10,15 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
+
+// ControllerModelName is the name of the admin model in each controller.
+const ControllerModelName = "admin"
 
 // adminUser is the initial admin user created for all controllers.
 const adminUser = "admin@local"
@@ -33,6 +35,9 @@ func New(config *config.Config) (Environ, error) {
 // Prepare prepares a new controller based on the provided configuration.
 // It is an error to prepare a controller if there already exists an
 // entry in the client store with the same name.
+//
+// Upon success, Prepare will update the ClientStore with the details of
+// the controller, admin account, and admin model.
 func Prepare(
 	ctx BootstrapContext,
 	legacyStore configstore.Storage,
@@ -108,7 +113,6 @@ func decorateAndWriteInfo(
 
 	accountName := details.User
 	modelName := cfg.Name()
-	modelDetails := jujuclient.ModelDetails{details.ControllerUUID}
 	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
 		return errors.Trace(err)
 	}
@@ -118,7 +122,7 @@ func decorateAndWriteInfo(
 	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.UpdateModel(controllerName, accountName, modelName, modelDetails); err != nil {
+	if err := store.UpdateModel(controllerName, accountName, modelName, details.ModelDetails); err != nil {
 		return errors.Trace(err)
 	}
 	if err := store.SetCurrentModel(controllerName, accountName, modelName); err != nil {
@@ -142,10 +146,6 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Annotate(err, "cannot ensure CA certificate")
 	}
-	cfg, uuid, err := ensureUUID(cfg)
-	if err != nil {
-		return nil, details, errors.Annotate(err, "cannot ensure uuid")
-	}
 	args.Config = cfg
 	env, err := p.PrepareForBootstrap(ctx, args)
 	if err != nil {
@@ -153,9 +153,10 @@ func prepare(
 	}
 
 	details.CACert = caCert
-	details.ControllerUUID = uuid
+	details.ControllerUUID = cfg.ControllerUUID()
 	details.User = adminUser
 	details.Password = adminSecret
+	details.ModelUUID = cfg.UUID()
 
 	return env, details, nil
 }
@@ -163,6 +164,7 @@ func prepare(
 type prepareDetails struct {
 	jujuclient.ControllerDetails
 	jujuclient.AccountDetails
+	jujuclient.ModelDetails
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.
@@ -210,26 +212,6 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 		return nil, "", errors.Trace(err)
 	}
 	return cfg, string(caCert), nil
-}
-
-// ensureUUID generates a new uuid and attaches it to
-// the given environment configuration, unless the
-// configuration already has one.
-func ensureUUID(cfg *config.Config) (*config.Config, string, error) {
-	if uuid, hasUUID := cfg.UUID(); hasUUID {
-		return cfg, uuid, nil
-	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"uuid": uuid.String(),
-	})
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	return cfg, uuid.String(), nil
 }
 
 // Destroy destroys the controller and, if successful,

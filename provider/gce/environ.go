@@ -74,11 +74,6 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	uuid, ok := ecfg.UUID()
-	if !ok {
-		return nil, errors.New("UUID not set")
-	}
-
 	// Connect and authenticate.
 	conn, err := newConnection(ecfg)
 	if err != nil {
@@ -87,7 +82,7 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 
 	env := &environ{
 		name: ecfg.Name(),
-		uuid: uuid,
+		uuid: ecfg.UUID(),
 		ecfg: ecfg,
 		gce:  conn,
 	}

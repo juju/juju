@@ -387,11 +387,7 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
-	modelUUID, ok := config.UUID()
-	if !ok {
-		return nil, fmt.Errorf("cannot connect without model UUID")
-	}
-	modelTag := names.NewModelTag(modelUUID)
+	modelTag := names.NewModelTag(config.UUID())
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()

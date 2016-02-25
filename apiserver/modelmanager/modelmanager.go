@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -94,13 +94,6 @@ type ConfigSource interface {
 	Config() (*config.Config, error)
 }
 
-var configValuesFromController = []string{
-	"type",
-	"ca-cert",
-	"state-port",
-	"api-port",
-}
-
 // ConfigSkeleton returns config values to be used as a starting point for the
 // API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects
@@ -128,18 +121,6 @@ func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (
 	return result, nil
 }
 
-func (em *ModelManagerAPI) restrictedProviderFields(providerType string) ([]string, error) {
-	provider, err := environs.Provider(providerType)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var fields []string
-	fields = append(fields, configValuesFromController...)
-	fields = append(fields, provider.RestrictedConfigAttributes()...)
-	return fields, nil
-}
-
 func (em *ModelManagerAPI) configSkeleton(source ConfigSource) (map[string]interface{}, error) {
 	baseConfig, err := source.Config()
 	if err != nil {
@@ -147,7 +128,7 @@ func (em *ModelManagerAPI) configSkeleton(source ConfigSource) (map[string]inter
 	}
 	baseMap := baseConfig.AllAttrs()
 
-	fields, err := em.restrictedProviderFields(baseConfig.Type())
+	fields, err := modelmanager.RestrictedProviderFields(baseConfig.Type())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -159,61 +140,6 @@ func (em *ModelManagerAPI) configSkeleton(source ConfigSource) (map[string]inter
 		}
 	}
 	return result, nil
-}
-
-func (em *ModelManagerAPI) checkVersion(cfg map[string]interface{}) error {
-	// If there is no agent-version specified, use the current version.
-	// otherwise we need to check for tools
-	value, found := cfg["agent-version"]
-	if !found {
-		cfg["agent-version"] = version.Current.String()
-		return nil
-	}
-	valuestr, ok := value.(string)
-	if !ok {
-		return errors.Errorf("agent-version must be a string but has type '%T'", value)
-	}
-	num, err := version.Parse(valuestr)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if comp := num.Compare(version.Current); comp > 0 {
-		return errors.Errorf("agent-version cannot be greater than the server: %s", version.Current)
-	} else if comp < 0 {
-		// Look to see if we have tools available for that version.
-		// Obviously if the version is the same, we have the tools available.
-		list, err := em.toolsFinder.FindTools(params.FindToolsParams{
-			Number: num,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Tracef("found tools: %#v", list)
-		if len(list.List) == 0 {
-			return errors.Errorf("no tools found for version %s", num)
-		}
-	}
-	return nil
-}
-
-func (em *ModelManagerAPI) validConfig(attrs map[string]interface{}) (*config.Config, error) {
-	cfg, err := config.New(config.UseDefaults, attrs)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating config from values failed")
-	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err = provider.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err = provider.Validate(cfg, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "provider validation failed")
-	}
-	return cfg, nil
 }
 
 func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source ConfigSource) (*config.Config, error) {
@@ -228,63 +154,25 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 	for key, value := range args.Account {
 		joint[key] = value
 	}
-	if _, found := joint["uuid"]; found {
+	if _, ok := joint["uuid"]; ok {
 		return nil, errors.New("uuid is generated, you cannot specify one")
 	}
 	baseConfig, err := source.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	baseMap := baseConfig.AllAttrs()
-	fields, err := em.restrictedProviderFields(baseConfig.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Before comparing any values, we need to push the config through
-	// the provider validation code.  One of the reasons for this is that
-	// numbers being serialized through JSON get turned into float64. The
-	// schema code used in config will convert these back into integers.
-	// However, before we can create a valid config, we need to make sure
-	// we copy across fields from the main config that aren't there.
-	for _, field := range fields {
-		if _, found := joint[field]; !found {
-			if baseValue, found := baseMap[field]; found {
-				joint[field] = baseValue
+	creator := modelmanager.ModelConfigCreator{
+		func(n version.Number) (tools.List, error) {
+			result, err := em.toolsFinder.FindTools(params.FindToolsParams{
+				Number: n,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-		}
+			return result.List, nil
+		},
 	}
-
-	// Generate the UUID for the server.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to generate environment uuid")
-	}
-	joint["uuid"] = uuid.String()
-
-	if err := em.checkVersion(joint); err != nil {
-		return nil, errors.Annotate(err, "failed to create config")
-	}
-
-	// validConfig must only be called once.
-	cfg, err := em.validConfig(joint)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	attrs := cfg.AllAttrs()
-	// Any values that would normally be copied from the controller
-	// config can also be defined, but if they differ from the controller
-	// values, an error is returned.
-	for _, field := range fields {
-		if value, found := attrs[field]; found {
-			if serverValue := baseMap[field]; value != serverValue {
-				return nil, errors.Errorf(
-					"specified %s \"%v\" does not match apiserver \"%v\"",
-					field, value, serverValue)
-			}
-		}
-	}
-
-	return cfg, nil
+	return creator.NewModelConfig(baseConfig, joint)
 }
 
 // CreateModel creates a new model using the account and
@@ -313,7 +201,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 
 	newConfig, err := em.newModelConfig(args, controllerEnv)
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, errors.Annotate(err, "failed to create config")
 	}
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't

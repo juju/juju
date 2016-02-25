@@ -93,16 +93,20 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 
 func cacheTestEnvConfig(c *gc.C) {
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":           "ec2",
-		"type":           "ec2",
-		"default-series": "precise",
-		"region":         "us-east-1",
+		"name":            "ec2",
+		"type":            "ec2",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"default-series":  "precise",
+		"region":          "us-east-1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":                      "azure",
 		"type":                      "azure",
+		"uuid":                      coretesting.ModelTag.Id(),
+		"controller-uuid":           coretesting.ModelTag.Id(),
 		"default-series":            "raring",
 		"location":                  "West US",
 		"endpoint":                  "https://management.azure.com",

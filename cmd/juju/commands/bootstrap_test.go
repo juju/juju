@@ -298,7 +298,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "admin")
-	c.Check(opBootstrap.Args.EnvironConstraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.ModelConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
 	}

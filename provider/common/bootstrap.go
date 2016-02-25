@@ -103,7 +103,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil, "", nil, err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.EnvironConstraints, selectedSeries, publicKey,
+		args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
 	)
 	if err != nil {
 		return nil, "", nil, err

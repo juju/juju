@@ -22,10 +22,12 @@ var _ = gc.Suite(&configSuite{})
 
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
-		"name":           "test",
-		"type":           "manual",
-		"bootstrap-host": "hostname",
-		"bootstrap-user": "",
+		"name":            "test",
+		"type":            "manual",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"bootstrap-host":  "hostname",
+		"bootstrap-user":  "",
 		// Not strictly necessary, but simplifies testing by disabling
 		// ssh storage by default.
 		"use-sshstorage": false,

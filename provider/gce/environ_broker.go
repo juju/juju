@@ -168,13 +168,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		machineID,
 	}
 
-	cfg := env.Config()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("UUID necessary to create the instance disk")
-	}
-
-	disks, err := getDisks(spec, args.Constraints, args.InstanceConfig.Series, eUUID)
+	disks, err := getDisks(
+		spec, args.Constraints, args.InstanceConfig.Series, env.Config().UUID(),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

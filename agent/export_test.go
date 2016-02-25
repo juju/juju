@@ -10,14 +10,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
-func Password(config Config) string {
-	c := config.(*configInternal)
-	if c.stateDetails == nil {
-		return c.apiDetails.password
-	}
-	return c.stateDetails.password
-}
-
 func PatchConfig(config Config, fieldName string, value interface{}) error {
 	conf := config.(*configInternal)
 	switch fieldName {
@@ -54,10 +46,6 @@ func ConfigFileExists(config Config) bool {
 	_, err := os.Lstat(conf.configFilePath)
 	return err == nil
 }
-
-var (
-	MachineJobFromParams = machineJobFromParams
-)
 
 func EmptyConfig() Config {
 	return &configInternal{}

@@ -167,9 +167,7 @@ func (s *undertakerSuite) TestHostedModelConfig(c *gc.C) {
 
 	cfg, err := undertakerClient.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	uuid, ok := cfg.UUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, otherSt.ModelUUID())
+	c.Assert(cfg.UUID(), gc.Equals, otherSt.ModelUUID())
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {

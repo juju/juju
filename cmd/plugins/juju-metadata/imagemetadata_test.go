@@ -154,9 +154,11 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":   "ec2-latest-lts",
-		"type":   "ec2",
-		"region": "us-east-1",
+		"name":            "ec2-latest-lts",
+		"type":            "ec2",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
+		"region":          "us-east-1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

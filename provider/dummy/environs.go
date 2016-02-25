@@ -78,6 +78,7 @@ func SampleConfig() testing.Attrs {
 		"type":                      "dummy",
 		"name":                      "only",
 		"uuid":                      testing.ModelTag.Id(),
+		"controller-uuid":           testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
@@ -735,7 +736,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetModelConstraints(args.EnvironConstraints); err != nil {
+		if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(password); err != nil {

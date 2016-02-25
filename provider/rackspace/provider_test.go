@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
@@ -29,6 +30,8 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Check(err, gc.IsNil)

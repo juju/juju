@@ -99,10 +99,14 @@ See Also:
    juju help placement
 `
 
+// defaultHostedModelName is the name of the hosted model created in each
+// controller for deploying workloads to, in addition to the "admin" model.
+const defaultHostedModelName = "default"
+
 func newBootstrapCommand() cmd.Command {
 	return modelcmd.Wrap(&bootstrapCommand{
 		CredentialStore: jujuclient.NewFileCredentialStore(),
-	})
+	}, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
@@ -124,10 +128,11 @@ type bootstrapCommand struct {
 	AgentVersion          *version.Number
 	config                configFlag
 
-	controllerName string
-	CredentialName string
-	Cloud          string
-	Region         string
+	controllerName  string
+	hostedModelName string
+	CredentialName  string
+	Cloud           string
+	Region          string
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -154,6 +159,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "the credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
+	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "the name of the default hosted model for the controller")
+	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "the name of the default hosted model for the controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -320,11 +327,21 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	// Create an environment config from the cloud and credentials. The
-	// controller's model should be called "admin".
+	hostedModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
-		"type": cloud.Type,
-		"name": configstore.AdminModelName,
+		"type":                   cloud.Type,
+		"name":                   environs.ControllerModelName,
+		config.UUIDKey:           controllerUUID.String(),
+		config.ControllerUUIDKey: controllerUUID.String(),
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -338,13 +355,13 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Annotate(err, "creating environment configuration")
 	}
-	store, err := configstore.Default()
+	legacyStore, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerStore := c.ClientStore()
+	store := c.ClientStore()
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), store, controllerStore, c.controllerName,
+		modelcmd.BootstrapContext(ctx), legacyStore, store, c.controllerName,
 		environs.PrepareForBootstrapParams{
 			Config:               cfg,
 			Credentials:          *credential,
@@ -354,6 +371,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		},
 	)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Set the current model to the initial hosted model.
+	accountName, err := store.CurrentAccount(c.controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.UpdateModel(c.controllerName, accountName, c.hostedModelName, jujuclient.ModelDetails{
+		hostedModelUUID.String(),
+	}); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.SetCurrentModel(c.controllerName, accountName, c.hostedModelName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -383,7 +414,7 @@ to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(
-						c.controllerName, environ, store, controllerStore,
+						c.controllerName, environ, legacyStore, store,
 					)
 				})
 			}
@@ -423,7 +454,7 @@ to clean up the model.`[1:])
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		EnvironConstraints:   c.Constraints,
+		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
 		BootstrapImage:       c.BootstrapImage,
@@ -431,16 +462,20 @@ to clean up the model.`[1:])
 		UploadTools:          c.UploadTools,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
+		HostedModelConfig: map[string]interface{}{
+			"name":         c.hostedModelName,
+			config.UUIDKey: hostedModelUUID.String(),
+		},
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(cfg.Name()); err != nil {
+	if err := c.SetModelName(c.hostedModelName); err != nil {
 		return errors.Trace(err)
 	}
 
-	err = c.setBootstrapEndpointAddress(store, environ)
+	err = c.setBootstrapEndpointAddress(legacyStore, environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
