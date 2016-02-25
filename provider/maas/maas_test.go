@@ -151,7 +151,7 @@ func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
 		ProviderId:        network.Id(strconv.Itoa(int(subnetID))),
 		AllocatableIPLow:  net.ParseIP(fmt.Sprintf("192.168.%d.139", ipRange)).To4(),
 		AllocatableIPHigh: net.ParseIP(fmt.Sprintf("192.168.%d.255", ipRange)).To4(),
-		SpaceProviderId:   network.Id(fmt.Sprintf("Space %d", spaceID)),
+		SpaceProviderId:   network.Id(fmt.Sprintf("%d", spaceID)),
 	}
 }
 

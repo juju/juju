@@ -909,7 +909,11 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 }
 
 func (suite *environSuite) TestSpaces(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "Space 1"}))
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "Space 2"}))
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "Space 3"}))
 	for _, i := range []uint{1, 2, 3} {
 		suite.addSubnet(c, i, i, "node1")
 		suite.addSubnet(c, i+5, i, "node1")
@@ -918,22 +922,25 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSpaces := []network.SpaceInfo{{
-		ProviderId: "Space 1",
+		Name:       "Space 1",
+		ProviderId: "2",
 		Subnets: []network.SubnetInfo{
-			createSubnetInfo(1, 1, 1),
-			createSubnetInfo(2, 1, 6),
+			createSubnetInfo(1, 2, 1),
+			createSubnetInfo(2, 2, 6),
 		},
 	}, {
-		ProviderId: "Space 2",
+		Name:       "Space 2",
+		ProviderId: "3",
 		Subnets: []network.SubnetInfo{
-			createSubnetInfo(3, 2, 2),
-			createSubnetInfo(4, 2, 7),
+			createSubnetInfo(3, 3, 2),
+			createSubnetInfo(4, 3, 7),
 		},
 	}, {
-		ProviderId: "Space 3",
+		Name:       "Space 3",
+		ProviderId: "4",
 		Subnets: []network.SubnetInfo{
-			createSubnetInfo(5, 3, 3),
-			createSubnetInfo(6, 3, 8),
+			createSubnetInfo(5, 4, 3),
+			createSubnetInfo(6, 4, 8),
 		},
 	}}
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)

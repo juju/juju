@@ -1896,9 +1896,6 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 // JSON response or an error. If capNetworkDeploymentUbuntu is not available, an
 // error satisfying errors.IsNotSupported will be returned.
 func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
-	if !environ.supportsNetworkDeploymentUbuntu {
-		return nil, errors.NotSupportedf("Spaces")
-	}
 	client := environ.getMAASClient().GetSubObject("subnets")
 
 	json, err := client.CallGet("", nil)
@@ -1928,6 +1925,9 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
+	if !environ.supportsNetworkDeploymentUbuntu {
+		return nil, errors.NotSupportedf("Spaces")
+	}
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
