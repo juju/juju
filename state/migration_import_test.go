@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/migration"
@@ -52,8 +53,10 @@ func (s *MigrationImportSuite) assertAnnotations(c *gc.C, newSt *state.State, en
 }
 
 func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
+	cons := constraints.MustParse("arch=amd64 mem=8G")
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
+	c.Assert(s.State.SetModelConstraints(cons), jc.ErrorIsNil)
 
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,6 +95,11 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	delete(originalAttrs, "uuid")
 	delete(originalAttrs, "name")
 	c.Assert(newAttrs, jc.DeepEquals, originalAttrs)
+
+	newCons, err := newSt.ModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	// Can't test the constraints directly, so go through the string repr.
+	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
@@ -177,7 +185,10 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	// Let's add a machine with an LXC container.
-	machine1 := s.Factory.MakeMachine(c, nil)
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: cons,
+	})
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -215,14 +226,21 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(isContainer, jc.IsTrue)
 
 	s.assertAnnotations(c, newSt, parent)
+
+	newCons, err := parent.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	// Can't test the constraints directly, so go through the string repr.
+	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
 func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	// Add a service with both settings and leadership settings.
+	cons := constraints.MustParse("arch=amd64 mem=8G")
 	service := s.Factory.MakeService(c, &factory.ServiceParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
+		Constraints: cons,
 	})
 	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -267,10 +285,17 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
 	s.assertAnnotations(c, newSt, imported)
+	newCons, err := imported.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	// Can't test the constraints directly, so go through the string repr.
+	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
-	exported, pwd := s.Factory.MakeUnitReturningPassword(c, nil)
+	cons := constraints.MustParse("arch=amd64 mem=8G")
+	exported, pwd := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
+		Constraints: cons,
+	})
 	err := exported.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
@@ -300,6 +325,10 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 	s.assertAnnotations(c, newSt, imported)
+	newCons, err := imported.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	// Can't test the constraints directly, so go through the string repr.
+	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {

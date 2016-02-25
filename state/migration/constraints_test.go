@@ -70,6 +70,13 @@ func (s *ConstraintsSerializationSuite) TestNewConstraintsEmpty(c *gc.C) {
 	c.Assert(instance, gc.IsNil)
 }
 
+func (s *ConstraintsSerializationSuite) TestEmptyTagsAndSpaces(c *gc.C) {
+	instance := newConstraints(ConstraintsArgs{Architecture: "amd64"})
+	// We actually want them to be nil, not empty slices.
+	c.Assert(instance.Tags(), gc.IsNil)
+	c.Assert(instance.Spaces(), gc.IsNil)
+}
+
 func (s *ConstraintsSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	initial := newConstraints(s.allArgs())
 	bytes, err := yaml.Marshal(initial)

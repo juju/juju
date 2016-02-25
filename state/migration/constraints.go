@@ -100,15 +100,21 @@ func (c *constraints) RootDisk() uint64 {
 
 // Spaces implements Constraints.
 func (c *constraints) Spaces() []string {
-	spaces := make([]string, len(c.Spaces_))
-	copy(spaces, c.Spaces_)
+	var spaces []string
+	if count := len(c.Spaces_); count > 0 {
+		spaces = make([]string, count)
+		copy(spaces, c.Spaces_)
+	}
 	return spaces
 }
 
 // Tags implements Constraints.
 func (c *constraints) Tags() []string {
-	tags := make([]string, len(c.Tags_))
-	copy(tags, c.Tags_)
+	var tags []string
+	if count := len(c.Tags_); count > 0 {
+		tags = make([]string, count)
+		copy(tags, c.Tags_)
+	}
 	return tags
 }
 
