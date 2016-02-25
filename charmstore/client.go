@@ -136,6 +136,7 @@ func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]Cha
 	}
 
 	// Do a bulk call to get the latest info for each charm's resources.
+	// TODO(ericsnow) Only do this for charms that *have* resources.
 	chResources, err := client.ListResources(cURLs)
 	if err != nil {
 		return nil, errors.Trace(err)
