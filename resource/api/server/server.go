@@ -28,13 +28,12 @@ const (
 type DataStore interface {
 	resourceInfoStore
 	UploadDataStore
-	Units(serviceID string) (units []names.UnitTag, err error)
 }
 
 // Facade is the public API facade for resources.
 type Facade struct {
 	// store is the data source for the facade.
-	store DataStore
+	store resourceInfoStore
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
@@ -55,6 +54,9 @@ type resourceInfoStore interface {
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
 	AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+
+	// Units returns the tags for all units in the given service.
+	Units(serviceID string) (units []names.UnitTag, err error)
 }
 
 // ListResources returns the list of resources for the given service.
@@ -80,39 +82,13 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			continue
 		}
 
-		var result api.ResourcesResult
-		for _, res := range svcRes.Resources {
-			result.Resources = append(result.Resources, api.Resource2API(res))
-		}
-		unitResources := make(map[names.UnitTag]resource.UnitResources, len(svcRes.UnitResources))
-		for _, unitRes := range svcRes.UnitResources {
-			unitResources[unitRes.Tag] = unitRes
-		}
-
 		units, err := f.store.Units(tag.Id())
 		if err != nil {
 			r.Results[i] = errorResult(err)
 			continue
 		}
 
-		result.UnitResources = make([]api.UnitResources, len(units))
-		for i, tag := range units {
-			apiRes := api.UnitResources{
-				Entity: params.Entity{Tag: tag.String()},
-			}
-			for _, res := range unitResources[tag].Resources {
-				apiRes.Resources = append(apiRes.Resources, api.Resource2API(res))
-			}
-			result.UnitResources[i] = apiRes
-		}
-
-		result.CharmStoreResources = make([]api.CharmResource, len(svcRes.CharmStoreResources))
-		for i, chRes := range svcRes.CharmStoreResources {
-			result.CharmStoreResources[i] = api.CharmResource2API(chRes)
-		}
-
-		r.Results[i] = result
-
+		r.Results[i] = ServiceResources2APIResult(tag, svcRes, units)
 	}
 	return r, nil
 }
