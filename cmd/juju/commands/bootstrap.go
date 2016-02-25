@@ -100,13 +100,17 @@ See Also:
 `
 
 func newBootstrapCommand() cmd.Command {
-	return modelcmd.Wrap(&bootstrapCommand{})
+	return modelcmd.Wrap(&bootstrapCommand{
+		credentialsStore: jujuclient.NewFileCredentialsStore(),
+	})
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
+	credentialsStore jujuclient.CredentialsStore
+
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
 	BootstrapSeries       string
@@ -460,7 +464,7 @@ to clean up the model.`[1:])
 // If there exists no matching credentials, an error satisfying
 // errors.IsNotFound will be returned.
 func credentialByName(
-	store jujuclient.CredentialsGetter, cloudName, credentialName string,
+	store jujuclient.CredentialGetter, cloudName, credentialName string,
 ) (_ *jujucloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
 
 	cloudCredentials, err := store.CredentialsForCloud(cloudName)
@@ -491,7 +495,7 @@ func (c *bootstrapCommand) getCredentials(
 ) (_ *jujucloud.Credential, region string, _ error) {
 
 	credential, credentialName, defaultRegion, err := credentialByName(
-		c.ClientStore(), cloudName, c.CredentialName,
+		c.credentialsStore, cloudName, c.CredentialName,
 	)
 	if err != nil {
 		return nil, "", errors.Trace(err)

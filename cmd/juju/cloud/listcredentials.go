@@ -22,7 +22,7 @@ type listCredentialsCommand struct {
 	cmd.CommandBase
 	out       cmd.Output
 	cloudName string
-	store     jujuclient.CredentialsGetter
+	store     jujuclient.CredentialGetter
 }
 
 var listCredentialsDoc = `
@@ -44,7 +44,9 @@ type credentialsMap struct {
 
 // NewListCredentialsCommand returns a command to list cloud credentials.
 func NewListCredentialsCommand() cmd.Command {
-	return &listCredentialsCommand{}
+	return &listCredentialsCommand{
+		store: jujuclient.NewFileCredentialsStore(),
+	}
 }
 
 func (c *listCredentialsCommand) Info() *cmd.Info {

@@ -59,7 +59,7 @@ func (s *CredentialsFileSuite) TestReadEmptyFile(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("credentials.yaml"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	credentialstore := jujuclient.NewFileClientStore()
+	credentialstore := jujuclient.NewFileCredentialsStore()
 	_, err = credentialstore.CredentialsForCloud("foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

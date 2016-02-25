@@ -18,7 +18,7 @@ import (
 
 type listCredentialsSuite struct {
 	testing.BaseSuite
-	store jujuclient.CredentialsGetter
+	store jujuclient.CredentialGetter
 }
 
 var _ = gc.Suite(&listCredentialsSuite{})

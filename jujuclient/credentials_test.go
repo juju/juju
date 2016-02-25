@@ -23,7 +23,7 @@ var _ = gc.Suite(&CredentialsSuite{})
 
 func (s *CredentialsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.store = jujuclient.NewFileClientStore()
+	s.store = jujuclient.NewFileCredentialsStore()
 	s.cloudName = "testcloud"
 	s.credentials = cloud.CloudCredential{
 		DefaultCredential: "peter",
@@ -53,7 +53,7 @@ func (s *CredentialsSuite) TestCredentialsForCloud(c *gc.C) {
 	found, err := s.store.CredentialsForCloud(name)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.getCredentials(c)[name]
-	c.Assert(found, gc.DeepEquals, expected)
+	c.Assert(found, gc.DeepEquals, &expected)
 }
 
 func (s *CredentialsSuite) TestUpdateCredentialsAddFirst(c *gc.C) {
@@ -84,10 +84,10 @@ func (s *CredentialsSuite) assertCredentialsNotExists(c *gc.C) {
 }
 
 func (s *CredentialsSuite) assertUpdateSucceeded(c *gc.C) {
-	c.Assert(s.getCredentials(c)[s.cloudName], gc.DeepEquals, &s.credentials)
+	c.Assert(s.getCredentials(c)[s.cloudName], gc.DeepEquals, s.credentials)
 }
 
-func (s *CredentialsSuite) getCredentials(c *gc.C) map[string]*cloud.CloudCredential {
+func (s *CredentialsSuite) getCredentials(c *gc.C) map[string]cloud.CloudCredential {
 	credentials, err := s.store.AllCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	return credentials

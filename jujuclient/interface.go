@@ -36,25 +36,6 @@ type AccountDetails struct {
 	Password string `yaml:"password,omitempty"`
 }
 
-// CredentialsGetter gets credentials.
-type CredentialsGetter interface {
-	// CredentialsForCloud gets credentials for the named cloud.
-	CredentialsForCloud(string) (*cloud.CloudCredential, error)
-
-	// AllCredentials gets all credentials.
-	AllCredentials() (map[string]cloud.CloudCredential, error)
-}
-
-// CredentialUpdater stores credentials.
-type CredentialUpdater interface {
-	// UpdateCredentials adds the given credentials to the credentials
-	// collection.
-	//
-	// If the cloud or credential name does not already exist, it will be added.
-	// Otherwise, it will be overwritten with the new details.
-	UpdateCredentials(cloudName string, details cloud.CloudCredential) error
-}
-
 // ControllerUpdater stores controller details.
 type ControllerUpdater interface {
 	// UpdateController adds the given controller to the controller
@@ -197,16 +178,34 @@ type AccountStore interface {
 	AccountGetter
 }
 
-// CredentialsStore is an amalgamation of CredentialsUpdater, and CredentialsGetter.
-type CredentialsStore interface {
-	CredentialsGetter
-	CredentialUpdater
-}
-
 // ClientStore is an amalgamation of AccountStore, ControllerStore, and ModelStore.
 type ClientStore interface {
 	AccountStore
 	ControllerStore
 	ModelStore
-	CredentialsStore
+}
+
+// CredentialGetter gets credentials.
+type CredentialGetter interface {
+	// CredentialsForCloud gets credentials for the named cloud.
+	CredentialsForCloud(string) (*cloud.CloudCredential, error)
+
+	// AllCredentials gets all credentials.
+	AllCredentials() (map[string]cloud.CloudCredential, error)
+}
+
+// CredentialUpdater stores credentials.
+type CredentialUpdater interface {
+	// UpdateCredentials adds the given credentials to the credentials
+	// collection.
+	//
+	// If the cloud or credential name does not already exist, it will be added.
+	// Otherwise, it will be overwritten with the new details.
+	UpdateCredentials(cloudName string, details cloud.CloudCredential) error
+}
+
+// CredentialsStore is an amalgamation of CredentialsUpdater, and CredentialsGetter.
+type CredentialsStore interface {
+	CredentialGetter
+	CredentialUpdater
 }

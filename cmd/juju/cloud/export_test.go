@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func NewListCredentialsCommandForTest(testStore jujuclient.CredentialsGetter) *listCredentialsCommand {
+func NewListCredentialsCommandForTest(testStore jujuclient.CredentialGetter) *listCredentialsCommand {
 	return &listCredentialsCommand{
 		store: testStore,
 	}

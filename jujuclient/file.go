@@ -35,6 +35,12 @@ func NewFileClientStore() ClientStore {
 	return &store{}
 }
 
+// NewFileCredentialsStore returns a new filesystem-based credentials store
+// that manages credentials in $XDG_DATA_HOME/juju.
+func NewFileCredentialsStore() CredentialsStore {
+	return &store{}
+}
+
 type store struct{}
 
 func (s *store) lock(operation string) (*fslock.Lock, error) {
