@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -57,8 +56,6 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
-
-var _ = configstore.Default
 
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.
@@ -112,7 +109,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
@@ -773,6 +770,33 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	// m.Version would be deduced from m.Series
 	m.Version = "14.04"
 	assertWrittenToState(c, m)
+
+}
+
+func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
+	dir, _, _ := createImageMetadata(c)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	called := false
+	s.PatchValue(&storeImageMetadataFromFiles, func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
+		called = true
+		// This data source does not require to contain signed data.
+		// However, it may still contain it.
+		// Since we will always try to read signed data first,
+		// we want to be able to try to read this signed data
+		// with a user provided public key. For this test, none is provided.
+		// Bugs #1542127, #1542131
+		c.Assert(source.PublicSigningKey(), gc.Equals, "")
+		return nil
+	})
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
@@ -835,7 +859,9 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
+	env, err := provider.PrepareForBootstrap(nullContext(), environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)

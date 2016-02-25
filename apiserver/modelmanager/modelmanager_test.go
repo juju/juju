@@ -204,9 +204,9 @@ func (s *modelManagerSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 	args := s.createArgs(c, admin)
-	delete(args.Config, "controller")
+	args.Config["controller"] = "maybe"
 	_, err := s.modelmanager.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, "provider validation failed: controller: expected bool, got nothing")
+	c.Assert(err, gc.ErrorMatches, "provider validation failed: controller: expected bool, got string\\(\"maybe\"\\)")
 }
 
 func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {

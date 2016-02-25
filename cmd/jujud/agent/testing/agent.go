@@ -97,7 +97,11 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	return f.Err
 }
 
-func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
+func (f *FakeEnsureMongo) MaybeInitiateMongo(p peergrouper.InitiateMongoParams) error {
+	return f.InitiateMongo(p, false)
+}
+
+func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams, force bool) error {
 	f.InitiateCount++
 	f.InitiateParams = p
 	return nil

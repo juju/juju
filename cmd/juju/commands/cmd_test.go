@@ -22,44 +22,6 @@ type CmdSuite struct {
 
 var _ = gc.Suite(&CmdSuite{})
 
-const modelConfig = `
-default:
-    peckham
-environments:
-    peckham:
-        type: dummy
-        controller: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-    walthamstow:
-        type: dummy
-        controller: false
-        authorized-keys: i-am-a-key
-    brokenenv:
-        type: dummy
-        broken: Bootstrap Destroy
-        controller: false
-        authorized-keys: i-am-a-key
-        agent-stream: proposed
-    devenv:
-        type: dummy
-        controller: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-        agent-stream: proposed
-`
-
-func (s *CmdSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	coretesting.WriteEnvironments(c, modelConfig, "peckham", "walthamstow", "brokenenv")
-}
-
-func (s *CmdSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func initSSHCommand(args ...string) (*sshCommand, error) {
 	com := &sshCommand{}
 	return com, coretesting.InitCommand(com, args)

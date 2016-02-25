@@ -180,7 +180,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
 	}
-
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot determine mongo information")
+	}
 	return params.FullStatus{
 		ModelName:        cfg.Name(),
 		AvailableVersion: newToolsVersion,
@@ -399,7 +401,8 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 		}
 
 		// Element 0 is assumed to be the top-level machine.
-		hostStatus := makeMachineStatus(machines[0])
+		tlMachine := machines[0]
+		hostStatus := makeMachineStatus(tlMachine)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 

@@ -39,9 +39,16 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	}
 	expectedKeys := []string{
 		"agent",
+		"api-address-updater",
 		"api-caller",
 		"apiworkers",
+		"authenticationworker",
+		"deployer",
+		"disk-manager",
+		"log-sender",
 		"logging-config-updater",
+		"machiner",
+		"proxy-config-updater",
 		"reboot",
 		"serving-info-setter",
 		"state",

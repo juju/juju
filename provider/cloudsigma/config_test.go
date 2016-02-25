@@ -25,6 +25,7 @@ func validAttrs() testing.Attrs {
 		"username": "user",
 		"password": "password",
 		"region":   "zrh",
+		"endpoint": "https://0.1.2.3:2000/api/2.0/",
 		"uuid":     "f54aac3a-9dcd-4a0c-86b5-24091478478c",
 	})
 }
