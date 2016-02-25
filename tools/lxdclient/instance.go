@@ -7,14 +7,13 @@ package lxdclient
 
 import (
 	"fmt"
-	"net"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
-
-	"github.com/juju/juju/network"
 )
 
 // Constants related to user metadata.
@@ -84,22 +83,24 @@ func (spec InstanceSpec) config() map[string]string {
 	return resolveMetadata(spec.Metadata)
 }
 
-func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
+func (spec InstanceSpec) info(namespace string) *shared.ContainerInfo {
 	name := spec.Name
 	if namespace != "" {
 		name = namespace + "-" + name
 	}
 
-	return &shared.ContainerState{
-		Architecture:    0,
+	return &shared.ContainerInfo{
+		Architecture:    "",
 		Config:          spec.config(),
+		CreationDate:    time.Time{},
 		Devices:         shared.Devices{},
 		Ephemeral:       spec.Ephemeral,
 		ExpandedConfig:  map[string]string{},
 		ExpandedDevices: shared.Devices{},
 		Name:            name,
 		Profiles:        spec.Profiles,
-		Status:          shared.ContainerStatus{},
+		Status:          "",
+		StatusCode:      0,
 	}
 }
 
@@ -137,43 +138,34 @@ type InstanceSummary struct {
 
 	// Metadata is the instance metadata.
 	Metadata map[string]string
-
-	// Addresses
-	Addresses []network.Address
 }
 
-func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
-	archStr, _ := shared.ArchitectureName(info.Architecture)
-	archStr = arch.NormaliseArch(archStr)
+func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
+	archStr := arch.NormaliseArch(info.Architecture)
 
 	var numCores uint = 0 // default to all
-	if raw := info.Config["limits.cpus"]; raw != "" {
+	if raw := info.Config["limits.cpu"]; raw != "" {
 		fmt.Sscanf(raw, "%d", &numCores)
 	}
 
 	var mem uint = 0 // default to all
 	if raw := info.Config["limits.memory"]; raw != "" {
-		fmt.Sscanf(raw, "%d", &mem)
-	}
-
-	var addrs []network.Address
-	for _, info := range info.Status.Ips {
-		addr := network.NewAddress(info.Address)
-
-		// Ignore loopback devices.
-		// TODO(ericsnow) Move the loopback test to a network.Address method?
-		ip := net.ParseIP(addr.Value)
-		if ip != nil && ip.IsLoopback() {
-			continue
+		result, err := shared.ParseByteSizeString(raw)
+		if err != nil {
+			logger.Errorf("failed to parse %s into bytes, ignoring...", raw)
+			mem = 0
+		} else if mem > math.MaxUint32 {
+			logger.Errorf("byte string %s overflowed uint32: %s", raw)
+			mem = math.MaxUint32
+		} else {
+			mem = uint(result)
 		}
-
-		addrs = append(addrs, addr)
 	}
 
 	// TODO(ericsnow) Factor this out into a function.
-	statusStr := info.Status.Status
+	statusStr := info.Status
 	for status, code := range allStatuses {
-		if info.Status.StatusCode == code {
+		if info.StatusCode == code {
 			statusStr = status
 			break
 		}
@@ -182,10 +174,9 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 	metadata := extractMetadata(info.Config)
 
 	return InstanceSummary{
-		Name:      info.Name,
-		Status:    statusStr,
-		Metadata:  metadata,
-		Addresses: addrs,
+		Name:     info.Name,
+		Status:   statusStr,
+		Metadata: metadata,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
@@ -202,7 +193,7 @@ type Instance struct {
 	spec *InstanceSpec
 }
 
-func newInstance(info *shared.ContainerState, spec *InstanceSpec) *Instance {
+func newInstance(info *shared.ContainerInfo, spec *InstanceSpec) *Instance {
 	summary := newInstanceSummary(info)
 	return NewInstance(summary, spec)
 }

@@ -4,7 +4,3 @@
 // +build go1.3
 
 package lxdclient
-
-var (
-	GenCertAndKey = genCertAndKey
-)

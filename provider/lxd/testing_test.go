@@ -233,11 +233,10 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Instance {
 	summary := lxdclient.InstanceSummary{
-		Name:      name,
-		Status:    lxdclient.StatusRunning,
-		Hardware:  *s.Hardware,
-		Metadata:  s.Metadata,
-		Addresses: s.Addresses,
+		Name:     name,
+		Status:   lxdclient.StatusRunning,
+		Hardware: *s.Hardware,
+		Metadata: s.Metadata,
 	}
 	instanceSpec := lxdclient.InstanceSpec{
 		Name:      name,
@@ -492,6 +491,19 @@ func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
 	}
 
 	return nil
+}
+
+func (conn *stubClient) Addresses(name string) ([]network.Address, error) {
+	conn.stub.AddCall("Addresses", name)
+	if err := conn.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return []network.Address{network.Address{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}}, nil
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

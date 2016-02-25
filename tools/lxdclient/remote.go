@@ -6,6 +6,8 @@
 package lxdclient
 
 import (
+	lxdshared "github.com/lxc/lxd/shared"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
@@ -69,7 +71,7 @@ func (r Remote) WithDefaults() (Remote, error) {
 	}
 
 	if r.Cert == nil {
-		certPEM, keyPEM, err := genCertAndKey()
+		certPEM, keyPEM, err := lxdshared.GenerateMemCert()
 		if err != nil {
 			return r, errors.Trace(err)
 		}
@@ -147,7 +149,7 @@ func (r Remote) UsingTCP() (Remote, error) {
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	r.Host = addr
+	r.Host = addr + ":8443"
 
 	r, err = r.WithDefaults()
 	if err != nil {

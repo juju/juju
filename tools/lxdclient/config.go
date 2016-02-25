@@ -6,22 +6,7 @@
 package lxdclient
 
 import (
-	"os"
-	"path"
-	"path/filepath"
-
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
-)
-
-// The LXD repo does not expose any consts for these values.
-// TODO(ericsnow) Expose these consts in the LXD repo?
-const (
-	// see https://github.com/lxc/lxd/blob/master/config.go
-	configDefaultFile = "config.yml"
-	// see https://github.com/lxc/lxd/blob/master/client.go (readMyCert)
-	configCertFile = "client.crt"
-	configKeyFile  = "client.key"
 )
 
 // Config contains the config values used for a connection to the LXD API.
@@ -31,21 +16,13 @@ type Config struct {
 	// blank.
 	Namespace string
 
-	// Dirname identifies where the client will find config files.
-	// default: "$HOME/.config/lxc"
-	Dirname string
-
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
 	Remote Remote
-}
 
-// ConfigPath returns the full path to Juju LXC config directory.
-// This is here so we do not have to import lxc/lxd into the provider.
-func ConfigPath(namespace string) string {
-	// Here we use the same path as lxc for convention, but we could use
-	// any juju specific path.
-	return os.ExpandEnv(path.Join("$HOME/.config/lxc", namespace))
+	// ServerPEMCert is the certificate to be supplied as the acceptable
+	// server certificate when connecting to the remote.
+	ServerPEMCert string
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -53,12 +30,6 @@ func ConfigPath(namespace string) string {
 func (cfg Config) WithDefaults() (Config, error) {
 	// We leave a blank namespace alone.
 	// Also, note that cfg is a value receiver, so it is an implicit copy.
-
-	if cfg.Dirname == "" {
-		// TODO(ericsnow) Switch to filepath as soon as LXD does,
-		dirname := path.Dir(ConfigPath("DUMMY"))
-		cfg.Dirname = path.Clean(dirname)
-	}
 
 	var err error
 	cfg.Remote, err = cfg.Remote.WithDefaults()
@@ -78,19 +49,6 @@ func (cfg Config) Validate() error {
 	// TODO(ericsnow) Check cfg.Filename (if provided)?
 
 	if err := cfg.Remote.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-// Write writes all the various files for this config.
-func (cfg Config) Write() error {
-	if err := cfg.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := cfg.write(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -117,156 +75,37 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	}
 
 	// Update the server config and authorized certs.
-	if err := prepareRemote(cfg, *remote.Cert); err != nil {
+	serverCert, err := prepareRemote(cfg, *remote.Cert)
+	if err != nil {
 		return cfg, errors.Trace(err)
 	}
 
 	cfg.Remote = remote
+	cfg.ServerPEMCert = serverCert
 	return cfg, nil
 }
 
-func prepareRemote(cfg Config, newCert Cert) error {
+func prepareRemote(cfg Config, newCert Cert) (string, error) {
 	client, err := Connect(cfg)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
+	// Make sure the LXD service is configured to listen to local https
+	// requests, rather than only via the Unix socket.
 	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
+	// Make sure the LXD service will allow our certificate to connect
 	if err := client.AddCert(newCert); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	return nil
-}
-
-//TODO(wwitzel3) make sure this is idempotent
-func initializeConfigDir(cfg Config) error {
-	logger.Debugf("initializing config dir %q", cfg.Dirname)
-
-	if err := os.MkdirAll(cfg.Dirname, 0775); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Force the default config to get written. LoadConfig() returns the
-	// default config from memory if there isn't a config file on disk.
-	// So we load that and then explicitly save it to disk with a call
-	// to SaveConfig().
-	config, err := lxd.LoadConfig(cfg.resolve(configDefaultFile))
+	st, err := client.ServerStatus()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	if err := lxd.SaveConfig(config, cfg.resolve(configDefaultFile)); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (cfg Config) write() error {
-	// Ensure the initial config is set up.
-	if err := initializeConfigDir(cfg); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update config.yml, if necessary.
-	if err := cfg.writeConfigFile(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Write the cert file and key file, if applicable.
-	if err := cfg.writeCert(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (cfg Config) writeConfigFile() error {
-	filename := cfg.resolve(configDefaultFile)
-	logger.Debugf("writing config file %q", filename)
-
-	// TODO(ericsnow) Cache the low-level config in Config?
-	rawCfg, err := lxd.LoadConfig(cfg.resolve(configDefaultFile))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if !cfg.Remote.isLocal() {
-		// Ensure the remote is set correctly.
-		remote := cfg.Remote.Name
-		delete(rawCfg.Remotes, remote)
-		addr := cfg.Remote.Host
-		if err := addServer(rawCfg, remote, addr); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Write out the updated config, if changed.
-	// TODO(ericsnow) Check if changed.
-	if err := lxd.SaveConfig(rawCfg, cfg.resolve(configDefaultFile)); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (cfg Config) writeCert() error {
-	if cfg.Remote.Cert.isZero() {
-		logger.Debugf("not writing empty certificate")
-		return nil
-	}
-
-	cert := *cfg.Remote.Cert
-	if err := cert.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := cfg.writeCertPEM(cert); err != nil {
-		return errors.Trace(err)
-	}
-	if err := cfg.writeKeyPEM(cert); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (cfg Config) writeCertPEM(cert Cert) error {
-	filename := cfg.resolve(configCertFile)
-	logger.Debugf("writing cert PEM file %q", filename)
-
-	file, err := os.Create(filename)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer file.Close()
-
-	if err := cert.WriteCertPEM(file); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (cfg Config) writeKeyPEM(cert Cert) error {
-	filename := cfg.resolve(configKeyFile)
-	logger.Debugf("writing key PEM file %q", filename)
-
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer file.Close()
-
-	if err := cert.WriteKeyPEM(file); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (cfg Config) resolve(file string) string {
-	return filepath.Join(cfg.Dirname, file)
+	return st.Environment.Certificate, nil
 }
