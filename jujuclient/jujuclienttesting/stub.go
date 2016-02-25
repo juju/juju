@@ -33,7 +33,7 @@ type StubStore struct {
 	RemoveAccountFunc     func(controllerName, accountName string) error
 
 	CredentialForCloudFunc func(string) (*cloud.CloudCredential, error)
-	AllCredentialsFunc      func() (map[string]cloud.CloudCredential, error)
+	AllCredentialsFunc     func() (map[string]cloud.CloudCredential, error)
 	UpdateCredentialFunc   func(cloudName string, details cloud.CloudCredential) error
 }
 
