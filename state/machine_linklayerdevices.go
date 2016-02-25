@@ -163,7 +163,9 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 
 		for _, newDoc := range newDocs {
 			ops = append(ops, insertLinkLayerDeviceDocOp(&newDoc))
-			ops = m.assertParentDeviceExistsWhenSet(newDoc.ParentName, ops)
+			if newDoc.ParentName != "" {
+				ops = m.assertParentDeviceExists(newDoc.ParentName, ops)
+			}
 		}
 		return ops, nil
 	}
@@ -304,8 +306,10 @@ func (m *Machine) isStillAlive() error {
 
 func (m *Machine) areLinkLayerDeviceDocsStillValid(newDocs []linkLayerDeviceDoc) error {
 	for _, newDoc := range newDocs {
-		if err := m.verifyParentDeviceExistsWhenSet(newDoc.Name, newDoc.ParentName); err != nil {
-			return errors.Trace(err)
+		if newDoc.ParentName != "" {
+			if err := m.verifyParentDeviceExists(newDoc.Name, newDoc.ParentName); err != nil {
+				return errors.Trace(err)
+			}
 		}
 		if err := m.verifyDeviceDoesNotExistYet(newDoc.Name); err != nil {
 			return errors.Trace(err)
@@ -314,12 +318,7 @@ func (m *Machine) areLinkLayerDeviceDocsStillValid(newDocs []linkLayerDeviceDoc)
 	return nil
 }
 
-func (m *Machine) verifyParentDeviceExistsWhenSet(name, parentName string) error {
-	if parentName == "" {
-		// No parent set, so nothing to verify.
-		return nil
-	}
-
+func (m *Machine) verifyParentDeviceExists(name, parentName string) error {
 	if _, err := m.LinkLayerDevice(parentName); errors.IsNotFound(err) {
 		return errors.NotFoundf("parent device %q of device %q", parentName, name)
 	} else if err != nil {
@@ -345,12 +344,7 @@ func (m *Machine) assertAliveOp() txn.Op {
 	}
 }
 
-func (m *Machine) assertParentDeviceExistsWhenSet(parentName string, opsSoFar []txn.Op) []txn.Op {
-	if parentName == "" {
-		// Without a parent set, no need to add an assertion the parent exists.
-		return opsSoFar
-	}
-
+func (m *Machine) assertParentDeviceExists(parentName string, opsSoFar []txn.Op) []txn.Op {
 	parentGlobalKey := linkLayerDeviceGlobalKey(m.doc.Id, parentName)
 	parentDocID := m.st.docID(parentGlobalKey)
 	return append(opsSoFar, assertLinkLayerDeviceExistsOp(parentDocID))

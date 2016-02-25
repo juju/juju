@@ -282,7 +282,7 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesRefusesToAddParentAn
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *linkLayerDevicesStateSuite) addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c *gc.C, allArgs []state.LinkLayerDeviceArgs) []*state.LinkLayerDevice {
+func (s *linkLayerDevicesStateSuite) addMultipleDevicesSucceedsAndCheckAllAdded(c *gc.C, allArgs []state.LinkLayerDeviceArgs) []*state.LinkLayerDevice {
 	err := s.machine.AddLinkLayerDevices(allArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -299,10 +299,10 @@ func (s *linkLayerDevicesStateSuite) addLinkLayerDevicesMultipleArgsSucceedsAndE
 }
 
 func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesMultipleChildrenOfExistingParentSucceeds(c *gc.C) {
-	s.addNamedParentDeviceWithChildren(c, "parent", "child1", "child2")
+	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "parent", "child1", "child2")
 }
 
-func (s *linkLayerDevicesStateSuite) addNamedParentDeviceWithChildren(c *gc.C, parentName string, childrenNames ...string) (
+func (s *linkLayerDevicesStateSuite) addNamedParentDeviceWithChildrenAndCheckAllAdded(c *gc.C, parentName string, childrenNames ...string) (
 	parent *state.LinkLayerDevice,
 	children []*state.LinkLayerDevice,
 ) {
@@ -316,8 +316,7 @@ func (s *linkLayerDevicesStateSuite) addNamedParentDeviceWithChildren(c *gc.C, p
 		}
 	}
 
-	children = s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, childrenArgs)
-	c.Check(children, gc.HasLen, len(childrenNames))
+	children = s.addMultipleDevicesSucceedsAndCheckAllAdded(c, childrenArgs)
 	return parent, children
 }
 
@@ -360,7 +359,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
 }
 
 func (s *linkLayerDevicesStateSuite) TestParentDeviceReturnsLinkLayerDevice(c *gc.C) {
-	parent, children := s.addNamedParentDeviceWithChildren(c, "br-eth0", "eth0")
+	parent, children := s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "br-eth0", "eth0")
 
 	child := children[0]
 	parentCopy, err := child.ParentDevice()
@@ -385,7 +384,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsLinkLayerD
 
 func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevices(c *gc.C) {
 	s.assertNoDevicesOnMachine(c, s.machine)
-	topParent, secondLevelParents := s.addNamedParentDeviceWithChildren(c, "br-bond0", "bond0")
+	topParent, secondLevelParents := s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "br-bond0", "bond0")
 	secondLevelParent := secondLevelParents[0]
 
 	secondLevelChildrenArgs := []state.LinkLayerDeviceArgs{{
@@ -397,7 +396,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevices(c *gc.C) {
 		Type:       state.EthernetDevice,
 		ParentName: secondLevelParent.Name(),
 	}}
-	s.addLinkLayerDevicesMultipleArgsSucceedsAndEnsureAllAdded(c, secondLevelChildrenArgs)
+	s.addMultipleDevicesSucceedsAndCheckAllAdded(c, secondLevelChildrenArgs)
 
 	results, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -428,7 +427,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevicesOnlyReturnsSa
 	s.assertNoDevicesOnMachine(c, s.machine)
 	s.assertNoDevicesOnMachine(c, s.otherStateMachine)
 
-	s.addNamedParentDeviceWithChildren(c, "foo", "foo.42")
+	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "foo", "foo.42")
 
 	results, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -440,7 +439,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevicesOnlyReturnsSa
 }
 
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveFailsWithExistingChildren(c *gc.C) {
-	parent, _ := s.addNamedParentDeviceWithChildren(c, "parent", "one-child", "another-child")
+	parent, _ := s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "parent", "one-child", "another-child")
 
 	err := parent.Remove()
 	expectedError := fmt.Sprintf(
@@ -473,7 +472,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveTwiceStillSucceeds
 
 func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesSuccess(c *gc.C) {
 	s.assertNoDevicesOnMachine(c, s.machine)
-	s.addNamedParentDeviceWithChildren(c, "foo", "bar")
+	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "foo", "bar")
 
 	err := s.machine.RemoveAllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
