@@ -13,6 +13,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
+	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 
@@ -29,6 +30,11 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws-china[ ]*ec2[ ]*cn-north-1.*`)
+	// TODO(wallyworld) - uncomment when we build with go 1.3 or greater
+	// LXD should be there too.
+	//c.Assert(out, gc.Matches, `.*lxd[ ]*lxd[ ]*localhost.*`)
+	// And also manual.
+	c.Assert(out, gc.Matches, `.*manual[ ]*manual[ ].*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {

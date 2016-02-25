@@ -56,7 +56,7 @@ func (s *DoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DoSuite) TestHelp(c *gc.C) {
-	cmd, _ := action.NewDoCommand()
+	cmd, _ := action.NewDoCommand(s.store)
 	s.checkHelp(c, cmd)
 }
 
@@ -167,7 +167,7 @@ func (s *DoSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewDoCommand()
+			wrappedCommand, command := action.NewDoCommand(s.store)
 			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "dummymodel"}, t.args...)
@@ -370,7 +370,7 @@ func (s *DoSuite) TestRun(c *gc.C) {
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				wrappedCommand, _ := action.NewDoCommand()
+				wrappedCommand, _ := action.NewDoCommand(s.store)
 				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
 				ctx, err := testing.RunCommand(c, wrappedCommand, args...)
 

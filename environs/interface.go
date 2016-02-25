@@ -77,6 +77,19 @@ type PrepareForBootstrapParams struct {
 	CloudStorageEndpoint string
 }
 
+// LabeledCredential defines a cloud credential with a label
+// The label may come from a well known config file for the
+// cloud, where credentials are listed for named users, or may
+// be empty if just a set of credential attributes are known.
+type LabeledCredential struct {
+	// Label is an optional tag defining the origin of the credential.
+	// Typically this is the user to whom the credential belongs.
+	Label string
+
+	// Credential is the credential value.
+	Credential cloud.Credential
+}
+
 // ProviderCredentials is an interface that an EnvironProvider implements
 // in order to validate and automatically detect credentials for clouds
 // supported by the provider.
@@ -98,7 +111,7 @@ type ProviderCredentials interface {
 	//
 	// If no credentials can be detected, DetectCredentials should
 	// return an error satisfying errors.IsNotFound.
-	DetectCredentials() ([]cloud.Credential, error)
+	DetectCredentials() ([]LabeledCredential, error)
 }
 
 // CloudRegionDetector is an interface that an EnvironProvider implements
