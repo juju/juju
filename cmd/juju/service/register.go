@@ -25,10 +25,13 @@ type metricRegistrationPost struct {
 	CharmURL    string `json:"charm-url"`
 	ServiceName string `json:"service-name"`
 	PlanURL     string `json:"plan-url"`
+	Budget      string `json:"budget"`
+	Limit       string `json:"limit"`
 }
 
 // RegisterMeteredCharm implements the DeployStep interface.
 type RegisterMeteredCharm struct {
+	AllocateBudget
 	Plan        string
 	RegisterURL string
 	QueryURL    string
@@ -36,12 +39,17 @@ type RegisterMeteredCharm struct {
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
+	r.AllocateBudget.SetFlags(f)
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+	err := r.AllocateBudget.RunPre(state, client, ctx, deployInfo)
+	if err != nil {
+		return errors.Annotate(err, "failed to register metrics")
+	}
 	charmsClient := charms.NewClient(state)
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if err != nil {
@@ -68,7 +76,13 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		}
 	}
 
-	r.credentials, err = r.registerMetrics(deployInfo.ModelUUID, deployInfo.CharmURL.String(), deployInfo.ServiceName, &bakeryClient)
+	r.credentials, err = r.registerMetrics(
+		deployInfo.ModelUUID,
+		deployInfo.CharmURL.String(),
+		deployInfo.ServiceName,
+		r.AllocateBudget.Budget,
+		r.AllocateBudget.Limit,
+		&bakeryClient)
 	if err != nil {
 		if deployInfo.CharmURL.Schema == "cs" {
 			logger.Infof("failed to obtain plan authorization: %v", err)
@@ -81,6 +95,10 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
 func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+	err := r.AllocateBudget.RunPost(state, client, ctx, deployInfo, prevErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if prevErr != nil {
 		return nil
 	}
@@ -94,7 +112,7 @@ func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client
 	}
 	defer api.Close()
 
-	err := api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
+	err = api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
 	if err != nil {
 		logger.Infof("failed to set metric credentials: %v", err)
 		return err
@@ -202,7 +220,7 @@ func (r *RegisterMeteredCharm) getCharmPlans(client *http.Client, cURL string) (
 	return info, nil
 }
 
-func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
+func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, serviceName, budget, limit string, client *httpbakery.Client) ([]byte, error) {
 	if r.RegisterURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
@@ -216,6 +234,8 @@ func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, servic
 		CharmURL:    charmURL,
 		ServiceName: serviceName,
 		PlanURL:     r.Plan,
+		Budget:      budget,
+		Limit:       limit,
 	}
 
 	buff := &bytes.Buffer{}

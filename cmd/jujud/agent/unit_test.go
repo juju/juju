@@ -26,6 +26,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -150,13 +151,13 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			statusInfo, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			switch statusInfo.Status {
-			case state.StatusMaintenance, state.StatusWaiting, state.StatusBlocked:
+			case status.StatusMaintenance, status.StatusWaiting, status.StatusBlocked:
 				c.Logf("waiting...")
 				continue
-			case state.StatusActive:
+			case status.StatusActive:
 				c.Logf("active!")
 				return
-			case state.StatusUnknown:
+			case status.StatusUnknown:
 				// Active units may have a status of unknown if they have
 				// started but not run status-set.
 				c.Logf("unknown but active!")
@@ -167,10 +168,10 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			statusInfo, err = unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			switch statusInfo.Status {
-			case state.StatusAllocating, state.StatusExecuting, state.StatusRebooting, state.StatusIdle:
+			case status.StatusAllocating, status.StatusExecuting, status.StatusRebooting, status.StatusIdle:
 				c.Logf("waiting...")
 				continue
-			case state.StatusError:
+			case status.StatusError:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:

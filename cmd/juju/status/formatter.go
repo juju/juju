@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 type statusFormatter struct {
@@ -85,21 +86,15 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
-	// New server
-	agent := machine.Agent
 	out = machineStatus{
-		AgentState:     agent.Status,
-		AgentStateInfo: agent.Info,
-		AgentVersion:   agent.Version,
-		Life:           agent.Life,
-		Err:            agent.Err,
-		DNSName:        machine.DNSName,
-		InstanceId:     machine.InstanceId,
-		InstanceState:  machine.InstanceState,
-		Series:         machine.Series,
-		Id:             machine.Id,
-		Containers:     make(map[string]machineStatus),
-		Hardware:       machine.Hardware,
+		JujuStatus:    sf.getStatusInfoContents(machine.AgentStatus),
+		DNSName:       machine.DNSName,
+		InstanceId:    machine.InstanceId,
+		MachineStatus: sf.getStatusInfoContents(machine.InstanceStatus),
+		Series:        machine.Series,
+		Id:            machine.Id,
+		Containers:    make(map[string]machineStatus),
+		Hardware:      machine.Hardware,
 	}
 
 	for k, m := range machine.Containers {
@@ -171,7 +166,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 
 	out := unitStatus{
 		WorkloadStatusInfo: sf.getWorkloadStatusInfo(info.unit),
-		AgentStatusInfo:    sf.getAgentStatusInfo(info.unit),
+		JujuStatusInfo:     sf.getAgentStatusInfo(info.unit),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
 		PublicAddress:      info.unit.PublicAddress,
@@ -197,39 +192,52 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	return out
 }
 
+func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) statusInfoContents {
+	info := statusInfoContents{
+		Err:     inst.Err,
+		Current: inst.Status,
+		Message: inst.Info,
+		Version: inst.Version,
+		Life:    inst.Life,
+	}
+	if inst.Since != nil {
+		info.Since = common.FormatTime(inst.Since, sf.isoTime)
+	}
+	return info
+}
+
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
-		Err:     unit.Workload.Err,
-		Current: unit.Workload.Status,
-		Message: unit.Workload.Info,
-		Version: unit.Workload.Version,
+		Err:     unit.WorkloadStatus.Err,
+		Current: unit.WorkloadStatus.Status,
+		Message: unit.WorkloadStatus.Info,
+		Version: unit.WorkloadStatus.Version,
 	}
-	if unit.Workload.Since != nil {
-		info.Since = common.FormatTime(unit.Workload.Since, sf.isoTime)
+	if unit.WorkloadStatus.Since != nil {
+		info.Since = common.FormatTime(unit.WorkloadStatus.Since, sf.isoTime)
 	}
 	return info
 }
 
 func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
 	info := statusInfoContents{
-		Err:     unit.UnitAgent.Err,
-		Current: unit.UnitAgent.Status,
-		Message: unit.UnitAgent.Info,
-		Version: unit.UnitAgent.Version,
+		Err:     unit.AgentStatus.Err,
+		Current: unit.AgentStatus.Status,
+		Message: unit.AgentStatus.Info,
+		Version: unit.AgentStatus.Version,
 	}
-	if unit.UnitAgent.Since != nil {
-		info.Since = common.FormatTime(unit.UnitAgent.Since, sf.isoTime)
+	if unit.AgentStatus.Since != nil {
+		info.Since = common.FormatTime(unit.AgentStatus.Since, sf.isoTime)
 	}
 	return info
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
-	if unit.Workload.Status == params.StatusError {
+	if unit.WorkloadStatus.Status == status.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
-				unit.Workload.Info = unit.Workload.Info + " for " + ep.String()
-				unit.AgentStateInfo = unit.Workload.Info
+				unit.WorkloadStatus.Info = unit.WorkloadStatus.Info + " for " + ep.String()
 			}
 		}
 	}
@@ -260,7 +268,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 }
 
 func getRelationIdFromData(unit *params.UnitStatus) int {
-	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
+	if relationId_, ok := unit.WorkloadStatus.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
 		} else {

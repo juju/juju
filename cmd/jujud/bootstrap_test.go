@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -57,8 +56,6 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
-
-var _ = configstore.Default
 
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.
@@ -862,7 +859,9 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
+	env, err := provider.PrepareForBootstrap(nullContext(), environs.PrepareForBootstrapParams{
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)

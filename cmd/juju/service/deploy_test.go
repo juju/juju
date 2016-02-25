@@ -993,6 +993,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			CharmURL:    "cs:quantal/metered-1",
 			ServiceName: "metered",
 			PlanURL:     "someplan",
+			Budget:      "personal",
+			Limit:       "0",
 		}},
 	}})
 }
@@ -1040,6 +1042,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			CharmURL:    "cs:quantal/metered-1",
 			ServiceName: "metered",
 			PlanURL:     "thisplan",
+			Budget:      "personal",
+			Limit:       "0",
 		}},
 	}})
 }

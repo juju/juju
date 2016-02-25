@@ -46,22 +46,6 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(resultMachine.Series, gc.Equals, machine.Series())
 }
 
-func (s *statusSuite) TestLegacyStatus(c *gc.C) {
-	machine := s.addMachine(c)
-	instanceId := "i-fakeinstance"
-	err := machine.SetProvisioned(instance.Id(instanceId), "fakenonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	client := s.APIState.Client()
-	status, err := client.LegacyStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.Machines, gc.HasLen, 1)
-	resultMachine, ok := status.Machines[machine.Id()]
-	if !ok {
-		c.Fatalf("Missing machine with id %q", machine.Id())
-	}
-	c.Check(resultMachine.InstanceId, gc.Equals, instanceId)
-}
-
 var _ = gc.Suite(&statusUnitTestSuite{})
 
 type statusUnitTestSuite struct {

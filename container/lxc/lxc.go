@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/looputil"
 )
 
@@ -185,6 +186,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
+	callback func(containerStatus status.Status, info string, data map[string]interface{}) error,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
@@ -194,6 +196,8 @@ func (manager *containerManager) CreateContainer(
 	} else if networkConfig == nil {
 		panic("networkConfig is nil")
 	} else if storageConfig == nil {
+		panic("storageConfig is nil")
+	} else if callback == nil {
 		panic("storageConfig is nil")
 	}
 
@@ -233,6 +237,7 @@ func (manager *containerManager) CreateContainer(
 			instanceConfig.EnableOSUpgrade,
 			manager.imageURLGetter,
 			manager.useAUFS,
+			callback,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -266,6 +271,10 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Annotate(err, "failed to reorder network settings")
 		}
 
+		err = callback(status.StatusProvisioning, "Cloning template container", nil)
+		if err != nil {
+			logger.Warningf("Cannot set instance status for container: %v", err)
+		}
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("lxc container cloning failed"))
@@ -303,6 +312,8 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Trace(err)
 		}
 	}
+
+	callback(status.StatusProvisioning, "Configuring container", nil)
 
 	if err := autostartContainer(name); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to configure the container for autostart")
@@ -360,6 +371,7 @@ func (manager *containerManager) CreateContainer(
 	consoleFile := filepath.Join(directory, "console.log")
 	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
+	callback(status.StatusProvisioning, "Starting container", nil)
 
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
@@ -389,6 +401,7 @@ func (manager *containerManager) CreateContainer(
 		Arch: &arch,
 	}
 
+	callback(status.StatusRunning, "Container started", nil)
 	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 

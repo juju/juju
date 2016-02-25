@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -42,8 +41,8 @@ validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either ~/.local/share/juju/environments.yaml, the -m option, or JUJU_MODEL.
-Series, Region, and Endpoint are the key attributes.
+the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+Endpoint are the key attributes.
 
 The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
@@ -177,11 +176,7 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 	params := &simplestreams.MetadataLookupParams{Stream: c.stream}
 
 	if c.providerType == "" {
-		store, err := configstore.Default()
-		if err != nil {
-			return nil, err
-		}
-		environ, err := c.prepare(context, store)
+		environ, err := c.prepare(context)
 		if err != nil {
 			return nil, err
 		}

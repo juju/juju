@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/status"
 )
 
 type environInstance struct {
@@ -34,9 +35,14 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() string {
-	//return inst.base.Status()
-	return ""
+func (inst *environInstance) Status() instance.InstanceStatus {
+	// TODO(perrito666) I wont change the commented line because it was
+	// there and I have not enough knowledge about this provider
+	// but that method does not exist.
+	// return inst.base.Status()
+	return instance.InstanceStatus{
+		Status: status.StatusPending,
+	}
 }
 
 // Addresses implements instance.Instance.

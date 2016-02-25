@@ -9,20 +9,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
-
-// Status represents the status of an entity.
-// It could be a service, unit, machine or its agent.
-type Status string
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
@@ -107,7 +105,7 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	case "action":
 		d.Entity = new(ActionInfo)
 	default:
-		return fmt.Errorf("Unexpected entity name %q", entityKind)
+		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
 	return json.Unmarshal(elements[2], &d.Entity)
 }
@@ -118,9 +116,8 @@ type MachineInfo struct {
 	ModelUUID                string
 	Id                       string
 	InstanceId               string
-	Status                   Status
-	StatusInfo               string
-	StatusData               map[string]interface{}
+	JujuStatus               StatusInfo
+	MachineStatus            StatusInfo
 	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
@@ -146,11 +143,23 @@ func (i *MachineInfo) EntityId() EntityId {
 // used by ServiceInfo and UnitInfo.
 type StatusInfo struct {
 	Err     error
-	Current Status
+	Current status.Status
 	Message string
 	Since   *time.Time
 	Version string
 	Data    map[string]interface{}
+}
+
+// NewStatusInfo return a new multiwatcher StatusInfo from a
+// status StatusInfo.
+func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
+	return StatusInfo{
+		Err:     err,
+		Current: s.Status,
+		Message: s.Message,
+		Since:   s.Since,
+		Data:    s.Data,
+	}
 }
 
 // ServiceInfo holds the information about a service that is tracked
@@ -193,10 +202,6 @@ type UnitInfo struct {
 	Ports          []network.Port
 	PortRanges     []network.PortRange
 	Subordinate    bool
-	// The following 3 status values are deprecated.
-	Status     Status
-	StatusInfo string
-	StatusData map[string]interface{}
 	// Workload and agent state are modelled separately.
 	WorkloadStatus StatusInfo
 	AgentStatus    StatusInfo

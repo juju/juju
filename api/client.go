@@ -45,30 +45,21 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	return &result, nil
 }
 
-// UnitStatusHistory retrieves the last <size> results of <kind:combined|agent|workload> status
-// for <unitName> unit
-func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*params.UnitStatusHistory, error) {
-	var results params.UnitStatusHistory
-	args := params.StatusHistory{
+// StatusHistory retrieves the last <size> results of
+// <kind:combined|agent|workload|machine|machineinstance|container|containerinstance> status
+// for <name> unit
+func (c *Client) StatusHistory(kind params.HistoryKind, name string, size int) (*params.StatusHistoryResults, error) {
+	var results params.StatusHistoryResults
+	args := params.StatusHistoryArgs{
 		Kind: kind,
 		Size: size,
-		Name: unitName,
+		Name: name,
 	}
-	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
+	err := c.facade.FacadeCall("StatusHistory", args, &results)
 	if err != nil {
-		return &params.UnitStatusHistory{}, errors.Trace(err)
+		return &params.StatusHistoryResults{}, errors.Trace(err)
 	}
 	return &results, nil
-}
-
-// LegacyStatus is a stub version of Status that 1.16 introduced. Should be
-// removed along with structs when api versioning makes it safe to do so.
-func (c *Client) LegacyStatus() (*params.LegacyStatus, error) {
-	var result params.LegacyStatus
-	if err := c.facade.FacadeCall("Status", nil, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
 }
 
 // Resolved clears errors on a unit.

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 type StateMachine interface {
@@ -16,12 +17,12 @@ type StateMachine interface {
 	InstanceId() (instance.Id, error)
 	ProviderAddresses() []network.Address
 	SetProviderAddresses(...network.Address) error
-	InstanceStatus() (string, error)
-	SetInstanceStatus(status string) error
+	InstanceStatus() (status.StatusInfo, error)
+	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (state.StatusInfo, error)
+	Status() (status.StatusInfo, error)
 	IsManual() (bool, error)
 }
 

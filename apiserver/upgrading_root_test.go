@@ -20,13 +20,14 @@ var _ = gc.Suite(&upgradingRootSuite{})
 func (r *upgradingRootSuite) TestClientMethods(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 
-	for _, method := range []string{
-		"FullStatus", "ModelGet", "PrivateAddress",
-		"PublicAddress",
-	} {
-		caller, err := root.FindMethod("Client", 1, method)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(caller, gc.NotNil)
+	for facadeName, methods := range apiserver.AllowedMethodsDuringUpgrades {
+		for _, method := range methods.Values() {
+			// for now all of the api calls of interest,
+			// reside on version 1 of their respective facade.
+			caller, err := root.FindMethod(facadeName, 1, method)
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(caller, gc.NotNil)
+		}
 	}
 }
 

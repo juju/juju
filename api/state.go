@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -194,12 +192,6 @@ func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
 }
 
-// Resumer returns a version of the state that provides functionality
-// required by the resumer worker.
-func (st *state) Resumer() *resumer.API {
-	return resumer.NewAPI(st)
-}
-
 // Provisioner returns a version of the state that provides functionality
 // required by the provisioner worker.
 func (st *state) Provisioner() *provisioner.State {
@@ -214,16 +206,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-// DiskManager returns a version of the state that provides functionality
-// required by the diskmanager worker.
-func (st *state) DiskManager() (*diskmanager.State, error) {
-	machineTag, ok := st.authTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
-	}
-	return diskmanager.NewState(st, machineTag), nil
 }
 
 // Firewaller returns a version of the state that provides functionality

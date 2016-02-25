@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // ServiceStatusSetter implements a SetServiceStatus method to be
@@ -100,7 +101,7 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 			continue
 		}
 
-		if err := service.SetStatus(state.Status(arg.Status), arg.Info, arg.Data); err != nil {
+		if err := service.SetStatus(status.Status(arg.Status), arg.Info, arg.Data); err != nil {
 			result.Results[i].Error = ServerError(err)
 		}
 
@@ -125,7 +126,7 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
+func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status, info string, data map[string]interface{}) error {
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -133,8 +134,8 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info
 	switch entity := entity.(type) {
 	case *state.Service:
 		return ErrPerm
-	case state.StatusSetter:
-		return entity.SetStatus(state.Status(status), info, data)
+	case status.StatusSetter:
+		return entity.SetStatus(entityStatus, info, data)
 	default:
 		return NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
 	}
@@ -172,7 +173,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if err != nil {
 		return err
 	}
-	statusGetter, ok := entity0.(state.StatusGetter)
+	statusGetter, ok := entity0.(status.StatusGetter)
 	if !ok {
 		return NotSupportedError(tag, "getting status")
 	}
@@ -188,11 +189,11 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 			newData[k] = v
 		}
 	}
-	entity, ok := entity0.(state.StatusSetter)
+	entity, ok := entity0.(status.StatusSetter)
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatusInfo.Status != state.StatusError {
+	if len(newData) > 0 && existingStatusInfo.Status != status.StatusError {
 		return fmt.Errorf("%s is not in an error state", names.ReadableString(tag))
 	}
 	return entity.SetStatus(existingStatusInfo.Status, existingStatusInfo.Message, newData)

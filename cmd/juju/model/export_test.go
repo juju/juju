@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewGetCommandForTest returns a GetCommand with the api provided as specified.
@@ -66,18 +67,18 @@ func NewUnshareCommandForTest(api UnshareEnvironmentAPI) (cmd.Command, *UnshareC
 }
 
 // NewUsersCommandForTest returns a UsersCommand with the api provided as specified.
-func NewUsersCommandForTest(api UsersAPI) cmd.Command {
-	cmd := &usersCommand{
-		api: api,
-	}
+func NewUsersCommandForTest(api UsersAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &usersCommand{api: api}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
-func NewDestroyCommandForTest(api DestroyEnvironmentAPI) cmd.Command {
+func NewDestroyCommandForTest(api DestroyEnvironmentAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &destroyCommand{
 		api: api,
 	}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(
 		cmd,
 		modelcmd.ModelSkipDefault,

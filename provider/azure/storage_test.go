@@ -196,7 +196,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		DiskSizeGB: to.IntPtr(1),
 		Name:       to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
-			"https://%s.blob.core.windows.net/datavhds/volume-0.vhd",
+			"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
 			fakeStorageAccount,
 		))},
 		Caching:      compute.ReadWrite,
@@ -206,7 +206,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		DiskSizeGB: to.IntPtr(1),
 		Name:       to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
-			"https://%s.blob.core.windows.net/datavhds/volume-2.vhd",
+			"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
 			fakeStorageAccount,
 		))},
 		Caching:      compute.ReadWrite,
@@ -220,7 +220,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		DiskSizeGB: to.IntPtr(2),
 		Name:       to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
-			"https://%s.blob.core.windows.net/datavhds/volume-1.vhd",
+			"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
 			fakeStorageAccount,
 		))},
 		Caching:      compute.ReadWrite,
@@ -259,7 +259,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
 	s.storageClient.CheckCall(
 		c, 0, "NewClient", fakeStorageAccount, fakeStorageAccountKey,
-		"core.windows.net", azurestorage.DefaultAPIVersion, true,
+		"storage.azurestack.local", azurestorage.DefaultAPIVersion, true,
 	)
 	s.storageClient.CheckCall(c, 1, "ListBlobs", "datavhds", azurestorage.ListBlobsParameters{})
 	c.Assert(volumeIds, jc.DeepEquals, []string{"volume-1", "volume-0"})
@@ -302,7 +302,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
 	s.storageClient.CheckCall(
 		c, 0, "NewClient", fakeStorageAccount, fakeStorageAccountKey,
-		"core.windows.net", azurestorage.DefaultAPIVersion, true,
+		"storage.azurestack.local", azurestorage.DefaultAPIVersion, true,
 	)
 	c.Assert(results, gc.HasLen, 4)
 	c.Assert(results[:3], jc.DeepEquals, []storage.DescribeVolumesResult{{
@@ -346,7 +346,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Name: to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.core.windows.net/datavhds/volume-1.vhd",
+				"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
 				fakeStorageAccount,
 			)),
 		},
@@ -358,7 +358,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		machine2DataDisks[i].Name = to.StringPtr(fmt.Sprintf("volume-%d", i))
 		machine2DataDisks[i].Vhd = &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.core.windows.net/datavhds/volume-%d.vhd",
+				"https://%s.blob.storage.azurestack.local/datavhds/volume-%d.vhd",
 				fakeStorageAccount, i,
 			)),
 		}
@@ -448,7 +448,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Lun:  to.IntPtr(0),
 		Name: to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
-			"https://%s.blob.core.windows.net/datavhds/volume-0.vhd",
+			"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
 			fakeStorageAccount,
 		))},
 		Caching:      compute.ReadWrite,
@@ -457,7 +457,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Lun:  to.IntPtr(1),
 		Name: to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
-			"https://%s.blob.core.windows.net/datavhds/volume-2.vhd",
+			"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
 			fakeStorageAccount,
 		))},
 		Caching:      compute.ReadWrite,
@@ -474,7 +474,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		Name: to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.core.windows.net/datavhds/volume-0.vhd",
+				"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
 				fakeStorageAccount,
 			)),
 		},
@@ -483,7 +483,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		Name: to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.core.windows.net/datavhds/volume-1.vhd",
+				"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
 				fakeStorageAccount,
 			)),
 		},
@@ -492,7 +492,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		Name: to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
-				"https://%s.blob.core.windows.net/datavhds/volume-2.vhd",
+				"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
 				fakeStorageAccount,
 			)),
 		},

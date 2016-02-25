@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -466,7 +467,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = u0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -602,9 +603,9 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 
 func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
+	s.AgentSuite.PatchValue(&resumer.NewResumer, func(st resumer.TransactionResumer) worker.Worker {
 		started.trigger()
-		return resumer.NewResumer(st)
+		return newDummyWorker()
 	})
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
@@ -711,7 +712,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
+		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
 			break
 		}
 	}
@@ -1467,7 +1469,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newDiskManager, newWorker)
+	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1721,12 +1723,15 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
 		case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 		default:
 		}
-		return machiner.NewMachiner(cfg)
+
+		// The test just cares that NewMachiner is called with the correct
+		// value, nothing else is done with the worker.
+		return newDummyWorker(), nil
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}

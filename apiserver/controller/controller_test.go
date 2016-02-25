@@ -257,7 +257,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ServiceCount:       1,
-		OwnerTag:           "user-dummy-admin@local",
+		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
 	}, {
 		ModelTag:           hostedEnvTag,

@@ -39,9 +39,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
-	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver"
@@ -73,9 +71,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
-	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
@@ -84,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/discoverspaces"
-	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
@@ -97,8 +92,6 @@ import (
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -127,10 +120,8 @@ var (
 	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
-	newDiskManager           = diskmanager.NewWorker
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
@@ -494,6 +485,8 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
+			LogSource:            a.bufferedLogs,
+			NewDeployContext:     newDeployContext,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -711,13 +704,12 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var isModelManager, isUnitHoster bool
+
+	var isModelManager bool
 	for _, job := range entity.Jobs() {
 		switch job {
 		case multiwatcher.JobManageModel:
 			isModelManager = true
-		case multiwatcher.JobHostUnits:
-			isUnitHoster = true
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -733,66 +725,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	// TODO(fwereade): this is *still* a hideous layering violation, but at least
-	// it's confined to jujud rather than extending into the worker itself.
-	// Start this worker first to try and get proxy settings in place
-	// before we do anything else.
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		w, err := proxyupdater.NewWorker(apiproxyupdater.NewFacade(apiConn))
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start proxyupdater worker")
-		}
-		return w, nil
-	})
-
-	runner.StartWorker("logsender", func() (worker.Worker, error) {
-		return logsender.New(a.bufferedLogs, apilogsender.NewAPI(apiConn)), nil
-	})
-
 	modelConfig, err := apiConn.Agent().ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
 
-	ignoreMachineAddresses, _ := modelConfig.IgnoreMachineAddresses()
-	// Containers only have machine addresses, so we can't ignore them.
-	if names.IsContainerMachine(agentConfig.Tag().Id()) {
-		ignoreMachineAddresses = false
-	}
-	if ignoreMachineAddresses {
-		logger.Infof("machine addresses not used, only addresses from provider")
-	}
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		accessor := machiner.APIMachineAccessor{apiConn.Machiner()}
-		w, err := newMachiner(machiner.Config{
-			MachineAccessor: accessor,
-			Tag:             agentConfig.Tag().(names.MachineTag),
-			ClearMachineAddressesOnStart: ignoreMachineAddresses,
-			NotifyMachineDead: func() error {
-				return a.writeUninstallAgentFile()
-			},
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machiner worker")
-		}
-		return w, err
-	})
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		addressUpdater := agent.APIHostPortsSetter{a}
-		w, err := apiaddressupdater.NewAPIAddressUpdater(apiConn.Machiner(), addressUpdater)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start api address updater worker")
-		}
-		return w, nil
-	})
-
-	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-		api, err := apiConn.DiskManager()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-	})
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
 		api, err := apistorageprovisioner.NewState(apiConn, scope)
@@ -818,15 +755,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 	})
 
-	// Start the worker to manage SSH keys.
-	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-		w, err := authenticationworker.NewWorker(apiConn.KeyUpdater(), agentConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
-		}
-		return w, nil
-	})
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -836,26 +764,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
 
-	if isUnitHoster {
-		runner.StartWorker("deployer", func() (worker.Worker, error) {
-			apiDeployer := apiConn.Deployer()
-			context := newDeployContext(apiDeployer, agentConfig)
-			w, err := deployer.NewDeployer(apiDeployer, context)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
-			}
-			return w, nil
-		})
-	}
-
 	if isModelManager {
-		runner.StartWorker("resumer", func() (worker.Worker, error) {
-			// The action of resumer is so subtle that it is not tested,
-			// because we can't figure out how to do so without
-			// brutalising the transaction log.
-			return newResumer(apiConn.Resumer()), nil
-		})
-
 		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
 			inner := func(<-chan struct{}) error {
 				agentConfig := a.CurrentConfig()

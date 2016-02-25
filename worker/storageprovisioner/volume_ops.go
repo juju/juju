@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -38,7 +39,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: params.StatusError,
+				Status: status.StatusError,
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -57,9 +58,9 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		for i, result := range results {
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: params.StatusAttaching,
+				Status: status.StatusAttaching,
 			})
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the volume creation.
 				reschedule = append(reschedule, ops[volumeParams[i].Tag])
@@ -68,8 +69,8 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 				// that we will retry. When we distinguish between
 				// transient and permanent errors, we will set the
 				// status to "error" for permanent errors.
-				status.Status = params.StatusPending
-				status.Info = result.Error.Error()
+				entityStatus.Status = status.StatusPending
+				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to create %s: %v",
 					names.ReadableString(volumeParams[i].Tag),
@@ -79,7 +80,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 			volumes = append(volumes, *result.Volume)
 			if result.VolumeAttachment != nil {
-				status.Status = params.StatusAttached
+				entityStatus.Status = status.StatusAttached
 				volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 			}
 		}
@@ -147,9 +148,9 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			p := volumeAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Volume.String(),
-				Status: params.StatusAttached,
+				Status: status.StatusAttached,
 			})
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the volume attachment.
 				id := params.MachineStorageId{
@@ -162,8 +163,8 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 				// indicate that we will retry. When we distinguish
 				// between transient and permanent errors, we will
 				// set the status to "error" for permanent errors.
-				status.Status = params.StatusAttaching
-				status.Info = result.Error.Error()
+				entityStatus.Status = status.StatusAttaching
+				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Volume),
@@ -212,7 +213,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: params.StatusError,
+				Status: status.StatusError,
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -246,7 +247,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: params.StatusDestroying,
+				Status: status.StatusDestroying,
 				Info:   err.Error(),
 			})
 		}
@@ -289,17 +290,17 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 				// attachment, we'll have to check if
 				// there are any other attachments
 				// before saying the status "detached".
-				Status: params.StatusDetached,
+				Status: status.StatusDetached,
 			})
 			id := params.MachineStorageId{
 				MachineTag:    p.Machine.String(),
 				AttachmentTag: p.Volume.String(),
 			}
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if err != nil {
 				reschedule = append(reschedule, ops[id])
-				status.Status = params.StatusDetaching
-				status.Info = err.Error()
+				entityStatus.Status = status.StatusDetaching
+				entityStatus.Info = err.Error()
 				logger.Debugf(
 					"failed to detach %s from %s: %v",
 					names.ReadableString(p.Volume),

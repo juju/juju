@@ -11,12 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -36,10 +34,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	return controller.NewClient(conn)
+	return controller.NewClient(s.APIState)
 }
 
 func (s *controllerSuite) TestAllModels(c *gc.C) {
@@ -59,7 +54,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"dummy-admin@local/dummymodel",
+		"admin@local/dummymodel",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -161,7 +156,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		UUID:               modelTag.Id(),
 		HostedMachineCount: 0,
 		ServiceCount:       0,
-		Owner:              "dummy-admin@local",
+		Owner:              "admin@local",
 		Life:               params.Alive,
 	}})
 }

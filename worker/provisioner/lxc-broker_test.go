@@ -36,6 +36,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -129,11 +130,15 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string, volumes []stor
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    cons,
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 		Volumes:        volumes,
+		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
@@ -146,11 +151,15 @@ func (s *lxcBrokerSuite) maintainInstance(c *gc.C, machineId string, volumes []s
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
 	err := s.broker.MaintainInstance(environs.StartInstanceParams{
 		Constraints:    cons,
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 		Volumes:        volumes,
+		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -283,10 +292,15 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-quantal-ppc64el"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-ppc64el.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
+
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
@@ -301,10 +315,15 @@ func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
+
 	_, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: callback,
 	})
 	c.Assert(err, gc.ErrorMatches, "need tools for arch ppc64el, only found \\[amd64\\]")
 }
@@ -345,10 +364,15 @@ func (s *lxcBrokerSuite) startInstancePopulatesNetworkInfo(c *gc.C) (*environs.S
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
+
 	return s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: callback,
 	})
 }
 
