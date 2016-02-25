@@ -13,10 +13,10 @@ import (
 // work. This type is composed without a name so the methods get promoted so
 // they satisfy the HasAnnotations interface, but it does require that the
 // name is serialized as "annotations".
-type hasAnnotations map[string]string
+type annotations map[string]string
 
 // Annotations implements HasAnnotations.
-func (a *hasAnnotations) Annotations() map[string]string {
+func (a *annotations) Annotations() map[string]string {
 	if a == nil {
 		return nil
 	}
@@ -24,11 +24,11 @@ func (a *hasAnnotations) Annotations() map[string]string {
 }
 
 // SetAnnotations implements HasAnnotations.
-func (a *hasAnnotations) SetAnnotations(annotations map[string]string) {
+func (a *annotations) SetAnnotations(annotations map[string]string) {
 	*a = annotations
 }
 
-func (a *hasAnnotations) importAnnotations(valid map[string]interface{}) {
+func (a *annotations) importAnnotations(valid map[string]interface{}) {
 	if asInterfaces, ok := valid["annotations"]; ok {
 		annotations := make(map[string]string)
 		// The schema will return a string map as map[string]interface{}.

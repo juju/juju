@@ -18,7 +18,8 @@ type services struct {
 }
 
 type service struct {
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Name_        string `yaml:"name"`
 	Series_      string `yaml:"series"`

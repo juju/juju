@@ -60,7 +60,8 @@ func DeserializeModel(bytes []byte) (Model, error) {
 }
 
 type model struct {
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Version int `yaml:"version"`
 

@@ -17,7 +17,8 @@ type machines struct {
 }
 
 type machine struct {
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Id_            string         `yaml:"id"`
 	Nonce_         string         `yaml:"nonce"`
