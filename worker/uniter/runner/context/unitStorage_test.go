@@ -143,7 +143,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
-	registry.RegisterEnvironStorageProviders("dummymodel", ec2.EBS_ProviderType)
+	registry.RegisterEnvironStorageProviders("admin", ec2.EBS_ProviderType)
 }
 
 func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {

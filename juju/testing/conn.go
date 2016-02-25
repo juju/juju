@@ -49,6 +49,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
+const ControllerName = "kontroll"
+
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
 //
@@ -57,7 +59,7 @@ import (
 // the following:
 //     RootDir/home/ubuntu/.local/share/juju/models/cache.yaml
 //         The dummy cache.yaml file, holding a default
-//         controller and environment named "dummymodel"
+//         controller called "kontroll" and model named "admin"
 //         which uses the "dummy" provider.
 //     RootDir/var/lib/juju
 //         An empty directory returned as DataDir - the
@@ -227,7 +229,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuModelEnvKey, "dummymodel")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "admin")
 
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,7 +245,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		modelcmd.BootstrapContext(ctx),
 		s.ConfigStore,
 		s.ControllerStore,
-		"dummymodel",
+		ControllerName,
 		environs.PrepareForBootstrapParams{
 			Config:      cfg,
 			Credentials: cloud.NewEmptyCredential(),
@@ -251,7 +253,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Config().Name(), gc.Equals, "dummymodel")
+	c.Assert(environ.Config().Name(), gc.Equals, "admin")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -299,16 +301,16 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the config store has the api endpoint address set
-	controller, err := s.ControllerStore.ControllerByName("dummymodel")
+	controller, err := s.ControllerStore.ControllerByName(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
-	err = s.ControllerStore.UpdateController("dummymodel", *controller)
+	err = s.ControllerStore.UpdateController(ControllerName, *controller)
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelcmd.WriteCurrentController("dummymodel")
+	err = modelcmd.WriteCurrentController(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO (anastasiamac 2016-02-08) START REMOVE with cache.yaml
-	info, err := s.ConfigStore.ReadInfo("dummymodel:dummymodel")
+	info, err := s.ConfigStore.ReadInfo(ControllerName + ":admin")
 	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}
@@ -524,7 +526,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		s.DummyConfig = dummy.SampleConfig()
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"name":           "dummymodel",
+		"name":           "admin",
 		"admin-secret":   AdminSecret,
 		"agent-version":  version.Current.String(),
 		"ca-cert":        testing.CACert,

@@ -104,6 +104,30 @@ func NewStubStore() *StubStore {
 	return result
 }
 
+// WrapClientStore wraps a ClientStore with a StubStore, where each method calls
+// through to the wrapped store. This can be used to override specific
+// methods, or just to check which calls have been made.
+func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
+	stub := NewStubStore()
+	stub.AllControllersFunc = underlying.AllControllers
+	stub.ControllerByNameFunc = underlying.ControllerByName
+	stub.UpdateControllerFunc = underlying.UpdateController
+	stub.RemoveControllerFunc = underlying.RemoveController
+	stub.UpdateModelFunc = underlying.UpdateModel
+	stub.SetCurrentModelFunc = underlying.SetCurrentModel
+	stub.RemoveModelFunc = underlying.RemoveModel
+	stub.AllModelsFunc = underlying.AllModels
+	stub.CurrentModelFunc = underlying.CurrentModel
+	stub.ModelByNameFunc = underlying.ModelByName
+	stub.UpdateAccountFunc = underlying.UpdateAccount
+	stub.SetCurrentAccountFunc = underlying.SetCurrentAccount
+	stub.AllAccountsFunc = underlying.AllAccounts
+	stub.CurrentAccountFunc = underlying.CurrentAccount
+	stub.AccountByNameFunc = underlying.AccountByName
+	stub.RemoveAccountFunc = underlying.RemoveAccount
+	return stub
+}
+
 // AllControllers implements ControllersGetter.AllControllers
 func (c *StubStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
 	c.MethodCall(c, "AllControllers")

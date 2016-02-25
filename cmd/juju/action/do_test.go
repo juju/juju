@@ -170,7 +170,7 @@ func (s *DoSuite) TestInit(c *gc.C) {
 			wrappedCommand, command := action.NewDoCommand(s.store)
 			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
 				t.should, strings.Join(t.args, " "))
-			args := append([]string{modelFlag, "dummymodel"}, t.args...)
+			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(wrappedCommand, args)
 			if t.expectError == "" {
 				c.Check(command.UnitTag(), gc.Equals, t.expectUnit)
@@ -371,7 +371,7 @@ func (s *DoSuite) TestRun(c *gc.C) {
 				defer restore()
 
 				wrappedCommand, _ := action.NewDoCommand(s.store)
-				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
+				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				ctx, err := testing.RunCommand(c, wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {

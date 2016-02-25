@@ -108,7 +108,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	}
 	fullModelName := configstore.EnvironInfoName(
 		registrationParams.controllerName,
-		configstore.AdminModelName(registrationParams.controllerName),
+		configstore.AdminModelName,
 	)
 	controllerInfo = legacyStore.CreateInfo(fullModelName)
 
