@@ -42,7 +42,8 @@ type machine struct {
 
 	NetworkPorts_ *versionedNetworkPorts `yaml:"network-ports,omitempty"`
 
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }

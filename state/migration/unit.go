@@ -36,7 +36,8 @@ type unit struct {
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
 
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }

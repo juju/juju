@@ -72,7 +72,8 @@ type model struct {
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
 
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 

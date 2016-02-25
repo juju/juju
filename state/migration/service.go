@@ -37,13 +37,13 @@ type service struct {
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
-	hasAnnotations `yaml:"annotations,omitempty"`
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
 	// Requested Networks
 	// Storage Constraints
-	// Annotations
 	// Status history
 }
 
