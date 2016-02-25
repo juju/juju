@@ -92,9 +92,20 @@ func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *gc.C) {
 		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
 }
 
-func (s *credentialsSuite) TestDetectCredentialsKnownLocation(c *gc.C) {
+func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpath string) {
+	s.PatchEnvironment("USER", "fred")
+	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
+	credentials, err := s.provider.DetectCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
+	c.Assert(
+		credentials.AuthCredentials["fred"], jc.DeepEquals,
+		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
+}
+
+func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 	if runtime.GOOS == "windows" {
-		c.Skip("test only works on Linux")
+		c.Skip("skipping on Windows")
 	}
 	home := utils.Home()
 	dir := c.MkDir()
@@ -106,13 +117,18 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocation(c *gc.C) {
 	err := os.MkdirAll(path, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
+	s.assertDetectCredentialsKnownLocation(c, jsonpath)
+}
 
-	s.PatchEnvironment("USER", "fred")
-	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
-	credentials, err := s.provider.DetectCredentials()
+func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
+	if runtime.GOOS != "windows" {
+		c.Skip("skipping on non-Windows platform")
+	}
+	dir := c.MkDir()
+	s.PatchEnvironment("APPDATA", dir)
+	path := filepath.Join(dir, "gcloud")
+	err := os.MkdirAll(path, 0700)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
-	c.Assert(
-		credentials.AuthCredentials["fred"], jc.DeepEquals,
-		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
+	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
+	s.assertDetectCredentialsKnownLocation(c, jsonpath)
 }

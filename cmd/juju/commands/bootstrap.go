@@ -242,7 +242,7 @@ var (
 
 var ambiguousCredentialError = errors.New(`
 more than one credential detected
-run juju autload-credentials and specify a credential using the --credential argument`[1:],
+run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -316,6 +316,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if len(detected.AuthCredentials) > 1 {
 			return ambiguousCredentialError
 		}
+		// We have one credential so extract it from the map.
 		var oneCredential jujucloud.Credential
 		for _, oneCredential = range detected.AuthCredentials {
 		}
