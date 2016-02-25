@@ -86,11 +86,12 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name     string
-	Charm    *state.Charm
-	Creator  names.Tag
-	Status   *state.StatusInfo
-	Settings map[string]interface{}
+	Name        string
+	Charm       *state.Charm
+	Creator     names.Tag
+	Status      *state.StatusInfo
+	Settings    map[string]interface{}
+	Constraints constraints.Value
 }
 
 // UnitParams are used to create units.
@@ -100,6 +101,7 @@ type UnitParams struct {
 	Password    string
 	SetCharmURL bool
 	Status      *state.StatusInfo
+	Constraints constraints.Value
 }
 
 // RelationParams are used to create relations.
@@ -379,10 +381,11 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	}
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(state.AddServiceArgs{
-		Name:     params.Name,
-		Owner:    params.Creator.String(),
-		Charm:    params.Charm,
-		Settings: charm.Settings(params.Settings),
+		Name:        params.Name,
+		Owner:       params.Creator.String(),
+		Charm:       params.Charm,
+		Settings:    charm.Settings(params.Settings),
+		Constraints: params.Constraints,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -413,7 +416,9 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Machine = factory.MakeMachine(c, nil)
 	}
 	if params.Service == nil {
-		params.Service = factory.MakeService(c, nil)
+		params.Service = factory.MakeService(c, &ServiceParams{
+			Constraints: params.Constraints,
+		})
 	}
 	if params.Password == "" {
 		var err error
