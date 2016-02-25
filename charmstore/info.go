@@ -20,13 +20,22 @@ type CharmInfo struct {
 	// URL is the charm's URL, including its revision.
 	URL *charm.URL
 
-	// Resources is the list of resource info for each of the charm's
-	// resources. This list is accurate as of the time that the
-	// charm store handled the request for the charm info.
-	Resources []charmresource.Resource
-
 	// Timestamp indicates when the info came from the charm store.
 	Timestamp time.Time
+
+	// LatestRevision identifies the most recent revision of the charm
+	// that is available in the charm store.
+	LatestRevision int
+
+	// LatestResources is the list of resource info for each of the
+	// charm's resources. This list is accurate as of the time that the
+	// charm store handled the request for the charm info.
+	LatestResources []charmresource.Resource
+}
+
+// LatestURL returns the charm URL for the latest revision of the charm.
+func (info CharmInfo) LatestURL() *charm.URL {
+	return info.URL.WithRevision(info.LatestRevision)
 }
 
 // CharmInfoResult holds the result of a charm store request for info

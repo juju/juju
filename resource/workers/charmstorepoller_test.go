@@ -38,8 +38,9 @@ func (s *LatestCharmHandlerSuite) SetUpTest(c *gc.C) {
 func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
 	serviceID := names.NewServiceTag("a-service")
 	info := charmstore.CharmInfo{
-		URL: &charm.URL{},
-		Resources: []charmresource.Resource{
+		URL:            &charm.URL{},
+		LatestRevision: 2,
+		LatestResources: []charmresource.Resource{
 			resourcetesting.NewCharmResource(c, "spam", "<some data>"),
 		},
 		Timestamp: time.Now().UTC(),
@@ -50,7 +51,7 @@ func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetCharmStoreResources")
-	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-service", info.Resources, info.Timestamp)
+	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-service", info.LatestResources, info.Timestamp)
 }
 
 type stubDataStore struct {

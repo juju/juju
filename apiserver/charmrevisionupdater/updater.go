@@ -86,7 +86,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	// Process the resulting info for each charm.
 	for i, info := range latest {
 		// First, add a charm placeholder to the model for each.
-		if err = api.state.AddStoreCharmPlaceholder(info.URL); err != nil {
+		if err = api.state.AddStoreCharmPlaceholder(info.LatestURL()); err != nil {
 			return err
 		}
 
