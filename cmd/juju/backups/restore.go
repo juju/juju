@@ -141,7 +141,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(
-		controllerName, configstore.AdminModelName(controllerName),
+		controllerName, configstore.AdminModelName,
 	))
 	if err != nil {
 		return errors.Trace(err)

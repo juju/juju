@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -103,7 +102,6 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var accountName string
-	var info configstore.EnvironInfo
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
 	if c.User != "" {
@@ -113,10 +111,6 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		accountName = names.NewUserTag(c.User).Canonical()
 	} else {
 		accountName, err = store.CurrentAccount(controllerName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		info, err = c.ConnectionInfo()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -140,7 +134,7 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	if err := c.recordPassword(store, info, controllerName, accountName, *accountDetails); err != nil {
+	if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
 		if oldPassword != "" {
 			logger.Errorf("updating the cached credentials failed, reverting to original password: %v", err)
 			if setErr := c.api.SetPassword(accountDetails.User, oldPassword); setErr != nil {
@@ -155,24 +149,6 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Your password has been updated.")
 	return nil
-}
-
-func (c *changePasswordCommand) recordPassword(
-	store jujuclient.AccountUpdater,
-	info configstore.EnvironInfo,
-	controllerName, accountName string,
-	accountDetails jujuclient.AccountDetails,
-) error {
-	if err := store.UpdateAccount(controllerName, accountName, accountDetails); err != nil {
-		return errors.Trace(err)
-	}
-	if info == nil {
-		return nil
-	}
-	creds := info.APICredentials()
-	creds.Password = accountDetails.Password
-	info.SetAPICredentials(creds)
-	return errors.Trace(info.Write())
 }
 
 var readPassword = readpass.ReadPassword

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -50,11 +49,10 @@ func NewCreateModelCommandForTest(
 
 // NewModelsCommandForTest returns a EnvironmentsCommand with the API
 // and userCreds provided as specified.
-func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore, userCreds *configstore.APICredentials) cmd.Command {
+func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &environmentsCommand{
-		modelAPI:  modelAPI,
-		sysAPI:    sysAPI,
-		userCreds: userCreds,
+		modelAPI: modelAPI,
+		sysAPI:   sysAPI,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)

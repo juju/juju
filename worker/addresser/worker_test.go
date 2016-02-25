@@ -156,7 +156,7 @@ func (s *workerSuite) assertNoReleaseOp(c *gc.C) {
 
 func (s *workerSuite) makeReleaseOp(digit int) dummy.OpReleaseAddress {
 	return dummy.OpReleaseAddress{
-		Env:        "dummymodel",
+		Env:        "admin",
 		InstanceId: "foo",
 		SubnetId:   "foobar",
 		Address:    network.NewAddress(fmt.Sprintf("0.1.2.%d", digit)),

@@ -324,11 +324,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// controller's model should be called "admin".
 	configAttrs := map[string]interface{}{
 		"type": cloud.Type,
-		// TODO(axw) for now we call the initial model the same as the
-		// controller, without the "local." prefix. This is necessary
-		// to make CI happy. Once CI is updated, we'll switch over to
-		// "admin".
-		"name": configstore.AdminModelName(c.controllerName),
+		"name": configstore.AdminModelName,
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {

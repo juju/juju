@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -36,8 +35,6 @@ func (s *cmdRegistrationSuite) run(c *gc.C, stdin io.Reader, args ...string) *cm
 }
 
 func (s *cmdRegistrationSuite) TestAddUserAndRegister(c *gc.C) {
-	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
-
 	// First, add user "bob", and record the "juju register" command
 	// that is printed out.
 	context := s.run(c, nil, "add-user", "bob", "Bob Dobbs")

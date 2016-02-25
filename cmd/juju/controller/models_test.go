@@ -84,13 +84,21 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.api = &fakeModelMgrAPIClient{models: models}
-	s.creds = &configstore.APICredentials{User: "admin@local", Password: "password"}
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["fake"] = &jujuclient.ControllerAccounts{
+		Accounts: map[string]jujuclient.AccountDetails{
+			"admin@local": {
+				User:     "admin@local",
+				Password: "password",
+			},
+		},
+		CurrentAccount: "admin@local",
+	}
 }
 
 func (s *ModelsSuite) newCommand() cmd.Command {
-	return controller.NewModelsCommandForTest(s.api, s.api, s.store, s.creds)
+	return controller.NewModelsCommandForTest(s.api, s.api, s.store)
 }
 
 func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {

@@ -52,7 +52,7 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 			c.Logf("test %d: it should %s: juju actions fetch %s", i,
 				t.should, strings.Join(t.args, " "))
 			cmd, _ := action.NewFetchCommand(s.store)
-			args := append([]string{modelFlag, "dummymodel"}, t.args...)
+			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(cmd, args)
 			if t.expectError != "" {
 				c.Check(err, gc.ErrorMatches, t.expectError)
@@ -297,7 +297,7 @@ timing:
 func testRunHelper(c *gc.C, s *FetchSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query, modelFlag string) {
 	unpatch := s.BaseActionSuite.patchAPIClient(client)
 	defer unpatch()
-	args := append([]string{modelFlag, "dummymodel"}, query)
+	args := append([]string{modelFlag, "admin"}, query)
 	if wait != "" {
 		args = append(args, "--wait", wait)
 	}

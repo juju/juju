@@ -62,7 +62,7 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 		com.RepoPath = "/path/to/repo"
 	}
 	com.SetClientStore(store)
-	com.SetModelName("dummymodel")
+	com.SetModelName("admin")
 }
 
 func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {
