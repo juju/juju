@@ -5,6 +5,7 @@ package charmstore
 
 import (
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
@@ -91,6 +92,9 @@ func NewClient(config *csclient.Params) Client {
 // WrapBaseClient returns a Juju charm store client that wraps
 // the provided client.
 func WrapBaseClient(base *csclient.Client, closer io.Closer) Client {
+	if closer == nil {
+		closer = ioutil.NopCloser(nil)
+	}
 	return &client{
 		Client: base,
 		Closer: closer,
@@ -106,14 +110,6 @@ func (client client) AsRepo(envUUID string) Repo {
 		})
 	}
 	return repo
-}
-
-// Close implements Client.
-func (client client) Close() error {
-	if client.Closer == nil {
-		return nil
-	}
-	return client.Closer.Close()
 }
 
 // LatestCharmInfo returns the most up-to-date information about each
