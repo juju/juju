@@ -310,8 +310,10 @@ def copy_remote_logs(remote, directory):
             winrm.exceptions.WinRMTransportError) as e:
         # The juju logs will not exist if cloud-init failed.
         logging.warning("Could not retrieve some or all logs:")
-        logging.warning(e.output)
-
+        if getattr(e, 'output'):
+            logging.warning(e.output)
+        else:
+            logging.warning(str(e))
 
 def assess_juju_run(client):
     responses = client.get_juju_output('run', '--format', 'json', '--service',
