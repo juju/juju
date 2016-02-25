@@ -64,6 +64,14 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 		result.UnitResources = append(result.UnitResources, unitResources)
 	}
 
+	for _, chRes := range apiResult.CharmStoreResources {
+		res, err := API2CharmResource(chRes)
+		if err != nil {
+			return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
+		}
+		result.CharmStoreResources = append(result.CharmStoreResources, res)
+	}
+
 	return result, nil
 }
 

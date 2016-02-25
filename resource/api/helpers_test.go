@@ -163,9 +163,39 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 		Timestamp: now,
 	}
 
+	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("boo!"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	chRes := api.CharmResource{
+		Name:        "unitspam2",
+		Type:        "file",
+		Path:        "unitspam.tgz2",
+		Description: "you need it2",
+		Origin:      "upload",
+		Revision:    2,
+		Fingerprint: fp2.Bytes(),
+		Size:        11,
+	}
+
+	chExpected := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        "unitspam2",
+			Type:        charmresource.TypeFile,
+			Path:        "unitspam.tgz2",
+			Description: "you need it2",
+		},
+		Origin:      charmresource.OriginUpload,
+		Revision:    2,
+		Fingerprint: fp2,
+		Size:        11,
+	}
+
 	resources, err := api.APIResult2ServiceResources(api.ResourcesResult{
 		Resources: []api.Resource{
 			apiRes,
+		},
+		CharmStoreResources: []api.CharmResource{
+			chRes,
 		},
 		UnitResources: []api.UnitResources{
 			{
@@ -183,6 +213,9 @@ func (helpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	serviceResource := resource.ServiceResources{
 		Resources: []resource.Resource{
 			expected,
+		},
+		CharmStoreResources: []charmresource.Resource{
+			chExpected,
 		},
 		UnitResources: []resource.UnitResources{
 			{
