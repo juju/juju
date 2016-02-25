@@ -270,9 +270,18 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	}
 	info.machines = w.machines
 
+	if err = w.getMongoSpace(info); err != nil {
+		return nil, err
+	}
+
+	return info, nil
+}
+
+// getMongoSpace updates info with the space that Mongo servers should exist in.
+func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 	stateInfo, err := w.st.StateServerInfo()
 	if err != nil {
-		return nil, fmt.Errorf("cannot get state server info: %v", err)
+		return fmt.Errorf("cannot get state server info: %v", err)
 	}
 
 	if stateInfo.MongoSpaceDocId == "" {
@@ -283,17 +292,17 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 
 			spaceStats := network.GenerateSpaceStats(mongoAddresses(info.machines))
 			if spaceStats.LargestSpaceContainsAll == false {
-				return nil, fmt.Errorf("Couldn't find a space containing all peer group machines")
+				return fmt.Errorf("Couldn't find a space containing all peer group machines")
 			} else {
 				info.mongoSpace = spaceStats.LargestSpace
 				info.mongoSpaceValid = true
 				space, err := w.st.Space(string(info.mongoSpace))
 				if err != nil {
-					return nil, fmt.Errorf("Error looking up space: %v", err)
+					return fmt.Errorf("Error looking up space: %v", err)
 				}
 				err = w.st.SetMongoSpaceDocId(space.ID())
 				if err != nil {
-					return nil, fmt.Errorf("cannot save database space: %v", err)
+					return fmt.Errorf("cannot save database space: %v", err)
 				}
 				w.dbSpaceDiscoveryComplete = true
 			}
@@ -301,13 +310,13 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	} else {
 		space, err := w.st.Space(stateInfo.MongoSpaceDocId)
 		if err != nil {
-			return nil, fmt.Errorf("Error looking up space: %v", err)
+			return fmt.Errorf("Error looking up space: %v", err)
 		}
 		info.mongoSpace = network.SpaceName(space.Name())
 		info.mongoSpaceValid = true
 	}
 
-	return info, nil
+	return nil
 }
 
 // replicaSetError holds an error returned as a result
