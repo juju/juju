@@ -37,6 +37,7 @@ from jujupy import (
 from remote import (
     remote_from_address,
     remote_from_unit,
+    winrm,
 )
 from substrate import (
     destroy_job_instances,
@@ -70,8 +71,7 @@ def destroy_environment(client, instance_tag):
 
 
 def deploy_dummy_stack(client, charm_prefix):
-    """"Deploy a dummy stack in the specified environment.
-    """
+    """"Deploy a dummy stack in the specified environment."""
     # Centos requires specific machine configuration (i.e. network device
     # order).
     if charm_prefix.startswith("local:centos") and client.env.maas:
@@ -152,7 +152,7 @@ def get_random_string():
 
 
 def _can_run_ssh():
-    """Returns true if local system can use ssh to access remote machines"""
+    """Return true if local system can use ssh to access remote machines."""
     # When client is run on a windows machine, we have no local ssh binary.
     return sys.platform != "win32"
 
@@ -306,7 +306,8 @@ def copy_remote_logs(remote, directory):
 
     try:
         remote.copy(directory, log_paths)
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError,
+            winrm.exceptions.WinRMTransportError) as e:
         # The juju logs will not exist if cloud-init failed.
         logging.warning("Could not retrieve some or all logs:")
         logging.warning(e.output)
