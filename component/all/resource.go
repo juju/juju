@@ -79,12 +79,15 @@ func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, autho
 	}
 
 	rst, err := st.Resources()
-	//rst, err := state.NewState(&resourceState{raw: st})
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return server.NewFacade(rst), nil
+	ds := resourceadapters.DataStore{
+		Resources: rst,
+		State:     st,
+	}
+	return server.NewFacade(ds), nil
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.

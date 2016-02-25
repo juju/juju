@@ -55,7 +55,11 @@ func newResourceHandler(httpCtxt httpContext) http.Handler {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			return resources, entity.Tag(), nil
+			ds := resourceadapters.DataStore{
+				Resources: resources,
+				State:     st,
+			}
+			return ds, entity.Tag(), nil
 		},
 	)
 }

@@ -11,6 +11,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 )
 
@@ -73,6 +74,34 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 	}
 
 	return result, nil
+}
+
+func ServiceResources2APIResult(svcRes resource.ServiceResources, units []names.UnitTag) ResourcesResult {
+	var result ResourcesResult
+	for _, res := range svcRes.Resources {
+		result.Resources = append(result.Resources, Resource2API(res))
+	}
+	unitResources := make(map[names.UnitTag]resource.UnitResources, len(svcRes.UnitResources))
+	for _, unitRes := range svcRes.UnitResources {
+		unitResources[unitRes.Tag] = unitRes
+	}
+
+	result.UnitResources = make([]UnitResources, len(units))
+	for i, tag := range units {
+		apiRes := UnitResources{
+			Entity: params.Entity{Tag: tag.String()},
+		}
+		for _, res := range unitResources[tag].Resources {
+			apiRes.Resources = append(apiRes.Resources, Resource2API(res))
+		}
+		result.UnitResources[i] = apiRes
+	}
+
+	result.CharmStoreResources = make([]CharmResource, len(svcRes.CharmStoreResources))
+	for i, chRes := range svcRes.CharmStoreResources {
+		result.CharmStoreResources[i] = CharmResource2API(chRes)
+	}
+	return result
 }
 
 // API2Resource converts an API Resource struct into

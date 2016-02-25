@@ -27,6 +27,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
 
 	tag0 := names.NewUnitTag("a-service/0")
+	tag1 := names.NewUnitTag("a-service/1")
 
 	chres1 := res1.Resource
 	chres2 := res2.Resource
@@ -59,6 +60,11 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 	}
 
+	s.data.ReturnUnits = []names.UnitTag{
+		tag0,
+		tag1,
+	}
+
 	facade := server.NewFacade(s.data)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
@@ -84,6 +90,13 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 						apiRes2,
 					},
 				},
+				{
+					// we should have a listing for every unit, even if they
+					// have no resources.
+					Entity: params.Entity{
+						Tag: "unit-a-service-1",
+					},
+				},
 			},
 			CharmStoreResources: []api.CharmResource{
 				apiChRes1,
@@ -91,7 +104,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			},
 		}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
 
@@ -108,7 +121,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
 		Results: []api.ResourcesResult{{}},
 	})
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 }
 
 func (s *ListResourcesSuite) TestError(c *gc.C) {
