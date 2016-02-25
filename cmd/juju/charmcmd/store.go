@@ -59,7 +59,7 @@ func (cs charmstoreSpec) Connect() (charmstore.Client, error) {
 		VisitWebPage: params.VisitWebPage,
 	})
 
-	csClient := charmstore.NewClient(baseClient, apiContext)
+	csClient := charmstore.WrapBaseClient(baseClient, apiContext)
 	return csClient, nil
 }
 

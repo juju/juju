@@ -77,9 +77,19 @@ type client struct {
 	io.Closer
 }
 
-// NewClient returns a Juju charm store client that wraps the provided
-// client.
-func NewClient(base *csclient.Client, closer io.Closer) Client {
+// NewClient returns a Juju charm store client for the given client
+// config.
+func NewClient(config *csclient.Params) Client {
+	if config == nil {
+		config = &csclient.Params{}
+	}
+	base := csclient.New(*config)
+	return WrapBaseClient(base, nil)
+}
+
+// WrapBaseClient returns a Juju charm store client that wraps
+// the provided client.
+func WrapBaseClient(base *csclient.Client, closer io.Closer) Client {
 	return &client{
 		Client: base,
 		Closer: closer,

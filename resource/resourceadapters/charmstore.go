@@ -62,7 +62,7 @@ func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
 	// TODO(ericsnow) closer will be meaningful once we factor out the
 	// Juju HTTP context (a la cmd/juju/charmcmd/store.go).
 	closer := io.Closer(nil)
-	client := charmstore.NewClient(base, closer)
+	client := charmstore.WrapBaseClient(base, closer)
 	return newCSRetryClient(client), nil
 }
 
