@@ -19,10 +19,6 @@ type Config struct {
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
 	Remote Remote
-
-	// ServerPEMCert is the certificate to be supplied as the acceptable
-	// server certificate when connecting to the remote.
-	ServerPEMCert string
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -79,9 +75,12 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
+	// TODO(jam): 2016-02-25 setting ServerPEMCert feels like something
+	// that would have been done in UsingTCP. However, we can't know the
+	// server's certificate until we've actually connected to it.
+	remote.ServerPEMCert = serverCert
 
 	cfg.Remote = remote
-	cfg.ServerPEMCert = serverCert
 	return cfg, nil
 }
 

@@ -62,11 +62,11 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
 		Remote: lxdclient.Remote{
-			Name: "juju-remote",
-			Host: "",
-			Cert: nil,
+			Name:          "juju-remote",
+			Host:          "",
+			Cert:          nil,
+			ServerPEMCert: "",
 		},
-		ServerPEMCert: "",
 	})
 }
 
@@ -93,8 +93,8 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 				CertPEM: []byte("<a valid x.509 cert>"),
 				KeyPEM:  []byte("<a valid x.509 key>"),
 			},
+			ServerPEMCert: "<another valid x.509 cert>",
 		},
-		ServerPEMCert: "<another valid x.509 cert>",
 	})
 }
 

@@ -170,16 +170,16 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Config{
 		Namespace: "my-ns",
 		Remote: lxdclient.Remote{
-			Name: lxdclient.Local.Name,
-			Host: nonlocal.Remote.Host,
-			Cert: nonlocal.Remote.Cert,
+			Name:          lxdclient.Local.Name,
+			Host:          nonlocal.Remote.Host,
+			Cert:          nonlocal.Remote.Cert,
+			ServerPEMCert: nonlocal.Remote.ServerPEMCert,
 		},
-		ServerPEMCert: nonlocal.ServerPEMCert,
 	})
 	c.Check(nonlocal.Remote.Host, gc.Not(gc.Equals), "")
 	c.Check(nonlocal.Remote.Cert.CertPEM, gc.Not(gc.Equals), "")
 	c.Check(nonlocal.Remote.Cert.KeyPEM, gc.Not(gc.Equals), "")
-	c.Check(nonlocal.ServerPEMCert, gc.Not(gc.Equals), "")
+	c.Check(nonlocal.Remote.ServerPEMCert, gc.Not(gc.Equals), "")
 	// TODO(ericsnow) Check that the server has the certs.
 }
 

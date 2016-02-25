@@ -233,8 +233,9 @@ func (c *environConfig) serverPEMCert() string {
 // clientConfig builds a LXD Config based on the env config and returns it.
 func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	remote := lxdclient.Remote{
-		Name: "juju-remote",
-		Host: c.remoteURL(),
+		Name:          "juju-remote",
+		Host:          c.remoteURL(),
+		ServerPEMCert: c.serverPEMCert(),
 	}
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
@@ -245,9 +246,8 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace:     c.namespace(),
-		Remote:        remote,
-		ServerPEMCert: c.serverPEMCert(),
+		Namespace: c.namespace(),
+		Remote:    remote,
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {
@@ -270,7 +270,7 @@ func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*envi
 
 	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
 
-	c.attrs[cfgServerPEMCert] = clientCfg.ServerPEMCert
+	c.attrs[cfgServerPEMCert] = clientCfg.Remote.ServerPEMCert
 
 	var cert lxdclient.Cert
 	if clientCfg.Remote.Cert != nil {

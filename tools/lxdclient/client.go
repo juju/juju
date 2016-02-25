@@ -82,7 +82,7 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 		Addr:          host,
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
-		ServerPEMCert: cfg.ServerPEMCert,
+		ServerPEMCert: cfg.Remote.ServerPEMCert,
 	})
 	if err != nil {
 		if remote == remoteIDForLocal {
