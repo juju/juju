@@ -6,10 +6,9 @@
 package lxdclient
 
 import (
-	lxdshared "github.com/lxc/lxd/shared"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container/lxc"
 )
@@ -23,9 +22,10 @@ const (
 
 // Local is LXD's default "remote". Essentially it is an unencrypted,
 // unauthenticated connection to localhost over a unix socket.
+// However it does require users to be in the lxd group.
 var Local = Remote{
 	Name: remoteLocalName,
-	Host: "", // The LXD API turns this into the local unix socket.
+	Host: "", // If Host is empty we will translate it into the local unix socket
 	Cert: nil,
 }
 
@@ -144,12 +144,15 @@ func (r Remote) UsingTCP() (Remote, error) {
 		return r, nil
 	}
 
+	// TODO: jam 2016-02-25 This should be updated for systems that are
+	// 	 space aware, as we may not be just using the default LXC
+	// 	 bridge.
 	netIF := lxc.DefaultLxcBridge
 	addr, err := utils.GetAddressForInterface(netIF)
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	r.Host = addr + ":8443"
+	r.Host = addr
 
 	r, err = r.WithDefaults()
 	if err != nil {

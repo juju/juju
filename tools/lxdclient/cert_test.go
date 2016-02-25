@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	lxdshared "github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/tools/lxdclient"
@@ -130,15 +129,6 @@ func (s *certSuite) TestX509BadPEM(c *gc.C) {
 
 type certFunctionalSuite struct {
 	lxdclient.BaseSuite
-}
-
-func (s *certFunctionalSuite) TestGenerateCert(c *gc.C) {
-	// This test involves the filesystem.
-	certPEM, keyPEM, err := lxdshared.GenerateMemCert()
-	c.Assert(err, jc.ErrorIsNil)
-	cert := lxdclient.NewCert(certPEM, keyPEM)
-
-	checkValidCert(c, &cert)
 }
 
 func checkCert(c *gc.C, cert lxdclient.Cert, certPEM, keyPEM []byte) {

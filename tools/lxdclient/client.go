@@ -6,6 +6,8 @@
 package lxdclient
 
 import (
+	"net"
+
 	"github.com/lxc/lxd"
 	lxdshared "github.com/lxc/lxd/shared"
 
@@ -57,6 +59,12 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	host := cfg.Remote.Host
 	if remote == remoteIDForLocal || host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
+	} else {
+		_, _, err := net.SplitHostPort(host)
+		if err != nil {
+			// There is no port here
+			host = net.JoinHostPort(host, lxdshared.DefaultPort)
+		}
 	}
 
 	clientCert := ""
@@ -70,15 +78,10 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name: cfg.Remote.ID(),
-		Addr: host,
-		// TODO: jam 2016-02-24 get this information from
-		// 	'Remote'
+		Name:          cfg.Remote.ID(),
+		Addr:          host,
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
-		// TODO: jam 2016-02-24 we should be caching the LXD server
-		// certificate somewhere, and passing it in here so that our
-		// connection is properly validated.
 		ServerPEMCert: cfg.ServerPEMCert,
 	})
 	if err != nil {

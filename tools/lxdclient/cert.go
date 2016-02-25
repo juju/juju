@@ -20,6 +20,8 @@ const (
 
 	pemBlockTypeCert = "CERTIFICATE"
 	pemBlockTypeKey  = "RSA PRIVATE KEY"
+
+	certDefaultName = "juju-client-certificate"
 )
 
 // Cert holds the information for a single certificate a client
@@ -49,14 +51,13 @@ func (cert Cert) WithDefaults() (Cert, error) {
 	// Note that cert is a value receiver, so it is an implicit copy.
 
 	if cert.Name == "" {
-		// TODO(ericsnow) Use x509.Certificate.Subject for the default?
-		cert.Name = "client.crt" // certDefaultName
-		// TODO(jam) Probably should be "juju-client" or something like that
+		// The certificate Name will get overridden later by code that
+		// knows what environment this certificate is being used for.
+		cert.Name = certDefaultName
 	}
 
-	// TODO(ericsnow) populate cert/key (use genCertAndKey)?
-	// shared.GenerateMemCert
-
+	// WithDefaults doesn't populate CertPEM or KeyPEM because those aren't
+	// used when contacting the LXD service via the unix socket.
 	return cert, nil
 }
 
