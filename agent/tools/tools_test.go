@@ -217,6 +217,11 @@ func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
+func (t *ToolsSuite) TestSharedGUIDir(c *gc.C) {
+	dir := agenttools.SharedGUIDir("/var/lib/juju", version.MustParse("2.0.42"))
+	c.Assert(dir, gc.Equals, "/var/lib/juju/gui/2.0.42")
+}
+
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
 func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, files []*testing.TarFile) {

@@ -32,6 +32,12 @@ func SharedToolsDir(dataDir string, vers version.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
 }
 
+// SharedGUIDir returns the directory that is used to store release archives
+// for the given version of the Juju GUI within the dataDir directory.
+func SharedGUIDir(dataDir string, vers version.Number) string {
+	return path.Join(dataDir, "gui", vers.String())
+}
+
 // ToolsDir returns the directory that is used/ to store binaries for
 // the tools used by the given agent within the given dataDir directory.
 // Conventionally it is a symbolic link to the actual tools directory.
