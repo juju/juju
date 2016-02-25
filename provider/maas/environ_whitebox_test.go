@@ -957,6 +957,7 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 	testInstance := suite.createSubnets(c, false)
 	systemID := "node1"
 	for i := 1; i <= numberOfSubnets; i++ {
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: fmt.Sprintf("Space %d", i)}))
 		// Put most, but not all, of the subnets on node1.
 		if i == 2 {
 			systemID = "node2"
@@ -969,8 +970,8 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), filters)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSubnets := []network.SubnetInfo{
-		createSubnetInfo(1, 1, 1),
-		createSubnetInfo(3, 3, 3),
+		createSubnetInfo(1, 2, 1),
+		createSubnetInfo(3, 4, 3),
 	}
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
 
