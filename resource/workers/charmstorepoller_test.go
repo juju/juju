@@ -14,246 +14,54 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/resource/workers"
-	"github.com/juju/juju/worker"
-	workertest "github.com/juju/juju/worker/testing"
 )
 
-type CharmStorePollerSuite struct {
+type LatestCharmHandlerSuite struct {
 	testing.IsolationSuite
 
-	stub   *testing.Stub
-	deps   *stubCharmStorePollerDeps
-	client *stubCharmStoreClient
+	stub  *testing.Stub
+	store *stubDataStore
 }
 
-var _ = gc.Suite(&CharmStorePollerSuite{})
+var _ = gc.Suite(&LatestCharmHandlerSuite{})
 
-func (s *CharmStorePollerSuite) SetUpTest(c *gc.C) {
+func (s *LatestCharmHandlerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.deps = &stubCharmStorePollerDeps{Stub: s.stub}
-	s.client = &stubCharmStoreClient{Stub: s.stub}
-	s.deps.ReturnNewClient = s.client
+	s.store = &stubDataStore{Stub: s.stub}
 }
 
-func (s *CharmStorePollerSuite) TestIntegration(c *gc.C) {
-	s.deps.ReturnListAllServices = []workers.Service{
-		newStubService(c, s.stub, "svc-a"),
-		newStubService(c, s.stub, "svc-b"),
+func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
+	serviceID := names.NewServiceTag("a-service")
+	info := charmstore.CharmInfo{
+		URL: &charm.URL{},
+		Resources: []charmresource.Resource{
+			resourcetesting.NewCharmResource(c, "spam", "<some data>"),
+		},
+		Timestamp: time.Now().UTC(),
 	}
-	s.client.ReturnListResources = [][]charmresource.Resource{{
-		resourcetesting.NewCharmResource(c, "spam", "blahblahblah"),
-	}, {
-		resourcetesting.NewCharmResource(c, "eggs", "..."),
-		resourcetesting.NewCharmResource(c, "ham", "lahdeedah"),
-	}}
-	done := make(chan struct{})
-	poller := workers.NewCharmStorePoller(s.deps, s.deps.NewClient)
-	poller.CharmStorePollerDeps = &doTracker{
-		CharmStorePollerDeps: poller.CharmStorePollerDeps,
-		done:                 done,
-	}
+	handler := workers.NewLatestCharmHandler(s.store)
 
-	worker := poller.NewWorker()
-	go func() {
-		<-done
-		worker.Kill()
-	}()
-	err := worker.Wait()
+	err := handler.HandleLatest(serviceID, info)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c,
-		"ListAllServices",
-		"CharmURL",
-		"CharmURL",
-		"NewClient",
-		"ListResources",
-		"Close",
-		"ID",
-		"SetCharmStoreResources",
-		"ID",
-		"SetCharmStoreResources",
-	)
+	s.stub.CheckCallNames(c, "SetCharmStoreResources")
+	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-service", info.Resources, info.Timestamp)
 }
 
-func (s *CharmStorePollerSuite) TestNewCharmStorePoller(c *gc.C) {
-	poller := workers.NewCharmStorePoller(s.deps, s.deps.NewClient)
-
-	s.stub.CheckNoCalls(c)
-	c.Check(poller.Period, gc.Equals, 24*time.Hour)
-}
-
-func (s *CharmStorePollerSuite) TestNewWorker(c *gc.C) {
-	expected := &workertest.StubWorker{Stub: s.stub}
-	s.deps.ReturnNewPeriodicWorker = expected
-	period := 11 * time.Second
-	poller := workers.CharmStorePoller{
-		CharmStorePollerDeps: s.deps,
-		Period:               period,
-	}
-
-	worker := poller.NewWorker()
-
-	s.stub.CheckCallNames(c, "NewPeriodicWorker")
-	c.Check(worker, gc.Equals, expected)
-}
-
-func (s *CharmStorePollerSuite) TestDo(c *gc.C) {
-	s.deps.ReturnListAllServices = []workers.Service{
-		newStubService(c, s.stub, "svc-a"),
-		newStubService(c, s.stub, "svc-b"),
-	}
-	s.deps.ReturnListCharmStoreResources = [][]charmresource.Resource{{
-		resourcetesting.NewCharmResource(c, "spam", "blahblahblah"),
-	}, {
-		resourcetesting.NewCharmResource(c, "eggs", "..."),
-		resourcetesting.NewCharmResource(c, "ham", "lahdeedah"),
-	}}
-	poller := workers.CharmStorePoller{
-		CharmStorePollerDeps: s.deps,
-	}
-	stop := make(chan struct{})
-	defer close(stop)
-
-	err := poller.Do(stop)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c,
-		"ListAllServices",
-		"CharmURL",
-		"CharmURL",
-		"ListCharmStoreResources",
-		"ID",
-		"SetCharmStoreResources",
-		"ID",
-		"SetCharmStoreResources",
-	)
-}
-
-type stubCharmStorePollerDeps struct {
+type stubDataStore struct {
 	*testing.Stub
-
-	ReturnNewClient               workers.CharmStoreClient
-	ReturnListAllServices         []workers.Service
-	ReturnNewPeriodicWorker       worker.Worker
-	ReturnListCharmStoreResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStorePollerDeps) NewClient() (workers.CharmStoreClient, error) {
-	s.AddCall("NewClient")
-	if err := s.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnNewClient, nil
-}
-
-func (s *stubCharmStorePollerDeps) ListAllServices() ([]workers.Service, error) {
-	s.AddCall("ListAllServices")
-	if err := s.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnListAllServices, nil
-}
-
-func (s *stubCharmStorePollerDeps) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
+func (s *stubDataStore) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
 	s.AddCall("SetCharmStoreResources", serviceID, info, lastPolled)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
-}
-
-func (s *stubCharmStorePollerDeps) NewPeriodicWorker(call func(stop <-chan struct{}) error, period time.Duration) worker.Worker {
-	s.AddCall("NewPeriodicWorker", call, period)
-	s.NextErr() // Pop one off.
-
-	return s.ReturnNewPeriodicWorker
-}
-
-func (s *stubCharmStorePollerDeps) ListCharmStoreResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.AddCall("ListCharmStoreResources", cURLs)
-	if err := s.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnListCharmStoreResources, nil
-}
-
-type stubCharmStoreClient struct {
-	*testing.Stub
-
-	ReturnListResources [][]charmresource.Resource
-}
-
-func (s *stubCharmStoreClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs)
-	if err := s.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnListResources, nil
-}
-
-func (s *stubCharmStoreClient) Close() error {
-	s.AddCall("Close")
-	if err := s.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-type stubService struct {
-	*testing.Stub
-
-	ReturnID       names.ServiceTag
-	ReturnCharmURL *charm.URL
-}
-
-func newStubService(c *gc.C, stub *testing.Stub, name string) *stubService {
-	cURL := &charm.URL{
-		Schema:   "cs",
-		Name:     name,
-		Revision: 1,
-	}
-	return &stubService{
-		Stub:           stub,
-		ReturnID:       names.NewServiceTag(name),
-		ReturnCharmURL: cURL,
-	}
-}
-
-func (s *stubService) ID() names.ServiceTag {
-	s.AddCall("ID")
-	s.NextErr() // Pop one off.
-
-	return s.ReturnID
-}
-
-func (s *stubService) CharmURL() *charm.URL {
-	s.AddCall("CharmURL")
-	s.NextErr() // Pop one off.
-
-	return s.ReturnCharmURL
-}
-
-type doTracker struct {
-	workers.CharmStorePollerDeps
-
-	done chan struct{}
-}
-
-func (dt doTracker) NewPeriodicWorker(call func(stop <-chan struct{}) error, period time.Duration) worker.Worker {
-	wrapper := func(stop <-chan struct{}) error {
-		err := call(stop)
-		close(dt.done)
-		return err
-	}
-	return dt.CharmStorePollerDeps.NewPeriodicWorker(wrapper, period)
 }
