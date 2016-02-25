@@ -5,6 +5,7 @@ package service
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,7 @@ import (
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -271,6 +273,31 @@ func (s *UpgradeCharmSuccessSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(force, gc.Equals, false)
 	s.AssertCharmUploaded(c, ch.URL())
 	c.Assert(ch.URL().String(), gc.Equals, "local:precise/multi-series2-8")
+}
+
+func (s *UpgradeCharmSuccessSuite) TestInitWithResources(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	dir := c.MkDir()
+
+	foopath := path.Join(dir, "foo")
+	barpath := path.Join(dir, "bar")
+	err := ioutil.WriteFile(foopath, []byte("foo"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res1 := fmt.Sprintf("foo=%s", foopath)
+	res2 := fmt.Sprintf("bar=%s", barpath)
+
+	d := upgradeCharmCommand{}
+	args := []string{"dummy", "--resource", res1, "--resource", res2}
+
+	err = testing.InitCommand(modelcmd.Wrap(&d), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
+		"foo": foopath,
+		"bar": barpath,
+	})
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUnitsUpgrade(c *gc.C) {

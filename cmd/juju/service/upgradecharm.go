@@ -64,6 +64,14 @@ which to load the updated charm. Note that the directory containing the charm mu
 match what was originally used to deploy the charm as a superficial check that the
 updated charm is compatible.
 
+Resources may be uploaded at upgrade time by specifying the --resource flag.
+Following the resource flag should be name=filepath pair.  This flag may be
+repeated more than once to upload more than one resource.
+
+  juju upgrade-charm foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+Where bar and baz are resources named in the metadata for the foo charm.
+
 If the new version of a charm does not explicitly support the service's series, the
 upgrade is disallowed unless the --force-series flag is used. This option should be
 used with caution since using a charm on a machine running an unsupported series may
@@ -193,17 +201,23 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	metaRes := charmInfo.Meta.Resources
-	// only include resource metadata for the files we're actually uploading
-	for name, _ := range charmInfo.Meta.Resources {
-		if _, ok := c.Resources[name]; !ok {
-			delete(metaRes, name)
-		}
-	}
+	var ids map[string]string
 
-	ids, err := handleResources(c, c.Resources, c.ServiceName, metaRes)
-	if err != nil {
-		return errors.Trace(err)
+	if len(c.Resources) > 0 {
+		metaRes := charmInfo.Meta.Resources
+		// only include resource metadata for the files we're actually uploading,
+		// otherwise the server will create empty resources that'll overwrite any
+		// existing resources.
+		for name, _ := range charmInfo.Meta.Resources {
+			if _, ok := c.Resources[name]; !ok {
+				delete(metaRes, name)
+			}
+		}
+
+		ids, err = handleResources(c, c.Resources, c.ServiceName, metaRes)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	cfg := apiservice.SetCharmConfig{
