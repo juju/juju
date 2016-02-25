@@ -84,6 +84,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	err = modelcmd.WriteCurrentController("test1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["test1"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["test1"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}

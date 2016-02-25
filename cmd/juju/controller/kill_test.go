@@ -58,7 +58,7 @@ func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
 
 func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 	_, err := s.runKillCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo:foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
 func (s *KillSuite) TestKillNonControllerEnvFails(c *gc.C) {
@@ -124,6 +124,12 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
 	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+}
+
+func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
+	_, err := testing.RunCommand(c, s.newKillCommand(), "local.test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	checkControllerRemovedFromStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {

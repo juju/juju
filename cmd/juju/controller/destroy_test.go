@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -127,13 +128,17 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	var err error
 	s.legacyStore, err = configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
 
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["test2"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["test3"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}
 
-	var envList = []struct {
+	var modelList = []struct {
 		name         string
 		serverUUID   string
 		modelUUID    string
@@ -153,29 +158,40 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 			modelUUID: "test3-uuid",
 		},
 	}
-	for _, env := range envList {
-		info := s.legacyStore.CreateInfo(env.name)
-		uuid := env.modelUUID
+	for _, model := range modelList {
+		controllerName, modelName := modelcmd.SplitModelName(model.name)
+		s.store.UpdateController(controllerName, jujuclient.ControllerDetails{
+			ControllerUUID: model.serverUUID,
+			APIEndpoints:   []string{"localhost"},
+			CACert:         testing.CACert,
+		})
+		s.store.UpdateModel(controllerName, "admin@local", modelName, jujuclient.ModelDetails{
+			ModelUUID: model.modelUUID,
+		})
+
+		// TODO(wallyworld) - remove legacy store
+		info := s.legacyStore.CreateInfo(model.name)
+		uuid := model.modelUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:  []string{"localhost"},
 			CACert:     testing.CACert,
 			ModelUUID:  uuid,
-			ServerUUID: env.serverUUID,
+			ServerUUID: model.serverUUID,
 		})
 
-		if env.bootstrapCfg != nil {
-			info.SetBootstrapConfig(env.bootstrapCfg)
+		if model.bootstrapCfg != nil {
+			info.SetBootstrapConfig(model.bootstrapCfg)
 		}
 		err := info.Write()
 		c.Assert(err, jc.ErrorIsNil)
 
 		s.api.allEnvs = append(s.api.allEnvs, base.UserModel{
-			Name:  env.name,
+			Name:  model.name,
 			UUID:  uuid,
 			Owner: owner.Canonical(),
 		})
 
-		s.api.envStatus[env.modelUUID] = base.ModelStatus{
+		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               params.Dead,
 			HostedMachineCount: 0,
@@ -220,7 +236,7 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo:foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
@@ -252,6 +268,14 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 }
 
+func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.destroyAll, jc.IsFalse)
+	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
+	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
+}
+
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,6 +299,7 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 }
 
 func (s *DestroySuite) resetController(c *gc.C) {
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
 	info := s.legacyStore.CreateInfo("local.test1:test1")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},

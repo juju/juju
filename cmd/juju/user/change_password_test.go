@@ -134,6 +134,9 @@ func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C)
 	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
 		return &jujuclient.AccountDetails{"user", "old-password"}, nil
 	}
+	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
+		return &jujuclient.ControllerDetails{}, nil
+	}
 	s.store = store
 	store.SetErrors(errors.New("failed to write"))
 
@@ -152,6 +155,9 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 	}
 	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
 		return &jujuclient.AccountDetails{"user", "old-password"}, nil
+	}
+	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
+		return &jujuclient.ControllerDetails{}, nil
 	}
 	s.store = store
 	store.SetErrors(errors.New("failed to write"))

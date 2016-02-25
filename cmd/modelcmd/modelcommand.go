@@ -141,6 +141,12 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 			return errors.Errorf("no current controller, and none specified")
 		}
 		controllerName = currentController
+	} else {
+		var err error
+		controllerName, err = ResolveControllerName(c.store, controllerName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	accountName, err := c.store.CurrentAccount(controllerName)
 	if err != nil {
@@ -225,41 +231,6 @@ func (c *ModelCommandBase) ConnectionCredentials() (configstore.APICredentials, 
 		return emptyCreds, errors.Trace(err)
 	}
 	return info.APICredentials(), nil
-}
-
-// ConnectionEndpoint returns the end point information used to
-// connect to the API for the specified environment.
-func (c *ModelCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoint, error) {
-	// TODO: the endpoint information may soon be specified through the command line
-	// or through an environment setting, so return these when they are ready.
-	// NOTE: refresh when specified through command line should error.
-	var emptyEndpoint configstore.APIEndpoint
-	if c.modelName == "" {
-		return emptyEndpoint, errors.Trace(ErrNoModelSpecified)
-	}
-	info, err := connectionInfoForName(c.controllerName, c.modelName)
-	if err != nil {
-		return emptyEndpoint, errors.Trace(err)
-	}
-	endpoint := info.APIEndpoint()
-	if !refresh && len(endpoint.Addresses) > 0 {
-		logger.Debugf("found cached addresses, not connecting to API server")
-		return endpoint, nil
-	}
-
-	// We need to connect to refresh our endpoint settings
-	// The side effect of connecting is that we update the store with new API information
-	refresher, err := endpointRefresher(c)
-	if err != nil {
-		return emptyEndpoint, err
-	}
-	refresher.Close()
-
-	info, err = connectionInfoForName(c.controllerName, c.modelName)
-	if err != nil {
-		return emptyEndpoint, err
-	}
-	return info.APIEndpoint(), nil
 }
 
 var endpointRefresher = func(c *ModelCommandBase) (io.Closer, error) {

@@ -212,9 +212,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 }
 
 var bootstrappedControllerName = func(controllerName string) string {
-	// TODO(axw) re-enable this once we've got CI updated.
-	return controllerName
-	//return fmt.Sprintf("local.%s", controllerName)
+	return fmt.Sprintf("local.%s", controllerName)
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.

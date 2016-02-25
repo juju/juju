@@ -61,11 +61,15 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 	}
 	controllers := make(map[string]ShowControllerDetails)
 	for _, name := range controllerNames {
-		one, err := c.store.ControllerByName(name)
+		actualName, err := modelcmd.ResolveControllerName(c.store, name)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get controller %s", name)
+			return err
 		}
-		controllers[name] = c.convertControllerForShow(name, one)
+		one, err := c.store.ControllerByName(actualName)
+		if err != nil {
+			return err
+		}
+		controllers[name] = c.convertControllerForShow(actualName, one)
 	}
 	return c.out.Write(ctx, controllers)
 }

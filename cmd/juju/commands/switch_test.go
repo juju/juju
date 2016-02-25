@@ -117,6 +117,14 @@ func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
 	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
 }
 
+func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
+	s.currentController = "old"
+	s.addController(c, "local.new")
+	context, err := s.run(c, "new")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> local.new (controller)\n")
+}
+
 func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 	s.currentController = "same"
 	s.addController(c, "same")
@@ -165,6 +173,26 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 		{"WriteCurrentController", []interface{}{"new"}},
 	})
 	c.Assert(s.store.Models["new"].AccountModels["admin@local"].CurrentModel, gc.Equals, "mymodel")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(c *gc.C) {
+	s.currentController = "old"
+	s.addController(c, "local.new")
+	s.store.Models["local.new"] = jujuclient.ControllerAccountModels{
+		map[string]*jujuclient.AccountModels{
+			"admin@local": {
+				Models: map[string]jujuclient.ModelDetails{"mymodel": {}},
+			},
+		},
+	}
+	context, err := s.run(c, "new:mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> local.new:mymodel\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"WriteCurrentController", []interface{}{"local.new"}},
+	})
+	c.Assert(s.store.Models["local.new"].AccountModels["admin@local"].CurrentModel, gc.Equals, "mymodel")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentModel(c *gc.C) {

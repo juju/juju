@@ -48,6 +48,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["local.test-master"] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"bob@local": {User: "bob@local"},
@@ -100,7 +101,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewCreateModelCommandForTest(nil, nil, nil)
+		wrappedCommand, command := controller.NewCreateModelCommandForTest(nil, s.store, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
