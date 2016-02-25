@@ -46,6 +46,7 @@ func (s *configSuite) TestDefaults(c *gc.C) {
 		RemoteURL:  "",
 		ClientCert: "",
 		ClientKey:  "",
+		ServerCert: "",
 	})
 }
 
@@ -65,6 +66,7 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 			Host: "",
 			Cert: nil,
 		},
+		ServerPEMCert: "",
 	})
 }
 
@@ -75,6 +77,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 		"remote-url":  "10.0.0.1",
 		"client-cert": "<a valid x.509 cert>",
 		"client-key":  "<a valid x.509 key>",
+		"server-cert": "<another valid x.509 cert>",
 	})
 
 	clientCfg, err := ecfg.ClientConfig()
@@ -91,6 +94,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 				KeyPEM:  []byte("<a valid x.509 key>"),
 			},
 		},
+		ServerPEMCert: "<another valid x.509 cert>",
 	})
 }
 
@@ -111,6 +115,7 @@ func (s *configSuite) TestUpdateForClientConfigLocal(c *gc.C) {
 		RemoteURL:  "",
 		ClientCert: "",
 		ClientKey:  "",
+		ServerCert: "",
 	})
 }
 
@@ -121,6 +126,7 @@ func (s *configSuite) TestUpdateForClientConfigNonLocal(c *gc.C) {
 		"remote-url":  "10.0.0.1",
 		"client-cert": "<a valid x.509 cert>",
 		"client-key":  "<a valid x.509 key>",
+		"server-cert": "<another valid x.509 cert>",
 	})
 
 	before, extras := ecfg.Values(c)
@@ -139,12 +145,14 @@ func (s *configSuite) TestUpdateForClientConfigNonLocal(c *gc.C) {
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "<a valid x.509 cert>",
 		ClientKey:  "<a valid x.509 key>",
+		ServerCert: "<another valid x.509 cert>",
 	})
 	c.Check(after, jc.DeepEquals, lxd.ConfigValues{
 		Namespace:  cfg.Name(),
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "<a valid x.509 cert>",
 		ClientKey:  "<a valid x.509 key>",
+		ServerCert: "<another valid x.509 cert>",
 	})
 }
 
@@ -155,6 +163,7 @@ func (s *configSuite) TestUpdateForClientConfigGeneratedCert(c *gc.C) {
 		"remote-url":  "10.0.0.1",
 		"client-cert": "",
 		"client-key":  "",
+		"server-cert": "",
 	})
 
 	before, extras := ecfg.Values(c)
@@ -173,15 +182,18 @@ func (s *configSuite) TestUpdateForClientConfigGeneratedCert(c *gc.C) {
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "",
 		ClientKey:  "",
+		ServerCert: "",
 	})
 	after.CheckCert(c)
 	after.ClientCert = ""
 	after.ClientKey = ""
+	after.ServerCert = ""
 	c.Check(after, jc.DeepEquals, lxd.ConfigValues{
 		Namespace:  cfg.Name(),
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "",
 		ClientKey:  "",
+		ServerCert: "",
 	})
 }
 
@@ -299,6 +311,10 @@ var newConfigTests = []configTestSpec{{
 	info:   "client-key can be empty",
 	insert: testing.Attrs{"client-key": ""},
 	expect: testing.Attrs{"client-key": ""},
+}, {
+	info:   "client-cert is optional",
+	remove: []string{"server-cert"},
+	expect: testing.Attrs{"server-cert": ""},
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},

@@ -343,6 +343,7 @@ type ConfigValues struct {
 	RemoteURL  string
 	ClientCert string
 	ClientKey  string
+	ServerCert string
 }
 
 func (cv ConfigValues) CheckCert(c *gc.C) {
@@ -359,6 +360,12 @@ func (cv ConfigValues) CheckCert(c *gc.C) {
 	block, remainder = pem.Decode(keyPEM)
 	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
 	c.Check(remainder, gc.HasLen, 0)
+
+	if cv.ServerCert != "" {
+		block, remainder = pem.Decode([]byte(cv.ServerCert))
+		c.Check(block.Type, gc.Equals, "CERTIFICATE")
+		c.Check(remainder, gc.HasLen, 1)
+	}
 }
 
 type Config struct {
@@ -395,6 +402,8 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 			values.ClientCert = v.(string)
 		case cfgClientKey:
 			values.ClientKey = v.(string)
+		case cfgServerPEMCert:
+			values.ServerCert = v.(string)
 		default:
 			extras[k] = v
 		}
