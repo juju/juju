@@ -6,6 +6,7 @@ package jujuclienttesting
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -15,6 +16,7 @@ type MemStore struct {
 	Controllers map[string]jujuclient.ControllerDetails
 	Models      map[string]jujuclient.ControllerAccountModels
 	Accounts    map[string]*jujuclient.ControllerAccounts
+	Credentials map[string]cloud.CloudCredential
 }
 
 func NewMemStore() *MemStore {
@@ -22,6 +24,7 @@ func NewMemStore() *MemStore {
 		make(map[string]jujuclient.ControllerDetails),
 		make(map[string]jujuclient.ControllerAccountModels),
 		make(map[string]*jujuclient.ControllerAccounts),
+		make(map[string]cloud.CloudCredential),
 	}
 }
 
@@ -325,4 +328,27 @@ func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
 	}
 	delete(accounts.Accounts, accountName)
 	return nil
+}
+
+// UpdateCredential implements CredentialsUpdater.
+func (c *MemStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	c.Credentials[cloudName] = details
+	return nil
+}
+
+// CredentialForCloud implements CredentialsGetter.
+func (c *MemStore) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	if result, ok := c.Credentials[cloudName]; ok {
+		return &result, nil
+	}
+	return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+}
+
+// AllCredentials implements CredentialsGetter.
+func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	result := make(map[string]cloud.CloudCredential)
+	for k, v := range c.Credentials {
+		result[k] = v
+	}
+	return result, nil
 }

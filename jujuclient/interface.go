@@ -3,6 +3,8 @@
 
 package jujuclient
 
+import "github.com/juju/juju/cloud"
+
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
 	// Servers contains the addresses of hosts that form the Juju controller
@@ -181,4 +183,29 @@ type ClientStore interface {
 	AccountStore
 	ControllerStore
 	ModelStore
+}
+
+// CredentialGetter gets credentials.
+type CredentialGetter interface {
+	// CredentialForCloud gets credentials for the named cloud.
+	CredentialForCloud(string) (*cloud.CloudCredential, error)
+
+	// AllCredentials gets all credentials.
+	AllCredentials() (map[string]cloud.CloudCredential, error)
+}
+
+// CredentialUpdater stores credentials.
+type CredentialUpdater interface {
+	// UpdateCredential adds the given credentials to the credentials
+	// collection.
+	//
+	// If the cloud or credential name does not already exist, it will be added.
+	// Otherwise, it will be overwritten with the new details.
+	UpdateCredential(cloudName string, details cloud.CloudCredential) error
+}
+
+// CredentialStore is an amalgamation of CredentialsUpdater, and CredentialsGetter.
+type CredentialStore interface {
+	CredentialGetter
+	CredentialUpdater
 }

@@ -18,6 +18,7 @@ import (
 	// TODO(axw) replace with flock on file in $XDG_RUNTIME_DIR
 	"github.com/juju/utils/fslock"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -31,6 +32,12 @@ var lockTimeout = 5 * time.Second
 // NewFileClientStore returns a new filesystem-based client store
 // that manages files in $XDG_DATA_HOME/juju.
 func NewFileClientStore() ClientStore {
+	return &store{}
+}
+
+// NewFileCredentialStore returns a new filesystem-based credentials store
+// that manages credentials in $XDG_DATA_HOME/juju.
+func NewFileCredentialStore() CredentialStore {
 	return &store{}
 }
 
@@ -638,4 +645,47 @@ func (s *store) RemoveAccount(controllerName, accountName string) error {
 		accounts.CurrentAccount = ""
 	}
 	return errors.Trace(WriteAccountsFile(controllerAccounts))
+}
+
+// UpdateCredential implements CredentialUpdater.
+func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	lock, err := s.lock("update-credentials")
+	if err != nil {
+		return errors.Annotatef(err, "cannot update credentials for %v", cloudName)
+	}
+	defer s.unlock(lock)
+
+	all, err := ReadCredentialsFile(JujuCredentialsPath())
+	if err != nil {
+		return errors.Annotate(err, "cannot get credentials")
+	}
+
+	if len(all) == 0 {
+		all = make(map[string]cloud.CloudCredential)
+	}
+
+	all[cloudName] = details
+	return WriteCredentialsFile(all)
+}
+
+// CredentialForCloud implements CredentialGetter.
+func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	cloudCredentials, err := s.AllCredentials()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	credentials, ok := cloudCredentials[cloudName]
+	if !ok {
+		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+	}
+	return &credentials, nil
+}
+
+// AllCredentials implements CredentialGetter.
+func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	cloudCredentials, err := ReadCredentialsFile(JujuCredentialsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudCredentials, nil
 }
