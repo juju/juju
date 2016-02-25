@@ -4,6 +4,7 @@
 package server
 
 import (
+	"bytes"
 	"io"
 
 	"github.com/juju/errors"
@@ -30,16 +31,21 @@ type DataStore interface {
 	UploadDataStore
 }
 
+type LatestCharmResourcesFn func(serviceId string) (resource.ServiceResources, error)
+
 // Facade is the public API facade for resources.
 type Facade struct {
 	// store is the data source for the facade.
 	store resourceInfoStore
+
+	latestCharmResources LatestCharmResourcesFn
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore) *Facade {
+func NewFacade(store DataStore, latestCharmResources LatestCharmResourcesFn) *Facade {
 	return &Facade{
-		store: store,
+		store:                store,
+		latestCharmResources: latestCharmResources,
 	}
 }
 
@@ -65,11 +71,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 		logger.Tracef("Listing resources for %q", e.Tag)
 		tag, apierr := parseServiceTag(e.Tag)
 		if apierr != nil {
-			r.Results[i] = api.ResourcesResult{
-				ErrorResult: params.ErrorResult{
-					Error: apierr,
-				},
-			}
+			r.Results[i] = errorResult(apierr)
 			continue
 		}
 
@@ -92,9 +94,40 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			}
 			result.UnitResources = append(result.UnitResources, unit)
 		}
+
+		latest, err := f.latestCharmResources(tag.Id())
+		if err != nil {
+			r.Results[i] = errorResult(err)
+			continue
+		}
+
+		result.Updates = diffResourceVersions(svcRes.Resources, latest.Resources)
+
 		r.Results[i] = result
 	}
 	return r, nil
+}
+
+func diffResourceVersions(current, available []resource.Resource) []resource.Resource {
+
+	fingerprintEqual := func(a, b resource.Resource) bool {
+		return bytes.Compare(a.Fingerprint.Bytes(), b.Fingerprint.Bytes()) == 0
+	}
+
+	var updates []resource.Resource
+	for _, c := range current {
+		for _, a := range available {
+			if c.Name != a.Name {
+				continue
+			}
+			if fingerprintEqual(c, a) {
+				continue
+			}
+			updates = append(updates, a)
+		}
+	}
+
+	return updates
 }
 
 // AddPendingResources adds the provided resources (info) to the Juju

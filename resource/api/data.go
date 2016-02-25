@@ -14,6 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/resource"
 )
 
 // ListResourcesArgs are the arguments for the ListResources endpoint.
@@ -99,6 +100,10 @@ type ResourcesResult struct {
 	// UnitResources contains a list of the resources for each unit in the
 	// service.
 	UnitResources []UnitResources
+
+	// Updates is a list of resources that have updates from the
+	// charm-store available.
+	Updates []resource.Resource
 }
 
 // A UnitResources contains a list of the resources the unit defined by Entity.
