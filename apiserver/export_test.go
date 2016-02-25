@@ -27,6 +27,8 @@ var (
 	ParseLogLine          = parseLogLine
 	AgentMatchesFilter    = agentMatchesFilter
 	NewLogTailer          = &newLogTailer
+
+	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
 )
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
