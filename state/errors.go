@@ -104,19 +104,18 @@ func IsProviderIDNotUniqueError(err interface{}) bool {
 // link-layer device cannot be removed because other existing devices refer to
 // it as their parent.
 type ErrParentDeviceHasChildren struct {
-	parentName    string
-	childrenNames []string
+	parentName  string
+	numChildren int
 }
 
 func (e *ErrParentDeviceHasChildren) Error() string {
-	children := strings.Join(e.childrenNames, ", ")
-	return fmt.Sprintf("parent device %q has children: %s", e.parentName, children)
+	return fmt.Sprintf("parent device %q has %d children", e.parentName, e.numChildren)
 }
 
-func newParentDeviceHasChildrenError(parentName string, childrenNames []string) error {
+func newParentDeviceHasChildrenError(parentName string, numChildren int) error {
 	return &ErrParentDeviceHasChildren{
-		parentName:    parentName,
-		childrenNames: childrenNames,
+		parentName:  parentName,
+		numChildren: numChildren,
 	}
 }
 

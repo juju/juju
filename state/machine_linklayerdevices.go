@@ -123,9 +123,10 @@ type LinkLayerDeviceArgs struct {
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - errors.NotFoundError, when ParentName is set but cannot be found on the
-//   machine or given in devicesArgs;
+//   machine;
 // - errors.AlreadyExistsError, when Name is set to an existing device.
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique;
+// Adding parent devices must be done in a separate call than adding their children.
 func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add link-layer devices to machine %q", m.doc.Id)
 
@@ -138,7 +139,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		newDocs, pendingNames, err := m.prepareToAddLinkLayerDevices(devicesArgs, existingProviderIDs)
+		newDocs, err := m.prepareToAddLinkLayerDevices(devicesArgs, existingProviderIDs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -150,7 +151,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := m.areLinkLayerDeviceDocsStillValid(newDocs, pendingNames); err != nil {
+			if err := m.areLinkLayerDeviceDocsStillValid(newDocs); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -162,7 +163,9 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 
 		for _, newDoc := range newDocs {
 			ops = append(ops, insertLinkLayerDeviceDocOp(&newDoc))
-			ops = m.maybeAssertParentDeviceExists(newDoc.ParentName, pendingNames, ops)
+			if newDoc.ParentName != "" {
+				ops = m.assertParentDeviceExists(newDoc.ParentName, ops)
+			}
 		}
 		return ops, nil
 	}
@@ -200,7 +203,7 @@ func (st *State) allProviderIDsForModelLinkLayerDevices() (_ set.Strings, err er
 	return allProviderIDs, nil
 }
 
-func (m *Machine) prepareToAddLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs, existingProviderIDs set.Strings) ([]linkLayerDeviceDoc, set.Strings, error) {
+func (m *Machine) prepareToAddLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs, existingProviderIDs set.Strings) ([]linkLayerDeviceDoc, error) {
 	var pendingDocs []linkLayerDeviceDoc
 	pendingNames := set.NewStrings()
 	allProviderIDs := set.NewStrings(existingProviderIDs.Values()...)
@@ -208,7 +211,7 @@ func (m *Machine) prepareToAddLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs
 	for _, args := range devicesArgs {
 		newDoc, err := m.prepareOneAddLinkLayerDeviceArgs(&args, pendingNames, allProviderIDs)
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		pendingNames.Add(args.Name)
 		pendingDocs = append(pendingDocs, *newDoc)
@@ -216,7 +219,7 @@ func (m *Machine) prepareToAddLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs
 			allProviderIDs.Add(string(args.ProviderID))
 		}
 	}
-	return pendingDocs, pendingNames, nil
+	return pendingDocs, nil
 }
 
 func (m *Machine) prepareOneAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pendingNames, allProviderIDs set.Strings) (_ *linkLayerDeviceDoc, err error) {
@@ -301,23 +304,21 @@ func (m *Machine) isStillAlive() error {
 	return nil
 }
 
-func (m *Machine) areLinkLayerDeviceDocsStillValid(newDocs []linkLayerDeviceDoc, pendingNames set.Strings) error {
+func (m *Machine) areLinkLayerDeviceDocsStillValid(newDocs []linkLayerDeviceDoc) error {
 	for _, newDoc := range newDocs {
-		if err := m.maybeEnsureParentDeviceExists(newDoc.Name, newDoc.ParentName, pendingNames); err != nil {
-			return errors.Trace(err)
+		if newDoc.ParentName != "" {
+			if err := m.verifyParentDeviceExists(newDoc.Name, newDoc.ParentName); err != nil {
+				return errors.Trace(err)
+			}
 		}
-		if err := m.ensureDeviceDoesNotExistYet(newDoc.Name); err != nil {
+		if err := m.verifyDeviceDoesNotExistYet(newDoc.Name); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (m *Machine) maybeEnsureParentDeviceExists(name, parentName string, pendingNames set.Strings) error {
-	if parentName == "" || pendingNames.Contains(parentName) {
-		return nil
-	}
-
+func (m *Machine) verifyParentDeviceExists(name, parentName string) error {
 	if _, err := m.LinkLayerDevice(parentName); errors.IsNotFound(err) {
 		return errors.NotFoundf("parent device %q of device %q", parentName, name)
 	} else if err != nil {
@@ -326,7 +327,7 @@ func (m *Machine) maybeEnsureParentDeviceExists(name, parentName string, pending
 	return nil
 }
 
-func (m *Machine) ensureDeviceDoesNotExistYet(deviceName string) error {
+func (m *Machine) verifyDeviceDoesNotExistYet(deviceName string) error {
 	if _, err := m.LinkLayerDevice(deviceName); err == nil {
 		return errors.AlreadyExistsf("device %q", deviceName)
 	} else if !errors.IsNotFound(err) {
@@ -343,14 +344,7 @@ func (m *Machine) assertAliveOp() txn.Op {
 	}
 }
 
-func (m *Machine) maybeAssertParentDeviceExists(parentName string, pendingNames set.Strings, opsSoFar []txn.Op) []txn.Op {
-	if parentName == "" || pendingNames.Contains(parentName) {
-		// Without a parent set, no need to add an assertion the parent exists.
-		// Likewise, if the parent is set and pending insertion, it won't exist
-		// yet.
-		return opsSoFar
-	}
-
+func (m *Machine) assertParentDeviceExists(parentName string, opsSoFar []txn.Op) []txn.Op {
 	parentGlobalKey := linkLayerDeviceGlobalKey(m.doc.Id, parentName)
 	parentDocID := m.st.docID(parentGlobalKey)
 	return append(opsSoFar, assertLinkLayerDeviceExistsOp(parentDocID))

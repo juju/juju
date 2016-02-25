@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -183,23 +182,29 @@ func (dev *LinkLayerDevice) machineProxy() *Machine {
 func (dev *LinkLayerDevice) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", dev)
 
-	childrenNames := set.NewStrings()
-	collectChildren := func(resultDoc *linkLayerDeviceDoc) {
-		if resultDoc.ParentName == dev.doc.Name {
-			childrenNames.Add(resultDoc.Name)
-		}
-	}
-	selectOnly := bson.D{{"_id", 1}, {"name", 1}, {"parent-name", 1}}
-	err = dev.machineProxy().forEachLinkLayerDeviceDoc(selectOnly, collectChildren)
-	if err != nil {
+	if numChildren, err := dev.numChildren(); err != nil {
 		return errors.Trace(err)
-	}
-	if !childrenNames.IsEmpty() {
-		return newParentDeviceHasChildrenError(dev.doc.Name, childrenNames.SortedValues())
+	} else if numChildren > 0 {
+		return newParentDeviceHasChildrenError(dev.doc.Name, numChildren)
 	}
 
 	ops := []txn.Op{removeLinkLayerDeviceOp(dev.doc.DocID)}
 	return dev.st.runTransaction(ops)
+}
+
+func (dev *LinkLayerDevice) numChildren() (int, error) {
+	allChildren := 0
+	countAllChildren := func(resultDoc *linkLayerDeviceDoc) {
+		if resultDoc.ParentName == dev.doc.Name {
+			allChildren++
+		}
+	}
+	selectOnly := bson.D{{"_id", 1}, {"name", 1}, {"parent-name", 1}}
+	err := dev.machineProxy().forEachLinkLayerDeviceDoc(selectOnly, countAllChildren)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return allChildren, nil
 }
 
 // insertLinkLayerDeviceDocOp returns an operation inserting the given newDoc,
