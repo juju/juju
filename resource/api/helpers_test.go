@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/resource/resourcetesting"
 )
 
 const fingerprint = "123456789012345678901234567890123456789012345678"
@@ -503,4 +504,76 @@ func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(res, jc.DeepEquals, expected)
+}
+
+func (HelpersSuite) TestServiceResource2API(c *gc.C) {
+	res1 := resourcetesting.NewResource(c, nil, "res1", "a-service", "data").Resource
+	res2 := resourcetesting.NewResource(c, nil, "res2", "a-service", "data2").Resource
+
+	tag0 := names.NewUnitTag("a-service/0")
+	tag1 := names.NewUnitTag("a-service/1")
+
+	chres1 := res1.Resource
+	chres2 := res2.Resource
+	chres1.Revision++
+	chres2.Revision++
+
+	svcRes := resource.ServiceResources{
+		Resources: []resource.Resource{
+			res1,
+			res2,
+		},
+		UnitResources: []resource.UnitResources{
+			{
+				Tag: tag0,
+				Resources: []resource.Resource{
+					res1,
+					res2,
+				},
+			},
+			// note: nothing for tag1
+		},
+		CharmStoreResources: []charmresource.Resource{
+			chres1,
+			chres2,
+		},
+	}
+
+	result := api.ServiceResources2APIResult(svcRes, []names.UnitTag{tag0, tag1})
+
+	apiRes1 := api.Resource2API(res1)
+	apiRes2 := api.Resource2API(res2)
+
+	apiChRes1 := api.CharmResource2API(chres1)
+	apiChRes2 := api.CharmResource2API(chres2)
+
+	c.Check(result, jc.DeepEquals, api.ResourcesResult{
+		Resources: []api.Resource{
+			apiRes1,
+			apiRes2,
+		},
+		UnitResources: []api.UnitResources{
+			{
+				Entity: params.Entity{
+					Tag: "unit-a-service-0",
+				},
+				Resources: []api.Resource{
+					apiRes1,
+					apiRes2,
+				},
+			},
+			{
+				// we should have a listing for every unit, even if they
+				// have no resources.
+				Entity: params.Entity{
+					Tag: "unit-a-service-1",
+				},
+			},
+		},
+		CharmStoreResources: []api.CharmResource{
+			apiChRes1,
+			apiChRes2,
+		},
+	})
+
 }
