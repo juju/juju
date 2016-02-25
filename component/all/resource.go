@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -106,8 +107,7 @@ func (r resources) registerAgentWorkers() {
 		return
 	}
 
-	factory := resourceadapters.NewWorkerFactory()
-	agent.RegisterModelWorker(resource.ComponentName+"-charmstore-poller", factory.NewModelWorker)
+	charmrevisionupdater.RegisterLatestCharmHandler("resources", resourceadapters.NewLatestCharmHandler)
 }
 
 // registerState registers the state functionality for resources.
