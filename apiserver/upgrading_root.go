@@ -57,7 +57,7 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 		return nil, err
 	}
 	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
-		logger.Warningf("Facade (%v) method (%v) was called during the upgrade but it was blocked.\n", rootName, methodName)
+		logger.Debugf("Facade (%v) method (%v) was called during the upgrade but it was blocked.\n", rootName, methodName)
 		return nil, inUpgradeError
 	}
 	return caller, nil
