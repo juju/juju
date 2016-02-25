@@ -444,7 +444,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveFailsWithExistingC
 
 	err := parent.Remove()
 	expectedError := fmt.Sprintf(
-		"cannot remove %s: parent device %q has children: another-child, one-child",
+		"cannot remove %s: parent device %q has 2 children",
 		parent, parent.Name(),
 	)
 	c.Assert(err, gc.ErrorMatches, expectedError)

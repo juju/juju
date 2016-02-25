@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -183,19 +182,19 @@ func (dev *LinkLayerDevice) machineProxy() *Machine {
 func (dev *LinkLayerDevice) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", dev)
 
-	childrenNames := set.NewStrings()
-	collectChildren := func(resultDoc *linkLayerDeviceDoc) {
+	numChildren := 0
+	getNumChildren := func(resultDoc *linkLayerDeviceDoc) {
 		if resultDoc.ParentName == dev.doc.Name {
-			childrenNames.Add(resultDoc.Name)
+			numChildren++
 		}
 	}
 	selectOnly := bson.D{{"_id", 1}, {"name", 1}, {"parent-name", 1}}
-	err = dev.machineProxy().forEachLinkLayerDeviceDoc(selectOnly, collectChildren)
+	err = dev.machineProxy().forEachLinkLayerDeviceDoc(selectOnly, getNumChildren)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !childrenNames.IsEmpty() {
-		return newParentDeviceHasChildrenError(dev.doc.Name, childrenNames.SortedValues())
+	if numChildren > 0 {
+		return newParentDeviceHasChildrenError(dev.doc.Name, numChildren)
 	}
 
 	ops := []txn.Op{removeLinkLayerDeviceOp(dev.doc.DocID)}
