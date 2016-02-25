@@ -149,7 +149,7 @@ func (r Remote) UsingTCP() (Remote, error) {
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	r.Host = addr
+	r.Host = addr + ":8443"
 
 	r, err = r.WithDefaults()
 	if err != nil {
