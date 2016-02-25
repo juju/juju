@@ -52,7 +52,7 @@ var configSchema = environschema.Fields{
 	},
 	cfgServerPEMCert: {
 		Description: `The server cert of the LXD host machine.`,
-		Type:	     environschema.Tstring,
+		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
 }
