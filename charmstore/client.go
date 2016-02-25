@@ -35,11 +35,6 @@ type Client interface {
 	// UUID is provided then it is associated with all of the repo's
 	// interaction with the charm store.
 	AsRepo(modelUUID string) Repo
-
-	// Latest returns the most up-to-date information about each of the
-	// identified charms at their latest revision. The revisions in the
-	// provided URLs are ignored.
-	Latest([]*charm.URL) ([]CharmInfoResult, error)
 }
 
 // BaseClient exposes the functionality Juju needs which csclient.Client
@@ -85,10 +80,6 @@ type client struct {
 // NewClient returns a Juju charm store client that wraps the provided
 // client.
 func NewClient(base *csclient.Client, closer io.Closer) Client {
-	return newClient(base, closer)
-}
-
-func newClient(base *csclient.Client, closer io.Closer) *client {
 	return &client{
 		Client: base,
 		Closer: closer,
@@ -106,37 +97,12 @@ func (client client) AsRepo(envUUID string) Repo {
 	return repo
 }
 
-// Latest implements Client.
-func (client client) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
-	return nil, errors.NotImplementedf("")
-}
-
 // Close implements Client.
 func (client client) Close() error {
 	if client.Closer == nil {
 		return nil
 	}
 	return client.Closer.Close()
-}
-
-type modelClient struct {
-	*client
-	modelUUID string
-}
-
-// NewModelClient returns a Juju charm store client that wraps the
-// provided client. The returned client is specific to the Juju model
-// identified by the given UUID.
-func NewModelClient(base *csclient.Client, closer io.Closer, modelUUID string) Client {
-	return &modelClient{
-		client:    newClient(base, closer),
-		modelUUID: modelUUID,
-	}
-}
-
-// Latest implements Client.
-func (client modelClient) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
-	return LatestCharmInfo(client, client.modelUUID, refs)
 }
 
 // LatestCharmInfo returns the most up-to-date information about each
