@@ -5,6 +5,7 @@ package charmstore
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -119,6 +120,8 @@ func (client client) Close() error {
 // of the identified charms at their latest revision. The revisions in
 // the provided URLs are ignored.
 func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]CharmInfoResult, error) {
+	now := time.Now().UTC()
+
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
 	repo := client.AsRepo(modelUUID)
@@ -151,6 +154,7 @@ func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]Cha
 			result.URL = cURL.WithRevision(revResult.Revision)
 			result.Resources = resources
 		}
+		result.Timestamp = now
 		results = append(results, result)
 	}
 	return results, nil

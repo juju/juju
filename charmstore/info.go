@@ -4,6 +4,8 @@
 package charmstore
 
 import (
+	"time"
+
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
@@ -22,6 +24,9 @@ type CharmInfo struct {
 	// resources. This list is accurate as of the time that the
 	// charm store handled the request for the charm info.
 	Resources []charmresource.Resource
+
+	// Timestamp indicates when the info came from the charm store.
+	Timestamp time.Time
 }
 
 // CharmInfoResult holds the result of a charm store request for info
