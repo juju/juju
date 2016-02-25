@@ -31,6 +31,11 @@ type Client interface {
 	ResourcesClient
 	io.Closer
 
+	// AsRepo returns a charm repo that wraps the client. If the model's
+	// UUID is provided then it is associated with all of the repo's
+	// interaction with the charm store.
+	AsRepo(modelUUID string) Repo
+
 	// Latest returns the most up-to-date information about each of the
 	// identified charms at their latest revision. The revisions in the
 	// provided URLs are ignored.
@@ -90,6 +95,17 @@ func newClient(base *csclient.Client, closer io.Closer) *client {
 	}
 }
 
+// AsRepo implements Client.
+func (client client) AsRepo(envUUID string) Repo {
+	repo := charmrepo.NewCharmStoreFromClient(client.Client)
+	if envUUID != "" {
+		repo = repo.WithJujuAttrs(map[string]string{
+			"environment_uuid": envUUID,
+		})
+	}
+	return repo
+}
+
 // Latest implements Client.
 func (client client) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
 	return nil, errors.NotImplementedf("")
@@ -122,10 +138,7 @@ func NewModelClient(base *csclient.Client, closer io.Closer, modelUUID string) C
 func (client modelClient) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
-	repo := charmrepo.NewCharmStoreFromClient(client.Client)
-	repo = repo.WithJujuAttrs(map[string]string{
-		"environment_uuid": client.modelUUID,
-	})
+	repo := client.AsRepo(client.modelUUID)
 
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(refs))
