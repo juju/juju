@@ -138,10 +138,17 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 // SetCharmConfig holds the configuration for setting a new version of a charm
 // on a service.
 type SetCharmConfig struct {
+	// ServiceName is the name of the service to set the charm on.
 	ServiceName string
-	CharmUrl    string
+	// CharmUrl is the url for the charm.
+	CharmUrl string
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
 	ForceSeries bool
-	ForceUnits  bool
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
 	ResourceIDs map[string]string
 }
 
