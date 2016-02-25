@@ -38,15 +38,6 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ClientSuite) TestNewClient(c *gc.C) {
-	base := csclient.New(s.config)
-	expected := charmstore.WrapBaseClient(base, nil)
-
-	client := charmstore.NewClient(&s.config)
-
-	c.Check(client, jc.DeepEquals, expected)
-}
-
 func (s *ClientSuite) TestWrapBaseClient(c *gc.C) {
 	base := csclient.New(s.config)
 
