@@ -111,11 +111,11 @@ func (client client) Close() error {
 func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]CharmInfoResult, error) {
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
-	repo := client.AsRepo(client.modelUUID)
+	repo := client.AsRepo(modelUUID)
 
 	// Do a bulk call to get the revision info for all charms.
-	logger.Infof("retrieving revision information for %d charms", len(refs))
-	revResults, err := repo.Latest(refs...)
+	logger.Infof("retrieving revision information for %d charms", len(cURLs))
+	revResults, err := repo.Latest(cURLs...)
 	if err != nil {
 		err = errors.Annotate(err, "finding charm revision info")
 		logger.Infof(err.Error())
@@ -124,14 +124,14 @@ func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]Cha
 
 	// Extract the results.
 	var results []CharmInfoResult
-	for i, ref := range refs {
+	for i, cURL := range cURLs {
 		revResult := revResults[i]
 
 		var result CharmInfoResult
 		if revResult.Err != nil {
 			result.Error = errors.Trace(revResult.Err)
 		} else {
-			result.URL = ref.WithRevision(revResult.Revision)
+			result.URL = cURL.WithRevision(revResult.Revision)
 		}
 		results = append(results, result)
 	}
