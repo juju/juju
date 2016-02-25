@@ -4,10 +4,8 @@
 package charmrevisionupdater
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -104,9 +102,12 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	return nil
 }
 
-// NewCharmStore instantiates a new charm store repository.
+// NewCharmStoreClient instantiates a new charm store repository.
 // It is defined at top level for testing purposes.
-var NewCharmStore = charmrepo.NewCharmStore
+var NewCharmStoreClient = func() charmstore.Client {
+	// TODO(ericsnow) Use the Juju "HTTP context" once we have one.
+	return charmstore.NewClient(nil)
+}
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
@@ -123,31 +124,20 @@ func retrieveLatestCharmInfo(services []*state.Service, uuid string) ([]charmsto
 		curls = append(curls, curl)
 	}
 
-	repo := NewCharmStore(charmrepo.NewCharmStoreParams{})
-	repo = repo.WithJujuAttrs(map[string]string{
-		"environment_uuid": uuid,
-	})
+	client := NewCharmStoreClient()
 
-	// Do a bulk call to get the revision info for all charms.
-	logger.Infof("retrieving revision information for %d charms", len(curls))
-	results, err := repo.Latest(curls...)
+	results, err := charmstore.LatestCharmInfo(client, uuid, curls)
 	if err != nil {
-		err = errors.Annotate(err, "finding charm revision info")
-		logger.Infof(err.Error())
 		return nil, err
 	}
 
 	var latest []charmstore.CharmInfo
 	for i, result := range results {
-		curl := curls[i]
-		if result.Err != nil {
-			logger.Errorf("retrieving charm info for %s: %v", curl, result.Err)
+		if result.Error != nil {
+			logger.Errorf("retrieving charm info for %s: %v", curls[i], result.Error)
 			continue
 		}
-		info := charmstore.CharmInfo{
-			URL: curl.WithRevision(result.Revision),
-		}
-		latest = append(latest, info)
+		latest = append(latest, result.CharmInfo)
 	}
 	return latest, nil
 }

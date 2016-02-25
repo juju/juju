@@ -12,11 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -164,9 +166,10 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	defer srv.Close()
 
 	// Point the charm repo initializer to the testing server.
-	s.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) *charmrepo.CharmStore {
-		p.URL = srv.URL
-		return charmrepo.NewCharmStore(p)
+	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() charmstore.Client {
+		return charmstore.NewClient(&csclient.Params{
+			URL: srv.URL,
+		})
 	})
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
