@@ -42,6 +42,21 @@ type Client interface {
 	Latest([]*charm.URL) ([]CharmInfoResult, error)
 }
 
+// BaseClient exposes the functionality Juju needs which csclient.Client
+// provides.
+type BaseClient interface {
+	// TODO(ericsnow) Replace use of Get with use of more specific API
+	// methods? We only use Get() for authorization on the Juju client
+	// side.
+
+	// Get makes a GET request to the given path in the charm store. The
+	// path must have a leading slash, but must not include the host
+	// name or version prefix. The result is parsed as JSON into the
+	// given result value, which should be a pointer to the expected
+	// data, but may be nil if no result is desired.
+	Get(path string, result interface{}) error
+}
+
 // ResourcesClient exposes the charm store client functionality for
 // dealing with resources.
 type ResourcesClient interface {
@@ -58,21 +73,6 @@ type ResourcesClient interface {
 	// is ignored. If the identified resource is not in the charm store
 	// then errors.NotFound is returned.
 	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
-}
-
-// BaseClient exposes the functionality Juju needs which csclient.Client
-// provides.
-type BaseClient interface {
-	// TODO(ericsnow) Replace use of Get with use of more specific API
-	// methods? We only use Get() for authorization on the Juju client
-	// side.
-
-	// Get makes a GET request to the given path in the charm store. The
-	// path must have a leading slash, but must not include the host
-	// name or version prefix. The result is parsed as JSON into the
-	// given result value, which should be a pointer to the expected
-	// data, but may be nil if no result is desired.
-	Get(path string, result interface{}) error
 }
 
 // client adapts csclient.Client to the needs of Juju.
@@ -136,6 +136,13 @@ func NewModelClient(base *csclient.Client, closer io.Closer, modelUUID string) C
 
 // Latest implements Client.
 func (client modelClient) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
+	return LatestCharmInfo(client, client.modelUUID, refs)
+}
+
+// LatestCharmInfo returns the most up-to-date information about each
+// of the identified charms at their latest revision. The revisions in
+// the provided URLs are ignored.
+func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]CharmInfoResult, error) {
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
 	repo := client.AsRepo(client.modelUUID)
@@ -146,7 +153,7 @@ func (client modelClient) Latest(refs []*charm.URL) ([]CharmInfoResult, error) {
 	if err != nil {
 		err = errors.Annotate(err, "finding charm revision info")
 		logger.Infof(err.Error())
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// Extract the results.
