@@ -18,7 +18,7 @@ import (
 type LatestCharmHandler interface {
 	// HandleLatest deals with the given charm info, treating it as the
 	// most up-to-date information for the charms most recent revision.
-	HandleLatest(serviceID names.ServiceTag, info charmstore.CharmInfo) error
+	HandleLatest(names.ServiceTag, charmstore.CharmInfo) error
 }
 
 type newHandlerFunc func(*state.State) (LatestCharmHandler, error)
