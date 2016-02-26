@@ -30,7 +30,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI), args...)
+	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI, s.store), args...)
 }
 
 func (s *ListSuite) TestList(c *gc.C) {

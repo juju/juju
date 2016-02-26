@@ -124,6 +124,10 @@ func IsNeverConnectedError(err error) bool {
 
 // UpdateLastConnection updates the last connection time of the model user.
 func (e *ModelUser) UpdateLastConnection() error {
+	return e.updateLastConnection(nowToTheSecond())
+}
+
+func (e *ModelUser) updateLastConnection(when time.Time) error {
 	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
 	defer closer()
 
@@ -138,7 +142,7 @@ func (e *ModelUser) UpdateLastConnection() error {
 		ID:             e.st.docID(strings.ToLower(e.UserName())),
 		ModelUUID:      e.ModelTag().Id(),
 		UserName:       e.UserName(),
-		LastConnection: nowToTheSecond(),
+		LastConnection: when,
 	}
 	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
 	return errors.Trace(err)
@@ -191,7 +195,7 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 	}
 
 	modelUUID := st.ModelUUID()
-	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, spec.ReadOnly)
+	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.ReadOnly)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
@@ -209,7 +213,7 @@ func modelUserID(user names.UserTag) string {
 	return strings.ToLower(username)
 }
 
-func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, readOnly bool) txn.Op {
+func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, readOnly bool) txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &modelUserDoc{
 		ID:          modelUserID(user),
@@ -218,7 +222,7 @@ func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayN
 		DisplayName: displayName,
 		ReadOnly:    readOnly,
 		CreatedBy:   creatorname,
-		DateCreated: nowToTheSecond(),
+		DateCreated: dateCreated,
 	}
 	return txn.Op{
 		C:      modelUsersC,
