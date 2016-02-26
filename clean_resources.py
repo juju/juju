@@ -25,8 +25,7 @@ def get_regions(args, env):
     return [env.config['region']]
 
 
-def main():
-    args = parse_args()
+def clean(args):
     log_level = max(logging.WARN - args.verbose * 10, logging.DEBUG)
     logging.basicConfig(level=log_level)
     logging.getLogger('boto').setLevel(logging.CRITICAL)
@@ -48,6 +47,11 @@ def main():
             for group_id in unclean:
                 non_instance_groups.pop(group_id, None)
             substrate.destroy_security_groups(non_instance_groups.values())
+
+
+def main():
+    args = parse_args()
+    clean(args)
 
 
 if __name__ == '__main__':

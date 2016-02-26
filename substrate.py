@@ -74,7 +74,8 @@ class AWSAccount:
     def manager_from_config(cls, config, region=None):
         """Create an AWSAccount from a juju environment dict."""
         euca_environ = get_euca_env(config)
-        region = region or config['region']
+        if region is None:
+            region = config["region"]
         client = ec2.connect_to_region(
             region, aws_access_key_id=euca_environ['EC2_ACCESS_KEY'],
             aws_secret_access_key=euca_environ['EC2_SECRET_KEY'])
@@ -116,8 +117,8 @@ class AWSAccount:
         """
         failures = []
         for group in groups:
-            status = self.client.delete_security_group(name=group)
-            if not status:
+            deleted = self.client.delete_security_group(name=group)
+            if not deleted:
                 failures.append(group)
         return failures
 
@@ -142,7 +143,7 @@ class AWSAccount:
                                 'InvalidNetworkInterfaceID.NotFound'):
                             raise
                         logging.info(
-                            'Failed to delete interface {}. {}'.format(
+                            'Failed to delete interface {!r}. {}'.format(
                                 interface.id, e.message))
                         unclean.update(g.id for g in interface.groups)
                     break

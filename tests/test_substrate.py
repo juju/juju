@@ -245,12 +245,15 @@ class TestAWSAccount(TestCase):
     def test_iter_security_groups(self):
 
         def make_group():
+            class FakeGroup:
+                def __init__(self, name):
+                    self.name, self.id = name, name + "-id"
+
             for name in ['foo', 'foobar', 'baz']:
-                group = MagicMock()
-                group.name = name
-                group.id = name + '-id'
+                group = FakeGroup(name)
                 yield group
-        client = MagicMock()
+
+        client = MagicMock(spec=['get_all_security_groups'])
         client.get_all_security_groups.return_value = list(make_group())
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
@@ -273,7 +276,7 @@ class TestAWSAccount(TestCase):
                 SecurityGroup(id='baz', name='qux'),
                 SecurityGroup(id='quxx-id', name='quxx'), ])]),
         ]
-        client = MagicMock()
+        client = MagicMock(spec=['get_all_instances'])
         client.get_all_instances.return_value = instances
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
@@ -294,7 +297,7 @@ class TestAWSAccount(TestCase):
                 SecurityGroup(id='quxx-id', name='quxx'),
                 ])]),
         ]
-        client = MagicMock()
+        client = MagicMock(spec=['get_all_instances'])
         client.get_all_instances.return_value = instances
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
@@ -305,7 +308,7 @@ class TestAWSAccount(TestCase):
         self.assert_ec2_connection_call(ctr_mock)
 
     def test_destroy_security_groups(self):
-        client = MagicMock()
+        client = MagicMock(spec=['delete_security_group'])
         client.delete_security_group.return_value = True
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
@@ -318,7 +321,7 @@ class TestAWSAccount(TestCase):
         self.assert_ec2_connection_call(ctr_mock)
 
     def test_destroy_security_failures(self):
-        client = MagicMock()
+        client = MagicMock(spec=['delete_security_group'])
         client.delete_security_group.return_value = False
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
@@ -330,7 +333,7 @@ class TestAWSAccount(TestCase):
 
     @contextmanager
     def make_aws_connection(self, return_value):
-        client = MagicMock()
+        client = MagicMock(spec=['get_all_network_interfaces'])
         client.get_all_network_interfaces.return_value = return_value
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
@@ -339,7 +342,7 @@ class TestAWSAccount(TestCase):
         self.assert_ec2_connection_call(ctr_mock)
 
     def make_interface(self, group_ids):
-        interface = MagicMock()
+        interface = MagicMock(spec=['groups', 'delete', 'id'])
         interface.groups = [SecurityGroup(id=g) for g in group_ids]
         return interface
 
