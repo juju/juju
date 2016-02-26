@@ -5,6 +5,7 @@ package resourceadapters
 
 import (
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
@@ -57,11 +58,11 @@ func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
 
 // NewClient opens a new charm store client.
 func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
-	// TODO(ericsnow) Use an actual charm store client.
-	base := (*csclient.Client)(nil)
+	// TODO(ericsnow) Use a valid charm store client.
+	base := csclient.New(csclient.Params{URL: "<not valid>"})
 	// TODO(ericsnow) closer will be meaningful once we factor out the
 	// Juju HTTP context (a la cmd/juju/charmcmd/store.go).
-	closer := io.Closer(nil)
+	closer := ioutil.NopCloser(nil)
 	client := charmstore.WrapBaseClient(base, closer)
 	return newCSRetryClient(client), nil
 }
