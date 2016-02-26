@@ -84,38 +84,55 @@ func (c *migrateCommand) Init(args []string) error {
 	return nil
 }
 
-var connectionInfoForName = modelcmd.ConnectionInfoForName
+func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, error) {
+	store := c.ClientStore()
+
+	modelInfo, err := store.ModelByName(c.ControllerName(), c.AccountName(), c.model)
+	if err != nil {
+		return nil, err
+	}
+
+	controllerName, err := modelcmd.ResolveControllerName(store, c.targetController)
+	if err != nil {
+		return nil, err
+	}
+
+	controllerInfo, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return nil, err
+	}
+
+	accountName, err := store.CurrentAccount(controllerName)
+	if err != nil {
+		return nil, err
+	}
+
+	accountInfo, err := store.AccountByName(controllerName, accountName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &controller.ModelMigrationSpec{
+		ModelUUID:            modelInfo.ModelUUID,
+		TargetControllerUUID: controllerInfo.ControllerUUID,
+		TargetAddrs:          controllerInfo.APIEndpoints,
+		TargetCACert:         controllerInfo.CACert,
+		TargetUser:           accountInfo.User,
+		TargetPassword:       accountInfo.Password,
+	}, nil
+}
 
 // Run implements cmd.Command.
 func (c *migrateCommand) Run(ctx *cmd.Context) error {
-	modelInfo, err := connectionInfoForName(c.model)
+	spec, err := c.getMigrationSpec()
 	if err != nil {
-		return errors.Annotate(err, "model config lookup")
+		return err
 	}
-
-	targetInfo, err := connectionInfoForName(c.targetController)
-	if err != nil {
-		return errors.Annotate(err, "target controller config lookup")
-	}
-
-	modelUUID := modelInfo.APIEndpoint().ModelUUID
-	targetEndpoint := targetInfo.APIEndpoint()
-	targetCreds := targetInfo.APICredentials()
-
 	api, err := c.getAPI()
 	if err != nil {
 		return err
 	}
-
-	args := controller.ModelMigrationSpec{
-		ModelUUID:            modelUUID,
-		TargetControllerUUID: targetEndpoint.ModelUUID,
-		TargetAddrs:          targetEndpoint.Addresses,
-		TargetCACert:         targetEndpoint.CACert,
-		TargetUser:           targetCreds.User,
-		TargetPassword:       targetCreds.Password,
-	}
-	id, err := api.InitiateModelMigration(args)
+	id, err := api.InitiateModelMigration(*spec)
 	if err != nil {
 		return err
 	}
