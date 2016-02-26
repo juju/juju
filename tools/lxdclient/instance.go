@@ -25,6 +25,8 @@ const (
 	// http://cloudinit.readthedocs.org/en/latest/
 	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
 	UserdataKey = "user-data"
+
+	megabyte = 1024*1024
 )
 
 func resolveConfigKey(name string, namespace ...string) string {
@@ -152,13 +154,17 @@ func newInstanceSummary(info *shared.ContainerInfo) InstanceSummary {
 	if raw := info.Config["limits.memory"]; raw != "" {
 		result, err := shared.ParseByteSizeString(raw)
 		if err != nil {
-			logger.Errorf("failed to parse %s into bytes, ignoring...", raw)
+			logger.Errorf("failed to parse %s into bytes, ignoring err: %s", raw, err)
 			mem = 0
-		} else if mem > math.MaxUint32 {
-			logger.Errorf("byte string %s overflowed uint32: %s", raw)
-			mem = math.MaxUint32
 		} else {
-			mem = uint(result)
+			// We're going to put it into MemoryMB, so adjust by a megabyte
+			result = result / megabyte
+			if result > math.MaxUint32 {
+				logger.Errorf("byte string %s overflowed uint32", raw)
+				mem = math.MaxUint32
+			} else {
+				mem = uint(result)
+			}
 		}
 	}
 
