@@ -36,7 +36,7 @@ func RegisterLatestCharmHandler(name string, newHandler newHandlerFunc) error {
 	return nil
 }
 
-func listHandlers(st *state.State) ([]LatestCharmHandler, error) {
+func createHandlers(st *state.State) ([]LatestCharmHandler, error) {
 	var handlers []LatestCharmHandler
 	for _, newHandler := range registeredHandlers {
 		handler, err := newHandler(st)

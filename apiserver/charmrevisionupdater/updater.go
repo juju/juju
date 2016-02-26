@@ -71,7 +71,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	}
 
 	// Get the handlers to use.
-	handlers, err := listHandlers(api.state)
+	handlers, err := createHandlers(api.state)
 	if err != nil {
 		return err
 	}
