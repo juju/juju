@@ -26,7 +26,7 @@ const (
 	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
 	UserdataKey = "user-data"
 
-	megabyte = 1024*1024
+	megabyte = 1024 * 1024
 )
 
 func resolveConfigKey(name string, namespace ...string) string {

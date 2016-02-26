@@ -11,8 +11,8 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 	lxdshared "github.com/lxc/lxd/shared"
+	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
@@ -25,22 +25,22 @@ type instanceSuite struct {
 var _ = gc.Suite(&instanceSuite{})
 
 var templateContainerInfo = lxdshared.ContainerInfo{
-		Architecture: "x86_64",
-		Config: map[string]string{
-			"limits.cpu": "2",
-			"limits.memory": "256MB",
-			"user.something": "something value",
-		},
-		CreationDate: time.Now(),
-		Devices: nil,
-		Ephemeral: false,
-		ExpandedConfig: nil,
-		ExpandedDevices: nil,
-		Name: "container-name",
-		Profiles: []string{""},
-		Status: lxdshared.Starting.String(),
-		StatusCode: lxdshared.Starting,
-	}
+	Architecture: "x86_64",
+	Config: map[string]string{
+		"limits.cpu":     "2",
+		"limits.memory":  "256MB",
+		"user.something": "something value",
+	},
+	CreationDate:    time.Now(),
+	Devices:         nil,
+	Ephemeral:       false,
+	ExpandedConfig:  nil,
+	ExpandedDevices: nil,
+	Name:            "container-name",
+	Profiles:        []string{""},
+	Status:          lxdshared.Starting.String(),
+	StatusCode:      lxdshared.Starting,
+}
 
 func (s *instanceSuite) TestNewInstanceSummaryTemplate(c *gc.C) {
 	archStr, err := lxdshared.ArchitectureName(lxdshared.ARCH_64BIT_INTEL_X86)

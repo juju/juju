@@ -6,4 +6,3 @@
 package lxdclient
 
 var NewInstanceSummary = newInstanceSummary
-
