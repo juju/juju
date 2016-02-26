@@ -316,6 +316,8 @@ func lxdAddressFamilyToNetworkType(addrFamily string) (network.AddressType, erro
 	}
 }
 
+// Addresses returns the list of network.Addresses for this instance. It
+// converts the information that LXD tracks into the Juju network model.
 func (client *instanceClient) Addresses(name string) ([]network.Address, error) {
 	state, err := client.raw.ContainerState(name)
 	if err != nil {
@@ -336,7 +338,12 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 				return nil, err
 			}
 
-			// TODO: do we need scope/space/spaceid here?
+			// TODO(jam) 2016-02-26 For multi NIC support we'll
+			// need to start tracking scope and space information.
+			// But it doesn't make sense for lxdclient to be space
+			// aware. That information at best would need to be
+			// passed in. (only the DB really knows what spaces are
+			// available, and lxdclient doesn't talk to the DB.)
 			addrs = append(addrs, network.Address{
 				Value:       addr.Address,
 				Type:        type_,
