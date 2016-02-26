@@ -10,8 +10,9 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// linkLayerDevicesRefsDoc associates each known link-layer network device with
-// the number of its "children" devices, if any.
+// linkLayerDevicesRefsDoc associates each known link-layer network device on a
+// machine with the number of its "children" devices (if any) on the same
+// machine.
 type linkLayerDevicesRefsDoc struct {
 	// DocID is the (parent) device DocID (global key prefixed by ModelUUID).
 	DocID string `bson:"_id"`
@@ -19,8 +20,8 @@ type linkLayerDevicesRefsDoc struct {
 	// ModelUUID is the UUID of the model the device belongs to.
 	ModelUUID string `bson:"model-uuid"`
 
-	// NumChildren is number of devices on the same machine which refer to this
-	// device as their parent.
+	// NumChildren is number of devices which refer to this device as their
+	// parent.
 	NumChildren int `bson:"num-children"`
 }
 
@@ -56,7 +57,7 @@ func removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID string) txn.Op {
 
 // getParentDeviceNumChildrenRefs returns the NumChildren value for the given
 // linkLayerDeviceDocID. If the linkLayerDevicesRefsDoc is missing, no error and
-// zero children are returned.
+// -1 children are returned.
 func getParentDeviceNumChildrenRefs(st *State, linkLayerDeviceDocID string) (int, error) {
 	devicesRefs, closer := st.getCollection(linkLayerDevicesRefsC)
 	defer closer()
@@ -64,7 +65,7 @@ func getParentDeviceNumChildrenRefs(st *State, linkLayerDeviceDocID string) (int
 	var doc linkLayerDevicesRefsDoc
 	err := devicesRefs.FindId(linkLayerDeviceDocID).One(&doc)
 	if err == mgo.ErrNotFound {
-		return 0, nil
+		return -1, nil
 	} else if err != nil {
 		return 0, errors.Trace(err)
 	}

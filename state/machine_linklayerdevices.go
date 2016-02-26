@@ -368,6 +368,11 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) []txn.Op 
 	)
 }
 
+// rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded prepares a transaction
+// to verify any devices with ProviderID specified in devicesArgs were addded
+// successfully. If any device is missing due to an unique ProviderID index
+// violation, all devices in devicesArgs will be removed in a single
+// transactions.
 func (m *Machine) rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesArgs []LinkLayerDeviceArgs) error {
 	usedProviderIDs := set.NewStrings()
 	allDevicesDocIDs := set.NewStrings()
@@ -396,8 +401,9 @@ func (m *Machine) rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesAr
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// When one or more documents were not inserted due to ProviderID
-			// unique index violation, ensure we arrive at the state before
-			// AddLinkLayerDevices() was called.
+			// unique index violation, rollback to the state before
+			// AddLinkLayerDevices() was called, removing any successfully added
+			// devices.
 			oneOrMoreWithProviderIDNotAdded = true
 			var removeAllAddedOps []txn.Op
 			for _, docID := range allDevicesDocIDs.Values() {

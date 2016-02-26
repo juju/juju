@@ -207,12 +207,12 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
 	_, err := dev.machineProxy().LinkLayerDevice(dev.doc.Name)
-	if err != nil && !errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
+		return jujutxn.ErrNoOperations
+	} else if err != nil {
 		return errors.Trace(err)
-	} else if err == nil {
-		return nil
 	}
-	return jujutxn.ErrNoOperations
+	return nil
 }
 
 // removeLinkLayerDeviceOps returns the list of operations needed to remove the
