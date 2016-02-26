@@ -456,9 +456,9 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	return err
 }
 
-func guiArchive() (*coretools.GUI, error) {
+func guiArchive() (*coretools.GUIArchive, error) {
 	// TODO frankban: by default the GUI archive must be retrieved from
-	// simple stream. The environment variable is only used temporarily for
+	// simplestreams. The environment variable is only used temporarily for
 	// development purposes.
 	path := os.Getenv("JUJU_GUI")
 	if path == "" {
@@ -472,9 +472,9 @@ func guiArchive() (*coretools.GUI, error) {
 	if err != nil {
 		return nil, errors.Mask(err)
 	}
-	return &coretools.GUI{
+	return &coretools.GUIArchive{
 		Version: number,
-		URL:     "file://" + path,
+		URL:     "file://" + filepath.ToSlash(path),
 		SHA256:  hash,
 		Size:    size,
 	}, nil
@@ -518,13 +518,13 @@ func guiVersion(path string) (version.Number, error) {
 func hashAndSize(path string) (hash string, size int64, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return hash, size, errors.Mask(err)
+		return "", 0, errors.Mask(err)
 	}
 	defer f.Close()
 	h := sha256.New()
 	size, err = io.Copy(h, f)
 	if err != nil {
-		return hash, size, errors.Mask(err)
+		return "", 0, errors.Mask(err)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
 }

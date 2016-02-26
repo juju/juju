@@ -86,7 +86,7 @@ type InstanceConfig struct {
 	Tools *coretools.Tools
 
 	// GUI is the Juju GUI archive to be installed in the new instance.
-	GUI *coretools.GUI
+	GUI *coretools.GUIArchive
 
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -321,7 +322,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			w.conf.AddScripts(
 				fmt.Sprintf("sha256sum $gui/gui.tar.bz2 > $gui/jujugui%s.sha256", w.icfg.GUI.Version),
 				fmt.Sprintf(
-					`grep '%s' $gui/jujugui%s.sha256 || (echo "Juju GUI checksum mismatch"; exit 1)`,
+					`grep '%s' $gui/jujugui%s.sha256 || (echo Juju GUI checksum mismatch; exit 1)`,
 					w.icfg.GUI.SHA256, w.icfg.GUI.Version),
 				"tar xjf $gui/gui.tar.bz2 -C $gui",
 				fmt.Sprintf("mv $gui/jujugui-%s/jujugui $gui/jujugui", w.icfg.GUI.Version),
@@ -329,7 +330,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			)
 			// Don't remove the GUI archive until after bootstrap agent runs,
 			// so it has a chance to add it to its catalogue.
-			defer w.conf.AddRunCmd(fmt.Sprintf("rm $gui/gui.tar.bz2 && rm $gui/jujugui%s.sha256", w.icfg.GUI.Version))
+			defer w.conf.AddRunCmd(fmt.Sprintf("rm $gui/gui.tar.bz2 $gui/jujugui%s.sha256", w.icfg.GUI.Version))
 		}
 
 		var metadataDir string
@@ -385,15 +386,19 @@ func (w *unixConfigure) ConfigureJuju() error {
 }
 
 // fetchGUI fetches the Juju GUI.
-func (w *unixConfigure) fetchGUI(gui *coretools.GUI) ([]byte, error) {
+func (w *unixConfigure) fetchGUI(gui *coretools.GUIArchive) ([]byte, error) {
 	if gui == nil {
 		return nil, nil
 	}
-	if !strings.HasPrefix(gui.URL, fileSchemePrefix) {
+	u, err := url.Parse(gui.URL)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
+	}
+	if u.Scheme != "file" {
 		// TODO frankban: support retrieving the GUI archive from the web.
 		return nil, nil
 	}
-	guiData, err := ioutil.ReadFile(gui.URL[len(fileSchemePrefix):])
+	guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read Juju GUI archive")
 	}

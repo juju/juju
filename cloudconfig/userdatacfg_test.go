@@ -162,7 +162,7 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 
 // setGUI populates the configuration with the Juju GUI tools.
 func (cfg *testInstanceConfig) setGUI(path string) *testInstanceConfig {
-	cfg.GUI = &tools.GUI{
+	cfg.GUI = &tools.GUIArchive{
 		URL:     "file://" + path,
 		Version: version.MustParse("1.2.3"),
 		Size:    42,
@@ -396,7 +396,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 `,
 	},
 
-	// non controller with GUI
+	// non controller with GUI (the GUI is not installed)
 	{
 		cfg: makeNormalConfig("quantal").setGUI("/path/to/gui.tar.bz2"),
 		expectScripts: `
@@ -660,13 +660,13 @@ func (*cloudinitSuite) TestCloudInitWithGUI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	scripts := getScripts(configKeyValues)
-	expectedScripts := `sha256sum \$gui/gui\.tar\.bz2 > \$gui/jujugui1\.2\.3\.sha256
-grep '1234' \$gui/jujugui1\.2\.3\.sha256 || (echo "Juju GUI checksum mismatch"; exit 1)
-tar xjf \$gui/gui\.tar\.bz2 -C \$gui
-mv \$gui/jujugui-1\.2\.3/jujugui \$gui/jujugui
-rm -rf \$gui/jujugui-1\.2\.3
-rm \$gui/gui\.tar\.bz2 && rm \$gui/jujugui1\.2\.3\.sha256
-`
+	expectedScripts := regexp.QuoteMeta(`sha256sum $gui/gui.tar.bz2 > $gui/jujugui1.2.3.sha256
+grep '1234' $gui/jujugui1.2.3.sha256 || (echo Juju GUI checksum mismatch; exit 1)
+tar xjf $gui/gui.tar.bz2 -C $gui
+mv $gui/jujugui-1.2.3/jujugui $gui/jujugui
+rm -rf $gui/jujugui-1.2.3
+rm $gui/gui.tar.bz2 $gui/jujugui1.2.3.sha256
+`)
 	assertScriptMatch(c, scripts, expectedScripts, false)
 }
 
