@@ -1,13 +1,12 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -16,11 +15,9 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-var logger = loggo.GetLogger("juju.resource.persistence")
-
-// PersistenceBase exposes the core persistence functionality needed
-// for resources.
-type PersistenceBase interface {
+// ResourcePersistenceBase exposes the core persistence functionality
+// needed for resources.
+type ResourcePersistenceBase interface {
 	// One populates doc with the document corresponding to the given
 	// ID. Missing documents result in errors.NotFound.
 	One(collName, id string, doc interface{}) error
@@ -38,22 +35,22 @@ type PersistenceBase interface {
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
 }
 
-// Persistence provides the persistence functionality for the
+// ResourcePersistence provides the persistence functionality for the
 // Juju environment as a whole.
-type Persistence struct {
-	base PersistenceBase
+type ResourcePersistence struct {
+	base ResourcePersistenceBase
 }
 
-// NewPersistence wraps the base in a new Persistence.
-func NewPersistence(base PersistenceBase) *Persistence {
-	return &Persistence{
+// NewResourcePersistence wraps the base in a new ResourcePersistence.
+func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
+	return &ResourcePersistence{
 		base: base,
 	}
 }
 
 // ListResources returns the info for each non-pending resource of the
 // identified service.
-func (p Persistence) ListResources(serviceID string) (resource.ServiceResources, error) {
+func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
 	// TODO(ericsnow) Ensure that the service is still there?
@@ -102,7 +99,7 @@ func (p Persistence) ListResources(serviceID string) (resource.ServiceResources,
 
 // ListPendingResources returns the extended, model-related info for
 // each pending resource of the identifies service.
-func (p Persistence) ListPendingResources(serviceID string) ([]resource.Resource, error) {
+func (p ResourcePersistence) ListPendingResources(serviceID string) ([]resource.Resource, error) {
 	docs, err := p.resources(serviceID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -126,7 +123,7 @@ func (p Persistence) ListPendingResources(serviceID string) ([]resource.Resource
 
 // GetResource returns the extended, model-related info for the non-pending
 // resource.
-func (p Persistence) GetResource(id string) (res resource.Resource, storagePath string, _ error) {
+func (p ResourcePersistence) GetResource(id string) (res resource.Resource, storagePath string, _ error) {
 	doc, err := p.getOne(id)
 	if err != nil {
 		return res, "", errors.Trace(err)
@@ -145,7 +142,7 @@ func (p Persistence) GetResource(id string) (res resource.Resource, storagePath 
 // errors.AlreadyExists is returned. A wrapper around the staged
 // resource is returned which supports both finalizing and removing
 // the staged resource.
-func (p Persistence) StageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
+func (p ResourcePersistence) StageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
 	if storagePath == "" {
 		return nil, errors.Errorf("missing storage path")
 	}
@@ -170,7 +167,7 @@ func (p Persistence) StageResource(res resource.Resource, storagePath string) (*
 }
 
 // SetResource sets the info for the resource.
-func (p Persistence) SetResource(res resource.Resource) error {
+func (p ResourcePersistence) SetResource(res resource.Resource) error {
 	stored, err := p.getStored(res)
 	if errors.IsNotFound(err) {
 		stored = storedResource{Resource: res}
@@ -209,7 +206,7 @@ func (p Persistence) SetResource(res resource.Resource) error {
 
 // SetCharmStoreResource stores the resource info that was retrieved
 // from the charm store.
-func (p Persistence) SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error {
+func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error {
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
@@ -243,7 +240,7 @@ func (p Persistence) SetCharmStoreResource(id, serviceID string, res charmresour
 
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the service.
-func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error {
+func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resource) error {
 	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
@@ -278,7 +275,7 @@ func (p Persistence) SetUnitResource(unitID string, res resource.Resource) error
 	return nil
 }
 
-func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
+func (p ResourcePersistence) getStored(res resource.Resource) (storedResource, error) {
 	doc, err := p.getOne(res.ID)
 	if errors.IsNotFound(err) {
 		err = errors.NotFoundf("resource %q", res.Name)
@@ -301,7 +298,7 @@ func (p Persistence) getStored(res resource.Resource) (storedResource, error) {
 // Leaking mongo details (transaction ops) is a necessary evil since we
 // do not have any machinery to facilitate transactions between
 // different components.
-func (p Persistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
+func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
 	if pendingID == "" {
 		return nil, errors.New("missing pending ID")
 	}

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"fmt"
@@ -18,8 +18,8 @@ import (
 const (
 	resourcesC = "resources"
 
-	stagedIDSuffix     = "#staged"
-	charmstoreIDSuffix = "#charmstore"
+	resourcesStagedIDSuffix     = "#staged"
+	resourcesCharmstoreIDSuffix = "#charmstore"
 )
 
 // resourceID converts an external resource ID into an internal one.
@@ -39,16 +39,17 @@ func pendingResourceID(id, pendingID string) string {
 }
 
 func charmStoreResourceID(id string) string {
-	return serviceResourceID(id) + charmstoreIDSuffix
+	return serviceResourceID(id) + resourcesCharmstoreIDSuffix
 }
 
 func unitResourceID(id, unitID string) string {
 	return resourceID(id, "unit", unitID)
 }
 
-// stagedID converts an external resource ID into an internal staged one.
-func stagedID(id string) string {
-	return serviceResourceID(id) + stagedIDSuffix
+// stagedResourceID converts an external resource ID into an internal
+// staged one.
+func stagedResourceID(id string) string {
+	return serviceResourceID(id) + resourcesStagedIDSuffix
 }
 
 // storedResource holds all model-stored information for a resource.
@@ -68,8 +69,8 @@ type charmStoreResource struct {
 	lastPolled time.Time
 }
 
-func newStagedResourceOps(stored storedResource) []txn.Op {
-	doc := newStagedDoc(stored)
+func newInsertStagedResourceOps(stored storedResource) []txn.Op {
+	doc := newStagedResourceDoc(stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -79,8 +80,8 @@ func newStagedResourceOps(stored storedResource) []txn.Op {
 	}}
 }
 
-func newEnsureStagedSameOps(stored storedResource) []txn.Op {
-	doc := newStagedDoc(stored)
+func newEnsureStagedResourceSameOps(stored storedResource) []txn.Op {
+	doc := newStagedResourceDoc(stored)
 
 	// Other than cause the txn to abort, we don't do anything here.
 	return []txn.Op{{
@@ -90,8 +91,8 @@ func newEnsureStagedSameOps(stored storedResource) []txn.Op {
 	}}
 }
 
-func newRemoveStagedOps(id string) []txn.Op {
-	fullID := stagedID(id)
+func newRemoveStagedResourceOps(id string) []txn.Op {
+	fullID := stagedResourceID(id)
 
 	// We don't assert that it exists. We want "missing" to be a noop.
 	return []txn.Op{{
@@ -216,14 +217,15 @@ func newResourceDoc(stored storedResource) *resourceDoc {
 	return resource2doc(fullID, stored)
 }
 
-// newStagedDoc generates a staging doc that represents the given resource.
-func newStagedDoc(stored storedResource) *resourceDoc {
-	stagedID := stagedID(stored.ID)
+// newStagedResourceDoc generates a staging doc that represents
+// the given resource.
+func newStagedResourceDoc(stored storedResource) *resourceDoc {
+	stagedID := stagedResourceID(stored.ID)
 	return resource2doc(stagedID, stored)
 }
 
 // resources returns the resource docs for the given service.
-func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
+func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) {
 	logger.Tracef("querying db for resources for %q", serviceID)
 	var docs []resourceDoc
 	query := bson.D{{"service-id", serviceID}}
@@ -235,7 +237,7 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 }
 
 // getOne returns the resource that matches the provided model ID.
-func (p Persistence) getOne(resID string) (resourceDoc, error) {
+func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q", resID)
 	id := serviceResourceID(resID)
 	var doc resourceDoc
@@ -246,7 +248,7 @@ func (p Persistence) getOne(resID string) (resourceDoc, error) {
 }
 
 // getOnePending returns the resource that matches the provided model ID.
-func (p Persistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
+func (p ResourcePersistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q (pending %q)", resID, pendingID)
 	id := pendingResourceID(resID, pendingID)
 	var doc resourceDoc

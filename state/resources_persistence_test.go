@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"time"
@@ -16,31 +16,30 @@ import (
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state/statetest"
 )
 
-var _ = gc.Suite(&PersistenceSuite{})
+var _ = gc.Suite(&ResourcePersistenceSuite{})
 
-type PersistenceSuite struct {
+type ResourcePersistenceSuite struct {
 	testing.IsolationSuite
 
 	stub *testing.Stub
-	base *stubStatePersistence
+	base *statetest.StubPersistence
 }
 
-func (s *PersistenceSuite) SetUpTest(c *gc.C) {
+func (s *ResourcePersistenceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.base = &stubStatePersistence{
-		stub: s.stub,
-	}
+	s.base = statetest.NewStubPersistence(s.stub)
 }
 
-func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
-	expected, docs := newResources(c, "a-service", "spam", "eggs")
+func (s *ResourcePersistenceSuite) TestListResourcesOkay(c *gc.C) {
+	expected, docs := newPersistenceResources(c, "a-service", "spam", "eggs")
 	expected.CharmStoreResources[1].Revision += 1
 	docs[3].Revision += 1
-	unitRes, doc := newUnitResource(c, "a-service", "a-service/0", "something")
+	unitRes, doc := newPersistenceUnitResource(c, "a-service", "a-service/0", "something")
 	expected.UnitResources = []resource.UnitResources{{
 		Tag: names.NewUnitTag("a-service/0"),
 		Resources: []resource.Resource{
@@ -49,7 +48,7 @@ func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	}}
 	docs = append(docs, doc)
 	s.base.ReturnAll = docs
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,8 +62,8 @@ func (s *PersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	c.Check(resources, jc.DeepEquals, expected)
 }
 
-func (s *PersistenceSuite) TestListResourcesNoResources(c *gc.C) {
-	p := NewPersistence(s.base)
+func (s *ResourcePersistenceSuite) TestListResourcesNoResources(c *gc.C) {
+	p := NewResourcePersistence(s.base)
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -77,12 +76,12 @@ func (s *PersistenceSuite) TestListResourcesNoResources(c *gc.C) {
 	)
 }
 
-func (s *PersistenceSuite) TestListResourcesIgnorePending(c *gc.C) {
-	expected, docs := newResources(c, "a-service", "spam", "eggs")
+func (s *ResourcePersistenceSuite) TestListResourcesIgnorePending(c *gc.C) {
+	expected, docs := newPersistenceResources(c, "a-service", "spam", "eggs")
 	expected.Resources = expected.Resources[:1]
 	docs[2].PendingID = "some-unique-ID-001"
 	s.base.ReturnAll = docs
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	resources, err := p.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,11 +95,11 @@ func (s *PersistenceSuite) TestListResourcesIgnorePending(c *gc.C) {
 	checkResources(c, resources, expected)
 }
 
-func (s *PersistenceSuite) TestListResourcesBaseError(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestListResourcesBaseError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	_, err := p.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -112,12 +111,12 @@ func (s *PersistenceSuite) TestListResourcesBaseError(c *gc.C) {
 	)
 }
 
-func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
-	_, docs := newResources(c, "a-service", "spam", "eggs")
+func (s *ResourcePersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
+	_, docs := newPersistenceResources(c, "a-service", "spam", "eggs")
 	docs[0].Timestamp = time.Time{}
 	s.base.ReturnAll = docs
 
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	_, err := p.ListResources("a-service")
 
 	c.Check(err, gc.ErrorMatches, `got invalid data from DB.*`)
@@ -129,11 +128,11 @@ func (s *PersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	)
 }
 
-func (s *PersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
 	var expected []resource.Resource
 	var docs []resourceDoc
 	for _, name := range []string{"spam", "ham"} {
-		res, doc := newResource(c, "a-service", name)
+		res, doc := newPersistenceResource(c, "a-service", name)
 		expected = append(expected, res.Resource)
 		docs = append(docs, doc)
 	}
@@ -141,7 +140,7 @@ func (s *PersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
 	expected[0].PendingID = "some-unique-ID-001"
 	docs[1].PendingID = "some-unique-ID-001"
 	s.base.ReturnAll = docs
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	resources, err := p.ListPendingResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,8 +154,8 @@ func (s *PersistenceSuite) TestListPendingResourcesOkay(c *gc.C) {
 	checkBasicResources(c, resources, expected)
 }
 
-func (s *PersistenceSuite) TestGetResourceOkay(c *gc.C) {
-	expected, doc := newResource(c, "a-service", "spam")
+func (s *ResourcePersistenceSuite) TestGetResourceOkay(c *gc.C) {
+	expected, doc := newPersistenceResource(c, "a-service", "spam")
 	unitDoc := doc // a copy
 	unitDoc.ID = doc.ID + "#unit-a-service/0"
 	unitDoc.UnitID = "a-service/0"
@@ -169,7 +168,7 @@ func (s *PersistenceSuite) TestGetResourceOkay(c *gc.C) {
 		pendingDoc,
 	}
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	res, storagePath, err := p.GetResource("a-service/spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,10 +179,10 @@ func (s *PersistenceSuite) TestGetResourceOkay(c *gc.C) {
 	c.Check(storagePath, gc.Equals, expected.storagePath)
 }
 
-func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
-	res, doc := newResource(c, "a-service", "spam")
+func (s *ResourcePersistenceSuite) TestStageResourceOkay(c *gc.C) {
+	res, doc := newPersistenceResource(c, "a-service", "spam")
 	doc.DocID += "#staged"
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
@@ -204,9 +203,9 @@ func (s *PersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	})
 }
 
-func (s *PersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) {
-	res, _ := newResource(c, "a-service", "spam")
-	p := NewPersistence(s.base)
+func (s *ResourcePersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) {
+	res, _ := newPersistenceResource(c, "a-service", "spam")
+	p := NewResourcePersistence(s.base)
 
 	_, err := p.StageResource(res.Resource, "")
 
@@ -214,10 +213,10 @@ func (s *PersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `missing storage path`)
 }
 
-func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
-	res, _ := newResource(c, "a-service", "spam")
+func (s *ResourcePersistenceSuite) TestStageResourceBadResource(c *gc.C) {
+	res, _ := newPersistenceResource(c, "a-service", "spam")
 	res.Resource.Timestamp = time.Time{}
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	_, err := p.StageResource(res.Resource, res.storagePath)
 
@@ -227,11 +226,11 @@ func (s *PersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	servicename := "a-service"
-	res, doc := newResource(c, servicename, "spam")
+	res, doc := newPersistenceResource(c, servicename, "spam")
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
@@ -251,13 +250,13 @@ func (s *PersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetResourceNotFound(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	servicename := "a-service"
-	res, doc := newResource(c, servicename, "spam")
+	res, doc := newPersistenceResource(c, servicename, "spam")
 	s.base.ReturnOne = doc
 	expected := doc // a copy
 	expected.StoragePath = ""
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(notFound, nil, nil, ignoredErr)
@@ -278,17 +277,17 @@ func (s *PersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	lastPolled := time.Now().UTC()
 	servicename := "a-service"
-	res, doc := newResource(c, servicename, "spam")
+	res, doc := newPersistenceResource(c, servicename, "spam")
 	expected := doc // a copy
 	expected.DocID += "#charmstore"
 	expected.Username = ""
 	expected.Timestamp = time.Time{}
 	expected.StoragePath = ""
 	expected.LastPolled = lastPolled
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
@@ -307,12 +306,12 @@ func (s *PersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"
-	res, doc := newUnitResource(c, servicename, unitname, "eggs")
+	res, doc := newPersistenceUnitResource(c, servicename, unitname, "eggs")
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
@@ -328,11 +327,11 @@ func (s *PersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 	servicename := "a-service"
 	unitname := "a-service/0"
-	res, _ := newUnitResource(c, servicename, unitname, "eggs")
-	p := NewPersistence(s.base)
+	res, _ := newPersistenceUnitResource(c, servicename, unitname, "eggs")
+	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	s.stub.SetErrors(notFound)
 
@@ -343,10 +342,10 @@ func (s *PersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `resource "eggs" not found`)
 }
 
-func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
-	res, doc := newUnitResource(c, "a-service", "a-service/0", "spam")
+func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
+	res, doc := newPersistenceUnitResource(c, "a-service", "a-service/0", "spam")
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, txn.ErrAborted, nil, ignoredErr)
 
@@ -373,11 +372,11 @@ func (s *PersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
-	res, doc := newUnitResource(c, "a-service", "a-service/0", "spam")
+func (s *ResourcePersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
+	res, doc := newPersistenceUnitResource(c, "a-service", "a-service/0", "spam")
 	s.base.ReturnOne = doc
 	res.Timestamp = time.Time{}
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	err := p.SetUnitResource("a-service/0", res)
 
@@ -387,15 +386,15 @@ func (s *PersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	s.stub.CheckCallNames(c, "One")
 }
 
-func (s *PersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc.C) {
 	pendingID := "some-unique-ID-001"
-	stored, expected := newResource(c, "a-service", "spam")
+	stored, expected := newPersistenceResource(c, "a-service", "spam")
 	stored.PendingID = pendingID
 	doc := expected // a copy
 	doc.DocID = pendingResourceID(stored.ID, pendingID)
 	doc.PendingID = pendingID
 	s.base.ReturnOne = doc
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -420,9 +419,9 @@ func (s *PersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc.C) {
 	}})
 }
 
-func (s *PersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
+func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
 	pendingID := "some-unique-ID-001"
-	stored, expected := newResource(c, "a-service", "spam")
+	stored, expected := newPersistenceResource(c, "a-service", "spam")
 	stored.PendingID = pendingID
 	doc := expected // a copy
 	doc.DocID = pendingResourceID(stored.ID, pendingID)
@@ -430,7 +429,7 @@ func (s *PersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
 	s.base.ReturnOne = doc
 	notFound := errors.NewNotFound(nil, "")
 	s.stub.SetErrors(nil, notFound)
-	p := NewPersistence(s.base)
+	p := NewResourcePersistence(s.base)
 
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -450,11 +449,11 @@ func (s *PersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
 	}})
 }
 
-func newResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {
+func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {
 	var svcResources resource.ServiceResources
 	var docs []resourceDoc
 	for _, name := range names {
-		res, doc := newResource(c, serviceID, name)
+		res, doc := newPersistenceResource(c, serviceID, name)
 		svcResources.Resources = append(svcResources.Resources, res.Resource)
 		svcResources.CharmStoreResources = append(svcResources.CharmStoreResources, res.Resource.Resource)
 		docs = append(docs, doc)
@@ -469,14 +468,14 @@ func newResources(c *gc.C, serviceID string, names ...string) (resource.ServiceR
 	return svcResources, docs
 }
 
-func newUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {
-	res, doc := newResource(c, serviceID, name)
+func newPersistenceUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {
+	res, doc := newPersistenceResource(c, serviceID, name)
 	doc.DocID += "#unit-" + unitID
 	doc.UnitID = unitID
 	return res.Resource, doc
 }
 
-func newResource(c *gc.C, serviceID, name string) (storedResource, resourceDoc) {
+func newPersistenceResource(c *gc.C, serviceID, name string) (storedResource, resourceDoc) {
 	content := name
 	opened := resourcetesting.NewResource(c, nil, name, serviceID, content)
 	res := opened.Resource
