@@ -129,9 +129,10 @@ LXC_BRIDGE="ignored"`[1:])
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	hostedModelUUID := utils.MustNewUUID().String()
 	hostedModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": hostedModelUUID,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
@@ -154,7 +155,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
-	// Check that model configuration has been added, and
+	// Check that controller model configuration has been added, and
 	// model constraints set.
 	newEnvCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,6 +163,18 @@ LXC_BRIDGE="ignored"`[1:])
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+
+	// Check that the hosted model has been added, and model constraints
+	// set.
+	hostedModelSt, err := st.ForModel(names.NewModelTag(hostedModelUUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer hostedModelSt.Close()
+	gotModelConstraints, err = hostedModelSt.ModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	hostedModel, err := hostedModelSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")

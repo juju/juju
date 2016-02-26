@@ -137,8 +137,10 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")
 	}
+	if err := hostedModelState.SetModelConstraints(machineCfg.ModelConstraints); err != nil {
+		return nil, nil, errors.Annotate(err, "cannot set initial hosted model constraints")
+	}
 	hostedModelState.Close()
-	// TODO(axw) set hosted model constraints
 
 	return st, m, nil
 }
@@ -157,11 +159,11 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 
 func initConstraintsAndBootstrapMachine(c agent.ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
 	if err := st.SetModelConstraints(cfg.ModelConstraints); err != nil {
-		return nil, errors.Errorf("cannot set initial environ constraints: %v", err)
+		return nil, errors.Annotate(err, "cannot set initial model constraints")
 	}
 	m, err := initBootstrapMachine(c, st, cfg)
 	if err != nil {
-		return nil, errors.Errorf("cannot initialize bootstrap machine: %v", err)
+		return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 	return m, nil
 }
