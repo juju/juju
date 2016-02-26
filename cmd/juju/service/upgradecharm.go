@@ -19,6 +19,8 @@ import (
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourceadapters"
 )
 
 // NewUpgradeCharmCommand returns a command which upgrades service's charm.
@@ -204,13 +206,28 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	var ids map[string]string
 
 	if len(c.Resources) > 0 {
-		metaRes := charmInfo.Meta.Resources
-		// only include resource metadata for the files we're actually uploading,
-		// otherwise the server will create empty resources that'll overwrite any
-		// existing resources.
-		for name, _ := range charmInfo.Meta.Resources {
-			if _, ok := c.Resources[name]; !ok {
-				delete(metaRes, name)
+		resclient, err := resourceadapters.NewAPIClient(c.NewAPIRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		svcs, err := resclient.ListResources([]string{c.ServiceName})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		currentResources := svcs[0].Resources
+		current := make(map[string]resource.Resource, len(currentResources))
+		for _, res := range currentResources {
+			current[res.Name] = res
+		}
+
+		var metaRes map[string]charmresource.Meta
+		// We don't include metadata for any resources that were uploaded
+		// previously that aren't getting overridden right now. Doing so would
+		// cause those resources to get overridden, and they should be
+		// maintained unless specifically overridden by the user.
+		for name, res := range charmInfo.Meta.Resources {
+			if _, ok := c.Resources[name]; !ok || current[name].Origin != charmresource.OriginUpload {
+				metaRes[name] = res
 			}
 		}
 
