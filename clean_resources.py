@@ -26,9 +26,6 @@ def get_regions(args, env):
 
 
 def clean(args):
-    log_level = max(logging.WARN - args.verbose * 10, logging.DEBUG)
-    logging.basicConfig(level=log_level)
-    logging.getLogger('boto').setLevel(logging.CRITICAL)
     env = SimpleEnvironment.from_config(args.env)
     selected_regions = get_regions(args, env)
     for region in selected_regions:
@@ -51,6 +48,9 @@ def clean(args):
 
 def main():
     args = parse_args()
+    log_level = max(logging.WARN - args.verbose * 10, logging.DEBUG)
+    logging.basicConfig(level=log_level)
+    logging.getLogger('boto').setLevel(logging.CRITICAL)
     clean(args)
 
 
