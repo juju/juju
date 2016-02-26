@@ -51,6 +51,7 @@ func (t *LxdSuite) makeManager(c *gc.C, name string) container.Manager {
 }
 
 func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
+	c.Skip("Test skipped because it talks directly to LXD agent.")
 	lxdClient, err := lxd.ConnectLocal("")
 	c.Assert(err, jc.ErrorIsNil)
 
