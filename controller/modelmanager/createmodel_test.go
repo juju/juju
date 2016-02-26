@@ -13,6 +13,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+// TODO(axw) unit tests for ModelConfigCreator.NewModelConfig. Currently,
+// it is exercised via agentbootstrap and apiserver/modelmanager tests.
+
 type RestrictedProviderFieldsSuite struct {
 	testing.BaseSuite
 }
