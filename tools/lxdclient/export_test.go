@@ -5,6 +5,4 @@
 
 package lxdclient
 
-var (
-	GenCertAndKey = genCertAndKey
-)
+var NewInstanceSummary = newInstanceSummary

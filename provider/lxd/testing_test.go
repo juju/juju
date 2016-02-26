@@ -75,6 +75,7 @@ var (
 		"remote-url":  "",
 		"client-cert": "",
 		"client-key":  "",
+		"server-cert": "",
 		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 )
@@ -233,11 +234,10 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Instance {
 	summary := lxdclient.InstanceSummary{
-		Name:      name,
-		Status:    lxdclient.StatusRunning,
-		Hardware:  *s.Hardware,
-		Metadata:  s.Metadata,
-		Addresses: s.Addresses,
+		Name:     name,
+		Status:   lxdclient.StatusRunning,
+		Hardware: *s.Hardware,
+		Metadata: s.Metadata,
 	}
 	instanceSpec := lxdclient.InstanceSpec{
 		Name:      name,
@@ -343,6 +343,7 @@ type ConfigValues struct {
 	RemoteURL  string
 	ClientCert string
 	ClientKey  string
+	ServerCert string
 }
 
 func (cv ConfigValues) CheckCert(c *gc.C) {
@@ -359,6 +360,12 @@ func (cv ConfigValues) CheckCert(c *gc.C) {
 	block, remainder = pem.Decode(keyPEM)
 	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
 	c.Check(remainder, gc.HasLen, 0)
+
+	if cv.ServerCert != "" {
+		block, remainder = pem.Decode([]byte(cv.ServerCert))
+		c.Check(block.Type, gc.Equals, "CERTIFICATE")
+		c.Check(remainder, gc.HasLen, 1)
+	}
 }
 
 type Config struct {
@@ -395,6 +402,8 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 			values.ClientCert = v.(string)
 		case cfgClientKey:
 			values.ClientKey = v.(string)
+		case cfgServerPEMCert:
+			values.ServerCert = v.(string)
 		default:
 			extras[k] = v
 		}
@@ -492,6 +501,19 @@ func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
 	}
 
 	return nil
+}
+
+func (conn *stubClient) Addresses(name string) ([]network.Address, error) {
+	conn.stub.AddCall("Addresses", name)
+	if err := conn.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return []network.Address{network.Address{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}}, nil
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

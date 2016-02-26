@@ -71,7 +71,7 @@ type rawImageMethods interface {
 
 type rawAliasMethods interface {
 	// info
-	ListAliases() ([]shared.ImageAlias, error)
+	ListAliases() (shared.ImageAliases, error)
 	IsAlias(alias string) (bool, error)
 
 	// alias data (upload, download, destroy)
@@ -84,12 +84,12 @@ type rawContainerMethods interface {
 	// info/meta
 	ListContainers() ([]shared.ContainerInfo, error)
 	//Rename(name string, newName string) (*lxd.Response, error)
-	ContainerStatus(name string) (*shared.ContainerState, error)
+	ContainerState(name string) (*shared.ContainerState, error)
 
 	// container data (create, actions, destroy)
 	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	LocalCopy(source string, name string, config map[string]string, profiles []string, ephemeral bool) (*lxd.Response, error)
-	MigrateFrom(name string, operation string, secrets map[string]string, architecture int, config map[string]string, devices shared.Devices, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
+	MigrateFrom(name string, operation string, certificate string, secrets map[string]string, architecture string, config map[string]string, devices shared.Devices, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -103,7 +103,7 @@ type rawContainerMethods interface {
 	// config
 	GetContainerConfig(container string) ([]string, error)
 	SetContainerConfig(container, key, value string) error
-	UpdateContainerConfig(container string, st shared.BriefContainerState) error
+	UpdateContainerConfig(container string, st shared.BriefContainerInfo) error
 
 	// devices
 	ContainerListDevices(container string) ([]string, error)
@@ -113,7 +113,7 @@ type rawContainerMethods interface {
 	// snapshots
 	RestoreSnapshot(container string, snapshotName string, stateful bool) (*lxd.Response, error)
 	Snapshot(container string, snapshotName string, stateful bool) (*lxd.Response, error)
-	ListSnapshots(container string) ([]shared.SnapshotState, error)
+	ListSnapshots(container string) ([]shared.SnapshotInfo, error)
 }
 
 type rawProfileMethods interface {
