@@ -82,6 +82,7 @@ func (c *detectCredentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "autoload-credentials",
 		Purpose: "looks for cloud credentials and caches those for use by Juju when bootstrapping",
+		Args:    "[<cloud-name>]",
 		Doc:     detectCredentialsDoc,
 	}
 }
@@ -100,8 +101,13 @@ func (c *detectCredentialsCommand) Init(args []string) (err error) {
 	return nil
 }
 
+// TODO(wallyworld) - add prompting as per spec
+// unambiguousClouds represents those clouds for which we will detect credentials
+// without user disambiguation.
+var unambiguousClouds = []string{"aws", "azure", "google", "joyent", "cloudsigma"}
+
 func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
-	fmt.Fprintf(ctxt.Stdout, "Looking for cloud and credential information locally...")
+	fmt.Fprintf(ctxt.Stdout, "Looking for cloud and credential information locally...\n")
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return err
@@ -113,8 +119,11 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 	for k, v := range personalClouds {
 		clouds[k] = v
 	}
+	okClouds := set.NewStrings(unambiguousClouds...)
 	for cloudName, cloud := range clouds {
 		if c.CloudName != "" && c.CloudName != cloudName {
+			continue
+		} else if c.CloudName == "" && !okClouds.Contains(cloudName) {
 			continue
 		}
 		provider, err := environs.Provider(cloud.Type)
@@ -128,6 +137,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			detected, err := detectCredentials.DetectCredentials()
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Warningf("could not detect credentials for %q: %v", cloudName, err)
+				continue
 			}
 			if errors.IsNotFound(err) || len(detected.AuthCredentials) == 0 {
 				continue
@@ -153,12 +163,15 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 					return nil
 				}
 			}
+			for name := range detected.AuthCredentials {
+				credName := credentialLabel(name)
+				fmt.Fprintf(ctxt.Stdout, "%s cloud credential %q found\n", cloudName, credName)
+			}
 			if credentials == nil {
 				credentials = detected
 			} else {
 				for name, cred := range detected.AuthCredentials {
 					credName := credentialLabel(name)
-					fmt.Fprintf(ctxt.Stdout, "New %s cloud credential %q found", cloudName, credName)
 					credentials.AuthCredentials[credName] = cred
 				}
 			}

@@ -66,6 +66,9 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if possbleFilePath == "" {
 		possbleFilePath = validatePath(wellKnownCredentialsFile())
 	}
+	if possbleFilePath == "" {
+		return nil, errors.NotFoundf("gce credentials")
+	}
 	if _, err := parseJSONAuthFile(possbleFilePath); err != nil {
 		return nil, errors.Annotatef(err, "invalid json credential file %s", possbleFilePath)
 	}
