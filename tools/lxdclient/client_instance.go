@@ -176,6 +176,15 @@ func (client *instanceClient) Instance(name string) (*Instance, error) {
 	return inst, nil
 }
 
+func (client *instanceClient) Status(name string) (string, error) {
+	info, err := client.raw.ContainerStatus(name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return info.Status.Status, nil
+}
+
 // Instances sends a request to the API for a list of all instances
 // (in the Client's namespace) for which the name starts with the
 // provided prefix. The result is also limited to those instances with
