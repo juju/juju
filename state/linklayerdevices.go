@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/bson"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -170,6 +170,18 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 	return dev.machineProxy().LinkLayerDevice(dev.doc.ParentName)
 }
 
+func (dev *LinkLayerDevice) parentDocID() string {
+	parentGlobalKey := dev.parentGlobalKey()
+	if parentGlobalKey == "" {
+		return ""
+	}
+	return dev.st.docID(parentGlobalKey)
+}
+
+func (dev *LinkLayerDevice) parentGlobalKey() string {
+	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.ParentName)
+}
+
 // machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()
 // or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice.
 func (dev *LinkLayerDevice) machineProxy() *Machine {
@@ -182,29 +194,92 @@ func (dev *LinkLayerDevice) machineProxy() *Machine {
 func (dev *LinkLayerDevice) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", dev)
 
-	if numChildren, err := dev.numChildren(); err != nil {
-		return errors.Trace(err)
-	} else if numChildren > 0 {
-		return newParentDeviceHasChildrenError(dev.doc.Name, numChildren)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err = dev.errNoOperationsIfMissing(); err != nil {
+				return nil, err
+			}
+		}
+		return removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
 	}
-
-	ops := []txn.Op{removeLinkLayerDeviceOp(dev.doc.DocID)}
-	return dev.st.runTransaction(ops)
+	return dev.st.run(buildTxn)
 }
 
-func (dev *LinkLayerDevice) numChildren() (int, error) {
-	allChildren := 0
-	countAllChildren := func(resultDoc *linkLayerDeviceDoc) {
-		if resultDoc.ParentName == dev.doc.Name {
-			allChildren++
+func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
+	_, err := dev.machineProxy().LinkLayerDevice(dev.doc.Name)
+	if errors.IsNotFound(err) {
+		return jujutxn.ErrNoOperations
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// removeLinkLayerDeviceOps returns the list of operations needed to remove the
+// device with the given linkLayerDeviceDocID, asserting it still exists and has
+// no children referring to it. If the device is a child, parentDeviceDocID will
+// be non-empty and the operations includes decrementing the parent's
+// NumChildren.
+func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID string) ([]txn.Op, error) {
+	var numChildren int
+	if parentDeviceDocID == "" {
+		// If not a child, verify it has no children.
+		var err error
+		numChildren, err = getParentDeviceNumChildrenRefs(st, linkLayerDeviceDocID)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
-	selectOnly := bson.D{{"_id", 1}, {"name", 1}, {"parent-name", 1}}
-	err := dev.machineProxy().forEachLinkLayerDeviceDoc(selectOnly, countAllChildren)
-	if err != nil {
-		return 0, errors.Trace(err)
+
+	if numChildren > 0 {
+		deviceName := linkLayerDeviceNameFromDocID(linkLayerDeviceDocID)
+		return nil, newParentDeviceHasChildrenError(deviceName, numChildren)
 	}
-	return allChildren, nil
+
+	var ops []txn.Op
+	if parentDeviceDocID != "" {
+		ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
+	}
+	return append(ops,
+		removeLinkLayerDeviceDocOp(linkLayerDeviceDocID),
+		removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID),
+	), nil
+}
+
+// linkLayerDeviceNameFromDocID extracts the last part of linkLayerDeviceDocID - the name.
+func linkLayerDeviceNameFromDocID(linkLayerDeviceDocID string) string {
+	lastHash := strings.LastIndex(linkLayerDeviceDocID, "#")
+	deviceName := linkLayerDeviceDocID[lastHash+1:]
+	return deviceName
+}
+
+// removeLinkLayerDeviceDocOp returns an operation to remove the
+// linkLayerDeviceDoc matching the given linkLayerDeviceDocID, asserting it
+// still exists.
+func removeLinkLayerDeviceDocOp(linkLayerDeviceDocID string) txn.Op {
+	return txn.Op{
+		C:      linkLayerDevicesC,
+		Id:     linkLayerDeviceDocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}
+}
+
+// removeLinkLayerDeviceUnconditionallyOps returns the list of operations to
+// unconditionally remove the device matching the given linkLayerDeviceDocID,
+// along with its linkLayerDevicesRefsDoc. No asserts are included for the
+// existence of both documents.
+func removeLinkLayerDeviceUnconditionallyOps(linkLayerDeviceDocID string) []txn.Op {
+	// Reuse the regular remove ops, but drop their asserts.
+	removeDeviceDocOp := removeLinkLayerDeviceDocOp(linkLayerDeviceDocID)
+	removeDeviceDocOp.Assert = nil
+	removeRefsOp := removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID)
+	removeRefsOp.Assert = nil
+
+	return []txn.Op{
+		removeDeviceDocOp,
+		removeRefsOp,
+	}
 }
 
 // insertLinkLayerDeviceDocOp returns an operation inserting the given newDoc,
@@ -215,16 +290,6 @@ func insertLinkLayerDeviceDocOp(newDoc *linkLayerDeviceDoc) txn.Op {
 		Id:     newDoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: *newDoc,
-	}
-}
-
-// removeLinkLayerDeviceOp returns the operation needed to remove the document
-// matching the given linkLayerDeviceDocID.
-func removeLinkLayerDeviceOp(linkLayerDeviceDocID string) txn.Op {
-	return txn.Op{
-		C:      linkLayerDevicesC,
-		Id:     linkLayerDeviceDocID,
-		Remove: true,
 	}
 }
 

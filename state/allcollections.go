@@ -295,10 +295,6 @@ func allCollections() collectionSchema {
 		requestedNetworksC: {},
 		spacesC: {
 			indexes: []mgo.Index{{
-				// NOTE: Like the DocID field, ProviderId also has the model
-				// UUID as prefix to ensure uniqueness per model. However since
-				// not all providers support spaces, it can be empty, hence both
-				// unique and sparse.
 				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
@@ -306,10 +302,6 @@ func allCollections() collectionSchema {
 		},
 		subnetsC: {
 			indexes: []mgo.Index{{
-				// NOTE: Like the DocID field, ProviderId also has the model
-				// UUID as prefix to ensure uniqueness per model. However since
-				// not all providers support subnets, it can be empty, hence both
-				// unique and sparse.
 				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
@@ -317,16 +309,13 @@ func allCollections() collectionSchema {
 		},
 		linkLayerDevicesC: {
 			indexes: []mgo.Index{{
-				// NOTE: Like the DocID field, ProviderID also has the model
-				// UUID as prefix to ensure uniqueness per model. However since
-				// not all providers support devices with IDs, it can be
-				// empty, hence both unique and sparse.
 				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
 			}},
 		},
-		endpointBindingsC: {},
+		linkLayerDevicesRefsC: {},
+		endpointBindingsC:     {},
 
 		// -----
 
@@ -440,6 +429,7 @@ const (
 	storageInstancesC        = "storageinstances"
 	subnetsC                 = "subnets"
 	linkLayerDevicesC        = "linklayerdevices"
+	linkLayerDevicesRefsC    = "linklayerdevicesrefs"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"
