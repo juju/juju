@@ -4444,6 +4444,29 @@ class TestStatus(FakeHomeTestCase):
         }
         self.assertEqual(expected, status.agent_states())
 
+    def test_agent_states_with_juju_status(self):
+        status = Status({
+            'machines': {
+                '1': {'juju-status': {'current': 'good'}},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'juju-status': {'current': 'bad'}},
+                        'jenkins/2': {'juju-status': {'current': 'good'}},
+                        'jenkins/3': {},
+                    }
+                }
+            }
+        }, '')
+        expected = {
+            'good': ['1', 'jenkins/2'],
+            'bad': ['jenkins/1'],
+            'no-agent': ['2', 'jenkins/3'],
+        }
+        self.assertEqual(expected, status.agent_states())
+
     def test_check_agents_started_not_started(self):
         status = Status({
             'machines': {

@@ -133,6 +133,8 @@ def coalesce_agent_status(agent_item):
     state = agent_item.get('agent-state')
     if state is None and agent_item.get('agent-status') is not None:
         state = agent_item.get('agent-status').get('current')
+    if state is None and agent_item.get('juju-status') is not None:
+        state = agent_item.get('juju-status').get('current')
     if state is None:
         state = 'no-agent'
     return state
