@@ -4,15 +4,16 @@
 package cloud
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
-	"fmt"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/utils/set"
 )
 
 type detectCredentialsCommand struct {
@@ -101,13 +102,13 @@ func (c *detectCredentialsCommand) Init(args []string) (err error) {
 	return nil
 }
 
-// TODO(wallyworld) - add prompting as per spec
+// TODO(wallyworld) - temporary only, we'll add prompting as per spec and this will go away
 // unambiguousClouds represents those clouds for which we will detect credentials
 // without user disambiguation.
 var unambiguousClouds = []string{"aws", "azure", "google", "joyent", "cloudsigma"}
 
 func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
-	fmt.Fprintf(ctxt.Stdout, "Looking for cloud and credential information locally...\n")
+	ctxt.Verbosef("Looking for cloud and credential information locally...")
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return err
@@ -158,8 +159,11 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 					}
 					newCredNames.Add(credentialLabel(n))
 				}
-				if !existingCredNames.Intersection(newCredNames).IsEmpty() {
-					fmt.Fprintf(ctxt.Stdout, "Detected credentials would overwrite existing credentials.\nUse the --replace option.\n")
+				wouldBeOverwriten := existingCredNames.Intersection(newCredNames)
+				if !wouldBeOverwriten.IsEmpty() {
+					fmt.Fprintf(ctxt.Stdout,
+						"Detected credentials %v would overwrite existing credentials for cloud %s.\nUse the --replace option.\n",
+						wouldBeOverwriten.Values(), cloudName)
 					return nil
 				}
 			}
@@ -175,7 +179,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 					credentials.AuthCredentials[credName] = cred
 				}
 			}
-			if c.Replace && detected.DefaultRegion != "" {
+			if (c.Replace || credentials.DefaultRegion == "") && detected.DefaultRegion != "" {
 				credentials.DefaultRegion = detected.DefaultRegion
 			}
 			if err := c.store.UpdateCredential(cloudName, *credentials); err != nil {

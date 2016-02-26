@@ -67,7 +67,7 @@ func (s *detectCredentialsSuite) TestDetectPromptsForOverwrite(c *gc.C) {
 	s.store.UpdateCredential("test", inital)
 	out := s.detectCredentials(c, "test")
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Equals, "Looking for cloud and credential information locally...Detected credentials would overwrite existing credentials.Use the --replace option.")
+	c.Assert(out, gc.Equals, `Detected credentials [test] would overwrite existing credentials for cloud test.Use the --replace option.`)
 
 	// Has not been replaced.
 	creds, err := s.store.CredentialForCloud("test")
@@ -85,7 +85,7 @@ func (s *detectCredentialsSuite) TestDetectForceOverwrite(c *gc.C) {
 	s.store.UpdateCredential("test", inital)
 	out := s.detectCredentials(c, "test", "--replace")
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Equals, `Looking for cloud and credential information locally...New test cloud credential "test" found`)
+	c.Assert(out, gc.Equals, `test cloud credential "test" found`)
 
 	// Has been replaced.
 	creds, err := s.store.CredentialForCloud("test")
