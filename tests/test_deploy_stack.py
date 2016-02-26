@@ -478,7 +478,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',
-             'WARNING None'],
+             'WARNING CalledProcessError()'],
             self.log_stream.getvalue().splitlines())
 
     def test_get_machines_for_logs(self):

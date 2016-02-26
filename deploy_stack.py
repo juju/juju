@@ -313,7 +313,7 @@ def copy_remote_logs(remote, directory):
         if getattr(e, 'output', None):
             logging.warning(e.output)
         else:
-            logging.warning(str(e))
+            logging.warning(repr(e))
 
 def assess_juju_run(client):
     responses = client.get_juju_output('run', '--format', 'json', '--service',
