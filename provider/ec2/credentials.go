@@ -43,6 +43,7 @@ func (e environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	}
 	credInfo.NameMapper = ini.TitleUnderscore
 
+	// There's always a section called "DEFAULT" for top level items.
 	if len(credInfo.Sections()) == 1 {
 		// No standard AWS credentials so try environment variables.
 		return e.detectEnvCredentials()
@@ -56,8 +57,8 @@ func (e environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
 	for _, credName := range credInfo.SectionStrings() {
-		// No credentials at top level.
 		if credName == ini.DEFAULT_SECTION {
+			// No credentials at top level.
 			continue
 		}
 		values := new(accessKeyValues)
