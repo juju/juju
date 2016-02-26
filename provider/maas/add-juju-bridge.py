@@ -345,12 +345,12 @@ def main(args):
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
 
-    ifquery = "$(ifquery -i {} --exclude=lo -l)".format(args.filename)
+    ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
 
     print("**** Original configuration")
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ifdown --exclude=lo -i {} {}".format(args.filename, ifquery))
+    print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
 
     print("**** Activating new configuration")
 
@@ -359,7 +359,7 @@ def main(args):
         f.close()
 
     print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifup --exclude=lo -i {} {}".format(args.filename, ifquery))
+    print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
     print_shell_cmd("ip link show up")
     print_shell_cmd("ifconfig -a")
     print_shell_cmd("ip route show")

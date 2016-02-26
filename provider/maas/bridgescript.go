@@ -179,7 +179,7 @@ class NetworkInterfaceParser(object):
 
     def __init__(self, filename):
         self._stanzas = []
-        with open(filename) as f:
+        with open(filename, 'r') as f:
             lines = f.readlines()
         line_iterator = SeekableIterator(lines)
         for line in line_iterator:
@@ -288,9 +288,9 @@ def print_shell_cmd(s, verbose=True, exit_on_error=False):
         print(s)
     out, err, retcode = shell_cmd(s)
     if out and len(out) > 0:
-        print(out.rstrip('\n'))
+        print(out.decode().rstrip('\n'))
     if err and len(err) > 0:
-        print(err.rstrip('\n'))
+        print(err.decode().rstrip('\n'))
     if exit_on_error and retcode != 0:
         exit(1)
 
@@ -357,12 +357,12 @@ def main(args):
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
 
-    ifquery = "$(ifquery -i {} --exclude=lo -l)".format(args.filename)
+    ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
 
     print("**** Original configuration")
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ifdown --exclude=lo -i {} {}".format(args.filename, ifquery))
+    print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
 
     print("**** Activating new configuration")
 
@@ -371,7 +371,7 @@ def main(args):
         f.close()
 
     print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifup --exclude=lo -i {} {}".format(args.filename, ifquery))
+    print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
     print_shell_cmd("ip link show up")
     print_shell_cmd("ifconfig -a")
     print_shell_cmd("ip route show")
