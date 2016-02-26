@@ -4,11 +4,16 @@
 package rpc
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
+
+func IsShutdownErr(err error) bool {
+	return errors.Cause(err) == ErrShutdown
+}
 
 // Call represents an active RPC.
 type Call struct {
@@ -26,11 +31,10 @@ type RequestError struct {
 }
 
 func (e *RequestError) Error() string {
-	m := "request error: " + e.Message
 	if e.Code != "" {
-		m += " (" + e.Code + ")"
+		return e.Message + " (" + e.Code + ")"
 	}
-	return m
+	return e.Message
 }
 
 func (e *RequestError) ErrorCode() string {
@@ -124,11 +128,7 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		}
 		call.done()
 	}
-	if err != nil {
-		logger.Errorf("error handling response: %v", err)
-	}
-
-	return err
+	return errors.Annotate(err, "error handling response")
 }
 
 func (call *Call) done() {
@@ -142,15 +142,14 @@ func (call *Call) done() {
 	}
 }
 
-// Call invokes the named action on the object of the given type with
-// the given id.  The returned values will be stored in response, which
-// should be a pointer.  If the action fails remotely, the returned
-// error will be of type RequestError.  The params value may be nil if
-// no parameters are provided; the response value may be nil to indicate
-// that any result should be discarded.
+// Call invokes the named action on the object of the given type with the given
+// id. The returned values will be stored in response, which should be a pointer.
+// If the action fails remotely, the error will have a cause of type RequestError.
+// The params value may be nil if no parameters are provided; the response value
+// may be nil to indicate that any result should be discarded.
 func (conn *Conn) Call(req Request, params, response interface{}) error {
 	call := <-conn.Go(req, params, response, make(chan *Call, 1)).Done
-	return call.Error
+	return errors.Trace(call.Error)
 }
 
 // Go invokes the request asynchronously.  It returns the Call structure representing
@@ -160,14 +159,13 @@ func (conn *Conn) Call(req Request, params, response interface{}) error {
 func (conn *Conn) Go(req Request, args, response interface{}, done chan *Call) *Call {
 	if done == nil {
 		done = make(chan *Call, 1)
-	} else {
-		// If caller passes done != nil, it must arrange that
-		// done has enough buffer for the number of simultaneous
-		// RPCs that will be using that channel.  If the channel
-		// is totally unbuffered, it's best not to run at all.
-		if cap(done) == 0 {
-			panic("github.com/juju/juju/rpc: done channel is unbuffered")
-		}
+	}
+	// If caller passes done != nil, it must arrange that
+	// done has enough buffer for the number of simultaneous
+	// RPCs that will be using that channel.  If the channel
+	// is totally unbuffered, it's best not to run at all.
+	if cap(done) == 0 {
+		panic("github.com/juju/juju/rpc: done channel is unbuffered")
 	}
 	call := &Call{
 		Request:  req,

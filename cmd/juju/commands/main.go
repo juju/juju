@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/charmcmd"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -35,6 +38,8 @@ import (
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.commands")
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -133,8 +138,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
 	r.Register(newSwitchCommand())
-	r.Register(newEndpointCommand())
-	r.Register(newAPIInfoCommand())
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
@@ -146,7 +149,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newDebugHooksCommand())
 
 	// Configuration commands.
-	r.Register(newInitCommand())
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
@@ -158,6 +160,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
+	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewSuperCommand())
@@ -173,7 +176,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage users and access
 	r.Register(user.NewAddCommand())
 	r.Register(user.NewChangePasswordCommand())
-	r.Register(user.NewCredentialsCommand())
 	r.Register(user.NewShowUserCommand())
 	r.Register(user.NewListCommand())
 	r.Register(user.NewEnableCommand())
@@ -245,16 +247,22 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewDestroyCommand())
 	r.Register(controller.NewModelsCommand())
 	r.Register(controller.NewKillCommand())
-	r.Register(controller.NewListCommand())
+	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
-	r.Register(controller.NewLoginCommand())
+	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
-	r.Register(controller.NewUseModelCommand())
+	r.Register(controller.NewShowControllerCommand())
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())
 	r.Register(metricsdebug.NewCollectMetricsCommand())
 	r.Register(setmeterstatus.New())
+
+	// Manage clouds and credentials
+	r.Register(cloud.NewListCloudsCommand())
+	r.Register(cloud.NewShowCloudCommand())
+	r.Register(cloud.NewAddCloudCommand())
+	r.Register(cloud.NewListCredentialsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

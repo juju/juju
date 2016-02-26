@@ -264,10 +264,9 @@ func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (
 	if api, ok := r.adminApis[version]; ok {
 		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
 	}
-	return nil, &rpcreflect.CallNotImplementedError{
-		RootMethod: rootName,
-		Method:     methodName,
-		Version:    version,
+	return nil, &rpc.RequestError{
+		Code:    params.CodeNotSupported,
+		Message: "this version of Juju does not support login from old clients",
 	}
 }
 

@@ -332,6 +332,15 @@ func (st *State) Ping() error {
 	return st.session.Ping()
 }
 
+// MongoVersion return the string repre
+func (st *State) MongoVersion() (string, error) {
+	binfo, err := st.session.BuildInfo()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain mongo build info")
+	}
+	return binfo.Version, nil
+}
+
 // MongoSession returns the underlying mongodb session
 // used by the state. It is exposed so that external code
 // can maintain the mongo replica set and should not
@@ -1129,16 +1138,18 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 }
 
 type AddServiceArgs struct {
-	Name        string
-	Series      string
-	Owner       string
-	Charm       *Charm
-	Networks    []string
-	Storage     map[string]StorageConstraints
-	Settings    charm.Settings
-	NumUnits    int
-	Placement   []*instance.Placement
-	Constraints constraints.Value
+	Name             string
+	Series           string
+	Owner            string
+	Charm            *Charm
+	Networks         []string
+	Storage          map[string]StorageConstraints
+	EndpointBindings map[string]string
+	Settings         charm.Settings
+	NumUnits         int
+	Placement        []*instance.Placement
+	Constraints      constraints.Value
+	Resources        map[string]string
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1174,7 +1185,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-
 	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1256,6 +1266,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	serviceID := st.docID(args.Name)
+
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -1271,6 +1282,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	svc := newService(st, svcDoc)
+
+	endpointBindingsOp, err := createEndpointBindingsOp(
+		st, svc.globalKey(),
+		args.EndpointBindings, args.Charm.Meta(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	statusDoc := statusDoc{
 		ModelUUID: st.ModelUUID(),
@@ -1289,11 +1308,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
+		// TODO(dimitern): Drop requested networks across the board in a
+		// follow-up.
+		createRequestedNetworksOp(st, svc.globalKey(), nil),
+		endpointBindingsOp,
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
 		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
@@ -1314,12 +1332,29 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 
 	// Collect peer relation addition operations.
+	//
+	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
+	// follow-up.
 	peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, peerOps...)
 
+	if len(args.Resources) > 0 {
+		// Collect pending resource resolution operations.
+		resources, err := st.Resources()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
+	}
+
+	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
 		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
@@ -1347,8 +1382,12 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err = svc.Refresh(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return svc, nil
 }
+
+// TODO(natefinch) DEMO code, revisit after demo!
+var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
@@ -1576,13 +1615,18 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
+	var modelLocalProviderID string
+	if args.ProviderId != "" {
+		modelLocalProviderID = st.docID(string(args.ProviderId))
+	}
+
 	subDoc := subnetDoc{
 		DocID:             subnetID,
 		ModelUUID:         st.ModelUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
-		ProviderId:        args.ProviderId,
+		ProviderId:        modelLocalProviderID,
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,
@@ -1615,13 +1659,16 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			return nil, errors.Trace(err)
 		}
 	case nil:
-		// if the ProviderId was not unique adding the subnet can fail
-		// without an error. Refreshing catches this
+		// If the ProviderId was not unique adding the subnet can fail without
+		// an error. Refreshing catches this by returning NotFoundError.
 		err = subnet.Refresh()
-		if err == nil {
-			return subnet, nil
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+			}
+			return nil, errors.Trace(err)
 		}
-		return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+		return subnet, nil
 	}
 	return nil, errors.Trace(err)
 }

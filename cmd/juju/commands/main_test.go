@@ -173,11 +173,12 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "switch"}, // global flags before
-		{"switch", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "switch", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "list-controllers"}, // global flags before
+		{"list-controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "list-controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -192,6 +193,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 
 var commandNames = []string{
 	"action",
+	"add-cloud",
 	"add-machine",
 	"add-machines",
 	"add-relation",
@@ -201,8 +203,6 @@ var commandNames = []string{
 	"add-units",
 	"agree",
 	"allocate",
-	"api-endpoints",
-	"api-info",
 	"add-space",
 	"add-storage",
 	"add-subnet",
@@ -212,6 +212,7 @@ var commandNames = []string{
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
+	"charm",
 	"collect-metrics",
 	"create-backup",
 	"create-budget",
@@ -229,23 +230,22 @@ var commandNames = []string{
 	"enable-ha",
 	"enable-user",
 	"expose",
-	"generate-config", // alias for init
 	"get-config",
 	"get-configs",
 	"get-constraints",
 	"get-model-config",
 	"get-model-constraints",
-	"get-user-credentials",
 	"help",
 	"help-tool",
 	"import-ssh-key",
 	"import-ssh-keys",
-	"init",
 	"kill-controller",
 	"list-actions",
 	"list-all-blocks",
 	"list-budgets",
+	"list-clouds",
 	"list-controllers",
+	"list-credentials",
 	"list-machine",
 	"list-machines",
 	"list-models",
@@ -256,11 +256,11 @@ var commandNames = []string{
 	"list-spaces",
 	"list-storage",
 	"list-users",
-	"login",
 	"machine",
 	"machines",
 	"migrate",
 	"publish",
+	"register",
 	"remove-all-blocks",
 	"remove-machine",
 	"remove-machines",
@@ -289,6 +289,9 @@ var commandNames = []string{
 	"show-action-output",
 	"show-action-status",
 	"show-budget",
+	"show-cloud",
+	"show-controller",
+	"show-controllers",
 	"show-machine",
 	"show-machines",
 	"show-status",
@@ -302,7 +305,6 @@ var commandNames = []string{
 	"subnet",
 	"switch",
 	"sync-tools",
-	"use-model",
 	"unblock",
 	"unexpose",
 	"update-allocation",

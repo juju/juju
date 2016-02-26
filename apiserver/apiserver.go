@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -198,7 +199,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		limiter:   utils.NewLimiter(loginRateLimit),
 		validator: cfg.Validator,
 		adminApiFactories: map[int]adminApiFactory{
-			2: newAdminApiV2,
+			3: newAdminApiV3,
 		},
 	}
 	srv.authCtxt = newAuthContext(srv)
@@ -354,6 +355,12 @@ func (srv *Server) run() {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
+	handleAll(mux, "/model/:modeluuid"+resourceapi.HTTPEndpointPattern,
+		newResourceHandler(httpCtxt),
+	)
+	handleAll(mux, "/model/:modeluuid/units/:unit/resources/:resource",
+		newUnitResourceHandler(httpCtxt),
+	)
 	handleAll(mux, "/model/:modeluuid/logsink",
 		newLogSinkHandler(httpCtxt, srv.logDir))
 	handleAll(mux, "/model/:modeluuid/log",
@@ -413,6 +420,11 @@ func (srv *Server) run() {
 			ctxt: httpCtxt,
 		},
 	)
+	handleAll(mux, "/register",
+		&registerUserHandler{
+			ctxt: httpCtxt,
+		},
+	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {
@@ -468,7 +480,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 
 	h, err := srv.newAPIHandler(conn, reqNotifier, modelUUID)
 	if err != nil {
-		conn.Serve(&errRoot{err}, serverError)
+		conn.ServeFinder(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminApiFactories {

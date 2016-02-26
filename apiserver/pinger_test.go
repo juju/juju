@@ -11,6 +11,7 @@ package apiserver_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -67,7 +68,7 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Ping()
-	c.Assert(err, gc.Equals, rpc.ErrShutdown)
+	c.Assert(errors.Cause(err), gc.Equals, rpc.ErrShutdown)
 
 	// Make sure that ping messages have not been logged.
 	for _, m := range tw.Log() {

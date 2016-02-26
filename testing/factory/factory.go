@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
@@ -112,7 +113,12 @@ type ModelParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
-	Prepare     bool
+
+	// If Prepare is true, the environment will be "prepared for bootstrap".
+	Prepare       bool
+	Credential    *cloud.Credential
+	CloudEndpoint string
+	CloudRegion   string
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -514,10 +520,20 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Prepare {
+		if params.Credential == nil {
+			emptyCredential := cloud.NewEmptyCredential()
+			params.Credential = &emptyCredential
+		}
+		args := environs.PrepareForBootstrapParams{
+			Config:        cfg,
+			Credentials:   *params.Credential,
+			CloudEndpoint: params.CloudEndpoint,
+			CloudRegion:   params.CloudRegion,
+		}
 		// Prepare the environment.
 		provider, err := environs.Provider(cfg.Type())
 		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), args)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
 		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)

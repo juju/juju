@@ -29,6 +29,11 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// Close closes the api connection.
+func (c *Client) Close() error {
+	return c.ClientFacade.Close()
+}
+
 // ConfigSkeleton returns config values to be used as a starting point for the
 // API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects

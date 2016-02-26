@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -25,7 +26,7 @@ func newRestoreCommand() cmd.Command {
 }
 
 // restoreCommand is a subcommand of backups that implement the restore behavior
-// it is invoked with "juju backups restore".
+// it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
 	constraints constraints.Value
@@ -36,8 +37,7 @@ type restoreCommand struct {
 }
 
 var restoreDoc = `
-Restores a backup that was previously created with "juju backup" and
-"juju backups create".
+Restores a backup that was previously created with "juju create-backup".
 
 This command creates a new controller and arranges for it to replace
 the previous controller for a model.  It does *not* restore
@@ -130,14 +130,27 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
-	store, err := configstore.Default()
+
+	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
+	// with a flag to specify a restore file. When we do that, we'll need
+	// to extract the CA cert from the backup, and we'll need to reset the
+	// password after restore so the admin user can login.
+	controllerName := c.ControllerName()
+	legacyStore, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg, err := c.Config(store, nil)
+	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(
+		controllerName, configstore.AdminModelName(controllerName),
+	))
 	if err != nil {
 		return errors.Trace(err)
 	}
+	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
 	cfg, err = cfg.Apply(map[string]interface{}{
