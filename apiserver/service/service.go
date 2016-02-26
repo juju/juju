@@ -302,7 +302,13 @@ func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.SetCharm(sch, forceSeries, forceUnits, resourceIDs)
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		ForceSeries: forceSeries,
+		ForceUnits:  forceUnits,
+		ResourceIDs: resourceIDs,
+	}
+	return service.SetCharm(cfg)
 }
 
 // settingsYamlFromGetYaml will parse a yaml produced by juju get and generate

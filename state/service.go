@@ -601,25 +601,39 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[str
 	return append(ops, decOps...), nil
 }
 
+// SetCharmConfig sets the charm for the service.
+type SetCharmConfig struct {
+	// Charm is the new charm to use for the service.
+	Charm *Charm
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"forceunits"`
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"forceseries"`
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resourceids"`
+}
+
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it.
 // If forceUnits is true, units will be upgraded even if they are in an error state.
 // If forceSeries is true, the charm will be used even if it's the service's series
 // is not supported by the charm.
-func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
-	if ch.Meta().Subordinate != s.doc.Subordinate {
+func (s *Service) SetCharm(cfg SetCharmConfig) error {
+	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change a service's subordinacy")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
-	if ch.URL().Series != "" {
-		if ch.URL().Series != s.doc.Series {
+	if cfg.Charm.URL().Series != "" {
+		if cfg.Charm.URL().Series != s.doc.Series {
 			return errors.Errorf("cannot change a service's series")
 		}
-	} else if !forceSeries {
+	} else if !cfg.ForceSeries {
 		supported := false
-		for _, series := range ch.Meta().Series {
+		for _, series := range cfg.Charm.Meta().Series {
 			if series == s.doc.Series {
 				supported = true
 				break
@@ -627,8 +641,8 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool, resourceIDs 
 		}
 		if !supported {
 			supportedSeries := "no series"
-			if len(ch.Meta().Series) > 0 {
-				supportedSeries = strings.Join(ch.Meta().Series, ", ")
+			if len(cfg.Charm.Meta().Series) > 0 {
+				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
 			}
 			return errors.Errorf("cannot upgrade charm, only these series are supported: %v", supportedSeries)
 		}
@@ -642,7 +656,7 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool, resourceIDs 
 			return err
 		}
 		supportedOS := false
-		for _, chSeries := range ch.Meta().Series {
+		for _, chSeries := range cfg.Charm.Meta().Series {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				return nil
@@ -705,23 +719,23 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool, resourceIDs 
 		}}
 
 		// Make sure the service doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
+		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", cfg.Charm.URL()}}
 		count, err := services.Find(sel).Count()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if count > 0 {
 			// Charm URL already set; just update the force flag.
-			sameCharm := bson.D{{"charmurl", ch.URL()}}
+			sameCharm := bson.D{{"charmurl", cfg.Charm.URL()}}
 			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
-				Update: bson.D{{"$set", bson.D{{"forcecharm", forceUnits}}}},
+				Update: bson.D{{"$set", bson.D{{"forcecharm", cfg.ForceUnits}}}},
 			}}...)
 		} else {
 			// Change the charm URL.
-			chng, err := s.changeCharmOps(ch, forceUnits, resourceIDs)
+			chng, err := s.changeCharmOps(cfg.Charm, cfg.ForceUnits, cfg.ResourceIDs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -732,8 +746,8 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool, resourceIDs 
 	}
 	err := s.st.run(buildTxn)
 	if err == nil {
-		s.doc.CharmURL = ch.URL()
-		s.doc.ForceCharm = forceUnits
+		s.doc.CharmURL = cfg.Charm.URL()
+		s.doc.ForceCharm = cfg.ForceUnits
 		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
 	return err

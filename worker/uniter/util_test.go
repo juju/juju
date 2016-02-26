@@ -945,7 +945,11 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.svc.SetCharm(sch, false, s.forced)
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: s.forced,
+	}
+	err = ctx.svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
