@@ -478,27 +478,14 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // document into the database, based on the given template. Only the
 // constraints and networks are used from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
-	machineOp = txn.Op{
-		C:      machinesC,
-		Id:     mdoc.DocID,
-		Assert: txn.DocMissing,
-		Insert: mdoc,
-	}
-
 	statusDoc := statusDoc{
 		Status:    StatusPending,
 		ModelUUID: st.ModelUUID(),
 		Updated:   time.Now().UnixNano(),
 	}
-	globalKey := machineGlobalKey(mdoc.Id)
-	prereqOps = []txn.Op{
-		createConstraintsOp(st, globalKey, template.Constraints),
-		createStatusOp(st, globalKey, statusDoc),
-		// TODO(dimitern): Drop requested networks across the board in a
-		// follow-up.
-		createRequestedNetworksOp(st, globalKey, template.RequestedNetworks),
-		createMachineBlockDevicesOp(mdoc.Id),
-	}
+
+	prereqOps, machineOp = st.baseNewMachineOps(
+		mdoc, statusDoc, template.Constraints, template.RequestedNetworks)
 
 	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
 		mdoc, &machineStorageParams{
@@ -523,8 +510,28 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// history entry. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(st, globalKey, statusDoc)
+	probablyUpdateStatusHistory(st, machineGlobalKey(mdoc.Id), statusDoc)
 	return prereqOps, machineOp, nil
+}
+
+func (st *State) baseNewMachineOps(mdoc *machineDoc, statusDoc statusDoc, cons constraints.Value, networks []string) (prereqOps []txn.Op, machineOp txn.Op) {
+	machineOp = txn.Op{
+		C:      machinesC,
+		Id:     mdoc.DocID,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
+	}
+
+	globalKey := machineGlobalKey(mdoc.Id)
+	prereqOps = []txn.Op{
+		createConstraintsOp(st, globalKey, cons),
+		createStatusOp(st, globalKey, statusDoc),
+		// TODO(dimitern): Drop requested networks across the board in a
+		// follow-up.
+		createRequestedNetworksOp(st, globalKey, networks),
+		createMachineBlockDevicesOp(mdoc.Id),
+	}
+	return prereqOps, machineOp
 }
 
 type machineStorageParams struct {

@@ -17,6 +17,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -172,9 +174,22 @@ func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
 }
 
 func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
+	// Plugins are run as model commands, and so require a current
+	// account and model.
+	err := modelcmd.WriteCurrentController("myctrl")
+	c.Assert(err, jc.ErrorIsNil)
+	store := jujuclient.NewFileClientStore()
+	err = store.UpdateAccount("myctrl", "admin@local", jujuclient.AccountDetails{
+		User:     "admin@local",
+		Password: "hunter2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = store.SetCurrentAccount("myctrl", "admin@local")
+	c.Assert(err, jc.ErrorIsNil)
+
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
-	output := badrun(c, 0, "foo", "-m", "myenv", "-p", "pluginarg")
-	expectedDebug := fmt.Sprintf(`foo %v myenv -p pluginarg\n.*env is:  myenv\n.*home is: .*\.local\/share\/juju\n`, "-m")
+	output := badrun(c, 0, "foo", "-m", "mymodel", "-p", "pluginarg")
+	expectedDebug := "foo -m mymodel -p pluginarg\nmodel is:  mymodel\n.*home is:  .*\\.local/share/juju\n"
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
@@ -224,7 +239,7 @@ if [ "$1" = "--debug" ]; then
 fi
 
 echo {{.Name}} $*
-echo "env is: " $JUJU_MODEL
+echo "model is: " $JUJU_MODEL
 echo "home is: " $JUJU_DATA
 exit {{.ExitStatus}}
 `

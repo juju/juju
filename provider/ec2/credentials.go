@@ -8,6 +8,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 type environProviderCredentials struct{}
@@ -28,7 +29,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
+func (environProviderCredentials) DetectCredentials() ([]environs.LabeledCredential, error) {
 	// TODO(axw) check for credentials file as described at
 	// http://blogs.aws.amazon.com/security/post/Tx3D6U6WSFGOK2H/A-New-and-Standardized-Way-to-Manage-Credentials-in-the-AWS-SDKs
 	auth, err := aws.EnvAuth()
@@ -42,5 +43,5 @@ func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error
 			"secret-key": auth.SecretKey,
 		},
 	)
-	return []cloud.Credential{accessKeyCredential}, nil
+	return []environs.LabeledCredential{{Credential: accessKeyCredential}}, nil
 }
