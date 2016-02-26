@@ -17,8 +17,9 @@ import (
 // Note, however, that the set of resource names remains fixed for any
 // given charm revision.
 type CharmInfo struct {
-	// URL is the charm's URL, including its revision.
-	URL *charm.URL
+	// OriginalURL is charm URL, including its revision, for which we
+	// queried the charm store.
+	OriginalURL *charm.URL
 
 	// Timestamp indicates when the info came from the charm store.
 	Timestamp time.Time
@@ -35,7 +36,7 @@ type CharmInfo struct {
 
 // LatestURL returns the charm URL for the latest revision of the charm.
 func (info CharmInfo) LatestURL() *charm.URL {
-	return info.URL.WithRevision(info.LatestRevision)
+	return info.OriginalURL.WithRevision(info.LatestRevision)
 }
 
 // CharmInfoResult holds the result of a charm store request for info

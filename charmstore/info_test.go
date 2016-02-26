@@ -20,7 +20,7 @@ var _ = gc.Suite(&CharmInfoSuite{})
 
 func (CharmInfoSuite) TestLatestURL(c *gc.C) {
 	info := charmstore.CharmInfo{
-		URL:            charm.MustParseURL("cs:quantal/mysql-3"),
+		OriginalURL:    charm.MustParseURL("cs:quantal/mysql-3"),
 		LatestRevision: 17,
 	}
 

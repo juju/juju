@@ -101,7 +101,7 @@ func (s *ClientSuite) TestLatestCharmInfo(c *gc.C) {
 	results[2].Error = errors.Cause(results[2].Error)
 	c.Check(results, jc.DeepEquals, []charmstore.CharmInfoResult{{
 		CharmInfo: charmstore.CharmInfo{
-			URL:            charm.MustParseURL("cs:quantal/spam-17"),
+			OriginalURL:    charm.MustParseURL("cs:quantal/spam-17"),
 			Timestamp:      timestamp,
 			LatestRevision: 17,
 			LatestResources: []charmresource.Resource{
@@ -110,14 +110,14 @@ func (s *ClientSuite) TestLatestCharmInfo(c *gc.C) {
 		},
 	}, {
 		CharmInfo: charmstore.CharmInfo{
-			URL:            charm.MustParseURL("cs:quantal/eggs-2"),
+			OriginalURL:    charm.MustParseURL("cs:quantal/eggs-2"),
 			Timestamp:      timestamp,
 			LatestRevision: 3,
 		},
 	}, {
 		CharmInfo: charmstore.CharmInfo{
-			URL:       charm.MustParseURL("cs:quantal/ham-1"),
-			Timestamp: timestamp,
+			OriginalURL: charm.MustParseURL("cs:quantal/ham-1"),
+			Timestamp:   timestamp,
 		},
 		Error: notFound,
 	}})

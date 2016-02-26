@@ -150,7 +150,7 @@ func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]Cha
 		resources := chResources[i]
 
 		var result CharmInfoResult
-		result.URL = cURL
+		result.OriginalURL = cURL
 		result.Timestamp = now
 		if revResult.Err != nil {
 			result.Error = errors.Trace(revResult.Err)
