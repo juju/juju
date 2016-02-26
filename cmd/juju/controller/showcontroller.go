@@ -61,11 +61,15 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 	}
 	controllers := make(map[string]ShowControllerDetails)
 	for _, name := range controllerNames {
-		one, err := c.store.ControllerByName(name)
+		actualName, err := modelcmd.ResolveControllerName(c.store, name)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get controller %s", name)
+			return err
 		}
-		controllers[name] = c.convertControllerForShow(name, one)
+		one, err := c.store.ControllerByName(actualName)
+		if err != nil {
+			return err
+		}
+		controllers[name] = c.convertControllerForShow(actualName, one)
 	}
 	return c.out.Write(ctx, controllers)
 }
@@ -73,12 +77,6 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 type ShowControllerDetails struct {
 	// Details contains the same details that client store caches for this controller.
 	Details ControllerDetails `yaml:"details,omitempty" json:"details,omitempty"`
-
-	// Models is a collection of all models for this controller.
-	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
-
-	// CurrentModel is the name of the current model for this controller
-	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 
 	// Accounts is a collection of accounts for this controller.
 	Accounts map[string]*AccountDetails `yaml:"accounts,omitempty" json:"accounts,omitempty"`
@@ -118,6 +116,12 @@ type AccountDetails struct {
 
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
+
+	// Models is a collection of all models for this controller.
+	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
+
+	// CurrentModel is the name of the current model for this controller
+	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 }
 
 func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails) ShowControllerDetails {
@@ -130,26 +134,8 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 		},
 	}
 
-	c.convertModelsForShow(controllerName, &controller)
 	c.convertAccountsForShow(controllerName, &controller)
 	return controller
-}
-
-func (c *showControllerCommand) convertModelsForShow(controllerName string, controller *ShowControllerDetails) {
-	models, err := c.store.AllModels(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		controller.Errors = append(controller.Errors, err.Error())
-	}
-	if len(models) > 0 {
-		controller.Models = make(map[string]ModelDetails)
-		for modelName, model := range models {
-			controller.Models[modelName] = ModelDetails{model.ModelUUID}
-		}
-	}
-	controller.CurrentModel, err = c.store.CurrentModel(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		controller.Errors = append(controller.Errors, err.Error())
-	}
 }
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails) {
@@ -161,9 +147,13 @@ func (c *showControllerCommand) convertAccountsForShow(controllerName string, co
 	if len(accounts) > 0 {
 		controller.Accounts = make(map[string]*AccountDetails)
 		for accountName, account := range accounts {
-			controller.Accounts[accountName] = &AccountDetails{User: account.User}
+			details := &AccountDetails{User: account.User}
+			controller.Accounts[accountName] = details
 			if c.includePasswords {
-				controller.Accounts[accountName].Password = account.Password
+				details.Password = account.Password
+			}
+			if err := c.convertModelsForShow(controllerName, accountName, details); err != nil {
+				controller.Errors = append(controller.Errors, err.Error())
 			}
 		}
 	}
@@ -172,6 +162,26 @@ func (c *showControllerCommand) convertAccountsForShow(controllerName string, co
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
+}
+
+func (c *showControllerCommand) convertModelsForShow(controllerName, accountName string, account *AccountDetails) error {
+	models, err := c.store.AllModels(controllerName, accountName)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if len(models) > 0 {
+		account.Models = make(map[string]ModelDetails)
+		for modelName, model := range models {
+			account.Models[modelName] = ModelDetails{model.ModelUUID}
+		}
+	}
+	account.CurrentModel, err = c.store.CurrentModel(controllerName, accountName)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 type showControllerCommand struct {

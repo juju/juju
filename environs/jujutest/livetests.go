@@ -457,7 +457,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	owner := env.Owner()
 
 	c.Logf("opening API connection")
-	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
+	apiInfo, err := environs.APIInfo(t.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = owner
+	apiInfo.Password = t.Env.Config().AdminSecret()
+	apiState, err := api.Open(apiInfo, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 

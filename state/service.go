@@ -68,6 +68,12 @@ func (s *Service) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (s *Service) Tag() names.Tag {
+	return s.ServiceTag()
+}
+
+// ServiceTag returns the more specific ServiceTag rather than the generic
+// Tag.
+func (s *Service) ServiceTag() names.ServiceTag {
 	return names.NewServiceTag(s.Name())
 }
 
@@ -90,6 +96,11 @@ func serviceSettingsKey(serviceName string, curl *charm.URL) string {
 // key for the service.
 func (s *Service) settingsKey() string {
 	return serviceSettingsKey(s.doc.Name, s.doc.CharmURL)
+}
+
+// Series returns the specified series for this charm.
+func (s *Service) Series() string {
+	return s.doc.Series
 }
 
 // Life returns whether the service is Alive, Dying or Dead.
@@ -597,6 +608,17 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[str
 	return append(ops, decOps...), nil
 }
 
+// incCharmModifiedVersionOps returns the operations necessary to increment
+// the CharmModifiedVersion field for the given service.
+func incCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
+	}}
+}
+
 func (s *Service) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
 	// Collect pending resource resolution operations.
 	resources, err := s.st.Resources()
@@ -817,7 +839,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, err
 	}
-	args := addUnitOpsArgs{
+	args := serviceAddUnitOpsArgs{
 		cons:          cons,
 		principalName: principalName,
 		storageCons:   storageCons,
@@ -832,7 +854,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return names, ops, err
 }
 
-type addUnitOpsArgs struct {
+type serviceAddUnitOpsArgs struct {
 	principalName string
 	cons          constraints.Value
 	storageCons   map[string]StorageConstraints
@@ -840,7 +862,7 @@ type addUnitOpsArgs struct {
 
 // addServiceUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at service creation time).
-func (s *Service) addServiceUnitOps(args addUnitOpsArgs) (string, []txn.Op, error) {
+func (s *Service) addServiceUnitOps(args serviceAddUnitOpsArgs) (string, []txn.Op, error) {
 	names, ops, err := s.addUnitOpsWithCons(args)
 	if err == nil {
 		ops = append(ops, s.incUnitCountOp(nil))
@@ -849,7 +871,7 @@ func (s *Service) addServiceUnitOps(args addUnitOpsArgs) (string, []txn.Op, erro
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, error) {
+func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.Op, error) {
 	if s.doc.Subordinate && args.principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && args.principalName != "" {
@@ -869,11 +891,9 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
-	meterStatusGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
-		ModelUUID:              s.doc.ModelUUID,
 		Service:                s.doc.Name,
 		Series:                 s.doc.Series,
 		Life:                   Alive,
@@ -882,29 +902,22 @@ func (s *Service) addUnitOpsWithCons(args addUnitOpsArgs) (string, []txn.Op, err
 	}
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:    StatusAllocating,
-		Updated:   now.UnixNano(),
-		ModelUUID: s.st.ModelUUID(),
+		Status:  StatusAllocating,
+		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
-		ModelUUID:  s.st.ModelUUID(),
 	}
 
-	ops := []txn.Op{
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
-		{
-			C:      unitsC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: udoc,
-		},
-	}
+	ops := addUnitOps(s.st, addUnitOpsArgs{
+		unitDoc:           udoc,
+		agentStatusDoc:    agentStatusDoc,
+		workloadStatusDoc: unitStatusDoc,
+		meterStatusDoc:    &meterStatusDoc{Code: MeterNotSet.String()},
+	})
 
 	ops = append(ops, storageOps...)
 
@@ -1546,13 +1559,53 @@ var statusServerities = map[Status]int{
 	StatusUnknown:     40,
 }
 
-// incCharmModifiedVersionOps returns the operations necessary to increment
-// the CharmModifiedVersion field for the given service.
-func incCharmModifiedVersionOps(serviceID string) []txn.Op {
-	return []txn.Op{{
-		C:      servicesC,
-		Id:     serviceID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
-	}}
+type addServiceOpsArgs struct {
+	serviceDoc       *serviceDoc
+	statusDoc        statusDoc
+	constraints      constraints.Value
+	networks         []string
+	storage          map[string]StorageConstraints
+	settings         map[string]interface{}
+	settingsRefCount int
+	// These are nil when adding a new service, and most likely
+	// non-nil when migrating.
+	leadershipSettings map[string]interface{}
+}
+
+// addServiceOps returns the operations required to add a service to the
+// services collection, along with all the associated expected other service
+// entries. This method is used by both the *State.AddService method and the
+// migration import code.
+func addServiceOps(st *State, args addServiceOpsArgs) []txn.Op {
+	svc := newService(st, args.serviceDoc)
+
+	globalKey := svc.globalKey()
+	settingsKey := svc.settingsKey()
+	leadershipKey := leadershipSettingsKey(svc.Name())
+
+	return []txn.Op{
+		createConstraintsOp(st, globalKey, args.constraints),
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
+		createRequestedNetworksOp(st, globalKey, args.networks),
+		createStorageConstraintsOp(globalKey, args.storage),
+		createSettingsOp(settingsKey, args.settings),
+		createSettingsOp(leadershipKey, args.leadershipSettings),
+		createStatusOp(st, globalKey, args.statusDoc),
+		{
+			C:      settingsrefsC,
+			Id:     settingsKey,
+			Assert: txn.DocMissing,
+			Insert: settingsRefsDoc{
+				RefCount: args.settingsRefCount,
+			},
+		}, {
+			C:      servicesC,
+			Id:     svc.Name(),
+			Assert: txn.DocMissing,
+			Insert: args.serviceDoc,
+		},
+	}
 }

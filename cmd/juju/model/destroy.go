@@ -73,8 +73,7 @@ func (c *destroyCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no model specified")
 	case 1:
-		c.SetModelName(args[0])
-		return nil
+		return c.SetModelName(args[0])
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
@@ -96,6 +95,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	controllerName := c.ControllerName()
+	accountName := c.AccountName()
 	modelName := c.ModelName()
 	cfgInfo, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
 	if err != nil {
@@ -129,7 +129,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
 	}
 
-	err = store.RemoveModel(controllerName, modelName)
+	err = store.RemoveModel(controllerName, accountName, modelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

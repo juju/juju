@@ -514,8 +514,8 @@ func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credentia
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
-func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
-	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
+func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return cloud.NewEmptyCloudCredential(), nil
 }
 
 func (*environProvider) DetectRegions() ([]cloud.Region, error) {

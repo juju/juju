@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -42,11 +41,8 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	modelManager := modelmanager.NewClient(conn)
-	_, err = modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	modelManager := modelmanager.NewClient(s.APIState)
+	_, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
 		"authorized-keys": "ssh-key",
 		"controller":      isServer,
@@ -86,7 +82,7 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "new-model", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "admin@local", "new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
@@ -188,10 +184,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	client := undertakerapi.NewClient(conn)
+	client := undertakerapi.NewClient(s.APIState)
 
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := testing.NewClock(startTime)

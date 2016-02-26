@@ -3,6 +3,8 @@
 
 package jujuclient
 
+import "github.com/juju/juju/cloud"
+
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
 	// Servers contains the addresses of hosts that form the Juju controller
@@ -68,43 +70,45 @@ type ModelUpdater interface {
 	//
 	// If the model does not already exist, it will be added.
 	// Otherwise, it will be overwritten with the new details.
-	UpdateModel(controllerName, modelName string, details ModelDetails) error
+	UpdateModel(controllerName, accountName, modelName string, details ModelDetails) error
 
 	// SetCurrentModel sets the name of the current model for
-	// the specified controller. If there exists no model with
-	// the specified names, an error satisfing errors.IsNotFound
-	// will be returned.
-	SetCurrentModel(controllerName, modelName string) error
+	// the specified controller and account. If there exists no
+	// model with the specified names, an error satisfing
+	// errors.IsNotFound will be returned.
+	SetCurrentModel(controllerName, accountName, modelName string) error
 }
 
 // ModelRemover removes models.
 type ModelRemover interface {
-	// RemoveModel removes the model with the given controller and model
-	// names from the models collection. If there is no model with the
-	// specified names, an errors satisfying errors.IsNotFound will be
-	// returned.
-	RemoveModel(controllerName, modelName string) error
+	// RemoveModel removes the model with the given controller, account,
+	// and model names from the models collection. If there is no model
+	// with the specified names, an errors satisfying errors.IsNotFound
+	// will be returned.
+	RemoveModel(controllerName, accountName, modelName string) error
 }
 
 // ModelGetter gets models.
 type ModelGetter interface {
-	// AllModels gets all models for the specified controller.
+	// AllModels gets all models for the specified controller and
+	// account.
 	//
-	// If there is no controller with the specified name, or
-	// no models cached for the controller, an error satisfying
-	// errors.IsNotFound will be returned.
-	AllModels(controllerName string) (map[string]ModelDetails, error)
+	// If there is no controller or account with the specified
+	// names, or no models cached for the controller and account,
+	// an error satisfying errors.IsNotFound will be returned.
+	AllModels(controllerName, accountName string) (map[string]ModelDetails, error)
 
 	// CurrentModel returns the name of the current model for
-	// the specified controller. If there is no current model
-	// for the controller, an error satisfying errors.IsNotFound
-	// is returned.
-	CurrentModel(controllerName string) (string, error)
+	// the specified controller and account. If there is no current
+	// model for the controller and account, an error satisfying
+	// errors.IsNotFound is returned.
+	CurrentModel(controllerName, accountName string) (string, error)
 
-	// ModelByName returns the model with the specified controller
-	// and model names. If there exists no model with the specified
-	// names, an error satisfying errors.IsNotFound will be returned.
-	ModelByName(controllerName, modelName string) (*ModelDetails, error)
+	// ModelByName returns the model with the specified controller,
+	// account, and model names. If there exists no model with the
+	// specified names, an error satisfying errors.IsNotFound will
+	// be returned.
+	ModelByName(controllerName, accountName, modelName string) (*ModelDetails, error)
 }
 
 // AccountUpdater stores account details.
@@ -179,4 +183,29 @@ type ClientStore interface {
 	AccountStore
 	ControllerStore
 	ModelStore
+}
+
+// CredentialGetter gets credentials.
+type CredentialGetter interface {
+	// CredentialForCloud gets credentials for the named cloud.
+	CredentialForCloud(string) (*cloud.CloudCredential, error)
+
+	// AllCredentials gets all credentials.
+	AllCredentials() (map[string]cloud.CloudCredential, error)
+}
+
+// CredentialUpdater stores credentials.
+type CredentialUpdater interface {
+	// UpdateCredential adds the given credentials to the credentials
+	// collection.
+	//
+	// If the cloud or credential name does not already exist, it will be added.
+	// Otherwise, it will be overwritten with the new details.
+	UpdateCredential(cloudName string, details cloud.CloudCredential) error
+}
+
+// CredentialStore is an amalgamation of CredentialsUpdater, and CredentialsGetter.
+type CredentialStore interface {
+	CredentialGetter
+	CredentialUpdater
 }
