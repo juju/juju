@@ -66,6 +66,9 @@ type Id string
 // provider how to handle this case - it might return an error.
 const AnySubnet Id = ""
 
+// UnknownId can be used whenever an Id is needed but not known.
+const UnknownId = ""
+
 // SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.
 type SubnetInfo struct {

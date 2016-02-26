@@ -116,6 +116,7 @@ func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
 
 func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	server := s.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	// We simulate an newer MAAS (1.9+) which returns both ip_addresses and
 	// interface_set for a node. To verify we use interfaces we deliberately put
 	// different items in ip_addresses
