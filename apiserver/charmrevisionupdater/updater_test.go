@@ -167,7 +167,7 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 
 	// Point the charm repo initializer to the testing server.
 	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() charmstore.Client {
-		return charmstore.NewClient(&csclient.Params{
+		return charmstore.NewClient(csclient.Params{
 			URL: srv.URL,
 		})
 	})

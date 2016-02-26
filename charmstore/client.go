@@ -83,12 +83,15 @@ type client struct {
 
 // NewClient returns a Juju charm store client for the given client
 // config.
-func NewClient(config *csclient.Params) Client {
-	if config == nil {
-		config = &csclient.Params{}
-	}
-	base := csclient.New(*config)
+func NewClient(config csclient.Params) Client {
+	base := csclient.New(config)
 	return WrapBaseClient(base, nil)
+}
+
+// NewDefaultClient returns a Juju charm store client using a default
+// client config.
+func NewDefaultClient() Client {
+	return NewClient(csclient.Params{})
 }
 
 // WrapBaseClient returns a Juju charm store client that wraps

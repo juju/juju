@@ -93,7 +93,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 // It is defined at top level for testing purposes.
 var NewCharmStoreClient = func() charmstore.Client {
 	// TODO(ericsnow) Use the Juju "HTTP context" once we have one.
-	return charmstore.NewClient(nil)
+	return charmstore.NewDefaultClient()
 }
 
 type latestCharmInfo struct {
