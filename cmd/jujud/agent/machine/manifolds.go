@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -261,7 +262,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName,
 			},
 		}),
+
 		authenticationworkerName: authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
+		resumerName: resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
@@ -291,4 +299,5 @@ const (
 	logSenderName            = "log-sender"
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
+	resumerName              = "resumer"
 )

@@ -23,7 +23,7 @@ func JujuModelsPath() string {
 
 // ReadModelsFile loads all models defined in a given file.
 // If the file is not found, it is not an error.
-func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
+func ReadModelsFile(file string) (map[string]ControllerAccountModels, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -40,8 +40,8 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 
 // WriteModelsFile marshals to YAML details of the given models
 // and writes it to the models file.
-func WriteModelsFile(controllerModels map[string]*ControllerModels) error {
-	data, err := yaml.Marshal(modelsCollection{controllerModels})
+func WriteModelsFile(models map[string]ControllerAccountModels) error {
+	data, err := yaml.Marshal(modelsCollection{models})
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal models")
 	}
@@ -49,26 +49,33 @@ func WriteModelsFile(controllerModels map[string]*ControllerModels) error {
 }
 
 // ParseModels parses the given YAML bytes into models metadata.
-func ParseModels(data []byte) (map[string]*ControllerModels, error) {
+func ParseModels(data []byte) (map[string]ControllerAccountModels, error) {
 	var result modelsCollection
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal models")
 	}
-	return result.ControllerModels, nil
+	return result.ControllerAccountModels, nil
 }
 
 type modelsCollection struct {
-	ControllerModels map[string]*ControllerModels `yaml:"controllers"`
+	ControllerAccountModels map[string]ControllerAccountModels `yaml:"controllers"`
 }
 
-// ControllerAccounts stores per-controller model information.
-type ControllerModels struct {
-	// Models is the collection of models for the controller. This should
-	// be treated as a cache only, and not the complete set of models for
-	// the controller.
+// ControllerAccountModels stores per-controller account-model information.
+type ControllerAccountModels struct {
+	// AccountModels is the collection of account-models for the
+	// controller.
+	AccountModels map[string]*AccountModels `yaml:"accounts"`
+}
+
+// AccountModels stores per-account model information.
+type AccountModels struct {
+	// Models is the collection of models for the account. This should
+	// be treated as a cache only, and not the complete set of models
+	// for the account.
 	Models map[string]ModelDetails `yaml:"models"`
 
-	// CurrentModel is the name of the active model for the controller.
+	// CurrentModel is the name of the active model for the account.
 	CurrentModel string `yaml:"current-model,omitempty"`
 }

@@ -11,12 +11,12 @@ import (
 	"net/http/httptest"
 	"time"
 
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
 	"github.com/juju/juju/cert"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
