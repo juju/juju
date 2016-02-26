@@ -167,7 +167,7 @@ class NetworkInterfaceParser(object):
 
     def __init__(self, filename):
         self._stanzas = []
-        with open(filename) as f:
+        with open(filename, 'r') as f:
             lines = f.readlines()
         line_iterator = SeekableIterator(lines)
         for line in line_iterator:
@@ -276,9 +276,9 @@ def print_shell_cmd(s, verbose=True, exit_on_error=False):
         print(s)
     out, err, retcode = shell_cmd(s)
     if out and len(out) > 0:
-        print(out.rstrip('\n'))
+        print(out.decode().rstrip('\n'))
     if err and len(err) > 0:
-        print(err.rstrip('\n'))
+        print(err.decode().rstrip('\n'))
     if exit_on_error and retcode != 0:
         exit(1)
 
