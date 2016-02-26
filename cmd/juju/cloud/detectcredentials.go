@@ -149,15 +149,15 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			}
 			if !c.Replace && err == nil {
 				existingCredNames := set.NewStrings()
-				for n := range credentials.AuthCredentials {
-					existingCredNames.Add(n)
+				for name := range credentials.AuthCredentials {
+					existingCredNames.Add(name)
 				}
 				newCredNames := set.NewStrings()
 				for n, cred := range detected.AuthCredentials {
-					if cred.AuthType() == jujucloud.EmptyAuthType {
+					if n == "" || cred.AuthType() == jujucloud.EmptyAuthType {
 						continue
 					}
-					newCredNames.Add(credentialLabel(n))
+					newCredNames.Add(n)
 				}
 				wouldBeOverwriten := existingCredNames.Intersection(newCredNames)
 				if !wouldBeOverwriten.IsEmpty() {
@@ -168,15 +168,20 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 				}
 			}
 			for name := range detected.AuthCredentials {
-				credName := credentialLabel(name)
-				fmt.Fprintf(ctxt.Stdout, "%s cloud credential %q found\n", cloudName, credName)
+				if name == "" {
+					logger.Warningf("ignoring unnamed credential for clous %s", cloudName)
+					continue
+				}
+				fmt.Fprintf(ctxt.Stdout, "%s cloud credential %q found\n", cloudName, name)
 			}
 			if credentials == nil {
 				credentials = detected
 			} else {
 				for name, cred := range detected.AuthCredentials {
-					credName := credentialLabel(name)
-					credentials.AuthCredentials[credName] = cred
+					if name == "" {
+						continue
+					}
+					credentials.AuthCredentials[name] = cred
 				}
 			}
 			if (c.Replace || credentials.DefaultRegion == "") && detected.DefaultRegion != "" {
@@ -188,11 +193,4 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	return nil
-}
-
-func credentialLabel(name string) string {
-	if name != "" {
-		return name
-	}
-	return "default"
 }
