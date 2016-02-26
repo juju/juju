@@ -131,9 +131,9 @@ func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]Cha
 	logger.Infof("retrieving revision information for %d charms", len(cURLs))
 	revResults, err := repo.Latest(cURLs...)
 	if err != nil {
-		err = errors.Annotate(err, "finding charm revision info")
+		err = errors.Annotate(err, "while getting latest charm revision info")
 		logger.Infof(err.Error())
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	// Do a bulk call to get the latest info for each charm's resources.
