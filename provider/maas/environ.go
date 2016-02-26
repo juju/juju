@@ -1864,7 +1864,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		spaceId, ok := subnetsMap[cidr]
 		if !ok {
 			logger.Warningf("unrecognised subnet: %q, setting empty space id", cidr)
-			spaceId = network.Id("")
+			spaceId = network.UnknownId
 		}
 
 		subnetInfo, err := environ.subnetFromJson(jsonNet, spaceId)
