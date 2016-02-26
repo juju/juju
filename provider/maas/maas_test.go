@@ -159,7 +159,7 @@ func createSubnet(ipRange, spaceAndNICID uint) gomaasapi.CreateSubnet {
 	var s gomaasapi.CreateSubnet
 	s.DNSServers = []string{"192.168.1.2"}
 	s.Name = fmt.Sprintf("maas-eth%d", spaceAndNICID)
-	s.Space = fmt.Sprintf("Space %d", spaceAndNICID)
+	s.Space = fmt.Sprintf("space-%d", spaceAndNICID)
 	s.GatewayIP = fmt.Sprintf("192.168.%v.1", ipRange)
 	s.CIDR = fmt.Sprintf("192.168.%v.0/24", ipRange)
 	return s
