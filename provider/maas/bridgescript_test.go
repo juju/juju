@@ -21,10 +21,10 @@ import (
 type bridgeConfigSuite struct {
 	coretesting.BaseSuite
 
-	testConfig         string
-	testConfigPath     string
-	testPythonScript   string
-	testPythonVersions []string
+	testConfig       string
+	testConfigPath   string
+	testPythonScript string
+	pythonVersions   []string
 }
 
 var _ = gc.Suite(&bridgeConfigSuite{})
@@ -41,14 +41,14 @@ func (s *bridgeConfigSuite) SetUpSuite(c *gc.C) {
 		"/usr/bin/python",
 	} {
 		if _, err := os.Stat(version); err == nil {
-			s.testPythonVersions = append(s.testPythonVersions, version)
+			s.pythonVersions = append(s.pythonVersions, version)
 		}
 	}
 }
 
 func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	// We need at least one Python package installed.
-	c.Assert(s.testPythonVersions, gc.Not(gc.HasLen), 0)
+	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
 	s.testConfigPath = filepath.Join(c.MkDir(), "network-config")
 	s.testPythonScript = filepath.Join(c.MkDir(), bridgeScriptName)
@@ -60,7 +60,7 @@ func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string) {
-	for i, python := range s.testPythonVersions {
+	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		// To simplify most cases, trim trailing new lines.
 		initialConfig = strings.TrimSuffix(initialConfig, "\n")
@@ -87,7 +87,7 @@ func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
-	for i, python := range s.testPythonVersions {
+	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		_, code := s.runScript(c, python, "", "", "", "")
 		c.Check(code, gc.Equals, 1)
@@ -167,7 +167,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptMismatchedBridgeNameAndInterfaceArgs
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
-	for i, python := range s.testPythonVersions {
+	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
 		c.Check(code, gc.Equals, 1)
@@ -176,7 +176,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
-	for i, python := range s.testPythonVersions {
+	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		output, code := s.runScript(c, python, "# no content", "", "", "eth0")
 		c.Check(code, gc.Equals, 1)
