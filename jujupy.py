@@ -1612,7 +1612,11 @@ class Status:
     def get_agent_versions(self):
         versions = defaultdict(set)
         for item_name, item in self.agent_items():
-            versions[item.get('agent-version', 'unknown')].add(item_name)
+            if item.get('juju-status', None):
+                version = item['juju-status'].get('version', 'unknown')
+                versions[version].add(item_name)
+            else:
+                versions[item.get('agent-version', 'unknown')].add(item_name)
         return versions
 
     def get_instance_id(self, machine_id):
