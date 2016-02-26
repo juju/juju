@@ -109,7 +109,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	uuid := env.UUID()
+	modelUUID := env.UUID()
 
 	services, err := st.AllServices()
 	if err != nil {
@@ -132,7 +132,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 
 	client := NewCharmStoreClient()
 
-	results, err := charmstore.LatestCharmInfo(client, uuid, curls)
+	results, err := charmstore.LatestCharmInfo(client, modelUUID, curls)
 	if err != nil {
 		return nil, err
 	}
