@@ -183,7 +183,7 @@ func (v *azureVolumeSource) createVolume(
 		return nil, nil, errors.Annotate(err, "choosing LUN")
 	}
 
-	dataDisksRoot := dataDiskVhdRoot(v.env.config.location, v.env.config.storageAccount)
+	dataDisksRoot := dataDiskVhdRoot(v.env.config.storageEndpoint, v.env.config.storageAccount)
 	dataDiskName := p.Tag.String()
 	vhdURI := dataDisksRoot + dataDiskName + vhdExtension
 
@@ -399,7 +399,7 @@ func (v *azureVolumeSource) attachVolume(
 	p storage.VolumeAttachmentParams,
 ) (_ *storage.VolumeAttachment, updated bool, _ error) {
 
-	dataDisksRoot := dataDiskVhdRoot(v.env.config.location, v.env.config.storageAccount)
+	dataDisksRoot := dataDiskVhdRoot(v.env.config.storageEndpoint, v.env.config.storageAccount)
 	dataDiskName := p.VolumeId
 	vhdURI := dataDisksRoot + dataDiskName + vhdExtension
 
@@ -509,7 +509,7 @@ func (v *azureVolumeSource) detachVolume(
 	p storage.VolumeAttachmentParams,
 ) (updated bool) {
 
-	dataDisksRoot := dataDiskVhdRoot(v.env.config.location, v.env.config.storageAccount)
+	dataDisksRoot := dataDiskVhdRoot(v.env.config.storageEndpoint, v.env.config.storageAccount)
 	dataDiskName := p.VolumeId
 	vhdURI := dataDisksRoot + dataDiskName + vhdExtension
 
@@ -642,33 +642,24 @@ func gibToMib(g uint64) uint64 {
 	return g * 1024
 }
 
-// locationStorageEndpoint returns the hostname to supply to NewStorageClient
-// for the given location.
-func locationStorageEndpoint(location string) string {
-	if strings.Contains(location, "china") {
-		return "core.chinacloudapi.cn"
-	}
-	return "core.windows.net"
-}
-
 // osDiskVhdRoot returns the URL to the blob container in which we store the
 // VHDs for OS disks for the environment.
-func osDiskVhdRoot(location, storageAccountName string) string {
-	return blobContainerURL(location, storageAccountName, osDiskVHDContainer)
+func osDiskVhdRoot(storageEndpoint, storageAccountName string) string {
+	return blobContainerURL(storageEndpoint, storageAccountName, osDiskVHDContainer)
 }
 
 // dataDiskVhdRoot returns the URL to the blob container in which we store the
 // VHDs for data disks for the environment.
-func dataDiskVhdRoot(location, storageAccountName string) string {
-	return blobContainerURL(location, storageAccountName, dataDiskVHDContainer)
+func dataDiskVhdRoot(storageEndpoint, storageAccountName string) string {
+	return blobContainerURL(storageEndpoint, storageAccountName, dataDiskVHDContainer)
 }
 
 // blobContainer returns the URL to the named blob container.
-func blobContainerURL(location, storageAccountName, container string) string {
+func blobContainerURL(storageEndpoint, storageAccountName, container string) string {
 	return fmt.Sprintf(
 		"https://%s.blob.%s/%s/",
 		storageAccountName,
-		locationStorageEndpoint(location),
+		storageEndpoint,
 		container,
 	)
 }
@@ -694,7 +685,7 @@ func getStorageClient(
 ) (internalazurestorage.Client, error) {
 	storageAccountName := cfg.storageAccount
 	storageAccountKey := cfg.storageAccountKey
-	storageEndpoint := locationStorageEndpoint(cfg.location)
+	storageEndpoint := cfg.storageEndpoint
 	const useHTTPS = true
 	return newClient(
 		storageAccountName, storageAccountKey,

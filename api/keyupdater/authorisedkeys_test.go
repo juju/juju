@@ -32,7 +32,7 @@ func (s *keyupdaterSuite) SetUpTest(c *gc.C) {
 	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	c.Assert(stateAPI, gc.NotNil)
-	s.keyupdater = stateAPI.KeyUpdater()
+	s.keyupdater = keyupdater.NewState(stateAPI)
 	c.Assert(s.keyupdater, gc.NotNil)
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -19,13 +20,11 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance environProvider
-
-func (environProvider) BoilerplateConfig() string {
-	return boilerplateConfig[1:]
-}
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
@@ -56,8 +55,32 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+func (p environProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams,
+) (environs.Environ, error) {
+
+	// Add credentials to the configuration.
+	attrs := map[string]interface{}{
+		"region": args.CloudRegion,
+		// TODO(axw) stop relying on hard-coded
+		//           region endpoint information
+		//           in the provider, and use
+		//           args.CloudEndpoint here.
+	}
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.AccessKeyAuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		attrs["access-key"] = credentialAttrs["access-key"]
+		attrs["secret-key"] = credentialAttrs["secret-key"]
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}
