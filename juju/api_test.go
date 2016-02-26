@@ -121,32 +121,27 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		return expectState, nil
 	}
 
-	// Give NewAPIFromStore a store interface that can report when the
-	// config was written to, to check if the cache is updated.
-	mockStore := &storageWithWriteNotify{store: legacyStore}
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", mockStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", legacyStore, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := legacyStore.ReadInfo("noconfig:noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	ep := info.APIEndpoint()
-	c.Check(ep.Addresses, jc.DeepEquals, []string{
-		"0.1.2.3:1234", "[2001:db8::1]:1234",
-	})
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-	mockStore.written = false
+	// The addresses should have been updated.
+	c.Assert(
+		store.Controllers["noconfig"].APIEndpoints,
+		jc.DeepEquals,
+		[]string{"0.1.2.3:1234", "[2001:db8::1]:1234"},
+	)
 
 	controllerBefore, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
-	st, err = juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", mockStore, store, apiOpen)
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	st, err = juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", legacyStore, stubStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsFalse)
+	stubStore.CheckCallNames(c, "ControllerByName", "AccountByName", "ModelByName")
 
 	controllerAfter, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +177,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 			CACert:     "certificated",
 		},
 	})
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", store, cache, panicAPIOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", store, cache, panicAPIOpen)
 	c.Assert(err, gc.ErrorMatches, "bootstrap config not found")
 	c.Assert(st, gc.IsNil)
 }
@@ -263,8 +258,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 		return expectState, nil
 	}
 
-	mockStore := &storageWithWriteNotify{store: legacyStore}
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", mockStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", legacyStore, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -276,7 +270,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	c.Check(details.APIEndpoints, gc.HasLen, 1)
 	c.Check(details.APIEndpoints[0], gc.Matches, `foo\.invalid`)
 
-	info, err := legacyStore.ReadInfo("noconfig:noconfig")
+	info, err := legacyStore.ReadInfo("noconfig:admin")
 	c.Assert(err, jc.ErrorIsNil)
 	ep := info.APIEndpoint()
 	c.Check(ep.Addresses, gc.HasLen, 1)
@@ -361,13 +355,13 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 func (s *NewAPIClientSuite) TestGetBootstrapConfigNoLegacyInfo(c *gc.C) {
 	store := configstore.NewMem()
 	cfg, err := juju.GetBootstrapConfig(store, "whatever", "")
-	c.Assert(err, gc.ErrorMatches, `getting controller info: model "whatever:whatever" not found`)
+	c.Assert(err, gc.ErrorMatches, `getting controller info: model "whatever:admin" not found`)
 	c.Assert(cfg, gc.IsNil)
 }
 
 func (s *NewAPIClientSuite) TestGetBootstrapConfigNoBootstrapConfig(c *gc.C) {
 	store := configstore.NewMem()
-	info := store.CreateInfo("whatever:whatever")
+	info := store.CreateInfo("whatever:admin")
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := juju.GetBootstrapConfig(store, "whatever", "")
@@ -377,7 +371,7 @@ func (s *NewAPIClientSuite) TestGetBootstrapConfigNoBootstrapConfig(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestGetBootstrapConfigBadConfigDoesntPanic(c *gc.C) {
 	store := configstore.NewMem()
-	info := store.CreateInfo("whatever:whatever")
+	info := store.CreateInfo("whatever:admin")
 	info.SetBootstrapConfig(map[string]interface{}{"something": "else"})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -540,7 +534,7 @@ type environInfo struct {
 // for the environment name.
 func newConfigStore(envName string, info *environInfo) configstore.Storage {
 	store := configstore.NewMem()
-	newInfo := store.CreateInfo(envName + ":" + envName)
+	newInfo := store.CreateInfo(envName + ":admin")
 	newInfo.SetAPICredentials(info.creds)
 	newInfo.SetAPIEndpoint(info.endpoint)
 	newInfo.SetBootstrapConfig(info.bootstrapConfig)
@@ -553,7 +547,7 @@ func newConfigStore(envName string, info *environInfo) configstore.Storage {
 
 // newClientStore returns a client store that contains information
 // based on the given controller namd and info.
-func newClientStore(c *gc.C, controllerName string, info *environInfo) jujuclient.ClientStore {
+func newClientStore(c *gc.C, controllerName string, info *environInfo) *jujuclienttesting.MemStore {
 	store := jujuclienttesting.NewMemStore()
 	err := store.UpdateController(controllerName, jujuclient.ControllerDetails{
 		info.endpoint.Hostnames,
@@ -592,44 +586,6 @@ func newClientStore(c *gc.C, controllerName string, info *environInfo) jujuclien
 	}
 
 	return store
-}
-
-type storageWithWriteNotify struct {
-	written bool
-	store   configstore.Storage
-}
-
-func (*storageWithWriteNotify) CreateInfo(envName string) configstore.EnvironInfo {
-	panic("CreateInfo not implemented")
-}
-
-func (*storageWithWriteNotify) List() ([]string, error) {
-	return nil, nil
-}
-
-func (*storageWithWriteNotify) ListSystems() ([]string, error) {
-	return []string{"noconfig:noconfig"}, nil
-}
-
-func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
-	info, err := s.store.ReadInfo(envName)
-	if err != nil {
-		return nil, err
-	}
-	return &infoWithWriteNotify{
-		written:     &s.written,
-		EnvironInfo: info,
-	}, nil
-}
-
-type infoWithWriteNotify struct {
-	configstore.EnvironInfo
-	written *bool
-}
-
-func (info *infoWithWriteNotify) Write() error {
-	*info.written = true
-	return info.EnvironInfo.Write()
 }
 
 type CacheAPIEndpointsSuite struct {

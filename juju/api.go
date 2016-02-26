@@ -170,7 +170,10 @@ func newAPIFromStore(
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
 	hostPorts := st.APIHostPorts()
-	if localerr := UpdateControllerAddresses(store, legacyStore, controllerName, hostPorts, addrConnectedTo); localerr != nil {
+	if localerr := updateControllerAddresses(
+		store, legacyStore, controllerName, controllerDetails,
+		hostPorts, addrConnectedTo,
+	); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -279,7 +282,7 @@ func getBootstrapConfig(legacyStore configstore.Storage, controllerName, modelNa
 	// TODO(axw) model name will be unnecessary when we stop using
 	// configstore.
 	if modelName == "" {
-		modelName = configstore.AdminModelName(controllerName)
+		modelName = configstore.AdminModelName
 	}
 	// TODO(axw) we need to store bootstrap config, or enough information
 	// to derive it, in jujuclient.
@@ -420,12 +423,21 @@ func UpdateControllerAddresses(
 	store jujuclient.ControllerStore, legacystore configstore.Storage, controllerName string,
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
-
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	return updateControllerAddresses(
+		store, legacystore, controllerName, controllerDetails,
+		currentHostPorts, addrConnectedTo...,
+	)
+}
 
+func updateControllerAddresses(
+	store jujuclient.ControllerStore, legacystore configstore.Storage,
+	controllerName string, controllerDetails *jujuclient.ControllerDetails,
+	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+) error {
 	// TODO(wallyworld) - stop storing legacy controller info when all code ported across to use new yaml files.
 	var controllerInfo configstore.EnvironInfo
 	var matchingModelInfos []configstore.EnvironInfo

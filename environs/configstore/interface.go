@@ -5,7 +5,6 @@ package configstore
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
 )
@@ -80,16 +79,9 @@ func EnvironInfoName(controller, model string) string {
 
 // AdminModelName returns the name of the admin model for a given controller.
 //
-// NOTE(axw) when configstore is gone, and CI is updated, we'll get rid of
-// this; the admin model name will always be "admin" in future.
-func AdminModelName(controller string) string {
-	const prefix = "local."
-	if strings.HasPrefix(controller, prefix) {
-		return controller[len(prefix):]
-	}
-	// Hack for tests.
-	return controller
-}
+// NOTE(axw) when configstore is gone, we'll move this to the bootstrap
+// command code.
+const AdminModelName = "admin"
 
 // EnvironInfo holds information associated with an environment.
 type EnvironInfo interface {

@@ -91,23 +91,16 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
-	store, err := configstore.Default()
+	legacyStore, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
 	controllerName := c.ControllerName()
-	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
-		controllerName, configstore.AdminModelName(controllerName),
-	))
+	store := c.ClientStore()
+	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
-		return errors.Annotate(err, "cannot read controller info")
-	}
-
-	// Verify that we're destroying a controller
-	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ControllerName())
+		return errors.Trace(err)
 	}
 
 	if !c.assumeYes {
@@ -125,6 +118,16 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Obtain bootstrap / controller environ information
+	//
+	// TODO(axw) you should not require bootstrap config to be available
+	// at all to destroy the controller. Use the API to get the admin
+	// model config and construct the Environ from that.
+	cfgInfo, err := legacyStore.ReadInfo(configstore.EnvironInfoName(
+		controllerName, configstore.AdminModelName,
+	))
+	if err != nil {
+		return errors.Annotate(err, "cannot read controller info")
+	}
 	controllerEnviron, err := c.getControllerEnviron(cfgInfo, api)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
@@ -140,7 +143,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if c.destroyEnvs {
 		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
 
-		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
 		for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 			ctx.Infof(fmtCtrStatus(ctrStatus))
 			for _, envStatus := range envsStatus {
@@ -150,7 +153,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 	}
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
+	return environs.Destroy(c.ControllerName(), controllerEnviron, legacyStore, store)
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
