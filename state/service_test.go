@@ -622,10 +622,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, s.charm.URL())
 
-				cfg := state.SetCharmConfig{
-					Charm:      sch,
-					ForceUnits: true,
-				}
+				cfg := state.SetCharmConfig{Charm: sch}
 				err = s.mysql.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -651,7 +648,11 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 		},
 	).Check()
 
-	err := s.mysql.SetCharm(sch, false, true)
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -659,7 +660,8 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 	revno := 2 // revno 1 is used by SetUpSuite
 	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
-	err := s.mysql.SetCharm(oldCh, false, false)
+	cfg := state.SetCharmConfig{Charm: oldCh}
+	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State,
@@ -670,7 +672,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		nil, // Ensure there will be a retry.
 	).Check()
 
-	cfg := state.SetCharmConfig{
+	cfg = state.SetCharmConfig{
 		Charm:      newCh,
 		ForceUnits: true,
 	}
