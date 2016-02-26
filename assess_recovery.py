@@ -36,19 +36,10 @@ def deploy_stack(client, charm_prefix):
     """"Deploy a simple stack, state-server and ubuntu."""
     if charm_prefix and not charm_prefix.endswith('/'):
         charm_prefix = charm_prefix + '/'
-    agent_version = client.get_matching_agent_version()
-    instance_id = client.get_status().status['machines']['0']['instance-id']
-    for ignored in until_timeout(30):
-        agent_versions = client.get_status().get_agent_versions()
-        if 'unknown' not in agent_versions and len(agent_versions) == 1:
-            break
-    if agent_versions.keys() != [agent_version]:
-        print_now("Current versions: %s" % ', '.join(agent_versions.keys()))
-        client.juju('upgrade-juju', ('--version', agent_version))
-    client.wait_for_version(client.get_matching_agent_version())
     client.juju('deploy', (charm_prefix + 'ubuntu',))
     client.wait_for_started().status
     print_now("%s is ready to testing" % client.env.environment)
+    instance_id = client.get_status().status['machines']['0']['instance-id']
     return instance_id
 
 
