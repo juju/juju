@@ -543,11 +543,7 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[str
 
 	if len(resourceIDs) > 0 {
 		// Collect pending resource resolution operations.
-		resources, err := s.st.Resources()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resOps, err := resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
+		resOps, err := s.resolveResourceOps(resourceIDs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -599,6 +595,15 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[str
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
+}
+
+func (s *Service) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
+	// Collect pending resource resolution operations.
+	resources, err := s.st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
 }
 
 // SetCharmConfig sets the charm for the service.

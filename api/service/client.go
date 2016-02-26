@@ -135,7 +135,7 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 	return charm.ParseURL(result.Result)
 }
 
-// SetCharmConfig holds the configuration for setting a new version of a charm
+// SetCharmConfig holds the configuration for setting a new revision of a charm
 // on a service.
 type SetCharmConfig struct {
 	// ServiceName is the name of the service to set the charm on.
