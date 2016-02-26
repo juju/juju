@@ -9,10 +9,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -29,10 +27,7 @@ func (s *modelmanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	return modelmanager.NewClient(conn)
+	return modelmanager.NewClient(s.APIState)
 }
 
 func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {

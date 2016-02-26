@@ -41,6 +41,7 @@ import (
 	_ "github.com/juju/juju/apiserver/proxyupdater"
 	_ "github.com/juju/juju/apiserver/reboot"
 	_ "github.com/juju/juju/apiserver/resumer"
+	_ "github.com/juju/juju/apiserver/retrystrategy"
 	_ "github.com/juju/juju/apiserver/service"
 	_ "github.com/juju/juju/apiserver/spaces"
 	_ "github.com/juju/juju/apiserver/statushistory"

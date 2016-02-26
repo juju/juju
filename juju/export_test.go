@@ -8,13 +8,12 @@ import (
 
 var (
 	ProviderConnectDelay   = &providerConnectDelay
-	GetConfig              = getConfig
-	EnvironInfoUserTag     = environInfoUserTag
+	GetBootstrapConfig     = getBootstrapConfig
 	MaybePreferIPv6        = &maybePreferIPv6
 	ResolveOrDropHostnames = &resolveOrDropHostnames
 	ServerAddress          = &serverAddress
 )
 
-func NewAPIFromStore(controllerName, modelName string, store configstore.Storage, controllerStore jujuclient.ClientStore, f api.OpenFunc) (api.Connection, error) {
-	return newAPIFromStore(controllerName, modelName, store, controllerStore, f, nil)
+func NewAPIFromStore(controllerName, accountName, modelName string, store configstore.Storage, controllerStore jujuclient.ClientStore, f api.OpenFunc) (api.Connection, error) {
+	return newAPIFromStore(controllerName, accountName, modelName, store, controllerStore, f, nil)
 }

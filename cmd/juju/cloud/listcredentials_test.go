@@ -4,9 +4,6 @@
 package cloud_test
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -14,14 +11,14 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type listCredentialsSuite struct {
 	testing.BaseSuite
-
-	jujuXDGDataHome string
+	store jujuclient.CredentialGetter
 }
 
 var _ = gc.Suite(&listCredentialsSuite{})
@@ -65,18 +62,9 @@ var sampleCredentials = map[string]jujucloud.CloudCredential{
 
 func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.jujuXDGDataHome = c.MkDir()
-	oldJujuXDGDataHome := osenv.SetJujuXDGDataHome(s.jujuXDGDataHome)
-	s.AddCleanup(func(c *gc.C) {
-		osenv.SetJujuXDGDataHome(oldJujuXDGDataHome)
-	})
-
-	// Write $XDG_DATA_HOME/juju/credentials.yaml.
-	data, err := jujucloud.MarshalCredentials(sampleCredentials)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(s.jujuXDGDataHome, "credentials.yaml"), data, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	s.store = &jujuclienttesting.MemStore{
+		Credentials: sampleCredentials,
+	}
 }
 
 func (s *listCredentialsSuite) TestListCredentialsTabular(c *gc.C) {
@@ -143,23 +131,25 @@ func (s *listCredentialsSuite) TestListCredentialsJSON(c *gc.C) {
 	c.Skip("not implemented: credentials don't marshal to JSON yet")
 }
 
-func (s *listCredentialsSuite) TestListCredentialsFileMissing(c *gc.C) {
-	err := os.RemoveAll(s.jujuXDGDataHome)
+func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
+	listCmd := cloud.NewListCredentialsCommandForTest(jujuclienttesting.NewMemStore())
+	ctx, err := testing.RunCommand(c, listCmd)
 	c.Assert(err, jc.ErrorIsNil)
-
-	out := s.listCredentials(c)
-	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	out := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "CLOUD  CREDENTIALS")
 
-	out = s.listCredentials(c, "--format", "yaml")
-	out = strings.Replace(out, "\n", "", -1)
+	ctx, err = testing.RunCommand(c, listCmd, "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
 	c.Assert(out, gc.Equals, "credentials: {}")
 
 	// TODO(axw) test json once json marshaling works properly
 }
 
 func (s *listCredentialsSuite) listCredentials(c *gc.C, args ...string) string {
-	ctx, err := testing.RunCommand(c, cloud.NewListCredentialsCommand(), args...)
+	ctx, err := testing.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	return testing.Stdout(ctx)
