@@ -85,7 +85,8 @@ type client struct {
 // config.
 func NewClient(config csclient.Params) Client {
 	base := csclient.New(config)
-	return WrapBaseClient(base, nil)
+	closer := ioutil.NopCloser(nil)
+	return WrapBaseClient(base, closer)
 }
 
 // NewDefaultClient returns a Juju charm store client using a default
@@ -95,11 +96,10 @@ func NewDefaultClient() Client {
 }
 
 // WrapBaseClient returns a Juju charm store client that wraps
-// the provided client.
+// the provided client. The given closer is used to close resources
+// related to the client. If no closer is needed then pass in a no-op
+// closer (e.g. ioutil.NopCloser).
 func WrapBaseClient(base *csclient.Client, closer io.Closer) Client {
-	if closer == nil {
-		closer = ioutil.NopCloser(nil)
-	}
 	return &client{
 		Client: base,
 		Closer: closer,
