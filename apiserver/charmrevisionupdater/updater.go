@@ -57,19 +57,6 @@ func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult,
 }
 
 func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
-	// First get the uuid for the environment to use when querying the charm store.
-	env, err := api.state.Model()
-	if err != nil {
-		return err
-	}
-	uuid := env.UUID()
-
-	// Look up all the services in the model.
-	services, err := api.state.AllServices()
-	if err != nil {
-		return err
-	}
-
 	// Get the handlers to use.
 	handlers, err := createHandlers(api.state)
 	if err != nil {
@@ -78,22 +65,22 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 
 	// Look up the information for all the deployed charms. This is the
 	// "expensive" part.
-	latest, err := retrieveLatestCharmInfo(services, uuid)
+	latest, err := retrieveLatestCharmInfo(api.state)
 	if err != nil {
 		return err
 	}
 
 	// Process the resulting info for each charm.
-	for i, info := range latest {
+	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
 		if err = api.state.AddStoreCharmPlaceholder(info.LatestURL()); err != nil {
 			return err
 		}
 
 		// Then run through the handlers.
-		serviceID := services[i].ServiceTag()
+		serviceID := info.service.ServiceTag()
 		for _, handler := range handlers {
-			if err := handler.HandleLatest(serviceID, info); err != nil {
+			if err := handler.HandleLatest(serviceID, info.CharmInfo); err != nil {
 				return err
 			}
 		}
@@ -109,10 +96,28 @@ var NewCharmStoreClient = func() charmstore.Client {
 	return charmstore.NewClient(nil)
 }
 
+type latestCharmInfo struct {
+	charmstore.CharmInfo
+	service *state.Service
+}
+
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
-func retrieveLatestCharmInfo(services []*state.Service, uuid string) ([]charmstore.CharmInfo, error) {
+func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
+	// First get the uuid for the environment to use when querying the charm store.
+	env, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	uuid := env.UUID()
+
+	services, err := st.AllServices()
+	if err != nil {
+		return nil, err
+	}
+
 	var curls []*charm.URL
+	var resultsIndexedServices []*state.Service
 	for _, service := range services {
 		curl, _ := service.CharmURL()
 		if curl.Schema == "local" {
@@ -122,6 +127,7 @@ func retrieveLatestCharmInfo(services []*state.Service, uuid string) ([]charmsto
 			continue
 		}
 		curls = append(curls, curl)
+		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 
 	client := NewCharmStoreClient()
@@ -131,13 +137,17 @@ func retrieveLatestCharmInfo(services []*state.Service, uuid string) ([]charmsto
 		return nil, err
 	}
 
-	var latest []charmstore.CharmInfo
+	var latest []latestCharmInfo
 	for i, result := range results {
 		if result.Error != nil {
 			logger.Errorf("retrieving charm info for %s: %v", curls[i], result.Error)
 			continue
 		}
-		latest = append(latest, result.CharmInfo)
+		service := resultsIndexedServices[i]
+		latest = append(latest, latestCharmInfo{
+			CharmInfo: result.CharmInfo,
+			service:   service,
+		})
 	}
 	return latest, nil
 }
