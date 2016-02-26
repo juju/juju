@@ -11,27 +11,32 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type removeBlocksSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
-	api *fakeRemoveBlocksAPI
+	baseControllerSuite
+	api   *fakeRemoveBlocksAPI
+	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&removeBlocksSuite{})
 
 func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.baseControllerSuite.SetUpTest(c)
 
 	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api = &fakeRemoveBlocksAPI{}
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 }
 
 func (s *removeBlocksSuite) newCommand() cmd.Command {
-	return controller.NewRemoveBlocksCommandForTest(s.api)
+	return controller.NewRemoveBlocksCommandForTest(s.api, s.store)
 }
 
 func (s *removeBlocksSuite) TestRemove(c *gc.C) {

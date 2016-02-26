@@ -6,6 +6,7 @@ package cloudsigma
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 type environProviderCredentials struct{}
@@ -26,6 +27,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
+func (environProviderCredentials) DetectCredentials() ([]environs.LabeledCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }
