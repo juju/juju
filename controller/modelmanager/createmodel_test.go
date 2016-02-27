@@ -4,20 +4,182 @@
 package modelmanager_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/provider/all"
+	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	_ "github.com/juju/juju/provider/ec2"
+	_ "github.com/juju/juju/provider/joyent"
+	_ "github.com/juju/juju/provider/maas"
+	_ "github.com/juju/juju/provider/openstack"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
-// TODO(axw) unit tests for ModelConfigCreator.NewModelConfig. Currently,
-// it is exercised via agentbootstrap and apiserver/modelmanager tests.
+type ModelConfigCreatorSuite struct {
+	coretesting.BaseSuite
+	creator    modelmanager.ModelConfigCreator
+	baseConfig *config.Config
+}
+
+var _ = gc.Suite(&ModelConfigCreatorSuite{})
+
+func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.creator = modelmanager.ModelConfigCreator{}
+	baseConfig, err := config.New(
+		config.UseDefaults,
+		coretesting.FakeConfig().Merge(coretesting.Attrs{
+			"type":          "fake",
+			"restricted":    "area51",
+			"agent-version": "2.0.0",
+		}),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.baseConfig = baseConfig
+	fake.Reset()
+}
+
+func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
+	return s.creator.NewModelConfig(s.baseConfig, attrs)
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
+	newModelUUID := utils.MustNewUUID().String()
+	cfg, err := s.newModelConfig(coretesting.Attrs(
+		s.baseConfig.AllAttrs(),
+	).Merge(coretesting.Attrs{
+		"name":       "new-model",
+		"additional": "value",
+		"uuid":       newModelUUID,
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	expected := s.baseConfig.AllAttrs()
+	expected["name"] = "new-model"
+	expected["additional"] = "value"
+	expected["uuid"] = newModelUUID
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
+
+	fake.Stub.CheckCallNames(c,
+		"RestrictedConfigAttributes",
+		"PrepareForCreateEnvironment",
+		"Validate",
+	)
+	validateCall := fake.Stub.Calls()[2]
+	c.Assert(validateCall.Args, gc.HasLen, 2)
+	c.Assert(validateCall.Args[0], gc.Equals, cfg)
+	c.Assert(validateCall.Args[1], gc.IsNil)
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelBadConfig(c *gc.C) {
+	for i, test := range []struct {
+		key      string
+		value    interface{}
+		errMatch string
+	}{{
+		key:      "type",
+		value:    "dummy",
+		errMatch: `specified type "dummy" does not match controller "fake"`,
+	}, {
+		key:      "state-port",
+		value:    9876,
+		errMatch: `specified state-port "9876" does not match controller "19034"`,
+	}, {
+		key:      "restricted",
+		value:    51,
+		errMatch: `specified restricted "51" does not match controller "area51"`,
+	}} {
+		c.Logf("%d: %s", i, test.key)
+		_, err := s.newModelConfig(coretesting.Attrs(
+			s.baseConfig.AllAttrs(),
+		).Merge(coretesting.Attrs{
+			test.key: test.value,
+		}))
+		c.Check(err, gc.ErrorMatches, test.errMatch)
+	}
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelSameAgentVersion(c *gc.C) {
+	cfg, err := s.newModelConfig(coretesting.Attrs(
+		s.baseConfig.AllAttrs(),
+	).Merge(coretesting.Attrs{
+		"name": "new-model",
+		"uuid": utils.MustNewUUID().String(),
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	baseAgentVersion, ok := s.baseConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	agentVersion, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, baseAgentVersion)
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelGreaterAgentVersion(c *gc.C) {
+	_, err := s.newModelConfig(coretesting.Attrs(
+		s.baseConfig.AllAttrs(),
+	).Merge(coretesting.Attrs{
+		"name":          "new-model",
+		"uuid":          utils.MustNewUUID().String(),
+		"agent-version": "2.0.1",
+	}))
+	c.Assert(err, gc.ErrorMatches,
+		"agent-version .* cannot be greater than the controller .*")
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionNoToolsFinder(c *gc.C) {
+	_, err := s.newModelConfig(coretesting.Attrs(
+		s.baseConfig.AllAttrs(),
+	).Merge(coretesting.Attrs{
+		"name":          "new-model",
+		"uuid":          utils.MustNewUUID().String(),
+		"agent-version": "1.9.9",
+	}))
+	c.Assert(err, gc.ErrorMatches,
+		"agent-version does not match base config, and no tools-finder is supplied")
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderFound(c *gc.C) {
+	s.creator.FindTools = func(version.Number) (tools.List, error) {
+		return tools.List{{ /*contents don't matter, just need a non-empty list*/ }}, nil
+	}
+	cfg, err := s.newModelConfig(coretesting.Attrs(
+		s.baseConfig.AllAttrs(),
+	).Merge(coretesting.Attrs{
+		"name":          "new-model",
+		"uuid":          utils.MustNewUUID().String(),
+		"agent-version": "1.9.9",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, version.MustParse("1.9.9"))
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNotFound(c *gc.C) {
+	s.creator.FindTools = func(version.Number) (tools.List, error) {
+		return tools.List{}, nil
+	}
+	_, err := s.newModelConfig(coretesting.Attrs(
+		s.baseConfig.AllAttrs(),
+	).Merge(coretesting.Attrs{
+		"name":          "new-model",
+		"uuid":          utils.MustNewUUID().String(),
+		"agent-version": "1.9.9",
+	}))
+	c.Assert(err, gc.ErrorMatches, "no tools found for version .*")
+}
 
 type RestrictedProviderFieldsSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&RestrictedProviderFieldsSuite{})
@@ -67,4 +229,37 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(fields, jc.SameContents, test.expected)
 	}
+}
+
+type fakeProvider struct {
+	testing.Stub
+	environs.EnvironProvider
+	restrictedConfigAttributes []string
+}
+
+func (p *fakeProvider) Reset() {
+	p.Stub.ResetCalls()
+	p.restrictedConfigAttributes = []string{"restricted"}
+}
+
+func (p *fakeProvider) RestrictedConfigAttributes() []string {
+	p.MethodCall(p, "RestrictedConfigAttributes")
+	return p.restrictedConfigAttributes
+}
+
+func (p *fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "Validate", cfg, old)
+	return cfg, p.NextErr()
+}
+
+func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "PrepareForCreateEnvironment", cfg)
+	return cfg, p.NextErr()
+}
+
+var fake fakeProvider
+
+func init() {
+	fake.Reset()
+	environs.RegisterProvider("fake", &fake)
 }
