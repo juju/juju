@@ -363,7 +363,7 @@ class FakeJujuClient:
     def deployer(self, bundle, name=None):
         pass
 
-    def wait_for_workloads(self):
+    def wait_for_workloads(self, timeout=600):
         pass
 
     def get_juju_timings(self):

@@ -113,7 +113,7 @@ class TestAssessDeployer(tests.TestCase):
         with patch('run_deployer.check_health', autospec=True) as ch_mock:
             assess_deployer(args, client_mock)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
-        client_mock.wait_for_workloads.assert_called_once_with()
+        client_mock.wait_for_workloads.assert_called_once_with(timeout=1200)
         environ = client_mock._shell_environ()
         ch_mock.assert_called_once_with('/tmp/check', 'foo', environ)
 
@@ -126,7 +126,8 @@ class TestAssessDeployer(tests.TestCase):
         client_mock.show_status.assert_called_once_with()
         au_mock.assert_called_once_with(client_mock, 'new/juju')
         self.assertEqual(
-            client_mock.wait_for_workloads.call_args_list, [call()] * 2)
+            client_mock.wait_for_workloads.call_args_list,
+            [call(timeout=1200), call()])
 
     def test_upgrade_and_health(self):
         args = self.make_args(health_cmd='/tmp/check', juju_bin='new/juju',
@@ -139,7 +140,8 @@ class TestAssessDeployer(tests.TestCase):
         client_mock.show_status.assert_called_once_with()
         au_mock.assert_called_once_with(client_mock, 'new/juju')
         self.assertEqual(
-            client_mock.wait_for_workloads.call_args_list, [call()] * 2)
+            client_mock.wait_for_workloads.call_args_list,
+            [call(timeout=1200), call()])
         environ = client_mock._shell_environ()
         self.assertEqual(
             ch_mock.call_args_list, [call('/tmp/check', 'foo', environ)] * 2)
@@ -169,7 +171,7 @@ class TestAssessDeployer(tests.TestCase):
         assess_deployer(args, client_mock)
         client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
         client_mock.wait_for_started.assert_called_once_with()
-        client_mock.wait_for_workloads.assert_called_once_with()
+        client_mock.wait_for_workloads.assert_called_once_with(timeout=1200)
 
 
 class FakeRemote():
