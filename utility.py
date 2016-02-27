@@ -160,7 +160,7 @@ def wait_for_port(host, port, closed=False, timeout=30):
                 return
         except socket.error as e:
             if e.errno not in (errno.ECONNREFUSED, errno.ENETUNREACH,
-                               errno.ETIMEDOUT):
+                               errno.ETIMEDOUT, errno.EHOSTUNREACH):
                 raise
             if closed:
                 return
