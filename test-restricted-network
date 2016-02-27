@@ -51,23 +51,18 @@ RELEASE=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
 ARCH=$(ssh -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
     ubuntu@$instance_name dpkg --print-architecture)
 
-juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
-juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-
 if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-$SCRIPTS/jujuci.py get assemble-streams $juju_local_deb debs
-$SCRIPTS/jujuci.py get assemble-streams $juju_core_deb debs
+$SCRIPTS/jujuci.py get build-binary-trusty-$ARCH juju*.deb debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
-  debs/$juju_local_deb debs/$juju_core_deb ubuntu@$instance_name:
+  debs/*.deb ubuntu@$instance_name:
 
 set +e
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    ubuntu@$instance_name "SERIES=$SERIES juju_local_deb=$juju_local_deb\
-    juju_core_deb=$juju_core_deb bash"<<"EOT"
+    ubuntu@$instance_name "SERIES=$SERIES bash"<<"EOT"
 set -eux
 for attempt in $(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
@@ -89,7 +84,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr
 # prevent spurious failure on success
 rm .bash_logout
 afact=lastSuccessfulBuild/artifact
-sudo dpkg -i $juju_core_deb $juju_local_deb || true
+sudo dpkg -i *.deb || true
 sudo apt-get install -y -f
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/$SERIES
