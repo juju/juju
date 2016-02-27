@@ -55,7 +55,8 @@ if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-$SCRIPTS/jujuci.py get build-binary-trusty-$ARCH juju*.deb debs
+$SCRIPTS/jujuci.py get -b lastSuccessfulBuild \
+    build-binary-trusty-$ARCH juju*.deb debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
   debs/*.deb ubuntu@$instance_name:
