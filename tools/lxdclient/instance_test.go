@@ -73,11 +73,11 @@ func (s *instanceSuite) TestNewInstanceSummaryMemory(c *gc.C) {
 	summary = lxdclient.NewInstanceSummary(infoWithMemory("blah"))
 	c.Check(summary.Hardware.MemoryMB, gc.Equals, uint(0))
 	// Too big to fit in uint
-	tooBig := fmt.Sprintf("%dMB", math.MaxUint32+1)
+	tooBig := fmt.Sprintf("%vMB", uint64(math.MaxUint32)+1)
 	summary = lxdclient.NewInstanceSummary(infoWithMemory(tooBig))
 	c.Check(summary.Hardware.MemoryMB, gc.Equals, uint(math.MaxUint32))
 	// Just big enough
-	justEnough := fmt.Sprintf("%dMB", math.MaxUint32-1)
+	justEnough := fmt.Sprintf("%vMB", uint(math.MaxUint32)-1)
 	summary = lxdclient.NewInstanceSummary(infoWithMemory(justEnough))
 	c.Check(summary.Hardware.MemoryMB, gc.Equals, uint(math.MaxUint32-1))
 }
