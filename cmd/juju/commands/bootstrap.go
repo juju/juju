@@ -240,6 +240,11 @@ var (
 	environsDestroy = environs.Destroy
 )
 
+var ambiguousCredentialError = errors.New(`
+more than one credential detected
+run juju autoload-credentials and specify a credential using the --credential argument`[1:],
+)
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -305,12 +310,22 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return errors.Annotatef(err, "detecting credentials for %q cloud provider", c.Cloud)
 		}
 		logger.Tracef("provider detected credentials: %v", detected)
-		if len(detected) == 0 {
+		if len(detected.AuthCredentials) == 0 {
 			return errors.NotFoundf("credentials for cloud %q", c.Cloud)
 		}
-		credential = &detected[0].Credential
+		if len(detected.AuthCredentials) > 1 {
+			return ambiguousCredentialError
+		}
+		// We have one credential so extract it from the map.
+		var oneCredential jujucloud.Credential
+		for _, oneCredential = range detected.AuthCredentials {
+		}
+		credential = &oneCredential
 		regionName = c.Region
-		logger.Tracef("authenticating with %v", credential)
+		if regionName == "" {
+			regionName = detected.DefaultRegion
+		}
+		logger.Tracef("authenticating with region %q and %v", regionName, credential)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
