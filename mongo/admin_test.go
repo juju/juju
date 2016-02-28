@@ -70,10 +70,11 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 		"--sslPEMKeyPassword", "ignored",
 		"--bind_ip", "127.0.0.1",
 		"--port", portString,
-		"--noprealloc",
 		"--syslog",
-		"--smallfiles",
 		"--journal",
+		"--quiet",
+		"--noprealloc",
+		"--smallfiles",
 	)
 
 	// Second call succeeds, as the admin user is already there.
@@ -110,10 +111,11 @@ func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, pass
 	port, err := strconv.Atoi(portString)
 	c.Assert(err, jc.ErrorIsNil)
 	return mongo.EnsureAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo: dialInfo,
-		Port:     port,
-		User:     user,
-		Password: password,
+		DialInfo:     dialInfo,
+		Port:         port,
+		User:         user,
+		Password:     password,
+		MongoVersion: mongo.Mongo24,
 	})
 }
 

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -487,24 +488,22 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
-	// Backwards compatibility, passing ModelTag = "" should just work
-	info.ModelTag = names.NewModelTag("")
-	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	apistate.Close()
 
-	// Passing in the correct model UUID should also work
+	// Passing in the correct model UUID should work
 	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = environ.ModelTag()
-	apistate, err = api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
 	// Passing in a bad model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef-123456"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown model: "dead-beef-123456"`,
+		Code:    "not found",
+	})
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
 }

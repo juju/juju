@@ -167,6 +167,17 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, jc.ErrorIsNil)
 
+			ds, err := sync.SelectSourceDatasource(test.ctx)
+			c.Assert(err, jc.ErrorIsNil)
+
+			// This data source does not require to contain signed data.
+			// However, it may still contain it.
+			// Since we will always try to read signed data first,
+			// we want to be able to try to read this signed data
+			// with public key with Juju-known public key for tools.
+			// Bugs #1542127, #1542131
+			c.Assert(ds.PublicSigningKey(), gc.Not(gc.Equals), "")
+
 			var uploaded []version.Binary
 			for v := range uploader.uploaded {
 				uploaded = append(uploaded, v)

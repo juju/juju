@@ -401,42 +401,6 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
-			about: "network interfaces",
-			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
-				m := f.MakeMachine(c, &factory.MachineParams{})
-				c.Assert(m.Id(), gc.Equals, "0")
-
-				return m.WatchInterfaces()
-			},
-			setUpState: func(st *state.State) bool {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-
-				_, err = st.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
-				c.Assert(err, jc.ErrorIsNil)
-
-				_, err = m.AddNetworkInterface(state.NetworkInterfaceInfo{
-					MACAddress:    "aa:bb:cc:dd:ee:ff",
-					InterfaceName: "eth0",
-					NetworkName:   "net1",
-					IsVirtual:     false,
-				})
-				c.Assert(err, jc.ErrorIsNil)
-				return true
-			},
-			triggerEvent: func(st *state.State) {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-				_, err = m.NetworkInterfaces()
-				c.Assert(err, jc.ErrorIsNil)
-
-				ifaces, err := m.NetworkInterfaces()
-				c.Assert(err, jc.ErrorIsNil)
-				err = ifaces[0].Disable()
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
 			about: "cleanups",
 			getWatcher: func(st *state.State) interface{} {
 				return st.WatchCleanups()
@@ -1937,6 +1901,122 @@ func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "user-notAuser", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": model user "notAuser@local" not found`)
+}
+
+func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
+	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
+	svc, err := s.State.AddService(state.AddServiceArgs{
+		Name:  "yoursql",
+		Owner: s.Owner.String(),
+		Charm: ch,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Read them back to verify defaults and given bindings got merged as
+	// expected.
+	bindings, err := svc.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, jc.DeepEquals, map[string]string{
+		"server":  "",
+		"client":  "",
+		"cluster": "",
+	})
+
+	// Removing the service also removes its bindings.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = svc.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state.AssertEndpointBindingsNotFoundForService(c, svc)
+}
+
+func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
+	// Add extra spaces to use in bindings.
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("client", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Specify some bindings, but not all when adding the service.
+	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
+	svc, err := s.State.AddService(state.AddServiceArgs{
+		Name:  "yoursql",
+		Owner: s.Owner.String(),
+		Charm: ch,
+		EndpointBindings: map[string]string{
+			"client":  "client",
+			"cluster": "db",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Read them back to verify defaults and given bindings got merged as
+	// expected.
+	bindings, err := svc.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, jc.DeepEquals, map[string]string{
+		"server":  "", // inherited from defaults.
+		"client":  "client",
+		"cluster": "db",
+	})
+}
+
+func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
+	charm := s.AddMetaCharm(c, "mysql", metaBase, 44)
+	// Add extra spaces to use in bindings.
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("client", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, test := range []struct {
+		about         string
+		bindings      map[string]string
+		expectedError string
+	}{{
+		about:         "extra endpoint bound to unknown space",
+		bindings:      map[string]string{"extra": "missing"},
+		expectedError: `unknown endpoint "extra" not valid`,
+	}, {
+		about:         "ensure network.DefaultSpace is not treated specially",
+		bindings:      map[string]string{"server": network.DefaultSpace},
+		expectedError: `unknown space "default" not valid`,
+	}, {
+		about:         "extra endpoint not bound to a space",
+		bindings:      map[string]string{"extra": ""},
+		expectedError: `unknown endpoint "extra" not valid`,
+	}, {
+		about:         "two extra endpoints, both bound to known spaces",
+		bindings:      map[string]string{"ex1": "db", "ex2": "client"},
+		expectedError: `unknown endpoint "ex(1|2)" not valid`,
+	}, {
+		about:         "empty endpoint bound to unknown space",
+		bindings:      map[string]string{"": "anything"},
+		expectedError: `unknown endpoint "" not valid`,
+	}, {
+		about:         "empty endpoint not bound to a space",
+		bindings:      map[string]string{"": ""},
+		expectedError: `unknown endpoint "" not valid`,
+	}, {
+		about:         "known endpoint bound to unknown space",
+		bindings:      map[string]string{"server": "invalid"},
+		expectedError: `unknown space "invalid" not valid`,
+	}, {
+		about:         "known endpoint bound correctly and an extra endpoint",
+		bindings:      map[string]string{"server": "db", "foo": ""},
+		expectedError: `unknown endpoint "foo" not valid`,
+	}} {
+		c.Logf("test #%d: %s", i, test.about)
+
+		_, err := s.State.AddService(state.AddServiceArgs{
+			Name:             "yoursql",
+			Owner:            s.Owner.String(),
+			Charm:            charm,
+			EndpointBindings: test.bindings,
+		})
+		c.Check(err, gc.ErrorMatches, `cannot add service "yoursql": `+test.expectedError)
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+	}
 }
 
 func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {

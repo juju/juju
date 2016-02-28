@@ -143,7 +143,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	assertNotProvisioned := func(err error) {
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned`)
+		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
 	}
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -283,14 +283,7 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 
 func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.

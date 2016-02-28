@@ -16,7 +16,6 @@ import (
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
 	statebackups "github.com/juju/juju/state/backups"
 )
 
@@ -32,16 +31,11 @@ const backupsPurpose = "create, manage, and restore backups of juju's state"
 
 // NewSuperCommand returns a new backups super-command.
 func NewSuperCommand() cmd.Command {
-	log := &cmd.Log{
-		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
-	}
-
 	backupsCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "backups",
 		Doc:         backupsDoc,
 		UsagePrefix: "juju",
 		Purpose:     backupsPurpose,
-		Log:         log,
 	})
 	backupsCmd.Register(newCreateCommand())
 	backupsCmd.Register(newInfoCommand())

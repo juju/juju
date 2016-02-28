@@ -90,16 +90,29 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
 		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
 		c.Assert(args.Services[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-		c.Assert(args.Services[0].Networks, gc.DeepEquals, []string{"neta"})
+		c.Assert(args.Services[0].EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
 		c.Assert(args.Services[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+		c.Assert(args.Services[0].Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := s.client.Deploy("charmURL", "serviceA", "series", 2, "configYAML", constraints.MustParse("mem=4G"),
-		[]*instance.Placement{{"scope", "directive"}}, []string{"neta"},
-		map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+
+	args := service.DeployArgs{
+		CharmURL:         "charmURL",
+		ServiceName:      "serviceA",
+		Series:           "series",
+		NumUnits:         2,
+		ConfigYAML:       "configYAML",
+		Cons:             constraints.MustParse("mem=4G"),
+		Placement:        []*instance.Placement{{"scope", "directive"}},
+		Networks:         []string{"neta"},
+		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		Resources:        map[string]string{"foo": "bar"},
+		EndpointBindings: map[string]string{"foo": "bar"},
+	}
+	err := s.client.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

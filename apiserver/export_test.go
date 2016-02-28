@@ -22,10 +22,11 @@ import (
 )
 
 var (
-	NewPingTimeout        = newPingTimeout
-	MaxClientPingInterval = &maxClientPingInterval
-	MongoPingInterval     = &mongoPingInterval
-	NewBackups            = &newBackups
+	NewPingTimeout               = newPingTimeout
+	MaxClientPingInterval        = &maxClientPingInterval
+	MongoPingInterval            = &mongoPingInterval
+	NewBackups                   = &newBackups
+	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -158,12 +159,8 @@ func SetAdminApiVersions(srv *Server, versions ...int) {
 	factories := make(map[int]adminApiFactory)
 	for _, n := range versions {
 		switch n {
-		case 0:
-			factories[n] = newAdminApiV0
-		case 1:
-			factories[n] = newAdminApiV1
-		case 2:
-			factories[n] = newAdminApiV2
+		case 3:
+			factories[n] = newAdminApiV3
 		default:
 			panic(fmt.Errorf("unknown admin API version %d", n))
 		}

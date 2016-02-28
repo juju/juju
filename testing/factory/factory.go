@@ -13,9 +13,12 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
@@ -23,6 +26,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -80,10 +84,11 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name    string
-	Charm   *state.Charm
-	Creator names.Tag
-	Status  *state.StatusInfo
+	Name     string
+	Charm    *state.Charm
+	Creator  names.Tag
+	Status   *state.StatusInfo
+	Settings map[string]interface{}
 }
 
 // UnitParams are used to create units.
@@ -112,7 +117,12 @@ type ModelParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
-	Prepare     bool
+
+	// If Prepare is true, the environment will be "prepared for bootstrap".
+	Prepare       bool
+	Credential    *cloud.Credential
+	CloudEndpoint string
+	CloudRegion   string
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -230,32 +240,43 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return params
-}
-
-func machineParamsToTemplate(p *MachineParams) state.MachineTemplate {
-	return state.MachineTemplate{
-		Series:     p.Series,
-		Nonce:      p.Nonce,
-		Jobs:       p.Jobs,
-		InstanceId: p.InstanceId,
+	if params.Characteristics == nil {
+		arch := "amd64"
+		mem := uint64(64 * 1024 * 1024 * 1024)
+		hardware := instance.HardwareCharacteristics{
+			Arch: &arch,
+			Mem:  &mem,
+		}
+		params.Characteristics = &hardware
 	}
+
+	return params
 }
 
 // MakeMachineNested will make a machine nested in the machine with ID given.
 func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
-	mTmpl := machineParamsToTemplate(params)
-	// Cannot specify an instance id for a new container.
-	mTmpl.InstanceId = ""
-	// Cannot specify a nonce without an instance ID.
-	mTmpl.Nonce = ""
+	machineTemplate := state.MachineTemplate{
+		Series:      params.Series,
+		Jobs:        params.Jobs,
+		Volumes:     params.Volumes,
+		Filesystems: params.Filesystems,
+	}
 
 	m, err := factory.st.AddMachineInsideMachine(
-		mTmpl,
+		machineTemplate,
 		parentId,
 		instance.LXC,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+	c.Assert(err, jc.ErrorIsNil)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
 }
@@ -291,6 +312,13 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = machine.SetAgentVersion(current)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password
 }
 
@@ -346,7 +374,12 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(state.AddServiceArgs{Name: params.Name, Owner: params.Creator.String(), Charm: params.Charm})
+	service, err := factory.st.AddService(state.AddServiceArgs{
+		Name:     params.Name,
+		Owner:    params.Creator.String(),
+		Charm:    params.Charm,
+		Settings: charm.Settings(params.Settings),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -386,6 +419,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	unit, err := params.Service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentTools := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: params.Service.Series(),
+	}
+	err = unit.SetAgentVersion(agentTools)
 	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
 		serviceCharmURL, _ := params.Service.CharmURL()
@@ -514,10 +555,20 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Prepare {
+		if params.Credential == nil {
+			emptyCredential := cloud.NewEmptyCredential()
+			params.Credential = &emptyCredential
+		}
+		args := environs.PrepareForBootstrapParams{
+			Config:        cfg,
+			Credentials:   *params.Credential,
+			CloudEndpoint: params.CloudEndpoint,
+			CloudRegion:   params.CloudRegion,
+		}
 		// Prepare the environment.
 		provider, err := environs.Provider(cfg.Type())
 		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), args)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
 		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
