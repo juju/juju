@@ -27,6 +27,10 @@ from utility import until_timeout
 __metaclass__ = type
 
 
+CONSOLE_TEXT = 'consoleText'
+RESULT_RESULTS = 'result-results.json'
+
+
 class JenkinsBuild:
     """
     Retrieves Jenkins build information
@@ -88,7 +92,7 @@ class JenkinsBuild:
         Return Jenkins build console log
         :rtype: str
         """
-        log_url = urlparse.urljoin(self.build_info['url'], 'consoleText')
+        log_url = urlparse.urljoin(self.build_info['url'], CONSOLE_TEXT)
         return requests.get(
             log_url, auth=HTTPBasicAuth(
                 self.credentials.user, self.credentials.password)).text
@@ -170,14 +174,15 @@ class S3Uploader:
     Uploads the result of a Jenkins job to S3.
     """
 
-    def __init__(self, s3, jenkins_build, unique_id=None):
+    def __init__(self, s3, jenkins_build, unique_id=None, no_prefixes=False):
         self.s3 = s3
         self.jenkins_build = jenkins_build
         self.unique_id = unique_id
+        self.no_prefixes = no_prefixes
 
     @classmethod
     def factory(cls, credentials, jenkins_job, build_number, bucket,
-                directory, unique_id=None):
+                directory, unique_id=None, no_prefixes=False):
         """
         Creates S3Uploader.
         :param credentials: Jenkins credential
@@ -192,7 +197,8 @@ class S3Uploader:
         jenkins_build = JenkinsBuild.factory(
             credentials=credentials, job_name=jenkins_job,
             build_number=build_number)
-        return cls(s3, jenkins_build, unique_id)
+        return cls(s3, jenkins_build,
+                   unique_id=unique_id, no_prefixes=no_prefixes)
 
     def upload(self):
         """Uploads Jenkins job results, console logs and artifacts to S3.
@@ -242,7 +248,7 @@ class S3Uploader:
         self.upload()
 
     def upload_test_results(self):
-        filename = self._create_filename('result-results.json')
+        filename = self._create_filename(RESULT_RESULTS)
         headers = {"Content-Type": "application/json"}
         build_info = self.jenkins_build.get_build_info()
         if self.unique_id:
@@ -253,7 +259,7 @@ class S3Uploader:
             headers=headers)
 
     def upload_console_log(self):
-        filename = self._create_filename('console-consoleText.txt')
+        filename = self._create_filename(CONSOLE_TEXT)
         headers = {"Content-Type": "text/plain; charset=utf8"}
         self.s3.store(
             filename, self.jenkins_build.get_console_text(), headers=headers)
@@ -261,7 +267,7 @@ class S3Uploader:
     def upload_artifacts(self):
         headers = {"Content-Type": "application/octet-stream"}
         for filename, content in self.jenkins_build.artifacts():
-            filename = self._create_filename('log-' + filename)
+            filename = self._create_filename(filename)
             self.s3.store(filename, content, headers=headers)
 
     def _create_filename(self, filename):
@@ -271,6 +277,13 @@ class S3Uploader:
         :return: Filename
         :rtype: str
         """
+        if self.no_prefixes:
+            return filename
+        # Rules for dirs with files from several job builds.
+        if filename == CONSOLE_TEXT:
+            filename = 'console-consoleText.txt'
+        elif filename != RESULT_RESULTS:
+            filename = 'log-' + filename
         if self.unique_id:
             return "{}-{}".format(self.unique_id, filename)
         return str(self.jenkins_build.get_build_number()) + '-' + filename
@@ -299,6 +312,9 @@ def get_args(argv=None):
         '--unique-id',
         help='Unique ID to be used to generate file names. If this is not '
              'set, the parent build number will be used as a unique ID.')
+    parser.add_argument(
+        '--no-prefixes', action='store_true', default=False,
+        help='Do not add prefixes to file names; the s3_directory is unique.')
     add_credential_args(parser)
     args = parser.parse_args(argv)
     args.all = False
@@ -319,7 +335,8 @@ def main(argv=None):
     cred = get_credentials(args)
     uploader = S3Uploader.factory(
         cred, args.jenkins_job, args.build_number, args.s3_bucket,
-        args.s3_directory, unique_id=args.unique_id)
+        args.s3_directory, unique_id=args.unique_id,
+        no_prefixes=args.no_prefixes)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
         uploader.upload()

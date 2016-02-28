@@ -441,14 +441,37 @@ class TestS3Uploader(TestCase):
             self._make_upload(file_prefix=BUILD_NUM))
         h = S3Uploader(s3_mock, jenkins_mock)
         filename = h._create_filename("myfile")
-        self.assertEqual(filename, "{}-myfile".format(BUILD_NUM))
+        self.assertEqual(filename, "{}-log-myfile".format(BUILD_NUM))
+
+    def test_create_file_console_text(self):
+        filename, s3_mock, jenkins_mock = (
+            self._make_upload(file_prefix=BUILD_NUM))
+        h = S3Uploader(s3_mock, jenkins_mock)
+        filename = h._create_filename("consoleText")
+        self.assertEqual(
+            filename, "{}-console-consoleText.txt".format(BUILD_NUM))
+
+    def test_create_file_result_results(self):
+        filename, s3_mock, jenkins_mock = (
+            self._make_upload(file_prefix=BUILD_NUM))
+        h = S3Uploader(s3_mock, jenkins_mock)
+        filename = h._create_filename("result-results.json")
+        self.assertEqual(
+            filename, "{}-result-results.json".format(BUILD_NUM))
+
+    def test_create_file_no_prefixes(self):
+        filename, s3_mock, jenkins_mock = (
+            self._make_upload(file_prefix=BUILD_NUM))
+        h = S3Uploader(s3_mock, jenkins_mock, no_prefixes=True)
+        filename = h._create_filename("myfile")
+        self.assertEqual(filename, "myfile")
 
     def test_create_file_unique_id(self):
         filename, s3_mock, jenkins_mock = (
             self._make_upload(file_prefix=BUILD_NUM))
         h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
         filename = h._create_filename("myfile")
-        self.assertEqual(filename, "9999-myfile")
+        self.assertEqual(filename, "9999-log-myfile")
 
 
 class OtherTests(TestCase):
@@ -503,7 +526,7 @@ class OtherTests(TestCase):
         self.assertEqual(args, Namespace(
             all=False, build_number=1277, jenkins_job=JOB_NAME, latest=False,
             password=None, s3_bucket=BUCKET, s3_directory=DIRECTORY,
-            unique_id=None, user=None))
+            unique_id=None, user=None, no_prefixes=False))
 
     def test_get_s3_access(self):
         path = '/u/home'
