@@ -131,6 +131,6 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
 		c.Skip("skipping on non-Windows platform")
 	}
 	dir := c.MkDir()
-	s.PatchEnvironment("APPDATA", dir)
+	s.PatchEnvironment("USERPROFILE", dir)
 	s.assertDetectCredentialsKnownLocation(c, dir)
 }
