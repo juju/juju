@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstSuite struct {
