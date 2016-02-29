@@ -18,6 +18,13 @@ type HasAnnotations interface {
 	SetAnnotations(map[string]string)
 }
 
+// HasStatusHistory defines the common methods for setting and
+// getting historical status entries for the various entities.
+type HasStatusHistory interface {
+	StatusHistory() []Status
+	SetStatusHistory([]StatusArgs)
+}
+
 // Model is a database agnostic representation of an existing model.
 type Model interface {
 	HasAnnotations
@@ -75,6 +82,7 @@ type AgentTools interface {
 // model.
 type Machine interface {
 	HasAnnotations
+	HasStatusHistory
 
 	Id() string
 	Tag() names.MachineTag
@@ -107,10 +115,7 @@ type Machine interface {
 	Status() Status
 	SetStatus(StatusArgs)
 
-	// StatusHistory() []Status
-
 	// TODO:
-	// status history
 	// Storage
 
 	NetworkPorts() []NetworkPorts

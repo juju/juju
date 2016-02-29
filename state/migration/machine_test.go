@@ -15,6 +15,7 @@ import (
 type MachineSerializationSuite struct {
 	SliceSerializationSuite
 	PortRangeCheck
+	StatusHistoryMixinSuite
 }
 
 var _ = gc.Suite(&MachineSerializationSuite{})
@@ -29,19 +30,26 @@ func (s *MachineSerializationSuite) SetUpTest(c *gc.C) {
 	s.testFields = func(m map[string]interface{}) {
 		m["machines"] = []interface{}{}
 	}
+	s.StatusHistoryMixinSuite.creator = func() HasStatusHistory {
+		return minimalMachine("1")
+	}
+	s.StatusHistoryMixinSuite.serializer = func(c *gc.C, initial interface{}) HasStatusHistory {
+		return s.exportImport(c, initial.(*machine))
+	}
 }
 
 func minimalMachineMap(id string, containers ...interface{}) map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"id":            id,
-		"nonce":         "a-nonce",
-		"password-hash": "some-hash",
-		"instance":      minimalCloudInstanceMap(),
-		"series":        "zesty",
-		"tools":         minimalAgentToolsMap(),
-		"jobs":          []interface{}{"host-units"},
-		"containers":    containers,
-		"status":        minimalStatusMap(),
+		"id":             id,
+		"nonce":          "a-nonce",
+		"password-hash":  "some-hash",
+		"instance":       minimalCloudInstanceMap(),
+		"series":         "zesty",
+		"tools":          minimalAgentToolsMap(),
+		"jobs":           []interface{}{"host-units"},
+		"containers":     containers,
+		"status":         minimalStatusMap(),
+		"status-history": emptyStatusHistoryMap(),
 	}
 }
 
