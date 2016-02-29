@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker"
 )
 
 var (
@@ -22,8 +21,9 @@ var (
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
-	ErrAgentEntityDead = errors.New("agent entity is dead")
-	ErrChangedPassword = errors.New("insecure password replaced; retry")
+	errAgentEntityDead   = errors.New("agent entity is dead")
+	ErrConnectImpossible = errors.New("connection permanently impossible")
+	ErrChangedPassword   = errors.New("insecure password replaced; retry")
 )
 
 // APIOpen is an api.OpenFunc that wraps api.Open, and handles the edge
@@ -106,7 +106,10 @@ func connectFallback(
 	// provisioner has had a chance to report instance data
 	// to the machine; wait a fair while to ensure we really
 	// are in the (expected rare) provisioner-crash situation
-	// that would cause permanent CodeNotProvisioned.
+	// that would cause permanent CodeNotProvisioned (which
+	// indicates that the controller has forgotten about us,
+	// and is provisioning a new instance, so we really should
+	// uninstall).
 	//
 	// Yes, it's dumb that this can't be interrupted, and that
 	// it's not configurable without patching.
@@ -130,10 +133,10 @@ func connectFallback(
 // ScaryConnect logs into the API using the supplied agent's credentials,
 // like OnlyConnect; and then:
 //
-//   * returns ErrTerminateAgent if the agent entity is dead or unauthorized
-//     for all known passwords;
-//   * if the agent's config does not specify a model, tries to record
-//     the model we just connected to;
+//   * returns ErrConnectImpossible if the agent entity is dead or
+//     unauthorized for all known passwords;
+//   * if the agent's config does not specify a model, tries to record the
+//     model we just connected to;
 //   * replaces insecure credentials with freshly (locally) generated ones
 //     (and returns ErrPasswordChanged, expecting to be reinvoked);
 //   * unconditionally resets the remote-state password to its current value
@@ -151,25 +154,16 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	}
 	oldPassword := agentConfig.OldPassword()
 
-	// Note: the ErrTerminateAgent returned when the connection is
-	// known to be invalid or impossible will *not* terminate a
-	// machine agent *unless* someone calls agent.SetCanUninstall.
-	//
-	// It's not sensible to do it in here, because calling that
-	// func for a unit agent -- *or* for a model agent, which
-	// looks like a machine agent on casual inspection -- will
-	// cause the hosting machine agent to suicide if it gets a
-	// particular signal, and that would be Very Bad.
 	defer func() {
 		cause := errors.Cause(err)
 		switch {
-		case cause == ErrAgentEntityDead:
+		case cause == errAgentEntityDead:
 		case params.IsCodeUnauthorized(cause):
 		case params.IsCodeNotProvisioned(cause):
 		default:
 			return
 		}
-		return worker.ErrTerminateAgent
+		err = ErrConnectImpossible
 	}()
 
 	// Start connection...
@@ -243,7 +237,7 @@ func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) {
 	}
 }
 
-// getEntity gets an entity, but returns ErrAgentEntityDead when appropriate
+// getEntity gets an entity, but returns errAgentEntityDead when appropriate
 // for special handling by the client.
 func getEntity(conn api.Connection, tag names.Tag) (*apiagent.Entity, error) {
 
@@ -256,7 +250,7 @@ func getEntity(conn api.Connection, tag names.Tag) (*apiagent.Entity, error) {
 	case params.Alive, params.Dying:
 		return entity, nil
 	case params.Dead:
-		return nil, ErrAgentEntityDead
+		return nil, errAgentEntityDead
 	}
 	return nil, errors.Errorf("unknown entity life value: %v", life)
 }

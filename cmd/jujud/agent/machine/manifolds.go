@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"github.com/juju/errors"
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
@@ -82,6 +83,27 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+
+	// connectFilter exists:
+	//  1) to let us retry api connections immeduately on password change,
+	//     rather than causing the dependency engine to wait for a while;
+	//  2) to ensure that certain connection failures correctly trigger
+	//     complete agent removal. (It's not safe to let any agent other
+	//     than the machine mess around with SetCanUninstall).
+	connectFilter := func(err error) error {
+		cause := errors.Cause(err)
+		if cause == apicaller.ErrConnectImpossible {
+			err2 := coreagent.SetCanUninstall(config.Agent)
+			if err2 != nil {
+				return errors.Trace(err2)
+			}
+			return worker.ErrTerminateAgent
+		} else if cause == apicaller.ErrChangedPassword {
+			return dependency.ErrBounce
+		}
+		return err
+	}
+
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -90,7 +112,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
-		// returns.
+		// returns. It depends on the uninstall file having been
+		// written *by the manual provider* at install time; it would
+		// be Very Wrong Indeed to use SetCanUninstall in conjunction
+		// with this code.
 		terminationName: terminationworker.Manifold(),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -102,6 +127,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APIOpen:       apicaller.APIOpen,
 			NewConnection: apicaller.ScaryConnect,
+			Filter:        connectFilter,
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which

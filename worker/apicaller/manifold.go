@@ -39,6 +39,10 @@ type ManifoldConfig struct {
 	// ScaryConnect at the moment; and probably switch to OnlyConnect
 	// when they move into machine agent processes.
 	NewConnection ConnectFunc
+
+	// Filter is used to specialize responses to connection errors
+	// made on behalf of different kinds of agent.
+	Filter dependency.FilterFunc
 }
 
 // Manifold returns a manifold whose worker wraps an API connection
@@ -50,6 +54,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Output: outputFunc,
 		Start:  config.startFunc(),
+		Filter: config.Filter,
 	}
 }
 

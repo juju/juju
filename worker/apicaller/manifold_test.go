@@ -46,7 +46,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			}
 			return s.conn, nil
 		},
+		Filter: func(err error) error {
+			panic(err)
+		},
 	})
+	checkFilter := func() {
+		s.manifold.Filter(errors.New("arrgh"))
+	}
+	c.Check(checkFilter, gc.PanicMatches, "arrgh")
 
 	s.agent = &mockAgent{
 		stub: &s.Stub,
