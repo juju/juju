@@ -49,7 +49,10 @@ type linkLayerDeviceDoc struct {
 	// IsUp is true when the device is up (enabled).
 	IsUp bool `bson:"is-up"`
 
-	// ParentName is the name of the parent device, which may be empty.
+	// ParentName is the name of the parent device, which may be empty. When set
+	// the parent device must be on the same machine, unless the current device
+	// is inside a container, in which case ParentName can be a global key of a
+	// BridgeDevice on the host machine of the container.
 	ParentName string `bson:"parent-name"`
 }
 

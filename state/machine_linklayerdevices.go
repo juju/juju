@@ -122,7 +122,9 @@ type LinkLayerDeviceArgs struct {
 	IsUp bool
 
 	// ParentName is the name of the parent device, which may be empty. If set,
-	// it needs to be an existing device on the same machine. Traffic
+	// it needs to be an existing device on the same machine, unless the current
+	// device is inside a container, in which case ParentName can be a global
+	// key of a BridgeDevice on the host machine of the container. Traffic
 	// originating from a device egresses from its parent device.
 	ParentName string
 }
