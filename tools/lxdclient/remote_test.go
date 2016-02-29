@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 var (

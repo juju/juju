@@ -28,7 +28,7 @@ import (
 // Clients do not need to be cleaned up themselves, but they will not function
 // past the lifetime of their configured Mongo.
 func NewClient(config ClientConfig) (lease.Client, error) {
-	if err := config.Validate(); err != nil {
+	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	loggerName := fmt.Sprintf("state.lease.%s.%s", config.Namespace, config.Id)
@@ -215,27 +215,28 @@ func (client *client) ensureClockDoc() error {
 		client.logger.Tracef("checking clock %q (attempt %d)", clockDocId, attempt)
 		var clockDoc clockDoc
 		err := collection.FindId(clockDocId).One(&clockDoc)
-		if err == nil {
+		switch err {
+		case nil:
 			client.logger.Tracef("clock already exists")
 			if err := clockDoc.validate(); err != nil {
 				return nil, errors.Annotatef(err, "corrupt clock document")
 			}
 			return nil, jujutxn.ErrNoOperations
-		}
-		if err != mgo.ErrNotFound {
+		case mgo.ErrNotFound:
+			client.logger.Tracef("creating clock")
+			newClockDoc, err := newClockDoc(client.config.Namespace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return []txn.Op{{
+				C:      client.config.Collection,
+				Id:     clockDocId,
+				Assert: txn.DocMissing,
+				Insert: newClockDoc,
+			}}, nil
+		default:
 			return nil, errors.Trace(err)
 		}
-		client.logger.Tracef("creating clock")
-		newClockDoc, err := newClockDoc(client.config.Namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return []txn.Op{{
-			C:      client.config.Collection,
-			Id:     clockDocId,
-			Assert: txn.DocMissing,
-			Insert: newClockDoc,
-		}}, nil
 	})
 	return errors.Trace(err)
 }
@@ -412,7 +413,8 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 }
 
 // expireLeaseOps returns the []txn.Op necessary to vacate the lease. If the
-// expiration would conflict with cached state, it will return lease.ErrInvalid.
+// expiration would conflict with cached state, it will return an error with
+// a Cause of ErrInvalid.
 func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 
 	// We can't expire a lease that doesn't exist.
@@ -426,8 +428,7 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 	latestExpiry := skew.Latest(lastEntry.expiry)
 	now := client.config.Clock.Now()
 	if !now.After(latestExpiry) {
-		client.logger.Tracef("lease %q expires in the future", name)
-		return nil, lease.ErrInvalid
+		return nil, errors.Annotatef(lease.ErrInvalid, "lease %q expires in the future", name)
 	}
 
 	// The database change is simple, and depends on the lease doc being

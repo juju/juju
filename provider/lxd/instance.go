@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstance struct {
@@ -40,8 +40,7 @@ func (inst *environInstance) Status() string {
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	// TODO(ericsnow) This may need to be more dynamic.
-	return inst.raw.Addresses, nil
+	return inst.env.raw.Addresses(inst.raw.Name)
 }
 
 func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
