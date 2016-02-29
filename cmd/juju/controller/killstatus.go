@@ -14,12 +14,12 @@ import (
 )
 
 type ctrData struct {
-	HostedEnvCount     int
+	HostedModelCount   int
 	HostedMachineCount int
 	ServiceCount       int
 }
 
-type envData struct {
+type modelData struct {
 	Owner string
 	Name  string
 	Life  params.Life
@@ -30,27 +30,27 @@ type envData struct {
 
 // newTimedStatusUpdater returns a function which waits a given period of time
 // before querying the apiserver for updated data.
-func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, uuid string) func(time.Duration) (ctrData, []envData) {
-	return func(wait time.Duration) (ctrData, []envData) {
+func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, uuid string) func(time.Duration) (ctrData, []modelData) {
+	return func(wait time.Duration) (ctrData, []modelData) {
 		time.Sleep(wait)
 
-		// If we hit an error, status.HostedEnvCount will be 0, the polling
-		// loop will stop and we'll go directly to destroying the environment.
-		ctrStatus, envsStatus, err := newData(api, uuid)
+		// If we hit an error, status.HostedModelCount will be 0, the polling
+		// loop will stop and we'll go directly to destroying the model.
+		ctrStatus, modelsStatus, err := newData(api, uuid)
 		if err != nil {
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
 		}
 
-		return ctrStatus, envsStatus
+		return ctrStatus, modelsStatus
 	}
 }
 
-func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, error) {
-	envs, err := api.AllModels()
+func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
+	models, err := api.AllModels()
 	if err != nil {
 		return ctrData{}, nil, errors.Trace(err)
 	}
-	if len(envs) == 0 {
+	if len(models) == 0 {
 		return ctrData{}, nil, errors.New("no models found")
 	}
 
@@ -63,14 +63,14 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 	}
 	ctrStatus := status[0]
 
-	hostedEnvCount := len(envs) - 1
-	hostedTags := make([]names.ModelTag, hostedEnvCount)
-	envName := map[string]string{}
+	hostedModelCount := len(models) - 1
+	hostedTags := make([]names.ModelTag, hostedModelCount)
+	modelName := map[string]string{}
 	var i int
-	for _, env := range envs {
-		if env.UUID != ctrUUID {
-			envName[env.UUID] = env.Name
-			hostedTags[i] = names.NewModelTag(env.UUID)
+	for _, model := range models {
+		if model.UUID != ctrUUID {
+			modelName[model.UUID] = model.Name
+			hostedTags[i] = names.NewModelTag(model.UUID)
 			i++
 		}
 	}
@@ -82,37 +82,37 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, erro
 
 	hostedMachinesCount := ctrStatus.HostedMachineCount
 	servicesCount := ctrStatus.ServiceCount
-	var envsData []envData
-	var aliveEnvCount int
-	for _, env := range hostedStatus {
-		if env.Life == params.Dead {
+	var modelsData []modelData
+	var aliveModelCount int
+	for _, model := range hostedStatus {
+		if model.Life == params.Dead {
 			continue
 		}
-		envsData = append(envsData, envData{
-			env.Owner,
-			envName[env.UUID],
-			env.Life,
-			env.HostedMachineCount,
-			env.ServiceCount,
+		modelsData = append(modelsData, modelData{
+			model.Owner,
+			modelName[model.UUID],
+			model.Life,
+			model.HostedMachineCount,
+			model.ServiceCount,
 		})
 
-		aliveEnvCount++
-		hostedMachinesCount += env.HostedMachineCount
-		servicesCount += env.ServiceCount
+		aliveModelCount++
+		hostedMachinesCount += model.HostedMachineCount
+		servicesCount += model.ServiceCount
 	}
 
 	ctrFinalStatus := ctrData{
-		aliveEnvCount,
+		aliveModelCount,
 		hostedMachinesCount,
 		servicesCount,
 	}
 
-	return ctrFinalStatus, envsData, nil
+	return ctrFinalStatus, modelsData, nil
 }
 
-func hasUnDeadEnvirons(envs []envData) bool {
-	for _, env := range envs {
-		if env.Life != params.Dead {
+func hasUnDeadModels(models []modelData) bool {
+	for _, model := range models {
+		if model.Life != params.Dead {
 			return true
 		}
 	}
@@ -127,8 +127,8 @@ func s(n int) string {
 }
 
 func fmtCtrStatus(data ctrData) string {
-	envNo := data.HostedEnvCount
-	out := fmt.Sprintf("Waiting on %d model%s", envNo, s(envNo))
+	modelNo := data.HostedModelCount
+	out := fmt.Sprintf("Waiting on %d model%s", modelNo, s(modelNo))
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))
@@ -141,7 +141,7 @@ func fmtCtrStatus(data ctrData) string {
 	return out
 }
 
-func fmtEnvStatus(data envData) string {
+func fmtModelStatus(data modelData) string {
 	out := fmt.Sprintf("%s/%s (%s)", data.Owner, data.Name, data.Life)
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {

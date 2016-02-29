@@ -86,6 +86,13 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	s.api = &fakeModelMgrAPIClient{models: models}
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
+	s.store.Models["fake"] = jujuclient.ControllerAccountModels{
+		AccountModels: map[string]*jujuclient.AccountModels{
+			"admin@local": {
+				CurrentModel: "test-model1",
+			},
+		},
+	}
 	s.store.Accounts["fake"] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"admin@local": {
@@ -106,10 +113,10 @@ func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, user)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME         OWNER             LAST CONNECTION\n"+
-		"test-model1  user-admin@local  2015-03-20\n"+
-		"test-model2  user-admin@local  2015-03-01\n"+
-		"test-model3  user-admin@local  never connected\n"+
+		"NAME          OWNER             LAST CONNECTION\n"+
+		"test-model1*  user-admin@local  2015-03-20\n"+
+		"test-model2   user-admin@local  2015-03-01\n"+
+		"test-model3   user-admin@local  never connected\n"+
 		"\n")
 }
 
@@ -123,10 +130,10 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME         OWNER             LAST CONNECTION\n"+
-		"test-model1  user-admin@local  2015-03-20\n"+
-		"test-model2  user-admin@local  2015-03-01\n"+
-		"test-model3  user-admin@local  never connected\n"+
+		"NAME          OWNER             LAST CONNECTION\n"+
+		"test-model1*  user-admin@local  2015-03-20\n"+
+		"test-model2   user-admin@local  2015-03-01\n"+
+		"test-model3   user-admin@local  never connected\n"+
 		"\n")
 }
 
@@ -135,10 +142,10 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME         MODEL UUID        OWNER             LAST CONNECTION\n"+
-		"test-model1  test-model1-UUID  user-admin@local  2015-03-20\n"+
-		"test-model2  test-model2-UUID  user-admin@local  2015-03-01\n"+
-		"test-model3  test-model3-UUID  user-admin@local  never connected\n"+
+		"NAME          MODEL UUID        OWNER             LAST CONNECTION\n"+
+		"test-model1*  test-model1-UUID  user-admin@local  2015-03-20\n"+
+		"test-model2   test-model2-UUID  user-admin@local  2015-03-01\n"+
+		"test-model3   test-model3-UUID  user-admin@local  never connected\n"+
 		"\n")
 }
 
