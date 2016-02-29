@@ -315,6 +315,7 @@ def copy_remote_logs(remote, directory):
         else:
             logging.warning(repr(e))
 
+
 def assess_juju_run(client):
     responses = client.get_juju_output('run', '--format', 'json', '--service',
                                        'dummy-source,dummy-sink', 'uname')

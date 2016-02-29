@@ -16,7 +16,6 @@ from jujupy import (
     get_machine_dns_name,
     make_client,
     parse_new_state_server_from_error,
-    until_timeout,
 )
 from substrate import (
     terminate_instances,
