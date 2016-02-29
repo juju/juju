@@ -154,7 +154,11 @@ func (dev *LinkLayerDevice) IsUp() bool {
 	return dev.doc.IsUp
 }
 
-// ParentName returns the name of this device's parent device, if set.
+// ParentName returns the name of this device's parent device, if set. The
+// parent device is almost always on the same machine as the child device, but
+// as a special case a child device on a container machine can have a parent
+// BridgeDevice on the container's host machine. In the last case ParentName()
+// returns the global key of the parent device, not just its name.
 func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
 }
@@ -167,7 +171,16 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 		return nil, nil
 	}
 
-	return dev.machineProxy().LinkLayerDevice(dev.doc.ParentName)
+	hostMachineID, parentDeviceName, err := parseParentNameAsGlobalKey(dev.doc.ParentName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if hostMachineID != "" {
+		// parent device is on the host machine.
+		return dev.machineProxy(hostMachineID).LinkLayerDevice(parentDeviceName)
+	}
+
+	// parent device is on the same machine.
+	return dev.machineProxy(dev.doc.MachineID).LinkLayerDevice(dev.doc.ParentName)
 }
 
 func (dev *LinkLayerDevice) parentDocID() string {
@@ -183,9 +196,9 @@ func (dev *LinkLayerDevice) parentGlobalKey() string {
 }
 
 // machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()
-// or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice.
-func (dev *LinkLayerDevice) machineProxy() *Machine {
-	return &Machine{st: dev.st, doc: machineDoc{Id: dev.doc.MachineID}}
+// or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice and machineID.
+func (dev *LinkLayerDevice) machineProxy(machineID string) *Machine {
+	return &Machine{st: dev.st, doc: machineDoc{Id: machineID}}
 }
 
 // Remove removes the device, if it exists. No error is returned when the device
@@ -206,7 +219,7 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 }
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
-	_, err := dev.machineProxy().LinkLayerDevice(dev.doc.Name)
+	_, err := dev.machineProxy(dev.doc.MachineID).LinkLayerDevice(dev.doc.Name)
 	if errors.IsNotFound(err) {
 		return jujutxn.ErrNoOperations
 	} else if err != nil {

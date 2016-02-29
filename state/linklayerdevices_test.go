@@ -11,6 +11,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -93,9 +94,9 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidType(c *gc.C)
 func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidParentName(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",
-		ParentName: "bad#name",
+		ParentName: "..",
 	}
-	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "bad#name" not valid`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `ParentName ".." not valid`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidMACAddress(c *gc.C) {
@@ -595,4 +596,75 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesWithTooMuchStateChur
 	err := s.machine.AddLinkLayerDevices(childArgs)
 	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, 1) // only the parent remains
+}
+
+func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesAllowsParentBridgeDeviceForContainerDevice(c *gc.C) {
+	// Add a container machine with s.machine as its host.
+	containerTemplate := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add one device of every type to the host machine.
+	hostDevicesArgs := []state.LinkLayerDeviceArgs{{
+		Name: "loopback",
+		Type: state.LoopbackDevice,
+	}, {
+		Name: "ethernet",
+		Type: state.EthernetDevice,
+	}, {
+		Name: "vlan",
+		Type: state.VLAN_8021QDevice,
+	}, {
+		Name: "bond",
+		Type: state.BondDevice,
+	}, {
+		Name: "br-eth1.250",
+		Type: state.BridgeDevice,
+	}}
+	hostDevices := s.addMultipleDevicesSucceedsAndCheckAllAdded(c, hostDevicesArgs)
+	hostMachineParentDeviceGlobalKeyPrefix := "m#0#d#"
+
+	// Now try adding an EthernetDevice on the container specifying each of the
+	// hostDevices as parent and expect only last one to succeed.
+	for _, hostDevice := range hostDevices {
+		parentDeviceGlobalKey := hostMachineParentDeviceGlobalKeyPrefix + hostDevice.Name()
+		containerDeviceArgs := state.LinkLayerDeviceArgs{
+			Name:       "eth0",
+			Type:       state.EthernetDevice,
+			ParentName: parentDeviceGlobalKey,
+		}
+		err := container.AddLinkLayerDevices(containerDeviceArgs)
+		if hostDevice.Type() != state.BridgeDevice {
+			expectedError := `cannot add .* to machine "0/lxc/0": ` +
+				`invalid device "eth0": ` +
+				`parent device ".*" on host machine "0" must be of type "bridge", not type ".*"`
+			c.Check(err, gc.ErrorMatches, expectedError)
+			c.Check(err, jc.Satisfies, errors.IsNotValid)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
+	}
+	containerDevice, err := container.LinkLayerDevice("eth0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(containerDevice.Name(), gc.Equals, "eth0")
+	c.Check(containerDevice.ParentName(), gc.Equals, hostMachineParentDeviceGlobalKeyPrefix+"br-eth1.250")
+	c.Check(containerDevice.MachineID(), gc.Equals, container.Id())
+	parentDevice, err := containerDevice.ParentDevice()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(parentDevice.Name(), gc.Equals, "br-eth1.250")
+	c.Check(parentDevice.MachineID(), gc.Equals, s.machine.Id())
+
+	// Removing the parent device should fail.
+	err = parentDevice.Remove()
+	c.Assert(err, jc.Satisfies, state.IsParentDeviceHasChildrenError)
+	c.Assert(err, gc.ErrorMatches, `.*parent device "br-eth1.250" has 1 children`)
+
+	// Removing in the correct order works.
+	err = containerDevice.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = parentDevice.Remove()
+	c.Assert(err, jc.ErrorIsNil)
 }
