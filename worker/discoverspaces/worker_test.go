@@ -169,7 +169,7 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	c.Assert(spaces, gc.HasLen, 4)
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "foo",
-		ProviderId: network.Id("foo"),
+		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
 			CIDR:              "192.168.1.0/24",
@@ -180,21 +180,21 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "another-foo-99",
-		ProviderId: network.Id("Another Foo 99!"),
+		ProviderId: network.Id("1"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
 			CIDR:              "192.168.3.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "foo-2",
-		ProviderId: network.Id("foo-"),
+		ProviderId: network.Id("2"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
 			CIDR:              "192.168.4.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "empty",
-		ProviderId: network.Id("---"),
+		ProviderId: network.Id("3"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
 			CIDR:              "192.168.5.0/24",
@@ -296,7 +296,7 @@ func (s *workerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
 		Spaces: []params.CreateSpaceParams{{
 			Public:     false,
 			SpaceTag:   spaceTag.String(),
-			ProviderId: "foo",
+			ProviderId: "0",
 		}}}
 	result, err := s.API.CreateSpaces(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -325,7 +325,7 @@ func (s *workerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
 			break
 		}
 		if !a.HasNext() {
-			c.Fatalf("spaces not imported")
+			c.Fatalf("spaces not imported, found %v", spaces)
 		}
 	}
 	c.Assert(err, jc.ErrorIsNil)
