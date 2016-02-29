@@ -705,6 +705,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	expectedOutput := `
 Added charm "cs:trusty/terms1-1" to the model.
 Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
+Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:trusty/terms1-1")

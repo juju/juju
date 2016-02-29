@@ -45,7 +45,6 @@ type rawServerMethods interface {
 	WaitForSuccess(waitURL string) error
 
 	// auth
-	UserAuthServerCert(name string, acceptCert bool) error
 	AmTrusted() bool
 }
 
@@ -63,7 +62,7 @@ type rawImageMethods interface {
 	//PutImageProperties(name string, p shared.ImageProperties) error
 
 	// image data (create, upload, download, destroy)
-	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool) error
+	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool, progressHandler func(string)) error
 	ImageFromContainer(cname string, public bool, aliases []string, properties map[string]string) (string, error)
 	PostImage(imageFile string, rootfsFile string, properties []string, public bool, aliases []string) (string, error)
 	ExportImage(image string, target string) (*lxd.Response, string, error)
@@ -72,7 +71,7 @@ type rawImageMethods interface {
 
 type rawAliasMethods interface {
 	// info
-	ListAliases() ([]shared.ImageAlias, error)
+	ListAliases() (shared.ImageAliases, error)
 	IsAlias(alias string) (bool, error)
 
 	// alias data (upload, download, destroy)
@@ -85,12 +84,12 @@ type rawContainerMethods interface {
 	// info/meta
 	ListContainers() ([]shared.ContainerInfo, error)
 	//Rename(name string, newName string) (*lxd.Response, error)
-	ContainerStatus(name string) (*shared.ContainerState, error)
+	ContainerState(name string) (*shared.ContainerState, error)
 
 	// container data (create, actions, destroy)
 	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	LocalCopy(source string, name string, config map[string]string, profiles []string, ephemeral bool) (*lxd.Response, error)
-	MigrateFrom(name string, operation string, secrets map[string]string, config map[string]string, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
+	MigrateFrom(name string, operation string, certificate string, secrets map[string]string, architecture string, config map[string]string, devices shared.Devices, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -104,7 +103,7 @@ type rawContainerMethods interface {
 	// config
 	GetContainerConfig(container string) ([]string, error)
 	SetContainerConfig(container, key, value string) error
-	UpdateContainerConfig(container string, st shared.BriefContainerState) error
+	UpdateContainerConfig(container string, st shared.BriefContainerInfo) error
 
 	// devices
 	ContainerListDevices(container string) ([]string, error)
@@ -114,7 +113,7 @@ type rawContainerMethods interface {
 	// snapshots
 	RestoreSnapshot(container string, snapshotName string, stateful bool) (*lxd.Response, error)
 	Snapshot(container string, snapshotName string, stateful bool) (*lxd.Response, error)
-	ListSnapshots(container string) ([]string, error)
+	ListSnapshots(container string) ([]shared.SnapshotInfo, error)
 }
 
 type rawProfileMethods interface {
