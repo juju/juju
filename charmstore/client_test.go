@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource/resourcetesting"
 )
 
 type ClientSuite struct {
@@ -89,60 +88,6 @@ func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
 	s.stub.CheckCallNames(c, "LatestRevisions")
 	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs)
 	c.Check(revisions, jc.DeepEquals, expected)
-}
-
-func (s *ClientSuite) TestLatestCharmInfo(c *gc.C) {
-	cURLs := []*charm.URL{
-		charm.MustParseURL("cs:quantal/spam-17"),
-		charm.MustParseURL("cs:quantal/eggs-2"),
-		charm.MustParseURL("cs:quantal/ham-1"),
-	}
-	notFound := errors.New("not found")
-	s.client.ReturnLatestRevisions = []charmrepo.CharmRevision{{
-		Revision: 17,
-	}, {
-		Revision: 3,
-	}, {
-		Err: notFound,
-	}}
-	s.client.ReturnListResources = [][]charmresource.Resource{
-		{
-			resourcetesting.NewCharmResource(c, "spam", "<some data>"),
-		},
-		nil,
-		nil,
-	}
-
-	results, err := charmstore.LatestCharmInfo(s.client, cURLs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "LatestRevisions", "ListResources")
-	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs)
-	s.stub.CheckCall(c, 1, "ListResources", cURLs)
-	timestamp := results[0].Timestamp
-	results[2].Error = errors.Cause(results[2].Error)
-	c.Check(results, jc.DeepEquals, []charmstore.CharmInfoResult{{
-		CharmInfo: charmstore.CharmInfo{
-			OriginalURL:    charm.MustParseURL("cs:quantal/spam-17"),
-			Timestamp:      timestamp,
-			LatestRevision: 17,
-			LatestResources: []charmresource.Resource{
-				resourcetesting.NewCharmResource(c, "spam", "<some data>"),
-			},
-		},
-	}, {
-		CharmInfo: charmstore.CharmInfo{
-			OriginalURL:    charm.MustParseURL("cs:quantal/eggs-2"),
-			Timestamp:      timestamp,
-			LatestRevision: 3,
-		},
-	}, {
-		CharmInfo: charmstore.CharmInfo{
-			OriginalURL: charm.MustParseURL("cs:quantal/ham-1"),
-			Timestamp:   timestamp,
-		},
-		Error: notFound,
-	}})
 }
 
 func (s *ClientSuite) TestFakeListResources(c *gc.C) {
