@@ -16,6 +16,7 @@ import (
 
 	migration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -410,6 +411,67 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 
 	c.Assert(mig2.Refresh(), jc.ErrorIsNil)
 	c.Check(mig2.StatusMessage(), gc.Equals, "foo bar")
+}
+
+func (s *ModelMigrationSuite) TestWatchForModelMigration(c *gc.C) {
+	// Start watching for migration.
+	w, wc := s.createWatcher(c, s.State2)
+	wc.AssertNoChange()
+
+	// Create the migration - should be reported.
+	mig, err := state.CreateModelMigration(s.State2, s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Ending the migration should not be reported.
+	c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *ModelMigrationSuite) TestWatchForModelMigrationInProgress(c *gc.C) {
+	// Create a migration.
+	_, err := state.CreateModelMigration(s.State2, s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Start watching for a migration - the in progress one should be reported.
+	_, wc := s.createWatcher(c, s.State2)
+	wc.AssertOneChange()
+}
+
+func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
+	_, wc2 := s.createWatcher(c, s.State2)
+	wc2.AssertNoChange()
+
+	// Create another hosted model to migrate and watch for
+	// migrations.
+	State3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { State3.Close() })
+	_, wc3 := s.createWatcher(c, State3)
+	wc3.AssertNoChange()
+
+	// Create a migration for 2.
+	_, err := state.CreateModelMigration(s.State2, s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc2.AssertOneChange()
+	wc3.AssertNoChange()
+
+	// Create a migration for 3.
+	_, err = state.CreateModelMigration(State3, s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc2.AssertNoChange()
+	wc3.AssertOneChange()
+}
+
+func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
+	state.NotifyWatcher, statetesting.NotifyWatcherC,
+) {
+	w, err := st.WatchForModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
+	return w, statetesting.NewNotifyWatcherC(c, st, w)
 }
 
 func assertPhase(c *gc.C, mig *state.ModelMigration, phase migration.Phase) {
