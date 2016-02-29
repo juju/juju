@@ -13,10 +13,12 @@ def main():
                         help='The file to read.')
     parser.add_argument('out_file', metavar='OUT-FILE',
                         help='The file to write.')
-    parser.add_argument('stream_id', metavar="STREAM-ID",
+    parser.add_argument(
+        'stream_id', metavar="STREAM-ID",
         help='The new stream for the items.  By default, a revision-build'
         ' stream.')
-    parser.add_argument('--update-path', action='store_true',
+    parser.add_argument(
+        '--update-path', action='store_true',
         help='Update the path to put the agent in "agent/STREAM"')
     parser.add_argument(
         '--agent-stream', action='store_true',

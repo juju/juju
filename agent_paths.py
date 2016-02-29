@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
 import json
-import os.path
 import re
 import sys
 
