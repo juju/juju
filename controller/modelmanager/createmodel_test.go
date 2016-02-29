@@ -149,7 +149,9 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionNoToolsFinder
 
 func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderFound(c *gc.C) {
 	s.creator.FindTools = func(version.Number) (tools.List, error) {
-		return tools.List{{ /*contents don't matter, just need a non-empty list*/ }}, nil
+		return tools.List{
+			{}, //contents don't matter, just need a non-empty list
+		}, nil
 	}
 	cfg, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
