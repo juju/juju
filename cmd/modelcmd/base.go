@@ -5,6 +5,7 @@ package modelcmd
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/juju/cmd"
@@ -29,6 +30,7 @@ type CommandBase interface {
 
 	// closeContext closes the command's API context.
 	closeContext()
+	setVisitWebPage(func(*url.URL) error)
 }
 
 // ModelAPI provides access to the model client facade methods.
@@ -41,8 +43,9 @@ type ModelAPI interface {
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
-	apiContext *apiContext
-	modelApi   ModelAPI
+	apiContext   *apiContext
+	modelApi     ModelAPI
+	visitWebPage func(*url.URL) error
 }
 
 // closeContext closes the command's API context
@@ -139,7 +142,10 @@ func (c *JujuCommandBase) initAPIContext() error {
 	if c.apiContext != nil {
 		return nil
 	}
-	ctxt, err := newAPIContext()
+	if c.visitWebPage == nil {
+		c.visitWebPage = httpbakery.OpenWebBrowser
+	}
+	ctxt, err := newAPIContext(c.visitWebPage)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -186,9 +192,13 @@ func cookieFile() string {
 	return cookiejar.DefaultCookieFile()
 }
 
+func (c *JujuCommandBase) setVisitWebPage(f func(*url.URL) error) {
+	c.visitWebPage = f
+}
+
 // newAPIContext returns a new api context, which should be closed
 // when done with.
-func newAPIContext() (*apiContext, error) {
+func newAPIContext(f func(*url.URL) error) (*apiContext, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		Filename: cookieFile(),
 	})
@@ -197,7 +207,7 @@ func newAPIContext() (*apiContext, error) {
 	}
 	client := httpbakery.NewClient()
 	client.Jar = jar
-	client.VisitWebPage = httpbakery.OpenWebBrowser
+	client.VisitWebPage = f
 
 	return &apiContext{
 		jar:    jar,

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -150,11 +152,11 @@ type csClient struct {
 // helpers to save the local authorization cookies and to authorize
 // non-public charm deployments. It is defined as a variable so it can
 // be changed for testing purposes.
-var newCharmStoreClient = func(client *http.Client) *csClient {
+var newCharmStoreClient = func(ctx *cmd.Context, client *http.Client) *csClient {
 	return &csClient{
 		params: charmrepo.NewCharmStoreParams{
 			HTTPClient:   client,
-			VisitWebPage: httpbakery.OpenWebBrowser,
+			VisitWebPage: ussologin.VisitWebPage(CommandFiller(ctx), client, tokenStore()),
 		},
 	}
 }

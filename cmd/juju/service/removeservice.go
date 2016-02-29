@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/names"
 	"github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
@@ -123,7 +124,7 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bClient, err := getBudgetAPIClient(httpClient)
+	bClient, err := getBudgetAPIClient(ctx, httpClient)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -142,8 +143,10 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 
 var getBudgetAPIClient = getBudgetAPIClientImpl
 
-func getBudgetAPIClientImpl(client *http.Client) (budgetAPIClient, error) {
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
+func getBudgetAPIClientImpl(ctx *cmd.Context, client *http.Client) (budgetAPIClient, error) {
+	bakeryClient := &httpbakery.Client{
+		Client:       client,
+		VisitWebPage: ussologin.VisitWebPage(CommandFiller(ctx), client, tokenStore())}
 	c := budget.NewClient(bakeryClient)
 	return c, nil
 }
