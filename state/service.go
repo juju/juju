@@ -1218,12 +1218,6 @@ func (s *Service) EndpointBindings() (map[string]string, error) {
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	/*if bindings == nil {
-		bindings, err = s.defaultEndpointBindings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}*/
 	if bindings == nil {
 		bindings = make(map[string]string)
 	}
