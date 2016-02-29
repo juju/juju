@@ -11,8 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
@@ -42,7 +41,7 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 	_, err := workertesting.RunPostUpgradeManifold(
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
-		&fakeAPIConn{machineJob: multiwatcher.JobManageModel})
+		mockAPICaller(multiwatcher.JobManageModel))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.newCalled, jc.IsTrue)
 }
@@ -52,27 +51,17 @@ func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
 	_, err := workertesting.RunPostUpgradeManifold(
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
-		&fakeAPIConn{machineJob: multiwatcher.JobHostUnits})
+		mockAPICaller(multiwatcher.JobHostUnits))
 	c.Assert(err, gc.Equals, dependency.ErrMissing)
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 
-func (s *ManifoldSuite) TestUnit(c *gc.C) {
+func (s *ManifoldSuite) TestNonMachineAgent(c *gc.C) {
 	config := identityfilewriter.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
 	_, err := workertesting.RunPostUpgradeManifold(
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
-		&fakeAPIConn{})
-	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
-	c.Assert(s.newCalled, jc.IsFalse)
-}
-
-func (s *ManifoldSuite) TestNonAgent(c *gc.C) {
-	config := identityfilewriter.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
-		identityfilewriter.Manifold(config),
-		&fakeAgent{tag: names.NewUserTag("foo")},
-		&fakeAPIConn{})
+		mockAPICaller(""))
 	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
@@ -95,25 +84,14 @@ func (c *fakeConfig) Tag() names.Tag {
 	return c.tag
 }
 
-type fakeAPIConn struct {
-	api.Connection
-	machineJob multiwatcher.MachineJob
-}
-
-func (f *fakeAPIConn) APICall(objType string, version int, id, request string, args interface{}, response interface{}) error {
-	if res, ok := response.(*params.AgentGetEntitiesResults); ok {
-		res.Entities = []params.AgentGetEntitiesResult{
-			{Jobs: []multiwatcher.MachineJob{f.machineJob}},
+func mockAPICaller(job multiwatcher.MachineJob) apitesting.APICallerFunc {
+	return apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if res, ok := result.(*params.AgentGetEntitiesResults); ok {
+			res.Entities = []params.AgentGetEntitiesResult{
+				{Jobs: []multiwatcher.MachineJob{
+					job,
+				}}}
 		}
-	}
-
-	return nil
-}
-
-func (*fakeAPIConn) BestFacadeVersion(facade string) int {
-	return 42
-}
-
-func (f *fakeAPIConn) Agent() *apiagent.State {
-	return apiagent.NewState(f)
+		return nil
+	})
 }

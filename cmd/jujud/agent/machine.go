@@ -765,7 +765,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-
 		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
 			// 4 times a day seems a decent enough amount of checks.
 			checkerParams := toolsversionchecker.VersionCheckerParams{

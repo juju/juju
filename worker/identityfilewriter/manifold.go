@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
@@ -36,14 +36,8 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.New("this manifold may only be used inside a machine agent")
 	}
 
-	// Get API connection.
-	apiConn, ok := apiCaller.(api.Connection)
-	if !ok {
-		return nil, errors.New("unable to obtain api.Connection")
-	}
-
 	// Get the machine agent's jobs.
-	entity, err := apiConn.Agent().Entity(tag)
+	entity, err := apiagent.NewState(apiCaller).Entity(tag)
 	if err != nil {
 		return nil, err
 	}
