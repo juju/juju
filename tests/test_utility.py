@@ -157,7 +157,7 @@ class TestFindLatestBranchCandidates(TestCase):
         with temp_dir() as root:
             master_path = make_candidate_dir(root, 'master')
             self.assertEqual(find_latest_branch_candidates(root),
-                             [master_path])
+                             [(master_path, 1234)])
 
     def test_find_latest_branch_candidates_old_buildvars(self):
         with temp_dir() as root:
@@ -170,7 +170,8 @@ class TestFindLatestBranchCandidates(TestCase):
             path_1234 = make_candidate_dir(
                 root, '1234', 'mybranch', '1234')
             make_candidate_dir(root, '1233', 'mybranch', '1233')
-            self.assertEqual(find_latest_branch_candidates(root), [path_1234])
+            self.assertEqual(find_latest_branch_candidates(root), [
+                (path_1234, 1234)])
 
     def test_include_older_revision_build_different_branch(self):
         with temp_dir() as root:
@@ -179,7 +180,8 @@ class TestFindLatestBranchCandidates(TestCase):
             path_1233 = make_candidate_dir(
                 root, '1233', 'branch_bar', '1233')
             self.assertItemsEqual(
-                find_latest_branch_candidates(root), [path_1233, path_1234])
+                find_latest_branch_candidates(root), [
+                    (path_1233, 1233), (path_1234, 1234)])
 
 
 class TestAsLiteralAddress(TestCase):

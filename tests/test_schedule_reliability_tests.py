@@ -78,15 +78,23 @@ class TestBuildJob(TestCase):
         with jenkins_cxt as jenkins_mock, temp_dir() as root:
             write_config(root, 'foo', 'quxxx')
             build_job(Credentials('jrandom', 'password1'), root, 'foo',
-                      ['bar', 'baz'], ['qux'])
+                      [('bar', 1), ('baz', 2)], ['qux'])
         jenkins_mock.assert_called_once_with(
             'http://localhost:8080', 'jrandom', 'password1')
         calls = jenkins_mock.return_value.build_job.mock_calls
         expected = [
-            call('foo', {'suite': 'qux', 'attempts': '10',
-                         'new_juju_dir': 'bar'}, token='quxxx'),
-            call('foo', {'suite': 'qux', 'attempts': '10',
-                         'new_juju_dir': 'baz'}, token='quxxx'),
+            call('foo', {
+                'suite': 'qux',
+                'attempts': '10',
+                'new_juju_dir': 'bar',
+                'revision_build': '1',
+                }, token='quxxx'),
+            call('foo', {
+                'suite': 'qux',
+                'attempts': '10',
+                'new_juju_dir': 'baz',
+                'revision_build': '2'
+                }, token='quxxx'),
             ]
         self.assertEqual(calls, expected)
 
@@ -95,10 +103,14 @@ class TestBuildJob(TestCase):
         with jenkins_cxt as jenkins_mock, temp_dir() as root:
             write_config(root, 'foo', 'bar')
             build_job(Credentials('jrandom', 'password1'), root, 'foo',
-                      ['baz'], ['qux', 'quxx'])
+                      [('baz', 1)], ['qux', 'quxx'])
         jenkins_mock.return_value.build_job.assert_called_once_with(
-            'foo', {'suite': 'qux,quxx', 'attempts': '10',
-                    'new_juju_dir': 'baz'}, token='bar')
+            'foo', {
+                'suite': 'qux,quxx',
+                'attempts': '10',
+                'new_juju_dir': 'baz',
+                'revision_build': '1',
+                }, token='bar')
 
 
 class TestMain(TestCase):
@@ -124,6 +136,7 @@ class TestMain(TestCase):
             'new_juju_dir': path_1234,
             'attempts': '10',
             'suite': 'full',
+            'revision_build': '1234',
             }, token='quxxx')
 
     def test_limit_3(self):

@@ -363,7 +363,8 @@ def find_latest_branch_candidates(root_dir):
             buildvars = json.load(buildvars_file)
             candidates.append(
                 (buildvars['branch'], int(buildvars['revision_build']), path))
-    latest = dict((branch, path) for branch, build, path in sorted(candidates))
+    latest = dict(
+        (branch, (path, build)) for branch, build, path in sorted(candidates))
     return latest.values()
 
 
