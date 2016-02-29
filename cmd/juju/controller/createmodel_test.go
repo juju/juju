@@ -300,7 +300,7 @@ type fakeCreateClient struct {
 	env     params.Model
 }
 
-var _ controller.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
+var _ controller.CreateModelAPI = (*fakeCreateClient)(nil)
 
 func (*fakeCreateClient) Close() error {
 	return nil
