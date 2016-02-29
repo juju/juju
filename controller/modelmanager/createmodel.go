@@ -43,7 +43,7 @@ type ModelConfigCreator struct {
 
 // NewModelConfig returns a new model config given a base (controller) config
 // and a set of attributes that will be specific to the new model, overriding
-// and non-restricted attributes in the base configuration. The resulting
+// any non-restricted attributes in the base configuration. The resulting
 // config will be suitable for creating a new model in state.
 //
 // If "attrs" does not include a UUID, a new, random one will be generated
