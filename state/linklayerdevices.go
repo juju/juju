@@ -57,9 +57,6 @@ type linkLayerDeviceDoc struct {
 type LinkLayerDeviceType string
 
 const (
-	// UnknownDevice represents a device of unknown type.
-	UnknownDevice LinkLayerDeviceType = "unknown"
-
 	// LoopbackDevice is used for loopback devices.
 	LoopbackDevice LinkLayerDeviceType = "loopback"
 

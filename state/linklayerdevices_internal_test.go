@@ -153,7 +153,7 @@ func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceTypeWithInvali
 	result = IsValidLinkLayerDeviceType(" ")
 	c.Check(result, jc.IsFalse)
 
-	result = IsValidLinkLayerDeviceType(string(UnknownDevice))
+	result = IsValidLinkLayerDeviceType("unknown")
 	c.Check(result, jc.IsFalse)
 }
 
