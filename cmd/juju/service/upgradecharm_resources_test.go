@@ -69,6 +69,9 @@ func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	data := []byte("some-data")
+	fp, err := charmresource.GenerateFingerprint(bytes.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+
 	resourceFile := path.Join(c.MkDir(), "data.lib")
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,21 +86,18 @@ func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
 	sr, err := resources.ListResources("riak")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(sr.Resources, gc.HasLen, 1)
+	c.Check(sr.Resources, gc.HasLen, 1)
 
-	c.Assert(sr.Resources[0].ServiceID, gc.Equals, "riak")
+	c.Check(sr.Resources[0].ServiceID, gc.Equals, "riak")
 
 	// Most of this is just a sanity check... this is all tested elsewhere.
-	c.Assert(sr.Resources[0].PendingID, gc.Equals, "")
-	c.Assert(sr.Resources[0].Username, gc.Not(gc.Equals), "")
-	c.Assert(sr.Resources[0].ID, gc.Not(gc.Equals), "")
-	c.Assert(sr.Resources[0].Timestamp.IsZero(), jc.IsFalse)
-
-	fp, err := charmresource.GenerateFingerprint(bytes.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sr.Resources[0].PendingID, gc.Equals, "")
+	c.Check(sr.Resources[0].Username, gc.Not(gc.Equals), "")
+	c.Check(sr.Resources[0].ID, gc.Not(gc.Equals), "")
+	c.Check(sr.Resources[0].Timestamp.IsZero(), jc.IsFalse)
 
 	// Ensure we get the data we passed in from the metadata.yaml.
-	c.Assert(sr.Resources[0].Resource, gc.DeepEquals, charmresource.Resource{
+	c.Check(sr.Resources[0].Resource, gc.DeepEquals, charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        "data",
 			Type:        charmresource.TypeFile,
