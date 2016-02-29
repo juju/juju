@@ -91,9 +91,12 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 
 // NewCharmStoreClient instantiates a new charm store repository.
 // It is defined at top level for testing purposes.
-var NewCharmStoreClient = func() charmstore.Client {
+var NewCharmStoreClient = func(modelUUID string) (charmstore.Client, error) {
 	// TODO(ericsnow) Use the Juju "HTTP context" once we have one.
-	return charmstore.NewDefaultClient()
+	client := charmstore.NewDefaultClient()
+	return client.WithMetadata(charmstore.JujuMetadata{
+		ModelUUID: modelUUID,
+	})
 }
 
 type latestCharmInfo struct {
@@ -130,9 +133,12 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 
-	client := NewCharmStoreClient()
+	client, err := NewCharmStoreClient(modelUUID)
+	if err != nil {
+		return nil, err
+	}
 
-	results, err := charmstore.LatestCharmInfo(client, modelUUID, curls)
+	results, err := charmstore.LatestCharmInfo(client, curls)
 	if err != nil {
 		return nil, err
 	}

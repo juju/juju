@@ -22,13 +22,16 @@ var logger = loggo.GetLogger("juju.charmstore")
 // of Juju.
 type Client interface {
 	BaseClient
-	ResourcesClient
 	io.Closer
 
-	// AsRepo returns a charm repo that wraps the client. If the model's
-	// UUID is provided then it is associated with all of the repo's
-	// interaction with the charm store.
-	AsRepo(modelUUID string) Repo
+	// WithMetadata returns a copy of the the client that will use the
+	// provided metadata during client requests.
+	WithMetadata(meta JujuMetadata) (Client, error)
+
+	// Metadata returns the Juju metadata set on the client.
+	Metadata() JujuMetadata
+
+	// TODO(ericsnow) Add an "AsRepo() charmrepo.Interface" method.
 }
 
 // BaseClient exposes the functionality of the charm store, as provided
@@ -41,8 +44,14 @@ type Client interface {
 //  - UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
 //  - UploadBundleWithRevision()
 type BaseClient interface {
-	// TODO(ericsnow) Embed ResourcesClient here once the charm store
-	// supports it.
+	ResourcesClient
+
+	// TODO(ericsnow) This should really be returning a type from
+	// charmrepo/csclient/params, but we don't have one yet.
+
+	// LatestRevisions returns the latest revision for each of the
+	// identified charms. The revisions in the provided URLs are ignored.
+	LatestRevisions([]*charm.URL) ([]charmrepo.CharmRevision, error)
 
 	// TODO(ericsnow) Replace use of Get with use of more specific API
 	// methods? We only use Get() for authorization on the Juju client
@@ -74,11 +83,42 @@ type ResourcesClient interface {
 	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
 }
 
-// client adapts csclient.Client to the needs of Juju.
-type client struct {
+type baseClient struct {
 	*csclient.Client
 	fakeCharmStoreClient
+
+	asRepo func() *charmrepo.CharmStore
+}
+
+func newBaseClient(raw *csclient.Client) *baseClient {
+	base := &baseClient{
+		Client: raw,
+	}
+	base.asRepo = func() *charmrepo.CharmStore {
+		return charmrepo.NewCharmStoreFromClient(base.Client)
+	}
+	return base
+}
+
+// LatestRevisions implements BaseClient.
+func (base baseClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
+	// TODO(ericsnow) Fix this:
+	// We must use charmrepo.CharmStore since csclient.Client does not
+	// have the "Latest" method.
+	repo := base.asRepo()
+	return repo.Latest(cURLs...)
+}
+
+// TODO(ericsnow) Factor out a metadataClient type that embeds "client",
+// and move the "meta" field there?
+
+// client adapts csclient.Client to the needs of Juju.
+type client struct {
+	BaseClient
 	io.Closer
+
+	newCopy func() *client
+	meta    JujuMetadata
 }
 
 // NewClient returns a Juju charm store client for the given client
@@ -86,7 +126,7 @@ type client struct {
 func NewClient(config csclient.Params) Client {
 	base := csclient.New(config)
 	closer := ioutil.NopCloser(nil)
-	return WrapBaseClient(base, closer)
+	return newClient(base, closer)
 }
 
 // NewDefaultClient returns a Juju charm store client using a default
@@ -100,36 +140,68 @@ func NewDefaultClient() Client {
 // related to the client. If no closer is needed then pass in a no-op
 // closer (e.g. ioutil.NopCloser).
 func WrapBaseClient(base *csclient.Client, closer io.Closer) Client {
-	return &client{
-		Client: base,
-		Closer: closer,
-	}
+	return newClient(base, closer)
 }
 
-// AsRepo implements Client.
-func (client client) AsRepo(envUUID string) Repo {
-	repo := charmrepo.NewCharmStoreFromClient(client.Client)
-	if envUUID != "" {
-		repo = repo.WithJujuAttrs(map[string]string{
-			"environment_uuid": envUUID,
-		})
+func newClient(base *csclient.Client, closer io.Closer) *client {
+	c := &client{
+		BaseClient: newBaseClient(base),
+		Closer:     closer,
 	}
-	return repo
+	c.newCopy = func() *client {
+		newBase := *base
+		copied := newClient(&newBase, closer)
+		copied.meta = c.meta
+		return copied
+	}
+	return c
+}
+
+// WithMetadata returns a copy of the the client that will use the
+// provided metadata during client requests.
+func (c client) WithMetadata(meta JujuMetadata) (Client, error) {
+	newClient := c.newCopy()
+	newClient.meta = meta
+	// Note that we don't call meta.setOnClient() at this point.
+	// That is because not all charm store requests should include
+	// the metadata. The following do so:
+	//  - LatestRevisions()
+	//
+	// If that changed then we would call meta.setOnClient() here.
+	// TODO(ericsnow) Use the metadata for *all* requests?
+	return newClient, nil
+}
+
+// Metadata implements Client.
+func (c client) Metadata() JujuMetadata {
+	// Note the value receiver, meaning that the returned metadata
+	// is a copy.
+	return c.meta
+}
+
+// LatestRevisions returns the latest revision for each of the
+// identified charms. The revisions in the provided URLs are ignored.
+// Note that this differs from BaseClient.LatestRevisions() exclusively
+// due to taking into account Juju metadata (if any).
+func (c *client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
+	if !c.meta.IsZero() {
+		c = c.newCopy()
+		if err := c.meta.setOnClient(c); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return c.BaseClient.LatestRevisions(cURLs)
 }
 
 // LatestCharmInfo returns the most up-to-date information about each
 // of the identified charms at their latest revision. The revisions in
 // the provided URLs are ignored.
-func LatestCharmInfo(client Client, modelUUID string, cURLs []*charm.URL) ([]CharmInfoResult, error) {
+func LatestCharmInfo(client Client, cURLs []*charm.URL) ([]CharmInfoResult, error) {
 	now := time.Now().UTC()
-
-	// We must use charmrepo.CharmStore since csclient.Client does not
-	// have the "Latest" method.
-	repo := client.AsRepo(modelUUID)
 
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(cURLs))
-	revResults, err := repo.Latest(cURLs...)
+	revResults, err := client.LatestRevisions(cURLs)
 	if err != nil {
 		err = errors.Annotate(err, "while getting latest charm revision info")
 		logger.Infof(err.Error())
