@@ -23,7 +23,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
+func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	// TODO(axw) find out where the MAAS CLI stores credentials.
 	return nil, errors.NotFoundf("credentials")
 }

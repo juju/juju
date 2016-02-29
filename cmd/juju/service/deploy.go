@@ -40,7 +40,7 @@ func NewDeployCommand() cmd.Command {
 				RegisterURL: planURL + "/plan/authorize",
 				QueryURL:    planURL + "/charm",
 			},
-			&AllocateBudget{}}})
+		}})
 }
 
 type DeployCommand struct {
@@ -562,6 +562,11 @@ func (c *DeployCommand) deployCharm(
 			}
 		}
 	}()
+
+	if len(charmInfo.Meta.Terms) > 0 {
+		ctx.Infof("Deployment under prior agreement to terms: %s",
+			strings.Join(charmInfo.Meta.Terms, " "))
+	}
 
 	ids, err := c.handleResources(serviceName, charmInfo.Meta.Resources)
 	if err != nil {

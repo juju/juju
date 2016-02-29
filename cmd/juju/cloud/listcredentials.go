@@ -6,8 +6,6 @@ package cloud
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -17,12 +15,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/jujuclient"
 )
 
 type listCredentialsCommand struct {
 	cmd.CommandBase
 	out       cmd.Output
 	cloudName string
+	store     jujuclient.CredentialGetter
 }
 
 var listCredentialsDoc = `
@@ -44,7 +44,9 @@ type credentialsMap struct {
 
 // NewListCredentialsCommand returns a command to list cloud credentials.
 func NewListCredentialsCommand() cmd.Command {
-	return &listCredentialsCommand{}
+	return &listCredentialsCommand{
+		store: jujuclient.NewFileCredentialStore(),
+	}
 }
 
 func (c *listCredentialsCommand) Info() *cmd.Info {
@@ -75,13 +77,8 @@ func (c *listCredentialsCommand) Init(args []string) error {
 
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var credentials map[string]jujucloud.CloudCredential
-	data, err := ioutil.ReadFile(jujucloud.JujuCredentials())
-	if err == nil {
-		credentials, err = jujucloud.ParseCredentials(data)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
+	credentials, err := c.store.AllCredentials()
+	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	if c.cloudName != "" {
