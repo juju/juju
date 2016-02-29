@@ -69,6 +69,7 @@ func init() {
 	environs.RegisterProvider("no-cloud-region-detection", noCloudRegionDetectionProvider{})
 	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
+	environs.RegisterProvider("many-credentials", manyCredentialsProvider{})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
@@ -874,6 +875,12 @@ func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `detecting credentials for "no-credentials" cloud provider: credentials not found`)
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderManyCredentials(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "many-credentials")
+	c.Assert(err, gc.ErrorMatches, ambiguousCredentialError.Error())
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/not-dummy")
@@ -1057,6 +1064,22 @@ func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "region"}}, nil
 }
 
-func (noCredentialsProvider) DetectCredentials() ([]environs.LabeledCredential, error) {
+func (noCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
+}
+
+type manyCredentialsProvider struct {
+	environs.EnvironProvider
+}
+
+func (manyCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "region"}}, nil
+}
+
+func (manyCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"one": {}, "two": {},
+		},
+	}, nil
 }

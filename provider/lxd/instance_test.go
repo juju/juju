@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type instanceSuite struct {
@@ -48,7 +48,6 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
-	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
