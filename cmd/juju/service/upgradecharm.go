@@ -199,18 +199,9 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	charmInfo, err := client.CharmInfo(addedURL.String())
+	ids, err := c.upgradeResources(client, addedURL)
 	if err != nil {
-		return err
-	}
-
-	var ids map[string]string
-
-	if len(c.Resources) > 0 {
-		ids, err = c.upgradeResources(charmInfo.Meta.Resources)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		return errors.Trace(err)
 	}
 
 	cfg := apiservice.SetCharmConfig{
@@ -224,7 +215,14 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
 }
 
-func (c *upgradeCharmCommand) upgradeResources(storeResources map[string]charmresource.Meta) (map[string]string, error) {
+func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.URL) (map[string]string, error) {
+	charmInfo, err := client.CharmInfo(cURL.String())
+	if err != nil {
+		return nil, err
+	}
+	if len(charmInfo.Meta.Resources) == 0 {
+		return nil, nil
+	}
 	resclient, err := resourceadapters.NewAPIClient(c.NewAPIRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -240,7 +238,7 @@ func (c *upgradeCharmCommand) upgradeResources(storeResources map[string]charmre
 	}
 
 	var metaRes map[string]charmresource.Meta
-	for name, res := range storeResources {
+	for name, res := range charmInfo.Meta.Resources {
 		if shouldUploadMeta(res, c.Resources, current) {
 			metaRes[name] = res
 		}
