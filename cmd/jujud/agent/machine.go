@@ -763,14 +763,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
-			inner := func(<-chan struct{}) error {
-				agentConfig := a.CurrentConfig()
-				return agent.WriteSystemIdentityFile(agentConfig)
-			}
-			return worker.NewSimpleWorker(inner), nil
-		})
-
 		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
 			// 4 times a day seems a decent enough amount of checks.
 			checkerParams := toolsversionchecker.VersionCheckerParams{

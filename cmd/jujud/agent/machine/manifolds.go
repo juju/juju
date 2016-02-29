@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
@@ -274,6 +275,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		identityFileWriterName: identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
@@ -300,4 +307,5 @@ const (
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
 	resumerName              = "resumer"
+	identityFileWriterName   = "identity-file-writer"
 )
