@@ -646,8 +646,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
-		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
@@ -1185,10 +1184,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
+	eUUID := e.Config().UUID()
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
@@ -1450,10 +1446,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 }
 
 func (e *environ) uuid() string {
-	// the bool component of uuid is for legacy compatibility
-	// and does not apply in this context.
-	eUUID, _ := e.Config().UUID()
-	return eUUID
+	return e.Config().UUID()
 }
 
 func (e *environ) globalGroupName() string {

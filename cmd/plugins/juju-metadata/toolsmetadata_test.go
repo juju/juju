@@ -47,9 +47,11 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		loggo.ResetLoggers()
 	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":      "erewhemos",
-		"type":      "dummy",
-		"conroller": true,
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(

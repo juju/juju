@@ -61,7 +61,7 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.ModelConfig(c)
-	uuid, _ := cfg.UUID()
+	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
 	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), nil)

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -207,12 +206,5 @@ func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton pa
 		configValues[key] = value
 	}
 	configValues["name"] = c.Name
-
-	// TODO: allow version to be specified on the command line and add here.
-	cfg, err := config.New(config.UseDefaults, configValues)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return cfg.AllAttrs(), nil
+	return configValues, nil
 }

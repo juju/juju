@@ -6,6 +6,7 @@ package environs_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
@@ -63,12 +64,9 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// New controller should have been added to collection.
-	uuid, exists := cfg.UUID()
-	c.Assert(exists, jc.IsTrue)
-
 	foundController, err := cache.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, uuid)
+	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
 }
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
@@ -76,8 +74,10 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	cache := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type": "dummy",
-		"name": "admin-model",
+		"type":            "dummy",
+		"name":            "admin-model",
+		"controller-uuid": utils.MustNewUUID().String(),
+		"uuid":            utils.MustNewUUID().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = environs.Prepare(ctx, store, cache, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
@@ -94,13 +94,13 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	foundController, err := cache.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundController, jc.DeepEquals, &jujuclient.ControllerDetails{
-		ControllerUUID: info.APIEndpoint().ServerUUID,
+		ControllerUUID: cfg.ControllerUUID(),
 		CACert:         info.APIEndpoint().CACert,
 	})
 	foundModel, err := cache.ModelByName("controller-name", "admin@local", "admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
-		ModelUUID: foundController.ControllerUUID,
+		ModelUUID: cfg.UUID(),
 	})
 }
 
@@ -137,7 +137,6 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 		"ca-cert",
 		"ca-private-key",
 		"admin-secret",
-		"uuid",
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,15 +169,10 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for model "`+testing.SampleModelName+`"`)
 
-	// Check that a uuid was chosen.
-	uuid, exists := env.Config().UUID()
-	c.Assert(exists, jc.IsTrue)
-	c.Assert(uuid, gc.Matches, `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
-
 	// Check that controller was cached
 	foundController, err := controllerStore.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.DeepEquals, uuid)
+	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
 
 	// Check we cannot call Prepare again.
 	env, err = environs.Prepare(ctx, store, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})

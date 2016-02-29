@@ -103,6 +103,12 @@ const (
 	// Settings Attributes
 	//
 
+	// UUIDKey is the key for the model UUID attribute.
+	UUIDKey = "uuid"
+
+	// ControllerUUIDKey is the key for the controller UUID attribute.
+	ControllerUUIDKey = "controller-uuid"
+
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
@@ -629,8 +635,12 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if uuid, ok := cfg.defined["uuid"]; ok && !utils.IsValidUUIDString(uuid.(string)) {
-		return errors.Errorf("uuid: expected uuid, got string(%q)", uuid)
+	if uuid := cfg.UUID(); !utils.IsValidUUIDString(uuid) {
+		return errors.Errorf("uuid: expected UUID, got string(%q)", uuid)
+	}
+
+	if uuid := cfg.ControllerUUID(); !utils.IsValidUUIDString(uuid) {
+		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
 	// Ensure the resource tags have the expected k=v format.
@@ -641,23 +651,8 @@ func Validate(cfg, old *Config) error {
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
-			switch attr {
-			case "uuid":
-				// uuid is special cased because currently (24/July/2014) there exist no juju
-				// environments whose environment configuration's contain a uuid key so we must
-				// treat uuid as field that can be updated from non existant to a valid uuid.
-				// We do not need to deal with the case of the uuid key being blank as the schema
-				// only permits valid uuids in that field.
-				oldv, oldexists := old.defined[attr]
-				newv := cfg.defined[attr]
-				if oldexists && oldv != newv {
-					newv := cfg.defined[attr]
-					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
-				}
-			default:
-				if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
-					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
-				}
+			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
+				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
@@ -773,24 +768,24 @@ func (c *Config) mustInt(name string) int {
 	return value
 }
 
-// Type returns the environment type.
+// Type returns the model's cloud provider type.
 func (c *Config) Type() string {
 	return c.mustString("type")
 }
 
-// Name returns the environment name.
+// Name returns the model name.
 func (c *Config) Name() string {
 	return c.mustString("name")
 }
 
-// UUID returns the uuid for the environment.
-// For backwards compatability with 1.20 and earlier the value may be blank if
-// no uuid is present in this configuration. Once all enviroment configurations
-// have been upgraded, this relaxation will be dropped. The absence of a uuid
-// is indicated by a result of "", false.
-func (c *Config) UUID() (string, bool) {
-	value, exists := c.defined["uuid"].(string)
-	return value, exists
+// UUID returns the uuid for the model.
+func (c *Config) UUID() string {
+	return c.mustString(UUIDKey)
+}
+
+// ControllerUUID returns the uuid for the model's controller.
+func (c *Config) ControllerUUID() string {
+	return c.mustString(ControllerUUIDKey)
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -1364,9 +1359,6 @@ var alwaysOptional = schema.Defaults{
 	"prefer-ipv6":              false,
 	"enable-os-refresh-update": schema.Omit,
 	"enable-os-upgrade":        schema.Omit,
-
-	// uuid may be missing for backwards compatability.
-	"uuid": schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1424,7 +1416,8 @@ var mandatoryWithoutDefaults = []string{
 var immutableAttributes = []string{
 	"name",
 	"type",
-	"uuid",
+	UUIDKey,
+	ControllerUUIDKey,
 	"firewall-mode",
 	"state-port",
 	"api-port",
@@ -1890,8 +1883,14 @@ data of the store. (default false)`,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
-	"uuid": {
+	UUIDKey: {
 		Description: "The UUID of the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	ControllerUUIDKey: {
+		Description: "The UUID of the model's controller",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

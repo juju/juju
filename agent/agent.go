@@ -37,6 +37,12 @@ const (
 	// dir that, if it exists, will cause a machine agent to uninstall
 	// when it receives the termination signal.
 	UninstallAgentFile = "uninstall-agent"
+
+	// BootstrapNonce is used as a nonce for the initial controller machine.
+	BootstrapNonce = "user-admin:bootstrap"
+
+	// BootstrapMachineId is the ID of the initial controller machine.
+	BootstrapMachineId = "0"
 )
 
 // These are base values used for the corresponding defaults.

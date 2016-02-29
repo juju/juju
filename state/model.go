@@ -135,10 +135,7 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 		return nil, nil, errors.Annotate(err, "could not load controller model")
 	}
 
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, nil, errors.Errorf("model uuid was not supplied")
-	}
+	uuid := cfg.UUID()
 	newState, err := st.ForModel(names.NewModelTag(uuid))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")

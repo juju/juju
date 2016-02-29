@@ -55,7 +55,7 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
-	store           jujuclient.CredentialStore
+	store           *jujuclienttesting.MemStore
 	legacyMemStore  configstore.Storage
 }
 
@@ -126,9 +126,9 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
-	return modelcmd.Wrap(&bootstrapCommand{
-		CredentialStore: s.store,
-	})
+	c := &bootstrapCommand{CredentialStore: s.store}
+	c.SetClientStore(s.store)
+	return modelcmd.Wrap(c)
 }
 
 type mockBlockClient struct {
@@ -176,6 +176,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		resetJujuXDGDataHome(c)
 		dummy.Reset()
 		s.legacyMemStore = configstore.NewMem()
+		s.store = jujuclienttesting.NewMemStore()
 
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
@@ -264,6 +265,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	addrConnectedTo := "localhost:17070"
 	var restore testing.Restorer = func() {
 		s.legacyMemStore = configstore.NewMem()
+		s.store = jujuclienttesting.NewMemStore()
 	}
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
@@ -298,7 +300,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "admin")
-	c.Check(opBootstrap.Args.EnvironConstraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.ModelConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
 	}
@@ -334,8 +336,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	// Check controllers.yaml has controller
 	endpoint := info.APIEndpoint()
-	controllerStore := jujuclient.NewFileClientStore()
-	controller, err := controllerStore.ControllerByName(expectedBootstrappedControllerName)
+	controller, err := s.store.ControllerByName(expectedBootstrappedControllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.CACert, gc.Equals, endpoint.CACert)
 	c.Assert(controller.Servers, gc.DeepEquals, endpoint.Hostnames)
@@ -478,6 +479,26 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	currentController, err := modelcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentController, gc.Equals, bootstrappedControllerName("devcontroller"))
+	modelName, err := s.store.CurrentModel(currentController, "admin@local")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelName, gc.Equals, "default")
+}
+
+func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	coretesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"devcontroller", "dummy",
+		"--auto-upgrade",
+		"--default-model", "mymodel",
+	)
+	c.Assert(bootstrap.args.HostedModelConfig["name"], gc.Equals, "mymodel")
 }
 
 type mockBootstrapInstance struct {
@@ -537,8 +558,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	expectedBootstrappedName := bootstrappedControllerName(controllerName)
 	s.patchVersionAndSeries(c, "raring")
 
-	store := jujuclient.NewFileClientStore()
-	err := store.UpdateController("local.devcontroller", jujuclient.ControllerDetails{
+	err := s.store.UpdateController("local.devcontroller", jujuclient.ControllerDetails{
 		CACert:         "x",
 		ControllerUUID: "y",
 	})
@@ -954,14 +974,6 @@ func resetJujuXDGDataHome(c *gc.C) {
 	jenvDir := testing.JujuXDGDataHomePath("models")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
-
-	for _, path := range []string{
-		jujuclient.JujuControllersPath(),
-		jujuclient.JujuModelsPath(),
-		jujuclient.JujuAccountsPath(),
-	} {
-		os.Remove(path)
-	}
 
 	cloudsPath := cloud.JujuPersonalCloudsPath()
 	err = ioutil.WriteFile(cloudsPath, []byte(`

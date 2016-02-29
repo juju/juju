@@ -107,10 +107,12 @@ func (f *fakeDestroyAPIClient) DestroyModel() error {
 
 func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":       "dummy",
-		"name":       name,
-		"controller": "true",
-		"state-id":   "1",
+		"type":            "dummy",
+		"name":            name,
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
+		"controller":      "true",
+		"state-id":        "1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg.AllAttrs()

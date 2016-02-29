@@ -206,7 +206,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
-	uuid, _ := cfg.UUID()
+	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
 	s.Prefix = "juju-" + uuid + "-"

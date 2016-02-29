@@ -261,8 +261,7 @@ func assertNoMoreCalls(c *gc.C, client *mockClient) {
 
 func dummyCfgAndUUID(c *gc.C) (*config.Config, string) {
 	cfg := testingEnvConfig(c)
-	uuid, ok := cfg.UUID()
-	c.Assert(ok, jc.IsTrue)
+	uuid := cfg.UUID()
 	return cfg, uuid
 }
 

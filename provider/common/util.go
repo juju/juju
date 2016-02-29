@@ -16,7 +16,7 @@ import (
 // benefits users by helping them quickly identify in their hosting
 // management tools which instances are juju related.
 func EnvFullName(env environs.Environ) string {
-	modelUUID, _ := env.Config().UUID() // Env should have validated this.
+	modelUUID := env.Config().UUID()
 	return fmt.Sprintf("juju-%s", modelUUID)
 }
 
