@@ -23,7 +23,7 @@ var _ = gc.Suite(&allocationSuite{})
 type allocationSuite struct {
 	testing.CleanupSuite
 	stub      *testing.Stub
-	apiClient *mockAPIClient
+	apiClient *mockBudgetAPIClient
 	allocate  DeployStep
 	ctx       *cmd.Context
 }
@@ -31,7 +31,7 @@ type allocationSuite struct {
 func (s *allocationSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-	s.apiClient = &mockAPIClient{Stub: s.stub}
+	s.apiClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.allocate = &AllocateBudget{AllocationSpec: "personal:100"}
 	s.PatchValue(&getApiClient, func(*http.Client) (apiClient, error) { return s.apiClient, nil })
 	s.ctx = coretesting.Context(c)
@@ -144,18 +144,18 @@ func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
 	}})
 }
 
-type mockAPIClient struct {
+type mockBudgetAPIClient struct {
 	*testing.Stub
 }
 
 // CreateAllocation implements apiClient.
-func (c *mockAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
+func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
 	c.MethodCall(c, "CreateAllocation", budget, limit, model, services)
 	return "Allocation created.", c.NextErr()
 }
 
 // DeleteAllocation implements apiClient.
-func (c *mockAPIClient) DeleteAllocation(model, service string) (string, error) {
+func (c *mockBudgetAPIClient) DeleteAllocation(model, service string) (string, error) {
 	c.MethodCall(c, "DeleteAllocation", model, service)
 	return "Allocation removed.", c.NextErr()
 }
