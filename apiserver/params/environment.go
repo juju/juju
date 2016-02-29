@@ -50,7 +50,8 @@ type ModifyEnvironUser struct {
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
-	Version version.Number
+	Version             version.Number `json:"version"`
+	MajorUpgradeAllowed bool           `json:"majorupgradeallowed"`
 }
 
 // EnvUserInfo holds information on a user.

@@ -433,31 +433,54 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
-func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
-	args := params.SetEnvironAgentVersion{
-		Version: version.MustParse("9.8.7"),
-	}
-	err := s.client.SetEnvironAgentVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *serverSuite) getAgentVersion(c *gc.C) string {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := envConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, "9.8.7")
+	vers, ok := agentVersion.(string)
+	c.Assert(ok, jc.IsTrue)
+	return vers
 }
 
-func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
+func (s *serverSuite) TestSetEnvironAgentVersionMajorFailsWithOldClient(c *gc.C) {
+	newVersNum := version.Current.Number
+	newVersNum.Major++
+
 	args := params.SetEnvironAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: newVersNum,
+	}
+	err := s.client.SetEnvironAgentVersion(args)
+	c.Assert(err, gc.ErrorMatches, "major version upgrades must be initiated through a compatible client")
+	c.Assert(s.getAgentVersion(c), gc.Equals, version.Current.Number.String())
+}
+
+func (s *serverSuite) TestSetEnvironAgentVersionMajorUpgrade(c *gc.C) {
+	versNum := version.Current.Number
+	versNum.Major++
+
+	args := params.SetEnvironAgentVersion{
+		Version:             versNum,
+		MajorUpgradeAllowed: true,
 	}
 	err := s.client.SetEnvironAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	c.Assert(s.getAgentVersion(c), gc.Equals, versNum.String())
+}
+
+func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
+	versNum := version.Current.Number
+	versNum.Minor++
+	s.assertSetEnvironAgentVersion(c, versNum)
+}
+
+func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C, vers version.Number) {
+	args := params.SetEnvironAgentVersion{
+		Version: vers,
+	}
+	err := s.client.SetEnvironAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, "9.8.7")
+	c.Assert(s.getAgentVersion(c), gc.Equals, vers.String())
 }
 
 func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
@@ -469,13 +492,17 @@ func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
 }
 
 func (s *serverSuite) TestBlockDestroySetEnvironAgentVersion(c *gc.C) {
+	versNum := version.Current.Number
+	versNum.Minor++
 	s.BlockDestroyEnvironment(c, "TestBlockDestroySetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersion(c)
+	s.assertSetEnvironAgentVersion(c, versNum)
 }
 
 func (s *serverSuite) TestBlockRemoveSetEnvironAgentVersion(c *gc.C) {
+	versNum := version.Current.Number
+	versNum.Minor++
 	s.BlockRemoveObject(c, "TestBlockRemoveSetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersion(c)
+	s.assertSetEnvironAgentVersion(c, versNum)
 }
 
 func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {

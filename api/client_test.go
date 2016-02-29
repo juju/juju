@@ -528,7 +528,8 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	})
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	nextVersion := version.MustParse("9.8.7")
+	nextVersion := version.Current.Number
+	nextVersion.Minor++
 	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -969,6 +969,10 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
+	if args.Version.Major > version.Current.Major && !args.MajorUpgradeAllowed {
+		return fmt.Errorf("major version upgrades must be initiated through a compatible client")
+	}
+
 	return c.api.state.SetEnvironAgentVersion(args.Version)
 }
 
