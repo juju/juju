@@ -176,7 +176,7 @@ type ModelAccessor interface {
 // a storage directory, while model-scoped workers
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
-func NewStorageProvisioner(config Config) (worker.Worker, error) {
+var NewStorageProvisioner = func(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

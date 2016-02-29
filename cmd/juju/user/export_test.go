@@ -38,19 +38,16 @@ func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi
 	return modelcmd.WrapController(c), &AddCommand{c}
 }
 
-func NewShowUserCommandForTest(api UserInfoAPI) cmd.Command {
-	return modelcmd.WrapController(&infoCommand{
-		infoCommandBase: infoCommandBase{
-			api: api,
-		}})
+func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &infoCommand{infoCommandBase: infoCommandBase{api: api}}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd)
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
 func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.ClientStore) (cmd.Command, *ChangePasswordCommand) {
-	c := &changePasswordCommand{
-		api: api,
-	}
+	c := &changePasswordCommand{api: api}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }
@@ -65,32 +62,23 @@ func NewSwitchUserCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Sw
 
 // NewDisableCommand returns a DisableCommand with the api provided as
 // specified.
-func NewDisableCommandForTest(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
-	c := &disableCommand{
-		disenableUserBase{
-			api: api,
-		},
-	}
+func NewDisableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore) (cmd.Command, *DisenableUserBase) {
+	c := &disableCommand{disenableUserBase{api: api}}
+	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewEnableCommand returns a EnableCommand with the api provided as
 // specified.
-func NewEnableCommandForTest(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
-	c := &enableCommand{
-		disenableUserBase{
-			api: api,
-		},
-	}
+func NewEnableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore) (cmd.Command, *DisenableUserBase) {
+	c := &enableCommand{disenableUserBase{api: api}}
+	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommandForTest(api UserInfoAPI) cmd.Command {
-	c := &listCommand{
-		infoCommandBase: infoCommandBase{
-			api: api,
-		},
-	}
+func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &listCommand{infoCommandBase: infoCommandBase{api: api}}
+	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }

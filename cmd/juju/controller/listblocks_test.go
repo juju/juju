@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -19,6 +21,7 @@ type ListBlocksSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api      *fakeListBlocksAPI
 	apierror error
+	store    *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&ListBlocksSuite{})
@@ -59,10 +62,12 @@ func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["dummysys"] = jujuclient.ControllerDetails{}
 }
 
 func (s *ListBlocksSuite) runListBlocksCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := controller.NewListBlocksCommandForTest(s.api, s.apierror)
+	cmd := controller.NewListBlocksCommandForTest(s.api, s.apierror, s.store)
 	args = append(args, []string{"-c", "dummysys"}...)
 	return testing.RunCommand(c, cmd, args...)
 }

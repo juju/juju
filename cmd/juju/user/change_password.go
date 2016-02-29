@@ -122,24 +122,34 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	accountDetails, err := store.AccountByName(controllerName, accountName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	oldPassword := accountDetails.Password
-	accountDetails.Password = newPassword
+	var oldPassword string
+	if accountDetails != nil {
+		oldPassword = accountDetails.Password
+		accountDetails.Password = newPassword
+	} else {
+		accountDetails = &jujuclient.AccountDetails{
+			User:     accountName,
+			Password: newPassword,
+		}
+	}
 	if err := c.api.SetPassword(accountDetails.User, newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	if err := c.recordPassword(store, info, controllerName, accountName, *accountDetails); err != nil {
-		logger.Errorf("updating the cached credentials failed, reverting to original password: %v", err)
-		if setErr := c.api.SetPassword(accountDetails.User, oldPassword); setErr != nil {
-			logger.Errorf(
-				"failed to reset to the old password, you will need to edit your " +
-					"accounts file by hand to specify the new password",
-			)
-			return errors.Annotate(setErr, "failed to set password back")
+		if oldPassword != "" {
+			logger.Errorf("updating the cached credentials failed, reverting to original password: %v", err)
+			if setErr := c.api.SetPassword(accountDetails.User, oldPassword); setErr != nil {
+				logger.Errorf(
+					"failed to reset to the old password, you will need to edit your " +
+						"accounts file by hand to specify the new password",
+				)
+				return errors.Annotate(setErr, "failed to set password back")
+			}
 		}
 		return errors.Annotate(err, "failed to record password change for client")
 	}

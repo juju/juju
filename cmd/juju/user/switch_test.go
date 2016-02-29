@@ -26,6 +26,7 @@ func (s *SwitchUserCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"current-user@local": {
@@ -72,7 +73,7 @@ func (s *SwitchUserCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewSwitchUserCommandForTest(nil)
+		wrappedCommand, command := user.NewSwitchUserCommandForTest(s.store)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)

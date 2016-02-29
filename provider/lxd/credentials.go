@@ -5,7 +5,9 @@
 
 package lxd
 
-import "github.com/juju/juju/cloud"
+import (
+	"github.com/juju/juju/cloud"
+)
 
 type environProviderCredentials struct{}
 
@@ -15,7 +17,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
-	emptyCredential := cloud.NewEmptyCredential()
-	return []cloud.Credential{emptyCredential}, nil
+func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
+	return cloud.NewEmptyCloudCredential(), nil
 }
