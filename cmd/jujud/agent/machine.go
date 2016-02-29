@@ -50,8 +50,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -740,14 +738,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
-			inner := func(<-chan struct{}) error {
-				agentConfig := a.CurrentConfig()
-				return agent.WriteSystemIdentityFile(agentConfig)
-			}
-			return worker.NewSimpleWorker(inner), nil
-		})
-
 		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
 			// 4 times a day seems a decent enough amount of checks.
 			checkerParams := toolsversionchecker.VersionCheckerParams{
@@ -827,14 +817,9 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// LXC containers are only supported on bare metal and fully virtualized linux systems
-	// Nested LXC containers and Windows machines cannot run LXC containers
-	supportsLXC, err := lxc.IsLXCSupported()
-	if err != nil {
-		logger.Warningf("no lxc containers possible: %v", err)
-	}
-	if err == nil && supportsLXC {
-		supportedContainers = append(supportedContainers, instance.LXC)
+	supportsContainers := container.ContainersSupported()
+	if supportsContainers {
+		supportedContainers = append(supportedContainers, instance.LXC, instance.LXD)
 	}
 
 	supportsKvm, err := kvm.IsKVMSupported()
@@ -844,6 +829,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
+
 	return a.updateSupportedContainers(runner, st, supportedContainers, agentConfig)
 }
 
@@ -1903,10 +1889,8 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 
 	errs = append(errs, a.removeJujudSymlinks()...)
 
-	insideLXC, err := lxcutils.RunningInsideLXC()
-	if err != nil {
-		errs = append(errs, err)
-	} else if insideLXC {
+	insideContainer := container.RunningInContainer()
+	if insideContainer {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
 		//

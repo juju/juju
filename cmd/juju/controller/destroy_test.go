@@ -16,9 +16,12 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -31,10 +34,11 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api       *fakeDestroyAPI
-	clientapi *fakeDestroyAPIClient
-	store     configstore.Storage
-	apierror  error
+	api         *fakeDestroyAPI
+	clientapi   *fakeDestroyAPIClient
+	legacyStore configstore.Storage
+	store       *jujuclienttesting.MemStore
+	apierror    error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -122,10 +126,19 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.apierror = nil
 
 	var err error
-	s.store, err = configstore.Default()
+	s.legacyStore, err = configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
 
-	var envList = []struct {
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["test2"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["test3"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
+
+	var modelList = []struct {
 		name         string
 		serverUUID   string
 		modelUUID    string
@@ -145,29 +158,40 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 			modelUUID: "test3-uuid",
 		},
 	}
-	for _, env := range envList {
-		info := s.store.CreateInfo(env.name)
-		uuid := env.modelUUID
+	for _, model := range modelList {
+		controllerName, modelName := modelcmd.SplitModelName(model.name)
+		s.store.UpdateController(controllerName, jujuclient.ControllerDetails{
+			ControllerUUID: model.serverUUID,
+			APIEndpoints:   []string{"localhost"},
+			CACert:         testing.CACert,
+		})
+		s.store.UpdateModel(controllerName, "admin@local", modelName, jujuclient.ModelDetails{
+			ModelUUID: model.modelUUID,
+		})
+
+		// TODO(wallyworld) - remove legacy store
+		info := s.legacyStore.CreateInfo(model.name)
+		uuid := model.modelUUID
 		info.SetAPIEndpoint(configstore.APIEndpoint{
 			Addresses:  []string{"localhost"},
 			CACert:     testing.CACert,
 			ModelUUID:  uuid,
-			ServerUUID: env.serverUUID,
+			ServerUUID: model.serverUUID,
 		})
 
-		if env.bootstrapCfg != nil {
-			info.SetBootstrapConfig(env.bootstrapCfg)
+		if model.bootstrapCfg != nil {
+			info.SetBootstrapConfig(model.bootstrapCfg)
 		}
 		err := info.Write()
 		c.Assert(err, jc.ErrorIsNil)
 
 		s.api.allEnvs = append(s.api.allEnvs, base.UserModel{
-			Name:  env.name,
+			Name:  model.name,
 			UUID:  uuid,
 			Owner: owner.Canonical(),
 		})
 
-		s.api.envStatus[env.modelUUID] = base.ModelStatus{
+		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               params.Dead,
 			HostedMachineCount: 0,
@@ -182,7 +206,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.apierror)
+	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.store, s.apierror)
 }
 
 func checkControllerExistsInStore(c *gc.C, name string, store configstore.Storage) {
@@ -212,7 +236,7 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo:foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
@@ -225,7 +249,7 @@ func (s *DestroySuite) TestDestroyControllerNotFoundNotRemovedFromStore(c *gc.C)
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: local.test1 not found")
 	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
@@ -233,7 +257,7 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: connection refused")
 	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroy(c *gc.C) {
@@ -241,21 +265,29 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
+}
+
+func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.destroyAll, jc.IsFalse)
+	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
+	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 }
 
 func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
 	s.api.err = errors.NotFoundf(`controller "test3"`)
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
-	checkControllerExistsInStore(c, "test3:test3", s.store)
+	checkControllerExistsInStore(c, "test3:test3", s.legacyStore)
 }
 
 func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
@@ -263,11 +295,12 @@ func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	c.Assert(s.api.destroyAll, jc.IsFalse)
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *DestroySuite) resetController(c *gc.C) {
-	info := s.store.CreateInfo("local.test1:test1")
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
+	info := s.legacyStore.CreateInfo("local.test1:test1")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
@@ -295,7 +328,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
@@ -308,7 +341,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
@@ -321,7 +354,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("command took too long")
 		}
-		checkControllerRemovedFromStore(c, "local.test1", s.store)
+		checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
 
 		// Add the local.test1 controller back into the store for the next test
 		s.resetController(c)

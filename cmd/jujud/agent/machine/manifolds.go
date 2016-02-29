@@ -18,11 +18,13 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
@@ -283,6 +285,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				UpgradeWaiterName: upgradeWaiterName},
 			Clock: config.Clock,
 		}),
+
+		resumerName: resumer.Manifold(resumer.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
+		identityFileWriterName: identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
@@ -310,4 +324,5 @@ const (
 	authenticationworkerName = "authenticationworker"
 	storageprovisionerName   = "storage-provisioner-machine"
 	resumerName              = "resumer"
+	identityFileWriterName   = "identity-file-writer"
 )

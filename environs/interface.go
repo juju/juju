@@ -98,7 +98,7 @@ type ProviderCredentials interface {
 	//
 	// If no credentials can be detected, DetectCredentials should
 	// return an error satisfying errors.IsNotFound.
-	DetectCredentials() ([]cloud.Credential, error)
+	DetectCredentials() (*cloud.CloudCredential, error)
 }
 
 // CloudRegionDetector is an interface that an EnvironProvider implements

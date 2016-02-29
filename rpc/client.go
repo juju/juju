@@ -148,31 +148,13 @@ func (call *Call) done() {
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
 func (conn *Conn) Call(req Request, params, response interface{}) error {
-	call := <-conn.Go(req, params, response, make(chan *Call, 1)).Done
-	return errors.Trace(call.Error)
-}
-
-// Go invokes the request asynchronously.  It returns the Call structure representing
-// the invocation.  The done channel will signal when the call is complete by returning
-// the same Call object.  If done is nil, Go will allocate a new channel.
-// If non-nil, done must be buffered or Go will deliberately panic.
-func (conn *Conn) Go(req Request, args, response interface{}, done chan *Call) *Call {
-	if done == nil {
-		done = make(chan *Call, 1)
-	}
-	// If caller passes done != nil, it must arrange that
-	// done has enough buffer for the number of simultaneous
-	// RPCs that will be using that channel.  If the channel
-	// is totally unbuffered, it's best not to run at all.
-	if cap(done) == 0 {
-		panic("github.com/juju/juju/rpc: done channel is unbuffered")
-	}
 	call := &Call{
 		Request:  req,
-		Params:   args,
+		Params:   params,
 		Response: response,
-		Done:     done,
+		Done:     make(chan *Call, 1),
 	}
 	conn.send(call)
-	return call
+	result := <-call.Done
+	return errors.Trace(result.Error)
 }

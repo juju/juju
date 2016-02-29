@@ -416,7 +416,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	logger.Tracef("looking for data index using URL %s", indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
-		logger.Errorf("%s not accessed, actual error: %v", indexPath, err)
+		logger.Tracef("%s not accessed, actual error: %v", indexPath, err)
 		logger.Tracef("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = fetchIndex(
