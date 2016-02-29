@@ -44,7 +44,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		valid:         false,
 	}} {
 		/* LXD isn't available in go 1.2 */
-		if lxd.HasLXDSupport() {
+		if !lxd.HasLXDSupport() {
 			continue
 		}
 
