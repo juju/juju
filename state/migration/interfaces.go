@@ -177,6 +177,7 @@ type Status interface {
 // Service represents a deployed charm in a model.
 type Service interface {
 	HasAnnotations
+	HasStatusHistory
 
 	Tag() names.ServiceTag
 	Name() string
@@ -225,8 +226,14 @@ type Unit interface {
 	WorkloadStatus() Status
 	SetWorkloadStatus(StatusArgs)
 
+	WorkloadStatusHistory() []Status
+	SetWorkloadStatusHistory([]StatusArgs)
+
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
+
+	AgentStatusHistory() []Status
+	SetAgentStatusHistory([]StatusArgs)
 
 	Validate() error
 }

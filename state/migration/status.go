@@ -179,6 +179,7 @@ func importStatusV1(source map[string]interface{}) (statusPoint, error) {
 	}, nil
 }
 
+// StatusHistory implements HasStatusHistory.
 func (s *statusHistory) StatusHistory() []Status {
 	var result []Status
 	if count := len(s.History); count > 0 {
@@ -190,6 +191,7 @@ func (s *statusHistory) StatusHistory() []Status {
 	return result
 }
 
+// SetStatusHistory implements HasStatusHistory.
 func (s *statusHistory) SetStatusHistory(args []StatusArgs) {
 	points := make([]*statusPoint, len(args))
 	for i, arg := range args {

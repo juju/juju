@@ -27,10 +27,12 @@ type service struct {
 	CharmURL_    string `yaml:"charm-url"`
 	// ForceCharm is true if an upgrade charm is forced.
 	// It means upgrade even if the charm is in an error state.
-	ForceCharm_ bool    `yaml:"force-charm,omitempty"`
-	Exposed_    bool    `yaml:"exposed,omitempty"`
-	MinUnits_   int     `yaml:"min-units,omitempty"`
-	Status_     *status `yaml:"status"`
+	ForceCharm_ bool `yaml:"force-charm,omitempty"`
+	Exposed_    bool `yaml:"exposed,omitempty"`
+	MinUnits_   int  `yaml:"min-units,omitempty"`
+
+	Status_       *status `yaml:"status"`
+	statusHistory `yaml:"status-history"`
 
 	Settings_           map[string]interface{} `yaml:"settings"`
 	SettingsRefCount_   int                    `yaml:"settings-refcount"`
@@ -45,8 +47,6 @@ type service struct {
 	// Requested Networks
 	// Constraints
 	// Storage Constraints
-	// Annotations
-	// Status history
 }
 
 // ServiceArgs is an argument struct used to add a service to the Model.
@@ -78,6 +78,7 @@ func newService(args ServiceArgs) *service {
 		SettingsRefCount_:   args.SettingsRefCount,
 		LeadershipSettings_: args.LeadershipSettings,
 		MetricsCredentials_: creds,
+		statusHistory:       newStatusHistory(),
 	}
 	svc.setUnits(nil)
 	return svc
@@ -274,6 +275,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"metrics-creds": "",
 	}
 	addAnnotationSchema(fields, defaults)
+	addStatusHistorySchema(fields)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -294,8 +296,12 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		Settings_:           valid["settings"].(map[string]interface{}),
 		SettingsRefCount_:   int(valid["settings-refcount"].(int64)),
 		LeadershipSettings_: valid["leadership-settings"].(map[string]interface{}),
+		statusHistory:       newStatusHistory(),
 	}
 	result.importAnnotations(valid)
+	if err := result.importStatusHistory(valid); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	encodedCreds := valid["metrics-creds"].(string)
 	// The model stores the creds encoded, but we want to make sure that
