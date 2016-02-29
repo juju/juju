@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import json
 import os
 from subprocess import CalledProcessError
@@ -241,187 +242,155 @@ class TestAWSAccount(TestCase):
                 })
             self.assertEqual(aws.region, 'france')
 
-    def test_get_environ(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            environ = dict(os.environ)
-            environ.update({
-                'AWS_ACCESS_KEY': 'skeleton-key',
-                'AWS_SECRET_KEY': 'secret-skeleton-key',
-                'EC2_ACCESS_KEY': 'skeleton-key',
-                'EC2_SECRET_KEY': 'secret-skeleton-key',
-                'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
-                })
-            self.assertEqual(aws.get_environ(), environ)
-
-    def test_euca(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch('subprocess.check_call',
-                       return_value='quxx') as co_mock:
-                result = aws.euca('foo-bar', ['baz', 'qux'])
-            co_mock.assert_called_once_with(['euca-foo-bar', 'baz', 'qux'],
-                                            env=aws.get_environ())
-            self.assertEqual(result, 'quxx')
-
-    def test_get_euca_output(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch('subprocess.check_output',
-                       return_value='quxx') as co_mock:
-                result = aws.get_euca_output('foo-bar', ['baz', 'qux'])
-            co_mock.assert_called_once_with(['euca-foo-bar', 'baz', 'qux'],
-                                            env=aws.get_environ())
-            self.assertEqual(result, 'quxx')
-
     def test_iter_security_groups(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
 
-            def make_group(name):
-                return '\t'.join([
-                    'GROUP', name + '-id', '689913858002',
-                    name, 'juju group', 'vpc-1f40b47a'])
+        def make_group():
+            class FakeGroup:
+                def __init__(self, name):
+                    self.name, self.id = name, name + "-id"
 
-            return_value = ''.join(
-                make_group(g) + '\n' for g in ['foo', 'foobar', 'baz'])
-            return_value += 'RANDOM\n'
-            return_value += '\n'
-            with patch('subprocess.check_output',
-                       return_value=return_value) as co_mock:
+            for name in ['foo', 'foobar', 'baz']:
+                group = FakeGroup(name)
+                yield group
+
+        client = MagicMock(spec=['get_all_security_groups'])
+        client.get_all_security_groups.return_value = list(make_group())
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
+            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 groups = list(aws.iter_security_groups())
-            co_mock.assert_called_once_with(
-                ['euca-describe-groups', '--filter', 'description=juju group'],
-                env=aws.get_environ())
-            self.assertEqual(groups, [
-                ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
+        self.assertEqual(groups, [
+            ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
+        self.assert_ec2_connection_call(ctr_mock)
+
+    def assert_ec2_connection_call(self, ctr_mock):
+        ctr_mock.assert_called_once_with(
+            'ca-west', aws_access_key_id='skeleton-key',
+            aws_secret_access_key='secret-skeleton-key')
 
     def test_iter_instance_security_groups(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch.object(aws, 'get_ec2_connection') as gec_mock:
-                instances = [
-                    MagicMock(instances=[MagicMock(groups=[
-                        SecurityGroup(id='foo', name='bar'),
-                        ])]),
-                    MagicMock(instances=[MagicMock(groups=[
-                        SecurityGroup(id='baz', name='qux'),
-                        SecurityGroup(id='quxx-id', name='quxx'),
-                        ])]),
-                ]
-                gai_mock = gec_mock.return_value.get_all_instances
-                gai_mock.return_value = instances
+        instances = [
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='foo', name='bar'), ])]),
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='baz', name='qux'),
+                SecurityGroup(id='quxx-id', name='quxx'), ])]),
+        ]
+        client = MagicMock(spec=['get_all_instances'])
+        client.get_all_instances.return_value = instances
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
+            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 groups = list(aws.iter_instance_security_groups())
-            gec_mock.assert_called_once_with()
-            self.assertEqual(groups, [
-                ('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
-        gai_mock.assert_called_once_with(instance_ids=None)
+        self.assertEqual(
+            groups, [('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
+        client.get_all_instances.assert_called_once_with(instance_ids=None)
+        self.assert_ec2_connection_call(ctr_mock)
 
     def test_iter_instance_security_groups_instances(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch.object(aws, 'get_ec2_connection') as gec_mock:
-                instances = [
-                    MagicMock(instances=[MagicMock(groups=[
-                        SecurityGroup(id='foo', name='bar'),
-                        ])]),
-                    MagicMock(instances=[MagicMock(groups=[
-                        SecurityGroup(id='baz', name='qux'),
-                        SecurityGroup(id='quxx-id', name='quxx'),
-                        ])]),
-                ]
-                gai_mock = gec_mock.return_value.get_all_instances
-                gai_mock.return_value = instances
-                list(aws.iter_instance_security_groups(['abc', 'def']))
-        gai_mock.assert_called_once_with(instance_ids=['abc', 'def'])
+        instances = [
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='foo', name='bar'),
+                ])]),
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='baz', name='qux'),
+                SecurityGroup(id='quxx-id', name='quxx'),
+                ])]),
+        ]
+        client = MagicMock(spec=['get_all_instances'])
+        client.get_all_instances.return_value = instances
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
+            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+                    list(aws.iter_instance_security_groups(['abc', 'def']))
+        client.get_all_instances.assert_called_once_with(
+            instance_ids=['abc', 'def'])
+        self.assert_ec2_connection_call(ctr_mock)
 
     def test_destroy_security_groups(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch('subprocess.check_call') as cc_mock:
+        client = MagicMock(spec=['delete_security_group'])
+        client.delete_security_group.return_value = True
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
+            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
                 failures = aws.destroy_security_groups(
                     ['foo', 'foobar', 'baz'])
-            self.assertEqual(cc_mock.mock_calls[0], call(
-                ['euca-delete-group', 'foo'], env=aws.get_environ()))
-            self.assertEqual(cc_mock.mock_calls[1], call(
-                ['euca-delete-group', 'foobar'], env=aws.get_environ()))
-            self.assertEqual(cc_mock.mock_calls[2], call(
-                ['euca-delete-group', 'baz'], env=aws.get_environ()))
-            self.assertEqual(3, cc_mock.call_count)
-            self.assertEqual(failures, [])
+        calls = [call(name='foo'), call(name='foobar'), call(name='baz')]
+        self.assertEqual(client.delete_security_group.mock_calls, calls)
+        self.assertEqual(failures, [])
+        self.assert_ec2_connection_call(ctr_mock)
 
     def test_destroy_security_failures(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            with patch('subprocess.check_call',
-                       side_effect=CalledProcessError(1, 'foo')):
-                failures = aws.destroy_security_groups(['foo', 'foobar',
-                                                        'baz'])
-            self.assertEqual(failures, ['foo', 'foobar', 'baz'])
+        client = MagicMock(spec=['delete_security_group'])
+        client.delete_security_group.return_value = False
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
+            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+                failures = aws.destroy_security_groups(
+                    ['foo', 'foobar', 'baz'])
+        self.assertEqual(failures, ['foo', 'foobar', 'baz'])
+        self.assert_ec2_connection_call(ctr_mock)
 
-    def test_get_ec2_connection(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            return_value = object()
-            with patch('boto.ec2.connect_to_region',
-                       return_value=return_value) as ctr_mock:
-                connection = aws.get_ec2_connection()
-            ctr_mock.assert_called_once_with(
-                'ca-west', aws_access_key_id='skeleton-key',
-                aws_secret_access_key='secret-skeleton-key')
-            self.assertIs(connection, return_value)
-
-    def make_aws_connection(self):
-        with AWSAccount.manager_from_config(get_aws_env().config) as aws:
-            aws.get_ec2_connection = MagicMock()
-            connection = aws.get_ec2_connection.return_value
-            return aws, connection
+    @contextmanager
+    def make_aws_connection(self, return_value):
+        client = MagicMock(spec=['get_all_network_interfaces'])
+        client.get_all_network_interfaces.return_value = return_value
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=client) as ctr_mock:
+            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+                yield aws
+        self.assert_ec2_connection_call(ctr_mock)
 
     def make_interface(self, group_ids):
-        interface = MagicMock()
+        interface = MagicMock(spec=['groups', 'delete', 'id'])
         interface.groups = [SecurityGroup(id=g) for g in group_ids]
         return interface
 
     def test_delete_detached_interfaces_with_id(self):
-        aws, connection = self.make_aws_connection()
         foo_interface = self.make_interface(['bar-id'])
         baz_interface = self.make_interface(['baz-id', 'bar-id'])
-        gani_mock = connection.get_all_network_interfaces
-        gani_mock.return_value = [foo_interface, baz_interface]
-        unclean = aws.delete_detached_interfaces(['bar-id'])
-        gani_mock.assert_called_once_with(
-            filters={'status': 'available'})
-        foo_interface.delete.assert_called_once_with()
-        baz_interface.delete.assert_called_once_with()
+        with self.make_aws_connection([foo_interface, baz_interface]) as aws:
+            unclean = aws.delete_detached_interfaces(['bar-id'])
+            foo_interface.delete.assert_called_once_with()
+            baz_interface.delete.assert_called_once_with()
         self.assertEqual(unclean, set())
 
     def test_delete_detached_interfaces_without_id(self):
-        aws, connection = self.make_aws_connection()
         baz_interface = self.make_interface(['baz-id'])
-        connection.get_all_network_interfaces.return_value = [baz_interface]
-        unclean = aws.delete_detached_interfaces(['bar-id'])
+        with self.make_aws_connection([baz_interface]) as aws:
+            unclean = aws.delete_detached_interfaces(['bar-id'])
         self.assertEqual(baz_interface.delete.call_count, 0)
         self.assertEqual(unclean, set())
 
     def prepare_delete_exception(self, error_code):
-        aws, connection = self.make_aws_connection()
         baz_interface = self.make_interface(['bar-id'])
         e = EC2ResponseError('status', 'reason')
         e.error_code = error_code
         baz_interface.delete.side_effect = e
-        connection.get_all_network_interfaces.return_value = [baz_interface]
-        return aws, baz_interface
+        return baz_interface
 
     def test_delete_detached_interfaces_in_use(self):
-        aws, baz_interface = self.prepare_delete_exception(
+        baz_interface = self.prepare_delete_exception(
             'InvalidNetworkInterface.InUse')
-        unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+        with self.make_aws_connection([baz_interface]) as aws:
+            unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
         baz_interface.delete.assert_called_once_with()
         self.assertEqual(unclean, set(['bar-id']))
 
     def test_delete_detached_interfaces_not_found(self):
-        aws, baz_interface = self.prepare_delete_exception(
+        baz_interface = self.prepare_delete_exception(
             'InvalidNetworkInterfaceID.NotFound')
-        unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+        with self.make_aws_connection([baz_interface]) as aws:
+            unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
         baz_interface.delete.assert_called_once_with()
         self.assertEqual(unclean, set(['bar-id']))
 
     def test_delete_detached_interfaces_other(self):
-        aws, baz_interface = self.prepare_delete_exception(
+        baz_interface = self.prepare_delete_exception(
             'InvalidNetworkInterfaceID')
-        with self.assertRaises(EC2ResponseError):
-            aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+        with self.make_aws_connection([baz_interface]) as aws:
+            with self.assertRaises(EC2ResponseError):
+                aws.delete_detached_interfaces(['bar-id', 'foo-id'])
 
 
 def get_os_config():

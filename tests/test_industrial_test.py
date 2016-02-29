@@ -1318,15 +1318,17 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
                 SecurityGroup(id='quxx-id', name='quxx'),
                 ])]),
         ]
+        aws_client = MagicMock()
+        aws_client.get_all_instances.return_value = aws_instances
         with patch(
-                'substrate.AWSAccount.get_ec2_connection') as gec_mock:
+                'substrate.ec2.connect_to_region') as gec_mock:
             with patch_status(client, status):
                 gai_mock = gec_mock.return_value.get_all_instances
                 gai_mock.return_value = aws_instances
                 self.assertEqual(destroy_env.get_security_groups(client), {
                     'baz': 'qux', 'foo': 'bar', 'quxx-id': 'quxx'
                     })
-        gec_mock.assert_called_once_with()
+        self.assert_ec2_connection_call(gec_mock)
         gai_mock.assert_called_once_with(instance_ids=['foo-id'])
 
     def test_get_security_groups_openstack(self):
@@ -1362,11 +1364,11 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
     def test_check_security_groups_match(self):
         client = self.get_aws_client()
         destroy_env = DestroyEnvironmentAttempt()
-        output = (
-            'GROUP\tfoo-id\t\tfoo-group\n'
-            'GROUP\tbaz-id\t\tbaz-group\n'
-        )
-        with patch('subprocess.check_output', return_value=output) as co_mock:
+        aws_client = MagicMock()
+        aws_client.get_all_security_groups.return_value = list(
+            self.make_group())
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=aws_client) as ctr_mock:
             with self.assertRaisesRegexp(
                 Exception, (
                     r'Security group\(s\) not cleaned up: foo-group.')):
@@ -1374,27 +1376,35 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
                                lambda x: iter([None])):
                         destroy_env.check_security_groups(
                             client, {'foo-id': 'foo', 'bar-id': 'bar'})
-        with AWSAccount.manager_from_config(client.env.config) as aws:
-            env = aws.get_environ()
-        co_mock.assert_called_once_with(
-            ['euca-describe-groups', '--filter', 'description=juju group'],
-            env=env)
+        aws_client.get_all_security_groups.assert_called_once_with(
+            filters={'description': 'juju group'})
+        self.assert_ec2_connection_call(ctr_mock)
+
+    def make_group(self):
+        for name in ['foo', 'baz']:
+            group = MagicMock()
+            group.name = name + '-group'
+            group.id = name + '-id'
+            yield group
 
     def test_check_security_groups_no_match(self):
         client = self.get_aws_client()
         destroy_env = DestroyEnvironmentAttempt()
-        output = (
-            'GROUP\tfoo-id\t\tfoo-group\n'
-            'GROUP\tbaz-id\t\tbaz-group\n'
-        )
-        with patch('subprocess.check_output', return_value=output) as co_mock:
+        aws_client = MagicMock()
+        aws_client.get_all_security_groups.return_value = list(
+            self.make_group())
+        with patch('substrate.ec2.connect_to_region',
+                   return_value=aws_client) as ctr_mock:
                 destroy_env.check_security_groups(
                     client, {'bar-id': 'bar'})
-        with AWSAccount.manager_from_config(client.env.config) as aws:
-            env = aws.get_environ()
-        co_mock.assert_called_once_with(
-            ['euca-describe-groups', '--filter', 'description=juju group'],
-            env=env)
+        aws_client.get_all_security_groups.assert_called_once_with(
+            filters={'description': 'juju group'})
+        self.assert_ec2_connection_call(ctr_mock)
+
+    def assert_ec2_connection_call(self, ctr_mock):
+        ctr_mock.assert_called_once_with(
+            'ca-west', aws_access_key_id='skeleton-key',
+            aws_secret_access_key='secret-skeleton-key')
 
     def test_check_security_groups_non_aws(self):
         client = FakeEnvJujuClient()

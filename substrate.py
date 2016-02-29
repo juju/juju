@@ -71,67 +71,40 @@ class AWSAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def manager_from_config(cls, config, region=None):
         """Create an AWSAccount from a juju environment dict."""
-        yield cls(get_euca_env(config), config['region'])
+        euca_environ = get_euca_env(config)
+        if region is None:
+            region = config["region"]
+        client = ec2.connect_to_region(
+            region, aws_access_key_id=euca_environ['EC2_ACCESS_KEY'],
+            aws_secret_access_key=euca_environ['EC2_SECRET_KEY'])
+        yield cls(euca_environ, region, client)
 
-    def __init__(self, euca_environ, region):
+    def __init__(self, euca_environ, region, client):
         self.euca_environ = euca_environ
         self.region = region
-
-    def get_environ(self):
-        """Return the environ to run euca in."""
-        environ = dict(os.environ)
-        environ.update(self.euca_environ)
-        return environ
-
-    @staticmethod
-    def get_commandline(command, args):
-        """Return the euca commandline."""
-        return ['euca-' + command] + args
-
-    def euca(self, command, args):
-        """Run a euca-* command."""
-        commandline = self.get_commandline(command, args)
-        logging.info(' '.join(commandline))
-        return subprocess.check_call(commandline,
-                                     env=self.get_environ())
-
-    def get_euca_output(self, command, args):
-        """Run a euca-* command and return its output."""
-        commandline = self.get_commandline(command, args)
-        logging.debug(' '.join(commandline))
-        return subprocess.check_output(commandline,
-                                       env=self.get_environ())
-
-    @staticmethod
-    def iter_field_lists(lines):
-        """Iterate through lists of fields for euca output."""
-        for line in lines.splitlines():
-            yield line.split('\t')
+        self.client = client
 
     def iter_security_groups(self):
         """Iterate through security groups created by juju in this account.
 
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
-        lines = self.get_euca_output(
-            'describe-groups', ['--filter', 'description=juju group'])
-        for field in self.iter_field_lists(lines):
-            if field[:1] != ['GROUP']:
-                continue
-            yield field[1], field[3]
+        groups = self.client.get_all_security_groups(
+            filters={'description': 'juju group'})
+        for group in groups:
+            yield group.id, group.name
 
     def iter_instance_security_groups(self, instance_ids=None):
         """List the security groups used by instances in this account.
 
         :param instance_ids: If supplied, list only security groups used by
             the specified instances.
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         logging.info('Listing security groups in use.')
-        connection = self.get_ec2_connection()
-        reservations = connection.get_all_instances(instance_ids=instance_ids)
+        reservations = self.client.get_all_instances(instance_ids=instance_ids)
         for reservation in reservations:
             for instance in reservation.instances:
                 for group in instance.groups:
@@ -144,17 +117,10 @@ class AWSAccount:
         """
         failures = []
         for group in groups:
-            try:
-                self.euca('delete-group', [group])
-            except subprocess.CalledProcessError:
+            deleted = self.client.delete_security_group(name=group)
+            if not deleted:
                 failures.append(group)
         return failures
-
-    def get_ec2_connection(self):
-        return ec2.connect_to_region(
-            self.region, aws_access_key_id=self.euca_environ['EC2_ACCESS_KEY'],
-            aws_secret_access_key=self.euca_environ['EC2_SECRET_KEY'],
-        )
 
     def delete_detached_interfaces(self, security_groups):
         """Delete detached network interfaces for supplied groups.
@@ -163,8 +129,7 @@ class AWSAccount:
         :return: A collection of security groups which still have interfaces in
             them.
         """
-        connection = self.get_ec2_connection()
-        interfaces = connection.get_all_network_interfaces(
+        interfaces = self.client.get_all_network_interfaces(
             filters={'status': 'available'})
         unclean = set()
         for interface in interfaces:
@@ -178,8 +143,8 @@ class AWSAccount:
                                 'InvalidNetworkInterfaceID.NotFound'):
                             raise
                         logging.info(
-                            'Failed to delete interface {}'.format(
-                                interface.id))
+                            'Failed to delete interface {!r}. {}'.format(
+                                interface.id, e.message))
                         unclean.update(g.id for g in interface.groups)
                     break
         return unclean
@@ -222,7 +187,7 @@ class OpenStackAccount:
     def iter_security_groups(self):
         """Iterate through security groups created by juju in this account.
 
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         return ((g.id, g.name) for g in self.client.security_groups.list()
                 if g.description == 'juju group')
@@ -232,7 +197,7 @@ class OpenStackAccount:
 
         :param instance_ids: If supplied, list only security groups used by
             the specified instances.
-        :return: an itertator of (group-id, group-name) tuples.
+        :return: an iterator of (group-id, group-name) tuples.
         """
         group_names = set()
         for server in self.client.servers.list():
