@@ -2374,7 +2374,7 @@ func SetSystemIdentity(st *State, identity string) error {
 
 func (st *State) SetMongoSpaceDocId(mongoSpaceDocId string) error {
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"mongospacedocid", ""}},
 		Update: bson.D{{"mongospacedocid", mongoSpaceDocId}},

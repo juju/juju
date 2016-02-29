@@ -279,7 +279,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 
 // getMongoSpace updates info with the space that Mongo servers should exist in.
 func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
-	stateInfo, err := w.st.StateServerInfo()
+	stateInfo, err := w.st.ControllerInfo()
 	if err != nil {
 		return fmt.Errorf("cannot get state server info: %v", err)
 	}

@@ -534,7 +534,7 @@ func (s *workerSuite) TestStateServersMongoErrorNoCommonSpace(c *gc.C) {
 		pgw := w.(*pgWorker)
 		pgw.providerSupportsSpaces = true
 		defer func() {
-			c.Check(worker.Stop(w), gc.ErrorMatches, "Couldn't find a space containing all peer group machines")
+			c.Check(worker.Stop(w), gc.ErrorMatches, ".*Couldn't find a space containing all peer group machines")
 		}()
 		select {
 		case servers := <-publishCh:

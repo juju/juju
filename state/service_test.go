@@ -2325,9 +2325,7 @@ func (s *ServiceSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	effectiveNew := map[string]string{
-		"client": "db",
-	}
+	effectiveNew := map[string]string{}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
 	s.assertServiceRemovedWithItsBindings(c, service)

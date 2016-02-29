@@ -1973,10 +1973,6 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		bindings:      map[string]string{"extra": "missing"},
 		expectedError: `unknown endpoint "extra" not valid`,
 	}, {
-		about:         "ensure network.DefaultSpace is not treated specially",
-		bindings:      map[string]string{"server": network.DefaultSpace},
-		expectedError: `unknown space "default" not valid`,
-	}, {
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
