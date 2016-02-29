@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -80,7 +79,6 @@ import (
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
@@ -122,7 +120,6 @@ var (
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
-	newMetadataUpdater       = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker    = mongoupgrader.New
 	reportOpenedState        = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -723,11 +720,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	modelConfig, err := apiConn.Agent().ModelConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read model config: %v", err)
-	}
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -746,18 +738,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 			return toolsversionchecker.New(agenttools.NewFacade(apiConn), &checkerParams), nil
 		})
 
-		// Published image metadata for some providers are in simple streams.
-		// Providers that do not depend on simple streams do not need this worker.
-		env, err := newEnvirons(modelConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting environ")
-		}
-		if _, ok := env.(simplestreams.HasRegion); ok {
-			// Start worker that stores published image metadata in state.
-			runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-				return newMetadataUpdater(apiConn.MetadataUpdater()), nil
-			})
-		}
 	} else {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.

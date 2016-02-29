@@ -75,6 +75,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
@@ -1546,7 +1547,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newMetadataUpdater, newWorker)
+	s.PatchValue(&imagemetadataworker.NewWorker, newWorker)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, job)
