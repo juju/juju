@@ -459,9 +459,11 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 func guiArchive() (*coretools.GUIArchive, error) {
 	// TODO frankban: by default the GUI archive must be retrieved from
 	// simplestreams. The environment variable is only used temporarily for
-	// development purposes.
+	// development purposes. This will be fixed before landing to master.
 	path := os.Getenv("JUJU_GUI")
 	if path == "" {
+		// TODO frankban: implement the simplestreams case.
+		// This will be fixed before landing to master.
 		return nil, nil
 	}
 	number, err := guiVersion(path)

@@ -312,6 +312,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot fetch Juju GUI")
 		}
+		// TODO frankban: guiData will never be nil at this point when using
+		// simplestreams. This will be fixed before landing to master.
 		if guiData != nil {
 			guiDir := w.icfg.GUITools()
 			w.conf.AddScripts(
@@ -388,6 +390,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 // fetchGUI fetches the Juju GUI.
 func (w *unixConfigure) fetchGUI(gui *coretools.GUIArchive) ([]byte, error) {
 	if gui == nil {
+		// TODO frankban: return an error in this case.
+		// This will be fixed before landing to master.
 		return nil, nil
 	}
 	u, err := url.Parse(gui.URL)
@@ -396,6 +400,7 @@ func (w *unixConfigure) fetchGUI(gui *coretools.GUIArchive) ([]byte, error) {
 	}
 	if u.Scheme != "file" {
 		// TODO frankban: support retrieving the GUI archive from the web.
+		// This will be fixed before landing to master.
 		return nil, nil
 	}
 	guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
