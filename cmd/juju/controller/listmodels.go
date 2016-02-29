@@ -18,12 +18,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewModelsCommand returns a command to list environments.
+// NewModelsCommand returns a command to list models.
 func NewModelsCommand() cmd.Command {
 	return modelcmd.WrapController(&modelsCommand{})
 }
 
-// environmentsCommand returns the list of all the environments the
+// modelsCommand returns the list of all the models the
 // current user can access on the current controller.
 type modelsCommand struct {
 	modelcmd.ControllerCommandBase
@@ -36,7 +36,7 @@ type modelsCommand struct {
 	sysAPI    ModelsSysAPI
 }
 
-var envsDoc = `
+var modelsDoc = `
 List all the models the user can access on the current controller.
 
 The models listed here are either models you have created
@@ -68,11 +68,11 @@ func (c *modelsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-models",
 		Purpose: "list all models the user can access on the current controller",
-		Doc:     envsDoc,
+		Doc:     modelsDoc,
 	}
 }
 
-func (c *modelsCommand) getEnvAPI() (ModelManagerAPI, error) {
+func (c *modelsCommand) getModelManagerAPI() (ModelManagerAPI, error) {
 	if c.modelAPI != nil {
 		return c.modelAPI, nil
 	}
@@ -168,7 +168,7 @@ func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
 }
 
 func (c *modelsCommand) getUserModels() ([]base.UserModel, error) {
-	client, err := c.getEnvAPI()
+	client, err := c.getModelManagerAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

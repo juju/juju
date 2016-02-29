@@ -137,6 +137,18 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 		"\n")
 }
 
+func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
+	delete(s.store.Models, "fake")
+	context, err := testing.RunCommand(c, s.newCommand())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME         OWNER             LAST CONNECTION\n"+
+		"test-model1  user-admin@local  2015-03-20\n"+
+		"test-model2  user-admin@local  2015-03-01\n"+
+		"test-model3  user-admin@local  never connected\n"+
+		"\n")
+}
+
 func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
