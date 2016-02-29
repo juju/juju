@@ -27,7 +27,7 @@ import (
 // store client.
 type CharmstoreSpec interface {
 	// Connect connects to the specified charm store.
-	Connect() (charmstore.Client, error)
+	Connect() (*charmstore.Client, error)
 }
 
 type charmstoreSpec struct {
@@ -47,7 +47,7 @@ func newCharmstoreSpec() CharmstoreSpec {
 }
 
 // Connect implements CharmstoreSpec.
-func (cs charmstoreSpec) Connect() (charmstore.Client, error) {
+func (cs charmstoreSpec) Connect() (*charmstore.Client, error) {
 	params, apiContext, err := cs.connect()
 	if err != nil {
 		return nil, errors.Trace(err)

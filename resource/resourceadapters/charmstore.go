@@ -57,7 +57,7 @@ func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
 }
 
 // NewClient opens a new charm store client.
-func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
+func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
 	// TODO(ericsnow) Use a valid charm store client.
 	base := csclient.New(csclient.Params{URL: "<not valid>"})
 	// TODO(ericsnow) closer will be meaningful once we factor out the
@@ -67,12 +67,14 @@ func (cs *charmstoreOpener) NewClient() (charmstore.Client, error) {
 	return newCSRetryClient(client), nil
 }
 
-type csRetryClient struct {
-	charmstore.Client
+// CSRetryClient is a wrapper around a Juju charm store client that
+// retries GetResource() calls.
+type CSRetryClient struct {
+	*charmstore.Client
 	retryArgs retry.CallArgs
 }
 
-func newCSRetryClient(client charmstore.Client) *csRetryClient {
+func newCSRetryClient(client *charmstore.Client) *CSRetryClient {
 	retryArgs := retry.CallArgs{
 		// The only error that stops the retry loop should be "not found".
 		IsFatalError: errors.IsNotFound,
@@ -86,14 +88,14 @@ func newCSRetryClient(client charmstore.Client) *csRetryClient {
 		Delay: 1 * time.Minute,
 		Clock: clock.WallClock,
 	}
-	return &csRetryClient{
+	return &CSRetryClient{
 		Client:    client,
 		retryArgs: retryArgs,
 	}
 }
 
 // GetResource returns a reader for the resource's data.
-func (client csRetryClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
+func (client CSRetryClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
 	args := client.retryArgs // a copy
 
 	var reader io.ReadCloser

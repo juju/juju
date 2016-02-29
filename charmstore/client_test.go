@@ -67,29 +67,29 @@ func (s *ClientSuite) TestWithMetadata(c *gc.C) {
 	c.Check(newClient.Metadata(), jc.DeepEquals, meta)
 }
 
-//func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
-//	cURLs := []*charm.URL{
-//		charm.MustParseURL("cs:quantal/spam-17"),
-//		charm.MustParseURL("cs:quantal/eggs-2"),
-//		charm.MustParseURL("cs:quantal/ham-1"),
-//	}
-//	expected := []charmrepo.CharmRevision{{
-//		Revision: 17,
-//	}, {
-//		Revision: 3,
-//	}, {
-//		Err: errors.New("not found"),
-//	}}
-//	s.client.ReturnLatestRevisions = expected
-//	client := charmstore.Client{BaseClient: s.client}
-//
-//	revisions, err := client.LatestRevisions(cURLs)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	s.stub.CheckCallNames(c, "LatestRevisions")
-//	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs)
-//	c.Check(revisions, jc.DeepEquals, expected)
-//}
+func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
+	cURLs := []*charm.URL{
+		charm.MustParseURL("cs:quantal/spam-17"),
+		charm.MustParseURL("cs:quantal/eggs-2"),
+		charm.MustParseURL("cs:quantal/ham-1"),
+	}
+	expected := []charmrepo.CharmRevision{{
+		Revision: 17,
+	}, {
+		Revision: 3,
+	}, {
+		Err: errors.New("not found"),
+	}}
+	s.client.ReturnLatestRevisions = expected
+	client := charmstore.Client{BaseClient: s.client}
+
+	revisions, err := client.LatestRevisions(cURLs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "LatestRevisions")
+	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs)
+	c.Check(revisions, jc.DeepEquals, expected)
+}
 
 func (s *ClientSuite) TestLatestCharmInfo(c *gc.C) {
 	cURLs := []*charm.URL{
@@ -172,7 +172,7 @@ func (s *ClientSuite) TestFakeGetResource(c *gc.C) {
 // TODO(ericsnow) Move the stub client and repo to a testing package.
 
 type stubClient struct {
-	charmstore.Client
+	charmstore.BaseClient
 	*testing.Stub
 
 	ReturnListResources   [][]charmresource.Resource

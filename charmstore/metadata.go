@@ -43,7 +43,7 @@ type httpHeaderSetter interface {
 
 // setOnClient sets custom HTTP headers that will be sent to the charm
 // store on each request.
-func (meta JujuMetadata) setOnClient(client Client) error {
+func (meta JujuMetadata) setOnClient(client BaseClient) error {
 	setter, ok := client.(httpHeaderSetter)
 	if !ok {
 		return errors.NewNotValid(nil, "charm store client (missing SetHTTPHeader method)")

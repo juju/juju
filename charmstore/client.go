@@ -18,22 +18,6 @@ import (
 
 var logger = loggo.GetLogger("juju.charmstore")
 
-// Client provides the common interface for the charm store client needs
-// of Juju.
-type Client interface {
-	BaseClient
-	io.Closer
-
-	// WithMetadata returns a copy of the the client that will use the
-	// provided metadata during client requests.
-	WithMetadata(meta JujuMetadata) (Client, error)
-
-	// Metadata returns the Juju metadata set on the client.
-	Metadata() JujuMetadata
-
-	// TODO(ericsnow) Add an "AsRepo() charmrepo.Interface" method.
-}
-
 // BaseClient exposes the functionality of the charm store, as provided
 // by github.com/juju/charmrepo/csclient.Client.
 //
@@ -112,26 +96,26 @@ func (base baseClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRev
 // TODO(ericsnow) Factor out a metadataClient type that embeds "client",
 // and move the "meta" field there?
 
-// client adapts csclient.Client to the needs of Juju.
-type client struct {
+// Client adapts csclient.Client to the needs of Juju.
+type Client struct {
 	BaseClient
 	io.Closer
 
-	newCopy func() *client
+	newCopy func() *Client
 	meta    JujuMetadata
 }
 
 // NewClient returns a Juju charm store client for the given client
 // config.
-func NewClient(config csclient.Params) Client {
+func NewClient(config csclient.Params) *Client {
 	base := csclient.New(config)
 	closer := ioutil.NopCloser(nil)
-	return newClient(base, closer)
+	return WrapBaseClient(base, closer)
 }
 
 // NewDefaultClient returns a Juju charm store client using a default
 // client config.
-func NewDefaultClient() Client {
+func NewDefaultClient() *Client {
 	return NewClient(csclient.Params{})
 }
 
@@ -139,18 +123,14 @@ func NewDefaultClient() Client {
 // the provided client. The given closer is used to close resources
 // related to the client. If no closer is needed then pass in a no-op
 // closer (e.g. ioutil.NopCloser).
-func WrapBaseClient(base *csclient.Client, closer io.Closer) Client {
-	return newClient(base, closer)
-}
-
-func newClient(base *csclient.Client, closer io.Closer) *client {
-	c := &client{
+func WrapBaseClient(base *csclient.Client, closer io.Closer) *Client {
+	c := &Client{
 		BaseClient: newBaseClient(base),
 		Closer:     closer,
 	}
-	c.newCopy = func() *client {
-		newBase := *base
-		copied := newClient(&newBase, closer)
+	c.newCopy = func() *Client {
+		newBase := *base // a copy
+		copied := WrapBaseClient(&newBase, closer)
 		copied.meta = c.meta
 		return copied
 	}
@@ -159,7 +139,7 @@ func newClient(base *csclient.Client, closer io.Closer) *client {
 
 // WithMetadata returns a copy of the the client that will use the
 // provided metadata during client requests.
-func (c client) WithMetadata(meta JujuMetadata) (Client, error) {
+func (c Client) WithMetadata(meta JujuMetadata) (*Client, error) {
 	newClient := c.newCopy()
 	newClient.meta = meta
 	// Note that we don't call meta.setOnClient() at this point.
@@ -172,8 +152,8 @@ func (c client) WithMetadata(meta JujuMetadata) (Client, error) {
 	return newClient, nil
 }
 
-// Metadata implements Client.
-func (c client) Metadata() JujuMetadata {
+// Metadata returns the Juju metadata set on the client.
+func (c Client) Metadata() JujuMetadata {
 	// Note the value receiver, meaning that the returned metadata
 	// is a copy.
 	return c.meta
@@ -183,7 +163,7 @@ func (c client) Metadata() JujuMetadata {
 // identified charms. The revisions in the provided URLs are ignored.
 // Note that this differs from BaseClient.LatestRevisions() exclusively
 // due to taking into account Juju metadata (if any).
-func (c *client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
+func (c *Client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
 	if !c.meta.IsZero() {
 		c = c.newCopy()
 		if err := c.meta.setOnClient(c); err != nil {
@@ -193,10 +173,12 @@ func (c *client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision,
 	return c.BaseClient.LatestRevisions(cURLs)
 }
 
+// TODO(ericsnow) Add an "AsRepo() charmrepo.Interface" method.
+
 // LatestCharmInfo returns the most up-to-date information about each
 // of the identified charms at their latest revision. The revisions in
 // the provided URLs are ignored.
-func LatestCharmInfo(client Client, cURLs []*charm.URL) ([]CharmInfoResult, error) {
+func LatestCharmInfo(client BaseClient, cURLs []*charm.URL) ([]CharmInfoResult, error) {
 	now := time.Now().UTC()
 
 	// Do a bulk call to get the revision info for all charms.
@@ -239,13 +221,13 @@ func LatestCharmInfo(client Client, cURLs []*charm.URL) ([]CharmInfoResult, erro
 
 type fakeCharmStoreClient struct{}
 
-// ListResources implements Client as a noop.
+// ListResources implements BaseClient as a noop.
 func (fakeCharmStoreClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
 	res := make([][]charmresource.Resource, len(charmURLs))
 	return res, nil
 }
 
-// GetResource implements Client as a noop.
+// GetResource implements BaseClient as a noop.
 func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
 	return nil, errors.NotFoundf("resource %q", resourceName)
 }

@@ -91,7 +91,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 
 // NewCharmStoreClient instantiates a new charm store repository.
 // It is defined at top level for testing purposes.
-var NewCharmStoreClient = func(modelUUID string) (charmstore.Client, error) {
+var NewCharmStoreClient = func(modelUUID string) (*charmstore.Client, error) {
 	// TODO(ericsnow) Use the Juju "HTTP context" once we have one.
 	client := charmstore.NewDefaultClient()
 	return client.WithMetadata(charmstore.JujuMetadata{

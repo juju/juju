@@ -34,7 +34,7 @@ type CommandBase struct {
 }
 
 // Connect implements CommandBase.
-func (c *CommandBase) Connect() (charmstore.Client, error) {
+func (c *CommandBase) Connect() (*charmstore.Client, error) {
 	if c.spec == nil {
 		return nil, errors.Errorf("missing charm store spec")
 	}
