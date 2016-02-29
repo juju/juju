@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
@@ -206,32 +207,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	var ids map[string]string
 
 	if len(c.Resources) > 0 {
-		resclient, err := resourceadapters.NewAPIClient(c.NewAPIRoot)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		svcs, err := resclient.ListResources([]string{c.ServiceName})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		currentResources := svcs[0].Resources
-		current := make(map[string]resource.Resource, len(currentResources))
-		for _, res := range currentResources {
-			current[res.Name] = res
-		}
-
-		var metaRes map[string]charmresource.Meta
-		// We don't include metadata for any resources that were uploaded
-		// previously that aren't getting overridden right now. Doing so would
-		// cause those resources to get overridden, and they should be
-		// maintained unless specifically overridden by the user.
-		for name, res := range charmInfo.Meta.Resources {
-			if _, ok := c.Resources[name]; !ok || current[name].Origin != charmresource.OriginUpload {
-				metaRes[name] = res
-			}
-		}
-
-		ids, err = handleResources(c, c.Resources, c.ServiceName, metaRes)
+		ids, err = c.upgradeResources(charmInfo.Meta.Resources)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -246,6 +222,55 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
+}
+
+func (c *upgradeCharmCommand) upgradeResources(storeResources map[string]charmresource.Meta) (map[string]string, error) {
+	resclient, err := resourceadapters.NewAPIClient(c.NewAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svcs, err := resclient.ListResources([]string{c.ServiceName})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	currentResources := svcs[0].Resources
+	current := make(map[string]resource.Resource, len(currentResources))
+	for _, res := range currentResources {
+		current[res.Name] = res
+	}
+
+	var metaRes map[string]charmresource.Meta
+	for name, res := range storeResources {
+		if shouldUploadMeta(res, c.Resources, current) {
+			metaRes[name] = res
+		}
+	}
+
+	return handleResources(c, c.Resources, c.ServiceName, metaRes)
+}
+
+// shouldUploadMeta reports whether we should upload the metadata for the given
+// resource.  This is always true for resources we're adding with the --resource
+// flag. For resources we're not adding with --resource, we only upload metadata
+// for charmstore resources.  previously uploaded resources stay pinned to the
+// data the user uploaded.
+func shouldUploadMeta(res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
+	// Always upload metadata for resources the user is uploading during
+	// upgrade-charm.
+	if _, ok := uploads[res.Name]; ok {
+		return true
+	}
+	cur, ok := current[res.Name]
+	if !ok {
+		// This should be impossible, but regardless, if there's no information
+		// on the server, there should be.
+		return true
+	}
+	// Never override existing resources a user has already uploaded.
+	if cur.Origin == charmresource.OriginUpload {
+		return false
+	}
+	return true
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
