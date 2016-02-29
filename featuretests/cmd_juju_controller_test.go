@@ -64,7 +64,7 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME       OWNER        LAST CONNECTION\n"+
-		"admin      admin@local  just now\n"+
+		"admin*     admin@local  just now\n"+
 		"new-model  admin@local  never connected\n"+
 		"\n")
 }
