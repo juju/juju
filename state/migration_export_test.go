@@ -23,6 +23,10 @@ type MigrationSuite struct {
 	ConnSuite
 }
 
+type statusSetter interface {
+	SetStatus(state.Status, string, map[string]interface{}) error
+}
+
 func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -30,11 +34,27 @@ func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, status state.Status, count int) {
+	for i := 0; i < count; i++ {
+		c.Logf("setting status for %v", entity)
+		err := entity.SetStatus(status, "", map[string]interface{}{"index": count - i})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 type MigrationExportSuite struct {
 	MigrationSuite
 }
 
 var _ = gc.Suite(&MigrationExportSuite{})
+
+func (s *MigrationExportSuite) assertStatusHistory(c *gc.C, history []migration.Status, status state.Status) {
+	for i, st := range history {
+		c.Check(st.Value(), gc.Equals, string(status))
+		c.Check(st.Message(), gc.Equals, "")
+		c.Check(st.Data(), jc.DeepEquals, map[string]interface{}{"index": i + 1})
+	}
+}
 
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	stModel, err := s.State.Model()
@@ -107,6 +127,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, machine1, state.StatusStarted, 5)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,6 +144,11 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	exTools := exported.Tools()
 	c.Assert(exTools, gc.NotNil)
 	c.Assert(exTools.Version(), jc.DeepEquals, tools.Version)
+
+	history := exported.StatusHistory()
+	// 6 for the one initial + 5 primed.
+	c.Assert(history, gc.HasLen, 6)
+	s.assertStatusHistory(c, history[:5], state.StatusStarted)
 
 	containers := exported.Containers()
 	c.Assert(containers, gc.HasLen, 1)
@@ -144,6 +170,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(service, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, service, state.StatusActive, 5)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,6 +192,11 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(exported.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
+
+	history := exported.StatusHistory()
+	// 6 for the one initial + 5 primed.
+	c.Assert(history, gc.HasLen, 6)
+	s.assertStatusHistory(c, history[:5], state.StatusActive)
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
@@ -185,6 +217,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, unit, state.StatusActive, 5)
+	s.primeStatusHistory(c, &agentStatusSetter{unit}, state.StatusIdle, 5)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -204,6 +238,16 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+
+	workloadHistory := exported.WorkloadStatusHistory()
+	// 6 for the one initial + 5 primed.
+	c.Assert(workloadHistory, gc.HasLen, 6)
+	s.assertStatusHistory(c, workloadHistory[:5], state.StatusActive)
+
+	agentHistory := exported.AgentStatusHistory()
+	// 6 for the one initial + 5 primed.
+	c.Assert(agentHistory, gc.HasLen, 6)
+	s.assertStatusHistory(c, agentHistory[:5], state.StatusIdle)
 }
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
@@ -296,4 +340,12 @@ type goodToken struct{}
 // Check implements leadership.Token
 func (*goodToken) Check(interface{}) error {
 	return nil
+}
+
+type agentStatusSetter struct {
+	*state.Unit
+}
+
+func (w *agentStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
+	return w.SetAgentStatus(status, info, data)
 }
