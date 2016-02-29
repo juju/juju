@@ -64,6 +64,7 @@ func (environProvider) RestrictedConfigAttributes() []string {
 		"remote-url",
 		"client-cert",
 		"client-key",
+		"server-cert",
 	}
 }
 

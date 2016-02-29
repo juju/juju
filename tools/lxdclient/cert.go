@@ -11,12 +11,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared"
 )
 
 const (
@@ -25,8 +21,7 @@ const (
 	pemBlockTypeCert = "CERTIFICATE"
 	pemBlockTypeKey  = "RSA PRIVATE KEY"
 
-	// TODO(ericsnow) Is this the right default?
-	certDefaultName = configCertFile
+	certDefaultName = "juju-client-certificate"
 )
 
 // Cert holds the information for a single certificate a client
@@ -56,12 +51,13 @@ func (cert Cert) WithDefaults() (Cert, error) {
 	// Note that cert is a value receiver, so it is an implicit copy.
 
 	if cert.Name == "" {
-		// TODO(ericsnow) Use x509.Certificate.Subject for the default?
+		// The certificate Name will get overridden later by code that
+		// knows what environment this certificate is being used for.
 		cert.Name = certDefaultName
 	}
 
-	// TODO(ericsnow) populate cert/key (use genCertAndKey)?
-
+	// WithDefaults doesn't populate CertPEM or KeyPEM because those aren't
+	// used when contacting the LXD service via the unix socket.
 	return cert, nil
 }
 
@@ -126,32 +122,4 @@ func (cert Cert) X509() (*x509.Certificate, error) {
 	}
 
 	return x509Cert, nil
-}
-
-func genCertAndKey() ([]byte, []byte, error) {
-	// See GenCert() in:
-	//  https://github.com/lxc/lxd/blob/master/shared/cert.go
-	// TODO(ericsnow) Split up GenCert so it is more re-usable.
-	tempdir, err := ioutil.TempDir("", tempPrefix)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	defer os.RemoveAll(tempdir)
-	certFile := filepath.Join(tempdir, configCertFile)
-	keyFile := filepath.Join(tempdir, configKeyFile)
-	if err := shared.GenCert(certFile, keyFile); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	certPEM, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	keyPEM, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return certPEM, keyPEM, nil
 }
