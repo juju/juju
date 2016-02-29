@@ -215,6 +215,9 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
 }
 
+// upgradeResources pushes metadata up to the server for each resource defined
+// in the new charm's metadata and returns a map of resource names to pending
+// IDs to include in the upgrage-charm call.
 func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.URL) (map[string]string, error) {
 	charmInfo, err := client.CharmInfo(cURL.String())
 	if err != nil {
@@ -237,7 +240,7 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.U
 		current[res.Name] = res
 	}
 
-	var metaRes map[string]charmresource.Meta
+	metaRes := make(map[string]charmresource.Meta, len(charmInfo.Meta.Resources))
 	for name, res := range charmInfo.Meta.Resources {
 		if shouldUploadMeta(res, c.Resources, current) {
 			metaRes[name] = res
