@@ -40,7 +40,7 @@ func NewDeployCommand() cmd.Command {
 				RegisterURL: planURL + "/plan/authorize",
 				QueryURL:    planURL + "/charm",
 			},
-			&AllocateBudget{}}})
+		}})
 }
 
 type DeployCommand struct {

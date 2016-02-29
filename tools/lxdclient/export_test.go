@@ -1,8 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lxcutils
+// +build go1.3
 
-var (
-	InitProcessCgroupFile = &initProcessCgroupFile
-)
+package lxdclient
+
+var NewInstanceSummary = newInstanceSummary

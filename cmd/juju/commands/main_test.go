@@ -207,6 +207,7 @@ var commandNames = []string{
 	"add-storage",
 	"add-subnet",
 	"add-user",
+	"autoload-credentials",
 	"backups",
 	"block",
 	"bootstrap",

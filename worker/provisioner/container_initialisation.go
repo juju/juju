@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -306,6 +307,23 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
+			return nil, nil, nil, err
+		}
+	case instance.LXD:
+		series, err := cs.machine.Series()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		initialiser = lxd.NewContainerInitialiser(series)
+		broker, err = NewLxdBroker(
+			cs.provisioner,
+			cs.config,
+			managerConfig,
+			cs.enableNAT,
+		)
+		if err != nil {
+			logger.Errorf("failed to create new lxd broker")
 			return nil, nil, nil, err
 		}
 	default:

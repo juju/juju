@@ -25,8 +25,8 @@ type UserListCommandSuite struct {
 
 var _ = gc.Suite(&UserListCommandSuite{})
 
-func newUserListCommand() cmd.Command {
-	return user.NewListCommandForTest(&fakeUserListAPI{})
+func (s *UserListCommandSuite) newUserListCommand() cmd.Command {
+	return user.NewListCommandForTest(&fakeUserListAPI{}, s.store)
 }
 
 type fakeUserListAPI struct{}
@@ -76,7 +76,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 }
 
 func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserListCommand())
+	context, err := testing.RunCommand(c, s.newUserListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME     DISPLAY NAME    DATE CREATED  LAST CONNECTION\n"+
@@ -87,7 +87,7 @@ func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
 }
 
 func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserListCommand(), "--all")
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME     DISPLAY NAME    DATE CREATED  LAST CONNECTION\n"+
@@ -99,7 +99,7 @@ func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 }
 
 func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserListCommand(), "--exact-time")
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
 	dateRegex := `\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+0000 UTC`
 	c.Assert(testing.Stdout(context), gc.Matches, ""+
@@ -110,8 +110,8 @@ func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 		"\n")
 }
 
-func (*UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserListCommand(), "--format", "json")
+func (s *UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "["+
 		`{"user-name":"adam","display-name":"Adam Zulu","date-created":"2012-10-08","last-connection":"2014-01-01"},`+
@@ -120,8 +120,8 @@ func (*UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 		"]\n")
 }
 
-func (*UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserListCommand(), "--format", "yaml")
+func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
+	context, err := testing.RunCommand(c, s.newUserListCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"- user-name: adam\n"+
@@ -138,7 +138,7 @@ func (*UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 		"  last-connection: never connected\n")
 }
 
-func (*UserListCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserListCommand(), "whoops")
+func (s *UserListCommandSuite) TestTooManyArgs(c *gc.C) {
+	_, err := testing.RunCommand(c, s.newUserListCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

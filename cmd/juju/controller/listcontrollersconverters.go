@@ -48,15 +48,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			serverName = details.Servers[0]
 		}
 
-		currentModel, err := c.store.CurrentModel(controllerName)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				addError("model", controllerName, err)
-				continue
-			}
-		}
-
-		userName := ""
+		var userName, modelName string
 		accountName, err := c.store.CurrentAccount(controllerName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -70,9 +62,19 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 				continue
 			}
 			userName = currentAccount.User
+
+			currentModel, err := c.store.CurrentModel(controllerName, accountName)
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					addError("model", controllerName, err)
+					continue
+				}
+			}
+			modelName = currentModel
 		}
+
 		controllers[controllerName] = ControllerItem{
-			currentModel,
+			modelName,
 			userName,
 			serverName,
 		}
