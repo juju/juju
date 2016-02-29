@@ -33,3 +33,7 @@ func NewContainerInitialiser(series string) container.Initialiser {
 	 */
 	return nil
 }
+
+func HasLXDSupport() bool {
+	return false
+}

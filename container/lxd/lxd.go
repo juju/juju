@@ -170,3 +170,9 @@ func (manager *containerManager) IsInitialized() bool {
 	manager.client, err = ConnectLocal(manager.name)
 	return err == nil
 }
+
+// HasLXDSupport returns false when this juju binary was not built with LXD
+// support (i.e. it was built on a golang version < 1.2
+func HasLXDSupport() bool {
+	return true
+}

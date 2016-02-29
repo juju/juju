@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 )
@@ -43,7 +44,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		valid:         false,
 	}} {
 		/* LXD isn't available in go 1.2 */
-		if test.containerType == instance.LXD && strings.HasPrefix(runtime.Version(), "go1.2") {
+		if lxd.HasLXDSupport() {
 			continue
 		}
 
