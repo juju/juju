@@ -38,8 +38,11 @@ def build_job(credentials, root, job_name, candidates, suite):
     parameters = {'suite': ','.join(suite), 'attempts': '10'}
     jenkins = Jenkins('http://localhost:8080', credentials.user,
                       credentials.password)
-    for candidate in candidates:
-        call_parameters = {'new_juju_dir': candidate}
+    for candidate, revision_build in candidates:
+        call_parameters = {
+            'new_juju_dir': candidate,
+            'revision_build': '{:d}'.format(revision_build),
+            }
         call_parameters.update(parameters)
         token = get_auth_token(root, job_name)
         jenkins.build_job(job_name, call_parameters, token=token)
