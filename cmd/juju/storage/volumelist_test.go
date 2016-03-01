@@ -27,7 +27,6 @@ var _ = gc.Suite(&volumeListSuite{})
 
 func (s *volumeListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
-
 	s.mockAPI = &mockVolumeListAPI{}
 }
 

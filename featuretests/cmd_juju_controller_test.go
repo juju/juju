@@ -82,7 +82,7 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "new-model", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "admin@local", "new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }

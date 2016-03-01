@@ -4,13 +4,20 @@
 package gce_test
 
 import (
-	"github.com/juju/errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 type credentialsSuite struct {
@@ -33,10 +40,10 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 }
 
 var sampleCredentialAttributes = map[string]string{
-	"client-id":    "123",
-	"client-email": "test@example.com",
-	"project-id":   "fourfivesix",
-	"private-key":  "sewen",
+	"GCE_CLIENT_ID":    "123",
+	"GCE_CLIENT_EMAIL": "test@example.com",
+	"GCE_PROJECT_ID":   "fourfivesix",
+	"GCE_PRIVATE_KEY":  "sewen",
 }
 
 func (s *credentialsSuite) TestOAuth2CredentialsValid(c *gc.C) {
@@ -60,8 +67,68 @@ func (s *credentialsSuite) TestJSONFileCredentialsValid(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
+func createCredsFile(c *gc.C, path string) string {
+	if path == "" {
+		dir := c.MkDir()
+		path = filepath.Join(dir, "creds.json")
+	}
+	creds, err := google.NewCredentials(sampleCredentialAttributes)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(path, creds.JSONKey, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	return path
+}
+
+func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *gc.C) {
+	jsonpath := createCredsFile(c, "")
+	s.PatchEnvironment("USER", "fred")
+	s.PatchEnvironment("GOOGLE_APPLICATION_CREDENTIALS", jsonpath)
+	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
 	credentials, err := s.provider.DetectCredentials()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(credentials, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
+	c.Assert(
+		credentials.AuthCredentials["fred"], jc.DeepEquals,
+		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
+}
+
+func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpath string) {
+	s.PatchEnvironment("USER", "fred")
+	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
+	credentials, err := s.provider.DetectCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
+	c.Assert(
+		credentials.AuthCredentials["fred"], jc.DeepEquals,
+		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
+}
+
+func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("skipping on Windows")
+	}
+	home := utils.Home()
+	dir := c.MkDir()
+	utils.SetHome(dir)
+	s.AddCleanup(func(*gc.C) {
+		utils.SetHome(home)
+	})
+	path := filepath.Join(dir, ".config", "gcloud")
+	err := os.MkdirAll(path, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
+	s.assertDetectCredentialsKnownLocation(c, jsonpath)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
+	if runtime.GOOS != "windows" {
+		c.Skip("skipping on non-Windows platform")
+	}
+	dir := c.MkDir()
+	s.PatchEnvironment("APPDATA", dir)
+	path := filepath.Join(dir, "gcloud")
+	err := os.MkdirAll(path, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
+	s.assertDetectCredentialsKnownLocation(c, jsonpath)
 }

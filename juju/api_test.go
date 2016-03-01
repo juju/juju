@@ -124,7 +124,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	// Give NewAPIFromStore a store interface that can report when the
 	// config was written to, to check if the cache is updated.
 	mockStore := &storageWithWriteNotify{store: legacyStore}
-	st, err := juju.NewAPIFromStore("noconfig", "noconfig", mockStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", mockStore, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -142,7 +142,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
-	st, err = juju.NewAPIFromStore("noconfig", "noconfig", mockStore, store, apiOpen)
+	st, err = juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", mockStore, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -162,7 +162,7 @@ func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 			CACert:     "certificated",
 		},
 	})
-	client, err := juju.NewAPIFromStore("noconfig", "", legacyStore, store, panicAPIOpen)
+	client, err := juju.NewAPIFromStore("noconfig", "", "", legacyStore, store, panicAPIOpen)
 	c.Assert(errors.Cause(err), gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
@@ -182,15 +182,15 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 			CACert:     "certificated",
 		},
 	})
-	st, err := juju.NewAPIFromStore("noconfig", "noconfig", store, cache, panicAPIOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "noconfig", store, cache, panicAPIOpen)
 	c.Assert(err, gc.ErrorMatches, "bootstrap config not found")
 	c.Assert(st, gc.IsNil)
 }
 
 var noTagStoreInfo = &environInfo{
 	creds: configstore.APICredentials{
-		User:     "foo",
-		Password: "foopass",
+		User:     "admin@local",
+		Password: "hunter2",
 	},
 	endpoint: configstore.APIEndpoint{
 		Addresses: []string{"foo.invalid"},
@@ -242,9 +242,9 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 }
 
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
-	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("foo@local"))
+	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin@local"))
 	c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-	c.Check(apiInfo.Password, gc.Equals, "foopass")
+	c.Check(apiInfo.Password, gc.Equals, "hunter2")
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
@@ -264,7 +264,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	}
 
 	mockStore := &storageWithWriteNotify{store: legacyStore}
-	st, err := juju.NewAPIFromStore("noconfig", "", mockStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", mockStore, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -300,7 +300,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
-	st, err := juju.NewAPIFromStore("noconfig", "", store, jujuClient, apiOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "", "", store, jujuClient, apiOpen)
 	// We expect to  get the isNotFound error as it is more important than the
 	// infoConnectError "an error"
 	c.Assert(err, gc.ErrorMatches, "bootstrap config not found")
@@ -336,7 +336,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	cfgOpenedState.close = infoOpenedState.close
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromStore("local.my-controller", "only", legacyStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -431,7 +431,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromStore("local.my-controller", "only", legacyStore, store, apiOpen)
+		st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -480,7 +480,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := juju.NewAPIFromStore("local.my-controller", "only", legacyStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)
 }
@@ -507,7 +507,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return mockedAPIState(noFlags), nil
 	}
-	st, err := juju.NewAPIFromStore("local.my-controller", "only", legacyStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
 	c.Check(err, jc.ErrorIsNil)
 	st.Close()
 }
@@ -564,9 +564,19 @@ func newClientStore(c *gc.C, controllerName string, info *environInfo) jujuclien
 	c.Assert(err, jc.ErrorIsNil)
 
 	if info.endpoint.ModelUUID != "" {
-		err = store.UpdateModel(controllerName, controllerName, jujuclient.ModelDetails{
+		err = store.UpdateModel(controllerName, "admin@local", controllerName, jujuclient.ModelDetails{
 			info.endpoint.ModelUUID,
 		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Models belong to accounts, so we must have an account even
+		// if "creds" is not initialised. If it is, it may overwrite
+		// this one.
+		err = store.UpdateAccount(controllerName, "admin@local", jujuclient.AccountDetails{
+			User: "admin@local",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = store.SetCurrentAccount(controllerName, "admin@local")
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1077,8 +1087,8 @@ var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
 var dummyStoreInfo = &environInfo{
 	creds: configstore.APICredentials{
-		User:     "foo",
-		Password: "foopass",
+		User:     "admin@local",
+		Password: "hunter2",
 	},
 	endpoint: configstore.APIEndpoint{
 		Addresses:  []string{"foo.invalid"},

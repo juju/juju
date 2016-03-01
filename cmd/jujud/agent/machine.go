@@ -50,8 +50,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -120,7 +118,6 @@ var (
 	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
-	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
@@ -487,6 +484,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
+			Clock:                clock.WallClock,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -730,31 +728,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
 
-	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-		scope := agentConfig.Tag()
-		api, err := apistorageprovisioner.NewState(apiConn, scope)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		w, err := newStorageWorker(storageprovisioner.Config{
-			Scope:       scope,
-			StorageDir:  storageDir,
-			Volumes:     api,
-			Filesystems: api,
-			Life:        api,
-			Environ:     api,
-			Machines:    api,
-			Status:      api,
-			Clock:       clock.WallClock,
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machine-local storage provisioner worker")
-		}
-		return w, nil
-
-	})
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -765,14 +738,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
-			inner := func(<-chan struct{}) error {
-				agentConfig := a.CurrentConfig()
-				return agent.WriteSystemIdentityFile(agentConfig)
-			}
-			return worker.NewSimpleWorker(inner), nil
-		})
-
 		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
 			// 4 times a day seems a decent enough amount of checks.
 			checkerParams := toolsversionchecker.VersionCheckerParams{
@@ -852,14 +817,9 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// LXC containers are only supported on bare metal and fully virtualized linux systems
-	// Nested LXC containers and Windows machines cannot run LXC containers
-	supportsLXC, err := lxc.IsLXCSupported()
-	if err != nil {
-		logger.Warningf("no lxc containers possible: %v", err)
-	}
-	if err == nil && supportsLXC {
-		supportedContainers = append(supportedContainers, instance.LXC)
+	supportsContainers := container.ContainersSupported()
+	if supportsContainers {
+		supportedContainers = append(supportedContainers, instance.LXC, instance.LXD)
 	}
 
 	supportsKvm, err := kvm.IsKVMSupported()
@@ -869,6 +829,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
+
 	return a.updateSupportedContainers(runner, st, supportedContainers, agentConfig)
 }
 
@@ -1142,7 +1103,7 @@ func (a *MachineAgent) startEnvWorkers(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		w, err := newStorageWorker(storageprovisioner.Config{
+		w, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
 			Scope:       scope,
 			Volumes:     api,
 			Filesystems: api,
@@ -1254,6 +1215,11 @@ func (a *MachineAgent) startEnvWorkers(
 		}
 		return w, nil
 	})
+
+	for name, factory := range registeredModelWorkers {
+		newWorker := factory(st)
+		singularRunner.StartWorker(name, newWorker)
+	}
 
 	return runner, nil
 }
@@ -1928,10 +1894,8 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 
 	errs = append(errs, a.removeJujudSymlinks()...)
 
-	insideLXC, err := lxcutils.RunningInsideLXC()
-	if err != nil {
-		errs = append(errs, err)
-	} else if insideLXC {
+	insideContainer := container.RunningInContainer()
+	if insideContainer {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
 		//

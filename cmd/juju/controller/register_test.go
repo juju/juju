@@ -37,6 +37,7 @@ type RegisterSuite struct {
 	store                 jujuclient.ClientStore
 	apiOpenError          error
 	apiOpenControllerName string
+	apiOpenAccountName    string
 	apiOpenModelName      string
 	server                *httptest.Server
 	httpHandler           http.Handler
@@ -60,6 +61,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		addr:          serverURL.Host,
 	}
 	s.apiOpenControllerName = ""
+	s.apiOpenAccountName = ""
 	s.apiOpenModelName = ""
 
 	s.legacystore = configstore.NewMem()
@@ -83,11 +85,12 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 	return s.apiConnection, nil
 }
 
-func (s *RegisterSuite) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+func (s *RegisterSuite) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 	if s.apiOpenError != nil {
 		return nil, s.apiOpenError
 	}
 	s.apiOpenControllerName = controllerName
+	s.apiOpenAccountName = accountName
 	s.apiOpenModelName = modelName
 	return s.apiConnection, nil
 }
@@ -205,6 +208,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	// The command should have logged into the controller with the
 	// information we checked above.
 	c.Assert(s.apiOpenControllerName, gc.Equals, "controller-name")
+	c.Assert(s.apiOpenAccountName, gc.Equals, "bob@local")
 	c.Assert(s.apiOpenModelName, gc.Equals, "")
 }
 

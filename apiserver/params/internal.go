@@ -166,6 +166,21 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
+// IntResults holds multiple results with an int in each.
+type IntResults struct {
+	// Results holds a list of results for calls that return an int or error.
+	Results []IntResult
+}
+
+// IntResult holds the result of an API call that returns a
+// int or an error.
+type IntResult struct {
+	// Error holds the error (if any) of this call.
+	Error *Error
+	// Result holds the integer result of the call (if Error is nil).
+	Result int
+}
+
 // Settings holds relation settings names and values.
 type Settings map[string]string
 

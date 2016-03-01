@@ -178,20 +178,21 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		User:     registrationParams.userTag.Canonical(),
 		Password: registrationParams.newPassword,
 	}
+	accountName := accountDetails.User
 	if err := c.store.UpdateAccount(
-		registrationParams.controllerName, accountDetails.User, accountDetails,
+		registrationParams.controllerName, accountName, accountDetails,
 	); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.store.SetCurrentAccount(
-		registrationParams.controllerName, accountDetails.User,
+		registrationParams.controllerName, accountName,
 	); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, "")
+	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, accountName, "")
 	if err != nil {
 		return errors.Trace(err)
 	}

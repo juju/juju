@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
-const CodeNotImplemented = "not implemented"
+const codeNotImplemented = "not implemented"
 
 var logger = loggo.GetLogger("juju.rpc")
 
@@ -402,23 +402,23 @@ func (conn *Conn) input() {
 
 // loop implements the looping part of Conn.input.
 func (conn *Conn) loop() error {
-	var hdr Header
 	for {
-		hdr = Header{}
+		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
-		if err != nil {
-			logger.Tracef("codec.ReadHeader error: %v", err)
+		switch {
+		case err == io.EOF:
+			// handle sentinel error specially
 			return err
-		}
-		if hdr.IsRequest() {
-			err = conn.handleRequest(&hdr)
-			logger.Tracef("codec.handleRequest %#v error: %v", hdr, err)
-		} else {
-			err = conn.handleResponse(&hdr)
-			logger.Tracef("codec.handleResponse %#v error: %v", hdr, err)
-		}
-		if err != nil {
-			return err
+		case err != nil:
+			return errors.Annotate(err, "codec.ReadHeader error")
+		case hdr.IsRequest():
+			if err := conn.handleRequest(&hdr); err != nil {
+				return errors.Annotatef(err, "codec.handleRequest %#v error", hdr)
+			}
+		default:
+			if err := conn.handleResponse(&hdr); err != nil {
+				return errors.Annotatef(err, "codec.handleResponse %#v error", hdr)
+			}
 		}
 	}
 }
@@ -582,5 +582,5 @@ type serverError struct {
 
 func (e *serverError) ErrorCode() string {
 	// serverError only knows one error code.
-	return CodeNotImplemented
+	return codeNotImplemented
 }

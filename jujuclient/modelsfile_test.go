@@ -23,36 +23,58 @@ var _ = gc.Suite(&ModelsFileSuite{})
 const testModelsYAML = `
 controllers:
   ctrl:
-    models:
-      admin:
-        uuid: ghi
+    accounts:
+      admin@local:
+        models:
+          admin:
+            uuid: ghi
+      bob@local:
+        models:
+          admin:
+            uuid: jkl
   kontroll:
-    models:
-      admin:
-        uuid: abc
-      my-model:
-        uuid: def
-    current-model: my-model
+    accounts:
+      admin@local:
+        models:
+          admin:
+            uuid: abc
+          my-model:
+            uuid: def
+        current-model: my-model
 `
 
-var testControllerModels = map[string]*jujuclient.ControllerModels{
+var testControllerModels = map[string]jujuclient.ControllerAccountModels{
 	"kontroll": {
-		Models: map[string]jujuclient.ModelDetails{
-			"admin":    kontrollAdminModelDetails,
-			"my-model": kontrollMyModelModelDetails,
+		map[string]*jujuclient.AccountModels{
+			"admin@local": {
+				Models: map[string]jujuclient.ModelDetails{
+					"admin":    kontrollAdminModelDetails,
+					"my-model": kontrollMyModelModelDetails,
+				},
+				CurrentModel: "my-model",
+			},
 		},
-		CurrentModel: "my-model",
 	},
 	"ctrl": {
-		Models: map[string]jujuclient.ModelDetails{
-			"admin": ctrlAdminModelDetails,
+		map[string]*jujuclient.AccountModels{
+			"admin@local": {
+				Models: map[string]jujuclient.ModelDetails{
+					"admin": ctrlAdminAdminModelDetails,
+				},
+			},
+			"bob@local": {
+				Models: map[string]jujuclient.ModelDetails{
+					"admin": ctrlBobAdminModelDetails,
+				},
+			},
 		},
 	},
 }
 
 var kontrollAdminModelDetails = jujuclient.ModelDetails{"abc"}
 var kontrollMyModelModelDetails = jujuclient.ModelDetails{"def"}
-var ctrlAdminModelDetails = jujuclient.ModelDetails{"ghi"}
+var ctrlAdminAdminModelDetails = jujuclient.ModelDetails{"ghi"}
+var ctrlBobAdminModelDetails = jujuclient.ModelDetails{"jkl"}
 
 func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {
 	writeTestModelsFile(c)

@@ -58,15 +58,15 @@ func (s *DisableUserSuite) testInit(c *gc.C, wrappedCommand cmd.Command, command
 }
 
 func (s *DisableUserSuite) TestInit(c *gc.C) {
-	wrappedCommand, command := user.NewEnableCommandForTest(nil)
+	wrappedCommand, command := user.NewEnableCommandForTest(nil, s.store)
 	s.testInit(c, wrappedCommand, command)
-	wrappedCommand, command = user.NewDisableCommandForTest(nil)
+	wrappedCommand, command = user.NewDisableCommandForTest(nil, s.store)
 	s.testInit(c, wrappedCommand, command)
 }
 
 func (s *DisableUserSuite) TestDisable(c *gc.C) {
 	username := "testing"
-	disableCommand, _ := user.NewDisableCommandForTest(s.mock)
+	disableCommand, _ := user.NewDisableCommandForTest(s.mock, s.store)
 	_, err := testing.RunCommand(c, disableCommand, username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.disable, gc.Equals, username)
@@ -74,7 +74,7 @@ func (s *DisableUserSuite) TestDisable(c *gc.C) {
 
 func (s *DisableUserSuite) TestEnable(c *gc.C) {
 	username := "testing"
-	enableCommand, _ := user.NewEnableCommandForTest(s.mock)
+	enableCommand, _ := user.NewEnableCommandForTest(s.mock, s.store)
 	_, err := testing.RunCommand(c, enableCommand, username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.enable, gc.Equals, username)

@@ -18,17 +18,20 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
+	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/worker/upgradewaiter"
 	"github.com/juju/juju/worker/util"
+	"github.com/juju/utils/clock"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -79,6 +82,9 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
+
+	// Clock is used by the storageprovisioner worker.
+	Clock clock.Clock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -269,7 +275,24 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
+		// The storageProvisioner worker manages provisioning
+		// (deprovisioning), and attachment (detachment) of first-class
+		// volumes and filesystems.
+		storageprovisionerName: storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName},
+			Clock: config.Clock,
+		}),
+
 		resumerName: resumer.Manifold(resumer.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
+		identityFileWriterName: identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
@@ -299,5 +322,7 @@ const (
 	logSenderName            = "log-sender"
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
+	storageprovisionerName   = "storage-provisioner-machine"
 	resumerName              = "resumer"
+	identityFileWriterName   = "identity-file-writer"
 )

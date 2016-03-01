@@ -100,14 +100,17 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// If we need to share a model, look up the model UUID from the supplied name.
 	var modelUUIDs []string
 	if c.ModelName != "" {
-		model, err := c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
+		store := c.ClientStore()
+		controllerName := c.ControllerName()
+		accountName := c.AccountName()
+		model, err := store.ModelByName(controllerName, accountName, c.ModelName)
 		if errors.IsNotFound(err) {
 			// The model isn't known locally, so query the models available in the controller.
 			ctx.Verbosef("model %q not cached locally, refreshing models from controller", c.ModelName)
-			if err := c.RefreshModels(c.ClientStore(), c.ControllerName()); err != nil {
+			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
 				return errors.Annotate(err, "refreshing models")
 			}
-			model, err = c.ClientStore().ModelByName(c.ControllerName(), c.ModelName)
+			model, err = store.ModelByName(controllerName, accountName, c.ModelName)
 		}
 		if err != nil {
 			return err

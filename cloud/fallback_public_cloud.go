@@ -150,9 +150,9 @@ clouds:
       us-sw-1: 
         endpoint: https://us-sw-1.api.joyentcloud.com
       us-east-1: 
-        endpoint: https://us-east-.api.joyentcloud.com
+        endpoint: https://us-east-1.api.joyentcloud.com
       us-east-2: 
-        endpoint: https://us-east--2.api.joyentcloud.com
+        endpoint: https://us-east-2.api.joyentcloud.com
       us-east-3: 
         endpoint: https://us-east-3.api.joyentcloud.com
       us-west-1: 
