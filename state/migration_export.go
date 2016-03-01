@@ -254,7 +254,6 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 		exMachine.AddNetworkPorts(args)
 	}
 
-	globalKey := machine.globalKey()
 	exMachine.SetAnnotations(e.getAnnotations(globalKey))
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
@@ -403,6 +402,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	}
 	exService.SetStatus(statusArgs)
 	exService.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	exService.SetAnnotations(e.getAnnotations(globalKey))
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
