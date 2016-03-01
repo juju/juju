@@ -563,6 +563,11 @@ func (c *DeployCommand) deployCharm(
 		}
 	}()
 
+	if len(charmInfo.Meta.Terms) > 0 {
+		ctx.Infof("Deployment under prior agreement to terms: %s",
+			strings.Join(charmInfo.Meta.Terms, " "))
+	}
+
 	ids, err := handleResources(c, c.Resources, serviceName, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)

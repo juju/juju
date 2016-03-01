@@ -8,6 +8,7 @@ package lxdclient
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container/lxc"
 )
@@ -21,10 +22,13 @@ const (
 
 // Local is LXD's default "remote". Essentially it is an unencrypted,
 // unauthenticated connection to localhost over a unix socket.
+// However it does require users to be in the lxd group.
 var Local = Remote{
 	Name: remoteLocalName,
-	Host: "", // The LXD API turns this into the local unix socket.
-	Cert: nil,
+	Host: "", // If Host is empty we will translate it into the local Unix socket
+	// No certificates are used when connecting to the Unix socket
+	Cert:          nil,
+	ServerPEMCert: "",
 }
 
 // Remote describes a LXD "remote" server for a client. In
@@ -41,6 +45,10 @@ type Remote struct {
 
 	// Cert holds the TLS certificate data for the client to use.
 	Cert *Cert
+
+	// ServerPEMCert is the certificate to be supplied as the acceptable
+	// server certificate when connecting to the remote.
+	ServerPEMCert string
 }
 
 // isLocal determines if the remote is the implicit "local" remote,
@@ -69,7 +77,7 @@ func (r Remote) WithDefaults() (Remote, error) {
 	}
 
 	if r.Cert == nil {
-		certPEM, keyPEM, err := genCertAndKey()
+		certPEM, keyPEM, err := lxdshared.GenerateMemCert()
 		if err != nil {
 			return r, errors.Trace(err)
 		}
@@ -142,6 +150,9 @@ func (r Remote) UsingTCP() (Remote, error) {
 		return r, nil
 	}
 
+	// TODO: jam 2016-02-25 This should be updated for systems that are
+	// 	 space aware, as we may not be just using the default LXC
+	// 	 bridge.
 	netIF := lxc.DefaultLxcBridge
 	addr, err := utils.GetAddressForInterface(netIF)
 	if err != nil {
