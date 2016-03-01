@@ -23,6 +23,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelUserLastConnectionC,
 		settingsC,
 		statusesC,
+		statusesHistoryC,
 
 		// machine
 		instanceDataC,
@@ -128,7 +129,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// done as part of machines/services/units
 		constraintsC,
-		statusesHistoryC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -426,6 +426,20 @@ func (s *MigrationSuite) TestAnnatatorDocFields(c *gc.C) {
 		"Annotations",
 	)
 	s.AssertExportedFields(c, annotatorDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		"GlobalKey",
+		"Status",
+		"StatusInfo",
+		"StatusData",
+		"Updated",
+	)
+	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
