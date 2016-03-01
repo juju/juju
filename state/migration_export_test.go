@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"math/rand"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,6 +32,18 @@ func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *MigrationSuite) randSequenceValue(c *gc.C, name string) int {
+	var value int
+	var err error
+	count := rand.Intn(5) + 1
+	for i := 0; i < count; i++ {
+		value, err = state.Sequence(s.State, name)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	// The value stored in the doc is one higher than what it returns.
+	return value + 1
+}
+
 type MigrationExportSuite struct {
 	MigrationSuite
 }
@@ -43,6 +57,8 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
+	machineSeq := s.randSequenceValue(c, "machine")
+	fooSeq := s.randSequenceValue(c, "service-foo")
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -55,6 +71,10 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
+	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
+		"machine":     machineSeq,
+		"service-foo": fooSeq,
+	})
 }
 
 func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
