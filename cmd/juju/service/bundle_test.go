@@ -149,7 +149,7 @@ deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 
 func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-with-extra-bindings-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches,
@@ -168,25 +168,25 @@ func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-with-extra-bindings-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/mysql-42
 service mysql deployed (charm: cs:trusty/mysql-42)
-added charm cs:trusty/wordpress-47
-service wordpress deployed (charm: cs:trusty/wordpress-47)
+added charm cs:trusty/wordpress-with-extra-bindings-47
+service wordpress deployed (charm: cs:trusty/wordpress-with-extra-bindings-47)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-with-extra-bindings-47")
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"wordpress": {charm: "cs:trusty/wordpress-with-extra-bindings-47"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"mysql": {
@@ -199,6 +199,10 @@ deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 				"logging-dir":     "",
 				"monitoring-port": "",
 				"db":              "db",
+				"cluster":         "",
+				"db-client":       "db",
+				"admin-api":       "public",
+				"foo-bar":         "",
 			},
 		},
 	})
