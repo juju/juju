@@ -219,11 +219,14 @@ func (i *importer) machine(m migration.Machine) error {
 		return errors.Trace(err)
 	}
 
+	machine := newMachine(i.st, mdoc)
 	if annotations := m.Annotations(); len(annotations) > 0 {
-		machine := newMachine(i.st, mdoc)
 		if err := i.st.SetAnnotations(machine, annotations); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Now that this machine exists in the database, process each of the
@@ -471,11 +474,14 @@ func (i *importer) service(s migration.Service) error {
 		return errors.Trace(err)
 	}
 
+	svc := newService(i.st, sdoc)
 	if annotations := s.Annotations(); len(annotations) > 0 {
-		svc := newService(i.st, sdoc)
 		if err := i.st.SetAnnotations(svc, annotations); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if err := i.importStatusHistory(svc.globalKey(), s.StatusHistory()); err != nil {
+		return errors.Trace(err)
 	}
 
 	for _, unit := range s.Units() {
@@ -530,11 +536,17 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 		return errors.Trace(err)
 	}
 
+	unit := newUnit(i.st, udoc)
 	if annotations := u.Annotations(); len(annotations) > 0 {
-		u := newUnit(i.st, udoc)
-		if err := i.st.SetAnnotations(u, annotations); err != nil {
+		if err := i.st.SetAnnotations(unit, annotations); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if err := i.importStatusHistory(unit.globalKey(), u.WorkloadStatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := i.importStatusHistory(unit.globalAgentKey(), u.AgentStatusHistory()); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -673,6 +685,27 @@ func (i *importer) makeRelationDoc(rel migration.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) importStatusHistory(globalKey string, history []migration.Status) error {
+	docs := make([]interface{}, len(history))
+	for i, status := range history {
+		docs[i] = historicalStatusDoc{
+			GlobalKey:  globalKey,
+			Status:     Status(status.Value()),
+			StatusInfo: status.Message(),
+			StatusData: status.Data(),
+			Updated:    status.Updated().UnixNano(),
+		}
+	}
+
+	statusHistory, closer := i.st.getCollection(statusesHistoryC)
+	defer closer()
+
+	if err := statusHistory.Writeable().Insert(docs...); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (i *importer) constraints(cons migration.Constraints) constraints.Value {
