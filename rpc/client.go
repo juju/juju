@@ -107,7 +107,7 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
 		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
-			hdr.ErrorCode = CodeNotImplemented
+			hdr.ErrorCode = codeNotImplemented
 		}
 		// We've got an error response. Give this to the request;
 		// any subsequent requests will get the ReadResponseBody

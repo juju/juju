@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
-const CodeNotImplemented = "not implemented"
+const codeNotImplemented = "not implemented"
 
 var logger = loggo.GetLogger("juju.rpc")
 
@@ -582,5 +582,5 @@ type serverError struct {
 
 func (e *serverError) ErrorCode() string {
 	// serverError only knows one error code.
-	return CodeNotImplemented
+	return codeNotImplemented
 }
