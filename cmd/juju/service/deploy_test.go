@@ -1173,7 +1173,7 @@ func (s *ParseBindSuite) TestBindParseServiceDefault(c *gc.C) {
 func (s *ParseBindSuite) TestBindParseNoEndpoint(c *gc.C) {
 	deploy := &DeployCommand{BindToSpaces: "=bad"}
 	err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Found = without relation name. Use a lone space name to set the default.")
+	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Found = without endpoint name. Use a lone space name to set the default.")
 	c.Assert(deploy.Bindings, gc.IsNil)
 }
 
@@ -1185,24 +1185,24 @@ func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1=space1  rel2=space2 space3"}
+	deploy := &DeployCommand{BindToSpaces: "ep1=space1  rel2=space2 space3"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"ep1": "space1", "rel2": "space2", "": "space3"})
 }
 
 func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints2(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1=space1  space3 rel2=space2"}
+	deploy := &DeployCommand{BindToSpaces: "rel1=space1  space3 extra1=space2"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "extra1": "space2", "": "space3"})
 }
 
 func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints3(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "space3  rel1=space1 rel2=space2"}
+	deploy := &DeployCommand{BindToSpaces: "space3  ep1=space1 ep2=space2"}
 	err := deploy.parseBind()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"ep1": "space1", "ep2": "space2", "": "space3"})
 }
 
 func (s *ParseBindSuite) TestBindParseBadSpace(c *gc.C) {
