@@ -4,21 +4,24 @@ SCRIPTS=$(readlink -f $(dirname $0))
 export PATH=$HOME/workspace-runner:$PATH
 
 usage() {
-    echo "usage: $0 old-version candidate-version new-to-old client-os log-dir"
+    echo "usage: $0 old-version candidate-version candidate-revision-build new-to-old client-os log-dir"
     exit 1
 }
-test $# -eq 5 || usage
+test $# -eq 6 || usage
 old_version="$1"
 candidate_version="$2"
-new_to_old="$3"
-client_os="$4"
-local_log_dir="$5"
+revision_build="$3"
+new_to_old="$4"
+client_os="$5"
+local_log_dir="$6"
 
 set -x
 
-if [[ "$new_to_old" == "true"  && -d $HOME/candidate/$candidate_version ]]; then
-    echo "Using weekly streams for unreleased version"
-    agent_arg="--agent-url http://juju-dist.s3.amazonaws.com/weekly/tools"
+parallel_url="http://juju-dist.s3.amazonaws.com/parallel-testing/agents"
+if [[ "$new_to_old" == "true" ]]; then
+    echo "Using parallel streams for candidate."
+    agent_arg="--agent-stream revision-build-$revision_build"
+    agent_arg="$agent_arg --agent-url $parallel_url"
 else
     echo "Using official proposed (or released) streams"
     agent_arg="--agent-stream proposed"
