@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 func isController(icfg *instancecfg.InstanceConfig) bool {

@@ -1586,7 +1586,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	// Start the machine agent.
 	a := s.newAgent(c, m)
@@ -1617,7 +1617,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		}
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	// Start the machine agent.
 	a := s.newAgent(c, m)
@@ -1934,7 +1934,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		}
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	_, closer = s.setUpAgent(c)
 	defer closer()

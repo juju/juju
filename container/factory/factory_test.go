@@ -4,6 +4,9 @@
 package factory_test
 
 import (
+	"runtime"
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -27,6 +30,9 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.LXC,
 		valid:         true,
 	}, {
+		containerType: instance.LXD,
+		valid:         true,
+	}, {
 		containerType: instance.KVM,
 		valid:         true,
 	}, {
@@ -36,6 +42,11 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.ContainerType("other"),
 		valid:         false,
 	}} {
+		/* LXD isn't available in go 1.2 */
+		if test.containerType == instance.LXD && strings.HasPrefix(runtime.Version(), "go1.2") {
+			continue
+		}
+
 		conf := container.ManagerConfig{container.ConfigName: "test"}
 		manager, err := factory.NewContainerManager(test.containerType, conf, nil)
 		if test.valid {

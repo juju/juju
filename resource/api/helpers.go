@@ -34,7 +34,7 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 
 	if apiResult.Error != nil {
 		// TODO(ericsnow) Return the resources too?
-		err, _ := common.RestoreError(apiResult.Error)
+		err := common.RestoreError(apiResult.Error)
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
