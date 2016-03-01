@@ -96,7 +96,7 @@ type Conn struct {
 	// codec holds the underlying RPC connection.
 	codec Codec
 
-	// notifier is informed about RPC requests. It may be nil.
+	// notifier is informed about RPC requests.
 	notifier RequestNotifier
 
 	// srvPending represents the current server requests.
@@ -191,12 +191,23 @@ type RequestNotifier interface {
 // any requests are sent or received. If notifier is non-nil, the
 // appropriate method will be called for every RPC request.
 func NewConn(codec Codec, notifier RequestNotifier) *Conn {
+	if notifier == nil {
+		notifier = new(dummyNotifier)
+	}
 	return &Conn{
 		codec:         codec,
 		clientPending: make(map[uint64]*Call),
 		notifier:      notifier,
 	}
 }
+
+// dummyNotifier is used when no notifier is provided to NewConn.
+type dummyNotifier struct{}
+
+func (*dummyNotifier) ServerRequest(*Header, interface{})                       {}
+func (*dummyNotifier) ServerReply(Request, *Header, interface{}, time.Duration) {}
+func (*dummyNotifier) ClientRequest(*Header, interface{})                       {}
+func (*dummyNotifier) ClientReply(Request, *Header, interface{})                {}
 
 // Start starts the RPC connection running.  It must be called at least
 // once for any RPC connection (client or server side) It has no effect
@@ -434,9 +445,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	startTime := time.Now()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		if conn.notifier != nil {
-			conn.notifier.ServerRequest(hdr, nil)
-		}
+		conn.notifier.ServerRequest(hdr, nil)
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
@@ -452,9 +461,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		argp = v.Interface()
 	}
 	if err := conn.readBody(argp, true); err != nil {
-		if conn.notifier != nil {
-			conn.notifier.ServerRequest(hdr, nil)
-		}
+		conn.notifier.ServerRequest(hdr, nil)
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -470,12 +477,10 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// up the problem and abort.
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
 	}
-	if conn.notifier != nil {
-		if req.ParamsType() != nil {
-			conn.notifier.ServerRequest(hdr, arg.Interface())
-		} else {
-			conn.notifier.ServerRequest(hdr, struct{}{})
-		}
+	if req.ParamsType() != nil {
+		conn.notifier.ServerRequest(hdr, arg.Interface())
+	} else {
+		conn.notifier.ServerRequest(hdr, struct{}{})
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
@@ -503,9 +508,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.T
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	if conn.notifier != nil {
-		conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
-	}
+	conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
 
@@ -564,9 +567,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 		} else {
 			rvi = struct{}{}
 		}
-		if conn.notifier != nil {
-			conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
-		}
+		conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
 		conn.sending.Unlock()
