@@ -263,6 +263,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
+	r.Register(cloud.NewSetDefaultRegionCommand())
+	r.Register(cloud.NewSetDefaultCredentialCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
