@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -28,37 +27,10 @@ type fakeAgentEntityWatcher struct {
 }
 
 func (a *fakeAgentEntityWatcher) Watch() state.NotifyWatcher {
-	changes := make(chan struct{}, 1)
+	w := apiservertesting.NewFakeNotifyWatcher()
 	// Simulate initial event.
-	changes <- struct{}{}
-	return &fakeNotifyWatcher{changes: changes}
-}
-
-type fakeNotifyWatcher struct {
-	tomb    tomb.Tomb
-	changes chan struct{}
-}
-
-func (w *fakeNotifyWatcher) Stop() error {
-	w.Kill()
-	return w.Wait()
-}
-
-func (w *fakeNotifyWatcher) Kill() {
-	w.tomb.Kill(nil)
-	w.tomb.Done()
-}
-
-func (w *fakeNotifyWatcher) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *fakeNotifyWatcher) Err() error {
-	return w.tomb.Err()
-}
-
-func (w *fakeNotifyWatcher) Changes() <-chan struct{} {
-	return w.changes
+	w.C <- struct{}{}
+	return w
 }
 
 func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
@@ -127,10 +99,10 @@ type multiNotifyWatcherSuite struct{}
 var _ = gc.Suite(&multiNotifyWatcherSuite{})
 
 func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
-	w0 := &fakeNotifyWatcher{changes: make(chan struct{}, 1)}
-	w1 := &fakeNotifyWatcher{changes: make(chan struct{}, 1)}
-	w0.changes <- struct{}{}
-	w1.changes <- struct{}{}
+	w0 := apiservertesting.NewFakeNotifyWatcher()
+	w0.C <- struct{}{}
+	w1 := apiservertesting.NewFakeNotifyWatcher()
+	w1.C <- struct{}{}
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
 	defer statetesting.AssertStop(c, mw)
@@ -138,21 +110,21 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, mw)
 	wc.AssertOneChange()
 
-	w0.changes <- struct{}{}
+	w0.C <- struct{}{}
 	wc.AssertOneChange()
-	w1.changes <- struct{}{}
+	w1.C <- struct{}{}
 	wc.AssertOneChange()
 
-	w0.changes <- struct{}{}
-	w1.changes <- struct{}{}
+	w0.C <- struct{}{}
+	w1.C <- struct{}{}
 	wc.AssertOneChange()
 }
 
 func (*multiNotifyWatcherSuite) TestMultiNotifyWatcherStop(c *gc.C) {
-	w0 := &fakeNotifyWatcher{changes: make(chan struct{}, 1)}
-	w1 := &fakeNotifyWatcher{changes: make(chan struct{}, 1)}
-	w0.changes <- struct{}{}
-	w1.changes <- struct{}{}
+	w0 := apiservertesting.NewFakeNotifyWatcher()
+	w0.C <- struct{}{}
+	w1 := apiservertesting.NewFakeNotifyWatcher()
+	w1.C <- struct{}{}
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
 	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, mw)

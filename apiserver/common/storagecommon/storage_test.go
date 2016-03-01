@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -155,9 +156,9 @@ type watchStorageAttachmentSuite struct {
 	st                       *fakeStorage
 	storageInstance          *fakeStorageInstance
 	volume                   *fakeVolume
-	volumeAttachmentWatcher  *fakeNotifyWatcher
-	blockDevicesWatcher      *fakeNotifyWatcher
-	storageAttachmentWatcher *fakeNotifyWatcher
+	volumeAttachmentWatcher  *apiservertesting.FakeNotifyWatcher
+	blockDevicesWatcher      *apiservertesting.FakeNotifyWatcher
+	storageAttachmentWatcher *apiservertesting.FakeNotifyWatcher
 }
 
 var _ = gc.Suite(&watchStorageAttachmentSuite{})
@@ -172,12 +173,12 @@ func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
 		kind:  state.StorageKindBlock,
 	}
 	s.volume = &fakeVolume{tag: names.NewVolumeTag("0")}
-	s.volumeAttachmentWatcher = &fakeNotifyWatcher{ch: make(chan struct{}, 1)}
-	s.blockDevicesWatcher = &fakeNotifyWatcher{ch: make(chan struct{}, 1)}
-	s.storageAttachmentWatcher = &fakeNotifyWatcher{ch: make(chan struct{}, 1)}
-	s.volumeAttachmentWatcher.ch <- struct{}{}
-	s.blockDevicesWatcher.ch <- struct{}{}
-	s.storageAttachmentWatcher.ch <- struct{}{}
+	s.volumeAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
+	s.volumeAttachmentWatcher.C <- struct{}{}
+	s.blockDevicesWatcher = apiservertesting.NewFakeNotifyWatcher()
+	s.blockDevicesWatcher.C <- struct{}{}
+	s.storageAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
+	s.storageAttachmentWatcher.C <- struct{}{}
 	s.st = &fakeStorage{
 		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
 			return s.storageInstance, nil
@@ -199,19 +200,19 @@ func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
 
 func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentVolumeAttachmentChanges(c *gc.C) {
 	s.testWatchBlockStorageAttachment(c, func() {
-		s.volumeAttachmentWatcher.ch <- struct{}{}
+		s.volumeAttachmentWatcher.C <- struct{}{}
 	})
 }
 
 func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentStorageAttachmentChanges(c *gc.C) {
 	s.testWatchBlockStorageAttachment(c, func() {
-		s.storageAttachmentWatcher.ch <- struct{}{}
+		s.storageAttachmentWatcher.C <- struct{}{}
 	})
 }
 
 func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentBlockDevicesChange(c *gc.C) {
 	s.testWatchBlockStorageAttachment(c, func() {
-		s.blockDevicesWatcher.ch <- struct{}{}
+		s.blockDevicesWatcher.C <- struct{}{}
 	})
 }
 
