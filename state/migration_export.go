@@ -37,6 +37,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.readAllAnnotations(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.readAllConstraints(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	envConfig, found := export.settings[modelGlobalKey]
 	if !found {
@@ -49,7 +52,14 @@ func (st *State) Export() (migration.Model, error) {
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 	}
 	export.model = migration.NewModel(args)
-	export.model.SetAnnotations(export.getAnnotations(dbModel.globalKey()))
+	modelKey := dbModel.globalKey()
+	export.model.SetAnnotations(export.getAnnotations(modelKey))
+	constraintsArgs, err := export.constraintsArgs(modelKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	export.model.SetConstraints(constraintsArgs)
+
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,6 +89,7 @@ type exporter struct {
 	logger  loggo.Logger
 
 	annotations map[string]annotatorDoc
+	constraints map[string]bson.M
 	settings    map[string]settingsDoc
 	status      map[string]bson.M
 	// Map of service name to units. Populated as part
@@ -239,7 +250,14 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 		exMachine.AddNetworkPorts(args)
 	}
 
-	exMachine.SetAnnotations(e.getAnnotations(machine.globalKey()))
+	globalKey := machine.globalKey()
+	exMachine.SetAnnotations(e.getAnnotations(globalKey))
+
+	constraintsArgs, err := e.constraintsArgs(globalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	exMachine.SetConstraints(constraintsArgs)
 
 	return exMachine, nil
 }
@@ -374,12 +392,19 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	}
 	exService := e.model.AddService(args)
 	// Find the current service status.
-	statusArgs, err := e.statusArgs(service.globalKey())
+	globalKey := service.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return errors.Annotatef(err, "status for service %s", service.Name())
 	}
 	exService.SetStatus(statusArgs)
-	exService.SetAnnotations(e.getAnnotations(service.globalKey()))
+	exService.SetAnnotations(e.getAnnotations(globalKey))
+
+	constraintsArgs, err := e.constraintsArgs(globalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	exService.SetConstraints(constraintsArgs)
 
 	for _, unit := range units {
 		agentKey := unit.globalAgentKey()
@@ -404,9 +429,9 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			}
 		}
 		exUnit := exService.AddUnit(args)
-
+		globalKey := unit.globalKey()
 		// workload uses globalKey, agent uses globalAgentKey.
-		statusArgs, err := e.statusArgs(unit.globalKey())
+		statusArgs, err := e.statusArgs(globalKey)
 		if err != nil {
 			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
 		}
@@ -428,7 +453,13 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			SHA256:  tools.SHA256,
 			Size:    tools.Size,
 		})
-		exUnit.SetAnnotations(e.getAnnotations(unit.globalKey()))
+		exUnit.SetAnnotations(e.getAnnotations(globalKey))
+
+		constraintsArgs, err := e.constraintsArgs(agentKey)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		exUnit.SetConstraints(constraintsArgs)
 	}
 
 	return nil
@@ -561,11 +592,38 @@ func (e *exporter) readAllAnnotations() error {
 	if err := annotations.Find(nil).All(&docs); err != nil {
 		return errors.Trace(err)
 	}
-	e.logger.Debugf("read %d annotations", len(docs))
+	e.logger.Debugf("read %d annotations docs", len(docs))
 
 	e.annotations = make(map[string]annotatorDoc)
 	for _, doc := range docs {
 		e.annotations[doc.GlobalKey] = doc
+	}
+	return nil
+}
+
+func (e *exporter) readAllConstraints() error {
+	constraintsCollection, closer := e.st.getCollection(constraintsC)
+	defer closer()
+
+	// Since the constraintsDoc doesn't include any global key or _id
+	// fields, we can't just deserialize the entire collection into a slice
+	// of docs, so we get them all out with bson maps.
+	var docs []bson.M
+	err := constraintsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read constraints collection")
+	}
+
+	e.logger.Debugf("read %d constraints docs", len(docs))
+	e.constraints = make(map[string]bson.M)
+	for _, doc := range docs {
+		docId, ok := doc["_id"].(string)
+		if !ok {
+			return errors.Errorf("expected string, got %s (%T)", doc["_id"], doc["_id"])
+		}
+		id := e.st.localID(docId)
+		e.constraints[id] = doc
+		e.logger.Debugf("doc[%q] = %#v", id, doc)
 	}
 	return nil
 }
@@ -653,6 +711,66 @@ func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 	result.Message = info
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
+	return result, nil
+}
+
+func (e *exporter) constraintsArgs(globalKey string) (migration.ConstraintsArgs, error) {
+	doc, found := e.constraints[globalKey]
+	if !found {
+		// No constraints for this key.
+		e.logger.Debugf("no constraints found for key %q", globalKey)
+		return migration.ConstraintsArgs{}, nil
+	}
+	// We capture any type error using a closure to avoid having to return
+	// multiple values from the optional functions. This does mean that we will
+	// only report on the last one, but that is fine as there shouldn't be any.
+	var optionalErr error
+	optionalString := func(name string) string {
+		switch value := doc[name].(type) {
+		case nil:
+		case string:
+			return value
+		default:
+			optionalErr = errors.Errorf("expected uint64 for %s, got %T", name, value)
+		}
+		return ""
+	}
+	optionalInt := func(name string) uint64 {
+		switch value := doc[name].(type) {
+		case nil:
+		case uint64:
+			return value
+		case int64:
+			return uint64(value)
+		default:
+			optionalErr = errors.Errorf("expected uint64 for %s, got %T", name, value)
+		}
+		return 0
+	}
+	optionalStringSlice := func(name string) []string {
+		switch value := doc[name].(type) {
+		case nil:
+		case []string:
+			return value
+		default:
+			optionalErr = errors.Errorf("expected []string] for %s, got %T", name, value)
+		}
+		return nil
+	}
+	result := migration.ConstraintsArgs{
+		Architecture: optionalString("arch"),
+		Container:    optionalString("container"),
+		CpuCores:     optionalInt("cpucores"),
+		CpuPower:     optionalInt("cpupower"),
+		InstanceType: optionalString("instancetype"),
+		Memory:       optionalInt("mem"),
+		RootDisk:     optionalInt("rootdisk"),
+		Spaces:       optionalStringSlice("spaces"),
+		Tags:         optionalStringSlice("tags"),
+	}
+	if optionalErr != nil {
+		return migration.ConstraintsArgs{}, errors.Trace(optionalErr)
+	}
 	return result, nil
 }
 

@@ -17,9 +17,6 @@ type machines struct {
 }
 
 type machine struct {
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
-
 	Id_            string         `yaml:"id"`
 	Nonce_         string         `yaml:"nonce"`
 	PasswordHash_  string         `yaml:"password-hash"`
@@ -44,6 +41,11 @@ type machine struct {
 	Containers_ []*machine `yaml:"containers"`
 
 	NetworkPorts_ *versionedNetworkPorts `yaml:"network-ports,omitempty"`
+
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
+
+	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }
 
 // MachineArgs is an argument struct used to add a machine to the Model.
@@ -280,6 +282,19 @@ func (m *machine) setNetworkPorts(networkPortsList []*networkPorts) {
 	}
 }
 
+// Constraints implements HasConstraints.
+func (m *machine) Constraints() Constraints {
+	if m.Constraints_ == nil {
+		return nil
+	}
+	return m.Constraints_
+}
+
+// SetConstraints implements HasConstraints.
+func (m *machine) SetConstraints(args ConstraintsArgs) {
+	m.Constraints_ = newConstraints(args)
+}
+
 // Validate implements Machine.
 func (m *machine) Validate() error {
 	if m.Id_ == "" {
@@ -380,6 +395,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"preferred-private-address": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
+	addConstraintsSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -398,6 +414,14 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		ContainerType_: valid["container-type"].(string),
 	}
 	result.importAnnotations(valid)
+
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Constraints_ = constraints
+	}
 
 	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {
 		for _, job := range jobs {
@@ -632,11 +656,6 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	var tags []string
-	if vtags, ok := valid["tags"]; ok {
-		tags = vtags.([]string)
-	}
-
 	return &cloudInstance{
 		Version:           1,
 		InstanceId_:       valid["instance-id"].(string),
@@ -646,7 +665,7 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		RootDisk_:         valid["root-disk"].(uint64),
 		CpuCores_:         valid["cpu-cores"].(uint64),
 		CpuPower_:         valid["cpu-power"].(uint64),
-		Tags_:             tags,
+		Tags_:             convertToStringSlice(valid["tags"]),
 		AvailabilityZone_: valid["availability-zone"].(string),
 	}, nil
 }

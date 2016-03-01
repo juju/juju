@@ -162,3 +162,16 @@ func (s *ServiceSerializationSuite) TestAnnotations(c *gc.C) {
 	service := s.exportImport(c, initial)
 	c.Assert(service.Annotations(), jc.DeepEquals, annotations)
 }
+
+func (s *ServiceSerializationSuite) TestConstraints(c *gc.C) {
+	initial := minimalService()
+	args := ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * gig,
+		RootDisk:     40 * gig,
+	}
+	initial.SetConstraints(args)
+
+	service := s.exportImport(c, initial)
+	c.Assert(service.Constraints(), jc.DeepEquals, newConstraints(args))
+}
