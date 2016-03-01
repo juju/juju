@@ -88,7 +88,7 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 		return resource.Resource{}, errors.Annotate(err, "could not get resource info")
 	}
 	if response.Error != nil {
-		err, _ := common.RestoreError(response.Error)
+		err := common.RestoreError(response.Error)
 		return resource.Resource{}, errors.Annotate(err, "request failed on server")
 	}
 
@@ -96,7 +96,7 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 		return resource.Resource{}, errors.New("got bad response from API server")
 	}
 	if response.Resources[0].Error != nil {
-		err, _ := common.RestoreError(response.Error)
+		err := common.RestoreError(response.Error)
 		return resource.Resource{}, errors.Annotate(err, "request failed for resource")
 	}
 	res, err := api.API2Resource(response.Resources[0].Resource)
