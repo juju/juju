@@ -8,8 +8,9 @@ package lxd
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type rawProvider struct {
@@ -23,6 +24,7 @@ type lxdInstances interface {
 	Instances(string, ...string) ([]lxdclient.Instance, error)
 	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
+	Addresses(string) ([]network.Address, error)
 }
 
 type lxdProfiles interface {
@@ -55,10 +57,6 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 func newClient(ecfg *environConfig) (*lxdclient.Client, error) {
 	clientCfg, err := ecfg.clientConfig()
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := clientCfg.Write(); err != nil {
 		return nil, errors.Trace(err)
 	}
 

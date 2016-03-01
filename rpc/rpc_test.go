@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -1166,6 +1167,10 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	case <-time.After(3 * time.Second):
 		c.Fatalf("timeout on channel read")
 	}
+}
+
+func (*rpcSuite) TestCodeNotImplementedMatchesApiserverParams(c *gc.C) {
+	c.Assert(rpc.CodeNotImplemented, gc.Equals, params.CodeNotImplemented)
 }
 
 func chanReadError(c *gc.C, ch <-chan error, what string) error {
