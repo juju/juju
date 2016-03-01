@@ -361,6 +361,16 @@ class TestAddBasicTestingArguments(TestCase):
         with self.assertRaises(ErrJujuPath):
             parser.parse_args(cmd_line)
 
+    def test_warns_on_dirty_logs(self):
+        with temp_dir() as log_dir:
+            open(os.path.join(log_dir, "existing.log"), "w").close()
+            cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+            parser = add_basic_testing_arguments(ArgumentParser())
+            parser.parse_args(cmd_line)
+        self.assertRegexpMatches(
+            self.log_stream.getvalue(),
+            r"^WARNING Directory '.*' has existing contents.$")
+
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
         parser = add_basic_testing_arguments(ArgumentParser())
