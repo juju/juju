@@ -155,6 +155,22 @@ func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 	c.Assert(model.Annotations(), jc.DeepEquals, annotations)
 }
 
+func (s *ModelSerializationSuite) TestConstraints(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * gig,
+	}
+	initial.SetConstraints(args)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := DeserializeModel(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Constraints(), jc.DeepEquals, newConstraints(args))
+}
+
 func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {
 	model := NewModel(ModelArgs{})
 	err := model.Validate()

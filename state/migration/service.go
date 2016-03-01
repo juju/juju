@@ -18,9 +18,6 @@ type services struct {
 }
 
 type service struct {
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
-
 	Name_        string `yaml:"name"`
 	Series_      string `yaml:"series"`
 	Subordinate_ bool   `yaml:"subordinate,omitempty"`
@@ -42,10 +39,12 @@ type service struct {
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
-	// relation count also assumed by the relation sequence
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
+
+	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
 	// Requested Networks
-	// Constraints
 	// Storage Constraints
 }
 
@@ -194,6 +193,19 @@ func (s *service) setUnits(unitList []*unit) {
 	}
 }
 
+// Constraints implements HasConstraints.
+func (s *service) Constraints() Constraints {
+	if s.Constraints_ == nil {
+		return nil
+	}
+	return s.Constraints_
+}
+
+// SetConstraints implements HasConstraints.
+func (s *service) SetConstraints(args ConstraintsArgs) {
+	s.Constraints_ = newConstraints(args)
+}
+
 // Validate implements Service.
 func (s *service) Validate() error {
 	if s.Name_ == "" {
@@ -275,6 +287,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"metrics-creds": "",
 	}
 	addAnnotationSchema(fields, defaults)
+	addConstraintsSchema(fields, defaults)
 	addStatusHistorySchema(fields)
 	checker := schema.FieldMap(fields, defaults)
 
@@ -301,6 +314,14 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 	result.importAnnotations(valid)
 	if err := result.importStatusHistory(valid); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Constraints_ = constraints
 	}
 
 	encodedCreds := valid["metrics-creds"].(string)

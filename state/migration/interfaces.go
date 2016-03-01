@@ -18,6 +18,13 @@ type HasAnnotations interface {
 	SetAnnotations(map[string]string)
 }
 
+// HasConstraints defines the common methods for setting and
+// getting constraints for the various entities.
+type HasConstraints interface {
+	Constraints() Constraints
+	SetConstraints(ConstraintsArgs)
+}
+
 // HasStatusHistory defines the common methods for setting and
 // getting historical status entries for the various entities.
 type HasStatusHistory interface {
@@ -28,6 +35,7 @@ type HasStatusHistory interface {
 // Model is a database agnostic representation of an existing model.
 type Model interface {
 	HasAnnotations
+	HasConstraints
 
 	Tag() names.ModelTag
 	Owner() names.UserTag
@@ -82,6 +90,7 @@ type AgentTools interface {
 // model.
 type Machine interface {
 	HasAnnotations
+	HasConstraints
 	HasStatusHistory
 
 	Id() string
@@ -166,6 +175,21 @@ type CloudInstance interface {
 	AvailabilityZone() string
 }
 
+// Constraints holds information about particular deployment
+// constraints for entities.
+type Constraints interface {
+	Architecture() string
+	Container() string
+	CpuCores() uint64
+	CpuPower() uint64
+	InstanceType() string
+	Memory() uint64
+	RootDisk() uint64
+
+	Spaces() []string
+	Tags() []string
+}
+
 // Status represents an agent, service, or workload status.
 type Status interface {
 	Value() string
@@ -177,6 +201,7 @@ type Status interface {
 // Service represents a deployed charm in a model.
 type Service interface {
 	HasAnnotations
+	HasConstraints
 	HasStatusHistory
 
 	Tag() names.ServiceTag
@@ -205,6 +230,7 @@ type Service interface {
 // Unit represents an instance of a service in a model.
 type Unit interface {
 	HasAnnotations
+	HasConstraints
 
 	Tag() names.UnitTag
 	Name() string

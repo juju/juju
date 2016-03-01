@@ -35,3 +35,15 @@ func getVersion(source map[string]interface{}) (int, error) {
 	valid := coerced.(map[string]interface{})
 	return int(valid["version"].(int64)), nil
 }
+
+func convertToStringSlice(field interface{}) []string {
+	if field == nil {
+		return nil
+	}
+	fieldSlice := field.([]interface{})
+	result := make([]string, len(fieldSlice))
+	for i, value := range fieldSlice {
+		result[i] = value.(string)
+	}
+	return result
+}
