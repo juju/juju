@@ -746,7 +746,7 @@ func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 
 func (e *exporter) statusHistoryArgs(globalKey string) []migration.StatusArgs {
 	history := e.statusHistory[globalKey]
-	result := make([]migration.StatusArgs{}, len(history))
+	result := make([]migration.StatusArgs, len(history))
 	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = migration.StatusArgs{
