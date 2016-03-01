@@ -8,12 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 )
 
-type PortRangeSuite struct {
-	testing.BaseSuite
-}
+type PortRangeSuite struct{}
 
 var _ = gc.Suite(&PortRangeSuite{})
 

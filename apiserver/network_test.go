@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/testing"
 )
 
 type networkSuite struct {
-	testing.BaseSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&networkSuite{})

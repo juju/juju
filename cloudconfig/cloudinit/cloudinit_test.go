@@ -14,14 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	coretesting "github.com/juju/juju/testing"
+	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )
 
 // TODO integration tests, but how?
 
-type S struct {
-	coretesting.BaseSuite
-}
+type S struct{}
 
 var _ = gc.Suite(S{})
 

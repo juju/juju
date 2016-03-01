@@ -13,12 +13,9 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/testing"
 )
 
-type factorySuite struct {
-	testing.BaseSuite
-}
+type factorySuite struct{}
 
 var _ = gc.Suite(&factorySuite{})
 

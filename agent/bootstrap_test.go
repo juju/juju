@@ -31,14 +31,16 @@ import (
 )
 
 type bootstrapSuite struct {
-	testing.BaseSuite
-	mgoInst gitjujutesting.MgoInstance
+	gitjujutesting.CleanupSuite
+	gitjujutesting.LoggingSuite // quench mongo output
+	mgoInst                     gitjujutesting.MgoInstance
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.CleanupSuite.SetUpTest(c)
+	s.LoggingSuite.SetUpTest(c)
 	// Don't use MgoSuite, because we need to ensure
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
@@ -48,7 +50,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.mgoInst.Destroy()
-	s.BaseSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+	s.CleanupSuite.TearDownTest(c)
 }
 
 func (s *bootstrapSuite) TestInitializeState(c *gc.C) {

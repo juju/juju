@@ -5,13 +5,13 @@ package azure_test
 
 import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -23,9 +23,29 @@ const (
 )
 
 type configSuite struct {
-	testing.BaseSuite
+	testing.CleanupSuite
+	testing.LoggingSuite // quench warnings
+}
 
-	provider environs.EnvironProvider
+func (s *configSuite) SetUpSuite(c *gc.C) {
+	s.CleanupSuite.SetUpSuite(c)
+	s.LoggingSuite.SetUpSuite(c)
+}
+
+func (s *configSuite) TearDownSuite(c *gc.C) {
+	s.LoggingSuite.TearDownSuite(c)
+	s.CleanupSuite.TearDownSuite(c)
+}
+
+var _ = gc.Suite(&configSuite{})
+
+// makeConfigMap creates a minimal map of standard configuration items,
+// adds the given extra items to that and returns it.
+func makeConfigMap(extra map[string]interface{}) map[string]interface{} {
+	return coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"name": "testenv",
+		"type": "azure",
+	}).Merge(extra)
 }
 
 var _ = gc.Suite(&configSuite{})

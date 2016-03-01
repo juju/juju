@@ -23,9 +23,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type suite struct {
-	testing.BaseSuite
-}
+type suite struct{}
 
 var _ = gc.Suite(&suite{})
 

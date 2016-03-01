@@ -19,7 +19,6 @@ import (
 )
 
 type identitySuite struct {
-	testing.BaseSuite
 	mongodConfigPath string
 	mongodPath       string
 }

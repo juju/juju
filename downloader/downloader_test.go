@@ -20,28 +20,7 @@ import (
 )
 
 type suite struct {
-	testing.BaseSuite
 	gitjujutesting.HTTPSuite
-}
-
-func (s *suite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.HTTPSuite.SetUpSuite(c)
-}
-
-func (s *suite) TearDownSuite(c *gc.C) {
-	s.HTTPSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *suite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.HTTPSuite.SetUpTest(c)
-}
-
-func (s *suite) TearDownTest(c *gc.C) {
-	s.HTTPSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&suite{})

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,13 +23,12 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/testing"
 )
 
 var logger = loggo.GetLogger("juju.rpc")
 
 type rpcSuite struct {
-	testing.BaseSuite
+	testing.LoggingSuite // quench output
 }
 
 var _ = gc.Suite(&rpcSuite{})

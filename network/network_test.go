@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -86,7 +87,7 @@ func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
 }
 
 type NetworkSuite struct {
-	testing.BaseSuite
+	gitjujutesting.CleanupSuite
 }
 
 var _ = gc.Suite(&NetworkSuite{})

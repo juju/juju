@@ -16,13 +16,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
-type format_1_18Suite struct {
-	testing.BaseSuite
-}
+type format_1_18Suite struct{}
 
 var _ = gc.Suite(&format_1_18Suite{})
 

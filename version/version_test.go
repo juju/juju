@@ -12,13 +12,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
-type suite struct {
-	testing.BaseSuite
-}
+type suite struct{}
 
 var _ = gc.Suite(&suite{})
 

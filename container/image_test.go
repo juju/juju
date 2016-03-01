@@ -12,16 +12,16 @@ import (
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/instance"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type imageURLSuite struct {
-	coretesting.BaseSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&imageURLSuite{})
 
 func (s *imageURLSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 }
 
