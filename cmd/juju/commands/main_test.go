@@ -280,6 +280,8 @@ var commandNames = []string{
 	"set-config",
 	"set-configs",
 	"set-constraints",
+	"set-default-credential",
+	"set-default-region",
 	"set-meter-status",
 	"set-model-config",
 	"set-model-constraints",
