@@ -42,7 +42,7 @@ func (s *defaultCredentialSuite) TestBadCredential(c *gc.C) {
 }
 
 func (s *defaultCredentialSuite) TestBadCloudName(c *gc.C) {
-	cmd := cloud.NewSetDefaultRegionCommand()
+	cmd := cloud.NewSetDefaultCredentialCommand()
 	_, err := testing.RunCommand(c, cmd, "somecloud", "us-west-1")
 	c.Assert(err, gc.ErrorMatches, `cloud somecloud not found`)
 }
