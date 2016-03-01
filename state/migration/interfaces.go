@@ -39,6 +39,9 @@ type Model interface {
 	Relations() []Relation
 	AddRelation(RelationArgs) Relation
 
+	Sequences() map[string]int
+	SetSequence(name string, value int)
+
 	Validate() error
 }
 

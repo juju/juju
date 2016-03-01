@@ -33,6 +33,7 @@ func NewModel(args ModelArgs) Model {
 		Owner_:              args.Owner.Id(),
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
+		Sequences_:          make(map[string]int),
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -74,6 +75,8 @@ type model struct {
 	Machines_  machines  `yaml:"machines"`
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
+
+	Sequences_ map[string]int `yaml:"sequences"`
 
 	// TODO:
 	// Spaces
@@ -214,6 +217,16 @@ func (m *model) setRelations(relationList []*relation) {
 	}
 }
 
+// Sequences implements Model.
+func (m *model) Sequences() map[string]int {
+	return m.Sequences_
+}
+
+// SetSequence implements Model.
+func (m *model) SetSequence(name string, value int) {
+	m.Sequences_[name] = value
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -306,6 +319,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
+		"sequences":    schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -323,11 +337,16 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// contains fields of the right type.
 
 	result := &model{
-		Version: 1,
-		Owner_:  valid["owner"].(string),
-		Config_: valid["config"].(map[string]interface{}),
+		Version:    1,
+		Owner_:     valid["owner"].(string),
+		Config_:    valid["config"].(map[string]interface{}),
+		Sequences_: make(map[string]int),
 	}
 	result.importAnnotations(valid)
+	sequences := valid["sequences"].(map[string]interface{})
+	for key, value := range sequences {
+		result.SetSequence(key, int(value.(int64)))
+	}
 
 	if availableTools, ok := valid["latest-tools"]; ok {
 		num, err := version.Parse(availableTools.(string))
