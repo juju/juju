@@ -1100,20 +1100,24 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-1", "wordpress")
-	err = runDeploy(c, "cs:quantal/wordpress-1", "--bind", "db=db public")
+	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
+	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:quantal/wordpress-1"},
+		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
-		"wordpress": {
+		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
 				"cache":           "public",
 				"url":             "public",
 				"logging-dir":     "public",
 				"monitoring-port": "public",
 				"db":              "db",
+				"db-client":       "db",
+				"admin-api":       "public",
+				"foo-bar":         "public",
+				"cluster":         "public",
 			},
 		},
 	})
