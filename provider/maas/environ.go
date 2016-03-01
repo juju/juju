@@ -1126,19 +1126,44 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
 func setupJujuNetworking() string {
-	s := fmt.Sprintf(`
-juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
-if [ -n %[1]q ]; then
-    trap 'rm -f %[2]q' EXIT;
-    if [ -x %[2]q ]; then
-         %[2]q --bridge-name=%[3]q --interface-to-bridge=%[1]q --one-time-backup --activate %[4]q;
-    fi;
+	// For ubuntu series < xenial we prefer python2 over python3
+	// as we don't want to invalidate lots of testing against
+	// known cloud-image contents. A summary of Ubuntu releases
+	// and python inclusion in the default install of Ubuntu
+	// Server is as follows:
+	//
+	// 12.04 precise:  python 2 (2.7.3)
+	// 14.04 trusty:   python 2 (2.7.5) and python3 (3.4.0)
+	// 14.10 utopic:   python 2 (2.7.8) and python3 (3.4.2)
+	// 15.04 vivid:    python 2 (2.7.9) and python3 (3.4.3)
+	// 15.10 wily:     python 2 (2.7.9) and python3 (3.4.3)
+	// 16.04 xenial:   python 3 only (3.5.1)
+	//
+	// going forward:  python 3 only
+
+	return fmt.Sprintf(`
+trap 'rm -f %[2]q' EXIT
+
+if [ -x /usr/bin/python2 ]; then
+    juju_networking_preferred_python_binary=/usr/bin/python2
+elif [ -x /usr/bin/python3 ]; then
+    juju_networking_preferred_python_binary=/usr/bin/python3
+elif [ -x /usr/bin/python ]; then
+    juju_networking_preferred_python_binary=/usr/bin/python
+fi
+
+if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
+    juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
+    if [ -f %[2]q ]; then
+        $juju_networking_preferred_python_binary %[2]q --bridge-name=%[3]q --interface-to-bridge=%[1]q --one-time-backup --activate %[4]q
+    fi
+else
+    echo "error: no Python installation found; cannot run Juju's bridge script"
 fi`,
 		"$juju_ipv4_interface_to_bridge",
 		bridgeScriptPath,
 		instancecfg.DefaultBridgeName,
 		"/etc/network/interfaces")
-	return s
 }
 
 func renderEtcNetworkInterfacesScript() string {
