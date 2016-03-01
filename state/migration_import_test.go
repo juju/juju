@@ -54,6 +54,8 @@ func (s *MigrationImportSuite) assertAnnotations(c *gc.C, newSt *state.State, en
 func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
+	machineSeq := s.randSequenceValue(c, "machine")
+	fooSeq := s.randSequenceValue(c, "service-foo")
 
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,6 +94,14 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	delete(originalAttrs, "uuid")
 	delete(originalAttrs, "name")
 	c.Assert(newAttrs, jc.DeepEquals, originalAttrs)
+
+	seq, err := state.Sequence(newSt, "machine")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(seq, gc.Equals, machineSeq)
+	seq, err = state.Sequence(newSt, "service-foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(seq, gc.Equals, fooSeq)
+
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
