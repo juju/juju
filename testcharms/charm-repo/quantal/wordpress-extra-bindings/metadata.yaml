@@ -1,4 +1,4 @@
-name: wordpress-with-extra-bindings
+name: wordpress-extra-bindings
 summary: "Blog engine"
 description: "A pretty popular blog engine - NOW with extra-bindings!"
 provides:

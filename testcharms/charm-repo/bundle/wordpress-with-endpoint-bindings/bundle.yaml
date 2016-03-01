@@ -1,6 +1,6 @@
 services:
-    wordpress:
-        charm: wordpress-with-extra-bindings
+    wordpress-extra-bindings:
+        charm: wordpress-extra-bindings
         num_units: 1
         bindings:
             db: db
@@ -13,4 +13,4 @@ services:
         bindings:
             server: db
 relations:
-    - ["wordpress:db", "mysql:server"]
+    - ["wordpress-extra-bindings:db", "mysql:server"]
