@@ -23,6 +23,7 @@ func (s *ConstraintsSerializationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ConstraintsSerializationSuite) allArgs() ConstraintsArgs {
+	// NOTE: using gig from package_test.go
 	return ConstraintsArgs{
 		Architecture: "amd64",
 		Container:    "lxd",
@@ -37,7 +38,6 @@ func (s *ConstraintsSerializationSuite) allArgs() ConstraintsArgs {
 }
 
 func (s *ConstraintsSerializationSuite) TestNewConstraints(c *gc.C) {
-	// NOTE: using gig from package_test.go
 	args := s.allArgs()
 	instance := newConstraints(args)
 

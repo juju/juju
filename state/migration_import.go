@@ -518,7 +518,7 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 			Info: u.MeterStatusInfo(),
 		},
 	})
-	// We should only have constraints for principle agents.
+	// We should only have constraints for principal agents.
 	// We don't encode that business logic here, if there are constraints
 	// in the imported model, we put them in the database.
 	if cons := u.Constraints(); cons != nil {
