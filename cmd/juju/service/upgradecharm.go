@@ -219,6 +219,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the upgrage-charm call.
 func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.URL) (map[string]string, error) {
+	// this gets the charm info that was added to the controller using addcharm.
 	charmInfo, err := client.CharmInfo(cURL.String())
 	if err != nil {
 		return nil, err
@@ -247,13 +248,15 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.U
 		}
 	}
 
+	// Note: the validity of resources to be uploaded will be checked further
+	// down the stack.
 	return handleResources(c, c.Resources, c.ServiceName, metaRes)
 }
 
 // shouldUploadMeta reports whether we should upload the metadata for the given
 // resource.  This is always true for resources we're adding with the --resource
 // flag. For resources we're not adding with --resource, we only upload metadata
-// for charmstore resources.  previously uploaded resources stay pinned to the
+// for charmstore resources.  Previously uploaded resources stay pinned to the
 // data the user uploaded.
 func shouldUploadMeta(res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
 	// Always upload metadata for resources the user is uploading during
@@ -263,8 +266,7 @@ func shouldUploadMeta(res charmresource.Meta, uploads map[string]string, current
 	}
 	cur, ok := current[res.Name]
 	if !ok {
-		// This should be impossible, but regardless, if there's no information
-		// on the server, there should be.
+		// If there's no information on the server, there should be.
 		return true
 	}
 	// Never override existing resources a user has already uploaded.
