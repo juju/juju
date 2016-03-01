@@ -22,6 +22,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelUsersC,
 		modelUserLastConnectionC,
 		settingsC,
+		sequenceC,
 		statusesC,
 
 		// machine
@@ -91,7 +92,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		blocksC,
 		cleanupsC,
 		cloudimagemetadataC,
-		sequenceC,
 
 		// machine
 		rebootC,
@@ -426,6 +426,18 @@ func (s *MigrationSuite) TestAnnatatorDocFields(c *gc.C) {
 		"Annotations",
 	)
 	s.AssertExportedFields(c, annotatorDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestSequenceDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		"DocID",
+		"Name",
+		"Counter",
+	)
+	s.AssertExportedFields(c, sequenceDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
