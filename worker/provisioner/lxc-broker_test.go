@@ -1098,7 +1098,7 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultTools := version.Binary{
-		Number: version.Current,
+		Number: version.Current.Number,
 		Arch:   arch.HostArch(),
 		Series: coretesting.FakeDefaultSeries,
 	}
