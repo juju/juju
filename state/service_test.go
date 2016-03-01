@@ -2244,9 +2244,8 @@ func (s *ServiceSuite) assertServiceHasOnlyDefaultEndpointBindings(c *gc.C, serv
 	c.Assert(err, jc.ErrorIsNil)
 
 	knownEndpoints := set.NewStrings()
-	combinedEndpoints, err := state.CombinedCharmRelations(charm.Meta())
-	c.Assert(err, jc.ErrorIsNil)
-	for endpoint, _ := range combinedEndpoints {
+	allBindings := state.DefaultEndpointBindingsForCharm(charm.Meta())
+	for endpoint, _ := range allBindings {
 		knownEndpoints.Add(endpoint)
 	}
 
