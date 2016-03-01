@@ -88,7 +88,7 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 			return buf.String()
 		}
 
-		info.ProviderId = network.Id(permute(string(info.ProviderId)))
+		info.ProviderId = permute(info.ProviderId)
 		info.CIDR = permute(info.CIDR)
 		info.AllocatableIPHigh = permute(info.AllocatableIPHigh)
 		info.AllocatableIPLow = permute(info.AllocatableIPLow)
