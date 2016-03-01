@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"fmt"
@@ -18,7 +18,8 @@ import (
 const (
 	resourcesC = "resources"
 
-	stagedIDSuffix = "#staged"
+	resourcesStagedIDSuffix     = "#staged"
+	resourcesCharmstoreIDSuffix = "#charmstore"
 )
 
 // resourceID converts an external resource ID into an internal one.
@@ -37,13 +38,18 @@ func pendingResourceID(id, pendingID string) string {
 	return resourceID(id, "pending", pendingID)
 }
 
+func charmStoreResourceID(id string) string {
+	return serviceResourceID(id) + resourcesCharmstoreIDSuffix
+}
+
 func unitResourceID(id, unitID string) string {
 	return resourceID(id, "unit", unitID)
 }
 
-// stagedID converts an external resource ID into an internal staged one.
-func stagedID(id string) string {
-	return serviceResourceID(id) + stagedIDSuffix
+// stagedResourceID converts an external resource ID into an internal
+// staged one.
+func stagedResourceID(id string) string {
+	return serviceResourceID(id) + resourcesStagedIDSuffix
 }
 
 // storedResource holds all model-stored information for a resource.
@@ -54,8 +60,17 @@ type storedResource struct {
 	storagePath string
 }
 
-func newStagedResourceOps(stored storedResource) []txn.Op {
-	doc := newStagedDoc(stored)
+// charmStoreResource holds the info for a resource as provided by the
+// charm store at as specific point in time.
+type charmStoreResource struct {
+	charmresource.Resource
+	id         string
+	serviceID  string
+	lastPolled time.Time
+}
+
+func newInsertStagedResourceOps(stored storedResource) []txn.Op {
+	doc := newStagedResourceDoc(stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -65,8 +80,8 @@ func newStagedResourceOps(stored storedResource) []txn.Op {
 	}}
 }
 
-func newEnsureStagedSameOps(stored storedResource) []txn.Op {
-	doc := newStagedDoc(stored)
+func newEnsureStagedResourceSameOps(stored storedResource) []txn.Op {
+	doc := newStagedResourceDoc(stored)
 
 	// Other than cause the txn to abort, we don't do anything here.
 	return []txn.Op{{
@@ -76,8 +91,8 @@ func newEnsureStagedSameOps(stored storedResource) []txn.Op {
 	}}
 }
 
-func newRemoveStagedOps(id string) []txn.Op {
-	fullID := stagedID(id)
+func newRemoveStagedResourceOps(id string) []txn.Op {
+	fullID := stagedResourceID(id)
 
 	// We don't assert that it exists. We want "missing" to be a noop.
 	return []txn.Op{{
@@ -87,8 +102,8 @@ func newRemoveStagedOps(id string) []txn.Op {
 	}}
 }
 
-func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
-	doc := newUnitResourceDoc(unitID, stored)
+func newInsertResourceOps(stored storedResource) []txn.Op {
+	doc := newResourceDoc(stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -98,8 +113,43 @@ func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 	}}
 }
 
-func newInsertResourceOps(stored storedResource) []txn.Op {
+func newUpdateResourceOps(stored storedResource) []txn.Op {
 	doc := newResourceDoc(stored)
+
+	// TODO(ericsnow) Using "update" doesn't work right...
+	return append([]txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}, newInsertResourceOps(stored)...)
+}
+
+func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
+	doc := newCharmStoreResourceDoc(res)
+
+	return []txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+}
+
+func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
+	doc := newCharmStoreResourceDoc(res)
+
+	// TODO(ericsnow) Using "update" doesn't work right...
+	return append([]txn.Op{{
+		C:      resourcesC,
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}, newInsertCharmStoreResourceOps(res)...)
+}
+
+func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
+	doc := newUnitResourceDoc(unitID, stored)
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -119,18 +169,6 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}}, newInsertUnitResourceOps(unitID, stored)...)
-}
-
-func newUpdateResourceOps(stored storedResource) []txn.Op {
-	doc := newResourceDoc(stored)
-
-	// TODO(ericsnow) Using "update" doesn't work right...
-	return append([]txn.Op{{
-		C:      resourcesC,
-		Id:     doc.DocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}, newInsertResourceOps(stored)...)
 }
 
 // newResolvePendingResourceOps generates transaction operations that
@@ -158,6 +196,12 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 	}
 }
 
+// newCharmStoreResourceDoc generates a doc that represents the given resource.
+func newCharmStoreResourceDoc(res charmStoreResource) *resourceDoc {
+	fullID := charmStoreResourceID(res.id)
+	return charmStoreResource2Doc(fullID, res)
+}
+
 // newUnitResourceDoc generates a doc that represents the given resource.
 func newUnitResourceDoc(unitID string, stored storedResource) *resourceDoc {
 	fullID := unitResourceID(stored.ID, unitID)
@@ -173,14 +217,15 @@ func newResourceDoc(stored storedResource) *resourceDoc {
 	return resource2doc(fullID, stored)
 }
 
-// newStagedDoc generates a staging doc that represents the given resource.
-func newStagedDoc(stored storedResource) *resourceDoc {
-	stagedID := stagedID(stored.ID)
+// newStagedResourceDoc generates a staging doc that represents
+// the given resource.
+func newStagedResourceDoc(stored storedResource) *resourceDoc {
+	stagedID := stagedResourceID(stored.ID)
 	return resource2doc(stagedID, stored)
 }
 
 // resources returns the resource docs for the given service.
-func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
+func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) {
 	logger.Tracef("querying db for resources for %q", serviceID)
 	var docs []resourceDoc
 	query := bson.D{{"service-id", serviceID}}
@@ -192,7 +237,7 @@ func (p Persistence) resources(serviceID string) ([]resourceDoc, error) {
 }
 
 // getOne returns the resource that matches the provided model ID.
-func (p Persistence) getOne(resID string) (resourceDoc, error) {
+func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q", resID)
 	id := serviceResourceID(resID)
 	var doc resourceDoc
@@ -203,7 +248,7 @@ func (p Persistence) getOne(resID string) (resourceDoc, error) {
 }
 
 // getOnePending returns the resource that matches the provided model ID.
-func (p Persistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
+func (p ResourcePersistence) getOnePending(resID, pendingID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q (pending %q)", resID, pendingID)
 	id := pendingResourceID(resID, pendingID)
 	var doc resourceDoc
@@ -237,6 +282,21 @@ type resourceDoc struct {
 	Timestamp time.Time `bson:"timestamp-when-added"`
 
 	StoragePath string `bson:"storage-path"`
+
+	LastPolled time.Time `bson:"timestamp-when-last-polled"`
+}
+
+func charmStoreResource2Doc(id string, res charmStoreResource) *resourceDoc {
+	stored := storedResource{
+		Resource: resource.Resource{
+			Resource:  res.Resource,
+			ID:        res.id,
+			ServiceID: res.serviceID,
+		},
+	}
+	doc := resource2doc(id, stored)
+	doc.LastPolled = res.lastPolled
+	return doc
 }
 
 func unitResource2Doc(id, unitID string, stored storedResource) *resourceDoc {
