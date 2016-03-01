@@ -101,6 +101,25 @@ class enforce_juju_path(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+def _clean_dir(maybe_dir):
+    """Pseudo-type that validates an argument to be a clean directory path.
+
+    For safety, this function will not attempt to remove existing directory
+    contents but will just report a warning.
+    """
+    try:
+        contents = os.listdir(maybe_dir)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+        # GZ 2016-03-01: We may want to raise or just create the dir here, but
+        # that confuses expectations of all existing parse_args tests.
+    else:
+        if contents:
+            logging.warning("Directory %r has existing contents.", maybe_dir)
+    return maybe_dir
+
+
 def pause(seconds):
     print_now('Sleeping for %d seconds.' % seconds)
     sleep(seconds)
@@ -282,19 +301,17 @@ def add_basic_testing_arguments(parser, using_jes=False):
     :param using_jes: whether args should be tailored for JES testing.
     """
     # Required positional arguments.
-    # (name, help)
-    positional_args = [
-        ('env', 'The juju environment to base the temp test environment on.'),
-        ('juju_bin', 'Full path to the Juju binary.'),
-        ('logs', 'A directory in which to store logs.'),
-        ('temp_env_name', 'A temporary test environment name.'),
-    ]
-    for p_arg in positional_args:
-        name, help_txt = p_arg
-        if name == 'juju_bin':
-            parser.add_argument(name, action=enforce_juju_path, help=help_txt)
-        else:
-            parser.add_argument(name, help=help_txt)
+    parser.add_argument(
+        'env',
+        help='The juju environment to base the temp test environment on.')
+    parser.add_argument(
+        'juju_bin', action=enforce_juju_path,
+        help='Full path to the Juju binary.')
+    parser.add_argument(
+        'logs', type=_clean_dir, help='A directory in which to store logs.')
+    parser.add_argument(
+        'temp_env_name', help='A temporary test environment name.')
+    # Optional keyword arguments.
     parser.add_argument('--debug', action='store_true',
                         help='Pass --debug to Juju.')
     parser.add_argument('--verbose', action='store_const',

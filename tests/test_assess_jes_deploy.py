@@ -2,6 +2,8 @@ from argparse import Namespace
 from mock import (
     patch,
     )
+import os
+
 from assess_jes_deploy import (
     check_services,
     env_token,
@@ -158,9 +160,30 @@ class TestHostedEnvironment(tests.FakeHomeTestCase):
 
     def test_hosted_environment(self):
         hosting_client = FakeJujuClient()
-        with hosted_environment(hosting_client, '/log', 'bar') as client:
+        log_dir = os.path.join(self.home_dir, 'logs')
+        os.mkdir(log_dir)
+        with hosted_environment(hosting_client, log_dir, 'bar') as client:
             model_state = client._backing_state
             self.assertEqual({'name-bar': model_state},
                              hosting_client._backing_state.models)
             self.assertEqual('created', model_state.state)
         self.assertEqual('model-destroyed', model_state.state)
+        self.assertTrue(os.path.isdir(os.path.join(log_dir, 'bar')))
+
+    def test_gathers_machine_logs(self):
+        hosting_client = FakeJujuClient()
+        log_dir = os.path.join(self.home_dir, 'logs')
+        os.mkdir(log_dir)
+        with patch("deploy_stack.copy_remote_logs", autospec=True) as mock_crl:
+            with hosted_environment(hosting_client, log_dir, 'bar') as client:
+                client.juju("deploy", ["cs:a-service"])
+                status = client.get_status()
+                unit_machine = status.get_unit("a-service/0")["machine"]
+                addr = status.status["machines"][unit_machine]["dns-name"]
+        hosted_dir = os.path.join(log_dir, "bar")
+        machine_dir = os.path.join(hosted_dir, "machine-0")
+        self.assertTrue(os.path.isdir(hosted_dir))
+        self.assertTrue(os.path.isdir(machine_dir))
+        self.assertEqual(mock_crl.call_count, 1)
+        self.assertEqual(mock_crl.call_args[0][0].address, addr)
+        self.assertEqual(mock_crl.call_args[0][1], machine_dir)

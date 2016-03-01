@@ -25,6 +25,7 @@ from jujupy import (
     )
 from utility import (
     add_basic_testing_arguments,
+    ensure_dir,
     print_now,
 )
 
@@ -108,7 +109,9 @@ def hosted_environment(system_client, log_dir, suffix):
         sys.exit(1)
     finally:
         safe_print_status(client)
-        dump_env_logs(client, None, os.path.join(log_dir, suffix))
+        hosted_log_dir = os.path.join(log_dir, suffix)
+        ensure_dir(hosted_log_dir)
+        dump_env_logs(client, None, hosted_log_dir)
         client.destroy_model()
 
 

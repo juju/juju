@@ -52,6 +52,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     ensure_deleted,
+    ensure_dir,
     LoggedException,
     PortTimeoutError,
     print_now,
@@ -186,7 +187,7 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
                          remote)
             machine_dir = os.path.join(artifacts_dir,
                                        "machine-%s" % machine_id)
-            os.mkdir(machine_dir)
+            ensure_dir(machine_dir)
             copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
     retain_config(runtime_config, artifacts_dir)
