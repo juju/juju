@@ -26,7 +26,7 @@ type MigrationImportSuite struct {
 
 var _ = gc.Suite(&MigrationImportSuite{})
 
-func (s *MigrationImportSuite) assertStatusHistory(c *gc.C, exported, imported state.StatusHistoryGetter, size int) {
+func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported state.StatusHistoryGetter, size int) {
 	exportedHistory, err := exported.StatusHistory(size)
 	c.Assert(err, jc.ErrorIsNil)
 	importedHistory, err := imported.StatusHistory(size)
@@ -240,7 +240,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(isContainer, jc.IsTrue)
 
 	s.assertAnnotations(c, newSt, parent)
-	s.assertStatusHistory(c, machine1, parent, 5)
+	s.checkStatusHistory(c, machine1, parent, 5)
 
 	newCons, err := parent.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -301,7 +301,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
 	s.assertAnnotations(c, newSt, imported)
-	s.assertStatusHistory(c, service, imported, 5)
+	s.checkStatusHistory(c, service, imported, 5)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -345,8 +345,8 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 	s.assertAnnotations(c, newSt, imported)
-	s.assertStatusHistory(c, exported, imported, 5)
-	s.assertStatusHistory(c, exported.Agent(), imported.Agent(), 5)
+	s.checkStatusHistory(c, exported, imported, 5)
+	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)

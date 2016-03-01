@@ -16,7 +16,13 @@ import (
 )
 
 // Constraints stores megabytes by default for memory and root disk.
-const gig uint64 = 1024
+const (
+	gig uint64 = 1024
+
+	addedHistoryCount = 5
+	// 6 for the one initial + 5 added.
+	expectedHistoryCount = addedHistoryCount + 1
+)
 
 var testAnnotations = map[string]string{
 	"string":  "value",
@@ -52,7 +58,7 @@ type MigrationExportSuite struct {
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
-func (s *MigrationExportSuite) assertStatusHistory(c *gc.C, history []migration.Status, status state.Status) {
+func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []migration.Status, status state.Status) {
 	for i, st := range history {
 		c.Check(st.Value(), gc.Equals, string(status))
 		c.Check(st.Message(), gc.Equals, "")
@@ -140,7 +146,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, machine1, state.StatusStarted, 5)
+	s.primeStatusHistory(c, machine1, state.StatusStarted, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,9 +170,8 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(exTools.Version(), jc.DeepEquals, tools.Version)
 
 	history := exported.StatusHistory()
-	// 6 for the one initial + 5 primed.
-	c.Assert(history, gc.HasLen, 6)
-	s.assertStatusHistory(c, history[:5], state.StatusStarted)
+	c.Assert(history, gc.HasLen, expectedHistoryCount)
+	s.checkStatusHistory(c, history[:addedHistoryCount], state.StatusStarted)
 
 	containers := exported.Containers()
 	c.Assert(containers, gc.HasLen, 1)
@@ -189,7 +194,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(service, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, service, state.StatusActive, 5)
+	s.primeStatusHistory(c, service, state.StatusActive, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,9 +223,8 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 
 	history := exported.StatusHistory()
-	// 6 for the one initial + 5 primed.
-	c.Assert(history, gc.HasLen, 6)
-	s.assertStatusHistory(c, history[:5], state.StatusActive)
+	c.Assert(history, gc.HasLen, expectedHistoryCount)
+	s.checkStatusHistory(c, history[:addedHistoryCount], state.StatusActive)
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
@@ -243,8 +247,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, unit, state.StatusActive, 5)
-	s.primeStatusHistory(c, unit.Agent(), state.StatusIdle, 5)
+	s.primeStatusHistory(c, unit, state.StatusActive, addedHistoryCount)
+	s.primeStatusHistory(c, unit.Agent(), state.StatusIdle, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,14 +274,12 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 
 	workloadHistory := exported.WorkloadStatusHistory()
-	// 6 for the one initial + 5 primed.
-	c.Assert(workloadHistory, gc.HasLen, 6)
-	s.assertStatusHistory(c, workloadHistory[:5], state.StatusActive)
+	c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
+	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], state.StatusActive)
 
 	agentHistory := exported.AgentStatusHistory()
-	// 6 for the one initial + 5 primed.
-	c.Assert(agentHistory, gc.HasLen, 6)
-	s.assertStatusHistory(c, agentHistory[:5], state.StatusIdle)
+	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
+	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], state.StatusIdle)
 }
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {

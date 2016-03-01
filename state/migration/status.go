@@ -34,10 +34,12 @@ func newStatus(args StatusArgs) *status {
 func newStatusHistory() statusHistory {
 	return statusHistory{
 		Version: 1,
-		//		History: []*statusPoint{},
 	}
 }
 
+// statusPoint implements Status, and represents the status
+// of an entity at a point in time. Used in the serialization of
+// both status and statusHistory.
 type statusPoint struct {
 	Value_   string                 `yaml:"value"`
 	Message_ string                 `yaml:"message,omitempty"`
@@ -79,7 +81,7 @@ func importStatus(source map[string]interface{}) (*status, error) {
 	checker := versionedEmbeddedChecker("status")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "status version schema check failed")
+		return nil, errors.Annotate(err, "status version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
@@ -104,7 +106,7 @@ func importStatusHistory(history *statusHistory, source map[string]interface{}) 
 	checker := versionedChecker("history")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return errors.Annotatef(err, "status version schema check failed")
+		return errors.Annotate(err, "status version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 

@@ -690,18 +690,22 @@ func (e *exporter) readAllStatusHistory() error {
 	statuses, closer := e.st.getCollection(statusesHistoryC)
 	defer closer()
 
-	var docs []historicalStatusDoc
-	err := statuses.Find(nil).Sort("-updated").All(&docs)
-	if err != nil {
+	count := 0
+	e.statusHistory = make(map[string][]historicalStatusDoc)
+	var doc historicalStatusDoc
+	iter := statuses.Find(nil).Sort("-updated").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		history := e.statusHistory[doc.GlobalKey]
+		e.statusHistory[doc.GlobalKey] = append(history, doc)
+		count++
+	}
+
+	if err := iter.Err(); err != nil {
 		return errors.Annotate(err, "failed to read status history collection")
 	}
 
-	e.logger.Debugf("read %d status history documents", len(docs))
-	e.statusHistory = make(map[string][]historicalStatusDoc)
-	for _, doc := range docs {
-		history := e.statusHistory[doc.GlobalKey]
-		e.statusHistory[doc.GlobalKey] = append(history, doc)
-	}
+	e.logger.Debugf("read %d status history documents", count)
 
 	return nil
 }
@@ -741,17 +745,16 @@ func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 }
 
 func (e *exporter) statusHistoryArgs(globalKey string) []migration.StatusArgs {
-	result := []migration.StatusArgs{}
-
 	history := e.statusHistory[globalKey]
+	result := make([]migration.StatusArgs{}, len(history))
 	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
-	for _, doc := range history {
-		result = append(result, migration.StatusArgs{
+	for i, doc := range history {
+		result[i] = migration.StatusArgs{
 			Value:   string(doc.Status),
 			Message: doc.StatusInfo,
 			Data:    doc.StatusData,
 			Updated: time.Unix(0, doc.Updated),
-		})
+		}
 	}
 
 	return result
