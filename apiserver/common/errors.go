@@ -255,65 +255,64 @@ func DestroyErr(desc string, ids, errs []string) error {
 }
 
 // RestoreError makes a best effort at converting the given error
-// back into an error originally converted by ServerError(). If the
-// error could not be converted then false is returned.
-func RestoreError(err error) (error, bool) {
+// back into an error originally converted by ServerError().
+func RestoreError(err error) error {
 	err = errors.Cause(err)
 
 	if apiErr, ok := err.(*params.Error); !ok {
-		return err, false
+		return err
 	} else if apiErr == nil {
-		return nil, true
+		return nil
 	}
 	if params.ErrCode(err) == "" {
-		return err, false
+		return err
 	}
 	msg := err.Error()
 
 	if singleton, ok := singletonError(err); ok {
-		return singleton, true
+		return singleton
 	}
 
 	// TODO(ericsnow) Support the other error types handled by ServerError().
 	switch {
 	case params.IsCodeUnauthorized(err):
-		return errors.NewUnauthorized(nil, msg), true
+		return errors.NewUnauthorized(nil, msg)
 	case params.IsCodeNotFound(err):
 		// TODO(ericsnow) UnknownModelError should be handled here too.
 		// ...by parsing msg?
-		return errors.NewNotFound(nil, msg), true
+		return errors.NewNotFound(nil, msg)
 	case params.IsCodeAlreadyExists(err):
-		return errors.NewAlreadyExists(nil, msg), true
+		return errors.NewAlreadyExists(nil, msg)
 	case params.IsCodeNotAssigned(err):
-		return errors.NewNotAssigned(nil, msg), true
+		return errors.NewNotAssigned(nil, msg)
 	case params.IsCodeHasAssignedUnits(err):
 		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeNoAddressSet(err):
 		// TODO(ericsnow) Handle isNoAddressSetError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeNotProvisioned(err):
-		return errors.NewNotProvisioned(nil, msg), true
+		return errors.NewNotProvisioned(nil, msg)
 	case params.IsCodeUpgradeInProgress(err):
 		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeMachineHasAttachedStorage(err):
 		// TODO(ericsnow) Handle state.HasAttachmentsError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeNotSupported(err):
-		return errors.NewNotSupported(nil, msg), true
+		return errors.NewNotSupported(nil, msg)
 	case params.IsBadRequest(err):
-		return errors.NewBadRequest(nil, msg), true
+		return errors.NewBadRequest(nil, msg)
 	case params.IsMethodNotAllowed(err):
-		return errors.NewMethodNotAllowed(nil, msg), true
+		return errors.NewMethodNotAllowed(nil, msg)
 	case params.ErrCode(err) == params.CodeDischargeRequired:
 		// TODO(ericsnow) Handle DischargeRequiredError here.
-		return err, false
+		return err
 	default:
-		return err, false
+		return err
 	}
 }

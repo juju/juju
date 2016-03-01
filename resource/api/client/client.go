@@ -116,7 +116,7 @@ func (c Client) AddPendingResources(serviceID string, resources []charmresource.
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		err, _ := common.RestoreError(result.Error)
+		err := common.RestoreError(result.Error)
 		return nil, errors.Trace(err)
 	}
 

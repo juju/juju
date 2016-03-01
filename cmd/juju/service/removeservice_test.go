@@ -36,7 +36,7 @@ func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockAPIClient{Stub: s.stub}
+	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.PatchValue(&getBudgetAPIClient, func(*http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
 }
 
@@ -122,7 +122,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 
 	s.ctx = testing.Context(c)
 	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockAPIClient{Stub: s.stub}
+	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.PatchValue(&getBudgetAPIClient, func(*http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
