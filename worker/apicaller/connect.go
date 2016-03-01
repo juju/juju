@@ -25,6 +25,10 @@ var (
 		Delay: 5 * time.Second,
 	}
 
+	// newConnFacade should similarly move up a level so it can
+	// be explicitly configured without export_test hackery
+	newConnFacade = apiagent.NewConnFacade
+
 	// errAgentEntityDead is an internal error returned by getEntity.
 	errAgentEntityDead = errors.New("agent entity is dead")
 
@@ -198,31 +202,39 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	// need to think about facades yet.
 	maybeSetAgentModelTag(a, conn)
 
-	//
+	// newConnFacade is patched out in export_test, because exhaustion.
+	// proper config/params struct would be better.
 	facade, err := newConnFacade(conn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// First of all, see if we're dead or removed, which will render
+	// any further work pointless.
 	entity := agentConfig.Tag()
 	life, err := facade.Life(entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if life == apiagent.Dead {
+	switch life {
+	case apiagent.Alive, apiagent.Dying:
+	case apiagent.Dead:
 		return nil, errAgentEntityDead
+	default:
+		return nil, errors.Errorf("unknown life value %q", life)
 	}
 
 	// If we need to change the password, it's far cleaner to
-	// exit with ErrChangedPassword and expect expeditious retry
-	// than it is to mess around reassigning to conn and handling
-	// the defer subtleties.
+	// exit with ErrChangedPassword and depend on the framework
+	// for expeditious retry than it is to mess around with those
+	// responsibilities in here.
 	if usedOldPassword {
-		logger.Debugf("replacing insecure password")
-		err := setAgentPassword(oldPassword, a, entity)
+		logger.Debugf("changing password...")
+		err := changePassword(oldPassword, a, facade)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		logger.Debugf("password changed")
 		return nil, ErrChangedPassword
 	}
 
@@ -234,7 +246,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	// promotion work correctly in the first place.
 	//
 	// Still, can't fix everything at once.
-	if err := entity.SetPassword(info.Password); err != nil {
+	if err := facade.SetPassword(entity, info.Password); err != nil {
 		return nil, errors.Annotate(err, "can't reset agent password")
 	}
 	return conn, nil
@@ -262,11 +274,11 @@ func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) {
 	}
 }
 
-// resetPassword generates a new random password and records it in
+// changePassword generates a new random password and records it in
 // local agent configuration and on the remote state server. The supplied
-// oldPassword is set as a fallback in local config in case the remote
-// update fails and leaves the password unchanged.
-func resetPassword(oldPassword string, a agent.Agent, entity *apiagent.Entity) error {
+// oldPassword -- which must be the current valid password -- is set as a
+// fallback in local config, in case we fail to update the remote password.
+func changePassword(oldPassword string, a agent.Agent, facade apiagent.ConnFacade) error {
 	newPassword, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)
@@ -281,5 +293,5 @@ func resetPassword(oldPassword string, a agent.Agent, entity *apiagent.Entity) e
 	// This has to happen *after* we record the old/new passwords
 	// locally, lest we change it remotely, crash suddenly, and
 	// end up locked out forever.
-	return entity.SetPassword(newPassword)
+	return facade.SetPassword(a.CurrentConfig().Tag(), newPassword)
 }

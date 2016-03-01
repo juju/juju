@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -36,8 +38,11 @@ func (mock *mockAgent) CurrentConfig() agent.Config {
 }
 
 func (mock *mockAgent) ChangeConfig(mutator agent.ConfigMutator) error {
-	mock.stub.AddCall("ChangeConfig", mutator)
-	return mock.stub.NextErr()
+	mock.stub.AddCall("ChangeConfig")
+	if err := mock.stub.NextErr(); err != nil {
+		return err
+	}
+	return mutator(&mockSetter{stub: mock.stub})
 }
 
 type dummyConfig struct {
@@ -76,6 +81,16 @@ func (mock *mockSetter) Migrate(params agent.MigrateParams) error {
 	return mock.stub.NextErr()
 }
 
+func (mock *mockSetter) SetOldPassword(pw string) {
+	mock.stub.AddCall("SetOldPassword", pw)
+	mock.stub.PopNoErr()
+}
+
+func (mock *mockSetter) SetPassword(pw string) {
+	mock.stub.AddCall("SetPassword", pw)
+	mock.stub.PopNoErr()
+}
+
 type mockConn struct {
 	stub *testing.Stub
 	api.Connection
@@ -99,23 +114,29 @@ func (mock *mockConn) Close() error {
 	return mock.stub.NextErr()
 }
 
-func (mock *mockConn) AgentConnection() apiagent.ConnectionFacade {
-	return &mockAgentFacade{
-		stub: mock.stub,
+func newMockConnFacade(stub *testing.Stub, life apiagent.Life) apiagent.ConnFacade {
+	return &mockConnFacade{
+		stub: stub,
+		life: life,
 	}
 }
 
-type mockAgentFacade struct {
+type mockConnFacade struct {
 	stub *testing.Stub
-	XXX
+	life apiagent.Life
 }
 
-func (mock *mockAgentFacade) Life(entity names.Tag) (params.Life, error) {
+func (mock *mockConnFacade) Life(entity names.Tag) (apiagent.Life, error) {
 	mock.stub.AddCall("Life", entity)
 	if err := mock.stub.NextErr(); err != nil {
 		return "", err
 	}
 	return mock.life, nil
+}
+
+func (mock *mockConnFacade) SetPassword(entity names.Tag, password string) error {
+	mock.stub.AddCall("SetPassword", entity, password)
+	return mock.stub.NextErr()
 }
 
 type dummyWorker struct {
@@ -128,6 +149,17 @@ func assertStop(c *gc.C, w worker.Worker) {
 
 func assertStopError(c *gc.C, w worker.Worker, match string) {
 	c.Assert(worker.Stop(w), gc.ErrorMatches, match)
+}
+
+func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.Connection, error)) (api.Connection, error) {
+	expectConn := &mockConn{stub: stub}
+	newFacade := func(apiCaller base.APICaller) (apiagent.ConnFacade, error) {
+		c.Check(apiCaller, jc.DeepEquals, expectConn)
+		return newMockConnFacade(stub, life), nil
+	}
+	unpatch := testing.PatchValue(apicaller.NewConnFacade, newFacade)
+	defer unpatch()
+	return test()
 }
 
 func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {

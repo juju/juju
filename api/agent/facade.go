@@ -47,8 +47,8 @@ type ConnFacade interface {
 // interaction is possible.
 var ErrDenied = errors.New("entity operation impossible")
 
-// NewFacade returns a ConnFacade backed by the supplied APICaller.
-func NewFacade(caller base.APICaller) (ConnFacade, error) {
+// NewConnFacade returns a ConnFacade backed by the supplied APICaller.
+func NewConnFacade(caller base.APICaller) (ConnFacade, error) {
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &connFacade{
 		caller: facadeCaller,

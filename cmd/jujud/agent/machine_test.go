@@ -18,6 +18,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	apimachiner "github.com/juju/juju/api/machiner"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
@@ -983,7 +984,7 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 		st, err := api.Open(apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
-		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
+		m, err := apimachiner.NewState(st).Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})

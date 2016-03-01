@@ -16,6 +16,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	apiagent "github.com/juju/juju/api/agent"
+	apimachiner "github.com/juju/juju/api/machiner"
 	apiundertaker "github.com/juju/juju/api/undertaker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -698,7 +700,7 @@ var newEnvirons = environs.New
 func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker, outErr error) {
 	agentConfig := a.CurrentConfig()
 
-	entity, err := apiConn.Agent().Entity(a.Tag())
+	entity, err := apiagent.NewState(apiConn).Entity(a.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -723,7 +725,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	modelConfig, err := apiConn.Agent().ModelConfig()
+	modelConfig, err := apiagent.NewState(apiConn).ModelConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
@@ -794,7 +796,8 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	} else {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
-			handler := conv2state.New(apiConn.Machiner(), a)
+			facade := apimachiner.NewState(apiConn)
+			handler := conv2state.New(facade, a)
 			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 				Handler: handler,
 			})
@@ -1335,7 +1338,7 @@ func (a *MachineAgent) newRunnersForAPIConn(
 var getFirewallMode = _getFirewallMode
 
 func _getFirewallMode(apiSt api.Connection) (string, error) {
-	modelConfig, err := apiSt.Agent().ModelConfig()
+	modelConfig, err := apiagent.NewState(apiSt).ModelConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read model config")
 	}
