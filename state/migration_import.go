@@ -70,6 +70,10 @@ func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
 	}
+	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
+		return nil, nil, errors.Annotate(err, "model constraints")
+	}
+
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
 	}
@@ -204,8 +208,6 @@ func (i *importer) machine(m migration.Machine) error {
 	//    - adds machine block devices doc
 
 	// TODO: consider filesystems and volumes
-
-	// TODO: constraints for machines.
 	status := m.Status()
 	if status == nil {
 		return errors.NotValidf("missing status")
@@ -217,7 +219,7 @@ func (i *importer) machine(m migration.Machine) error {
 		StatusData: status.Data(),
 		Updated:    status.Updated().UnixNano(),
 	}
-	cons := constraints.Value{}
+	cons := i.constraints(m.Constraints())
 	networks := []string{}
 	prereqOps, machineOp := i.st.baseNewMachineOps(mdoc, statusDoc, cons, networks)
 
@@ -484,9 +486,9 @@ func (i *importer) service(s migration.Service) error {
 	// TODO: update never set malarky... maybe...
 
 	ops := addServiceOps(i.st, addServiceOpsArgs{
-		serviceDoc: sdoc,
-		statusDoc:  statusDoc,
-		// constraints:     TODO,
+		serviceDoc:  sdoc,
+		statusDoc:   statusDoc,
+		constraints: i.constraints(s.Constraints()),
 		// networks         TODO,
 		// storage          TODO,
 		settings:           s.Settings(),
@@ -545,6 +547,13 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 			Info: u.MeterStatusInfo(),
 		},
 	})
+	// We should only have constraints for principal agents.
+	// We don't encode that business logic here, if there are constraints
+	// in the imported model, we put them in the database.
+	if cons := u.Constraints(); cons != nil {
+		agentGlobalKey := unitAgentGlobalKey(u.Name())
+		ops = append(ops, createConstraintsOp(i.st, agentGlobalKey, i.constraints(cons)))
+	}
 
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -693,4 +702,40 @@ func (i *importer) makeRelationDoc(rel migration.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) constraints(cons migration.Constraints) constraints.Value {
+	var result constraints.Value
+	if cons == nil {
+		return result
+	}
+
+	if arch := cons.Architecture(); arch != "" {
+		result.Arch = &arch
+	}
+	if container := instance.ContainerType(cons.Container()); container != "" {
+		result.Container = &container
+	}
+	if cores := cons.CpuCores(); cores != 0 {
+		result.CpuCores = &cores
+	}
+	if power := cons.CpuPower(); power != 0 {
+		result.CpuPower = &power
+	}
+	if inst := cons.InstanceType(); inst != "" {
+		result.InstanceType = &inst
+	}
+	if mem := cons.Memory(); mem != 0 {
+		result.Mem = &mem
+	}
+	if disk := cons.RootDisk(); disk != 0 {
+		result.RootDisk = &disk
+	}
+	if spaces := cons.Spaces(); len(spaces) > 0 {
+		result.Spaces = &spaces
+	}
+	if tags := cons.Tags(); len(tags) > 0 {
+		result.Tags = &tags
+	}
+	return result
 }

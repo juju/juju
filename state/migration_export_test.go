@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/testing/factory"
@@ -50,6 +51,9 @@ type MigrationExportSuite struct {
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
+// Constraints stores megabytes by default for memory and root disk.
+const gig uint64 = 1024
+
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	stModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,8 +61,11 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
+	err = s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
+	c.Assert(err, jc.ErrorIsNil)
 	machineSeq := s.randSequenceValue(c, "machine")
 	fooSeq := s.randSequenceValue(c, "service-foo")
+
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,6 +78,10 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
+	constraints := model.Constraints()
+	c.Assert(constraints, gc.NotNil)
+	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
+	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
 		"machine":     machineSeq,
 		"service-foo": fooSeq,
@@ -123,7 +134,9 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	// Add a machine with an LXC container.
-	machine1 := s.Factory.MakeMachine(c, nil)
+	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,6 +151,11 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Series(), gc.Equals, machine1.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+	constraints := exported.Constraints()
+	c.Assert(constraints, gc.NotNil)
+	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
+	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
+
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	exTools := exported.Tools()
@@ -155,6 +173,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
 	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -185,6 +204,10 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(exported.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
+	constraints := exported.Constraints()
+	c.Assert(constraints, gc.NotNil)
+	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
+	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
@@ -200,7 +223,9 @@ func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(unit, testAnnotations)
@@ -224,6 +249,10 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+	constraints := exported.Constraints()
+	c.Assert(constraints, gc.NotNil)
+	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
+	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 }
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {

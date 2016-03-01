@@ -61,9 +61,6 @@ func DeserializeModel(bytes []byte) (Model, error) {
 }
 
 type model struct {
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
-
 	Version int `yaml:"version"`
 
 	Owner_  string                 `yaml:"owner"`
@@ -77,6 +74,11 @@ type model struct {
 	Relations_ relations `yaml:"relations"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
+
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
+
+	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
 	// TODO:
 	// Spaces
@@ -227,6 +229,19 @@ func (m *model) SetSequence(name string, value int) {
 	m.Sequences_[name] = value
 }
 
+// Constraints implements HasConstraints.
+func (m *model) Constraints() Constraints {
+	if m.Constraints_ == nil {
+		return nil
+	}
+	return m.Constraints_
+}
+
+// SetConstraints implements HasConstraints.
+func (m *model) SetConstraints(args ConstraintsArgs) {
+	m.Constraints_ = newConstraints(args)
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -326,6 +341,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"latest-tools": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
+	addConstraintsSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -346,6 +362,14 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	sequences := valid["sequences"].(map[string]interface{})
 	for key, value := range sequences {
 		result.SetSequence(key, int(value.(int64)))
+	}
+
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Constraints_ = constraints
 	}
 
 	if availableTools, ok := valid["latest-tools"]; ok {

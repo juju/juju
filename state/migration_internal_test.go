@@ -18,6 +18,7 @@ var _ = gc.Suite(&MigrationSuite{})
 func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
 		annotationsC,
+		constraintsC,
 		modelsC,
 		modelUsersC,
 		modelUserLastConnectionC,
@@ -127,7 +128,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		actionresultsC,
 
 		// done as part of machines/services/units
-		constraintsC,
 		statusesHistoryC,
 
 		// uncategorised
@@ -438,6 +438,26 @@ func (s *MigrationSuite) TestSequenceDocFields(c *gc.C) {
 		"Counter",
 	)
 	s.AssertExportedFields(c, sequenceDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		"Arch",
+		"CpuCores",
+		"CpuPower",
+		"Mem",
+		"RootDisk",
+		"InstanceType",
+		"Container",
+		"Tags",
+		"Spaces",
+		// Networks is a deprecated constraint and not exported.
+		"Networks",
+	)
+	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

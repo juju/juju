@@ -162,17 +162,33 @@ func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	initial.SetSequence("machine", 4)
 	initial.SetSequence("service-foo", 3)
 	initial.SetSequence("service-bar", 1)
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := DeserializeModel(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
+		"machine":     4,
+		"service-foo": 3,
+		"service-bar": 1,
+	})
+}
+
+func (s *ModelSerializationSuite) TestConstraints(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * gig,
+	}
+	initial.SetConstraints(args)
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := DeserializeModel(bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
-		"machine":     4,
-		"service-foo": 3,
-		"service-bar": 1,
-	})
+	c.Assert(model.Constraints(), jc.DeepEquals, newConstraints(args))
 }
 
 func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {

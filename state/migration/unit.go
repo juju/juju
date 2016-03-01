@@ -15,9 +15,6 @@ type units struct {
 }
 
 type unit struct {
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
-
 	Name_ string `yaml:"name"`
 
 	Machine_ string `yaml:"machine"`
@@ -32,15 +29,17 @@ type unit struct {
 	//  storage constraints
 	//  storage attachment count
 	//  status history
-	//  constraints... inherited from service?
-	//    whether they are or not, a constraints doc is expected
-	//    for every principal unit.
 
 	PasswordHash_ string      `yaml:"password-hash"`
 	Tools_        *agentTools `yaml:"tools"`
 
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
+
+	// annotations is exported as it is a composed type, even if private.
+	annotations `yaml:"annotations,omitempty"`
+
+	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }
 
 // UnitArgs is an argument struct used to add a Unit to a Service in the Model.
@@ -162,6 +161,19 @@ func (u *unit) SetAgentStatus(args StatusArgs) {
 	u.AgentStatus_ = newStatus(args)
 }
 
+// Constraints implements HasConstraints.
+func (u *unit) Constraints() Constraints {
+	if u.Constraints_ == nil {
+		return nil
+	}
+	return u.Constraints_
+}
+
+// SetConstraints implements HasConstraints.
+func (u *unit) SetConstraints(args ConstraintsArgs) {
+	u.Constraints_ = newConstraints(args)
+}
+
 // Validate impelements Unit.
 func (u *unit) Validate() error {
 	if u.Name_ == "" {
@@ -242,6 +254,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"meter-status-info": "",
 	}
 	addAnnotationSchema(fields, defaults)
+	addConstraintsSchema(fields, defaults)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -262,14 +275,15 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 	}
 	result.importAnnotations(valid)
 
-	if subordinates, ok := valid["subordinates"]; ok {
-		subordinatesList := subordinates.([]interface{})
-		s := make([]string, len(subordinatesList))
-		for i, subordinate := range subordinatesList {
-			s[i] = subordinate.(string)
+	if constraintsMap, ok := valid["constraints"]; ok {
+		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		result.Subordinates_ = s
+		result.Constraints_ = constraints
 	}
+
+	result.Subordinates_ = convertToStringSlice(valid["subordinates"])
 
 	// Tools and status are required, so we expect them to be there.
 	tools, err := importAgentTools(valid["tools"].(map[string]interface{}))

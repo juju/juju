@@ -222,6 +222,19 @@ func (s *MachineSerializationSuite) TestAnnotations(c *gc.C) {
 	c.Assert(machine.Annotations(), jc.DeepEquals, annotations)
 }
 
+func (s *MachineSerializationSuite) TestConstraints(c *gc.C) {
+	initial := minimalMachine("42")
+	args := ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * gig,
+		RootDisk:     40 * gig,
+	}
+	initial.SetConstraints(args)
+
+	machine := s.exportImport(c, initial)
+	c.Assert(machine.Constraints(), jc.DeepEquals, newConstraints(args))
+}
+
 func (s *MachineSerializationSuite) exportImport(c *gc.C, machine_ *machine) *machine {
 	initial := machines{
 		Version:   1,
@@ -304,9 +317,8 @@ func minimalCloudInstanceArgs() CloudInstanceArgs {
 	}
 }
 
-const gig uint64 = 1024 * 1024 * 1024
-
 func (s *CloudInstanceSerializationSuite) TestNewCloudInstance(c *gc.C) {
+	// NOTE: using gig from package_test.go
 	args := CloudInstanceArgs{
 		InstanceId:       "instance id",
 		Status:           "working",
@@ -360,6 +372,7 @@ func (s *CloudInstanceSerializationSuite) TestParsingSerializedData(c *gc.C) {
 		Architecture: "amd64",
 		Memory:       16 * gig,
 		CpuPower:     MaxUint64,
+		Tags:         []string{"much", "strong"},
 	})
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
