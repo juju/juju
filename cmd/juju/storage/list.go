@@ -170,7 +170,7 @@ type StorageListAPI interface {
 }
 
 func formatListTabular(value interface{}) ([]byte, error) {
-	_, ok :=  value.(map[string]StorageInfo)
+	_, ok := value.(map[string]StorageInfo)
 	if ok {
 		output, err := formatStorageListTabular(value)
 		return output, err
@@ -178,12 +178,12 @@ func formatListTabular(value interface{}) ([]byte, error) {
 	_, ok2 := value.(map[string]FilesystemInfo)
 	if ok2 {
 		output, err := formatFilesystemListTabular(value)
-                return output, err
+		return output, err
 	}
 	_, ok3 := value.(map[string]VolumeInfo)
 	if ok3 {
 		output, err := formatVolumeListTabular(value)
-                return output, err
+		return output, err
 	} else {
 		return nil, errors.Errorf("unexpected value of type %T", value)
 	}

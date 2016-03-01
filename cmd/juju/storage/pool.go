@@ -4,7 +4,6 @@
 package storage
 
 import (
-
 	"github.com/juju/juju/apiserver/params"
 )
 

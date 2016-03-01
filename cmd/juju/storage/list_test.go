@@ -128,7 +128,7 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string
 }
 
 type mockListAPI struct {
-	listErrors bool
+	listErrors      bool
 	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
 }
 
