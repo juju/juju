@@ -218,7 +218,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, state.StatusActive, 5)
-	s.primeStatusHistory(c, &agentStatusSetter{unit}, state.StatusIdle, 5)
+	s.primeStatusHistory(c, unit.Agent(), state.StatusIdle, 5)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -340,12 +340,4 @@ type goodToken struct{}
 // Check implements leadership.Token
 func (*goodToken) Check(interface{}) error {
 	return nil
-}
-
-type agentStatusSetter struct {
-	*state.Unit
-}
-
-func (w *agentStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
-	return w.SetAgentStatus(status, info, data)
 }

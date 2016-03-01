@@ -25,6 +25,19 @@ type MigrationImportSuite struct {
 
 var _ = gc.Suite(&MigrationImportSuite{})
 
+func (s *MigrationImportSuite) assertStatusHistory(c *gc.C, exported, imported state.StatusHistoryGetter, size int) {
+	exportedHistory, err := exported.StatusHistory(size)
+	c.Assert(err, jc.ErrorIsNil)
+	importedHistory, err := imported.StatusHistory(size)
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < size; i++ {
+		c.Check(importedHistory[i].Status, gc.Equals, exportedHistory[i].Status)
+		c.Check(importedHistory[i].Message, gc.Equals, exportedHistory[i].Message)
+		c.Check(importedHistory[i].Data, jc.DeepEquals, exportedHistory[i].Data)
+		c.Check(importedHistory[i].Since, jc.DeepEquals, exportedHistory[i].Since)
+	}
+}
+
 func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	out, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,6 +193,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	machine1 := s.Factory.MakeMachine(c, nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, machine1, state.StatusStarted, 5)
 
 	// machine1 should have some instance data.
 	hardware, err := machine1.HardwareCharacteristics()
@@ -215,6 +229,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(isContainer, jc.IsTrue)
 
 	s.assertAnnotations(c, newSt, parent)
+	s.assertStatusHistory(c, machine1, parent, 5)
 }
 
 func (s *MigrationImportSuite) TestServices(c *gc.C) {
@@ -234,6 +249,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(service.SetExposed(), jc.ErrorIsNil)
 	err = s.State.SetAnnotations(service, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, service, state.StatusActive, 5)
 
 	allServices, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -267,6 +283,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
 	s.assertAnnotations(c, newSt, imported)
+	s.assertStatusHistory(c, service, imported, 5)
 }
 
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
@@ -275,6 +292,8 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	s.primeStatusHistory(c, exported, state.StatusActive, 5)
+	s.primeStatusHistory(c, exported.Agent(), state.StatusIdle, 5)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
@@ -300,6 +319,8 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 	s.assertAnnotations(c, newSt, imported)
+	s.assertStatusHistory(c, exported, imported, 5)
+	s.assertStatusHistory(c, exported.Agent(), imported.Agent(), 5)
 }
 
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {
