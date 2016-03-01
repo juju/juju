@@ -123,7 +123,10 @@ def check_token(client, token, timeout=120):
     start = time.time()
     while True:
         if remote.is_windows():
-            result = remote.cat("%ProgramData%\\dummy-sink\\token")
+            try:
+                result = remote.cat("%ProgramData%\\dummy-sink\\token")
+            except winrm.exceptions.WinRMTransportError as e:
+                print("Skipping token check because of: {}".format(str(e)))
         else:
             result = remote.run(GET_TOKEN_SCRIPT)
         token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
