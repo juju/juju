@@ -52,7 +52,7 @@ options:
         for e.g. tags, size, path, etc...
 `
 
-func newPoolCreateCommand() cmd.Command {
+func NewPoolCreateCommand() cmd.Command {
 	cmd := &poolCreateCommand{}
 	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
 		return cmd.NewStorageAPI()
@@ -98,7 +98,7 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolCreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-storage-pool",
 		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
 		Purpose: "create storage pool",
 		Doc:     poolCreateCommandDoc,

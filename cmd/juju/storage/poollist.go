@@ -38,7 +38,7 @@ options:
 
 `
 
-func newPoolListCommand() cmd.Command {
+func NewPoolListCommand() cmd.Command {
 	cmd := &poolListCommand{}
 	cmd.newAPIFunc = func() (PoolListAPI, error) {
 		return cmd.NewStorageAPI()
@@ -63,7 +63,7 @@ func (c *poolListCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolListCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-storage-pools",
 		Purpose: "list storage pools",
 		Doc:     poolListCommandDoc,
 	}
@@ -75,7 +75,7 @@ func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "only show pools of these provider types")
 	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "only show pools with these names")
 
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": formatPoolListTabular,

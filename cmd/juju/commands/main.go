@@ -227,10 +227,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(block.NewUnblockCommand())
 
 	// Manage storage
-	r.Register(storage.NewSuperCommand())
+//	r.Register(storage.NewSuperCommand())
 	r.Register(storage.NewAddCommand())
-	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
-	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
+	r.Register(storage.NewListCommand())
+	r.Register(storage.NewPoolCreateCommand())
+	r.Register(storage.NewPoolListCommand())
+	r.Register(storage.NewShowCommand())
+//	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())

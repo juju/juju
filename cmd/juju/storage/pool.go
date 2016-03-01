@@ -4,13 +4,11 @@
 package storage
 
 import (
-	"github.com/juju/cmd"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucmd "github.com/juju/juju/cmd"
 )
 
-const poolCmdDoc = `
+/*const poolCmdDoc = `
 "juju storage pool" is used to manage storage pool instances in
  Juju model.
 `
@@ -30,7 +28,7 @@ func newPoolSuperCommand() cmd.Command {
 	poolcmd.Register(newPoolCreateCommand())
 	return poolcmd
 }
-
+*/
 // PoolCommandBase is a helper base structure for pool commands.
 type PoolCommandBase struct {
 	StorageCommandBase

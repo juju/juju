@@ -46,7 +46,7 @@ func (s *volumeListSuite) TestVolumeListError(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		return nil, errors.New("just my luck")
 	}
-	context, err := s.runVolumeList(c, "--format", "yaml")
+	context, err := s.runVolumeList(c, "--volume", "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
 	s.assertUserFacingOutput(c, context, "", "")
 }
@@ -128,7 +128,7 @@ func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
 }
 
 func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
-	context, err := s.runVolumeList(c, args...)
+	context, err := s.runVolumeList(c, "--volume", args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var result struct {
@@ -162,14 +162,14 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]storage.
 }
 
 func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut string) {
-	context, err := s.runVolumeList(c, args...)
+	context, err := s.runVolumeList(c, "--volume", args...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, "")
 }
 
 func (s *volumeListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		storage.NewVolumeListCommand(s.mockAPI),
+		storage.NewListCommandForTest(s.mockAPI),
 		args...)
 }
 

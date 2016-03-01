@@ -4,16 +4,14 @@
 package storage
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
-const volumeCmdDoc = `
+/*const volumeCmdDoc = `
 "juju storage volume" is used to manage storage volumes in
  the Juju model.
 `
@@ -36,7 +34,7 @@ func newVolumeSuperCommand() cmd.Command {
 // VolumeCommandBase is a helper base structure for volume commands.
 type VolumeCommandBase struct {
 	StorageCommandBase
-}
+}*/
 
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {

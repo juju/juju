@@ -19,7 +19,7 @@ import (
 
 type filesystemListSuite struct {
 	SubStorageSuite
-	mockAPI *mockFilesystemListAPI
+	mockAPI *mockListAPI
 }
 
 var _ = gc.Suite(&filesystemListSuite{})
@@ -27,7 +27,7 @@ var _ = gc.Suite(&filesystemListSuite{})
 func (s *filesystemListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockFilesystemListAPI{}
+	s.mockAPI = &mockListAPI{}
 }
 
 func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
@@ -84,7 +84,7 @@ func (s *filesystemListSuite) TestFilesystemListJSON(c *gc.C) {
 
 func (s *filesystemListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
-		results, _ := mockFilesystemListAPI{}.ListFilesystems(nil)
+		results, _ := mockListAPI{}.ListFilesystems(nil)
 		results = append(results, params.FilesystemDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -116,7 +116,7 @@ func (s *filesystemListSuite) TestFilesystemListTabular(c *gc.C) {
 	// Do it again, reversing the results returned by the API.
 	// We should get everything sorted in the appropriate order.
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
-		results, _ := mockFilesystemListAPI{}.ListFilesystems(nil)
+		results, _ := mockListAPI{}.ListFilesystems(nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
 			results[i], results[n-i-1] = results[n-i-1], results[i]
@@ -168,8 +168,8 @@ func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOu
 
 func (s *filesystemListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		storage.NewFilesystemListCommand(s.mockAPI),
-		args...)
+		storage.NewListCommandForTest(s.mockAPI),
+		append(string{"--filesystem"}, args...))
 }
 
 func (s *filesystemListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
@@ -180,15 +180,15 @@ func (s *filesystemListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Conte
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
-type mockFilesystemListAPI struct {
+/*type mockListAPI struct {
 	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
-}
+}*/
 
-func (s mockFilesystemListAPI) Close() error {
+func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
+func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
 	if s.listFilesystems != nil {
 		return s.listFilesystems(machines)
 	}

@@ -94,7 +94,7 @@ type addCommand struct {
 // Init implements Command.Init.
 func (c *addCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
-		return errors.New("storage add requires a unit and a storage directive")
+		return errors.New("add-storage requires a unit and a storage directive")
 	}
 
 	u := args[0]
@@ -114,7 +114,6 @@ func (c *addCommand) Info() *cmd.Info {
 		Purpose: "adds unit storage dynamically",
 		Doc:     addCommandDoc,
 		Args:    addCommandAgs,
-		Aliases: []string{"add-storages"},
 	}
 }
 
