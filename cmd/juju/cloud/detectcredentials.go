@@ -69,7 +69,7 @@ Example:
    
 See Also:
    juju list-credentials
-   juju add-credentials
+   juju add-credential
 `
 
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.

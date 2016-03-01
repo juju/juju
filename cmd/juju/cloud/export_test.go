@@ -18,3 +18,15 @@ func NewDetectCredentialsCommandForTest(testStore jujuclient.CredentialStore) *d
 		store: testStore,
 	}
 }
+
+func NewsetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *setDefaultRegionCommand {
+	return &setDefaultRegionCommand{
+		store: testStore,
+	}
+}
+
+func NewSetDefaultCredentialCommandForTest(testStore jujuclient.CredentialStore) *setDefaultCredentialCommand {
+	return &setDefaultCredentialCommand{
+		store: testStore,
+	}
+}
