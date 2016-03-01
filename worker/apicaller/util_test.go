@@ -23,12 +23,16 @@ var errNotAuthorized = &params.Error{Code: params.CodeUnauthorized}
 
 type mockAgent struct {
 	agent.Agent
-	stub *testing.Stub
-	env  names.ModelTag
+	stub   *testing.Stub
+	entity names.Tag
+	model  names.ModelTag
 }
 
 func (mock *mockAgent) CurrentConfig() agent.Config {
-	return dummyConfig{env: mock.env}
+	return dummyConfig{
+		entity: mock.entity,
+		model:  mock.model,
+	}
 }
 
 func (mock *mockAgent) ChangeConfig(mutator agent.ConfigMutator) error {
@@ -38,15 +42,24 @@ func (mock *mockAgent) ChangeConfig(mutator agent.ConfigMutator) error {
 
 type dummyConfig struct {
 	agent.Config
-	env names.ModelTag
+	entity names.Tag
+	model  names.ModelTag
+}
+
+func (dummy dummyConfig) Tag() names.Tag {
+	return dummy.entity
 }
 
 func (dummy dummyConfig) Model() names.ModelTag {
-	return dummy.env
+	return dummy.model
 }
 
 func (dummy dummyConfig) APIInfo() (*api.Info, bool) {
-	return &api.Info{Password: "new"}, true
+	return &api.Info{
+		ModelTag: dummy.model,
+		Tag:      dummy.entity,
+		Password: "new",
+	}, true
 }
 
 func (dummy dummyConfig) OldPassword() string {
@@ -86,6 +99,25 @@ func (mock *mockConn) Close() error {
 	return mock.stub.NextErr()
 }
 
+func (mock *mockConn) AgentConnection() apiagent.ConnectionFacade {
+	return &mockAgentFacade{
+		stub: mock.stub,
+	}
+}
+
+type mockAgentFacade struct {
+	stub *testing.Stub
+	XXX
+}
+
+func (mock *mockAgentFacade) Life(entity names.Tag) (params.Life, error) {
+	mock.stub.AddCall("Life", entity)
+	if err := mock.stub.NextErr(); err != nil {
+		return "", err
+	}
+	return mock.life, nil
+}
+
 type dummyWorker struct {
 	worker.Worker
 }
@@ -113,12 +145,22 @@ func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(
 }
 
 func checkOpenCalls(c *gc.C, stub *testing.Stub, passwords ...string) {
+	calls := openCalls(names.ModelTag{}, nil, passwords...)
+	stub.CheckCalls(c, calls)
+}
+
+func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []testing.StubCall {
 	calls := make([]testing.StubCall, len(passwords))
 	for i, pw := range passwords {
+		info := api.Info{
+			ModelTag: model,
+			Tag:      entity,
+			Password: pw,
+		}
 		calls[i] = testing.StubCall{
 			FuncName: "apiOpen",
-			Args:     []interface{}{api.Info{Password: pw}, api.DialOpts{}},
+			Args:     []interface{}{info, api.DialOpts{}},
 		}
 	}
-	stub.CheckCalls(c, calls)
+	return calls
 }

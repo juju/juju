@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apiresumer "github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/state/multiwatcher"
@@ -34,14 +34,11 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.New("this manifold may only be used inside a machine agent")
 	}
 
-	// Get API connection.
-	apiConn, ok := apiCaller.(api.Connection)
-	if !ok {
-		return nil, errors.New("unable to obtain api.Connection")
-	}
-
 	// Get the machine agent's jobs.
-	entity, err := apiConn.Agent().Entity(tag)
+	// TODO(fwereade): this functionality should be on the
+	// deployer facade instead.
+	agentFacade := apiagent.NewState(apiCaller)
+	entity, err := agentFacade.Entity(tag)
 	if err != nil {
 		return nil, err
 	}

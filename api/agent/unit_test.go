@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -41,12 +42,12 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	tag := names.NewUnitTag("wordpress/1")
-	m, err := s.st.Agent().Entity(tag)
+	m, err := apiagent.NewState(s.st).Entity(tag)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	m, err = s.st.Agent().Entity(s.unit.Tag())
+	m, err = apiagent.NewState(s.st).Entity(s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
@@ -57,7 +58,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err = s.st.Agent().Entity(s.unit.Tag())
+	m, err = apiagent.NewState(s.st).Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)

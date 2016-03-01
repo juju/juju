@@ -71,7 +71,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the deployer facade.
-	s.st = s.stateAPI.Deployer()
+	s.st = deployer.NewState(s.stateAPI)
 	c.Assert(s.st, gc.NotNil)
 
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.st, s.BackingState)

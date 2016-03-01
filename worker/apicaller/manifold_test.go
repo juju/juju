@@ -56,8 +56,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	c.Check(checkFilter, gc.PanicMatches, "arrgh")
 
 	s.agent = &mockAgent{
-		stub: &s.Stub,
-		env:  coretesting.ModelTag,
+		stub:  &s.Stub,
+		model: coretesting.ModelTag,
 	}
 	s.getResource = dt.StubGetResource(dt.StubResources{
 		"agent-name": dt.StubResource{Output: s.agent},

@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apimachiner "github.com/juju/juju/api/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -48,7 +49,7 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), &apiAddressSetter{})
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), &apiAddressSetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -63,7 +64,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -80,7 +81,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -141,7 +142,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()

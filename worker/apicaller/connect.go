@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
@@ -17,13 +16,25 @@ import (
 )
 
 var (
+	// checkProvisionedStrategy defines the evil uninterruptible
+	// retry strategy for "handling" ErrNotProvisioned. It exists
+	// in the name of stability; as the code evolves, it would be
+	// great to see its function moved up a level or two.
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
-	errAgentEntityDead   = errors.New("agent entity is dead")
+
+	// errAgentEntityDead is an internal error returned by getEntity.
+	errAgentEntityDead = errors.New("agent entity is dead")
+
+	// ErrConnectImpossible indicates that we can contact an apiserver
+	// but have no hope of authenticating a connection with it.
 	ErrConnectImpossible = errors.New("connection permanently impossible")
-	ErrChangedPassword   = errors.New("insecure password replaced; retry")
+
+	// ErrChangedPassword indicates that the agent config used to connect
+	// has been updated with a new password, and you should try again.
+	ErrChangedPassword = errors.New("insecure password replaced; retry")
 )
 
 // APIOpen is an api.OpenFunc that wraps api.Open, and handles the edge
@@ -157,6 +168,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	defer func() {
 		cause := errors.Cause(err)
 		switch {
+		case cause == apiagent.ErrDenied:
 		case cause == errAgentEntityDead:
 		case params.IsCodeUnauthorized(cause):
 		case params.IsCodeNotProvisioned(cause):
@@ -171,6 +183,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// ...and make sure we close it if anything goes wrong.
 	defer func() {
 		if err != nil {
@@ -180,12 +193,24 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		}
 	}()
 
-	// Update the agent config if necessary; then get the entity we're
-	// connecting as, or fail out if it's dead.
+	// Update the agent config if necessary; this should just read the
+	// conn's properties, rather than making api calls, so we don't
+	// need to think about facades yet.
 	maybeSetAgentModelTag(a, conn)
-	entity, err := getEntity(conn, agentConfig.Tag())
+
+	//
+	facade, err := newConnFacade(conn)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	entity := agentConfig.Tag()
+	life, err := facade.Life(entity)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if life == apiagent.Dead {
+		return nil, errAgentEntityDead
 	}
 
 	// If we need to change the password, it's far cleaner to
@@ -237,29 +262,11 @@ func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) {
 	}
 }
 
-// getEntity gets an entity, but returns errAgentEntityDead when appropriate
-// for special handling by the client.
-func getEntity(conn api.Connection, tag names.Tag) (*apiagent.Entity, error) {
-
-	entity, err := conn.Agent().Entity(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	life := entity.Life()
-	switch life {
-	case params.Alive, params.Dying:
-		return entity, nil
-	case params.Dead:
-		return nil, errAgentEntityDead
-	}
-	return nil, errors.Errorf("unknown entity life value: %v", life)
-}
-
-// setAgentPassword generates a new random password and records it in
+// resetPassword generates a new random password and records it in
 // local agent configuration and on the remote state server. The supplied
 // oldPassword is set as a fallback in local config in case the remote
 // update fails and leaves the password unchanged.
-func setAgentPassword(oldPassword string, a agent.Agent, entity *apiagent.Entity) error {
+func resetPassword(oldPassword string, a agent.Agent, entity *apiagent.Entity) error {
 	newPassword, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)

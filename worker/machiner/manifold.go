@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/worker"
@@ -30,16 +30,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	// under the machine agent. Add unit tests once infrastructure to do so is
 	// in place.
 
-	// newWorker trivially wraps NewMachiner to specialise a PostUpgradeManifold.
+	// newWorker non-trivially wraps NewMachiner to specialise a PostUpgradeManifold.
 	var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		currentConfig := a.CurrentConfig()
 
-		apiConn, ok := apiCaller.(api.Connection)
-		if !ok {
-			return nil, errors.New("unable to obtain api.Connection")
-		}
-
-		envConfig, err := apiConn.Agent().ModelConfig()
+		// TODO(fwereade): this functionality should be on the
+		// deployer facade instead.
+		agentFacade := apiagent.NewState(apiCaller)
+		envConfig, err := agentFacade.ModelConfig()
 		if err != nil {
 			return nil, errors.Errorf("cannot read environment config: %v", err)
 		}

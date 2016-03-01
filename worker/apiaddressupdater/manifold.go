@@ -30,6 +30,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // unwieldy/distracting to introduce at this point.
 var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	tag := a.CurrentConfig().Tag()
+
+	// TODO(fwereade): use appropriate facade!
 	var facade APIAddresser
 	switch apiTag := tag.(type) {
 	case names.UnitTag:
