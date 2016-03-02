@@ -5,13 +5,13 @@ package controller_test
 
 import (
 	"fmt"
+	"encoding/json"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"encoding/json"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
