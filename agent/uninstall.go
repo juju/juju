@@ -18,8 +18,9 @@ const (
 	UninstallFile = "uninstall-agent"
 )
 
-// XXX this has to match the use of UninstallFile in the provider/manual
-// package.
+// WARNING: this is linked with the use of UninstallFile in the
+// provider/manual package. Don't change it without extreme care,
+// and handling for mismatches with already-deployed agents.
 func uninstallFile(a Agent) string {
 	return filepath.Join(a.CurrentConfig().DataDir(), UninstallFile)
 }
@@ -37,7 +38,7 @@ func SetCanUninstall(a Agent) error {
 }
 
 // CanUninstall returns true if the uninstall file exists in the agent's
-// data dir.
+// data dir. If it encounters an error, it fails safe and returns false.
 func CanUninstall(a Agent) bool {
 	if _, err := os.Stat(uninstallFile(a)); err != nil {
 		logger.Debugf("agent not marked ready for uninstall")

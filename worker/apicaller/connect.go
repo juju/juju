@@ -158,9 +158,8 @@ func connectFallback(
 //     (for what seems like a bad reason).
 //
 // This is clearly a mess but at least now it's a documented and localized
-// mess; it should be used in place of OnlyConnect when creating an API
-// connection on behalf of an agent running in its own process (i.e. do
-// NOT use it in a model agent).
+// mess; it should be used only when making the primary API connection for
+// a machine or unit agent running in its own process.
 func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()

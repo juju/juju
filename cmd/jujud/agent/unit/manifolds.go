@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+
 	coreagent "github.com/juju/juju/agent"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/worker"

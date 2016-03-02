@@ -231,8 +231,9 @@ exit 0
 `
 	script = fmt.Sprintf(
 		script,
-		// XXX this has to match the implementation of uninstallFile
-		// in the agent package.
+		// WARNING: this is linked with the use of uninstallFile in
+		// the agent package. Don't change it without extreme care,
+		// and handling for mismatches with already-deployed agents.
 		utils.ShQuote(path.Join(
 			agent.DefaultPaths.DataDir,
 			agent.UninstallFile,
