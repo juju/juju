@@ -45,6 +45,10 @@ type Model interface {
 	// UpdateConfig overwrites existing config values with those specified.
 	UpdateConfig(map[string]interface{})
 
+	// Blocks returns a map of block type to the message associated with that
+	// block.
+	Blocks() map[string]string
+
 	Users() []User
 	AddUser(UserArgs)
 

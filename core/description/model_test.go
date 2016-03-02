@@ -63,61 +63,45 @@ func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
 	})
 }
 
-func (*ModelSerializationSuite) modelMap() map[string]interface{} {
-	latestTools := version.MustParse("2.0.1")
-	configMap := map[string]interface{}{
-		"name": "awesome",
-		"uuid": "some-uuid",
-	}
-	return map[string]interface{}{
-		"version":      1,
-		"owner":        "magic",
-		"config":       configMap,
-		"latest-tools": latestTools.String(),
-		"sequences":    map[string]interface{}{},
-		"users": map[string]interface{}{
-			"version": 1,
-			"users": []interface{}{
-				map[string]interface{}{
-					"name":         "admin@local",
-					"created-by":   "admin@local",
-					"date-created": time.Date(2015, 10, 9, 12, 34, 56, 0, time.UTC),
-				},
-			},
-		},
-		"machines": map[string]interface{}{
-			"version": 1,
-			"machines": []interface{}{
-				minimalMachineMap("0"),
-			},
-		},
-		"services": map[string]interface{}{
-			"version": 1,
-			"services": []interface{}{
-				minimalServiceMap(),
-			},
-		},
-		"relations": map[string]interface{}{
-			"version":   1,
-			"relations": []interface{}{},
-		},
-	}
+func (s *ModelSerializationSuite) exportImport(c *gc.C, initial Model) Model {
+	bytes, err := Serialize(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	return model
 }
 
 func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
-	initial := s.modelMap()
-	bytes, err := yaml.Marshal(initial)
-	c.Assert(err, jc.ErrorIsNil)
+	args := ModelArgs{
+		Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		LatestToolsVersion: version.MustParse("2.0.1"),
+		Blocks: map[string]string{
+			"all-changes": "locked down",
+		},
+	}
+	initial := NewModel(args)
+	adminUser := names.NewUserTag("admin@local")
+	initial.AddUser(UserArgs{
+		Name:        adminUser,
+		CreatedBy:   adminUser,
+		DateCreated: time.Date(2015, 10, 9, 12, 34, 56, 0, time.UTC),
+	})
+	addMinimalMachine(initial, "0")
+	addMinimalService(initial)
+	model := s.exportImport(c, initial)
 
-	model, err := Deserialize(bytes)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Owner(), gc.Equals, names.NewUserTag("magic"))
+	c.Assert(model.Owner(), gc.Equals, args.Owner)
 	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
-	c.Assert(model.Config(), jc.DeepEquals, initial["config"])
-	c.Assert(model.LatestToolsVersion(), gc.Equals, version.MustParse("2.0.1"))
+	c.Assert(model.Config(), jc.DeepEquals, args.Config)
+	c.Assert(model.LatestToolsVersion(), gc.Equals, args.LatestToolsVersion)
+	c.Assert(model.Blocks(), jc.DeepEquals, args.Blocks)
 	users := model.Users()
 	c.Assert(users, gc.HasLen, 1)
-	c.Assert(users[0].Name(), gc.Equals, names.NewUserTag("admin@local"))
+	c.Assert(users[0].Name(), gc.Equals, adminUser)
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Id(), gc.Equals, "0")
@@ -126,34 +110,16 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	c.Assert(services[0].Name(), gc.Equals, "ubuntu")
 }
 
-func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
-	configMap := map[string]interface{}{
-		"name": "awesome",
-		"uuid": "some-uuid",
+func (s *ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
+	args := ModelArgs{
+		Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
 	}
-	model, err := importModel(map[string]interface{}{
-		"version":   1,
-		"owner":     "magic",
-		"config":    configMap,
-		"sequences": map[string]interface{}{},
-		"users": map[string]interface{}{
-			"version": 1,
-			"users":   []interface{}{},
-		},
-		"machines": map[string]interface{}{
-			"version":  1,
-			"machines": []interface{}{},
-		},
-		"services": map[string]interface{}{
-			"version":  1,
-			"services": []interface{}{},
-		},
-		"relations": map[string]interface{}{
-			"version":   1,
-			"relations": []interface{}{},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	initial := NewModel(args)
+	model := s.exportImport(c, initial)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, version.Zero)
 }
 

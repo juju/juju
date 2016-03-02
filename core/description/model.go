@@ -24,6 +24,7 @@ type ModelArgs struct {
 	Owner              names.UserTag
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
+	Blocks             map[string]string
 }
 
 // NewModel returns a Model based on the args specified.
@@ -34,6 +35,7 @@ func NewModel(args ModelArgs) Model {
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
 		Sequences_:          make(map[string]int),
+		Blocks_:             args.Blocks,
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -70,6 +72,7 @@ type model struct {
 
 	Owner_  string                 `yaml:"owner"`
 	Config_ map[string]interface{} `yaml:"config"`
+	Blocks_ map[string]string      `yaml:"blocks,omitempty"`
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
@@ -122,6 +125,11 @@ func (m *model) UpdateConfig(config map[string]interface{}) {
 // LatestToolsVersion implements Model.
 func (m *model) LatestToolsVersion() version.Number {
 	return m.LatestToolsVersion_
+}
+
+// Blocks implements Model.
+func (m *model) Blocks() map[string]string {
+	return m.Blocks_
 }
 
 // Implement length-based sort with ByLen type.
@@ -342,6 +350,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"owner":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
+		"blocks":       schema.StringMap(schema.String()),
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
@@ -351,6 +360,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
 		"latest-tools": schema.Omit,
+		"blocks":       schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -369,6 +379,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		Owner_:     valid["owner"].(string),
 		Config_:    valid["config"].(map[string]interface{}),
 		Sequences_: make(map[string]int),
+		Blocks_:    convertToStringMap(valid["blocks"]),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})

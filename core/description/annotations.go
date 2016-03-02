@@ -29,14 +29,7 @@ func (a *annotations) SetAnnotations(annotations map[string]string) {
 }
 
 func (a *annotations) importAnnotations(valid map[string]interface{}) {
-	if asInterfaces, ok := valid["annotations"]; ok {
-		annotations := make(map[string]string)
-		// The schema will return a string map as map[string]interface{}.
-		// It will make sure that the interface values are strings, but doesn't
-		// return them as strings. So we need to do that here.
-		for key, value := range asInterfaces.(map[string]interface{}) {
-			annotations[key] = value.(string)
-		}
+	if annotations := convertToStringMap(valid["annotations"]); annotations != nil {
 		a.SetAnnotations(annotations)
 	}
 }
