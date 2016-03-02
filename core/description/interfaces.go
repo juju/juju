@@ -42,6 +42,9 @@ type Model interface {
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
 
+	// UpdateConfig overwrites existing config values with those specified.
+	UpdateConfig(map[string]interface{})
+
 	Users() []User
 	AddUser(UserArgs)
 

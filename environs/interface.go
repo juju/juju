@@ -243,3 +243,15 @@ type InstanceTagger interface {
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
 }
+
+// MigrationConfigUpdater is an optional interface that a provider
+// can implement that will be called when the model is being imported
+// into a new controller as part of model migration. If the provider stores
+// information specific to the controller, this information can be extracted
+// from the controller config.
+//
+// The return value is a map containing changes that are necessary to be
+// applied to the model's config for the new controller.
+type MigrationConfigUpdater interface {
+	MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{}
+}

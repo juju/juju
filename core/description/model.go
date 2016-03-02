@@ -42,11 +42,16 @@ func NewModel(args ModelArgs) Model {
 	return m
 }
 
-// DeserializeModel constructs a Model from a serialized
-// YAML byte stream. The normal use for this is to construct
-// the Model representation after getting the byte stream from
-// an API connection or read from a file.
-func DeserializeModel(bytes []byte) (Model, error) {
+// Serialize mirrors the Deserialize method, and makes sure that
+// the same serialization method is used.
+func Serialize(model Model) ([]byte, error) {
+	return yaml.Marshal(model)
+}
+
+// Deserialize constructs a Model from a serialized YAML byte stream. The
+// normal use for this is to construct the Model representation after getting
+// the byte stream from an API connection or read from a file.
+func Deserialize(bytes []byte) (Model, error) {
 	var source map[string]interface{}
 	err := yaml.Unmarshal(bytes, &source)
 	if err != nil {
@@ -105,6 +110,13 @@ func (m *model) Owner() names.UserTag {
 func (m *model) Config() map[string]interface{} {
 	// TODO: consider returning a deep copy.
 	return m.Config_
+}
+
+// UpdateConfig implements Model.
+func (m *model) UpdateConfig(config map[string]interface{}) {
+	for key, value := range config {
+		m.Config_[key] = value
+	}
 }
 
 // LatestToolsVersion implements Model.

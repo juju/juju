@@ -93,7 +93,7 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Owner(), gc.Equals, names.NewUserTag("magic"))
 	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
@@ -152,7 +152,7 @@ func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Annotations(), jc.DeepEquals, annotations)
 }
@@ -165,7 +165,7 @@ func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
@@ -186,7 +186,7 @@ func (s *ModelSerializationSuite) TestConstraints(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Constraints(), jc.DeepEquals, newConstraints(args))
 }
@@ -340,7 +340,7 @@ func (s *ModelSerializationSuite) TestModelSerializationWithRelations(c *gc.C) {
 	initial := s.wordpressModelWithSettings()
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, initial)
 }
