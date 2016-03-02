@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"fmt"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -219,14 +220,44 @@ func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string
 // attributes representing credential values and copies those across from the
 // controller config into the new model's config attrs if not already present.
 func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controllerAttrs, attrs map[string]interface{}) {
-	// TODO(wallyworld) - figure out how to deal with mixed credential auth types.
-	allCredentialAttrNames := []string{"authorized-keys"}
+	requiredControllerAttrNames := []string{"authorized-keys"}
+	var controllerCredentialAttrNames []string
 	for _, schema := range provider.CredentialSchemas() {
+		// possibleCredentialValues holds any values from attrs that belong to
+		// the credential schema.
+		possibleCredentialValues := make(map[string]string)
 		for attrName := range schema {
-			allCredentialAttrNames = append(allCredentialAttrNames, attrName)
+			if v := attrs[attrName]; v != "" {
+				possibleCredentialValues[attrName] = fmt.Sprintf("%v", attrs[attrName])
+			}
+			controllerCredentialAttrNames = append(controllerCredentialAttrNames, attrName)
+		}
+		// readFile is not needed server side.
+		readFile := func(string) ([]byte, error) {
+			return nil, errors.NotImplementedf("read file")
+		}
+		// If the user has passed in valid credentials, we'll use
+		// those and not the ones from the controller.
+		if len(possibleCredentialValues) == 0 {
+			continue
+		}
+		finalValues, err := schema.Finalize(possibleCredentialValues, readFile)
+		if err == nil {
+			for k, v := range finalValues {
+				attrs[k] = v
+			}
+			controllerCredentialAttrNames = nil
+			break
 		}
 	}
-	for _, attrName := range allCredentialAttrNames {
+
+	// No user supplied credentials so use the ones from the controller.
+	for _, attrName := range requiredControllerAttrNames {
+		if _, ok := attrs[attrName]; !ok {
+			attrs[attrName] = controllerAttrs[attrName]
+		}
+	}
+	for _, attrName := range controllerCredentialAttrNames {
 		if _, ok := attrs[attrName]; !ok {
 			attrs[attrName] = controllerAttrs[attrName]
 		}

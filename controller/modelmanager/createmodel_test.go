@@ -120,6 +120,43 @@ func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc
 	c.Assert(validateCall.Args[1], gc.IsNil)
 }
 
+func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserPrefersUserSecrets(c *gc.C) {
+	var err error
+	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
+		"username":        "user",
+		"password":        "password",
+		"authorized-keys": "ssh-key",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	newModelUUID := utils.MustNewUUID().String()
+	newAttrs := coretesting.Attrs{
+		"name":       "new-model",
+		"additional": "value",
+		"uuid":       newModelUUID,
+		"username":   "anotheruser",
+		"password":   "anotherpassword",
+	}
+	cfg, err := s.newModelConfigAdmin(newAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedCfg.AllAttrs()
+	c.Assert(expected["username"], gc.Equals, "anotheruser")
+	c.Assert(expected["password"], gc.Equals, "anotherpassword")
+	c.Assert(expected["authorized-keys"], gc.Equals, "ssh-key")
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
+
+	fake.Stub.CheckCallNames(c,
+		"RestrictedConfigAttributes",
+		"PrepareForCreateEnvironment",
+		"Validate",
+	)
+	validateCall := fake.Stub.Calls()[2]
+	c.Assert(validateCall.Args, gc.HasLen, 2)
+	c.Assert(validateCall.Args[0], gc.Equals, cfg)
+	c.Assert(validateCall.Args[1], gc.IsNil)
+}
+
 func (s *ModelConfigCreatorSuite) TestCreateModelBadConfig(c *gc.C) {
 	for i, test := range []struct {
 		key      string
