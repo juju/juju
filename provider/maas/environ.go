@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -669,6 +670,56 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 	return env.maasClientUnlocked
 }
 
+var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
+
+func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []string) ([]string, []string, error) {
+	spaces, err := environ.Spaces()
+	if err != nil {
+		return []string{}, []string{}, errors.Trace(err)
+	}
+	spaceMap := make(map[string]string)
+	empty := set.Strings{}
+	for _, space := range spaces {
+		jujuName := network.ConvertSpaceName(space.Name, empty)
+		spaceMap[jujuName] = string(space.ProviderId)
+	}
+	positiveSpaceIds := []string{}
+	negativeSpaceIds := []string{}
+	for _, pos := range positiveSpaceIds {
+		id, ok := spaceMap[pos]
+		if !ok {
+			matches := dashSuffix.FindAllStringSubmatch(pos, 1)
+			if matches == nil {
+				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", pos)
+			}
+			// A -number was added to the space name when we
+			// converted to a juju name, we found
+			id, ok = spaceMap[matches[1][0]]
+			if !ok {
+				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", pos)
+			}
+		}
+		positiveSpaceIds = append(positiveSpaceIds, id)
+	}
+	for _, neg := range negativeSpaceIds {
+		id, ok := spaceMap[neg]
+		if !ok {
+			matches := dashSuffix.FindAllStringSubmatch(neg, 1)
+			if matches == nil {
+				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", neg)
+			}
+			// A -number was added to the space name when we
+			// converted to a juju name, we found
+			id, ok = spaceMap[matches[1][0]]
+			if !ok {
+				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", neg)
+			}
+		}
+		negativeSpaceIds = append(negativeSpaceIds, id)
+	}
+	return positiveSpaceIds, negativeSpaceIds, nil
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
 	nodeName, zoneName string,
@@ -679,7 +730,12 @@ func (environ *maasEnviron) acquireNode(
 
 	acquireParams := convertConstraints(cons)
 	positiveSpaces, negativeSpaces := convertSpacesFromConstraints(cons.Spaces)
-	err := addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	positiveSpaceIds, negativeSpaceIds, err := environ.spaceNamesToIds(positiveSpaces, negativeSpaces)
+	// If spaces aren't supported the constraints should be empty anyway.
+	if err != nil && !errors.IsNotSupported(err) {
+		return gomaasapi.MAASObject{}, err
+	}
+	err = addInterfaces(acquireParams, interfaces, positiveSpaceIds, negativeSpaceIds)
 	if err != nil {
 		return gomaasapi.MAASObject{}, err
 	}
