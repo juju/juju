@@ -229,7 +229,6 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 			zone, err = getZone(u.st, tag)
 			if err == nil {
 				results.Results[i].Result = zone
-				continue
 			}
 		}
 		results.Results[i].Error = common.ServerError(err)
