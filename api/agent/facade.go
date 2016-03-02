@@ -29,9 +29,10 @@ const (
 // terrible as it sounds -- surely there should be a new facade at the
 // apiserver level somewhere? -- but:
 //  1) this feels like a convenient/transitional method grouping, not a
-//     fundamental *role*
+//     fundamental *role*; and
 //  2) at least it's a narrowed interface, and eschews the object-style
 //     sins of *State/*Entity.
+// Progress not perfection.
 type ConnFacade interface {
 
 	// Life returns Alive, Dying, Dead, ErrDenied, or some other error.
@@ -44,7 +45,7 @@ type ConnFacade interface {
 // ErrDenied is returned by Life and SetPassword to indicate that the
 // requested operation is impossible (and hence that the entity is
 // either dead or gone, and in either case that no further meaningful
-// interaction is possible.
+// interaction is possible).
 var ErrDenied = errors.New("entity operation impossible")
 
 // NewConnFacade returns a ConnFacade backed by the supplied APICaller.
@@ -74,7 +75,7 @@ func (facade *connFacade) Life(entity names.Tag) (Life, error) {
 		return "", fmt.Errorf("expected 1 result, got %d", len(results.Entities))
 	}
 	if err := results.Entities[0].Error; err != nil {
-		if params.IsCodeNotFound(err) {
+		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			return "", ErrDenied
 		}
 		return "", errors.Trace(err)
@@ -98,9 +99,15 @@ func (facade *connFacade) SetPassword(entity names.Tag, password string) error {
 	}
 	err := facade.caller.FacadeCall("SetPasswords", args, &results)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Errors) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Errors))
+	}
+	if err := results.Errors[0].Error; err != nil {
 		if params.IsCodeDead(err) {
 			return ErrDenied
-		} else if params.IsCodeNotFound(err) {
+		} else if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			return ErrDenied
 		}
 		return errors.Trace(err)
