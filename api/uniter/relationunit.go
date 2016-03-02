@@ -167,8 +167,3 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
 }
-
-// NetworkConfig requests network config information from the server.
-func (ru *RelationUnit) NetworkConfig() ([]params.NetworkConfig, error) {
-	return nil, nil
-}
