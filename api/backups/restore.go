@@ -5,13 +5,11 @@ package backups
 
 import (
 	"io"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 )
@@ -24,7 +22,7 @@ var (
 	// the server is upgrading.
 	restoreStrategy = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Min:   10,
+		Min:   10, // delay 10 nanoseconds ??
 	}
 )
 
@@ -33,8 +31,12 @@ var (
 // the error type returned from a facade call is rpc.RequestError
 // and we cannot use params.IsCodeUpgradeInProgress
 func isUpgradeInProgressErr(err error) bool {
-	errorMessage := err.Error()
-	return strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error())
+	switch err := errors.Cause(err).(type) {
+	case *rpc.RequestError:
+		return err.Code == params.CodeUpgradeInProgress
+	default:
+		return false
+	}
 }
 
 // ClientConnection type represents a function capable of spawning a new Client connection
@@ -98,7 +100,6 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("Server in 'about to restore' mode")
 	return c.restore(backupId, newClient)
 }
 
@@ -142,9 +143,8 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 			break
 		}
 		if remoteError != nil || !isUpgradeInProgressErr(err) {
-			finishErr := finishRestore(newClient)
-			logger.Errorf("could not exit restoring status: %v", finishErr)
-			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
+			finishErr := errors.Annotate(finishRestore(newClient), "could not exit restoring status: %v")
+			return errors.Wrap(finishErr, errors.Annotatef(err, "cannot perform restore: %v", remoteError))
 		}
 	}
 	if !cleanExit {
@@ -156,10 +156,7 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 	}
 
 	err = finishRestore(newClient)
-	if err != nil {
-		return errors.Annotatef(err, "could not finish restore process: %v", remoteError)
-	}
-	return nil
+	return errors.Annotatef(err, "could not finish restore process: %v", remoteError)
 }
 
 func finishAttempt(client *Client, closer closerFunc) (error, error) {
@@ -190,7 +187,7 @@ func finishRestore(newClient ClientConnection) error {
 		}
 
 		if !isUpgradeInProgressErr(err) || remoteError != nil {
-			return errors.Annotatef(err, "cannot complete restore: %v", remoteError)
+			break
 		}
 	}
 	return errors.Annotatef(err, "cannot complete restore: %v", remoteError)
