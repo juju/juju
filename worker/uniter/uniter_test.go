@@ -680,7 +680,7 @@ resources:
 			createCharm{customize: appendResource},
 			serveCharm{},
 			createUniter{},
-			waitUnitAgent{status: params.StatusIdle},
+			waitUnitAgent{status: status.StatusIdle},
 			waitHooks(startupHooks(false)),
 			verifyCharm{},
 
