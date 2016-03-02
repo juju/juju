@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"fmt"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -26,6 +27,14 @@ var (
 		"api-port",
 		config.ControllerUUIDKey,
 	}
+)
+
+const (
+	// IsAdmin is used when generating a model config for an admin user.
+	IsAdmin = true
+
+	// IsNotAdmin is used when generating a model config for a non admin user.
+	IsNotAdmin = false
 )
 
 // ModelConfigCreator provides a method of creating a new model config.
@@ -51,6 +60,7 @@ type ModelConfigCreator struct {
 //
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
+	isAdmin bool,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
@@ -87,7 +97,7 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
-	cfg, err := finalizeConfig(attrs)
+	cfg, err := finalizeConfig(isAdmin, base, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,6 +115,7 @@ func (c ModelConfigCreator) NewModelConfig(
 			}
 		}
 	}
+
 	return cfg, nil
 }
 
@@ -178,15 +189,22 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 // finalizeConfig creates the config object from attributes, calls
 // PrepareForCreateEnvironment, and then finally validates the config
 // before returning it.
-func finalizeConfig(attrs map[string]interface{}) (*config.Config, error) {
+func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
+	provider, err := environs.Provider(controllerCfg.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Controller admins creating models do not have to re-supply new secrets.
+	// These may be copied from the controller model if not supplied.
+	if isAdmin {
+		maybeCopyControllerSecrets(provider, controllerCfg.AllAttrs(), attrs)
+	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	cfg, err = provider.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -196,4 +214,52 @@ func finalizeConfig(attrs map[string]interface{}) (*config.Config, error) {
 		return nil, errors.Annotate(err, "provider validation failed")
 	}
 	return cfg, nil
+}
+
+// maybeCopyControllerSecrets asks the specified provider for all possible config
+// attributes representing credential values and copies those across from the
+// controller config into the new model's config attrs if not already present.
+func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controllerAttrs, attrs map[string]interface{}) {
+	requiredControllerAttrNames := []string{"authorized-keys"}
+	var controllerCredentialAttrNames []string
+	for _, schema := range provider.CredentialSchemas() {
+		// possibleCredentialValues holds any values from attrs that belong to
+		// the credential schema.
+		possibleCredentialValues := make(map[string]string)
+		for attrName := range schema {
+			if v, ok := attrs[attrName]; ok && v != "" {
+				possibleCredentialValues[attrName] = fmt.Sprintf("%v", attrs[attrName])
+			}
+			controllerCredentialAttrNames = append(controllerCredentialAttrNames, attrName)
+		}
+		// readFile is not needed server side.
+		readFile := func(string) ([]byte, error) {
+			return nil, errors.NotImplementedf("read file")
+		}
+		// If the user has passed in valid credentials, we'll use
+		// those and not the ones from the controller.
+		if len(possibleCredentialValues) == 0 {
+			continue
+		}
+		finalValues, err := schema.Finalize(possibleCredentialValues, readFile)
+		if err == nil {
+			for k, v := range finalValues {
+				attrs[k] = v
+			}
+			controllerCredentialAttrNames = nil
+			break
+		}
+	}
+
+	// No user supplied credentials so use the ones from the controller.
+	for _, attrName := range requiredControllerAttrNames {
+		if _, ok := attrs[attrName]; !ok {
+			attrs[attrName] = controllerAttrs[attrName]
+		}
+	}
+	for _, attrName := range controllerCredentialAttrNames {
+		if _, ok := attrs[attrName]; !ok {
+			attrs[attrName] = controllerAttrs[attrName]
+		}
+	}
 }

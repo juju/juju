@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -126,7 +126,7 @@ type bootstrapCommand struct {
 	AutoUpgrade           bool
 	AgentVersionParam     string
 	AgentVersion          *version.Number
-	config                configFlag
+	config                common.ConfigFlag
 
 	controllerName  string
 	hostedModelName string
@@ -302,7 +302,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Get the credentials and region name.
-	credential, regionName, err := c.getCredentials(ctx, c.Cloud, cloud)
+	credential, regionName, err := common.GetCredentials(ctx, c.CredentialStore, c.Region, c.CredentialName, c.Cloud, cloud.Type)
 	if errors.IsNotFound(err) && c.CredentialName == "" {
 		// No credential was explicitly specified, and no credential
 		// was found in credentials.yaml; have the provider detect
@@ -499,83 +499,6 @@ to clean up the model.`[1:])
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return c.waitForAgentInitialisation(ctx)
-}
-
-// credentialByName returns the credential and default region to use for the
-// specified cloud, optionally specifying a credential name. If no credential
-// name is specified, then use the default credential for the cloud if one has
-// been specified. The credential name is returned also, in case the default
-// credential is used. If there is only one credential, it is implicitly the
-// default.
-//
-// If there exists no matching credentials, an error satisfying
-// errors.IsNotFound will be returned.
-func credentialByName(
-	store jujuclient.CredentialGetter, cloudName, credentialName string,
-) (_ *jujucloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
-
-	cloudCredentials, err := store.CredentialForCloud(cloudName)
-	if err != nil {
-		return nil, "", "", errors.Annotate(err, "loading credentials")
-	}
-	if credentialName == "" {
-		// No credential specified, so use the default for the cloud.
-		credentialName = cloudCredentials.DefaultCredential
-		if credentialName == "" && len(cloudCredentials.AuthCredentials) == 1 {
-			for credentialName = range cloudCredentials.AuthCredentials {
-			}
-		}
-	}
-	credential, ok := cloudCredentials.AuthCredentials[credentialName]
-	if !ok {
-		return nil, "", "", errors.NotFoundf(
-			"%q credential for cloud %q", credentialName, cloudName,
-		)
-	}
-	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
-}
-
-func (c *bootstrapCommand) getCredentials(
-	ctx *cmd.Context,
-	cloudName string,
-	cloud *jujucloud.Cloud,
-) (_ *jujucloud.Credential, region string, _ error) {
-
-	credential, credentialName, defaultRegion, err := credentialByName(
-		c.CredentialStore, cloudName, c.CredentialName,
-	)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-
-	regionName := c.Region
-	if regionName == "" {
-		regionName = defaultRegion
-	}
-
-	readFile := func(f string) ([]byte, error) {
-		f, err := utils.NormalizePath(f)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ioutil.ReadFile(ctx.AbsPath(f))
-	}
-
-	// Finalize credential against schemas supported by the provider.
-	provider, err := environs.Provider(cloud.Type)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	credential, err = jujucloud.FinalizeCredential(
-		*credential, provider.CredentialSchemas(), readFile,
-	)
-	if err != nil {
-		return nil, "", errors.Annotatef(
-			err, "validating %q credential for cloud %q",
-			credentialName, cloudName,
-		)
-	}
-	return credential, regionName, nil
 }
 
 // getRegion returns the cloud.Region to use, based on the specified

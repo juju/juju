@@ -41,6 +41,7 @@ type ModelManagerAPI struct {
 	state       stateInterface
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
+	isAdmin     bool
 }
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
@@ -66,14 +67,15 @@ func NewModelManagerAPI(
 
 // authCheck checks if the user is acting on their own behalf, or if they
 // are an administrator acting on behalf of another user.
-func (em *ModelManagerAPI) authCheck(user names.UserTag) error {
+func (mm *ModelManagerAPI) authCheck(user names.UserTag) error {
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
-	apiUser, _ := em.authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := em.state.IsControllerAdministrator(apiUser)
+	apiUser, _ := mm.authorizer.GetAuthTag().(names.UserTag)
+	isAdmin, err := mm.state.IsControllerAdministrator(apiUser)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	mm.isAdmin = isAdmin
 	if isAdmin {
 		logger.Tracef("%q is a controller admin", apiUser.Canonical())
 		return nil
@@ -98,21 +100,17 @@ type ConfigSource interface {
 // API caller to construct a valid model specific config.  The provider
 // and region params are there for future use, and current behaviour expects
 // both of these to be empty.
-func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error) {
+func (mm *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error) {
 	var result params.ModelConfigResult
-	if args.Provider != "" {
-		return result, errors.NotValidf("provider value %q", args.Provider)
-	}
 	if args.Region != "" {
 		return result, errors.NotValidf("region value %q", args.Region)
 	}
 
-	controllerEnv, err := em.state.ControllerModel()
+	controllerEnv, err := mm.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	config, err := em.configSkeleton(controllerEnv)
+	config, err := mm.configSkeleton(controllerEnv, args.Provider)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -121,10 +119,15 @@ func (em *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (
 	return result, nil
 }
 
-func (em *ModelManagerAPI) configSkeleton(source ConfigSource) (map[string]interface{}, error) {
+func (mm *ModelManagerAPI) configSkeleton(source ConfigSource, requestedProviderType string) (map[string]interface{}, error) {
 	baseConfig, err := source.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if requestedProviderType != "" && baseConfig.Type() != requestedProviderType {
+		return nil, errors.Errorf(
+			"cannot create new model with credentials for provider type %q on controller with provider type %q",
+			requestedProviderType, baseConfig.Type())
 	}
 	baseMap := baseConfig.AllAttrs()
 
@@ -142,7 +145,7 @@ func (em *ModelManagerAPI) configSkeleton(source ConfigSource) (map[string]inter
 	return result, nil
 }
 
-func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source ConfigSource) (*config.Config, error) {
+func (mm *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source ConfigSource) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
 	// the account values and the model config together in the
 	// *config.Config instance.
@@ -163,7 +166,7 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 	}
 	creator := modelmanager.ModelConfigCreator{
 		func(n version.Number) (tools.List, error) {
-			result, err := em.toolsFinder.FindTools(params.FindToolsParams{
+			result, err := mm.toolsFinder.FindTools(params.FindToolsParams{
 				Number: n,
 			})
 			if err != nil {
@@ -172,16 +175,16 @@ func (em *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 			return result.List, nil
 		},
 	}
-	return creator.NewModelConfig(baseConfig, joint)
+	return creator.NewModelConfig(mm.isAdmin, baseConfig, joint)
 }
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
-func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model, error) {
+func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model, error) {
 	result := params.Model{}
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
-	controllerEnv, err := em.state.ControllerModel()
+	controllerModel, err := mm.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -194,19 +197,19 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// Any user is able to create themselves an model (until real fine
 	// grain permissions are available), and admins (the creator of the state
 	// server model) are able to create models for other people.
-	err = em.authCheck(ownerTag)
+	err = mm.authCheck(ownerTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := em.newModelConfig(args, controllerEnv)
+	newConfig, err := mm.newModelConfig(args, controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
 	}
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := em.state.NewModel(newConfig, ownerTag)
+	model, st, err := mm.state.NewModel(newConfig, ownerTag)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
@@ -223,7 +226,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 // has access to in the current server.  Only that controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
+func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
@@ -231,12 +234,12 @@ func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 		return result, errors.Trace(err)
 	}
 
-	err = em.authCheck(userTag)
+	err = mm.authCheck(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	models, err := em.state.ModelsForUser(userTag)
+	models, err := mm.state.ModelsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

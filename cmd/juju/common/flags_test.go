@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package common
 
 import (
 	"io/ioutil"
@@ -22,7 +22,7 @@ type FlagsSuite struct {
 var _ = gc.Suite(&FlagsSuite{})
 
 func (*FlagsSuite) TestConfigFlagSet(c *gc.C) {
-	var f configFlag
+	var f ConfigFlag
 	c.Assert(f.Set("a.yaml"), jc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml"}, nil)
 	c.Assert(f.Set("b.yaml"), jc.ErrorIsNil)
@@ -36,13 +36,13 @@ func (*FlagsSuite) TestConfigFlagSet(c *gc.C) {
 }
 
 func (*FlagsSuite) TestConfigFlagSetErrors(c *gc.C) {
-	var f configFlag
+	var f ConfigFlag
 	c.Assert(f.Set(""), gc.ErrorMatches, "empty string not valid")
 	c.Assert(f.Set("x=!"), gc.ErrorMatches, "yaml: did not find URI escaped octet")
 }
 
 func (*FlagsSuite) TestConfigFlagString(c *gc.C) {
-	var f configFlag
+	var f ConfigFlag
 	c.Assert(f.String(), gc.Equals, "")
 	f.files = append(f.files, "a.yaml")
 	c.Assert(f.String(), gc.Equals, "a.yaml")
@@ -63,7 +63,7 @@ func (*FlagsSuite) TestConfigFlagReadAttrs(c *gc.C) {
 	err = ioutil.WriteFile(configFile2, []byte(`over: "'n'under"`+"\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var f configFlag
+	var f ConfigFlag
 	assertConfigFlagReadAttrs(c, f, map[string]interface{}{})
 	f.files = append(f.files, configFile1)
 	assertConfigFlagReadAttrs(c, f, map[string]interface{}{"over": "'n'out"})
@@ -77,7 +77,7 @@ func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
 
-	var f configFlag
+	var f ConfigFlag
 	f.files = append(f.files, configFile)
 	ctx := testing.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
@@ -85,12 +85,12 @@ func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *gc.C) {
 	c.Assert(attrs, gc.IsNil)
 }
 
-func assertConfigFlag(c *gc.C, f configFlag, files []string, attrs map[string]interface{}) {
+func assertConfigFlag(c *gc.C, f ConfigFlag, files []string, attrs map[string]interface{}) {
 	c.Assert(f.files, jc.DeepEquals, files)
 	c.Assert(f.attrs, jc.DeepEquals, attrs)
 }
 
-func assertConfigFlagReadAttrs(c *gc.C, f configFlag, expect map[string]interface{}) {
+func assertConfigFlagReadAttrs(c *gc.C, f ConfigFlag, expect map[string]interface{}) {
 	ctx := testing.Context(c)
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(err, jc.ErrorIsNil)
