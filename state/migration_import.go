@@ -10,15 +10,15 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
 // Import the database agnostic model representation into the database.
-func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
+func (st *State) Import(model description.Model) (_ *Model, _ *State, err error) {
 	logger := loggo.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", model.Tag().Id())
 	// At this stage, attempting to import a model with the same
@@ -101,7 +101,7 @@ func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 type importer struct {
 	st      *State
 	dbModel *Model
-	model   migration.Model
+	model   description.Model
 	logger  loggo.Logger
 	// serviceUnits is populated at the end of loading the services, and is a
 	// map of service name to units of that service.
@@ -192,7 +192,7 @@ func (i *importer) machines() error {
 	return nil
 }
 
-func (i *importer) machine(m migration.Machine) error {
+func (i *importer) machine(m description.Machine) error {
 	// Import this machine, then import its containers.
 	i.logger.Debugf("importing machine %s", m.Id())
 
@@ -268,7 +268,7 @@ func (i *importer) machine(m migration.Machine) error {
 	return nil
 }
 
-func (i *importer) machinePortsOps(m migration.Machine) []txn.Op {
+func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 	var result []txn.Op
 	machineId := m.Id()
 
@@ -297,7 +297,7 @@ func (i *importer) machinePortsOps(m migration.Machine) []txn.Op {
 	return result
 }
 
-func (i *importer) machineInstanceOp(mdoc *machineDoc, inst migration.CloudInstance) txn.Op {
+func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
 	doc := &instanceData{
 		DocID:      mdoc.DocID,
 		MachineId:  mdoc.Id,
@@ -335,7 +335,7 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst migration.CloudInsta
 	}
 }
 
-func (i *importer) makeMachineDoc(m migration.Machine) (*machineDoc, error) {
+func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	id := m.Id()
 	supported, supportedSet := m.SupportedContainers()
 	supportedContainers := make([]instance.ContainerType, len(supported))
@@ -391,7 +391,7 @@ func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
 	return result, nil
 }
 
-func (i *importer) makeTools(t migration.AgentTools) *tools.Tools {
+func (i *importer) makeTools(t description.AgentTools) *tools.Tools {
 	if t == nil {
 		return nil
 	}
@@ -403,7 +403,7 @@ func (i *importer) makeTools(t migration.AgentTools) *tools.Tools {
 	}
 }
 
-func (i *importer) makeAddress(addr migration.Address) address {
+func (i *importer) makeAddress(addr description.Address) address {
 	if addr == nil {
 		return address{}
 	}
@@ -416,7 +416,7 @@ func (i *importer) makeAddress(addr migration.Address) address {
 	}
 }
 
-func (i *importer) makeAddresses(addrs []migration.Address) []address {
+func (i *importer) makeAddresses(addrs []description.Address) []address {
 	result := make([]address, len(addrs))
 	for j, addr := range addrs {
 		result[j] = i.makeAddress(addr)
@@ -461,7 +461,7 @@ func (i *importer) loadUnits() error {
 }
 
 // makeStatusDoc assumes status is non-nil.
-func (i *importer) makeStatusDoc(status migration.Status) statusDoc {
+func (i *importer) makeStatusDoc(status description.Status) statusDoc {
 	return statusDoc{
 		Status:     Status(status.Value()),
 		StatusInfo: status.Message(),
@@ -470,7 +470,7 @@ func (i *importer) makeStatusDoc(status migration.Status) statusDoc {
 	}
 }
 
-func (i *importer) service(s migration.Service) error {
+func (i *importer) service(s description.Service) error {
 	// Import this service, then soon, its units.
 	i.logger.Debugf("importing service %s", s.Name())
 
@@ -522,7 +522,7 @@ func (i *importer) service(s migration.Service) error {
 	return nil
 }
 
-func (i *importer) unit(s migration.Service, u migration.Unit) error {
+func (i *importer) unit(s description.Service, u description.Unit) error {
 	i.logger.Debugf("importing unit %s", u.Name())
 
 	// 1. construct a unitDoc
@@ -581,7 +581,7 @@ func (i *importer) unit(s migration.Service, u migration.Unit) error {
 	return nil
 }
 
-func (i *importer) makeServiceDoc(s migration.Service) (*serviceDoc, error) {
+func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 	charmUrl, err := charm.ParseURL(s.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -602,7 +602,7 @@ func (i *importer) makeServiceDoc(s migration.Service) (*serviceDoc, error) {
 	}, nil
 }
 
-func (i *importer) makeUnitDoc(s migration.Service, u migration.Unit) (*unitDoc, error) {
+func (i *importer) makeUnitDoc(s description.Service, u description.Unit) (*unitDoc, error) {
 	// NOTE: if we want to support units having different charms deployed
 	// than the service recomments and migrate that, then we should serialize
 	// the chrm url for each unit rather than grabbing the services charm url.
@@ -648,7 +648,7 @@ func (i *importer) relations() error {
 	return nil
 }
 
-func (i *importer) relation(rel migration.Relation) error {
+func (i *importer) relation(rel description.Relation) error {
 	relationDoc := i.makeRelationDoc(rel)
 	ops := []txn.Op{
 		{
@@ -691,7 +691,7 @@ func (i *importer) relation(rel migration.Relation) error {
 	return nil
 }
 
-func (i *importer) makeRelationDoc(rel migration.Relation) *relationDoc {
+func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 	endpoints := rel.Endpoints()
 	doc := &relationDoc{
 		Key:       rel.Key(),
@@ -716,7 +716,7 @@ func (i *importer) makeRelationDoc(rel migration.Relation) *relationDoc {
 	return doc
 }
 
-func (i *importer) importStatusHistory(globalKey string, history []migration.Status) error {
+func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {
 	docs := make([]interface{}, len(history))
 	for i, status := range history {
 		docs[i] = historicalStatusDoc{
@@ -737,7 +737,7 @@ func (i *importer) importStatusHistory(globalKey string, history []migration.Sta
 	return nil
 }
 
-func (i *importer) constraints(cons migration.Constraints) constraints.Value {
+func (i *importer) constraints(cons description.Constraints) constraints.Value {
 	var result constraints.Value
 	if cons == nil {
 		return result
