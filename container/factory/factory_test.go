@@ -4,9 +4,6 @@
 package factory_test
 
 import (
-	"runtime"
-	"strings"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -44,7 +41,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		valid:         false,
 	}} {
 		/* LXD isn't available in go 1.2 */
-		if test.ContainerType == instance.LXD && !lxd.HasLXDSupport() {
+		if test.containerType == instance.LXD && !lxd.HasLXDSupport() {
 			continue
 		}
 
