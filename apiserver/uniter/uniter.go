@@ -1655,9 +1655,9 @@ func (u *UniterAPIV3) AddMetricBatches(args params.MetricBatchParams) (params.Er
 
 // NetworkConfig returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
+func (u *UniterAPIV3) NetworkConfig(args params.UnitsNetworkConfig) (params.UnitNetworkConfigResults, error) {
 	result := params.UnitNetworkConfigResults{
-		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
+		Results: make([]params.UnitNetworkConfigResult, len(args.Args)),
 	}
 
 	canAccess, err := u.accessUnit()
@@ -1665,10 +1665,9 @@ func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 		return params.UnitNetworkConfigResults{}, err
 	}
 
-	for i, rel := range args.RelationUnits {
-		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
+	for i, arg := range args.Args {
+		netConfig, err := u.getOneNetworkConfig(canAccess, arg.UnitTag, arg.BindingName)
 		if err == nil {
-			result.Results[i].Error = nil
 			result.Results[i].Config = netConfig
 		} else {
 			result.Results[i].Error = common.ServerError(err)
@@ -1677,19 +1676,18 @@ func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 	return result, nil
 }
 
-func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tagUnit string) ([]params.NetworkConfig, error) {
-	unitTag, err := names.ParseUnitTag(tagUnit)
+func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg, bindingName string) ([]params.NetworkConfig, error) {
+	unitTag, err := names.ParseUnitTag(unitTagArg)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if bindingName == "" {
+		return nil, errors.Errorf("binding name cannot be empty")
 	}
 
 	if !canAccess(unitTag) {
 		return nil, common.ErrPerm
-	}
-
-	relTag, err := names.ParseRelationTag(tagRel)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	unit, err := u.getUnit(unitTag)
@@ -1706,15 +1704,9 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	rel, err := u.st.KeyRelation(relTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	endpoint, err := rel.Endpoint(service.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		return nil, errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
 	}
 
 	machineID, err := unit.AssignedMachineId()
@@ -1728,11 +1720,11 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	}
 
 	var results []params.NetworkConfig
-
-	boundSpace, isBound := bindings[endpoint.Name]
-	if !isBound || boundSpace == "" {
-		name := endpoint.Name
-		logger.Debugf("endpoint %q not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
+	if boundSpace == "" {
+		logger.Debugf(
+			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
+			bindingName, machineID,
+		)
 
 		privateAddress, err := machine.PrivateAddress()
 		if err != nil && !network.IsNoAddress(err) {
@@ -1744,7 +1736,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 		})
 		return results, nil
 	}
-	logger.Debugf("endpoint %q is explicitly bound to space %q", endpoint.Name, boundSpace)
+	logger.Debugf("endpoint %q is explicitly bound to space %q", bindingName, boundSpace)
 
 	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
 	// the PoC to enable minimal network-get implementation returning just the
@@ -1763,7 +1755,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 			logger.Debugf("skipping address %q: want bound to space %q, got space %q", addr.Value, boundSpace, space)
 			continue
 		}
-		logger.Debugf("endpoint %q bound to space %q has address %q", endpoint.Name, boundSpace, addr.Value)
+		logger.Debugf("endpoint %q bound to space %q has address %q", bindingName, boundSpace, addr.Value)
 
 		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
 		results = append(results, params.NetworkConfig{
