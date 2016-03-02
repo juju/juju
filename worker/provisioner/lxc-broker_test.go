@@ -30,6 +30,9 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/filestorage"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
@@ -1138,8 +1141,30 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	return container
 }
 
+func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
+	// The default series tools are already uploaded
+	// for amd64 in the base suite.
+	if arch.HostArch() == arch.AMD64 {
+		return
+	}
+
+	storageDir := c.MkDir()
+	s.CommonProvisionerSuite.PatchValue(&tools.DefaultBaseURL, storageDir)
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaultTools := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: coretesting.FakeDefaultSeries,
+	}
+
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", defaultTools)
+}
+
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	coretesting.SkipIfI386(c, "lp:1425569")
+	s.maybeUploadTools(c)
 
 	p := s.newLxcProvisioner(c)
 	defer stop(c, p)

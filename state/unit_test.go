@@ -89,7 +89,8 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Settings still reflect charm set on unit.
@@ -141,7 +142,8 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	// Change service's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -646,7 +648,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Set a different charm to force a retry: first on
 				// the service, so the settings are created, then on
 				// the unit.
-				err := s.service.SetCharm(sch, false, false)
+				cfg := state.SetCharmConfig{Charm: sch}
+				err := s.service.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
 				c.Assert(err, jc.ErrorIsNil)
@@ -654,7 +657,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 			After: func() {
 				// Set back the same charm on the service, so the
 				// settings refcount is correct..
-				err := s.service.SetCharm(s.charm, false, false)
+				cfg := state.SetCharmConfig{Charm: s.charm}
+				err := s.service.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -703,7 +707,8 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {

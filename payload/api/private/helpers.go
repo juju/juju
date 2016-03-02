@@ -49,7 +49,7 @@ func API2Result(r PayloadResult) (payload.Result, error) {
 	}
 
 	if r.Error != nil {
-		result.Error, _ = common.RestoreError(r.Error)
+		result.Error = common.RestoreError(r.Error)
 	}
 
 	return result, nil

@@ -748,6 +748,25 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(needsUpgrade, jc.IsTrue)
 }
 
+func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "service-mysql"},
+		{Tag: "service-wordpress"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "service-foo"},
+	}}
+	result, err := s.uniter.CharmModifiedVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.IntResults{
+		Results: []params.IntResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: s.wordpress.CharmModifiedVersion()},
+			{Result: s.wordpress.CharmModifiedVersion()},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
