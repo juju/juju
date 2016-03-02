@@ -58,6 +58,7 @@ func (*ModelSerializationSuite) modelMap() map[string]interface{} {
 		"owner":        "magic",
 		"config":       configMap,
 		"latest-tools": latestTools.String(),
+		"sequences":    map[string]interface{}{},
 		"users": map[string]interface{}{
 			"version": 1,
 			"users": []interface{}{
@@ -115,9 +116,10 @@ func (*ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
 		"uuid": "some-uuid",
 	}
 	model, err := importModel(map[string]interface{}{
-		"version": 1,
-		"owner":   "magic",
-		"config":  configMap,
+		"version":   1,
+		"owner":     "magic",
+		"config":    configMap,
+		"sequences": map[string]interface{}{},
 		"users": map[string]interface{}{
 			"version": 1,
 			"users":   []interface{}{},
@@ -153,6 +155,24 @@ func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 	model, err := DeserializeModel(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Annotations(), jc.DeepEquals, annotations)
+}
+
+func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	initial.SetSequence("machine", 4)
+	initial.SetSequence("service-foo", 3)
+	initial.SetSequence("service-bar", 1)
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := DeserializeModel(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
+		"machine":     4,
+		"service-foo": 3,
+		"service-bar": 1,
+	})
 }
 
 func (s *ModelSerializationSuite) TestConstraints(c *gc.C) {

@@ -70,6 +70,8 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
 	c.Assert(s.State.SetModelConstraints(cons), jc.ErrorIsNil)
+	machineSeq := s.setRandSequenceValue(c, "machine")
+	fooSeq := s.setRandSequenceValue(c, "service-foo")
 
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,6 +115,13 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
+
+	seq, err := state.Sequence(newSt, "machine")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(seq, gc.Equals, machineSeq)
+	seq, err = state.Sequence(newSt, "service-foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(seq, gc.Equals, fooSeq)
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {

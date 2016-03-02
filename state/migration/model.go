@@ -33,6 +33,7 @@ func NewModel(args ModelArgs) Model {
 		Owner_:              args.Owner.Id(),
 		Config_:             args.Config,
 		LatestToolsVersion_: args.LatestToolsVersion,
+		Sequences_:          make(map[string]int),
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -71,6 +72,8 @@ type model struct {
 	Machines_  machines  `yaml:"machines"`
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
+
+	Sequences_ map[string]int `yaml:"sequences"`
 
 	// annotations is exported as it is a composed type, even if private.
 	annotations `yaml:"annotations,omitempty"`
@@ -216,6 +219,16 @@ func (m *model) setRelations(relationList []*relation) {
 	}
 }
 
+// Sequences implements Model.
+func (m *model) Sequences() map[string]int {
+	return m.Sequences_
+}
+
+// SetSequence implements Model.
+func (m *model) SetSequence(name string, value int) {
+	m.Sequences_[name] = value
+}
+
 // Constraints implements HasConstraints.
 func (m *model) Constraints() Constraints {
 	if m.Constraints_ == nil {
@@ -321,6 +334,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
+		"sequences":    schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -339,11 +353,16 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// contains fields of the right type.
 
 	result := &model{
-		Version: 1,
-		Owner_:  valid["owner"].(string),
-		Config_: valid["config"].(map[string]interface{}),
+		Version:    1,
+		Owner_:     valid["owner"].(string),
+		Config_:    valid["config"].(map[string]interface{}),
+		Sequences_: make(map[string]int),
 	}
 	result.importAnnotations(valid)
+	sequences := valid["sequences"].(map[string]interface{})
+	for key, value := range sequences {
+		result.SetSequence(key, int(value.(int64)))
+	}
 
 	if constraintsMap, ok := valid["constraints"]; ok {
 		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))

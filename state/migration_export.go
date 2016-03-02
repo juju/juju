@@ -57,6 +57,9 @@ func (st *State) Export() (migration.Model, error) {
 	export.model = migration.NewModel(args)
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))
+	if err := export.sequences(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	constraintsArgs, err := export.constraintsArgs(modelKey)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -99,6 +102,21 @@ type exporter struct {
 	// Map of service name to units. Populated as part
 	// of the services export.
 	units map[string][]*Unit
+}
+
+func (e *exporter) sequences() error {
+	sequences, closer := e.st.getCollection(sequenceC)
+	defer closer()
+
+	var docs []sequenceDoc
+	if err := sequences.Find(nil).All(&docs); err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, doc := range docs {
+		e.model.SetSequence(doc.Name, doc.Counter)
+	}
+	return nil
 }
 
 func (e *exporter) modelUsers() error {

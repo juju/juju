@@ -67,6 +67,9 @@ func (st *State) Import(model migration.Model) (_ *Model, _ *State, err error) {
 		model:   model,
 		logger:  logger,
 	}
+	if err := restore.sequences(); err != nil {
+		return nil, nil, errors.Annotate(err, "sequences")
+	}
 	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
 		return nil, nil, errors.Annotate(err, "model constraints")
 	}
@@ -103,6 +106,32 @@ type importer struct {
 	// serviceUnits is populated at the end of loading the services, and is a
 	// map of service name to units of that service.
 	serviceUnits map[string][]*Unit
+}
+
+func (i *importer) sequences() error {
+	sequenceValues := i.model.Sequences()
+	docs := make([]interface{}, 0, len(sequenceValues))
+	for key, value := range sequenceValues {
+		docs = append(docs, sequenceDoc{
+			DocID:   key,
+			Name:    key,
+			Counter: value,
+		})
+	}
+
+	// In reality, we will almost always have sequences to migrate.
+	// However, in tests, sometimes we don't.
+	if len(docs) == 0 {
+		return nil
+	}
+
+	sequences, closer := i.st.getCollection(sequenceC)
+	defer closer()
+
+	if err := sequences.Writeable().Insert(docs...); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (i *importer) modelUsers() error {
