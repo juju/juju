@@ -262,7 +262,7 @@ func (cfg *InstanceConfig) JujuTools() string {
 
 // GUITools returns the directory where the Juju GUI release is stored.
 func (cfg *InstanceConfig) GUITools() string {
-	return agenttools.SharedGUIDir(cfg.DataDir, cfg.GUI.Version)
+	return agenttools.SharedGUIDir(cfg.DataDir)
 }
 
 func (cfg *InstanceConfig) stateHostAddrs() []string {

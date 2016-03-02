@@ -75,9 +75,6 @@ func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 func (*instancecfgSuite) TestGUITools(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
 		DataDir: "/path/to/datadir/",
-		GUI: &coretools.GUIArchive{
-			Version: version.MustParse("2.1.42"),
-		},
 	}
-	c.Assert(icfg.GUITools(), gc.Equals, "/path/to/datadir/gui/2.1.42")
+	c.Assert(icfg.GUITools(), gc.Equals, "/path/to/datadir/gui")
 }

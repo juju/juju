@@ -16,7 +16,7 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -83,7 +83,7 @@ func (s *ToolsSuite) TestStorage(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	err = storage.AddTools(strings.NewReader(""), toolstorage.Metadata{})
+	err = storage.Add(strings.NewReader(""), binarystorage.Metadata{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	collectionNames, err = session.DB("juju").CollectionNames()
@@ -97,12 +97,12 @@ func (s *ToolsSuite) TestStorageParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var called bool
-	s.PatchValue(state.ToolstorageNewStorage, func(
+	s.PatchValue(state.BinarystorageNew, func(
 		modelUUID string,
 		managedStorage blobstore.ManagedStorage,
 		metadataCollection *mgo.Collection,
 		runner jujutxn.Runner,
-	) toolstorage.Storage {
+	) binarystorage.Storage {
 		called = true
 		c.Assert(modelUUID, gc.Equals, env.UUID())
 		c.Assert(managedStorage, gc.NotNil)

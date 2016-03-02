@@ -8,19 +8,19 @@ import (
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 )
 
 var (
-	toolstorageNewStorage = toolstorage.NewStorage
+	binarystorageNew = binarystorage.New
 )
 
-// ToolsStorage returns a new toolstorage.StorageCloser
+// ToolsStorage returns a new binarystorage.StorageCloser
 // that stores tools metadata in the "juju" database''
 // "toolsmetadata" collection.
 //
-// TODO(axw) remove this, add a constructor function in toolstorage.
-func (st *State) ToolsStorage() (toolstorage.StorageCloser, error) {
+// TODO(axw) remove this, add a constructor function in binarystorage.
+func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
 	uuid := st.ModelUUID()
 	session := st.session.Copy()
 	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
@@ -28,12 +28,12 @@ func (st *State) ToolsStorage() (toolstorage.StorageCloser, error) {
 	metadataCollection := db.C(toolsmetadataC)
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	managedStorage := blobstore.NewManagedStorage(db, rs)
-	storage := toolstorageNewStorage(uuid, managedStorage, metadataCollection, txnRunner)
+	storage := binarystorageNew(uuid, managedStorage, metadataCollection, txnRunner)
 	return &toolsStorageCloser{storage, session}, nil
 }
 
 type toolsStorageCloser struct {
-	toolstorage.Storage
+	binarystorage.Storage
 	session *mgo.Session
 }
 
