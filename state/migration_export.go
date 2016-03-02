@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/state/migration"
+	"github.com/juju/juju/core/description"
 )
 
 // Export the current model for the State.
-func (st *State) Export() (migration.Model, error) {
+func (st *State) Export() (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -49,12 +49,12 @@ func (st *State) Export() (migration.Model, error) {
 		return nil, errors.New("missing environ config")
 	}
 
-	args := migration.ModelArgs{
+	args := description.ModelArgs{
 		Owner:              dbModel.Owner(),
 		Config:             envConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 	}
-	export.model = migration.NewModel(args)
+	export.model = description.NewModel(args)
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))
 	if err := export.sequences(); err != nil {
@@ -91,7 +91,7 @@ func (st *State) Export() (migration.Model, error) {
 type exporter struct {
 	st      *State
 	dbModel *Model
-	model   migration.Model
+	model   description.Model
 	logger  loggo.Logger
 
 	annotations   map[string]annotatorDoc
@@ -131,7 +131,7 @@ func (e *exporter) modelUsers() error {
 
 	for _, user := range users {
 		lastConn := lastConnections[strings.ToLower(user.UserName())]
-		arg := migration.UserArgs{
+		arg := description.UserArgs{
 			Name:           user.UserTag(),
 			DisplayName:    user.DisplayName(),
 			CreatedBy:      names.NewUserTag(user.CreatedBy()),
@@ -177,12 +177,12 @@ func (e *exporter) machines() error {
 	// model stores the nesting. The AllMachines method assures us that the
 	// machines are returned in an order so the parent will always before
 	// any children.
-	machineMap := make(map[string]migration.Machine)
+	machineMap := make(map[string]description.Machine)
 
 	for _, machine := range machines {
 		e.logger.Debugf("export machine %s", machine.Id())
 
-		var exParent migration.Machine
+		var exParent description.Machine
 		if parentId := ParentId(machine.Id()); parentId != "" {
 			var found bool
 			exParent, found = machineMap[parentId]
@@ -201,8 +201,8 @@ func (e *exporter) machines() error {
 	return nil
 }
 
-func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc) (migration.Machine, error) {
-	args := migration.MachineArgs{
+func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc) (description.Machine, error) {
+	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
 		PasswordHash:  machine.doc.PasswordHash,
@@ -225,7 +225,7 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 
 	// A null value means that we don't yet know which containers
 	// are supported. An empty slice means 'no containers are supported'.
-	var exMachine migration.Machine
+	var exMachine description.Machine
 	if exParent == nil {
 		exMachine = e.model.AddMachine(args)
 	} else {
@@ -261,7 +261,7 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 		return nil, errors.Trace(err)
 	}
 
-	exMachine.SetTools(migration.AgentToolsArgs{
+	exMachine.SetTools(description.AgentToolsArgs{
 		Version: tools.Version,
 		URL:     tools.URL,
 		SHA256:  tools.SHA256,
@@ -283,14 +283,14 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 	return exMachine, nil
 }
 
-func (e *exporter) networkPortsArgsForMachine(machineId string, portsData []portsDoc) []migration.NetworkPortsArgs {
-	var result []migration.NetworkPortsArgs
+func (e *exporter) networkPortsArgsForMachine(machineId string, portsData []portsDoc) []description.NetworkPortsArgs {
+	var result []description.NetworkPortsArgs
 	for _, doc := range portsData {
 		// Don't bother including a network if there are no ports open on it.
 		if doc.MachineID == machineId && len(doc.Ports) > 0 {
-			args := migration.NetworkPortsArgs{NetworkName: doc.NetworkName}
+			args := description.NetworkPortsArgs{NetworkName: doc.NetworkName}
 			for _, p := range doc.Ports {
-				args.OpenPorts = append(args.OpenPorts, migration.PortRangeArgs{
+				args.OpenPorts = append(args.OpenPorts, description.PortRangeArgs{
 					UnitName: p.UnitName,
 					FromPort: p.FromPort,
 					ToPort:   p.ToPort,
@@ -303,16 +303,16 @@ func (e *exporter) networkPortsArgsForMachine(machineId string, portsData []port
 	return result
 }
 
-func (e *exporter) newAddressArgsSlice(a []address) []migration.AddressArgs {
-	result := []migration.AddressArgs{}
+func (e *exporter) newAddressArgsSlice(a []address) []description.AddressArgs {
+	result := []description.AddressArgs{}
 	for _, addr := range a {
 		result = append(result, e.newAddressArgs(addr))
 	}
 	return result
 }
 
-func (e *exporter) newAddressArgs(a address) migration.AddressArgs {
-	return migration.AddressArgs{
+func (e *exporter) newAddressArgs(a address) description.AddressArgs {
+	return description.AddressArgs{
 		Value:       a.Value,
 		Type:        a.AddressType,
 		NetworkName: a.NetworkName,
@@ -321,8 +321,8 @@ func (e *exporter) newAddressArgs(a address) migration.AddressArgs {
 	}
 }
 
-func (e *exporter) newCloudInstanceArgs(data instanceData) migration.CloudInstanceArgs {
-	inst := migration.CloudInstanceArgs{
+func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
+	inst := description.CloudInstanceArgs{
 		InstanceId: string(data.InstanceId),
 		Status:     data.Status,
 	}
@@ -398,7 +398,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 		return errors.Errorf("missing leadership settings for service %q", service.Name())
 	}
 
-	args := migration.ServiceArgs{
+	args := description.ServiceArgs{
 		Tag:                service.ServiceTag(),
 		Series:             service.doc.Series,
 		Subordinate:        service.doc.Subordinate,
@@ -435,7 +435,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
-		args := migration.UnitArgs{
+		args := description.UnitArgs{
 			Tag:             unit.UnitTag(),
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
 			PasswordHash:    unit.doc.PasswordHash,
@@ -471,7 +471,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			// This means the tools aren't set, but they should be.
 			return errors.Trace(err)
 		}
-		exUnit.SetTools(migration.AgentToolsArgs{
+		exUnit.SetTools(description.AgentToolsArgs{
 			Version: tools.Version,
 			URL:     tools.URL,
 			SHA256:  tools.SHA256,
@@ -502,12 +502,12 @@ func (e *exporter) relations() error {
 	}
 
 	for _, relation := range rels {
-		exRelation := e.model.AddRelation(migration.RelationArgs{
+		exRelation := e.model.AddRelation(description.RelationArgs{
 			Id:  relation.Id(),
 			Key: relation.String(),
 		})
 		for _, ep := range relation.Endpoints() {
-			exEndPoint := exRelation.AddEndpoint(migration.EndpointArgs{
+			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ServiceName: ep.ServiceName,
 				Name:        ep.Name,
 				Role:        string(ep.Role),
@@ -728,8 +728,8 @@ func (e *exporter) readAllStatusHistory() error {
 	return nil
 }
 
-func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
-	result := migration.StatusArgs{}
+func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) {
+	result := description.StatusArgs{}
 	statusDoc, found := e.status[globalKey]
 	if !found {
 		return result, errors.NotFoundf("status data for %s", globalKey)
@@ -762,12 +762,12 @@ func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 	return result, nil
 }
 
-func (e *exporter) statusHistoryArgs(globalKey string) []migration.StatusArgs {
+func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
-	result := make([]migration.StatusArgs, len(history))
+	result := make([]description.StatusArgs, len(history))
 	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
-		result[i] = migration.StatusArgs{
+		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
 			Message: doc.StatusInfo,
 			Data:    doc.StatusData,
@@ -778,12 +778,12 @@ func (e *exporter) statusHistoryArgs(globalKey string) []migration.StatusArgs {
 	return result
 }
 
-func (e *exporter) constraintsArgs(globalKey string) (migration.ConstraintsArgs, error) {
+func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArgs, error) {
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
 		e.logger.Debugf("no constraints found for key %q", globalKey)
-		return migration.ConstraintsArgs{}, nil
+		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return
 	// multiple values from the optional functions. This does mean that we will
@@ -821,7 +821,7 @@ func (e *exporter) constraintsArgs(globalKey string) (migration.ConstraintsArgs,
 		}
 		return nil
 	}
-	result := migration.ConstraintsArgs{
+	result := description.ConstraintsArgs{
 		Architecture: optionalString("arch"),
 		Container:    optionalString("container"),
 		CpuCores:     optionalInt("cpucores"),
@@ -833,7 +833,7 @@ func (e *exporter) constraintsArgs(globalKey string) (migration.ConstraintsArgs,
 		Tags:         optionalStringSlice("tags"),
 	}
 	if optionalErr != nil {
-		return migration.ConstraintsArgs{}, errors.Trace(optionalErr)
+		return description.ConstraintsArgs{}, errors.Trace(optionalErr)
 	}
 	return result, nil
 }

@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -428,12 +428,12 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.
-func newModel(m migration.Model, uuid, name string) migration.Model {
+func newModel(m description.Model, uuid, name string) description.Model {
 	return &mockModel{m, uuid, name}
 }
 
 type mockModel struct {
-	migration.Model
+	description.Model
 	uuid string
 	name string
 }

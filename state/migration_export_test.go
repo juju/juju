@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/migration"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -72,7 +72,7 @@ type MigrationExportSuite struct {
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
-func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []migration.Status, status state.Status) {
+func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, status state.Status) {
 	for i, st := range history {
 		c.Check(st.Value(), gc.Equals, string(status))
 		c.Check(st.Message(), gc.Equals, "")
@@ -367,7 +367,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	c.Assert(exEps, gc.HasLen, 2)
 
 	checkEndpoint := func(
-		exEndpoint migration.Endpoint,
+		exEndpoint description.Endpoint,
 		unitName string,
 		ep state.Endpoint,
 		settings map[string]interface{},

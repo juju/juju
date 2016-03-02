@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration
+package description
 
 import (
 	"fmt"
@@ -45,6 +45,22 @@ func (*ModelSerializationSuite) TestUnknownVersion(c *gc.C) {
 		"version": 42,
 	})
 	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
+}
+
+func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
+	model := NewModel(ModelArgs{Config: map[string]interface{}{
+		"name": "awesome",
+		"uuid": "some-uuid",
+	}})
+	model.UpdateConfig(map[string]interface{}{
+		"name": "something else",
+		"key":  "value",
+	})
+	c.Assert(model.Config(), jc.DeepEquals, map[string]interface{}{
+		"name": "something else",
+		"uuid": "some-uuid",
+		"key":  "value",
+	})
 }
 
 func (*ModelSerializationSuite) modelMap() map[string]interface{} {
@@ -93,7 +109,7 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Owner(), gc.Equals, names.NewUserTag("magic"))
 	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
@@ -152,7 +168,7 @@ func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Annotations(), jc.DeepEquals, annotations)
 }
@@ -165,7 +181,7 @@ func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
@@ -186,7 +202,7 @@ func (s *ModelSerializationSuite) TestConstraints(c *gc.C) {
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Constraints(), jc.DeepEquals, newConstraints(args))
 }
@@ -340,7 +356,7 @@ func (s *ModelSerializationSuite) TestModelSerializationWithRelations(c *gc.C) {
 	initial := s.wordpressModelWithSettings()
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
-	model, err := DeserializeModel(bytes)
+	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, initial)
 }

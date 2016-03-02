@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration
+package description
 
 import (
 	"time"
@@ -41,6 +41,9 @@ type Model interface {
 	Owner() names.UserTag
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
+
+	// UpdateConfig overwrites existing config values with those specified.
+	UpdateConfig(map[string]interface{})
 
 	Users() []User
 	AddUser(UserArgs)
