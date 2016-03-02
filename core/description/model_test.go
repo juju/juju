@@ -47,6 +47,22 @@ func (*ModelSerializationSuite) TestUnknownVersion(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, `version 42 not valid`)
 }
 
+func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
+	model := NewModel(ModelArgs{Config: map[string]interface{}{
+		"name": "awesome",
+		"uuid": "some-uuid",
+	}})
+	model.UpdateConfig(map[string]interface{}{
+		"name": "something else",
+		"key":  "value",
+	})
+	c.Assert(model.Config(), jc.DeepEquals, map[string]interface{}{
+		"name": "something else",
+		"uuid": "some-uuid",
+		"key":  "value",
+	})
+}
+
 func (*ModelSerializationSuite) modelMap() map[string]interface{} {
 	latestTools := version.MustParse("2.0.1")
 	configMap := map[string]interface{}{
