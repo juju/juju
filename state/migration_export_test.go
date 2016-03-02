@@ -46,7 +46,7 @@ func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MigrationSuite) randSequenceValue(c *gc.C, name string) int {
+func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
 	var value int
 	var err error
 	count := rand.Intn(5) + 1
@@ -89,8 +89,8 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	s.setLatestTools(c, latestTools)
 	err = s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
 	c.Assert(err, jc.ErrorIsNil)
-	machineSeq := s.randSequenceValue(c, "machine")
-	fooSeq := s.randSequenceValue(c, "service-foo")
+	machineSeq := s.setRandSequenceValue(c, "machine")
+	fooSeq := s.setRandSequenceValue(c, "service-foo")
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)

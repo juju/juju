@@ -70,8 +70,8 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
 	c.Assert(s.State.SetModelConstraints(cons), jc.ErrorIsNil)
-	machineSeq := s.randSequenceValue(c, "machine")
-	fooSeq := s.randSequenceValue(c, "service-foo")
+	machineSeq := s.setRandSequenceValue(c, "machine")
+	fooSeq := s.setRandSequenceValue(c, "service-foo")
 
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
