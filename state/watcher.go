@@ -2694,7 +2694,7 @@ func (w *modelMigrationWatcher) loop() error {
 	var out chan<- struct{}
 
 	// Check if a migration is already in progress and if so, report it immediately.
-	if active, err := IsModelMigrationActive(w.st, w.st.ModelUUID()); err != nil {
+	if active, err := w.st.IsModelMigrationActive(); err != nil {
 		return errors.Trace(err)
 	} else if active {
 		out = w.sink

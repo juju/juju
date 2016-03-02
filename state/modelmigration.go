@@ -281,7 +281,7 @@ func (spec *ModelMigrationSpec) Validate() error {
 // CreateModelMigration initialises state that tracks a model
 // migration. It will return an error if there is already a
 // model migration in progress.
-func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, error) {
+func (st *State) CreateModelMigration(spec ModelMigrationSpec) (*ModelMigration, error) {
 	if st.IsController() {
 		return nil, errors.New("controllers can't be migrated")
 	}
@@ -305,7 +305,7 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 			return nil, errors.New("model is not alive")
 		}
 
-		if isActive, err := IsModelMigrationActive(st, modelUUID); err != nil {
+		if isActive, err := st.IsModelMigrationActive(); err != nil {
 			return nil, errors.Trace(err)
 		} else if isActive {
 			return nil, errors.New("already in progress")
@@ -375,7 +375,7 @@ func checkTargetController(st *State, targetControllerTag names.ModelTag) error 
 
 // GetModelMigration returns the most recent ModelMigration for a
 // model (if any).
-func GetModelMigration(st *State) (*ModelMigration, error) {
+func (st *State) GetModelMigration() (*ModelMigration, error) {
 	migColl, closer := st.getCollection(modelMigrationsC)
 	defer closer()
 
@@ -405,11 +405,11 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 }
 
 // IsModelMigrationActive return true if a migration is in progress for
-// the given model.
-func IsModelMigrationActive(st *State, modelUUID string) (bool, error) {
+// the model associated with the State.
+func (st *State) IsModelMigrationActive() (bool, error) {
 	active, closer := st.getCollection(modelMigrationsActiveC)
 	defer closer()
-	n, err := active.FindId(modelUUID).Count()
+	n, err := active.FindId(st.ModelUUID()).Count()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

@@ -320,7 +320,7 @@ func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec
 			Password:      targetInfo.Password,
 		},
 	}
-	mig, err := state.CreateModelMigration(hostedState, args)
+	mig, err := hostedState.CreateModelMigration(args)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
