@@ -20,16 +20,17 @@ import (
 // The following constants list the supported constraint attribute names, as defined
 // by the fields in the Value struct.
 const (
-	Arch         = "arch"
-	Container    = "container"
-	CpuCores     = "cpu-cores"
-	CpuPower     = "cpu-power"
-	Mem          = "mem"
-	RootDisk     = "root-disk"
-	Tags         = "tags"
-	InstanceType = "instance-type"
-	Networks     = "networks"
-	Spaces       = "spaces"
+	Arch             = "arch"
+	Container        = "container"
+	CpuCores         = "cpu-cores"
+	CpuPower         = "cpu-power"
+	Mem              = "mem"
+	RootDisk         = "root-disk"
+	Tags             = "tags"
+	InstanceType     = "instance-type"
+	Networks         = "networks"
+	Spaces           = "spaces"
+	AvailabilityZone = "availability-zone"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -87,7 +88,8 @@ type Value struct {
 	//
 	// TODO(dimitern): Drop this as soon as spaces can be used for
 	// deployments instead.
-	Networks *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
+	Networks         *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
+	AvailabilityZone *string   `json:"availability-zone,omitempty" yaml:"availability-zone,omitempty"`
 }
 
 // fieldNames records a mapping from the constraint tag to struct field name.
@@ -238,6 +240,9 @@ func (v Value) String() string {
 		s := strings.Join(*v.Networks, ",")
 		strs = append(strs, "networks="+s)
 	}
+	if v.AvailabilityZone != nil {
+		strs = append(strs, "availability-zone="+*v.AvailabilityZone)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -280,6 +285,9 @@ func (v Value) GoString() string {
 		values = append(values, fmt.Sprintf("Networks: %q", *v.Networks))
 	} else if v.Networks != nil {
 		values = append(values, "Networks: (*[]string)(nil)")
+	}
+	if v.AvailabilityZone != nil {
+		values = append(values, fmt.Sprintf("AvailbilityZone: %q", *v.AvailabilityZone))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
@@ -422,6 +430,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setSpaces(str)
 	case Networks:
 		err = v.setNetworks(str)
+	case AvailabilityZone:
+		err = v.setAvailabilityZone(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -482,6 +492,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			if err == nil {
 				v.Networks = networks
 			}
+		case AvailabilityZone:
+			v.AvailabilityZone = &vstr
 		default:
 			return false
 		}
@@ -522,6 +534,14 @@ func (v *Value) setArch(str string) error {
 		return errors.Errorf("%q not recognized", str)
 	}
 	v.Arch = &str
+	return nil
+}
+
+func (v *Value) setAvailabilityZone(str string) error {
+	if v.AvailabilityZone != nil {
+		return errors.Errorf("already set")
+	}
+	v.AvailabilityZone = &str
 	return nil
 }
 
