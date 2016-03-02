@@ -4,8 +4,8 @@
 package controller_test
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
