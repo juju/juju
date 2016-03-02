@@ -17,17 +17,16 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	EnvUUID          string `bson:"env-uuid"`
-	Arch             *string
-	AvailabilityZone *string
-	CpuCores         *uint64
-	CpuPower         *uint64
-	Mem              *uint64
-	RootDisk         *uint64
-	InstanceType     *string
-	Container        *instance.ContainerType
-	Tags             *[]string
-	Spaces           *[]string
+	EnvUUID      string `bson:"env-uuid"`
+	Arch         *string
+	CpuCores     *uint64
+	CpuPower     *uint64
+	Mem          *uint64
+	RootDisk     *uint64
+	InstanceType *string
+	Container    *instance.ContainerType
+	Tags         *[]string
+	Spaces       *[]string
 	// TODO(dimitern): Drop this once it's not possible to specify
 	// networks= in constraints.
 	Networks *[]string
@@ -35,34 +34,32 @@ type constraintsDoc struct {
 
 func (doc constraintsDoc) value() constraints.Value {
 	return constraints.Value{
-		Arch:             doc.Arch,
-		AvailabilityZone: doc.AvailabilityZone,
-		CpuCores:         doc.CpuCores,
-		CpuPower:         doc.CpuPower,
-		Mem:              doc.Mem,
-		RootDisk:         doc.RootDisk,
-		InstanceType:     doc.InstanceType,
-		Container:        doc.Container,
-		Tags:             doc.Tags,
-		Spaces:           doc.Spaces,
-		Networks:         doc.Networks,
+		Arch:         doc.Arch,
+		CpuCores:     doc.CpuCores,
+		CpuPower:     doc.CpuPower,
+		Mem:          doc.Mem,
+		RootDisk:     doc.RootDisk,
+		InstanceType: doc.InstanceType,
+		Container:    doc.Container,
+		Tags:         doc.Tags,
+		Spaces:       doc.Spaces,
+		Networks:     doc.Networks,
 	}
 }
 
 func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
-		EnvUUID:          st.EnvironUUID(),
-		Arch:             cons.Arch,
-		AvailabilityZone: cons.AvailabilityZone,
-		CpuCores:         cons.CpuCores,
-		CpuPower:         cons.CpuPower,
-		Mem:              cons.Mem,
-		RootDisk:         cons.RootDisk,
-		InstanceType:     cons.InstanceType,
-		Container:        cons.Container,
-		Tags:             cons.Tags,
-		Spaces:           cons.Spaces,
-		Networks:         cons.Networks,
+		EnvUUID:      st.EnvironUUID(),
+		Arch:         cons.Arch,
+		CpuCores:     cons.CpuCores,
+		CpuPower:     cons.CpuPower,
+		Mem:          cons.Mem,
+		RootDisk:     cons.RootDisk,
+		InstanceType: cons.InstanceType,
+		Container:    cons.Container,
+		Tags:         cons.Tags,
+		Spaces:       cons.Spaces,
+		Networks:     cons.Networks,
 	}
 }
 
