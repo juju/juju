@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -72,7 +70,7 @@ func (facade *connFacade) Life(entity names.Tag) (Life, error) {
 		return "", errors.Trace(err)
 	}
 	if len(results.Entities) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Entities))
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Entities))
 	}
 	if err := results.Entities[0].Error; err != nil {
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
@@ -101,10 +99,10 @@ func (facade *connFacade) SetPassword(entity names.Tag, password string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(results.Errors) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Errors))
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	if err := results.Errors[0].Error; err != nil {
+	if err := results.Results[0].Error; err != nil {
 		if params.IsCodeDead(err) {
 			return ErrDenied
 		} else if params.IsCodeNotFoundOrCodeUnauthorized(err) {
