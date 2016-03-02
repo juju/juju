@@ -6,15 +6,25 @@ package service_test
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http/httptest"
 	"path"
+	"sort"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
@@ -108,4 +118,245 @@ func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
 		Fingerprint: fp,
 		Size:        int64(len(data)),
 	})
+}
+
+// charmStoreSuite is a suite fixture that puts the machinery in
+// place to allow testing code that calls addCharmViaAPI.
+type charmStoreSuite struct {
+	jujutesting.JujuConnSuite
+	handler charmstore.HTTPCloseHandler
+	srv     *httptest.Server
+	client  *csclient.Client
+}
+
+func (s *charmStoreSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	// Set up the charm store testing server.
+	db := s.Session.DB("juju-testing")
+	params := charmstore.ServerParams{
+		AuthUsername: "test-user",
+		AuthPassword: "test-password",
+	}
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.handler = handler
+	s.srv = httptest.NewServer(handler)
+	s.client = csclient.New(csclient.Params{
+		URL:      s.srv.URL,
+		User:     params.AuthUsername,
+		Password: params.AuthPassword,
+	})
+
+	service.PatchNewCharmStoreClient(s, s.srv.URL)
+
+	// Initialize the charm cache dir.
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+
+	// Point the CLI to the charm store testing server.
+
+	// Point the Juju API server to the charm store testing server.
+	s.PatchValue(&csclient.ServerURL, s.srv.URL)
+}
+
+func (s *charmStoreSuite) TearDownTest(c *gc.C) {
+	s.handler.Close()
+	s.srv.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+type UpgradeCharmStoreResourceSuite struct {
+	charmStoreSuite
+}
+
+var _ = gc.Suite(&UpgradeCharmStoreResourceSuite{})
+
+func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
+	s.charmStoreSuite.SetUpSuite(c)
+	err := all.RegisterForServer()
+	c.Assert(err, jc.ErrorIsNil)
+	err = all.RegisterForClient()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
+
+	// let's make a fake resource file to upload
+	data := []byte("some-data")
+	fp, err := charmresource.GenerateFingerprint(bytes.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	resourceFile := path.Join(c.MkDir(), "data.lib")
+	err = ioutil.WriteFile(resourceFile, data, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := testing.RunCommand(c, service.NewDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
+	c.Assert(err, jc.ErrorIsNil)
+	output := testing.Stderr(ctx)
+
+	expectedOutput := `Added charm "cs:trusty/starsay-1" to the model.
+Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
+`
+	c.Assert(output, gc.Equals, expectedOutput)
+	s.assertCharmsUplodaded(c, "cs:trusty/starsay-1")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"starsay": {charm: "cs:trusty/starsay-1"},
+	})
+	_, err = s.State.Unit("starsay/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	svcres, err := res.ListResources("starsay")
+	c.Assert(err, jc.ErrorIsNil)
+
+	sort.Sort(byname(svcres.Resources))
+
+	c.Assert(svcres.Resources, gc.HasLen, 3)
+	c.Check(svcres.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
+	svcres.Resources[2].Timestamp = time.Time{}
+
+	expectedResources := []resource.Resource{
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name: "install-resource",
+					Type: charmresource.TypeFile,
+					Path: "gotta-have-it.txt",
+				},
+				Origin:   charmresource.OriginStore,
+				Revision: 0,
+			},
+			ID:        "starsay/install-resource",
+			ServiceID: "starsay",
+		},
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name: "store-resource",
+					Type: charmresource.TypeFile,
+					Path: "filename.tgz",
+				},
+				Origin:   charmresource.OriginStore,
+				Revision: 0,
+			},
+			ID:        "starsay/store-resource",
+			ServiceID: "starsay",
+		},
+		{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name: "upload-resource",
+					Type: charmresource.TypeFile,
+					Path: "somename.xml",
+				},
+				Origin:      charmresource.OriginUpload,
+				Revision:    0,
+				Fingerprint: fp,
+				Size:        int64(len(data)),
+			},
+			ID:        "starsay/upload-resource",
+			ServiceID: "starsay",
+			Username:  "admin@local",
+			// Timestamp is checked above
+
+		},
+	}
+
+	c.Check(svcres.Resources, jc.DeepEquals, expectedResources)
+
+	oldCharmStoreResources := make([]charmresource.Resource, len(svcres.CharmStoreResources))
+	copy(oldCharmStoreResources, svcres.CharmStoreResources)
+
+	sort.Sort(csbyname(oldCharmStoreResources))
+
+	testcharms.UploadCharm(c, s.client, "trusty/starsay-2", "starsay")
+
+	_, err = testing.RunCommand(c, service.NewUpgradeCharmCommand(), "starsay")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"starsay": {charm: "cs:trusty/starsay-2"},
+	})
+
+	res, err = s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	svcres, err = res.ListResources("starsay")
+	c.Assert(err, jc.ErrorIsNil)
+
+	sort.Sort(byname(svcres.Resources))
+
+	c.Assert(svcres.Resources, gc.HasLen, 3)
+	c.Check(svcres.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
+	svcres.Resources[2].Timestamp = time.Time{}
+
+	// ensure that we haven't overridden the previously uploaded resource.
+	c.Check(svcres.Resources, jc.DeepEquals, expectedResources)
+
+	sort.Sort(csbyname(svcres.CharmStoreResources))
+	c.Check(oldCharmStoreResources, gc.DeepEquals, svcres.CharmStoreResources)
+}
+
+type byname []resource.Resource
+
+func (b byname) Len() int           { return len(b) }
+func (b byname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byname) Less(i, j int) bool { return b[i].Name < b[j].Name }
+
+type csbyname []charmresource.Resource
+
+func (b csbyname) Len() int           { return len(b) }
+func (b csbyname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b csbyname) Less(i, j int) bool { return b[i].Name < b[j].Name }
+
+// assertCharmsUplodaded checks that the given charm ids have been uploaded.
+func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
+	charms, err := s.State.AllCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	uploaded := make([]string, len(charms))
+	for i, charm := range charms {
+		uploaded[i] = charm.URL().String()
+	}
+	c.Assert(uploaded, jc.SameContents, ids)
+}
+
+// assertServicesDeployed checks that the given services have been deployed.
+func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
+	services, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+	deployed := make(map[string]serviceInfo, len(services))
+	for _, service := range services {
+		charm, _ := service.CharmURL()
+		config, err := service.ConfigSettings()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(config) == 0 {
+			config = nil
+		}
+		constraints, err := service.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		storage, err := service.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(storage) == 0 {
+			storage = nil
+		}
+		deployed[service.Name()] = serviceInfo{
+			charm:       charm.String(),
+			config:      config,
+			constraints: constraints,
+			exposed:     service.IsExposed(),
+			storage:     storage,
+		}
+	}
+	c.Assert(deployed, jc.DeepEquals, info)
+}
+
+// serviceInfo holds information about a deployed service.
+type serviceInfo struct {
+	charm            string
+	config           charm.Settings
+	constraints      constraints.Value
+	exposed          bool
+	storage          map[string]state.StorageConstraints
+	endpointBindings map[string]string
 }

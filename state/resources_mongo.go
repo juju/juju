@@ -189,10 +189,20 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
+
+	csRes := charmStoreResource{
+		Resource:   newRes.Resource.Resource,
+		id:         newRes.ID,
+		serviceID:  newRes.ServiceID,
+		lastPolled: time.Now().UTC(),
+	}
+
 	if exists {
-		return append(ops, newUpdateResourceOps(newRes)...)
+		ops = append(ops, newUpdateResourceOps(newRes)...)
+		return append(ops, newUpdateCharmStoreResourceOps(csRes)...)
 	} else {
-		return append(ops, newInsertResourceOps(newRes)...)
+		ops = append(ops, newInsertResourceOps(newRes)...)
+		return append(ops, newInsertCharmStoreResourceOps(csRes)...)
 	}
 }
 

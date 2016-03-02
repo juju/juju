@@ -4,6 +4,8 @@
 package service
 
 import (
+	"net/http"
+
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -27,5 +29,18 @@ func NewGetCommandForTest(api getServiceAPI) cmd.Command {
 func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 	return modelcmd.Wrap(&addUnitCommand{
 		api: api,
+	})
+}
+
+type Patcher interface {
+	PatchValue(dest, value interface{})
+}
+
+func PatchNewCharmStoreClient(s Patcher, url string) {
+	original := newCharmStoreClient
+	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
+		csclient := original(httpClient)
+		csclient.params.URL = url
+		return csclient
 	})
 }

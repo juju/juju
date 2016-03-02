@@ -248,8 +248,8 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.U
 		}
 	}
 
-	// Note: the validity of resources to be uploaded will be checked further
-	// down the stack.
+	// Note: the validity of user-supplied resources to be uploaded will be
+	// checked further down the stack.
 	return handleResources(c, c.Resources, c.ServiceName, metaRes)
 }
 
