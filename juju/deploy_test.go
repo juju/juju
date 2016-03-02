@@ -127,7 +127,7 @@ func (s *DeployLocalSuite) addWordpressCharm(c *gc.C) *state.Charm {
 }
 
 func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Charm {
-	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress-with-extra-bindings")
+	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress-extra-bindings")
 	return s.addWordpressCharmFromURL(c, wordpressCharmURL)
 }
 
