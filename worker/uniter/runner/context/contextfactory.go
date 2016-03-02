@@ -136,6 +136,11 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		f.state.LeadershipSettings,
 		f.tracker,
 	)
+
+	zone, err := f.unit.AvailabilityZone()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot obtain availabilty zone for unit %s", f.unit.Name())
+	}
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
@@ -151,6 +156,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		clock:              f.clock,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
+		availabilityzone:   zone,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
