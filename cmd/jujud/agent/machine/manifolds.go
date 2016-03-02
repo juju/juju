@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
+	"github.com/juju/juju/worker/stateconverter"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
@@ -85,6 +86,9 @@ type ManifoldsConfig struct {
 
 	// Clock is used by the storageprovisioner worker.
 	Clock clock.Clock
+
+	// Restart restarts the agent's service.
+	AgentRestart func() error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -297,6 +301,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		stateconverterName: stateconverter.Manifold(stateconverter.ManifoldConfig{
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName},
+			AgentRestart: config.AgentRestart,
+		}),
 	}
 }
 
@@ -325,4 +337,5 @@ const (
 	storageprovisionerName   = "storage-provisioner-machine"
 	resumerName              = "resumer"
 	identityFileWriterName   = "identity-file-writer"
+	stateconverterName       = "stateconverter"
 )

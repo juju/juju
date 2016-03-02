@@ -18,16 +18,17 @@ var logger = loggo.GetLogger("juju.worker.conv2state")
 
 // New returns a new notify watch handler that will convert the given machine &
 // agent to a controller.
-func New(m *apimachiner.State, agent Agent) watcher.NotifyHandler {
-	return &converter{machiner: wrapper{m}, agent: agent}
+func New(m *apimachiner.State, agentTag names.Tag, agentRestart func() error) watcher.NotifyHandler {
+	return &converter{machiner: wrapper{m}, agentTag: agentTag, agentRestart: agentRestart}
 }
 
 // converter is a NotifyWatchHandler that converts a unit hosting machine to a
 // state machine.
 type converter struct {
-	agent    Agent
-	machiner machiner
-	machine  machine
+	agentTag     names.Tag
+	agentRestart func() error
+	machiner     machiner
+	machine      machine
 }
 
 // Agent is an interface that can have its password set and be told to restart.
@@ -66,7 +67,7 @@ func (w wrapper) Machine(tag names.MachineTag) (machine, error) {
 // SetUp implements NotifyWatchHandler's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
 func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
-	m, err := c.machiner.Machine(c.agent.Tag().(names.MachineTag))
+	m, err := c.machiner.Machine(c.agentTag.(names.MachineTag))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -86,7 +87,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 		return nil
 	}
 
-	return errors.Trace(c.agent.Restart())
+	return errors.Trace(c.agentRestart())
 }
 
 // TearDown implements NotifyWatchHandler's TearDown method.
