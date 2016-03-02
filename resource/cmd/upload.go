@@ -15,7 +15,7 @@ import (
 // UploadClient has the API client methods needed by UploadCommand.
 type UploadClient interface {
 	// Upload sends the resource to Juju.
-	Upload(service, name string, resource io.ReadSeeker) error
+	Upload(service, name, filename string, resource io.ReadSeeker) error
 
 	// Close closes the client.
 	Close() error
@@ -128,6 +128,6 @@ func (c *UploadCommand) upload(rf resourceFile, client UploadClient) error {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	err = client.Upload(rf.service, rf.name, f)
+	err = client.Upload(rf.service, rf.name, rf.filename, f)
 	return errors.Trace(err)
 }
