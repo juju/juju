@@ -77,6 +77,20 @@ class TestGetClients(TestCase):
         self.assertEqual(other.full_path, os.path.abspath('bar'))
         self.assertEqual(released.full_path, '/usr/bun/juju')
 
+    def test_get_clients_different_env(self):
+        boo = {
+            ('foo', '--version'): '1.18.73',
+            ('bar', '--version'): '1.18.74',
+            ('juju', '--version'): '2.0',
+            ('which', 'juju'): '/usr/bun/juju'
+            }
+        with _temp_env({'environments': {'baz': {}}}):
+            with patch('subprocess.check_output', lambda x: boo[x]):
+                with patch('jujupy.JujuData.load_yaml'):
+                    initial, other, teardown = get_clients('foo', 'bar', 'baz',
+                                                           True, 'quxx')
+        self.assertIs(initial, teardown)
+
     def test_get_clients_no_agent(self):
         with _temp_env({'environments': {'baz': {}}}):
             with patch('subprocess.check_output', return_value='1.18.73'):
