@@ -296,6 +296,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Populate the GUI archive catalogue.
+	if err := c.populateGUIArchive(st, env); err != nil {
+		return err
+	}
+
 	// Add custom image metadata to environment storage.
 	if c.ImageMetadataDir != "" {
 		if err := c.saveCustomImageMetadata(st, env); err != nil {
@@ -377,7 +382,6 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	// Store the Juju tools.
 	current := version.Binary{
 		Number: version.Current,
 		Arch:   arch.HostArch(),
@@ -431,8 +435,14 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 			return errors.Trace(err)
 		}
 	}
+	return nil
+}
 
-	// Store the Juju GUI archive.
+// populateGUIArchive stores uploaded Juju GUI archive in provider storage
+// and updates the GUI metadata.
+func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
+	agentConfig := c.CurrentConfig()
+	dataDir := agentConfig.DataDir()
 	guistorage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Trace(err)
@@ -457,7 +467,6 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	}); err != nil {
 		return errors.Annotate(err, "cannot store GUI archive")
 	}
-
 	return nil
 }
 

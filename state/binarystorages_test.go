@@ -54,31 +54,31 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	})
 }
 
-type binaryStoragesSuite struct {
+type binaryStorageSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&binaryStoragesSuite{})
+var _ = gc.Suite(&binaryStorageSuite{})
 
 type storageOpener func() (binarystorage.StorageCloser, error)
 
-func (s *binaryStoragesSuite) TestToolsStorage(c *gc.C) {
+func (s *binaryStorageSuite) TestToolsStorage(c *gc.C) {
 	s.testStorage(c, "toolsmetadata", s.State.ToolsStorage)
 }
 
-func (s *binaryStoragesSuite) TestToolsStorageParams(c *gc.C) {
+func (s *binaryStorageSuite) TestToolsStorageParams(c *gc.C) {
 	s.testStorageParams(c, "toolsmetadata", s.State.ToolsStorage)
 }
 
-func (s *binaryStoragesSuite) TestGUIArchiveStorage(c *gc.C) {
+func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
 	s.testStorage(c, "guimetadata", s.State.GUIStorage)
 }
 
-func (s *binaryStoragesSuite) TestGUIArchiveStorageParams(c *gc.C) {
+func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
 	s.testStorageParams(c, "guimetadata", s.State.GUIStorage)
 }
 
-func (s *binaryStoragesSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
+func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
 	session := s.State.MongoSession()
 	collectionNames, err := session.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,7 +101,7 @@ func (s *binaryStoragesSuite) testStorage(c *gc.C, collName string, openStorage 
 	c.Assert(nameSet.Contains(collName), jc.IsTrue)
 }
 
-func (s *binaryStoragesSuite) testStorageParams(c *gc.C, collName string, openStorage storageOpener) {
+func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName string, openStorage storageOpener) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
