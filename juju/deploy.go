@@ -96,17 +96,19 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 }
 
 func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) map[string]string {
-	allBindings := state.DefaultEndpointBindingsForCharm(charmMeta)
+	// defaultBindings contains all bindable endpoints for charmMeta as keys and
+	// empty space names as values, so we use defaultBindings as fallback.
+	defaultBindings := state.DefaultEndpointBindingsForCharm(charmMeta)
 	if givenBindings == nil {
-		givenBindings = make(map[string]string, len(allBindings))
+		givenBindings = make(map[string]string, len(defaultBindings))
 	}
 
 	// Get the service-level default binding for all unspecified endpoint, if
 	// set, otherwise use the empty default.
 	serviceDefaultSpace, _ := givenBindings[""]
 
-	effectiveBindings := make(map[string]string, len(allBindings))
-	for endpoint, _ := range allBindings {
+	effectiveBindings := make(map[string]string, len(defaultBindings))
+	for endpoint, _ := range defaultBindings {
 		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
 			effectiveBindings[endpoint] = givenSpace
 		} else {

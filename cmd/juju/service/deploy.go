@@ -620,7 +620,7 @@ func (c *DeployCommand) handleResources(serviceName string, metaResources map[st
 	return ids, nil
 }
 
-const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space>] [<endpoint2-name>=<space2>] ...]'. "
+const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "
 
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name=space-name
