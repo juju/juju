@@ -359,7 +359,7 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 
 	az, exists := ctx.AvailabilityZone()
 	c.Assert(exists, jc.IsTrue)
-	c.Assert(az, gc.Equals, "db")
+	c.Assert(az, gc.Equals, "a-zone")
 
 }
 

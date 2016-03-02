@@ -125,7 +125,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		f.tracker,
 	)
 
-	az, err := f.unit.AvailabilityZone()
+	zone, err := f.unit.AvailabilityZone()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot obtain availabilty zone for unit %s", f.unit.Name())
 	}
@@ -145,7 +145,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		storage:            f.storage,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
-		availabilityzone:   az,
+		availabilityzone:   zone,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
