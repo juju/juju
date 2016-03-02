@@ -6,14 +6,14 @@ tags:
   - application
 resources:
   store-resource:
-    Type: file
+    type: file
     filename: filename.tgz
     comment: One line that is useful when operators need to push it.
   install-resource:
-    Type: file
+    type: file
     filename: gotta-have-it.txt
     comment: get things started
   upload-resource:
-    Type: file
+    type: file
     filename: somename.xml
     comment: Who uses xml anymore?
