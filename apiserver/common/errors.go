@@ -4,7 +4,6 @@
 package common
 
 import (
-	stderrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -88,16 +87,16 @@ func IsDischargeRequiredError(err error) bool {
 }
 
 var (
-	ErrBadId              = stderrors.New("id not found")
-	ErrBadCreds           = stderrors.New("invalid entity name or password")
-	ErrPerm               = stderrors.New("permission denied")
-	ErrNotLoggedIn        = stderrors.New("not logged in")
-	ErrUnknownWatcher     = stderrors.New("unknown watcher id")
-	ErrUnknownPinger      = stderrors.New("unknown pinger id")
-	ErrStoppedWatcher     = stderrors.New("watcher has been stopped")
-	ErrBadRequest         = stderrors.New("invalid request")
-	ErrTryAgain           = stderrors.New("try again")
-	ErrActionNotAvailable = stderrors.New("action no longer available")
+	ErrBadId              = errors.New("id not found")
+	ErrBadCreds           = errors.New("invalid entity name or password")
+	ErrPerm               = errors.New("permission denied")
+	ErrNotLoggedIn        = errors.New("not logged in")
+	ErrUnknownWatcher     = errors.New("unknown watcher id")
+	ErrUnknownPinger      = errors.New("unknown pinger id")
+	ErrStoppedWatcher     = errors.New("watcher has been stopped")
+	ErrBadRequest         = errors.New("invalid request")
+	ErrTryAgain           = errors.New("try again")
+	ErrActionNotAvailable = errors.New("action no longer available")
 )
 
 // OperationBlockedError returns an error which signifies that
