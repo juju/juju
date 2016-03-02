@@ -194,8 +194,8 @@ retrieve_packages() {
         done
         if [ -d $DEST_DEBS/juju-core ]; then
             FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core"
-        elif [ -d $DEST_DEBS/juju-core2 ]; then
-            FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core2"
+        elif [ -d $DEST_DEBS/juju2 ]; then
+            FOUND_PACKAGE_DIR="$DEST_DEBS/juju2"
         else
             FOUND_PACKAGE_DIR=""
         fi
