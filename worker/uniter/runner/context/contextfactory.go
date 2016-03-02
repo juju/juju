@@ -73,6 +73,7 @@ type contextFactory struct {
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
 	clock      clock.Clock
+	zone       string
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -107,6 +108,11 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	zone, err := unit.AvailabilityZone()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	f := &contextFactory{
 		unit:             unit,
 		state:            state,
@@ -120,6 +126,7 @@ func NewContextFactory(
 		storage:          storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
 		clock:            clock,
+		zone:             zone,
 	}
 	return f, nil
 }
@@ -136,11 +143,6 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		f.state.LeadershipSettings,
 		f.tracker,
 	)
-
-	zone, err := f.unit.AvailabilityZone()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot obtain availabilty zone for unit %s", f.unit.Name())
-	}
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
@@ -156,7 +158,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		clock:              f.clock,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
-		availabilityzone:   zone,
+		availabilityzone:   f.zone,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
