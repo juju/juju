@@ -25,7 +25,8 @@ type machine struct {
 	Series_        string         `yaml:"series"`
 	ContainerType_ string         `yaml:"container-type,omitempty"`
 
-	Status_ *status `yaml:"status"`
+	Status_       *status `yaml:"status"`
+	statusHistory `yaml:"status-history"`
 
 	ProviderAddresses_ []*address `yaml:"provider-addresses,omitempty"`
 	MachineAddresses_  []*address `yaml:"machine-addresses,omitempty"`
@@ -76,6 +77,7 @@ func newMachine(args MachineArgs) *machine {
 		Series_:        args.Series,
 		ContainerType_: args.ContainerType,
 		Jobs_:          jobs,
+		statusHistory:  newStatusHistory(),
 	}
 	if args.SupportedContainers != nil {
 		supported := make([]string, len(*args.SupportedContainers))
@@ -396,6 +398,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
+	addStatusHistorySchema(fields)
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -412,8 +415,12 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		Placement_:     valid["placement"].(string),
 		Series_:        valid["series"].(string),
 		ContainerType_: valid["container-type"].(string),
+		statusHistory:  newStatusHistory(),
 	}
 	result.importAnnotations(valid)
+	if err := result.importStatusHistory(valid); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if constraintsMap, ok := valid["constraints"]; ok {
 		constraints, err := importConstraints(constraintsMap.(map[string]interface{}))

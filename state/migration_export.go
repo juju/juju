@@ -31,6 +31,9 @@ func (st *State) Export() (migration.Model, error) {
 	if err := export.readAllStatuses(); err != nil {
 		return nil, errors.Annotate(err, "reading statuses")
 	}
+	if err := export.readAllStatusHistory(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,10 +94,11 @@ type exporter struct {
 	model   migration.Model
 	logger  loggo.Logger
 
-	annotations map[string]annotatorDoc
-	constraints map[string]bson.M
-	settings    map[string]settingsDoc
-	status      map[string]bson.M
+	annotations   map[string]annotatorDoc
+	constraints   map[string]bson.M
+	settings      map[string]settingsDoc
+	status        map[string]bson.M
+	statusHistory map[string][]historicalStatusDoc
 	// Map of service name to units. Populated as part
 	// of the services export.
 	units map[string][]*Unit
@@ -192,8 +196,6 @@ func (e *exporter) machines() error {
 			return errors.Trace(err)
 		}
 		machineMap[machine.Id()] = exMachine
-
-		// TODO: status and constraints for machines.
 	}
 
 	return nil
@@ -245,11 +247,13 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
 
 	// Find the current machine status.
-	statusArgs, err := e.statusArgs(machine.globalKey())
+	globalKey := machine.globalKey()
+	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
 	exMachine.SetStatus(statusArgs)
+	exMachine.SetStatusHistory(e.statusHistoryArgs(globalKey))
 
 	tools, err := machine.AgentTools()
 	if err != nil {
@@ -268,7 +272,6 @@ func (e *exporter) newMachine(exParent migration.Machine, machine *Machine, inst
 		exMachine.AddNetworkPorts(args)
 	}
 
-	globalKey := machine.globalKey()
 	exMachine.SetAnnotations(e.getAnnotations(globalKey))
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
@@ -416,6 +419,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 		return errors.Annotatef(err, "status for service %s", service.Name())
 	}
 	exService.SetStatus(statusArgs)
+	exService.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exService.SetAnnotations(e.getAnnotations(globalKey))
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
@@ -447,18 +451,20 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 			}
 		}
 		exUnit := exService.AddUnit(args)
-		globalKey := unit.globalKey()
 		// workload uses globalKey, agent uses globalAgentKey.
+		globalKey := unit.globalKey()
 		statusArgs, err := e.statusArgs(globalKey)
 		if err != nil {
 			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
 		}
 		exUnit.SetWorkloadStatus(statusArgs)
+		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
 		statusArgs, err = e.statusArgs(agentKey)
 		if err != nil {
 			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
 		}
 		exUnit.SetAgentStatus(statusArgs)
+		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
 
 		tools, err := unit.AgentTools()
 		if err != nil {
@@ -698,6 +704,30 @@ func (e *exporter) readAllStatuses() error {
 	return nil
 }
 
+func (e *exporter) readAllStatusHistory() error {
+	statuses, closer := e.st.getCollection(statusesHistoryC)
+	defer closer()
+
+	count := 0
+	e.statusHistory = make(map[string][]historicalStatusDoc)
+	var doc historicalStatusDoc
+	iter := statuses.Find(nil).Sort("-updated").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		history := e.statusHistory[doc.GlobalKey]
+		e.statusHistory[doc.GlobalKey] = append(history, doc)
+		count++
+	}
+
+	if err := iter.Err(); err != nil {
+		return errors.Annotate(err, "failed to read status history collection")
+	}
+
+	e.logger.Debugf("read %d status history documents", count)
+
+	return nil
+}
+
 func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 	result := migration.StatusArgs{}
 	statusDoc, found := e.status[globalKey]
@@ -730,6 +760,22 @@ func (e *exporter) statusArgs(globalKey string) (migration.StatusArgs, error) {
 	result.Data = dataMap
 	result.Updated = time.Unix(0, updated)
 	return result, nil
+}
+
+func (e *exporter) statusHistoryArgs(globalKey string) []migration.StatusArgs {
+	history := e.statusHistory[globalKey]
+	result := make([]migration.StatusArgs, len(history))
+	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
+	for i, doc := range history {
+		result[i] = migration.StatusArgs{
+			Value:   string(doc.Status),
+			Message: doc.StatusInfo,
+			Data:    doc.StatusData,
+			Updated: time.Unix(0, doc.Updated),
+		}
+	}
+
+	return result
 }
 
 func (e *exporter) constraintsArgs(globalKey string) (migration.ConstraintsArgs, error) {

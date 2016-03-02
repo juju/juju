@@ -13,6 +13,7 @@ import (
 
 type StatusSerializationSuite struct {
 	SerializationSuite
+	statusFields map[string]interface{}
 }
 
 var _ = gc.Suite(&StatusSerializationSuite{})
@@ -24,8 +25,10 @@ func minimalStatus() *status {
 func minimalStatusMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"version": 1,
-		"value":   "running",
-		"updated": "2016-01-28T11:50:00Z",
+		"status": map[interface{}]interface{}{
+			"value":   "running",
+			"updated": "2016-01-28T11:50:00Z",
+		},
 	}
 }
 
@@ -42,9 +45,9 @@ func (s *StatusSerializationSuite) SetUpTest(c *gc.C) {
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importStatus(m)
 	}
+	s.statusFields = map[string]interface{}{}
 	s.testFields = func(m map[string]interface{}) {
-		m["value"] = "value"
-		m["updated"] = time.Now()
+		m["status"] = s.statusFields
 	}
 }
 
@@ -60,14 +63,14 @@ func (s *StatusSerializationSuite) TestMinimalMatches(c *gc.C) {
 
 func (s *StatusSerializationSuite) TestMissingValue(c *gc.C) {
 	testMap := s.makeMap(1)
-	delete(testMap, "value")
+	s.statusFields["updated"] = "2016-01-28T11:50:00Z"
 	_, err := importStatus(testMap)
 	c.Check(err.Error(), gc.Equals, "status v1 schema check failed: value: expected string, got nothing")
 }
 
 func (s *StatusSerializationSuite) TestMissingUpdated(c *gc.C) {
 	testMap := s.makeMap(1)
-	delete(testMap, "updated")
+	s.statusFields["value"] = "running"
 	_, err := importStatus(testMap)
 	c.Check(err.Error(), gc.Equals, "status v1 schema check failed: updated: expected string or time.Time, got nothing")
 }
@@ -88,67 +91,142 @@ func (s *StatusSerializationSuite) TestNewStatus(c *gc.C) {
 	c.Assert(status.Updated(), gc.Equals, args.Updated)
 }
 
-func (*StatusSerializationSuite) TestParsing(c *gc.C) {
-	updated := time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC)
-	addr, err := importStatus(map[string]interface{}{
-		"version": 1,
-		"value":   "started",
-		"message": "a message",
-		"data": map[string]interface{}{
-			"extra": "anther",
-		},
-		"updated": updated.Format(time.RFC3339Nano),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	expected := &status{
-		Version:  1,
-		Value_:   "started",
-		Message_: "a message",
-		Data_: map[string]interface{}{
-			"extra": "anther",
-		},
-		Updated_: updated,
-	}
-	c.Assert(addr, jc.DeepEquals, expected)
-}
-
-func (*StatusSerializationSuite) TestOptionalValues(c *gc.C) {
-	updated := time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC)
-	addr, err := importStatus(map[string]interface{}{
-		"version": 1,
-		"value":   "started",
-		"updated": updated.Format(time.RFC3339Nano),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	expected := &status{
-		Version:  1,
-		Value_:   "started",
-		Updated_: updated,
-	}
-	c.Assert(addr, jc.DeepEquals, expected)
-}
-
-func (*StatusSerializationSuite) TestParsingSerializedData(c *gc.C) {
-
-	args := StatusArgs{
-		Value:   "value",
-		Message: "message",
-		Data: map[string]interface{}{
-			"extra": "anther",
-		},
-		Updated: time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC),
-	}
-	initial := newStatus(args)
-
-	bytes, err := yaml.Marshal(initial)
+func (s *StatusSerializationSuite) exportImport(c *gc.C, status_ *status) *status {
+	bytes, err := yaml.Marshal(status_)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	statuss, err := importStatus(source)
+	status, err := importStatus(source)
+	c.Assert(err, jc.ErrorIsNil)
+	return status
+}
+
+func (s *StatusSerializationSuite) TestParsing(c *gc.C) {
+	initial := newStatus(StatusArgs{
+		Value:   "started",
+		Message: "a message",
+		Data: map[string]interface{}{
+			"extra": "anther",
+		},
+		Updated: time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC),
+	})
+	status := s.exportImport(c, initial)
+	c.Assert(status, jc.DeepEquals, initial)
+}
+
+func (s *StatusSerializationSuite) TestOptionalValues(c *gc.C) {
+	initial := newStatus(StatusArgs{
+		Value:   "started",
+		Updated: time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC),
+	})
+	status := s.exportImport(c, initial)
+	c.Assert(status, jc.DeepEquals, initial)
+}
+
+type StatusHistorySerializationSuite struct {
+	SerializationSuite
+}
+
+var _ = gc.Suite(&StatusHistorySerializationSuite{})
+
+func emptyStatusHistoryMap() map[interface{}]interface{} {
+	return map[interface{}]interface{}{
+		"version": 1,
+		"history": []interface{}{},
+	}
+}
+
+func testStatusHistoryArgs() []StatusArgs {
+	return []StatusArgs{{
+		Value:   "running",
+		Updated: time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC),
+	}, {
+		Value:   "stopped",
+		Updated: time.Date(2016, 1, 28, 12, 50, 0, 0, time.UTC),
+	}, {
+		Value:   "running",
+		Updated: time.Date(2016, 1, 28, 13, 50, 0, 0, time.UTC),
+	}}
+}
+
+func (s *StatusHistorySerializationSuite) SetUpTest(c *gc.C) {
+	s.SerializationSuite.SetUpTest(c)
+	s.importName = "status"
+	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
+		history := newStatusHistory()
+		if err := importStatusHistory(&history, m); err != nil {
+			return nil, err
+		}
+		return &history, nil
+	}
+	s.testFields = func(m map[string]interface{}) {
+		m["history"] = []interface{}{}
+	}
+}
+
+func (s *StatusHistorySerializationSuite) TestSetStatusHistory(c *gc.C) {
+	// Make sure all the arg values are set.
+	args := []StatusArgs{{
+		Value:   "running",
+		Message: "all good",
+		Data: map[string]interface{}{
+			"key": "value",
+		},
+		Updated: time.Date(2016, 1, 28, 11, 50, 0, 0, time.UTC),
+	}, {
+		Value:   "stopped",
+		Updated: time.Date(2016, 1, 28, 12, 50, 0, 0, time.UTC),
+	}}
+	history := newStatusHistory()
+	history.SetStatusHistory(args)
+
+	for i, point := range history.StatusHistory() {
+		c.Check(point.Value(), gc.Equals, args[i].Value)
+		c.Check(point.Message(), gc.Equals, args[i].Message)
+		c.Check(point.Data(), jc.DeepEquals, args[i].Data)
+		c.Check(point.Updated(), gc.Equals, args[i].Updated)
+	}
+}
+
+func (s *StatusHistorySerializationSuite) exportImport(c *gc.C, status_ statusHistory) statusHistory {
+	bytes, err := yaml.Marshal(status_)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(statuss, jc.DeepEquals, initial)
+	var source map[string]interface{}
+	err = yaml.Unmarshal(bytes, &source)
+	c.Assert(err, jc.ErrorIsNil)
+
+	history := newStatusHistory()
+	err = importStatusHistory(&history, source)
+	c.Assert(err, jc.ErrorIsNil)
+	return history
+}
+
+func (s *StatusHistorySerializationSuite) TestParsing(c *gc.C) {
+	initial := newStatusHistory()
+	initial.SetStatusHistory(testStatusHistoryArgs())
+	history := s.exportImport(c, initial)
+	c.Assert(history, jc.DeepEquals, initial)
+}
+
+type StatusHistoryMixinSuite struct {
+	creator    func() HasStatusHistory
+	serializer func(*gc.C, interface{}) HasStatusHistory
+}
+
+func (s *StatusHistoryMixinSuite) TestStatusHistory(c *gc.C) {
+	initial := s.creator()
+	args := testStatusHistoryArgs()
+	initial.SetStatusHistory(args)
+
+	entity := s.serializer(c, initial)
+	for i, point := range entity.StatusHistory() {
+		c.Check(point.Value(), gc.Equals, args[i].Value)
+		c.Check(point.Message(), gc.Equals, args[i].Message)
+		c.Check(point.Data(), jc.DeepEquals, args[i].Data)
+		c.Check(point.Updated(), gc.Equals, args[i].Updated)
+	}
 }

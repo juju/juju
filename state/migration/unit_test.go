@@ -30,12 +30,14 @@ func (s *UnitSerializationSuite) SetUpTest(c *gc.C) {
 
 func minimalUnitMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"name":            "ubuntu/0",
-		"machine":         "0",
-		"agent-status":    minimalStatusMap(),
-		"workload-status": minimalStatusMap(),
-		"password-hash":   "secure-hash",
-		"tools":           minimalAgentToolsMap(),
+		"name":                    "ubuntu/0",
+		"machine":                 "0",
+		"agent-status":            minimalStatusMap(),
+		"agent-status-history":    emptyStatusHistoryMap(),
+		"workload-status":         minimalStatusMap(),
+		"workload-status-history": emptyStatusHistoryMap(),
+		"password-hash":           "secure-hash",
+		"tools":                   minimalAgentToolsMap(),
 	}
 }
 
@@ -160,4 +162,32 @@ func (s *UnitSerializationSuite) TestConstraints(c *gc.C) {
 
 	unit := s.exportImport(c, initial)
 	c.Assert(unit.Constraints(), jc.DeepEquals, newConstraints(args))
+}
+
+func (s *UnitSerializationSuite) TestAgentStatusHistory(c *gc.C) {
+	initial := minimalUnit()
+	args := testStatusHistoryArgs()
+	initial.SetAgentStatusHistory(args)
+
+	unit := s.exportImport(c, initial)
+	for i, point := range unit.AgentStatusHistory() {
+		c.Check(point.Value(), gc.Equals, args[i].Value)
+		c.Check(point.Message(), gc.Equals, args[i].Message)
+		c.Check(point.Data(), jc.DeepEquals, args[i].Data)
+		c.Check(point.Updated(), gc.Equals, args[i].Updated)
+	}
+}
+
+func (s *UnitSerializationSuite) TestWorkloadStatusHistory(c *gc.C) {
+	initial := minimalUnit()
+	args := testStatusHistoryArgs()
+	initial.SetWorkloadStatusHistory(args)
+
+	unit := s.exportImport(c, initial)
+	for i, point := range unit.WorkloadStatusHistory() {
+		c.Check(point.Value(), gc.Equals, args[i].Value)
+		c.Check(point.Message(), gc.Equals, args[i].Message)
+		c.Check(point.Data(), jc.DeepEquals, args[i].Data)
+		c.Check(point.Updated(), gc.Equals, args[i].Updated)
+	}
 }

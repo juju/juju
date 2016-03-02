@@ -25,6 +25,13 @@ type HasConstraints interface {
 	SetConstraints(ConstraintsArgs)
 }
 
+// HasStatusHistory defines the common methods for setting and
+// getting historical status entries for the various entities.
+type HasStatusHistory interface {
+	StatusHistory() []Status
+	SetStatusHistory([]StatusArgs)
+}
+
 // Model is a database agnostic representation of an existing model.
 type Model interface {
 	HasAnnotations
@@ -87,6 +94,7 @@ type AgentTools interface {
 type Machine interface {
 	HasAnnotations
 	HasConstraints
+	HasStatusHistory
 
 	Id() string
 	Tag() names.MachineTag
@@ -119,10 +127,7 @@ type Machine interface {
 	Status() Status
 	SetStatus(StatusArgs)
 
-	// StatusHistory() []Status
-
 	// TODO:
-	// status history
 	// Storage
 
 	NetworkPorts() []NetworkPorts
@@ -200,6 +205,7 @@ type Status interface {
 type Service interface {
 	HasAnnotations
 	HasConstraints
+	HasStatusHistory
 
 	Tag() names.ServiceTag
 	Name() string
@@ -249,8 +255,14 @@ type Unit interface {
 	WorkloadStatus() Status
 	SetWorkloadStatus(StatusArgs)
 
+	WorkloadStatusHistory() []Status
+	SetWorkloadStatusHistory([]StatusArgs)
+
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
+
+	AgentStatusHistory() []Status
+	SetAgentStatusHistory([]StatusArgs)
 
 	Validate() error
 }

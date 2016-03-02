@@ -1715,6 +1715,12 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 	})
 }
 
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine.
+func (m *Machine) StatusHistory(size int) ([]StatusInfo, error) {
+	return statusHistory(m.st, m.globalKey(), size)
+}
+
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean

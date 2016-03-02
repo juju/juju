@@ -12,6 +12,7 @@ import (
 
 type ServiceSerializationSuite struct {
 	SliceSerializationSuite
+	StatusHistoryMixinSuite
 }
 
 var _ = gc.Suite(&ServiceSerializationSuite{})
@@ -26,14 +27,21 @@ func (s *ServiceSerializationSuite) SetUpTest(c *gc.C) {
 	s.testFields = func(m map[string]interface{}) {
 		m["services"] = []interface{}{}
 	}
+	s.StatusHistoryMixinSuite.creator = func() HasStatusHistory {
+		return minimalService()
+	}
+	s.StatusHistoryMixinSuite.serializer = func(c *gc.C, initial interface{}) HasStatusHistory {
+		return s.exportImport(c, initial.(*service))
+	}
 }
 
 func minimalServiceMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"name":      "ubuntu",
-		"series":    "trusty",
-		"charm-url": "cs:trusty/ubuntu",
-		"status":    minimalStatusMap(),
+		"name":           "ubuntu",
+		"series":         "trusty",
+		"charm-url":      "cs:trusty/ubuntu",
+		"status":         minimalStatusMap(),
+		"status-history": emptyStatusHistoryMap(),
 		"settings": map[interface{}]interface{}{
 			"key": "value",
 		},
