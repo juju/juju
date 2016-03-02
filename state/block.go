@@ -56,7 +56,7 @@ var (
 		RemoveBlock:  multiwatcher.BlockRemove,
 		ChangeBlock:  multiwatcher.BlockChange,
 	}
-	blockMigrationValue = map[MachineJob]string{
+	blockMigrationValue = map[BlockType]string{
 		DestroyBlock: "destroy-model",
 		RemoveBlock:  "remove-object",
 		ChangeBlock:  "all-changes",
