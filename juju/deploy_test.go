@@ -102,7 +102,7 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
-	wordpressCharm := s.addWordpressCharm(c)
+	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
@@ -113,11 +113,17 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, service, map[string]string{
+		// relation names
 		"url":             "",
 		"logging-dir":     "",
 		"monitoring-port": "",
 		"db":              "",
 		"cache":           "",
+		"cluster":         "",
+		// extra-bindings names
+		"db-client": "",
+		"admin-api": "",
+		"foo-bar":   "",
 	})
 }
 
@@ -162,11 +168,16 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, service, map[string]string{
+		// relation names
 		"url":             "public",
 		"logging-dir":     "public",
 		"monitoring-port": "public",
 		"db":              "db",
 		"cache":           "public",
+		// extra-bindings names
+		"db-client": "public",
+		"admin-api": "public",
+		"foo-bar":   "public",
 	})
 }
 
