@@ -396,11 +396,11 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		return errors.Trace(err)
 	}
 
-	storage, err := st.ToolsStorage()
+	toolstorage, err := st.ToolsStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer storage.Close()
+	defer toolstorage.Close()
 
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(tools.URL, "file://") {
@@ -427,10 +427,37 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 			SHA256:  tools.SHA256,
 		}
 		logger.Debugf("Adding tools: %v", toolsVersion)
-		if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
+		if err := toolstorage.Add(bytes.NewReader(data), metadata); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	// Store the Juju GUI archive.
+	guistorage, err := st.GUIStorage()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer guistorage.Close()
+	gui, err := agenttools.ReadGUIArchive(dataDir)
+	if err != nil {
+		// TODO frankban: ignore the error for now, as the GUI could not be
+		// there at all. This needs to be changed before merging into master,
+		// return errors.Annotate(err, "cannot fetch GUI info")
+		return nil
+	}
+	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
+	if err != nil {
+		return errors.Annotate(err, "cannot read GUI archive")
+	}
+	defer f.Close()
+	if err := guistorage.Add(f, binarystorage.Metadata{
+		Version: gui.Version.String(),
+		Size:    gui.Size,
+		SHA256:  gui.SHA256,
+	}); err != nil {
+		return errors.Annotate(err, "cannot store GUI archive")
+	}
+
 	return nil
 }
 

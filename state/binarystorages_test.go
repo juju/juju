@@ -28,15 +28,6 @@ type tooler interface {
 	Refresh() error
 }
 
-func newTools(vers, url string) *tools.Tools {
-	return &tools.Tools{
-		Version: version.MustParseBinary(vers),
-		URL:     url,
-		Size:    10,
-		SHA256:  "1234",
-	}
-}
-
 func testAgentTools(c *gc.C, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
@@ -63,20 +54,38 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	})
 }
 
-var _ = gc.Suite(&ToolsSuite{})
-
-type ToolsSuite struct {
+type binaryStoragesSuite struct {
 	ConnSuite
 }
 
-func (s *ToolsSuite) TestStorage(c *gc.C) {
+var _ = gc.Suite(&binaryStoragesSuite{})
+
+type storageOpener func() (binarystorage.StorageCloser, error)
+
+func (s *binaryStoragesSuite) TestToolsStorage(c *gc.C) {
+	s.testStorage(c, "toolsmetadata", s.State.ToolsStorage)
+}
+
+func (s *binaryStoragesSuite) TestToolsStorageParams(c *gc.C) {
+	s.testStorageParams(c, "toolsmetadata", s.State.ToolsStorage)
+}
+
+func (s *binaryStoragesSuite) TestGUIArchiveStorage(c *gc.C) {
+	s.testStorage(c, "guimetadata", s.State.GUIStorage)
+}
+
+func (s *binaryStoragesSuite) TestGUIArchiveStorageParams(c *gc.C) {
+	s.testStorageParams(c, "guimetadata", s.State.GUIStorage)
+}
+
+func (s *binaryStoragesSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
 	session := s.State.MongoSession()
 	collectionNames, err := session.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet := set.NewStrings(collectionNames...)
-	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsFalse)
+	c.Assert(nameSet.Contains(collName), jc.IsFalse)
 
-	storage, err := s.State.ToolsStorage()
+	storage, err := openStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := storage.Close()
@@ -89,10 +98,10 @@ func (s *ToolsSuite) TestStorage(c *gc.C) {
 	collectionNames, err = session.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet = set.NewStrings(collectionNames...)
-	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsTrue)
+	c.Assert(nameSet.Contains(collName), jc.IsTrue)
 }
 
-func (s *ToolsSuite) TestStorageParams(c *gc.C) {
+func (s *binaryStoragesSuite) testStorageParams(c *gc.C, collName string, openStorage storageOpener) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -106,12 +115,12 @@ func (s *ToolsSuite) TestStorageParams(c *gc.C) {
 		called = true
 		c.Assert(modelUUID, gc.Equals, env.UUID())
 		c.Assert(managedStorage, gc.NotNil)
-		c.Assert(metadataCollection.Name, gc.Equals, "toolsmetadata")
+		c.Assert(metadataCollection.Name, gc.Equals, collName)
 		c.Assert(runner, gc.NotNil)
 		return nil
 	})
 
-	storage, err := s.State.ToolsStorage()
+	storage, err := openStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	storage.Close()
 	c.Assert(called, jc.IsTrue)
