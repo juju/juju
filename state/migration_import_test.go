@@ -72,6 +72,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(s.State.SetModelConstraints(cons), jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "service-foo")
+	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 
 	original, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,6 +123,12 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	seq, err = state.Sequence(newSt, "service-foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(seq, gc.Equals, fooSeq)
+
+	blocks, err := newSt.AllBlocks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocks, gc.HasLen, 1)
+	c.Assert(blocks[0].Type(), gc.Equals, state.ChangeBlock)
+	c.Assert(blocks[0].Message(), gc.Equals, "locked down")
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {

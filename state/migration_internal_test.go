@@ -18,6 +18,7 @@ var _ = gc.Suite(&MigrationSuite{})
 func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
 		annotationsC,
+		blocksC,
 		constraintsC,
 		modelsC,
 		modelUsersC,
@@ -91,7 +92,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
 		// model
-		blocksC,
 		cleanupsC,
 		cloudimagemetadataC,
 
@@ -424,6 +424,26 @@ func (s *MigrationSuite) TestAnnatatorDocFields(c *gc.C) {
 		"Annotations",
 	)
 	s.AssertExportedFields(c, annotatorDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestBlockDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// The doc id is a sequence value that has no meaning.
+		// It really doesn't need to be a sequence.
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Tag is just string representation of the model tag,
+		// which also contains the model-uuid.
+		"Tag",
+	)
+	migrated := set.NewStrings(
+		"Type",
+		"Message",
+	)
+	fields := migrated.Union(ignored)
+	s.AssertExportedFields(c, blockDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestSequenceDocFields(c *gc.C) {
