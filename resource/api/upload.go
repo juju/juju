@@ -24,6 +24,9 @@ type UploadRequest struct {
 	// Name is the resource name.
 	Name string
 
+	// Filename is the name of the file as it exists on disk.
+	Filename string
+
 	// Size is the size of the uploaded data, in bytes.
 	Size int64
 
@@ -35,7 +38,7 @@ type UploadRequest struct {
 }
 
 // NewUploadRequest generates a new upload request for the given resource.
-func NewUploadRequest(service, name string, r io.ReadSeeker) (UploadRequest, error) {
+func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRequest, error) {
 	if !names.IsValidService(service) {
 		return UploadRequest{}, errors.Errorf("invalid service %q", service)
 	}
@@ -48,6 +51,7 @@ func NewUploadRequest(service, name string, r io.ReadSeeker) (UploadRequest, err
 	ur := UploadRequest{
 		Service:     service,
 		Name:        name,
+		Filename:    filename,
 		Size:        content.Size,
 		Fingerprint: content.Fingerprint,
 	}
@@ -58,19 +62,49 @@ func NewUploadRequest(service, name string, r io.ReadSeeker) (UploadRequest, err
 func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	var ur UploadRequest
 
-	if req.Header.Get("Content-Length") == "" {
-		req.Header.Set("Content-Length", fmt.Sprint(req.ContentLength))
+	if req.Header.Get(ContentLength) == "" {
+		req.Header.Set(ContentLength, fmt.Sprint(req.ContentLength))
 	}
 
-	ctype := req.Header.Get("Content-Type")
+	ctype := req.Header.Get(ContentType)
 	if ctype != ContentTypeRaw {
 		return ur, errors.Errorf("unsupported content type %q", ctype)
 	}
 
 	service, name := ExtractEndpointDetails(req.URL)
-	fingerprint := req.Header.Get("Content-Sha384") // This parallels "Content-MD5".
-	sizeRaw := req.Header.Get("Content-Length")
-	pendingID := req.URL.Query().Get("pendingid")
+	fingerprint := req.Header.Get(ContentSha384) // This parallels "Content-MD5".
+	sizeRaw := req.Header.Get(ContentLength)
+	pendingID := req.URL.Query().Get(pendingIDQueryParam)
+
+	disp := req.Header.Get(ContentDisposition)
+
+	// the first value is the media type name (e.g. "form-data"), but we don't
+	// really care.
+	_, vals, err := parseMediaType(disp)
+	if err != nil {
+		return ur, errors.Annotate(err, "badly formatted Content-Disposition")
+	}
+	param, ok := vals[MediaTypeParamFilename]
+	if !ok {
+		return ur, errors.Errorf("missing filename in resource upload request")
+	}
+
+	filename, err := decodeParam(param)
+	switch {
+	case err == errInvalidWord:
+		if encodeParam(param) == param {
+			// The decode function doesn't differentiate between an invalid
+			// string and a string that just didn't need to be encoded in the
+			// first place.  So we run it through encode again to see if it's
+			// just one of those "doesn't need to be encoded" strings.  This is
+			// terrible, but I don't see a way around it.
+			filename = param
+			break
+		}
+		fallthrough
+	case err != nil:
+		return ur, errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
+	}
 
 	fp, err := charmresource.ParseFingerprint(fingerprint)
 	if err != nil {
@@ -85,6 +119,7 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	ur = UploadRequest{
 		Service:     service,
 		Name:        name,
+		Filename:    filename,
 		Size:        size,
 		Fingerprint: fp,
 		PendingID:   pendingID,
@@ -92,23 +127,33 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	return ur, nil
 }
 
+const pendingIDQueryParam = "pendingid"
+
 // HTTPRequest generates a new HTTP request.
 func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(ur.Service, ur.Name)
-	req, err := http.NewRequest("PUT", urlStr, nil)
+
+	// TODO(natefinch): Use http.MethodPut when we upgrade to go1.5+.
+	req, err := http.NewRequest(MethodPut, urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	req.Header.Set("Content-Type", ContentTypeRaw)
-	req.Header.Set("Content-Sha384", ur.Fingerprint.String())
-	req.Header.Set("Content-Length", fmt.Sprint(ur.Size))
+	req.Header.Set(ContentType, ContentTypeRaw)
+	req.Header.Set(ContentSha384, ur.Fingerprint.String())
+	req.Header.Set(ContentLength, fmt.Sprint(ur.Size))
+
+	filename := encodeParam(ur.Filename)
+
+	disp := formatMediaType(MediaTypeFormData, map[string]string{MediaTypeParamFilename: filename})
+
+	req.Header.Set(ContentDisposition, disp)
 	req.ContentLength = ur.Size
 
 	if ur.PendingID != "" {
 		query := req.URL.Query()
-		query.Set("pendingid", ur.PendingID)
+		query.Set(pendingIDQueryParam, ur.PendingID)
 		req.URL.RawQuery = query.Encode()
 	}
 
