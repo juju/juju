@@ -45,9 +45,11 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 		s.controllerMachine = testing.AddControllerMachine(c, s.State)
 	}
 
-	// Bind wordpress:db to space "internal"
+	// Bind "db" relation of wordpress to space "internal",
+	// and the "admin-api" extra-binding to space "public".
 	bindings := map[string]string{
-		"db": "internal",
+		"db":        "internal",
+		"admin-api": "public",
 	}
 	_, err := s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
