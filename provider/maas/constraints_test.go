@@ -348,6 +348,7 @@ func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpT
 }
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
+	server := suite.testMAASObject.TestServer
 	for i, test := range []struct {
 		volumes  []volumeInfo
 		expected string
@@ -372,13 +373,16 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 	}} {
 		c.Logf("test #%d: volumes=%v", i, test.volumes)
 		env := suite.makeEnviron()
-		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		// Make sure spaces are not supported.
+		server.SetVersionJSON(`{"capabilities": []}`)
+		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		_, err := env.acquireNode("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
-		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+		requestValues := server.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
-		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
+		if c.Check(found, jc.IsTrue) {
+			c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
+		}
 		suite.testMAASObject.TestServer.Clear()
 	}
 }
@@ -389,7 +393,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-
+	server := suite.testMAASObject.TestServer
 	for i, test := range []struct {
 		interfaces        []interfaceBinding
 		expectedPositives string
@@ -464,7 +468,9 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}} {
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
 		env := suite.makeEnviron()
-		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		// Make sure spaces are not supported.
+		server.SetVersionJSON(`{"capabilities": []}`)
+		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		_, err := env.acquireNode("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
@@ -474,9 +480,11 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
-		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
-		c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
+		if c.Check(found, jc.IsTrue) {
+
+			c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
+			c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
+		}
 		suite.testMAASObject.TestServer.Clear()
 	}
 }
