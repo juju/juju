@@ -37,11 +37,11 @@ type CreateModelCommand struct {
 func NewCreateModelCommandForTest(
 	api CreateModelAPI,
 	store jujuclient.ClientStore,
-	parser func(interface{}) (interface{}, error),
+	credentialStore jujuclient.CredentialStore,
 ) (cmd.Command, *CreateModelCommand) {
 	c := &createModelCommand{
-		api:          api,
-		configParser: parser,
+		api:             api,
+		credentialStore: credentialStore,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &CreateModelCommand{c}

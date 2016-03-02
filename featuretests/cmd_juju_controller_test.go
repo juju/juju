@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -39,10 +40,20 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
+func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) {
 	modelManager := modelmanager.NewClient(s.APIState)
 	_, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
-		"name":            envname,
+		"name":       modelname,
+		"controller": isServer,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, isServer bool) {
+	s.run(c, "add-user", "test")
+	modelManager := modelmanager.NewClient(s.APIState)
+	_, err := modelManager.CreateModel(names.NewLocalUserTag("test").Id(), nil, map[string]interface{}{
+		"name":            modelname,
 		"authorized-keys": "ssh-key",
 		"controller":      isServer,
 	})
@@ -59,8 +70,18 @@ kontroll*   admin  admin@local
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
 }
 
-func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
-	s.createEnv(c, "new-model", false)
+func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
+	s.createModelAdminUser(c, "new-model", false)
+	context := s.run(c, "list-models")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER        LAST CONNECTION\n"+
+		"admin*     admin@local  just now\n"+
+		"new-model  admin@local  never connected\n"+
+		"\n")
+}
+
+func (s *cmdControllerSuite) TestCreateModelNormalUser(c *gc.C) {
+	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME       OWNER        LAST CONNECTION\n"+

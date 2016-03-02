@@ -136,7 +136,7 @@ func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 
 	_, err := s.modelmanager.ConfigSkeleton(
 		params.ModelSkeletonConfigArgs{Provider: "ec2"})
-	c.Check(err, gc.ErrorMatches, `provider value "ec2" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot create new model with credentials for provider type "ec2" on controller with provider type "dummy"`)
 	_, err = s.modelmanager.ConfigSkeleton(
 		params.ModelSkeletonConfigArgs{Region: "the sun"})
 	c.Check(err, gc.ErrorMatches, `region value "the sun" not valid`)
@@ -304,6 +304,18 @@ func (s *modelManagerSuite) TestListModelsDenied(c *gc.C) {
 	other := names.NewUserTag("other@remote")
 	_, err := s.modelmanager.ListModels(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *modelManagerSuite) TestAdminModelManager(c *gc.C) {
+	user := s.AdminUserTag(c)
+	s.setAPIUser(c, user)
+	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsTrue)
+}
+
+func (s *modelManagerSuite) TestNonAdminModelManager(c *gc.C) {
+	user := names.NewUserTag("external@remote")
+	s.setAPIUser(c, user)
+	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsFalse)
 }
 
 type fakeProvider struct {

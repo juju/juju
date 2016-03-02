@@ -4,11 +4,13 @@
 package modelmanager_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -49,7 +51,11 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	return s.creator.NewModelConfig(s.baseConfig, attrs)
+	return s.creator.NewModelConfig(false, s.baseConfig, attrs)
+}
+
+func (s *ModelConfigCreatorSuite) newModelConfigAdmin(attrs map[string]interface{}) (*config.Config, error) {
+	return s.creator.NewModelConfig(true, s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
@@ -66,6 +72,41 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	expected["name"] = "new-model"
 	expected["additional"] = "value"
 	expected["uuid"] = newModelUUID
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
+
+	fake.Stub.CheckCallNames(c,
+		"RestrictedConfigAttributes",
+		"PrepareForCreateEnvironment",
+		"Validate",
+	)
+	validateCall := fake.Stub.Calls()[2]
+	c.Assert(validateCall.Args, gc.HasLen, 2)
+	c.Assert(validateCall.Args[0], gc.Equals, cfg)
+	c.Assert(validateCall.Args[1], gc.IsNil)
+}
+
+func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc.C) {
+	var err error
+	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
+		"username":        "user",
+		"password":        "password",
+		"authorized-keys": "ssh-key",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	newModelUUID := utils.MustNewUUID().String()
+	newAttrs := coretesting.Attrs{
+		"name":       "new-model",
+		"additional": "value",
+		"uuid":       newModelUUID,
+	}
+	cfg, err := s.newModelConfigAdmin(newAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedCfg.AllAttrs()
+	c.Assert(expected["username"], gc.Equals, "user")
+	c.Assert(expected["password"], gc.Equals, "password")
+	c.Assert(expected["authorized-keys"], gc.Equals, "ssh-key")
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 
 	fake.Stub.CheckCallNames(c,
@@ -257,6 +298,24 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	p.MethodCall(p, "PrepareForCreateEnvironment", cfg)
 	return cfg, p.NextErr()
+}
+
+func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: {
+			"username": {
+				Description: "The username",
+			},
+			"password": {
+				Description: "The password",
+				Hidden:      true,
+			},
+		},
+	}
+}
+
+func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return nil, errors.NotFoundf("credentials")
 }
 
 var fake fakeProvider

@@ -51,6 +51,7 @@ type ModelConfigCreator struct {
 //
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
+	isAdmin bool,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
@@ -87,7 +88,7 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
-	cfg, err := finalizeConfig(attrs)
+	cfg, err := finalizeConfig(isAdmin, base, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,6 +106,7 @@ func (c ModelConfigCreator) NewModelConfig(
 			}
 		}
 	}
+
 	return cfg, nil
 }
 
@@ -178,15 +180,22 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 // finalizeConfig creates the config object from attributes, calls
 // PrepareForCreateEnvironment, and then finally validates the config
 // before returning it.
-func finalizeConfig(attrs map[string]interface{}) (*config.Config, error) {
+func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
+	provider, err := environs.Provider(controllerCfg.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Controller admins creating models do not have to re-supply new secrets.
+	// These may be copied from the controller model if not supplied.
+	if isAdmin {
+		maybeCopyControllerSecrets(provider, controllerCfg.AllAttrs(), attrs)
+	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	cfg, err = provider.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -196,4 +205,21 @@ func finalizeConfig(attrs map[string]interface{}) (*config.Config, error) {
 		return nil, errors.Annotate(err, "provider validation failed")
 	}
 	return cfg, nil
+}
+
+// maybeCopyControllerSecrets asks the specified provider for all possible config
+// attributes representing credential values and copies those across from the
+// controller config into the new model's config attrs if not already present.
+func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controllerAttrs, attrs map[string]interface{}) {
+	allCredentialAttrNames := []string{"authorized-keys"}
+	for _, schema := range provider.CredentialSchemas() {
+		for attrName := range schema {
+			allCredentialAttrNames = append(allCredentialAttrNames, attrName)
+		}
+	}
+	for _, attrName := range allCredentialAttrNames {
+		if _, ok := attrs[attrName]; !ok {
+			attrs[attrName] = controllerAttrs[attrName]
+		}
+	}
 }
