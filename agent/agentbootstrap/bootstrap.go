@@ -129,7 +129,7 @@ func InitializeState(
 	for k, v := range hostedModelConfigAttrs {
 		attrs[k] = v
 	}
-	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(true, cfg, attrs)
+	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(modelmanager.IsAdmin, cfg, attrs)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}

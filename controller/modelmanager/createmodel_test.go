@@ -51,11 +51,11 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	return s.creator.NewModelConfig(false, s.baseConfig, attrs)
+	return s.creator.NewModelConfig(modelmanager.IsNotAdmin, s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) newModelConfigAdmin(attrs map[string]interface{}) (*config.Config, error) {
-	return s.creator.NewModelConfig(true, s.baseConfig, attrs)
+	return s.creator.NewModelConfig(modelmanager.IsAdmin, s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {

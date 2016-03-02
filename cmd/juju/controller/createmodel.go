@@ -45,17 +45,22 @@ This command will create another model within the current Juju
 Controller. The provider has to match, and the model config must
 specify all the required configuration values for the provider.
 
-If configuration values are passed by both extra command line arguments and
-the --config option, the command line args take priority.
+If configuration values are passed by both extra command line
+arguments and the --config option, the command line args take
+priority.
 
-If creating a model in a controller for which you are not the administrator, the
-cloud credentials and authorized ssh keys must be specified. The credentials are
-specified using the argument --credential <cloud>:<credential>. The authorized ssh keys
-are specified using a --config argument, either authorized=keys=value or via a config yaml file.
+If creating a model in a controller for which you are not the
+administrator, the cloud credentials and authorized ssh keys must
+be specified. The credentials are specified using the argument
+--credential <cloud>:<credential>. The authorized ssh keys are
+specified using a --config argument, either authorized=keys=value
+or via a config yaml file.
  
-Any credentials used must be for a cloud with the same provider type as the controller.
-Controller administrators do not have to specify credentials or ssh keys; by default, the
-credentials and keys used to bootstrap the controller are used if no others are specified.
+Any credentials used must be for a cloud with the same provider
+type as the controller. Controller administrators do not have to
+specify credentials or ssh keys; by default, the credentials and
+keys used to bootstrap the controller are used if no others are
+specified.
 
 Examples:
 

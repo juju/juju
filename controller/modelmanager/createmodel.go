@@ -28,6 +28,14 @@ var (
 	}
 )
 
+const (
+	// IsAdmin is used when generating a model config for an admin user.
+	IsAdmin = true
+
+	// IsNotAdmin is used when generating a model config for a non admin user.
+	IsNotAdmin = false
+)
+
 // ModelConfigCreator provides a method of creating a new model config.
 //
 // The zero value of ModelConfigCreator is usable with the limitations
@@ -211,6 +219,7 @@ func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string
 // attributes representing credential values and copies those across from the
 // controller config into the new model's config attrs if not already present.
 func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controllerAttrs, attrs map[string]interface{}) {
+	// TODO(wallyworld) - figure out how to deal with mixed credential auth types.
 	allCredentialAttrNames := []string{"authorized-keys"}
 	for _, schema := range provider.CredentialSchemas() {
 		for attrName := range schema {
