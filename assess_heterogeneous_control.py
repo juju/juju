@@ -44,6 +44,8 @@ def get_clients(initial, other, base_env, debug, agent_url):
     # down environments reliably.  (For example, 1.18.x cannot tear down
     # environments with alpha agent-versions.)
     released_client = EnvJujuClient.by_version(environment, debug=debug)
+    if released_client.env != initial_client.env:
+        released_client = initial_client
     return initial_client, other_client, released_client
 
 
@@ -55,11 +57,11 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     used later.  base_env is the name of the environment to base the
     environment on and environment_name is the new name for the environment.
     """
-    initial_client, other_client, released_client = get_clients(
+    initial_client, other_client, teardown_client = get_clients(
         initial, other, base_env, debug, agent_url)
     jes_enabled = initial_client.is_jes_enabled()
     bs_manager = BootstrapManager(
-        environment_name, initial_client, released_client,
+        environment_name, initial_client, teardown_client,
         bootstrap_host=None, machines=[], series=series, agent_url=agent_url,
         agent_stream=agent_stream, region=None, log_dir=log_dir,
         keep_env=False, permanent=jes_enabled, jes_enabled=jes_enabled)
