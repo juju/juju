@@ -42,8 +42,6 @@ func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 		[]string{"tools", "version"})
 }
 
-const toolsFile = "downloaded-tools.txt"
-
 // gzyesses holds the result of running:
 // yes | head -17000 | gzip
 var gzyesses = []byte{
@@ -159,12 +157,52 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	err = os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(filepath.Join(dir, toolsFile), []byte(" \t\n"), 0644)
+	err = ioutil.WriteFile(filepath.Join(dir, agenttools.ToolsFile), []byte(" \t\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "invalid tools metadata in tools directory .*")
+}
+
+func (t *ToolsSuite) TestReadGUIArchiveErrorNotFound(c *gc.C) {
+	gui, err := agenttools.ReadGUIArchive(t.dataDir)
+	c.Assert(err, gc.ErrorMatches, "cannot read GUI metadata in tools directory: .*")
+	c.Assert(gui, gc.IsNil)
+}
+
+func (t *ToolsSuite) TestReadGUIArchiveErrorNotValid(c *gc.C) {
+	dir := agenttools.SharedGUIDir(t.dataDir)
+	err := os.MkdirAll(dir, agenttools.DirPerm)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ioutil.WriteFile(filepath.Join(dir, agenttools.GUIArchiveFile), []byte(" \t\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gui, err := agenttools.ReadGUIArchive(t.dataDir)
+	c.Assert(err, gc.ErrorMatches, "invalid GUI metadata in tools directory .*")
+	c.Assert(gui, gc.IsNil)
+}
+
+func (t *ToolsSuite) TestReadGUIArchiveSuccess(c *gc.C) {
+	dir := agenttools.SharedGUIDir(t.dataDir)
+	err := os.MkdirAll(dir, agenttools.DirPerm)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectGUI := coretest.GUIArchive{
+		Version: version.MustParse("2.0.42"),
+		URL:     "file:///path/to/gui",
+		SHA256:  "hash",
+		Size:    47,
+	}
+	b, err := json.Marshal(expectGUI)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(dir, agenttools.GUIArchiveFile), b, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gui, err := agenttools.ReadGUIArchive(t.dataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*gui, gc.Equals, expectGUI)
 }
 
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
@@ -187,7 +225,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", toolsFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", agenttools.ToolsFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
@@ -209,7 +247,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "1.2.4-quantal-amd64", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"quantal", "amd64", toolsFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"quantal", "amd64", agenttools.ToolsFile})
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
@@ -218,8 +256,8 @@ func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
 }
 
 func (t *ToolsSuite) TestSharedGUIDir(c *gc.C) {
-	dir := agenttools.SharedGUIDir("/var/lib/juju", version.MustParse("2.0.42"))
-	c.Assert(dir, gc.Equals, "/var/lib/juju/gui/2.0.42")
+	dir := agenttools.SharedGUIDir("/var/lib/juju")
+	c.Assert(dir, gc.Equals, "/var/lib/juju/gui")
 }
 
 // assertToolsContents asserts that the directory for the tools
@@ -229,12 +267,12 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, fil
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
 	}
-	wantNames = append(wantNames, toolsFile)
+	wantNames = append(wantNames, agenttools.ToolsFile)
 	dir := agenttools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
 	expectedURLFileContents, err := json.Marshal(testTools)
 	c.Assert(err, jc.ErrorIsNil)
-	assertFileContents(c, dir, toolsFile, string(expectedURLFileContents), 0200)
+	assertFileContents(c, dir, agenttools.ToolsFile, string(expectedURLFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}

@@ -39,10 +39,10 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -376,6 +376,8 @@ func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
 func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
+
+	// Store the Juju tools.
 	current := version.Binary{
 		Number: version.Current,
 		Arch:   arch.HostArch(),
@@ -419,13 +421,13 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	}
 
 	for _, toolsVersion := range toolsVersions {
-		metadata := toolstorage.Metadata{
-			Version: toolsVersion,
+		metadata := binarystorage.Metadata{
+			Version: toolsVersion.String(),
 			Size:    tools.Size,
 			SHA256:  tools.SHA256,
 		}
 		logger.Debugf("Adding tools: %v", toolsVersion)
-		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+		if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
 			return errors.Trace(err)
 		}
 	}

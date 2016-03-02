@@ -643,7 +643,8 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
 	for _, m := range metadata {
-		c.Assert(expectedSeries.Contains(m.Version.Series), jc.IsTrue)
+		v := version.MustParseBinary(m.Version)
+		c.Assert(expectedSeries.Contains(v.Series), jc.IsTrue)
 	}
 }
 
@@ -681,8 +682,8 @@ const (
                     "items": {
                         "%v": {
                             "id": "%v",
-                            "root_store": "%v", 
-                            "virt": "%v", 
+                            "root_store": "%v",
+                            "virt": "%v",
                             "region": "%v",
                             "endpoint": "endpoint"
                         }

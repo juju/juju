@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -159,8 +159,8 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 			Version: version.MustParseBinary("123.456.1-win81-alpha"),
 		},
 	}
-	storageMetadata := []toolstorage.Metadata{{
-		Version: version.MustParseBinary("123.456.0-win81-alpha"),
+	storageMetadata := []binarystorage.Metadata{{
+		Version: "123.456.0-win81-alpha",
 		Size:    1024,
 		SHA256:  "feedface",
 	}}
@@ -184,10 +184,10 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.DeepEquals, coretools.List{
 		&coretools.Tools{
-			Version: storageMetadata[0].Version,
+			Version: version.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
 			SHA256:  storageMetadata[0].SHA256,
-			URL:     "tools:" + storageMetadata[0].Version.String(),
+			URL:     "tools:" + storageMetadata[0].Version,
 		},
 		envtoolsList[1],
 	})
@@ -205,9 +205,9 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 
 func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{
-		metadata: []toolstorage.Metadata{
-			{Version: version.MustParseBinary("1.22-beta1-trusty-amd64")},
-			{Version: version.MustParseBinary("1.22.0-trusty-amd64")},
+		metadata: []binarystorage.Metadata{
+			{Version: "1.22-beta1-trusty-amd64"},
+			{Version: "1.22.0-trusty-amd64"},
 		},
 	}
 
@@ -319,12 +319,12 @@ func (g mockAPIHostPortsGetter) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 type mockToolsStorage struct {
-	toolstorage.Storage
-	metadata []toolstorage.Metadata
+	binarystorage.Storage
+	metadata []binarystorage.Metadata
 	err      error
 }
 
-func (s *mockToolsStorage) ToolsStorage() (toolstorage.StorageCloser, error) {
+func (s *mockToolsStorage) ToolsStorage() (binarystorage.StorageCloser, error) {
 	return s, nil
 }
 
@@ -332,6 +332,6 @@ func (s *mockToolsStorage) Close() error {
 	return nil
 }
 
-func (s *mockToolsStorage) AllMetadata() ([]toolstorage.Metadata, error) {
+func (s *mockToolsStorage) AllMetadata() ([]binarystorage.Metadata, error) {
 	return s.metadata, s.err
 }

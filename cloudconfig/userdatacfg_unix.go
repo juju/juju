@@ -315,6 +315,10 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// TODO frankban: guiData will never be nil at this point when using
 		// simplestreams. This will be fixed before landing to master.
 		if guiData != nil {
+			guiJson, err := json.Marshal(w.icfg.GUI)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			guiDir := w.icfg.GUITools()
 			w.conf.AddScripts(
 				"gui="+shquote(guiDir),
@@ -322,17 +326,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			)
 			w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), []byte(guiData), 0644)
 			w.conf.AddScripts(
-				fmt.Sprintf("sha256sum $gui/gui.tar.bz2 > $gui/jujugui%s.sha256", w.icfg.GUI.Version),
-				fmt.Sprintf(
-					`grep '%s' $gui/jujugui%s.sha256 || (echo Juju GUI checksum mismatch; exit 1)`,
-					w.icfg.GUI.SHA256, w.icfg.GUI.Version),
-				"tar xjf $gui/gui.tar.bz2 -C $gui",
-				fmt.Sprintf("mv $gui/jujugui-%s/jujugui $gui/jujugui", w.icfg.GUI.Version),
-				fmt.Sprintf("rm -rf $gui/jujugui-%s", w.icfg.GUI.Version),
+				"sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+				fmt.Sprintf(`grep '%s' $gui/jujugui.sha256 || (echo Juju GUI checksum mismatch; exit 1)`, w.icfg.GUI.SHA256),
+				fmt.Sprintf("printf %%s %s > $gui/downloaded-gui.txt", shquote(string(guiJson))),
 			)
 			// Don't remove the GUI archive until after bootstrap agent runs,
 			// so it has a chance to add it to its catalogue.
-			defer w.conf.AddRunCmd(fmt.Sprintf("rm $gui/gui.tar.bz2 $gui/jujugui%s.sha256", w.icfg.GUI.Version))
+			defer w.conf.AddRunCmd("rm $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
 		}
 
 		var metadataDir string

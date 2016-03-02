@@ -6,6 +6,7 @@ package cloudconfig_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path"
@@ -659,14 +660,15 @@ func (*cloudinitSuite) TestCloudInitWithGUI(c *gc.C) {
 	err = goyaml.Unmarshal(data, &configKeyValues)
 	c.Assert(err, jc.ErrorIsNil)
 
+	guiJson, err := json.Marshal(cfg.GUI)
+	c.Assert(err, jc.ErrorIsNil)
+
 	scripts := getScripts(configKeyValues)
-	expectedScripts := regexp.QuoteMeta(`sha256sum $gui/gui.tar.bz2 > $gui/jujugui1.2.3.sha256
-grep '1234' $gui/jujugui1.2.3.sha256 || (echo Juju GUI checksum mismatch; exit 1)
-tar xjf $gui/gui.tar.bz2 -C $gui
-mv $gui/jujugui-1.2.3/jujugui $gui/jujugui
-rm -rf $gui/jujugui-1.2.3
-rm $gui/gui.tar.bz2 $gui/jujugui1.2.3.sha256
-`)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
+grep '1234' $gui/jujugui.sha256 || (echo Juju GUI checksum mismatch; exit 1)
+printf %%s '%s' > $gui/downloaded-gui.txt
+rm $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
+`, guiJson))
 	assertScriptMatch(c, scripts, expectedScripts, false)
 }
 
