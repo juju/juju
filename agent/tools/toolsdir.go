@@ -181,9 +181,8 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	return &tools, nil
 }
 
-// ReadGUIArchive checks that the GUI information exists in the dataDir
-// directory, and returns a GUIArchive instance. The GUI information is JSON
-// encoded in a text file, "downloaded-gui.txt".
+// ReadGUIArchive reads the GUI information from the dataDir directory.
+// The GUI information is JSON encoded in a text file, "downloaded-gui.txt".
 func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
 	dir := SharedGUIDir(dataDir)
 	toolsData, err := ioutil.ReadFile(path.Join(dir, guiArchiveFile))

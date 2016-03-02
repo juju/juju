@@ -82,8 +82,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // processGet handles a tools GET request.
 func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]byte, error) {
-	v := r.URL.Query().Get(":version")
-	version, err := version.ParseBinary(v)
+	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
 		return nil, errors.Annotate(err, "error parsing version")
 	}
@@ -92,12 +91,12 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 		return nil, errors.Annotate(err, "error getting tools storage")
 	}
 	defer storage.Close()
-	_, reader, err := storage.Open(v)
+	_, reader, err := storage.Open(version.String())
 	if errors.IsNotFound(err) {
-		// Tools could not be found in binarystorage,
+		// Tools could not be found in tools storage,
 		// so look for them in simplestreams, fetch
-		// them and cache in binarystorage.
-		logger.Infof("%v tools not found locally, fetching", v)
+		// them and cache in tools storage.
+		logger.Infof("%v tools not found locally, fetching", version)
 		reader, err = h.fetchAndCacheTools(version, storage, st)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching tools")
@@ -115,7 +114,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
-// in simplestreams and GETting it, caching the result in binarystorage before returning
+// in simplestreams and GETting it, caching the result in tools storage before returning
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarystorage.Storage, st *state.State) (io.ReadCloser, error) {
 	envcfg, err := st.ModelConfig()
@@ -156,7 +155,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarys
 		return nil, errors.Errorf("hash mismatch for %s", tools.URL)
 	}
 
-	// Cache tarball in binarystorage before returning.
+	// Cache tarball in tools storage before returning.
 	metadata := binarystorage.Metadata{
 		Version: v.String(),
 		Size:    tools.Size,
@@ -259,7 +258,7 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 
 	// TODO(wallyworld): check integrity of tools tarball.
 
-	// Store tools and metadata in binarystorage.
+	// Store tools and metadata in tools storage.
 	for _, v := range toolsVersions {
 		metadata := binarystorage.Metadata{
 			Version: v.String(),

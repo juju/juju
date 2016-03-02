@@ -239,7 +239,7 @@ func (s *binaryStorageSuite) TestAddRemovesBlobOnFailure(c *gc.C) {
 	err := storage.Add(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.ErrorMatches, "cannot store binary metadata: Run fails")
 
-	path := fmt.Sprintf("binary/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
+	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -260,7 +260,7 @@ func (s *binaryStorageSuite) TestAddRemovesBlobOnFailureRemoveFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot store binary metadata: Run fails")
 
 	// blob should still be there, because the removal failed.
-	path := fmt.Sprintf("binary/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
+	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
 	r, _, err := s.managedStorage.GetForBucket("my-uuid", path)
 	c.Assert(err, jc.ErrorIsNil)
 	r.Close()
@@ -282,7 +282,7 @@ func (s *binaryStorageSuite) TestAddConcurrent(c *gc.C) {
 	addMetadata := func() {
 		err := s.storage.Add(strings.NewReader("0"), metadata0)
 		c.Assert(err, jc.ErrorIsNil)
-		r, _, err := s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("binary/%s-0", current))
+		r, _, err := s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
 		c.Assert(err, jc.ErrorIsNil)
 		r.Close()
 	}
@@ -292,7 +292,7 @@ func (s *binaryStorageSuite) TestAddConcurrent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Blob added in before-hook should be removed.
-	_, _, err = s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("binary/%s-0", current))
+	_, _, err = s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertMetadataAndContent(c, metadata1, "1")
@@ -319,7 +319,7 @@ func (s *binaryStorageSuite) TestAddExcessiveContention(c *gc.C) {
 
 	// There should be no blobs apart from the last one added by the before-hook.
 	for _, metadata := range metadata[:3] {
-		path := fmt.Sprintf("binary/%s-%s", metadata.Version, metadata.SHA256)
+		path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
 		_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}

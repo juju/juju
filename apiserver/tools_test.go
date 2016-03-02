@@ -165,18 +165,19 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
 
-func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, string, string) {
+func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, string) {
 	localStorage := c.MkDir()
-	vers := "1.9.0-quantal-amd64"
-	versionStrings := []string{vers}
+	vers := version.MustParseBinary("1.9.0-quantal-amd64")
+	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
-	toolsFile := envtools.StorageName(version.MustParseBinary(vers), "released")
+	toolsFile := envtools.StorageName(vers, "released")
 	return expectedTools, vers, path.Join(localStorage, toolsFile)
 }
 
 func (s *toolsSuite) TestUpload(c *gc.C) {
 	// Make some fake tools.
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
 	// Now try uploading them.
 	resp := s.uploadRequest(
 		c, s.toolsURI(c, "?binaryVersion="+vers), "application/x-tar-gz", toolPath)
@@ -196,7 +197,8 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 
 func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	// Make some fake tools.
-	_, vers, toolPath := s.setupToolsForUpload(c)
+	_, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
 	// Block all changes.
 	s.BlockAllChanges(c, "TestUpload")
 	// Now try uploading them.
@@ -217,7 +219,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	// Backwards compatibility check, that we can upload tools to
 	// https://host:port/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	url := s.toolsURL(c, "binaryVersion="+vers)
+	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = "/tools"
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
@@ -228,7 +230,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	url := s.toolsURL(c, "binaryVersion="+vers)
+	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/model/%s/tools", s.State.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
@@ -240,7 +242,7 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	envState := s.setupOtherModel(c)
 	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	url := s.toolsURL(c, "binaryVersion="+vers)
+	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/model/%s/tools", envState.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
@@ -258,7 +260,8 @@ func (s *toolsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
 
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
 	// Now try uploading them. The tools will be cloned for
 	// each additional series specified.
 	params := "?binaryVersion=" + vers + "&series=quantal,precise"
@@ -276,7 +279,6 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	defer storage.Close()
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, jc.ErrorIsNil)
-	v := version.MustParseBinary(vers)
 	for _, series := range []string{"precise", "quantal"} {
 		v.Series = series
 		_, r, err := storage.Open(v.String())

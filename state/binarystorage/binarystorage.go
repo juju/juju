@@ -47,7 +47,7 @@ func New(
 // Add implements Storage.Add.
 func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the binary file to storage.
-	path := fmt.Sprintf("binary/%s-%s", metadata.Version, metadata.SHA256)
+	path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
 	if err := s.managedStorage.PutForBucket(s.modelUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store binary file")
 	}
