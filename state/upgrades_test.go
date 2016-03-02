@@ -519,11 +519,16 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 	services := s.setupAddDefaultEndpointBindingsToServices(c)
 	initialBindings := s.getServicesBindings(c, services)
 	wpAllDefaults := map[string]string{
+		// relation names
 		"url":             "",
 		"logging-dir":     "",
 		"monitoring-port": "",
 		"db":              "",
 		"cache":           "",
+		// extra-bindings
+		"db-client": "",
+		"admin-api": "",
+		"foo-bar":   "",
 	}
 	msAllDefaults := map[string]string{
 		"server": "",
@@ -537,6 +542,9 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 			"monitoring-port": "",
 			"db":              "db",
 			"cache":           "",
+			"db-client":       "",
+			"admin-api":       "",
+			"foo-bar":         "",
 		},
 
 		"ms-no-bindings":      msAllDefaults,
