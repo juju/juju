@@ -46,7 +46,6 @@ func (s *uniterResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	if remoteState.Life == params.Dead || localState.Stopped {
 		return nil, resolver.ErrTerminate
 	}
@@ -147,8 +146,7 @@ func (s *uniterResolver) nextOpConflicted(
 		}
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
 	}
-	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+	if remoteState.ForceCharmUpgrade && charmModified(localState, remoteState) {
 		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
 	return nil, resolver.ErrWaiting
@@ -165,8 +163,7 @@ func (s *uniterResolver) nextOpHookError(
 		return nil, errors.Trace(err)
 	}
 
-	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+	if remoteState.ForceCharmUpgrade && charmModified(localState, remoteState) {
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
@@ -212,6 +209,19 @@ func (s *uniterResolver) nextOpHookError(
 	}
 }
 
+func charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
+	if *local.CharmURL != *remote.CharmURL {
+		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		return true
+	}
+
+	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
+		logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		return true
+	}
+	return false
+}
+
 func (s *uniterResolver) nextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
@@ -252,8 +262,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
-	if *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+	if charmModified(localState, remoteState) {
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 

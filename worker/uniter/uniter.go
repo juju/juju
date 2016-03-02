@@ -163,6 +163,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is any remote state, and before the remote state watcher
 	// is started.
 	var charmURL *corecharm.URL
+	var charmModifiedVersion int
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		logger.Infof("resuming charm install")
@@ -180,6 +181,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		charmURL = curl
+		svc, err := u.unit.Service()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmModifiedVersion, err = svc.CharmModifiedVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var (
@@ -288,7 +297,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case <-watcher.RemoteStateChanged():
 		}
 
-		localState := resolver.LocalState{CharmURL: charmURL}
+		localState := resolver.LocalState{
+			CharmURL:             charmURL,
+			CharmModifiedVersion: charmModifiedVersion,
+		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
 				Resolver:      uniterResolver,

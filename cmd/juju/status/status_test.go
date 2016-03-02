@@ -2658,7 +2658,8 @@ func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Service(ssc.name)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.SetCharm(ch, false, false)
+	cfg := state.SetCharmConfig{Charm: ch}
+	err = s.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -77,6 +78,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 		return leaseClock
 	}
 	s.AddSuiteCleanup(func(*gc.C) { state.GetClock = oldGetClock })
+	all.RegisterForServer()
 }
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
@@ -514,7 +516,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyCharm{revision: 1},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgradeForce(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"steady state forced upgrade (identical behaviour)",
 			quickStart{},
 			createCharm{revision: 1},
@@ -531,7 +539,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyCharm{revision: 1},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgradeResolve(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"steady state upgrade hook fail and resolve",
 			quickStart{},
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
@@ -561,7 +575,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			},
 			waitHooks{"config-changed"},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"steady state upgrade hook fail and retry",
 			quickStart{},
 			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
@@ -600,7 +620,13 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyRunning{},
-		), ut(
+		),
+	})
+}
+
+func (s *UniterSuite) TestUniterSteadyStateUpgradeRelations(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			// This test does an add-relation as quickly as possible
 			// after an upgrade-charm, in the hope that the scheduler will
 			// deliver the events in the wrong order. The observed
@@ -621,6 +647,45 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			addRelationUnit{},
 			waitHooks{"upgrade-charm", "config-changed", "db2-relation-joined mysql/0 db2:0"},
 			verifyCharm{revision: 2},
+		),
+	})
+}
+
+func (s *UniterSuite) TestUpdateResourceCausesUpgrade(c *gc.C) {
+	// appendStorageMetadata customises the wordpress charm's metadata,
+	// adding a "wp-content" filesystem store. We do it here rather
+	// than in the charm itself to avoid modifying all of the other
+	// scenarios.
+	appendResource := func(c *gc.C, ctx *context, path string) {
+		f, err := os.OpenFile(filepath.Join(path, "metadata.yaml"), os.O_RDWR|os.O_APPEND, 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		defer func() {
+			err := f.Close()
+			c.Assert(err, jc.ErrorIsNil)
+		}()
+		_, err = io.WriteString(f, `
+resources:
+  data:
+    Type: file
+    filename: filename.tgz
+    comment: One line that is useful when operators need to push it.`)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update resource causes upgrade",
+
+			// These steps are just copied from quickstart with a customized
+			// createCharm.
+			createCharm{customize: appendResource},
+			serveCharm{},
+			createUniter{},
+			waitUnitAgent{status: status.StatusIdle},
+			waitHooks(startupHooks(false)),
+			verifyCharm{},
+
+			pushResource{},
+			waitHooks{"upgrade-charm", "config-changed"},
 		),
 	})
 }

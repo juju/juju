@@ -85,6 +85,29 @@ func (s *Service) Refresh() error {
 	return nil
 }
 
+// CharmModifiedVersion increments every time the charm, or any part of it, is
+// changed in some way.
+func (s *Service) CharmModifiedVersion() (int, error) {
+	var results params.IntResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag.String()}},
+	}
+	err := s.st.facade.FacadeCall("CharmModifiedVersion", args, &results)
+	if err != nil {
+		return -1, err
+	}
+
+	if len(results.Results) != 1 {
+		return -1, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return -1, result.Error
+	}
+
+	return result.Result, nil
+}
+
 // CharmURL returns the service's charm URL, and whether units should
 // upgrade to the charm with that URL even if they are in an error
 // state (force flag).
