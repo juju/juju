@@ -1136,6 +1136,7 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 	}
 
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", defaultTools)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", defaultTools)
 }
 
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
