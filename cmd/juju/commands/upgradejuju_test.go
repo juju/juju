@@ -371,7 +371,7 @@ func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	_, r, err := storage.Tools(vers)
+	_, r, err := storage.Open(vers.String())
 	if !c.Check(err, jc.ErrorIsNil) {
 		return
 	}
