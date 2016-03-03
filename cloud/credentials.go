@@ -305,5 +305,5 @@ func RemoveSecrets(
 			delete(redactedAttrs, attrName)
 		}
 	}
-	return &Credential{credential.authType, redactedAttrs}, nil
+	return &Credential{authType: credential.authType, attributes: redactedAttrs}, nil
 }
