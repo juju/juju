@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -31,7 +30,7 @@ type apiEnvironmentSuite struct {
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.client, err = juju.NewAPIClientFromName("", nil)
+	s.client = s.APIState.Client()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.client, gc.NotNil)
 }

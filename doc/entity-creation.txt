@@ -29,8 +29,7 @@ The `juju add-unit` command applies only to principal services. It always
 creates units, and may create machines. Different providers assign units to
 machines in different ways, and so machine creation can vary: for example, the
 ec2 provider creates a new machine for each unit that cannot be placed on an
-existing machine without assigned units; but the local provider (will) only ever
-deal with a single machine, and will deploy every unit onto the host system.
+existing machine without assigned units.
 
   * New units can only be added to Alive services.
 

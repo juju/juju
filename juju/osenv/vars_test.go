@@ -20,26 +20,26 @@ type varsSuite struct {
 
 var _ = gc.Suite(&varsSuite{})
 
-func (s *varsSuite) TestJujuHomeEnvVar(c *gc.C) {
+func (s *varsSuite) TestJujuXDGDataHomeEnvVar(c *gc.C) {
 	path := "/foo/bar/baz"
-	s.PatchEnvironment(osenv.JujuHomeEnvKey, path)
-	c.Assert(osenv.JujuHomeDir(), gc.Equals, path)
+	s.PatchEnvironment(osenv.JujuXDGDataHomeEnvKey, path)
+	c.Assert(osenv.JujuXDGDataHomeDir(), gc.Equals, path)
 }
 
-func (s *varsSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuHomeEnvKey, "")
+func (s *varsSuite) TestBlankJujuXDGDataHomeEnvVar(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuXDGDataHomeEnvKey, "")
 
 	if runtime.GOOS == "windows" {
 		s.PatchEnvironment("APPDATA", `P:\foobar`)
 	} else {
 		s.PatchEnvironment("HOME", "/foobar")
 	}
-	c.Assert(osenv.JujuHomeDir(), gc.Not(gc.Equals), "")
+	c.Assert(osenv.JujuXDGDataHomeDir(), gc.Not(gc.Equals), "")
 
 	if runtime.GOOS == "windows" {
-		c.Assert(osenv.JujuHomeDir(), gc.Equals, osenv.JujuHomeWin())
+		c.Assert(osenv.JujuXDGDataHomeDir(), gc.Equals, osenv.JujuXDGDataHomeWin())
 	} else {
-		c.Assert(osenv.JujuHomeDir(), gc.Equals, osenv.JujuHomeLinux())
+		c.Assert(osenv.JujuXDGDataHomeDir(), gc.Equals, osenv.JujuXDGDataHomeLinux())
 	}
 }
 

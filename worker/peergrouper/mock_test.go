@@ -31,6 +31,7 @@ type fakeState struct {
 	errors      errorPatterns
 	machines    map[string]*fakeMachine
 	controllers voyeur.Value // of *state.ControllerInfo
+	statuses    voyeur.Value // of statuses collection
 	session     *fakeMongoSession
 	check       func(st *fakeState) error
 }
@@ -225,6 +226,10 @@ func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
 	return WatchValue(&st.controllers)
 }
 
+func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
+	return WatchStrings(&st.statuses)
+}
+
 type fakeMachine struct {
 	mu      sync.Mutex
 	errors  *errorPatterns
@@ -301,6 +306,12 @@ func (m *fakeMachine) APIHostPorts() []network.HostPort {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc.apiHostPorts
+}
+
+func (m *fakeMachine) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{
+		Status: state.StatusStarted,
+	}, nil
 }
 
 // mutate atomically changes the machineDoc of
@@ -511,5 +522,58 @@ func (n *notifier) Wait() error {
 }
 
 func (n *notifier) Stop() error {
+	return worker.Stop(n)
+}
+
+type stringsNotifier struct {
+	tomb    tomb.Tomb
+	w       *voyeur.Watcher
+	changes chan []string
+}
+
+// WatchStrings returns a StringsWatcher that triggers
+// when the given value changes. Its Wait and Err methods
+// never return a non-nil error.
+func WatchStrings(val *voyeur.Value) state.StringsWatcher {
+	n := &stringsNotifier{
+		w:       val.Watch(),
+		changes: make(chan []string),
+	}
+	go n.loop()
+	return n
+}
+
+func (n *stringsNotifier) loop() {
+	defer n.tomb.Done()
+	for n.w.Next() {
+		select {
+		case n.changes <- []string{}:
+		case <-n.tomb.Dying():
+		}
+	}
+}
+
+// Changes returns a channel that sends a value when the value changes.
+// The value itself can be retrieved by calling the value's Get method.
+func (n *stringsNotifier) Changes() <-chan []string {
+	return n.changes
+}
+
+// Kill stops the notifier but does not wait for it to finish.
+func (n *stringsNotifier) Kill() {
+	n.tomb.Kill(nil)
+	n.w.Close()
+}
+
+func (n *stringsNotifier) Err() error {
+	return n.tomb.Err()
+}
+
+// Wait waits for the notifier to finish. It always returns nil.
+func (n *stringsNotifier) Wait() error {
+	return n.tomb.Wait()
+}
+
+func (n *stringsNotifier) Stop() error {
 	return worker.Stop(n)
 }

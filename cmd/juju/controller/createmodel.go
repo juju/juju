@@ -4,8 +4,6 @@
 package controller
 
 import (
-	"os"
-	"os/user"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -20,7 +18,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	localProvider "github.com/juju/juju/provider/local"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewCreateModelCommand returns a command to create an model.
@@ -113,7 +111,7 @@ func (c *createModelCommand) getAPI() (CreateEnvironmentAPI, error) {
 func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 	client, err := c.getAPI()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -146,7 +144,9 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info = store.CreateInfo(c.Name)
+		info = store.CreateInfo(
+			configstore.EnvironInfoName(c.ControllerName(), c.Name),
+		)
 		info.SetAPICredentials(creds)
 		endpoint.ModelUUID = ""
 		if err := info.Write(); err != nil {
@@ -186,14 +186,23 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		return errors.Trace(err)
 	}
 	if creatingForSelf {
-		// update the cached details with the environment uuid
+		// update the cached details with the model uuid
 		endpoint.ModelUUID = env.UUID
 		info.SetAPIEndpoint(endpoint)
 		if err := info.Write(); err != nil {
 			return errors.Trace(err)
 		}
+		store := c.ClientStore()
+		controllerName := c.ControllerName()
+		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
+			env.UUID,
+		}); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
+			return errors.Trace(err)
+		}
 		ctx.Infof("created model %q", c.Name)
-		return modelcmd.SetCurrentModel(ctx, c.Name)
 	} else {
 		ctx.Infof("created model %q for %q", c.Name, c.Owner)
 	}
@@ -242,9 +251,6 @@ func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton pa
 	}
 	configValues["name"] = c.Name
 
-	if err := setConfigSpecialCaseDefaults(c.Name, configValues); err != nil {
-		return nil, errors.Trace(err)
-	}
 	// TODO: allow version to be specified on the command line and add here.
 	cfg, err := config.New(config.UseDefaults, configValues)
 	if err != nil {
@@ -252,27 +258,4 @@ func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton pa
 	}
 
 	return cfg.AllAttrs(), nil
-}
-
-var userCurrent = user.Current
-
-func setConfigSpecialCaseDefaults(envName string, cfg map[string]interface{}) error {
-	// As a special case, the local provider's namespace value
-	// comes from the user's name and the environment name.
-	switch cfg["type"] {
-	case "local":
-		if _, ok := cfg[localProvider.NamespaceKey]; ok {
-			return nil
-		}
-		username := os.Getenv("USER")
-		if username == "" {
-			u, err := userCurrent()
-			if err != nil {
-				return errors.Annotatef(err, "failed to determine username for namespace")
-			}
-			username = u.Username
-		}
-		cfg[localProvider.NamespaceKey] = username + "-" + envName
-	}
-	return nil
 }

@@ -145,39 +145,6 @@ func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, mac
 	return int(count)
 }
 
-func (s *machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Millisecond)
-	s.PatchValue(&LongPoll, 1*time.Millisecond)
-	count := int32(0)
-	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
-		c.Check(id, gc.Equals, instance.Id("i1234"))
-		atomic.AddInt32(&count, 1)
-		err := &params.Error{
-			Code:    params.CodeNotImplemented,
-			Message: "instance address not implemented",
-		}
-		return instanceInfo{}, err
-	}
-	context := &testMachineContext{
-		getInstanceInfo: getInstanceInfo,
-		dyingc:          make(chan struct{}),
-	}
-	m := &testMachine{
-		tag:        names.NewMachineTag("99"),
-		instanceId: "i1234",
-		refresh:    func() error { return nil },
-		life:       params.Alive,
-	}
-	died := make(chan machine)
-
-	go runMachine(context, m, nil, died)
-
-	time.Sleep(coretesting.ShortWait)
-	killMachineLoop(c, m, context.dyingc, died)
-	c.Assert(context.killErr, gc.Equals, nil)
-	c.Assert(count, gc.Equals, int32(1))
-}
-
 func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	context := &testMachineContext{
 		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "running", nil),

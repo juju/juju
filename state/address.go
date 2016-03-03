@@ -51,7 +51,7 @@ func (st *State) controllerAddresses() ([]string, error) {
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		naddrs := networkAddresses(addrs.Addresses)
-		addr, ok := network.SelectInternalAddress(naddrs, false)
+		addr, ok := network.SelectControllerAddress(naddrs, false)
 		if ok {
 			apiAddrs = append(apiAddrs, addr.Value)
 		}
@@ -109,8 +109,21 @@ type apiHostPortsDoc struct {
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
+	// Filter any addresses not on the default space, if possible.
+	// All API servers need to be accessible there.
+	var hpsToSet [][]network.HostPort
+	for _, hps := range netHostsPorts {
+		defaultSpaceHP, ok := network.SelectHostPortBySpace(hps, network.DefaultSpace)
+		if !ok {
+			logger.Warningf("cannot determine API addresses in space %q to use as API endpoints; using all addresses", network.DefaultSpace)
+			hpsToSet = netHostsPorts
+			break
+		}
+		hpsToSet = append(hpsToSet, []network.HostPort{defaultSpaceHP})
+	}
+
 	doc := apiHostPortsDoc{
-		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
+		APIHostPorts: fromNetworkHostsPorts(hpsToSet),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		existing, err := st.APIHostPorts()
@@ -134,7 +147,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 	if err := st.run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
+	logger.Debugf("setting API hostPorts: %v", hpsToSet)
 	return nil
 }
 
@@ -184,6 +197,7 @@ type address struct {
 	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
 	Origin      string `bson:"origin,omitempty"`
+	SpaceName   string `bson:"spacename,omitempty"`
 }
 
 // Origin specifies where an address comes from, whether it was reported by a
@@ -208,6 +222,7 @@ func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 		NetworkName: netAddr.NetworkName,
 		Scope:       string(netAddr.Scope),
 		Origin:      string(origin),
+		SpaceName:   string(netAddr.SpaceName),
 	}
 }
 
@@ -219,6 +234,7 @@ func (addr *address) networkAddress() network.Address {
 		Type:        network.AddressType(addr.AddressType),
 		NetworkName: addr.NetworkName,
 		Scope:       network.Scope(addr.Scope),
+		SpaceName:   network.SpaceName(addr.SpaceName),
 	}
 }
 
@@ -254,6 +270,7 @@ type hostPort struct {
 	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
 	Port        int    `bson:"port"`
+	SpaceName   string `bson:"spacename,omitempty"`
 }
 
 // fromNetworkHostPort is a convenience helper to create a state type
@@ -265,6 +282,7 @@ func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 		NetworkName: netHostPort.NetworkName,
 		Scope:       string(netHostPort.Scope),
 		Port:        netHostPort.Port,
+		SpaceName:   string(netHostPort.SpaceName),
 	}
 }
 
@@ -277,6 +295,7 @@ func (hp *hostPort) networkHostPort() network.HostPort {
 			Type:        network.AddressType(hp.AddressType),
 			NetworkName: hp.NetworkName,
 			Scope:       network.Scope(hp.Scope),
+			SpaceName:   network.SpaceName(hp.SpaceName),
 		},
 		Port: hp.Port,
 	}

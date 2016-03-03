@@ -59,7 +59,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"dummy-admin@local/dummymodel",
+		"admin@local/dummymodel",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -161,7 +161,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		UUID:               modelTag.Id(),
 		HostedMachineCount: 0,
 		ServiceCount:       0,
-		Owner:              "dummy-admin@local",
+		Owner:              "admin@local",
 		Life:               params.Alive,
 	}})
 }

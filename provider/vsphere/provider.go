@@ -9,11 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance = environProvider{}
 var _ environs.EnvironProvider = providerInstance
@@ -27,7 +30,24 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+
+	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		var err error
+		cfg, err = cfg.Apply(map[string]interface{}{
+			cfgUser:     credentialAttrs["user"],
+			cfgPassword: credentialAttrs["password"],
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
 	cfg, err := p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -86,11 +106,4 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 		return nil, errors.Trace(err)
 	}
 	return ecfg.secret(), nil
-}
-
-// BoilerplateConfig implements environs.EnvironProvider.
-func (environProvider) BoilerplateConfig() string {
-	// boilerplateConfig is kept in config.go, in the hope that people editing
-	// config will keep it up to date.
-	return boilerplateConfig
 }

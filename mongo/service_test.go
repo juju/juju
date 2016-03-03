@@ -25,9 +25,10 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	dbDir := dataDir + "/db"
 	mongodPath := "/mgo/bin/mongod"
+	mongodVersion := mongo.Mongo24
 	port := 12345
 	oplogSizeMB := 10
-	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false)
+	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false, mongodVersion, true)
 
 	expected := common.Conf{
 		Desc: "juju state database",
@@ -37,32 +38,33 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 		},
 		Timeout: 300,
 		ExecStart: "/mgo/bin/mongod" +
-			" --auth" +
 			" --dbpath '/var/lib/juju/db'" +
 			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
 			" --sslPEMKeyPassword ignored" +
 			" --port 12345" +
-			" --noprealloc" +
 			" --syslog" +
-			" --smallfiles" +
 			" --journal" +
-			" --keyFile '/var/lib/juju/shared-secret'" +
 			" --replSet juju" +
 			" --ipv6" +
-			" --oplogSize 10",
+			" --quiet" +
+			" --oplogSize 10" +
+			" --auth" +
+			" --keyFile '/var/lib/juju/shared-secret'" +
+			" --noprealloc" +
+			" --smallfiles",
 	}
+
 	c.Check(conf, jc.DeepEquals, expected)
 	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
 }
 
 func (s *serviceSuite) TestIsServiceInstalledWhenInstalled(c *gc.C) {
-	namespace := "some-namespace"
-	svcName := mongo.ServiceName(namespace)
+	svcName := mongo.ServiceName
 	svcData := svctesting.NewFakeServiceData(svcName)
 	mongo.PatchService(s.PatchValue, svcData)
 
-	isInstalled, err := mongo.IsServiceInstalled(namespace)
+	isInstalled, err := mongo.IsServiceInstalled()
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isInstalled, jc.IsTrue)
@@ -71,7 +73,7 @@ func (s *serviceSuite) TestIsServiceInstalledWhenInstalled(c *gc.C) {
 func (s *serviceSuite) TestIsServiceInstalledWhenNotInstalled(c *gc.C) {
 	mongo.PatchService(s.PatchValue, svctesting.NewFakeServiceData())
 
-	isInstalled, err := mongo.IsServiceInstalled("some-namespace")
+	isInstalled, err := mongo.IsServiceInstalled()
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isInstalled, jc.IsFalse)

@@ -13,7 +13,7 @@ import (
 )
 
 type MachineShowCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&MachineShowCommandSuite{})
@@ -23,7 +23,7 @@ func newMachineShowCommand() cmd.Command {
 }
 
 func (s *MachineShowCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
 func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {

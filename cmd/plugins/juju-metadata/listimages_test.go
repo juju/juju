@@ -20,7 +20,7 @@ import (
 )
 
 type BaseCloudImageMetadataSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -28,7 +28,7 @@ func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {

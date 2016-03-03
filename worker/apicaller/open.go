@@ -17,26 +17,13 @@ import (
 )
 
 var (
-	apiOpen = openAPIForAgent
+	apiOpen = api.Open
 
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
 )
-
-// openAPIForAgent exists to handle the edge case that exists
-// when an environment is jumping several versions and doesn't
-// yet have the model UUID cached in the agent config.
-// This happens only the first time an agent tries to connect
-// after an upgrade.  If there is no environment UUID set, then
-// use login version 1.
-func openAPIForAgent(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	if info.ModelTag.Id() == "" {
-		return api.OpenWithVersion(info, opts, 1)
-	}
-	return api.Open(info, opts)
-}
 
 // OpenAPIState opens the API using the given information. The agent's
 // password is changed if the fallback password was used to connect to

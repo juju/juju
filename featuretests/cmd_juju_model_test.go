@@ -97,9 +97,9 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 	context = s.run(c, "list-shares")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME               DATE CREATED  LAST CONNECTION\n"+
-		"dummy-admin@local  just now      just now\n"+
-		"bar@ubuntuone      just now      never connected\n"+
+		"NAME           DATE CREATED  LAST CONNECTION\n"+
+		"admin@local    just now      just now\n"+
+		"bar@ubuntuone  just now      never connected\n"+
 		"\n")
 
 }

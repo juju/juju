@@ -19,7 +19,7 @@ import (
 )
 
 type ValidateToolsMetadataSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	metadataDir string
 }
 
@@ -66,8 +66,8 @@ func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	err := runValidateToolsMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `local provider does not support tools metadata validation`)
+	err := runValidateToolsMetadata(c, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
+	c.Check(err, gc.ErrorMatches, `maas provider does not support tools metadata validation`)
 }
 
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
@@ -89,8 +89,8 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 }
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	cacheTestEnvConfig(c)
 	s.metadataDir = c.MkDir()
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")

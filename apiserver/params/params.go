@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -191,21 +194,23 @@ type ServicesDeploy struct {
 	Services []ServiceDeploy
 }
 
-// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+// ServiceDeploy holds the parameters for making the service Deploy call.
 type ServiceDeploy struct {
-	ServiceName string
-	Series      string
-	CharmUrl    string
-	NumUnits    int
-	Config      map[string]string
-	ConfigYAML  string // Takes precedence over config if both are present.
-	Constraints constraints.Value
-	Placement   []*instance.Placement
-	Networks    []string
-	Storage     map[string]storage.Constraints
+	ServiceName      string
+	Series           string
+	CharmUrl         string
+	NumUnits         int
+	Config           map[string]string
+	ConfigYAML       string // Takes precedence over config if both are present.
+	Constraints      constraints.Value
+	Placement        []*instance.Placement
+	Networks         []string
+	Storage          map[string]storage.Constraints
+	EndpointBindings map[string]string
+	Resources        map[string]string
 }
 
-// ServiceUpdate holds the parameters for making the ServiceUpdate call.
+// ServiceUpdate holds the parameters for making the service Update call.
 type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
@@ -225,19 +230,19 @@ type ServiceSetCharm struct {
 	ForceSeries bool   `json:"forceseries"`
 }
 
-// ServiceExpose holds the parameters for making the ServiceExpose call.
+// ServiceExpose holds the parameters for making the service Expose call.
 type ServiceExpose struct {
 	ServiceName string
 }
 
-// ServiceSet holds the parameters for a ServiceSet
+// ServiceSet holds the parameters for a service Set
 // command. Options contains the configuration data.
 type ServiceSet struct {
 	ServiceName string
 	Options     map[string]string
 }
 
-// ServiceUnset holds the parameters for a ServiceUnset
+// ServiceUnset holds the parameters for a service Unset
 // command. Options contains the option attribute names
 // to unset.
 type ServiceUnset struct {
@@ -245,13 +250,13 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet or
-// ServiceGetCharmURL calls.
+// ServiceGet holds parameters for making the Get or
+// GetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
 
-// ServiceGetResults holds results of the ServiceGet call.
+// ServiceGetResults holds results of the service Get call.
 type ServiceGetResults struct {
 	Service     string
 	Charm       string
@@ -259,17 +264,17 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
-// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+// ServiceCharmRelations holds parameters for making the service CharmRelations call.
 type ServiceCharmRelations struct {
 	ServiceName string
 }
 
-// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+// ServiceCharmRelationsResults holds the results of the service CharmRelations call.
 type ServiceCharmRelationsResults struct {
 	CharmRelations []string
 }
 
-// ServiceUnexpose holds parameters for the ServiceUnexpose call.
+// ServiceUnexpose holds parameters for the service Unexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
 }
@@ -319,7 +324,7 @@ type ResolvedResults struct {
 }
 
 // AddServiceUnitsResults holds the names of the units added by the
-// AddServiceUnits call.
+// AddUnits call.
 type AddServiceUnitsResults struct {
 	Units []string
 }
@@ -336,7 +341,7 @@ type DestroyServiceUnits struct {
 	UnitNames []string
 }
 
-// ServiceDestroy holds the parameters for making the ServiceDestroy call.
+// ServiceDestroy holds the parameters for making the service Destroy call.
 type ServiceDestroy struct {
 	ServiceName string
 }
@@ -767,6 +772,34 @@ type BundleChangesChange struct {
 	// is represented by the corresponding change id, and must be applied
 	// before this change is applied.
 	Requires []string `json:"requires"`
+}
+
+// UpgradeMongoParams holds the arguments required to
+// enter upgrade mongo mode.
+type UpgradeMongoParams struct {
+	Target mongo.Version
+}
+
+// HAMember holds information that identifies one member
+// of HA.
+type HAMember struct {
+	Tag           string
+	PublicAddress network.Address
+	Series        string
+}
+
+// MongoUpgradeResults holds the results of an attempt
+// to enter upgrade mongo mode.
+type MongoUpgradeResults struct {
+	RsMembers []replicaset.Member
+	Master    HAMember
+	Members   []HAMember
+}
+
+// ResumeReplicationParams holds the members of a HA that
+// must be resumed.
+type ResumeReplicationParams struct {
+	Members []replicaset.Member
 }
 
 // ModelInfo holds information about the Juju model.

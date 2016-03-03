@@ -50,14 +50,15 @@ import (
 )
 
 var (
-	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
-	agentInitializeState     = agent.InitializeState
-	sshGenerateKey           = ssh.GenerateKey
-	newStateStorage          = storage.NewStorage
-	minSocketTimeout         = 1 * time.Minute
-	logger                   = loggo.GetLogger("juju.cmd.jujud")
+	initiateMongoServer  = peergrouper.InitiateMongoServer
+	agentInitializeState = agent.InitializeState
+	sshGenerateKey       = ssh.GenerateKey
+	newStateStorage      = storage.NewStorage
+	minSocketTimeout     = 1 * time.Minute
+	logger               = loggo.GetLogger("juju.cmd.jujud")
 )
 
+// BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
@@ -85,6 +86,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
@@ -180,6 +182,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// When machine addresses are reported from state, they have
+	// duplicates removed.  We should do the same here so that
+	// there is not unnecessary churn in the mongo replicaset.
+	// TODO (cherylj) Add explicit unit tests for this - tracked
+	// by bug #1544158.
+	addrs = network.MergedAddresses([]network.Address{}, addrs)
+
 	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.
@@ -208,6 +217,21 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
+
+	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
+		// We cannot set wired tiger as the storage because mongo
+		// shipped with ubuntu lacks js.
+		if mongo.BinariesAvailable(mongo.Mongo30wt) {
+			config.SetMongoVersion(mongo.Mongo30wt)
+		} else {
+			config.SetMongoVersion(mongo.Mongo24)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Annotate(err, "cannot set mongo version")
+	}
+
 	agentConfig = c.CurrentConfig()
 
 	// Create system-identity file
@@ -335,10 +359,10 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	return initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	})
+	}, true)
 }
 
 // populateDefaultStoragePools creates the default storage pools.
@@ -443,12 +467,14 @@ var seriesFromVersion = series.VersionSeries
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	datasource := simplestreams.NewURLSignedDataSource("custom", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 	return storeImageMetadataFromFiles(st, env, datasource)
 }
 
 // storeImageMetadataFromFiles puts image metadata found in sources into state.
-func storeImageMetadataFromFiles(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
+// Declared as var to facilitate tests.
+var storeImageMetadataFromFiles = func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); ok {

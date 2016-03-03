@@ -5,11 +5,17 @@ package service
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/romulus/api/budget"
+	wireformat "github.com/juju/romulus/wireformat/budget"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/api/charms"
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -57,13 +63,15 @@ func (c *removeServiceCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-type ServiceRemoveAPI interface {
+type ServiceAPI interface {
 	Close() error
-	ServiceDestroy(serviceName string) error
-	DestroyServiceUnits(unitNames ...string) error
+	Destroy(serviceName string) error
+	DestroyUnits(unitNames ...string) error
+	GetCharmURL(serviceName string) (*charm.URL, error)
+	ModelUUID() string
 }
 
-func (c *removeServiceCommand) getAPI() (ServiceRemoveAPI, error) {
+func (c *removeServiceCommand) getAPI() (ServiceAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -71,11 +79,75 @@ func (c *removeServiceCommand) getAPI() (ServiceRemoveAPI, error) {
 	return apiservice.NewClient(root), nil
 }
 
-func (c *removeServiceCommand) Run(_ *cmd.Context) error {
+func (c *removeServiceCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.ServiceDestroy(c.ServiceName), block.BlockRemove)
+	err = block.ProcessBlockedError(client.Destroy(c.ServiceName), block.BlockRemove)
+	if err != nil {
+		return err
+	}
+	return c.removeAllocation(ctx)
+}
+
+func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
+	client, err := c.getAPI()
+	if err != nil {
+		return err
+	}
+	charmURL, err := client.GetCharmURL(c.ServiceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if charmURL.Schema == "local" {
+		return nil
+	}
+
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charmsClient := charms.NewClient(root)
+	metered, err := charmsClient.IsMetered(charmURL.String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !metered {
+		return nil
+	}
+
+	modelUUID := client.ModelUUID()
+	httpClient, err := c.HTTPClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bClient, err := getBudgetAPIClient(httpClient)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	resp, err := bClient.DeleteAllocation(modelUUID, c.ServiceName)
+	if wireformat.IsNotAvail(err) {
+		fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not removed - %s.\n", err.Error())
+	} else if err != nil {
+		return err
+	}
+	if resp != "" {
+		fmt.Fprintf(ctx.Stdout, "%s\n", resp)
+	}
+	return nil
+}
+
+var getBudgetAPIClient = getBudgetAPIClientImpl
+
+func getBudgetAPIClientImpl(client *http.Client) (budgetAPIClient, error) {
+	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
+	c := budget.NewClient(bakeryClient)
+	return c, nil
+}
+
+type budgetAPIClient interface {
+	DeleteAllocation(string, string) (string, error)
 }

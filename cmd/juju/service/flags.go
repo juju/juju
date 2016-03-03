@@ -67,3 +67,39 @@ func (f storageFlag) String() string {
 	}
 	return strings.Join(strs, " ")
 }
+
+// stringMap is a type that deserializes a CLI string using gnuflag's Value
+// semantics.  It expects a name=value pair, and supports multiple copies of the
+// flag adding more pairs, though the names must be unique.
+type stringMap struct {
+	mapping *map[string]string
+}
+
+// Set implements gnuflag.Value's Set method.
+func (m stringMap) Set(s string) error {
+	if *m.mapping == nil {
+		*m.mapping = map[string]string{}
+	}
+	// make a copy so the following code is less ugly with dereferencing.
+	mapping := *m.mapping
+
+	vals := strings.SplitN(s, "=", 2)
+	if len(vals) != 2 {
+		return errors.NewNotValid(nil, "badly formatted name value pair: "+s)
+	}
+	name, value := vals[0], vals[1]
+	if _, ok := mapping[name]; ok {
+		return errors.Errorf("duplicate name specified: %q", name)
+	}
+	mapping[name] = value
+	return nil
+}
+
+// String implements gnuflag.Value's String method
+func (m stringMap) String() string {
+	pairs := make([]string, 0, len(*m.mapping))
+	for name, value := range *m.mapping {
+		pairs = append(pairs, name+"="+value)
+	}
+	return strings.Join(pairs, ";")
+}

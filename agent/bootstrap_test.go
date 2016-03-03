@@ -51,15 +51,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestInitializeStateNonLocal(c *gc.C) {
-	s.testInitializeState(c, false)
-}
-
-func (s *bootstrapSuite) TestInitializeStateLocal(c *gc.C) {
-	s.testInitializeState(c, true)
-}
-
-func (s *bootstrapSuite) testInitializeState(c *gc.C, fakeLocalEnv bool) {
+func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
@@ -80,10 +72,6 @@ LXC_BRIDGE="ignored"`[1:])
 		}, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
-	s.PatchValue(agent.IsLocalEnv, func(*config.Config) bool {
-		c.Logf("fakeLocalEnv=%v", fakeLocalEnv)
-		return fakeLocalEnv
-	})
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
@@ -115,7 +103,7 @@ LXC_BRIDGE="ignored"`[1:])
 	initialAddrs := network.NewAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
-		"10.0.3.1", // lxc bridge address filtered (when fakeLocalEnv=false).
+		"10.0.3.1", // lxc bridge address filtered.
 		"10.0.3.4", // lxc bridge address filtered (-"-).
 		"10.0.3.3", // not a lxc bridge address
 	)
@@ -133,10 +121,6 @@ LXC_BRIDGE="ignored"`[1:])
 		"0.1.2.3",
 		"10.0.3.3",
 	)
-	if fakeLocalEnv {
-		// For local environments - no filtering.
-		filteredAddrs = append([]network.Address{}, initialAddrs...)
-	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.String(),
 		"state-id":      "1", // needed so policy can Open config
@@ -166,8 +150,8 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
-	// Check that environment configuration has been added, and
-	// environment constraints set.
+	// Check that model configuration has been added, and
+	// model constraints set.
 	newEnvCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnvCfg.AllAttrs(), gc.DeepEquals, envCfg.AllAttrs())

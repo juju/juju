@@ -99,7 +99,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Type: to.StringPtr("Standard_LRS"),
 		Properties: &storage.AccountProperties{
 			PrimaryEndpoints: &storage.Endpoints{
-				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.core.windows.net/", fakeStorageAccount)),
+				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", fakeStorageAccount)),
 			},
 		},
 	}
@@ -241,7 +241,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 					Caching:      compute.ReadWrite,
 					Vhd: &compute.VirtualHardDisk{
 						URI: to.StringPtr(fmt.Sprintf(
-							"https://%s.blob.core.windows.net/osvhds/machine-0.vhd",
+							"https://%s.blob.storage.azurestack.local/osvhds/machine-0.vhd",
 							fakeStorageAccount,
 						)),
 					},
@@ -305,7 +305,13 @@ func prepareForBootstrap(
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
-	env, err := provider.PrepareForBootstrap(ctx, cfg)
+	env, err := provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config:               cfg,
+		CloudRegion:          "westus",
+		CloudEndpoint:        "https://management.azure.com",
+		CloudStorageEndpoint: "https://core.windows.net",
+		Credentials:          fakeUserPassCredential(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -444,17 +450,8 @@ func (s *environSuite) TestOpen(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
-func (s *environSuite) TestGlobalLocationManagementURI(c *gc.C) {
-	s.testLocationManagementURI(c, "West US", "management.azure.com")
-}
-
-func (s *environSuite) TestChinalLocationManagementURI(c *gc.C) {
-	s.testLocationManagementURI(c, "China North", "management.chinacloudapi.cn")
-	s.testLocationManagementURI(c, "chinaeast", "management.chinacloudapi.cn")
-}
-
-func (s *environSuite) testLocationManagementURI(c *gc.C, location, host string) {
-	env := s.openEnviron(c, testing.Attrs{"location": location})
+func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
+	env := s.openEnviron(c)
 
 	sender := mocks.NewSender()
 	sender.EmitContent("{}")
@@ -463,7 +460,7 @@ func (s *environSuite) testLocationManagementURI(c *gc.C, location, host string)
 	env.AllInstances() // trigger a query
 
 	c.Assert(s.requests, gc.HasLen, 1)
-	c.Assert(s.requests[0].URL.Host, gc.Equals, host)
+	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {

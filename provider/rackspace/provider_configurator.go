@@ -46,7 +46,6 @@ func (c *rackspaceConfigurator) GetConfigDefaults() schema.Defaults {
 		"access-key":           "",
 		"secret-key":           "",
 		"region":               "",
-		"control-bucket":       "",
 		"use-floating-ip":      false,
 		"use-default-secgroup": false,
 		"network":              "",

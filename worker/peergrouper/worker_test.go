@@ -222,7 +222,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		// has-vote status to false and exit.
 		select {
 		case err := <-done:
-			c.Assert(err, gc.ErrorMatches, `cannot set voting status of "[0-9]+" to false: frood`)
+			c.Assert(err, gc.ErrorMatches, `cannot set HasVote removed: cannot set voting status of "[0-9]+" to false: frood`)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for worker to exit")
 		}
@@ -309,13 +309,13 @@ var fatalErrorsTests = []struct {
 	expectErr:  "cannot get controller info: sample",
 }, {
 	errPattern: "Machine.SetHasVote 11 true",
-	expectErr:  `cannot set voting status of "11" to true: sample`,
+	expectErr:  `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
 }, {
 	errPattern: "Session.CurrentStatus",
-	expectErr:  "cannot get replica set status: sample",
+	expectErr:  "cannot get peergrouper info: cannot get replica set status: sample",
 }, {
 	errPattern: "Session.CurrentMembers",
-	expectErr:  "cannot get replica set members: sample",
+	expectErr:  "cannot get peergrouper info: cannot get replica set members: sample",
 }, {
 	errPattern: "State.Machine *",
 	expectErr:  `cannot get machine "10": sample`,

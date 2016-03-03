@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -43,7 +44,7 @@ func validAttrs() coretesting.Attrs {
 }
 
 type ConfigSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	originalValues map[string]testing.Restorer
 	privateKeyData string
 }
@@ -51,7 +52,7 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
@@ -77,7 +78,7 @@ func generatePrivateKey(c *gc.C) string {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.AddCleanup(CreateTestKey(c))
 	for _, envVar := range jp.EnvironmentVariables {
 		s.PatchEnvironment(envVar, "")
@@ -358,6 +359,7 @@ func validPrepareAttrs() coretesting.Attrs {
 	return validAttrs().Delete("private-key")
 }
 
+// TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
 var prepareConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
@@ -382,8 +384,18 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
+		credentialAttrs := make(map[string]string, len(attrs))
+		for k, v := range attrs.Delete("type", "control-dir") {
+			credentialAttrs[k] = fmt.Sprintf("%v", v)
+		}
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
+		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+			Config: testConfig,
+			Credentials: cloud.NewCredential(
+				cloud.UserPassAuthType,
+				credentialAttrs,
+			),
+		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()

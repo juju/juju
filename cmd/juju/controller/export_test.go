@@ -10,18 +10,22 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
-var (
-	SetConfigSpecialCaseDefaults = setConfigSpecialCaseDefaults
-	UserCurrent                  = &userCurrent
-)
-
-// NewListCommandForTest returns a ListCommand with the configstore provided
+// NewListControllersCommandForTest returns a listControllersCommand with the clientstore provided
 // as specified.
-func NewListCommandForTest(cfgStore configstore.Storage) *listCommand {
-	return &listCommand{
-		cfgStore: cfgStore,
+func NewListControllersCommandForTest(testStore jujuclient.ClientStore) *listControllersCommand {
+	return &listControllersCommand{
+		store: testStore,
+	}
+}
+
+// NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
+// as specified.
+func NewShowControllerCommandForTest(testStore jujuclient.ClientStore) *showControllerCommand {
+	return &showControllerCommand{
+		store: testStore,
 	}
 }
 
@@ -49,28 +53,10 @@ func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, user
 	})
 }
 
-// NewLoginCommandForTest returns a LoginCommand with the function used to open
-// the API connection mocked out.
-func NewLoginCommandForTest(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *loginCommand {
-	return &loginCommand{
-		loginAPIOpen:   apiOpen,
-		GetUserManager: getUserManager,
-	}
-}
-
-type UseModelCommand struct {
-	*useModelCommand
-}
-
-// NewUseModelCommandForTest returns a UseModelCommand with the
-// API and userCreds provided as specified.
-func NewUseModelCommandForTest(api UseModelAPI, userCreds *configstore.APICredentials, endpoint *configstore.APIEndpoint) (cmd.Command, *UseModelCommand) {
-	c := &useModelCommand{
-		api:       api,
-		userCreds: userCreds,
-		endpoint:  endpoint,
-	}
-	return modelcmd.WrapController(c), &UseModelCommand{c}
+// NewRegisterCommandForTest returns a RegisterCommand with the function used
+// to open the API connection mocked out.
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc, store jujuclient.ClientStore) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot, store: store}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
@@ -84,7 +70,7 @@ func NewRemoveBlocksCommandForTest(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommandForTest returns a DestroyCommand with the controller and
 // client endpoints mocked out.
 func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return modelcmd.Wrap(
+	return modelcmd.WrapController(
 		&destroyCommand{
 			destroyCommandBase: destroyCommandBase{
 				api:       api,
@@ -92,8 +78,8 @@ func NewDestroyCommandForTest(api destroyControllerAPI, clientapi destroyClientA
 				apierr:    apierr,
 			},
 		},
-		modelcmd.ModelSkipFlags,
-		modelcmd.ModelSkipDefault,
+		modelcmd.ControllerSkipFlags,
+		modelcmd.ControllerSkipDefault,
 	)
 }
 
@@ -104,7 +90,7 @@ func NewKillCommandForTest(
 	clientapi destroyClientAPI,
 	apierr error,
 	clock clock.Clock,
-	apiOpenFunc func(string) (api.Connection, error),
+	apiOpen modelcmd.APIOpener,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
@@ -113,7 +99,7 @@ func NewKillCommandForTest(
 			apierr:    apierr,
 		},
 	}
-	return wrapKillCommand(kill, apiOpenFunc, clock)
+	return wrapKillCommand(kill, apiOpen, clock)
 }
 
 // NewListBlocksCommandForTest returns a ListBlocksCommand with the controller

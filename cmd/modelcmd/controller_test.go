@@ -4,11 +4,8 @@
 package modelcmd_test
 
 import (
-	"os"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,36 +14,19 @@ import (
 )
 
 type ControllerCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&ControllerCommandSuite{})
 
-func (s *ControllerCommandSuite) TestControllerCommandInitMultipleConfigs(c *gc.C) {
-	// The environments.yaml file is ignored for controller commands.
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 	_, err := initTestControllerCommand(c)
-	c.Assert(err, gc.ErrorMatches, "no controller specified")
-}
-
-func (s *ControllerCommandSuite) TestControllerCommandInitNoEnvFile(c *gc.C) {
-	// Since we ignore the environments.yaml file, we don't care if it isn't
-	// there.
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Remove(envPath)
-	_, err = initTestControllerCommand(c)
 	c.Assert(err, gc.ErrorMatches, "no controller specified")
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 	// If there is a current-controller file, use that.
 	err := modelcmd.WriteCurrentController("fubar")
-	c.Assert(err, jc.ErrorIsNil)
-	testEnsureControllerName(c, "fubar")
-}
-func (s *ControllerCommandSuite) TestControllerCommandInitEnvFile(c *gc.C) {
-	// If there is a current-model file, use that.
-	err := modelcmd.WriteCurrentModel("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	testEnsureControllerName(c, "fubar")
 }

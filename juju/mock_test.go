@@ -1,7 +1,6 @@
 package juju_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api"
@@ -12,9 +11,10 @@ type mockAPIState struct {
 	api.Connection
 	close func(api.Connection) error
 
-	addr         string
-	apiHostPorts [][]network.HostPort
-	modelTag     string
+	addr          string
+	apiHostPorts  [][]network.HostPort
+	modelTag      string
+	controllerTag string
 }
 
 func (s *mockAPIState) Close() error {
@@ -37,7 +37,7 @@ func (s *mockAPIState) ModelTag() (names.ModelTag, error) {
 }
 
 func (s *mockAPIState) ControllerTag() (names.ModelTag, error) {
-	return names.ModelTag{}, errors.NotImplementedf("ControllerTag")
+	return names.ParseModelTag(s.controllerTag)
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {

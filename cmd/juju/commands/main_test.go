@@ -32,7 +32,7 @@ import (
 )
 
 type MainSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -57,7 +57,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
 	// setting the flags (which is needed for the help text) it is accessing
-	// osenv.JujuHome(), which panics if SetJujuHome has not been called.
+	// osenv.JujuXDGDataHome(), which panics if SetJujuXDGDataHome has not been called.
 	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
@@ -173,11 +173,12 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "switch"}, // global flags before
-		{"switch", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "switch", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "list-controllers"}, // global flags before
+		{"list-controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "list-controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -192,26 +193,26 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 
 var commandNames = []string{
 	"action",
+	"add-cloud",
 	"add-machine",
 	"add-machines",
 	"add-relation",
+	"add-ssh-key",
+	"add-ssh-keys",
 	"add-unit",
 	"add-units",
 	"agree",
 	"allocate",
-	"api-endpoints",
-	"api-info",
 	"add-space",
 	"add-storage",
 	"add-subnet",
 	"add-user",
-	"authorised-keys", // alias for authorized-keys
-	"authorized-keys",
 	"backups",
 	"block",
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
+	"charm",
 	"collect-metrics",
 	"create-backup",
 	"create-budget",
@@ -229,39 +230,44 @@ var commandNames = []string{
 	"enable-ha",
 	"enable-user",
 	"expose",
-	"generate-config", // alias for init
 	"get-config",
 	"get-configs",
 	"get-constraints",
 	"get-model-config",
 	"get-model-constraints",
-	"get-user-credentials",
 	"help",
 	"help-tool",
-	"init",
+	"import-ssh-key",
+	"import-ssh-keys",
 	"kill-controller",
 	"list-actions",
 	"list-all-blocks",
 	"list-budgets",
+	"list-clouds",
 	"list-controllers",
+	"list-credentials",
 	"list-machine",
 	"list-machines",
 	"list-models",
 	"list-plans",
 	"list-shares",
+	"list-ssh-key",
+	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
 	"list-users",
-	"login",
 	"machine",
 	"machines",
 	"publish",
+	"register",
 	"remove-all-blocks",
 	"remove-machine",
 	"remove-machines",
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
-	"remove-unit",     // alias for destroy-unit
+	"remove-ssh-key",
+	"remove-ssh-keys",
+	"remove-unit", // alias for destroy-unit
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",
@@ -277,9 +283,14 @@ var commandNames = []string{
 	"set-model-constraints",
 	"set-plan",
 	"share-model",
+	"ssh-key",
+	"ssh-keys",
 	"show-action-output",
 	"show-action-status",
 	"show-budget",
+	"show-cloud",
+	"show-controller",
+	"show-controllers",
 	"show-machine",
 	"show-machines",
 	"show-status",
@@ -293,7 +304,6 @@ var commandNames = []string{
 	"subnet",
 	"switch",
 	"sync-tools",
-	"use-model",
 	"unblock",
 	"unexpose",
 	"update-allocation",
@@ -305,7 +315,7 @@ var commandNames = []string{
 }
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
@@ -372,7 +382,6 @@ var topicNames = []string{
 	"glossary",
 	"hpcloud-provider",
 	"juju",
-	"local-provider",
 	"logging",
 	"maas-provider",
 	"openstack-provider",
@@ -386,7 +395,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -415,7 +424,7 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 

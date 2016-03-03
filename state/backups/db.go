@@ -96,7 +96,8 @@ type DBDumper interface {
 }
 
 var getMongodumpPath = func() (string, error) {
-	mongod, err := mongo.Path()
+	// TODO(perrito666) Add automagic determination of version here
+	mongod, err := mongo.Path(mongo.Mongo24)
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
@@ -241,7 +242,7 @@ var restoreArgsForVersion = mongoRestoreArgsForVersion
 // and starting before dumping the new mongo db, it is mainly to easy testing
 // of placeNewMongo.
 func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
-	err := mongo.StopService("")
+	err := mongo.StopService()
 	if err != nil {
 		return errors.Annotate(err, "failed to stop mongo")
 	}
@@ -249,7 +250,7 @@ func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
 	if err := placeNewMongo(newMongoDumpPath, ver); err != nil {
 		return errors.Annotate(err, "cannot place new mongo")
 	}
-	err = mongo.StartService("")
+	err = mongo.StartService()
 	return errors.Annotate(err, "failed to start mongo")
 }
 

@@ -4,15 +4,21 @@
 package openstack_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/openstack"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
-type localTests struct{}
+type localTests struct {
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&localTests{})
 
@@ -344,4 +350,32 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		c.Check(openstack.RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
 	}
+}
+
+func (s *localTests) TestDetectRegionsNoRegionName(c *gc.C) {
+	_, err := s.detectRegions(c)
+	c.Assert(err, gc.ErrorMatches, "OS_REGION_NAME environment variable not set")
+}
+
+func (s *localTests) TestDetectRegionsNoAuthURL(c *gc.C) {
+	s.PatchEnvironment("OS_REGION_NAME", "oceania")
+	_, err := s.detectRegions(c)
+	c.Assert(err, gc.ErrorMatches, "OS_AUTH_URL environment variable not set")
+}
+
+func (s *localTests) TestDetectRegions(c *gc.C) {
+	s.PatchEnvironment("OS_REGION_NAME", "oceania")
+	s.PatchEnvironment("OS_AUTH_URL", "http://keystone.internal")
+	regions, err := s.detectRegions(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{
+		{Name: "oceania", Endpoint: "http://keystone.internal"},
+	})
+}
+
+func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
+	provider, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider, gc.Implements, new(environs.CloudRegionDetector))
+	return provider.(environs.CloudRegionDetector).DetectRegions()
 }

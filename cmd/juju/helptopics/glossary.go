@@ -53,12 +53,15 @@ Endpoint
   The combination of a service name and a relation name.
 
 Model
-  A Model is a configured location where Services can be deployed onto.
-  A Model typically has a name, which can usually be omitted when there's
+  An Model is a configured location where Services can be deployed onto.
+  An Model typically has a name, which can usually be omitted when there's
   a single Model configured, or when a default is explicitly defined.
   Depending on the type of Model, it may have to be bootstrapped before
-  interactions with it may take place (e.g. EC2). The local model
-  configuration is defined in the ~/.juju/environments.yaml file.
+  interactions with it may take place (e.g. EC2). The local environment
+  configuration is defined in an environments.yaml file inside $JUJU_DATA
+  if said variable is not defined $XDG_DATA_HOME/juju will be used and if
+  $XDG_DATA_HOME is not defined either it will default to 
+  ~/.local/share/juju/ .
 
 Machine Agent
   Software which runs inside each machine that is part of a Model, and is

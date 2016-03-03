@@ -5,7 +5,6 @@ package version_test
 
 import (
 	"encoding/json"
-	"runtime"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -319,8 +318,4 @@ func (*suite) TestParseMajorMinor(c *gc.C) {
 			c.Check(minor, gc.Equals, test.expectMinor)
 		}
 	}
-}
-
-func (s *suite) TestCompiler(c *gc.C) {
-	c.Assert(version.Compiler, gc.Equals, runtime.Compiler)
 }

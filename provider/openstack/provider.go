@@ -23,6 +23,7 @@ import (
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -42,13 +43,18 @@ import (
 var logger = loggo.GetLogger("juju.provider.openstack")
 
 type EnvironProvider struct {
+	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
 }
 
 var _ environs.EnvironProvider = (*EnvironProvider)(nil)
 
-var providerInstance *EnvironProvider = &EnvironProvider{&defaultConfigurator{}, &firewallerFactory{}}
+var providerInstance *EnvironProvider = &EnvironProvider{
+	OpenstackCredentials{},
+	&defaultConfigurator{},
+	&firewallerFactory{},
+}
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 
@@ -60,183 +66,6 @@ var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-func (p EnvironProvider) BoilerplateConfig() string {
-	return `
-# https://juju.ubuntu.com/docs/config-openstack.html
-openstack:
-    type: openstack
-
-    # use-floating-ip specifies whether a floating IP address is
-    # required to give the nodes a public IP address. Some
-    # installations assign public IP addresses by default without
-    # requiring a floating IP address.
-    #
-    # use-floating-ip: false
-
-    # use-default-secgroup specifies whether new machine instances
-    # should have the "default" Openstack security group assigned.
-    #
-    # use-default-secgroup: false
-
-    # network specifies the network label or uuid to bring machines up
-    # on, in the case where multiple networks exist. It may be omitted
-    # otherwise.
-    #
-    # network: <your network label or uuid>
-
-    # agent-metadata-url specifies the location of the Juju tools and
-    # metadata. It defaults to the global public tools metadata
-    # location https://streams.canonical.com/tools.
-    #
-    # agent-metadata-url:  https://your-agent-metadata-url
-
-    # image-metadata-url specifies the location of Ubuntu cloud image
-    # metadata. It defaults to the global public image metadata
-    # location https://cloud-images.ubuntu.com/releases.
-    #
-    # image-metadata-url:  https://your-image-metadata-url
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # auth-url defaults to the value of the environment variable
-    # OS_AUTH_URL, but can be specified here.
-    #
-    # auth-url: https://yourkeystoneurl:443/v2.0/
-
-    # tenant-name holds the openstack tenant name. It defaults to the
-    # environment variable OS_TENANT_NAME.
-    #
-    # tenant-name: <your tenant name>
-
-    # region holds the openstack region. It defaults to the
-    # environment variable OS_REGION_NAME.
-    #
-    # region: <your region>
-
-    # The auth-mode, username and password attributes are used for
-    # userpass authentication (the default).
-    #
-    # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username and
-    # password should be set appropriately; they default to the
-    # environment variables OS_USERNAME and OS_PASSWORD respectively.
-    #
-    # auth-mode: userpass
-    # username: <your username>
-    # password: <secret>
-
-    # For key-pair authentication, auth-mode should be "keypair" and
-    # access-key and secret-key should be set appropriately; they
-    # default to the environment variables OS_ACCESS_KEY and
-    # OS_SECRET_KEY respectively.
-    #
-    # auth-mode: keypair
-    # access-key: <secret>
-    # secret-key: <secret>
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-# https://juju.ubuntu.com/docs/config-hpcloud.html
-hpcloud:
-    type: openstack
-
-    # use-floating-ip specifies whether a floating IP address is
-    # required to give the nodes a public IP address. Some
-    # installations assign public IP addresses by default without
-    # requiring a floating IP address.
-    #
-    # use-floating-ip: true
-
-    # use-default-secgroup specifies whether new machine instances
-    # should have the "default" Openstack security group assigned.
-    #
-    # use-default-secgroup: false
-
-    # tenant-name holds the openstack tenant name. In HPCloud, this is
-    # synonymous with the project-name It defaults to the environment
-    # variable OS_TENANT_NAME.
-    #
-    # tenant-name: <your tenant name>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # auth-url holds the keystone url for authentication. It defaults
-    # to the value of the environment variable OS_AUTH_URL.
-    #
-    # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
-
-    # region holds the HP Cloud region (e.g. region-a.geo-1). It
-    # defaults to the environment variable OS_REGION_NAME.
-    #
-    # region: <your region>
-
-    # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username and
-    # password should be set appropriately; they default to the
-    # environment variables OS_USERNAME and OS_PASSWORD respectively.
-    #
-    # auth-mode: userpass
-    # username: <your_username>
-    # password: <your_password>
-
-    # For key-pair authentication, auth-mode should be "keypair" and
-    # access-key and secret-key should be set appropriately; they
-    # default to the environment variables OS_ACCESS_KEY and
-    # OS_SECRET_KEY respectively.
-    #
-    # auth-mode: keypair
-    # access-key: <secret>
-    # secret-key: <secret>
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`[1:]
 }
 
 func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -258,13 +87,60 @@ func (p EnvironProvider) RestrictedConfigAttributes() []string {
 	return []string{"region", "auth-url", "auth-mode"}
 }
 
+// DetectRegions implements environs.CloudRegionDetector.
+func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
+	// If OS_REGION_NAME and OS_AUTH_URL are both set,
+	// return return a region using them.
+	creds := identity.CredentialsFromEnv()
+	if creds.Region == "" {
+		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
+	}
+	if creds.URL == "" {
+		return nil, errors.NewNotFound(nil, "OS_AUTH_URL environment variable not set")
+	}
+	return []cloud.Region{{
+		Name:     creds.Region,
+		Endpoint: creds.URL,
+	}}, nil
+}
+
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
-func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+func (p EnvironProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	args environs.PrepareForBootstrapParams,
+) (environs.Environ, error) {
+
+	// Add credentials to the configuration.
+	attrs := map[string]interface{}{
+		"region":   args.CloudRegion,
+		"auth-url": args.CloudEndpoint,
+	}
+	credentialAttrs := args.Credentials.Attributes()
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		attrs["username"] = credentialAttrs["username"]
+		attrs["password"] = credentialAttrs["password"]
+		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["auth-mode"] = AuthUserPass
+	case cloud.AccessKeyAuthType:
+		attrs["access-key"] = credentialAttrs["access-key"]
+		attrs["secret-key"] = credentialAttrs["secret-key"]
+		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["auth-mode"] = AuthKeyPair
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err = p.PrepareForCreateEnvironment(cfg)
 	if err != nil {
 		return nil, err
 	}

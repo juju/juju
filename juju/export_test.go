@@ -3,22 +3,18 @@ package juju
 import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	ProviderConnectDelay   = &providerConnectDelay
 	GetConfig              = getConfig
-	CacheChangedAPIInfo    = cacheChangedAPIInfo
-	CacheAPIInfo           = cacheAPIInfo
 	EnvironInfoUserTag     = environInfoUserTag
 	MaybePreferIPv6        = &maybePreferIPv6
 	ResolveOrDropHostnames = &resolveOrDropHostnames
 	ServerAddress          = &serverAddress
 )
 
-func NewAPIFromStore(envName string, store configstore.Storage, f api.OpenFunc) (api.Connection, error) {
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		return f(info, opts)
-	}
-	return newAPIFromStore(envName, store, apiOpen, nil)
+func NewAPIFromStore(controllerName, modelName string, store configstore.Storage, controllerStore jujuclient.ClientStore, f api.OpenFunc) (api.Connection, error) {
+	return newAPIFromStore(controllerName, modelName, store, controllerStore, f, nil)
 }

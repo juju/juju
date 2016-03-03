@@ -23,14 +23,17 @@ check_deps() {
     which lftp || has_deps=0
     which swift || has_deps=0
     which s3cmd || has_deps=0
-    test -f ~/.juju/canonistacktoolsrc || has_deps=0
-    test -f ~/.juju/hptoolsrc || has_deps=0
-    test -f ~/.juju/awstoolsrc || has_deps=0
-    test -f ~/.juju/azuretoolsrc || has_deps=0
+
+    test -f $JUJU_DATA/canonistacktoolsrc || has_deps=0
+    test -f $JUJU_DATA/hptoolsrc || has_deps=0
+    test -f $JUJU_DATA/awstoolsrc || has_deps=0
+    test -f $JUJU_DATA/azuretoolsrc || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install lftp, python-swiftclient, and s3cmd"
-        echo "Your ~/.juju dir must contain rc files to publish:"
+        echo "Your your \$JUJU_DATA dir must contain rc files to publish:"
         echo "  canonistacktoolsrc, hptoolsrc, awstoolsrc, azuretoolsrc"
+	echo "(if \$JUJU_DATA is not set, we will try \$XDG_DATA_HOME/juju"
+	echo " or,  ~/.local/share/juju if \$XDG_DATA_HOME is not set)"
         exit 2
     fi
 }
@@ -52,7 +55,7 @@ build_tool_tree() {
 retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
-    source ~/.juju/awstoolsrc
+    source ~/.local/share/juju/awstoolsrc
     s3cmd sync s3://juju-dist/tools/releases/ $DEST_TOOLS
 }
 
@@ -163,7 +166,7 @@ generate_streams() {
 publish_to_canonistack() {
     echo "Phase 6.1: Publish to canonistack."
     cd $DESTINATION
-    source ~/.juju/canonistacktoolsrc
+    source ~/.local/share/juju/canonistacktoolsrc
     ${GOPATH}/bin/juju --show-log \
         sync-tools -e public-tools-canonistack --dev --source=${DEST_DIST}
     # This needed to allow old deployments upgrade.
@@ -175,7 +178,7 @@ publish_to_canonistack() {
 publish_to_hp() {
     echo "Phase 6.2: Publish to HP Cloud."
     cd $DESTINATION
-    source ~/.juju/hptoolsrc
+    source ~/.local/share/juju/hptoolsrc
     ${GOPATH}/bin/juju --show-log \
         sync-tools -e public-tools-hp --dev --source=${DEST_DIST}
     # Support old tools location so that deployments can upgrade to new tools.
@@ -187,7 +190,7 @@ publish_to_hp() {
 publish_to_aws() {
     echo "Phase 6.3: Publish to AWS."
     cd $DESTINATION
-    source ~/.juju/awstoolsrc
+    source ~/.local/share/juju/awstoolsrc
     s3cmd sync ${DEST_DIST}/tools s3://juju-dist/
 }
 
@@ -197,7 +200,7 @@ publish_to_azure() {
     # each public file MUST match the destination path :(.
     echo "Phase 6.4: Publish to Azure."
     cd $DESTINATION
-    source ~/.juju/azuretoolsrc
+    source ~/.local/share/juju/azuretoolsrc
     cd ${DEST_DIST}
     public_files=$(find tools -name *.tgz -o -name *.json)
     for public_file in $public_files; do
@@ -211,6 +214,14 @@ publish_to_azure() {
     done
 }
 
+# set $JUJU_DATA, if not set, to the proper path.
+if [ -z "$JUJU_DATA" ]; then
+  if [ -z "$XDG_DATA_HOME" ]; then
+    JUJU_DATA=~/.local/share/juju
+  else
+    JUJU_DATA=$XDG_DATA_HOME/juju
+  fi
+fi
 
 # These are the archives that are search for matching releases.
 UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"

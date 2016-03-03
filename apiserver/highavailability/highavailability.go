@@ -126,3 +126,35 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 	}
 	return controllersChanges(changes), nil
 }
+
+// StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade
+// mongo mode.
+func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeMongoParams) (params.MongoUpgradeResults, error) {
+	ha, err := api.state.SetUpgradeMongoMode(args.Target)
+	if err != nil {
+		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
+	}
+	members := make([]params.HAMember, len(ha.Members))
+	for i, m := range ha.Members {
+		members[i] = params.HAMember{
+			Tag:           m.Tag,
+			PublicAddress: m.PublicAddress,
+			Series:        m.Series,
+		}
+	}
+	return params.MongoUpgradeResults{
+		Master: params.HAMember{
+			Tag:           ha.Master.Tag,
+			PublicAddress: ha.Master.PublicAddress,
+			Series:        ha.Master.Series,
+		},
+		Members:   members,
+		RsMembers: ha.RsMembers,
+	}, nil
+}
+
+// ResumeHAReplicationAfterUpgrade will add the upgraded members of HA
+// cluster to the upgraded master.
+func (api *HighAvailabilityAPI) ResumeHAReplicationAfterUpgrade(args params.ResumeReplicationParams) error {
+	return api.state.ResumeReplication(args.Members)
+}

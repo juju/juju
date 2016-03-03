@@ -22,27 +22,27 @@ func TestAll(t *testing.T) {
 }
 
 type BaseStorageSuite struct {
-	jujutesting.FakeJujuHomeSuite
+	jujutesting.FakeJujuXDGDataHomeSuite
 
 	command cmd.Command
 }
 
 func (s *BaseStorageSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.command = storage.NewSuperCommand()
 }
 
 func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 type SubStorageSuite struct {
-	jujutesting.BaseSuite
+	jujutesting.FakeJujuXDGDataHomeSuite
 }
 
 func (s *SubStorageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	memstore := configstore.NewMem()
 	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {

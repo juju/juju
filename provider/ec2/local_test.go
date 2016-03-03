@@ -25,6 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
@@ -56,10 +58,7 @@ var _ = gc.Suite(&ProviderSuite{})
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"name":           "sample",
 	"type":           "ec2",
-	"region":         "test",
 	"control-bucket": "test-bucket",
-	"access-key":     "x",
-	"secret-key":     "x",
 	"agent-version":  coretesting.FakeVersionNumber.String(),
 })
 
@@ -85,6 +84,15 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
+	t.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	t.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
@@ -184,6 +192,15 @@ type localServerSuite struct {
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
 	t.Tests.SetUpSuite(c)
+	t.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	t.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
@@ -1244,7 +1261,21 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemStore(),
+		cfg.Name(), environs.PrepareForBootstrapParams{
+			Config: cfg,
+			Credentials: cloud.NewCredential(
+				cloud.AccessKeyAuthType,
+				map[string]string{
+					"access-key": "x",
+					"secret-key": "x",
+				},
+			),
+			CloudRegion: "test",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	t.env = env
 }

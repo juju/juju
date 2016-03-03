@@ -78,3 +78,8 @@ func (ctx *ContextRelation) WriteSettings() (err error) {
 	}
 	return
 }
+
+// NetworkConfig returns the network config for the relation.
+func (ctx *ContextRelation) NetworkConfig() ([]params.NetworkConfig, error) {
+	return ctx.ru.NetworkConfig()
+}

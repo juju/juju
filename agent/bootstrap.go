@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -101,13 +100,8 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 	servingInfo.SharedSecret = machineCfg.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
-	// Filter out any LXC bridge addresses from the machine addresses,
-	// except for local environments. See LP bug #1416928.
-	if !isLocalEnv(envCfg) {
-		machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
-	} else {
-		logger.Debugf("local model - not filtering addresses from %v", machineCfg.Addresses)
-	}
+	// Filter out any LXC bridge addresses from the machine addresses.
+	machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
 
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
@@ -121,12 +115,6 @@ func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Con
 		return nil, nil, err
 	}
 	return st, m, nil
-}
-
-// isLocalEnv returns true if the given config is for a local
-// environment. Defined like this for testing.
-var isLocalEnv = func(cfg *config.Config) bool {
-	return cfg.Type() == provider.Local
 }
 
 func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
@@ -211,7 +199,18 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	hostPorts := network.AddressesWithPort(addrs, apiPort)
+	var hostPorts []network.HostPort
+	// First try to select the correct address using the default space where all
+	// API servers should be accessible on.
+	spaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
+	if ok {
+		logger.Debugf("selected %q as API address, using space %q", spaceAddr.Value, network.DefaultSpace)
+		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
+	} else {
+		// Fallback to using all instead.
+		hostPorts = network.AddressesWithPort(addrs, apiPort)
+	}
+
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
 

@@ -84,7 +84,7 @@ func (c *getCommand) Init(args []string) error {
 // that the service get command calls.
 type getServiceAPI interface {
 	Close() error
-	ServiceGet(service string) (*params.ServiceGetResults, error)
+	Get(service string) (*params.ServiceGetResults, error)
 }
 
 func (c *getCommand) getAPI() (getServiceAPI, error) {
@@ -107,7 +107,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	results, err := apiclient.ServiceGet(c.ServiceName)
+	results, err := apiclient.Get(c.ServiceName)
 	if err != nil {
 		return err
 	}

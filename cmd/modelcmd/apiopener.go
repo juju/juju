@@ -10,56 +10,47 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/jujuclient"
 )
 
 var ErrConnTimedOut = errors.New("open connection timed out")
 
-type OpenFunc func(string) (api.Connection, error)
-
 // APIOpener provides a way to open a connection to the Juju
 // API Server through the named connection.
 type APIOpener interface {
-	Open(connectionName string) (api.Connection, error)
+	Open(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error)
 }
 
-type passthroughOpener struct {
-	fn OpenFunc
-}
+type OpenFunc func(jujuclient.ClientStore, string, string) (api.Connection, error)
 
-// NewPassthroughOpener returns an instance that will just call the opener
-// function when Open is called.
-func NewPassthroughOpener(opener OpenFunc) APIOpener {
-	return &passthroughOpener{fn: opener}
-}
-
-func (p *passthroughOpener) Open(name string) (api.Connection, error) {
-	return p.fn(name)
+func (f OpenFunc) Open(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	return f(store, controllerName, modelName)
 }
 
 type timeoutOpener struct {
-	fn      OpenFunc
+	opener  APIOpener
 	clock   clock.Clock
 	timeout time.Duration
 }
 
-// NewTimeoutOpener will call the opener function when Open is called, but if
-// the function does not return by the specified timeout, ErrConnTimeOut is
+// NewTimeoutOpener will call the opener when Open is called, but if the
+// opener does not return by the specified timeout, ErrConnTimeOut is
 // returned.
-func NewTimeoutOpener(opener OpenFunc, clock clock.Clock, timeout time.Duration) APIOpener {
+func NewTimeoutOpener(opener APIOpener, clock clock.Clock, timeout time.Duration) APIOpener {
 	return &timeoutOpener{
-		fn:      opener,
+		opener:  opener,
 		clock:   clock,
 		timeout: timeout,
 	}
 }
 
-func (t *timeoutOpener) Open(name string) (api.Connection, error) {
+func (t *timeoutOpener) Open(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 	// Make the channels buffered so the created goroutine is guaranteed
 	// not go get blocked trying to send down the channel.
 	apic := make(chan api.Connection, 1)
 	errc := make(chan error, 1)
 	go func() {
-		api, dialErr := t.fn(name)
+		api, dialErr := t.opener.Open(store, controllerName, modelName)
 		if dialErr != nil {
 			errc <- dialErr
 			return

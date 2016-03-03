@@ -221,12 +221,10 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
 	var loginFunc func(st *state, tag names.Tag, pwd, nonce string) error
 	switch loginVersion {
-	case 0:
-		loginFunc = (*state).loginV0
-	case 1:
-		loginFunc = (*state).loginV1
 	case 2:
 		loginFunc = (*state).loginV2
+	case 3:
+		loginFunc = (*state).loginV3
 	default:
 		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}
@@ -247,33 +245,15 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot make TLS configuration")
 	}
+	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
 	path := "/"
 	if info.ModelTag.Id() != "" {
 		path = apiPath(info.ModelTag, "/api")
 	}
-
-	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
-	for _, addr := range info.Addrs {
-		err := dialWebsocket(addr, path, opts, tlsConfig, try)
-		if err == parallel.ErrStopped {
-			break
-		}
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		select {
-		case <-time.After(opts.DialAddressInterval):
-		case <-try.Dead():
-		}
-	}
-	try.Close()
-	result, err := try.Result()
+	conn, err := dialWebSocket(info.Addrs, path, tlsConfig, opts)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
 	return conn, tlsConfig, nil
 }
@@ -289,6 +269,35 @@ func tlsConfigForCACert(caCert string) (*tls.Config, error) {
 		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
 		ServerName: "juju-apiserver",
 	}, nil
+}
+
+// dialWebSocket dials a websocket with one of the provided addresses, the
+// specified URL path, TLS configuration, and dial options. Each of the
+// specified addresses will be attempted concurrently, and the first
+// successful connection will be returned.
+func dialWebSocket(addrs []string, path string, tlsConfig *tls.Config, opts DialOpts) (*websocket.Conn, error) {
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+	for _, addr := range addrs {
+		err := dialWebsocket(addr, path, opts, tlsConfig, try)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+	try.Close()
+	result, err := try.Result()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.(*websocket.Conn), nil
 }
 
 // ConnectStream implements Connection.ConnectStream.
@@ -545,7 +554,7 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 		Id:      id,
 		Action:  method,
 	}, args, response)
-	return params.ClientError(err)
+	return errors.Trace(err)
 }
 
 func (s *state) Close() error {

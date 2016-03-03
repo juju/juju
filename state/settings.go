@@ -424,6 +424,12 @@ func inSubdocReplacer(subdoc string) func(string) string {
 	}
 }
 
+func inSubdocEscapeReplacer(subdoc string) func(string) string {
+	return func(key string) string {
+		return subdoc + "." + escapeReplacer.Replace(key)
+	}
+}
+
 // setUnsetUpdateSettings returns a bson.D for use
 // in a settingsC txn.Op's Update field, containing
 // $set and $unset operators if the corresponding

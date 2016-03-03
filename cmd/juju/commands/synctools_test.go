@@ -27,14 +27,14 @@ import (
 )
 
 type syncToolsSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	fakeSyncToolsAPI *fakeSyncToolsAPI
 }
 
 var _ = gc.Suite(&syncToolsSuite{})
 
 func (s *syncToolsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeSyncToolsAPI = &fakeSyncToolsAPI{}
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil

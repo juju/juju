@@ -22,44 +22,6 @@ type CmdSuite struct {
 
 var _ = gc.Suite(&CmdSuite{})
 
-const modelConfig = `
-default:
-    peckham
-environments:
-    peckham:
-        type: dummy
-        controller: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-    walthamstow:
-        type: dummy
-        controller: false
-        authorized-keys: i-am-a-key
-    brokenenv:
-        type: dummy
-        broken: Bootstrap Destroy
-        controller: false
-        authorized-keys: i-am-a-key
-        agent-stream: proposed
-    devenv:
-        type: dummy
-        controller: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-        agent-stream: proposed
-`
-
-func (s *CmdSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	coretesting.WriteEnvironments(c, modelConfig, "peckham", "walthamstow", "brokenenv")
-}
-
-func (s *CmdSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 var deployTests = []struct {
 	args []string
 	com  *DeployCommand
@@ -98,7 +60,7 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
-	com.SetModelName("peckham")
+	com.SetModelName("dummymodel")
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
@@ -113,8 +75,13 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	for _, t := range deployTests {
 		initExpectations(t.com)
 		com, err := initDeployCommand(t.args...)
+		// Testing that the flag set is populated is good enough for the scope
+		// of this test.
+		c.Assert(com.flagSet, gc.NotNil)
+		com.flagSet = nil
+		com.SetClientStore(nil)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(com, gc.DeepEquals, t.com)
+		c.Assert(com, jc.DeepEquals, t.com)
 	}
 
 	// test relative --config path

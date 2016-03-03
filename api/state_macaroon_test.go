@@ -6,11 +6,13 @@ package api_test
 import (
 	"net/url"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/rpc"
 )
 
 var _ = gc.Suite(&macaroonLoginSuite{})
@@ -52,7 +54,10 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 		return "testUnknown"
 	}
 	err := s.client.Login(nil, "", "")
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "invalid entity name or password",
+		Code:    "unauthorized access",
+	})
 }
 
 func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {

@@ -84,20 +84,9 @@ var _ = gc.Suite(&errRootSuite{})
 func (s *errRootSuite) TestErrorRoot(c *gc.C) {
 	origErr := fmt.Errorf("my custom error")
 	errRoot := apiserver.NewErrRoot(origErr)
-	st, err := errRoot.Admin("")
+	st, err := errRoot.FindMethod("", 0, "")
 	c.Check(st, gc.IsNil)
 	c.Check(err, gc.Equals, origErr)
-}
-
-func (s *errRootSuite) TestErrorRootViaRPC(c *gc.C) {
-	origErr := fmt.Errorf("my custom error")
-	errRoot := apiserver.NewErrRoot(origErr)
-	val := rpcreflect.ValueOf(reflect.ValueOf(errRoot))
-	caller, err := val.FindMethod("Admin", 0, "Login")
-	c.Assert(err, jc.ErrorIsNil)
-	resp, err := caller.Call("", reflect.Value{})
-	c.Check(err, gc.Equals, origErr)
-	c.Check(resp.IsValid(), jc.IsFalse)
 }
 
 type testingType struct{}

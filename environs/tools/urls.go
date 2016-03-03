@@ -76,7 +76,7 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource(conf.AgentMetadataURLKey, userURL, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
+		sources = append(sources, simplestreams.NewURLSignedDataSource(conf.AgentMetadataURLKey, userURL, simplestreams.SimplestreamsJujuPublicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)

@@ -4,200 +4,232 @@
 package commands
 
 import (
+	"errors"
 	"os"
-	"runtime"
 
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/cmd"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type SwitchSimpleSuite struct {
-	testing.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
+	testing.Stub
+	store             *jujuclienttesting.MemStore
+	currentController string
+	onRefresh         func()
 }
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
-func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Remove(envPath)
-	c.Assert(err, jc.ErrorIsNil)
-	s.addTestController(c)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "a-controller (controller)\n")
+func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.Stub.ResetCalls()
+	s.store = jujuclienttesting.NewMemStore()
+	s.currentController = ""
+	s.onRefresh = nil
 }
 
-func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1496997: os.Chmod doesn't exist on windows, checking this on one platform is sufficent to test this case")
+func (s *SwitchSimpleSuite) refreshModels(store jujuclient.ClientStore, controllerName string) error {
+	s.MethodCall(s, "RefreshModels", store, controllerName)
+	if s.onRefresh != nil {
+		s.onRefresh()
 	}
-
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Chmod(envPath, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	s.addTestController(c)
-	_, err = testing.RunCommand(c, newSwitchCommand(), "--list")
-	c.Assert(err, gc.ErrorMatches, "couldn't read the model: open .*: permission denied")
+	return s.NextErr()
 }
 
-func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
-	_, err := testing.RunCommand(c, newSwitchCommand())
+func (s *SwitchSimpleSuite) readCurrentController() (string, error) {
+	s.MethodCall(s, "ReadCurrentController")
+	return s.currentController, s.NextErr()
+}
+
+func (s *SwitchSimpleSuite) writeCurrentController(current string) error {
+	s.MethodCall(s, "WriteCurrentController", current)
+	if err := s.NextErr(); err != nil {
+		return err
+	}
+	s.currentController = current
+	return nil
+}
+
+func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	cmd := &switchCommand{
+		Store:                  s.store,
+		RefreshModels:          s.refreshModels,
+		ReadCurrentController:  s.readCurrentController,
+		WriteCurrentController: s.writeCurrentController,
+	}
+	return coretesting.RunCommand(c, modelcmd.WrapBase(cmd), args...)
+}
+
+func (s *SwitchSimpleSuite) TestNoArgs(c *gc.C) {
+	_, err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "no currently specified model")
 }
 
-func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
-	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
-	err := os.Remove(envPath)
+func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *gc.C) {
+	s.addController(c, "a-controller")
+	s.currentController = "a-controller"
+	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, gc.ErrorMatches, "no currently specified model")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller\n")
 }
 
-func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	context, err := testing.RunCommand(c, newSwitchCommand())
+func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
+	s.addController(c, "a-controller")
+	s.currentController = "a-controller"
+	s.store.Models["a-controller"] = &jujuclient.ControllerModels{
+		Models:       map[string]jujuclient.ModelDetails{"mymodel": {}},
+		CurrentModel: "mymodel",
+	}
+	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller:mymodel\n")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentModelHasPrecedence(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	modelcmd.WriteCurrentModel("fubar")
-	context, err := testing.RunCommand(c, newSwitchCommand())
+func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
+	s.addController(c, "a-controller")
+	context, err := s.run(c, "a-controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
-}
-
-func (s *SwitchSimpleSuite) TestCurrentControllerHasPrecedence(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	modelcmd.WriteCurrentController("fubar")
-	context, err := testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "fubar (controller)\n")
-}
-
-func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_MODEL", "using-model")
-	context, err := testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "using-model\n")
-}
-
-func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentModel(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-model", "fubar"})
-	os.Setenv("JUJU_MODEL", "using-model")
-	context, err := testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "using-model\n")
-}
-
-func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, "-> erewhemos-2\n")
-	currentEnv, err := modelcmd.ReadCurrentModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentEnv, gc.Equals, "erewhemos-2")
-}
-
-func (s *SwitchSimpleSuite) addTestController(c *gc.C) {
-	// First set up a controller in the config store.
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo("a-controller")
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:  []string{"localhost"},
-		CACert:     testing.CACert,
-		ServerUUID: "server-uuid",
+	c.Assert(coretesting.Stderr(context), gc.Equals, " -> a-controller (controller)\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"WriteCurrentController", []interface{}{"a-controller"}},
 	})
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SwitchSimpleSuite) TestSettingWritesControllerFile(c *gc.C) {
-	s.addTestController(c)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "a-controller")
+func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
+	s.currentController = "old"
+	s.addController(c, "new")
+	context, err := s.run(c, "new")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, "-> a-controller (controller)\n")
-	currController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currController, gc.Equals, "a-controller")
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
 }
 
-func (s *SwitchSimpleSuite) TestListWithController(c *gc.C) {
-	s.addTestController(c)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
+func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
+	s.currentController = "same"
+	s.addController(c, "same")
+	context, err := s.run(c, "same")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `
-a-controller (controller)
-erewhemos
-`[1:])
+	c.Assert(coretesting.Stderr(context), gc.Equals, "same (controller) (no change)\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+	})
 }
 
-func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	_, err := testing.RunCommand(c, newSwitchCommand(), "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined model or controller`)
+func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
+	s.currentController = "ctrl"
+	s.addController(c, "ctrl")
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"mymodel": {}},
+	}
+	context, err := s.run(c, "mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "ctrl (controller) -> ctrl:mymodel\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+	})
+	c.Assert(s.store.Models["ctrl"].CurrentModel, gc.Equals, "mymodel")
 }
 
-func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc.C) {
+	s.currentController = "old"
+	s.addController(c, "new")
+	s.store.Models["new"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"mymodel": {}},
+	}
+	context, err := s.run(c, "new:mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new:mymodel\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"WriteCurrentController", []interface{}{"new"}},
+	})
+	c.Assert(s.store.Models["new"].CurrentModel, gc.Equals, "mymodel")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentModel(c *gc.C) {
+	s.currentController = "old"
+	s.addController(c, "new")
+	s.store.Models["new"] = &jujuclient.ControllerModels{
+		Models:       map[string]jujuclient.ModelDetails{"mymodel": {}},
+		CurrentModel: "mymodel",
+	}
+	context, err := s.run(c, "new:mymodel")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new:mymodel\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"WriteCurrentController", []interface{}{"new"}},
+	})
+}
+
+func (s *SwitchSimpleSuite) TestSwitchUnknownNoCurrentController(c *gc.C) {
+	_, err := s.run(c, "unknown")
+	c.Assert(err, gc.ErrorMatches, `"unknown" is not the name of a model or controller`)
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+	})
+}
+
+func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModels(c *gc.C) {
+	s.currentController = "ctrl"
+	s.addController(c, "ctrl")
+	s.onRefresh = func() {
+		s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+			Models: map[string]jujuclient.ModelDetails{"unknown": {}},
+		}
+	}
+	ctx, err := s.run(c, "unknown")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "ctrl (controller) -> ctrl:unknown\n")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"RefreshModels", []interface{}{s.store, "ctrl"}},
+	})
+}
+
+func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsStillUnknown(c *gc.C) {
+	s.currentController = "ctrl"
+	s.addController(c, "ctrl")
+	_, err := s.run(c, "unknown")
+	c.Assert(err, gc.ErrorMatches, `"unknown" is not the name of a model or controller`)
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"RefreshModels", []interface{}{s.store, "ctrl"}},
+	})
+}
+
+func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails(c *gc.C) {
+	s.currentController = "ctrl"
+	s.addController(c, "ctrl")
+	s.SetErrors(nil, errors.New("not very refreshing"))
+	_, err := s.run(c, "unknown")
+	c.Assert(err, gc.ErrorMatches, "refreshing models cache: not very refreshing")
+	s.CheckCalls(c, []testing.StubCall{
+		{"ReadCurrentController", nil},
+		{"RefreshModels", []interface{}{s.store, "ctrl"}},
+	})
+}
+
+func (s *SwitchSimpleSuite) TestSettingWhenEnvVarSet(c *gc.C) {
 	os.Setenv("JUJU_MODEL", "using-model")
-	_, err := testing.RunCommand(c, newSwitchCommand(), "erewhemos-2")
+	_, err := s.run(c, "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
 }
 
-const expectedEnvironments = `erewhemos
-erewhemos-2
-`
-
-func (*SwitchSimpleSuite) TestListEnvironments(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
-}
-
-func (s *SwitchSimpleSuite) TestListEnvironmentsWithConfigstore(c *gc.C) {
-	memstore := configstore.NewMem()
-	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
-		return memstore, nil
-	})
-	info := memstore.CreateInfo("testing")
-	err := info.Write()
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
-	c.Assert(err, jc.ErrorIsNil)
-	expected := expectedEnvironments + "testing\n"
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-}
-
-func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	os.Setenv("JUJU_MODEL", "using-model")
-	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
-}
-
-func (*SwitchSimpleSuite) TestListEnvironmentsAndChange(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	_, err := testing.RunCommand(c, newSwitchCommand(), "--list", "erewhemos-2")
-	c.Assert(err, gc.ErrorMatches, "cannot switch and list at the same time")
-}
-
-func (*SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
-	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	_, err := testing.RunCommand(c, newSwitchCommand(), "foo", "bar")
+func (s *SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
+	_, err := s.run(c, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: ."bar".`)
+}
+
+func (s *SwitchSimpleSuite) addController(c *gc.C, name string) {
+	s.store.Controllers[name] = jujuclient.ControllerDetails{}
 }

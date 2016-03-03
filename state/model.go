@@ -189,69 +189,69 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 // Tag returns a name identifying the model.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
-func (e *Model) Tag() names.Tag {
-	return e.ModelTag()
+func (m *Model) Tag() names.Tag {
+	return m.ModelTag()
 }
 
 // ModelTag is the concrete model tag for this model.
-func (e *Model) ModelTag() names.ModelTag {
-	return names.NewModelTag(e.doc.UUID)
+func (m *Model) ModelTag() names.ModelTag {
+	return names.NewModelTag(m.doc.UUID)
 }
 
 // ControllerTag is the model tag for the controller that the model is
 // running within.
-func (e *Model) ControllerTag() names.ModelTag {
-	return names.NewModelTag(e.doc.ServerUUID)
+func (m *Model) ControllerTag() names.ModelTag {
+	return names.NewModelTag(m.doc.ServerUUID)
 }
 
 // UUID returns the universally unique identifier of the model.
-func (e *Model) UUID() string {
-	return e.doc.UUID
+func (m *Model) UUID() string {
+	return m.doc.UUID
 }
 
 // ControllerUUID returns the universally unique identifier of the controller
 // in which the model is running.
-func (e *Model) ControllerUUID() string {
-	return e.doc.ServerUUID
+func (m *Model) ControllerUUID() string {
+	return m.doc.ServerUUID
 }
 
 // Name returns the human friendly name of the model.
-func (e *Model) Name() string {
-	return e.doc.Name
+func (m *Model) Name() string {
+	return m.doc.Name
 }
 
 // Life returns whether the model is Alive, Dying or Dead.
-func (e *Model) Life() Life {
-	return e.doc.Life
+func (m *Model) Life() Life {
+	return m.doc.Life
 }
 
 // TimeOfDying returns when the model Life was set to Dying.
-func (e *Model) TimeOfDying() time.Time {
-	return e.doc.TimeOfDying
+func (m *Model) TimeOfDying() time.Time {
+	return m.doc.TimeOfDying
 }
 
 // TimeOfDeath returns when the model Life was set to Dead.
-func (e *Model) TimeOfDeath() time.Time {
-	return e.doc.TimeOfDeath
+func (m *Model) TimeOfDeath() time.Time {
+	return m.doc.TimeOfDeath
 }
 
 // Owner returns tag representing the owner of the model.
 // The owner is the user that created the model.
-func (e *Model) Owner() names.UserTag {
-	return names.NewUserTag(e.doc.Owner)
+func (m *Model) Owner() names.UserTag {
+	return names.NewUserTag(m.doc.Owner)
 }
 
 // Config returns the config for the model.
-func (e *Model) Config() (*config.Config, error) {
-	if e.st.modelTag.Id() == e.UUID() {
-		return e.st.ModelConfig()
+func (m *Model) Config() (*config.Config, error) {
+	if m.st.modelTag.Id() == m.UUID() {
+		return m.st.ModelConfig()
 	}
-	envState := e.st
-	if envState.modelTag != e.ModelTag() {
+	envState := m.st
+	if envState.modelTag != m.ModelTag() {
 		// The active model isn't the same as the model
 		// we are querying.
 		var err error
-		envState, err = e.st.ForModel(e.ModelTag())
+		envState, err = m.st.ForModel(m.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -262,28 +262,28 @@ func (e *Model) Config() (*config.Config, error) {
 
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates environementDoc with it.
-func (e *Model) UpdateLatestToolsVersion(ver version.Number) error {
+func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
 	v := ver.String()
 	// TODO(perrito666): I need to assert here that there isn't a newer
 	// version in place.
 	ops := []txn.Op{{
 		C:      modelsC,
-		Id:     e.doc.UUID,
+		Id:     m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
 	}}
-	err := e.st.runTransaction(ops)
+	err := m.st.runTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return e.Refresh()
+	return m.Refresh()
 }
 
 // LatestToolsVersion returns the newest version found in the last
 // check in the streams.
 // Bear in mind that the check was performed filtering only
 // new patches for the current major.minor. (major.minor.patch)
-func (e *Model) LatestToolsVersion() version.Number {
-	ver := e.doc.LatestAvailableTools
+func (m *Model) LatestToolsVersion() version.Number {
+	ver := m.doc.LatestAvailableTools
 	if ver == "" {
 		return version.Zero
 	}
@@ -298,18 +298,18 @@ func (e *Model) LatestToolsVersion() version.Number {
 }
 
 // globalKey returns the global database key for the model.
-func (e *Model) globalKey() string {
+func (m *Model) globalKey() string {
 	return modelGlobalKey
 }
 
-func (e *Model) Refresh() error {
-	models, closer := e.st.getCollection(modelsC)
+func (m *Model) Refresh() error {
+	models, closer := m.st.getCollection(modelsC)
 	defer closer()
-	return e.refresh(models.FindId(e.UUID()))
+	return m.refresh(models.FindId(m.UUID()))
 }
 
-func (e *Model) refresh(query *mgo.Query) error {
-	err := query.One(&e.doc)
+func (m *Model) refresh(query *mgo.Query) error {
+	err := query.One(&m.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("model")
 	}
@@ -317,11 +317,11 @@ func (e *Model) refresh(query *mgo.Query) error {
 }
 
 // Users returns a slice of all users for this model.
-func (e *Model) Users() ([]*ModelUser, error) {
-	if e.st.ModelUUID() != e.UUID() {
+func (m *Model) Users() ([]*ModelUser, error) {
+	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
-	coll, closer := e.st.getCollection(modelUsersC)
+	coll, closer := m.st.getCollection(modelUsersC)
 	defer closer()
 
 	var userDocs []modelUserDoc
@@ -333,7 +333,7 @@ func (e *Model) Users() ([]*ModelUser, error) {
 	var modelUsers []*ModelUser
 	for _, doc := range userDocs {
 		modelUsers = append(modelUsers, &ModelUser{
-			st:  e.st,
+			st:  m.st,
 			doc: doc,
 		})
 	}
@@ -343,18 +343,18 @@ func (e *Model) Users() ([]*ModelUser, error) {
 
 // Destroy sets the models's lifecycle to Dying, preventing
 // addition of services or machines to state.
-func (e *Model) Destroy() (err error) {
-	return e.destroy(false)
+func (m *Model) Destroy() (err error) {
+	return m.destroy(false)
 }
 
 // DestroyIncludingHosted sets the model's lifecycle to Dying, preventing addition of
 // services or machines to state. If this model is a controller hosting
 // other model, they will also be destroyed.
-func (e *Model) DestroyIncludingHosted() error {
-	return e.destroy(true)
+func (m *Model) DestroyIncludingHosted() error {
+	return m.destroy(true)
 }
 
-func (e *Model) destroy(destroyHostedModels bool) (err error) {
+func (m *Model) destroy(destroyHostedModels bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -365,12 +365,12 @@ func (e *Model) destroy(destroyHostedModels bool) (err error) {
 			// ...but on subsequent attempts, we read fresh environ
 			// state from the DB. Note that we do *not* refresh `e`
 			// itself, as detailed in doc/hacking-state.txt
-			if e, err = e.st.GetModel(e.ModelTag()); err != nil {
+			if m, err = m.st.GetModel(m.ModelTag()); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
-		ops, err := e.destroyOps(destroyHostedModels)
+		ops, err := m.destroyOps(destroyHostedModels)
 		if err == errModelNotAlive {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -380,9 +380,9 @@ func (e *Model) destroy(destroyHostedModels bool) (err error) {
 		return ops, nil
 	}
 
-	st := e.st
-	if e.UUID() != e.st.ModelUUID() {
-		st, err = e.st.ForModel(e.ModelTag())
+	st := m.st
+	if m.UUID() != m.st.ModelUUID() {
+		st, err = m.st.ForModel(m.ModelTag())
 		defer st.Close()
 		if err != nil {
 			return errors.Trace(err)
@@ -408,28 +408,28 @@ func IsHasHostedModelsError(err error) bool {
 
 // destroyOps returns the txn operations necessary to begin model
 // destruction, or an error indicating why it can't.
-func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
+func (m *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 	// Ensure we're using the model's state.
-	st := e.st
+	st := m.st
 	var err error
-	if e.UUID() != e.st.ModelUUID() {
-		st, err = e.st.ForModel(e.ModelTag())
+	if m.UUID() != m.st.ModelUUID() {
+		st, err = m.st.ForModel(m.ModelTag())
 		defer st.Close()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	if e.Life() != Alive {
+	if m.Life() != Alive {
 		return nil, errModelNotAlive
 	}
 
-	err = e.ensureDestroyable()
+	err = m.ensureDestroyable()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	uuid := e.UUID()
+	uuid := m.UUID()
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
@@ -439,7 +439,7 @@ func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 			{"time-of-dying", nowToTheSecond()},
 		}}},
 	}}
-	if uuid == e.doc.ServerUUID && !destroyHostedModels {
+	if uuid == m.doc.ServerUUID && !destroyHostedModels {
 		if count, err := hostedModelCount(st); err != nil {
 			return nil, errors.Trace(err)
 		} else if count != 0 {
@@ -457,7 +457,7 @@ func (e *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
-	if uuid == e.doc.ServerUUID {
+	if uuid == m.doc.ServerUUID {
 		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, uuid)
 		ops = append(ops, cleanupOp)
 	}
@@ -494,7 +494,7 @@ func checkManualMachines(machines []*Machine) error {
 
 // ensureDestroyable an error if any manual machines or persistent volumes are
 // found.
-func (e *Model) ensureDestroyable() error {
+func (m *Model) ensureDestroyable() error {
 
 	// TODO(waigani) bug #1475212: Model destroy can miss manual
 	// machines. We need to be able to assert the absence of these as
@@ -503,7 +503,7 @@ func (e *Model) ensureDestroyable() error {
 
 	// Check for manual machines. We bail out if there are any,
 	// to stop the user from prematurely hobbling the model.
-	machines, err := e.st.AllMachines()
+	machines, err := m.st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -591,8 +591,8 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
 }
 
 // assertAliveOp returns a txn.Op that asserts the model is alive.
-func (e *Model) assertAliveOp() txn.Op {
-	return assertModelAliveOp(e.UUID())
+func (m *Model) assertAliveOp() txn.Op {
+	return assertModelAliveOp(m.UUID())
 }
 
 // assertModelAliveOp returns a txn.Op that asserts the given

@@ -116,14 +116,16 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Networki
 	s.TestConfig["prefer-ipv6"] = preferIPv6
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), s.ConfigStore,
+		s.ControllerStore, cfg.Name(),
+		environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(env, gc.NotNil)
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.EnsureNotBootstrapped(netenv)
-	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv
@@ -198,6 +200,33 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 	c.Assert(isEnabled, jc.IsFalse)
 	ok, err = e.SupportsSpaces()
 	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	// Without change space discovery is not supported.
+	ok, err := e.SupportsSpaceDiscovery()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now turn it on.
+	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
+	c.Assert(isEnabled, jc.IsFalse)
+	ok, err = e.SupportsSpaceDiscovery()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// And finally turn it off again.
+	isEnabled = dummy.SetSupportsSpaceDiscovery(false)
+	c.Assert(isEnabled, jc.IsTrue)
+	ok, err = e.SupportsSpaceDiscovery()
+	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

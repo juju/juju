@@ -48,6 +48,7 @@ type stateInterface interface {
 	ModelUUID() string
 	ModelTag() names.ModelTag
 	Model() (*state.Model, error)
+	ForModel(tag names.ModelTag) (*state.State, error)
 	SetModelAgentVersion(version.Number) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	Annotations(state.GlobalEntity) (map[string]string, error)

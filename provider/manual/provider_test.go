@@ -6,6 +6,7 @@ package manual_test
 import (
 	"io"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,25 +18,51 @@ import (
 )
 
 type providerSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
+	testing.Stub
 }
 
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.Stub.ResetCalls()
 	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, stdin io.Reader, stdout io.Writer) error {
-		return nil
+		s.AddCall("InitUbuntuUser", host, user, keys, stdin, stdout)
+		return s.NextErr()
 	})
 }
 
-func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
+func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
+	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "public auth key\n", ctx.GetStdin(), ctx.GetStdout())
+}
+
+func (s *providerSuite) TestPrepareForBootstrapCloudRegionOnly(c *gc.C) {
+	ctx, err := s.testPrepareForBootstrap(c, "", "region")
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCall(c, 0, "InitUbuntuUser", "region", "", "public auth key\n", ctx.GetStdin(), ctx.GetStdout())
+}
+
+func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpointOrRegion(c *gc.C) {
+	_, err := s.testPrepareForBootstrap(c, "", "")
+	c.Assert(err, gc.ErrorMatches,
+		`missing address of host to bootstrap: please specify "juju bootstrap manual/<host>"`)
+}
+
+func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string) (environs.BootstrapContext, error) {
 	minimal := manual.MinimalConfigValues()
 	minimal["use-sshstorage"] = true
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	ctx := envtesting.BootstrapContext(c)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config:        testConfig,
+		CloudEndpoint: endpoint,
+		CloudRegion:   region,
+	})
+	return ctx, err
 }
 
 func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
@@ -43,13 +70,19 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = false
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config:        testConfig,
+		CloudEndpoint: "hostname",
+	})
 	c.Assert(err, gc.ErrorMatches, "use-sshstorage must not be specified")
 
 	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config:        testConfig,
+		CloudEndpoint: "hostname",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -59,7 +92,10 @@ func (s *providerSuite) TestPrepareSetsUseSSHStorage(c *gc.C) {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), testConfig)
+	env, err := manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config:        testConfig,
+		CloudEndpoint: "hostname",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := env.Config()
 	value := cfg.AllAttrs()["use-sshstorage"]

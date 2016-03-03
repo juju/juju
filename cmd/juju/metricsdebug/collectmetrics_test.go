@@ -16,7 +16,7 @@ import (
 )
 
 type collectMetricsSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&collectMetricsSuite{})

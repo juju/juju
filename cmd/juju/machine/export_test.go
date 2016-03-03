@@ -29,17 +29,13 @@ func NewAddCommandForTest(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Comma
 
 // NewListCommandForTest returns a listMachineCommand with specified api
 func NewListCommandForTest(api statusAPI) cmd.Command {
-	cmd := &listMachinesCommand{
-		api: api,
-	}
+	cmd := newListMachinesCommand(api)
 	return modelcmd.Wrap(cmd)
 }
 
 // NewShowCommandForTest returns a showMachineCommand with specified api
 func NewShowCommandForTest(api statusAPI) cmd.Command {
-	cmd := &showMachineCommand{
-		api: api,
-	}
+	cmd := newShowMachineCommand(api)
 	return modelcmd.Wrap(cmd)
 }
 

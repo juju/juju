@@ -19,7 +19,7 @@ type listCommandSuite struct {
 }
 
 func (s *listCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.mockClient = &block.MockBlockClient{}
 	s.PatchValue(block.ListClient, func(_ *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 		return s.mockClient, nil

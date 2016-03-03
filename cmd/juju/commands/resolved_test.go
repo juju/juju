@@ -52,7 +52,7 @@ var resolvedTests = []struct {
 		err:  `invalid unit name "jeremy-fisher"`,
 	}, {
 		args: []string{"jeremy-fisher/99"},
-		err:  `unit "jeremy-fisher/99" not found`,
+		err:  `unit "jeremy-fisher/99" not found \(not found\)`,
 	}, {
 		args: []string{"dummy/0"},
 		err:  `unit "dummy/0" is not in an error state`,

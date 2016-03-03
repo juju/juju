@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,7 +30,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -233,7 +232,7 @@ func (s *serverSuite) TestShareModelAddLocalUser(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn, gc.Equals, time.Time{})
@@ -256,7 +255,7 @@ func (s *serverSuite) TestShareModelAddRemoteUser(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
@@ -651,7 +650,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			about: "unknown charm",
 			charm: "wordpress",
 			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found`,
+			err:   `charm "cs:missing/one-1" not found \(not found\)`,
 		},
 	}
 
@@ -804,7 +803,7 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 
 type clientRepoSuite struct {
 	baseSuite
-	apiservertesting.CharmStoreSuite
+	testing.CharmStoreSuite
 }
 
 var _ = gc.Suite(&clientRepoSuite{})
@@ -1511,7 +1510,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 
 	// Test that in the abasence of a client-specified
-	// DisablePackageCommands we use what's set in environments.yaml.
+	// DisablePackageCommands we use what's set in environment config.
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(false, false)
 	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
@@ -1727,6 +1726,14 @@ func (s *clientSuite) assertBlockedErrorAndLiveliness(
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
 	assertLife(c, living4, state.Alive)
+}
+
+func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }
 
 func (s *clientSuite) TestBlockRemoveDestroyMachines(c *gc.C) {

@@ -35,7 +35,7 @@ func (m *MockSetMeterStatusClient) Close() error {
 }
 
 type SetMeterStatusSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&SetMeterStatusSuite{})

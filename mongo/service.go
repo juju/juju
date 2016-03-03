@@ -19,7 +19,7 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
-	serviceName    = "juju-db"
+	ServiceName    = "juju-db"
 	serviceTimeout = 300 // 5 minutes
 
 	// SharedSecretFile is the name of the Mongo shared secret file
@@ -71,8 +71,8 @@ var discoverService = func(name string) (mongoService, error) {
 // configuration is present.
 var IsServiceInstalled = isServiceInstalled
 
-func isServiceInstalled(namespace string) (bool, error) {
-	svc, err := discoverService(ServiceName(namespace))
+func isServiceInstalled() (bool, error) {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -80,8 +80,8 @@ func isServiceInstalled(namespace string) (bool, error) {
 }
 
 // RemoveService removes the mongoDB init service from this machine.
-func RemoveService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func RemoveService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,18 +94,9 @@ func RemoveService(namespace string) error {
 	return nil
 }
 
-// ServiceName returns the name of the init service config for mongo using
-// the given namespace.
-func ServiceName(namespace string) string {
-	if namespace != "" {
-		return fmt.Sprintf("%s-%s", serviceName, namespace)
-	}
-	return serviceName
-}
-
 // StopService will stop mongodb service.
-func StopService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func StopService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -113,8 +104,8 @@ func StopService(namespace string) error {
 }
 
 // StartService will start mongodb service.
-func StartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func StartService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -122,8 +113,8 @@ func StartService(namespace string) error {
 }
 
 // ReStartService will stop and then start mongodb service.
-func ReStartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func ReStartService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -145,22 +136,40 @@ func sharedSecretPath(dataDir string) string {
 }
 
 // newConf returns the init system config for the mongo state service.
-func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) common.Conf {
+func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool, version Version, auth bool) common.Conf {
 	mongoCmd := mongoPath +
-		" --auth" +
+
 		" --dbpath " + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 		" --sslPEMKeyPassword ignored" +
 		" --port " + fmt.Sprint(port) +
-		" --noprealloc" +
 		" --syslog" +
-		" --smallfiles" +
 		" --journal" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
+
 		" --replSet " + ReplicaSetName +
 		" --ipv6" +
+		" --quiet" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+
+	if auth {
+		mongoCmd = mongoCmd +
+			" --auth" +
+			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
+	} else {
+		mongoCmd = mongoCmd +
+			" --noauth"
+	}
+	// TODO(perrito666) implement a proper version comparision with <>
+	// also make sure storageEngine is explicit every time it is possible.
+	if version != Mongo30wt {
+		mongoCmd = mongoCmd +
+			" --noprealloc" +
+			" --smallfiles"
+	} else {
+		mongoCmd = mongoCmd +
+			" --storageEngine wiredTiger"
+	}
 	extraScript := ""
 	if wantNumaCtl {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
@@ -177,4 +186,37 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		ExecStart:   mongoCmd,
 	}
 	return conf
+}
+
+// EnsureServiceInstalled is a convenience method to [re]create
+// the mongo service.
+func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version Version, auth bool) error {
+	mongoPath, err := Path(version)
+	if err != nil {
+		return errors.Annotate(err, "cannot get mongo path")
+	}
+
+	dbDir := filepath.Join(dataDir, "db")
+
+	if oplogSizeMB == 0 {
+		var err error
+		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
+			return err
+		}
+	}
+
+	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy, version, auth)
+	svc, err := newService(ServiceName, svcConf)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Remove(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := svc.Install(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

@@ -9,13 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/version"
@@ -49,8 +47,8 @@ version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either ~/.juju/environments.yaml, the -m option, or JUJU_MODEL.
-Series, Region, and Endpoint are the key attributes.
+the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which
 case cloud attributes like provider type, region etc are optional.
@@ -150,11 +148,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {
-		store, err := configstore.Default()
-		if err != nil {
-			return err
-		}
-		environ, err := c.prepare(context, store)
+		environ, err := c.prepare(context)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
@@ -208,9 +202,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
-			"local metadata directory", toolsURL, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false),
-		}
+		params.Sources = toolsDataSources(toolsURL)
 	}
 	params.Stream = c.stream
 

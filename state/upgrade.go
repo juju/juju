@@ -137,7 +137,7 @@ func (info *UpgradeInfo) Refresh() error {
 	return nil
 }
 
-// Watcher returns a watcher for the state underlying the current
+// Watch returns a watcher for the state underlying the current
 // UpgradeInfo instance. This is provided purely for convenience.
 func (info *UpgradeInfo) Watch() NotifyWatcher {
 	return info.st.WatchUpgradeInfo()

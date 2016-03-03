@@ -59,7 +59,6 @@ type FakeEnsureMongo struct {
 	EnsureCount         int
 	InitiateCount       int
 	DataDir             string
-	Namespace           string
 	OplogSize           int
 	Info                state.StateServingInfo
 	InitiateParams      peergrouper.InitiateMongoParams
@@ -68,7 +67,7 @@ type FakeEnsureMongo struct {
 	ReplicasetInitiated bool
 }
 
-func (f *FakeEnsureMongo) IsServiceInstalled(string) (bool, error) {
+func (f *FakeEnsureMongo) IsServiceInstalled() (bool, error) {
 	return f.ServiceInstalled, nil
 }
 
@@ -85,7 +84,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 
 func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	f.EnsureCount++
-	f.DataDir, f.Namespace, f.OplogSize = args.DataDir, args.Namespace, args.OplogSize
+	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
 	f.Info = state.StateServingInfo{
 		APIPort:        args.APIPort,
 		StatePort:      args.StatePort,
@@ -98,7 +97,11 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	return f.Err
 }
 
-func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
+func (f *FakeEnsureMongo) MaybeInitiateMongo(p peergrouper.InitiateMongoParams) error {
+	return f.InitiateMongo(p, false)
+}
+
+func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams, force bool) error {
 	f.InitiateCount++
 	f.InitiateParams = p
 	return nil

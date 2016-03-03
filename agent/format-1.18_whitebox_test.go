@@ -53,7 +53,7 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 var agentConfig1_18Contents = `
 # format 1.18
 tag: machine-0
-datadir: /home/user/.juju/local
+datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
 nonce: user-admin:bootstrap
 jobs:
@@ -103,7 +103,7 @@ values:
   NAMESPACE: user-local
   PROVIDER_TYPE: local
   STORAGE_ADDR: 10.0.3.1:8040
-  STORAGE_DIR: /home/user/.juju/local/storage
+  STORAGE_DIR: /home/user/.local/share/juju/local/storage
 controllercert: '-----BEGIN CERTIFICATE-----
 
   MIICNzCCAaKgAwIBAgIBADALBgkqhkiG9w0BAQUwQzENMAsGA1UEChMEanVqdTEy
@@ -202,7 +202,7 @@ prefer-ipv6: true
 var agentConfig1_18NotStateMachine = `
 # format 1.18
 tag: machine-1
-datadir: /home/user/.juju/local
+datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
 nonce: user-admin:bootstrap
 jobs:
@@ -253,7 +253,7 @@ values:
   NAMESPACE: user-local
   PROVIDER_TYPE: local
   STORAGE_ADDR: 10.0.3.1:8040
-  STORAGE_DIR: /home/user/.juju/local/storage
+  STORAGE_DIR: /home/user/.local/share/juju/local/storage
 apiport: 17070
 prefer-ipv6: true
 `[1:]

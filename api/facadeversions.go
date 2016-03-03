@@ -3,6 +3,10 @@
 
 package api
 
+import (
+	"github.com/juju/errors"
+)
+
 // facadeVersions lists the best version of facades that we know about. This
 // will be used to pick out a default version for communication, given the list
 // of known versions that the API server tells us it is capable of supporting.
@@ -26,6 +30,7 @@ var facadeVersions = map[string]int{
 	"Cleaner":                      2,
 	"Controller":                   2,
 	"Deployer":                     1,
+	"DiscoverSpaces":               2,
 	"DiskManager":                  2,
 	"EntityWatcher":                2,
 	"FilesystemAttachmentsWatcher": 2,
@@ -45,7 +50,6 @@ var facadeVersions = map[string]int{
 	"MeterStatus":                  1,
 	"MetricsAdder":                 2,
 	"ModelManager":                 2,
-	"Networker":                    1,
 	"NotifyWatcher":                1,
 	"Pinger":                       1,
 	"Provisioner":                  2,
@@ -66,6 +70,16 @@ var facadeVersions = map[string]int{
 	"UserManager":                  1,
 	"VolumeAttachmentsWatcher":     2,
 	"Undertaker":                   1,
+}
+
+// RegisterFacadeVersion sets the API client to prefer the given version
+// for the facade.
+func RegisterFacadeVersion(name string, version int) error {
+	if ver, ok := facadeVersions[name]; ok && ver != version {
+		return errors.Errorf("facade %q already registered", name)
+	}
+	facadeVersions[name] = version
+	return nil
 }
 
 // bestVersion tries to find the newest version in the version list that we can

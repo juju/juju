@@ -13,35 +13,35 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type JujuHomeSuite struct {
+type JujuXDGDataHomeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&JujuHomeSuite{})
+var _ = gc.Suite(&JujuXDGDataHomeSuite{})
 
-func (s *JujuHomeSuite) TestStandardHome(c *gc.C) {
-	testJujuHome := c.MkDir()
-	osenv.SetJujuHome(testJujuHome)
-	c.Assert(osenv.JujuHome(), gc.Equals, testJujuHome)
+func (s *JujuXDGDataHomeSuite) TestStandardHome(c *gc.C) {
+	testJujuXDGDataHome := c.MkDir()
+	osenv.SetJujuXDGDataHome(testJujuXDGDataHome)
+	c.Assert(osenv.JujuXDGDataHome(), gc.Equals, testJujuXDGDataHome)
 }
 
-func (s *JujuHomeSuite) TestErrorHome(c *gc.C) {
+func (s *JujuXDGDataHomeSuite) TestErrorHome(c *gc.C) {
 	// Invalid juju home leads to panic when retrieving.
-	f := func() { _ = osenv.JujuHome() }
+	f := func() { _ = osenv.JujuXDGDataHome() }
 	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
-	f = func() { _ = osenv.JujuHomePath("environments.yaml") }
+	f = func() { _ = osenv.JujuXDGDataHomePath("current-environment") }
 	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
 }
 
-func (s *JujuHomeSuite) TestHomePath(c *gc.C) {
+func (s *JujuXDGDataHomeSuite) TestHomePath(c *gc.C) {
 	testJujuHome := c.MkDir()
-	osenv.SetJujuHome(testJujuHome)
-	envPath := osenv.JujuHomePath("environments.yaml")
-	c.Assert(envPath, gc.Equals, filepath.Join(testJujuHome, "environments.yaml"))
+	osenv.SetJujuXDGDataHome(testJujuHome)
+	envPath := osenv.JujuXDGDataHomePath("current-environment")
+	c.Assert(envPath, gc.Equals, filepath.Join(testJujuHome, "current-environment"))
 }
 
-func (s *JujuHomeSuite) TestIsHomeSet(c *gc.C) {
-	c.Assert(osenv.IsJujuHomeSet(), jc.IsFalse)
-	osenv.SetJujuHome(c.MkDir())
-	c.Assert(osenv.IsJujuHomeSet(), jc.IsTrue)
+func (s *JujuXDGDataHomeSuite) TestIsHomeSet(c *gc.C) {
+	c.Assert(osenv.IsJujuXDGDataHomeSet(), jc.IsFalse)
+	osenv.SetJujuXDGDataHome(c.MkDir())
+	c.Assert(osenv.IsJujuXDGDataHomeSet(), jc.IsTrue)
 }

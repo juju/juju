@@ -11,6 +11,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path"
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -27,6 +29,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -203,7 +206,7 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	// Add the charm, so the url will exist and a new revision will be
-	// picked in ServiceDeploy.
+	// picked in service Deploy.
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
 	dirPath := testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
@@ -275,6 +278,31 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+}
+
+func (s *DeploySuite) TestResources(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	dir := c.MkDir()
+
+	foopath := path.Join(dir, "foo")
+	barpath := path.Join(dir, "bar")
+	err := ioutil.WriteFile(foopath, []byte("foo"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(barpath, []byte("bar"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res1 := fmt.Sprintf("foo=%s", foopath)
+	res2 := fmt.Sprintf("bar=%s", barpath)
+
+	d := DeployCommand{}
+	args := []string{"local:dummy", "--resource", res1, "--resource", res2}
+
+	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
+		"foo": foopath,
+		"bar": barpath,
+	})
 }
 
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
@@ -767,8 +795,8 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		TermsLocation:    s.termsDischarger.Location(),
 		PublicKeyLocator: keyring,
+		TermsLocation:    s.termsDischarger.Location(),
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -830,11 +858,26 @@ func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
 
 // serviceInfo holds information about a deployed service.
 type serviceInfo struct {
-	charm       string
-	config      charm.Settings
-	constraints constraints.Value
-	exposed     bool
-	storage     map[string]state.StorageConstraints
+	charm            string
+	config           charm.Settings
+	constraints      constraints.Value
+	exposed          bool
+	storage          map[string]state.StorageConstraints
+	endpointBindings map[string]string
+}
+
+// assertDeployedServiceBindings checks that services were deployed into the
+// expected spaces. It is separate to assertServicesDeployed because it is only
+// relevant to a couple of tests.
+func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
+	services, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, service := range services {
+		endpointBindings, err := service.EndpointBindings()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(endpointBindings, jc.DeepEquals, info[service.Name()].endpointBindings)
+	}
 }
 
 // assertServicesDeployed checks that the given services have been deployed.
@@ -1026,6 +1069,49 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 	c.Assert(called, jc.IsFalse)
 }
 
+func (s *DeploySuite) TestDeployFlags(c *gc.C) {
+	command := DeployCommand{}
+	flagSet := gnuflag.NewFlagSet(command.Info().Name, gnuflag.ContinueOnError)
+	command.SetFlags(flagSet)
+	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
+	// Add to the slice below if a new flag is introduced which is valid for
+	// both charms and bundles.
+	charmAndBundleFlags := []string{"repository", "storage"}
+	var allFlags []string
+	flagSet.VisitAll(func(flag *gnuflag.Flag) {
+		allFlags = append(allFlags, flag.Name)
+	})
+	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
+	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
+	sort.Strings(declaredFlags)
+	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
+}
+
+func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-1", "wordpress")
+	err = runDeploy(c, "cs:quantal/wordpress-1", "--bind", "db=db public")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"wordpress": {charm: "cs:quantal/wordpress-1"},
+	})
+	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
+		"wordpress": {
+			endpointBindings: map[string]string{
+				"cache":           "public",
+				"url":             "public",
+				"logging-dir":     "public",
+				"monitoring-port": "public",
+				"db":              "db",
+			},
+		},
+	})
+}
+
 func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	setter := &testMetricCredentialsSetter{
 		assert: func(serviceName string, data []byte) {},
@@ -1049,4 +1135,72 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 
 	c.Assert(err, gc.ErrorMatches, "IsMetered")
+}
+
+type ParseBindSuite struct {
+}
+
+var _ = gc.Suite(&ParseBindSuite{})
+
+func (s *ParseBindSuite) TestBindParseEmpty(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: ""}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, gc.IsNil)
+}
+
+func (s *ParseBindSuite) TestBindParseOK(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "foo=a bar=b"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"foo": "a", "bar": "b"})
+}
+
+func (s *ParseBindSuite) TestBindParseServiceDefault(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "service-default"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"": "service-default"})
+}
+
+func (s *ParseBindSuite) TestBindParseNoEndpoint(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "=bad"}
+	err := deploy.parseBind()
+	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Found = without relation name. Use a lone space name to set the default.")
+	c.Assert(deploy.Bindings, gc.IsNil)
+}
+
+func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "foo=bar=baz"}
+	err := deploy.parseBind()
+	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Found multiple = in binding. Did you forget to space-separate the binding list?")
+	c.Assert(deploy.Bindings, gc.IsNil)
+}
+
+func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "rel1=space1  rel2=space2 space3"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+}
+
+func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints2(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "rel1=space1  space3 rel2=space2"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+}
+
+func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints3(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "space3  rel1=space1 rel2=space2"}
+	err := deploy.parseBind()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+}
+
+func (s *ParseBindSuite) TestBindParseBadSpace(c *gc.C) {
+	deploy := &DeployCommand{BindToSpaces: "rel1=spa#ce1"}
+	err := deploy.parseBind()
+	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Space name invalid.")
+	c.Assert(deploy.Bindings, gc.IsNil)
 }

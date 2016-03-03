@@ -2318,6 +2318,47 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 	})
 }
 
+// WatchControllerStatusChanges starts and returns a StringsWatcher that
+// notifies when the status of a controller machine changes.
+// TODO(cherylj) Add unit tests for this, as per bug 1543408.
+func (st *State) WatchControllerStatusChanges() StringsWatcher {
+	return newcollectionWatcher(st, colWCfg{
+		col:    statusesC,
+		filter: makeControllerIdFilter(st),
+	})
+}
+
+func makeControllerIdFilter(st *State) func(interface{}) bool {
+	initialInfo, err := st.ControllerInfo()
+	if err != nil {
+		return nil
+	}
+	machines := initialInfo.MachineIds
+	return func(key interface{}) bool {
+		switch key.(type) {
+		case string:
+			info, err := st.ControllerInfo()
+			if err != nil {
+				// Most likely, things will be killed and
+				// restarted if we hit this error.  Just use
+				// the machine list we knew about last time.
+				logger.Debugf("unable to get controller info: %v", err)
+			} else {
+				machines = info.MachineIds
+			}
+			for _, machine := range machines {
+				if strings.HasSuffix(key.(string), fmt.Sprintf("m#%s", machine)) {
+					return true
+				}
+			}
+		default:
+			watchLogger.Errorf("key is not type string, got %T", key)
+		}
+		return false
+	}
+
+}
+
 // WatchActionResults starts and returns a StringsWatcher that
 // notifies on new ActionResults being added.
 func (st *State) WatchActionResults() StringsWatcher {
@@ -2329,138 +2370,6 @@ func (st *State) WatchActionResults() StringsWatcher {
 // being watched.
 func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
 	return newActionStatusWatcher(st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
-}
-
-// machineInterfacesWatcher notifies about changes to all network interfaces
-// of a machine. Changes include adding, removing enabling or disabling interfaces.
-type machineInterfacesWatcher struct {
-	commonWatcher
-	machineId string
-	out       chan struct{}
-	in        chan watcher.Change
-}
-
-var _ NotifyWatcher = (*machineInterfacesWatcher)(nil)
-
-// WatchInterfaces returns a new NotifyWatcher watching m's network interfaces.
-func (m *Machine) WatchInterfaces() NotifyWatcher {
-	return newMachineInterfacesWatcher(m)
-}
-
-func newMachineInterfacesWatcher(m *Machine) NotifyWatcher {
-	w := &machineInterfacesWatcher{
-		commonWatcher: commonWatcher{st: m.st},
-		machineId:     m.doc.Id,
-		out:           make(chan struct{}),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// Changes returns the event channel for w.
-func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-// initial retrieves the currently known interfaces and stores
-// them together with their activation.
-func (w *machineInterfacesWatcher) initial() (map[bson.ObjectId]bool, error) {
-	known := make(map[bson.ObjectId]bool)
-	doc := networkInterfaceDoc{}
-	query := bson.D{{"machineid", w.machineId}}
-	fields := bson.D{{"_id", 1}, {"isdisabled", 1}}
-
-	networkInterfaces, closer := w.st.getCollection(networkInterfacesC)
-	defer closer()
-
-	iter := networkInterfaces.Find(query).Select(fields).Iter()
-	for iter.Next(&doc) {
-		known[doc.Id] = doc.IsDisabled
-	}
-	if err := iter.Close(); err != nil {
-		return nil, err
-	}
-	return known, nil
-}
-
-// merge compares a number of updates to the known state
-// and modifies changes accordingly.
-func (w *machineInterfacesWatcher) merge(changes, initial map[bson.ObjectId]bool, updates map[interface{}]bool) error {
-	networkInterfaces, closer := w.st.getCollection(networkInterfacesC)
-	defer closer()
-	for id, exists := range updates {
-		switch id := id.(type) {
-		case bson.ObjectId:
-			isDisabled, known := initial[id]
-			if known && !exists {
-				// Well known interface has been removed.
-				delete(initial, id)
-				changes[id] = true
-				continue
-			}
-			doc := networkInterfaceDoc{}
-			err := networkInterfaces.FindId(id).One(&doc)
-			if err != nil && err != mgo.ErrNotFound {
-				return err
-			}
-			if doc.MachineId != w.machineId {
-				// Not our machine.
-				continue
-			}
-			if !known || isDisabled != doc.IsDisabled {
-				// New interface or activation change.
-				initial[id] = doc.IsDisabled
-				changes[id] = true
-			}
-		default:
-			return errors.Errorf("id is not of type object ID, got %T", id)
-		}
-	}
-	return nil
-}
-
-func (w *machineInterfacesWatcher) loop() error {
-	changes := make(map[bson.ObjectId]bool)
-	in := make(chan watcher.Change)
-	out := w.out
-
-	w.st.watcher.WatchCollection(networkInterfacesC, in)
-	defer w.st.watcher.UnwatchCollection(networkInterfacesC, in)
-
-	initial, err := w.initial()
-	if err != nil {
-		return err
-	}
-	changes = initial
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
-		case ch := <-in:
-			updates, ok := collect(ch, in, w.tomb.Dying())
-			if !ok {
-				return tomb.ErrDying
-			}
-			if err := w.merge(changes, initial, updates); err != nil {
-				return err
-			}
-			if len(changes) > 0 {
-				out = w.out
-			} else {
-				out = nil
-			}
-		case out <- struct{}{}:
-			changes = make(map[bson.ObjectId]bool)
-			out = nil
-		}
-	}
 }
 
 // openedPortsWatcher notifies of changes in the openedPorts

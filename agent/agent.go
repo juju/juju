@@ -75,7 +75,7 @@ func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error 
 	})
 }
 
-// SetStateServingInfo trivially wraps an Agent to implement
+// StateServingInfoSetter trivially wraps an Agent to implement
 // worker/certupdater/SetStateServingInfo.
 type StateServingInfoSetter struct {
 	Agent
@@ -247,6 +247,10 @@ type Config interface {
 	// MetricsSpoolDir returns the spool directory where workloads store
 	// collected metrics.
 	MetricsSpoolDir() string
+
+	// MongoVersion returns the version of mongo that the state server
+	// is using.
+	MongoVersion() mongo.Version
 }
 
 type configSetterOnly interface {
@@ -293,6 +297,9 @@ type configSetterOnly interface {
 	// SetStateServingInfo sets the information needed
 	// to run a controller
 	SetStateServingInfo(info params.StateServingInfo)
+
+	// SetMongoVersion sets the passed version as currently in use.
+	SetMongoVersion(mongo.Version)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -361,8 +368,11 @@ type configInternal struct {
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
+	mongoVersion      string
 }
 
+// AgentConfigParams holds the parameters required to create
+// a new AgentConfig.
 type AgentConfigParams struct {
 	Paths             Paths
 	Jobs              []multiwatcher.MachineJob
@@ -376,6 +386,7 @@ type AgentConfigParams struct {
 	CACert            string
 	Values            map[string]string
 	PreferIPv6        bool
+	MongoVersion      mongo.Version
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -420,7 +431,9 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
 		preferIPv6:        configParams.PreferIPv6,
+		mongoVersion:      configParams.MongoVersion.String(),
 	}
+
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			addresses: configParams.StateAddresses,
@@ -557,7 +570,15 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
+		// Try the preferred approach first.
+		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
+		if ok {
+			addrs = append(addrs, serverHP.NetAddr())
+		} else {
+			// Fallback to the legacy approach.
+			hps := network.SelectInternalHostPorts(serverHostPorts, false)
+			addrs = append(addrs, hps...)
+		}
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
@@ -694,6 +715,20 @@ func (c *configInternal) check() error {
 		}
 	}
 	return nil
+}
+
+// MongoVersion implements Config.
+func (c *configInternal) MongoVersion() mongo.Version {
+	v, err := mongo.NewVersion(c.mongoVersion)
+	if err != nil {
+		return mongo.Mongo24
+	}
+	return v
+}
+
+// SetMongoVersion implements configSetterOnly.
+func (c *configInternal) SetMongoVersion(v mongo.Version) {
+	c.mongoVersion = v.String()
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

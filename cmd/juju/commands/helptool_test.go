@@ -14,7 +14,7 @@ import (
 )
 
 type HelpToolSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&HelpToolSuite{})

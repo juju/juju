@@ -18,7 +18,7 @@ import (
 )
 
 type DebugLogSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&DebugLogSuite{})

@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -40,7 +41,7 @@ type Server struct {
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
-	addr              *net.TCPAddr
+	lis               net.Listener
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -50,6 +51,7 @@ type Server struct {
 	mongoUnavailable  uint32 // non zero if mongoUnavailable
 	modelUUID         string
 	authCtxt          *authContext
+	connections       int32 // count of active websocket connections
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -177,21 +179,6 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 }
 
 func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
-	logger.Infof("listening on %q", lis.Addr())
-	srv := &Server{
-		state:     s,
-		statePool: state.NewStatePool(s),
-		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
-		tag:       cfg.Tag,
-		dataDir:   cfg.DataDir,
-		logDir:    cfg.LogDir,
-		limiter:   utils.NewLimiter(loginRateLimit),
-		validator: cfg.Validator,
-		adminApiFactories: map[int]adminApiFactory{
-			2: newAdminApiV2,
-		},
-	}
-	srv.authCtxt = newAuthContext(srv)
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
 		return nil, err
@@ -202,8 +189,21 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		Certificates: []tls.Certificate{tlsCert},
 		MinVersion:   tls.VersionTLS10,
 	}
-	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
-	go srv.run(changeCertListener)
+	srv := &Server{
+		state:     s,
+		statePool: state.NewStatePool(s),
+		lis:       newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
+		tag:       cfg.Tag,
+		dataDir:   cfg.DataDir,
+		logDir:    cfg.LogDir,
+		limiter:   utils.NewLimiter(loginRateLimit),
+		validator: cfg.Validator,
+		adminApiFactories: map[int]adminApiFactory{
+			3: newAdminApiV3,
+		},
+	}
+	srv.authCtxt = newAuthContext(srv)
+	go srv.run()
 	return srv, nil
 }
 
@@ -235,15 +235,20 @@ type requestNotifier struct {
 
 	mu   sync.Mutex
 	tag_ string
+
+	// count is incremented by calls to join, and deincremented
+	// by calls to leave.
+	count *int32
 }
 
 var globalCounter int64
 
-func newRequestNotifier() *requestNotifier {
+func newRequestNotifier(count *int32) *requestNotifier {
 	return &requestNotifier{
 		id:    atomic.AddInt64(&globalCounter, 1),
 		tag_:  "<unknown>",
 		start: time.Now(),
+		count: count,
 	}
 }
 
@@ -289,11 +294,13 @@ func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body int
 }
 
 func (n *requestNotifier) join(req *http.Request) {
-	logger.Infof("[%X] API connection from %s", n.id, req.RemoteAddr)
+	active := atomic.AddInt32(n.count, 1)
+	logger.Infof("[%X] API connection from %s, active connections: %d", n.id, req.RemoteAddr, active)
 }
 
 func (n *requestNotifier) leave() {
-	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
+	active := atomic.AddInt32(n.count, -1)
+	logger.Infof("[%X] %s API connection terminated after %v, active connections: %d", n.id, n.tag(), time.Since(n.start), active)
 }
 
 func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -311,7 +318,14 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 	mux.Options(pattern, handler)
 }
 
-func (srv *Server) run(lis net.Listener) {
+func (srv *Server) run() {
+	logger.Infof("listening on %q", srv.lis.Addr())
+	defer func() {
+		addr := srv.lis.Addr().String() // Addr not valid after close
+		err := srv.lis.Close()
+		logger.Infof("closed listening socket %q with final error: %v", addr, err)
+	}()
+
 	defer func() {
 		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
@@ -341,6 +355,12 @@ func (srv *Server) run(lis net.Listener) {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
+	handleAll(mux, "/model/:modeluuid"+resourceapi.HTTPEndpointPattern,
+		newResourceHandler(httpCtxt),
+	)
+	handleAll(mux, "/model/:modeluuid/units/:unit/resources/:resource",
+		newUnitResourceHandler(httpCtxt),
+	)
 	handleAll(mux, "/model/:modeluuid/logsink",
 		newLogSinkHandler(httpCtxt, srv.logDir))
 	handleAll(mux, "/model/:modeluuid/log",
@@ -400,19 +420,28 @@ func (srv *Server) run(lis net.Listener) {
 			ctxt: httpCtxt,
 		},
 	)
+	handleAll(mux, "/register",
+		&registerUserHandler{
+			ctxt: httpCtxt,
+		},
+	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
 	go func() {
-		// The error from http.Serve is not interesting.
-		http.Serve(lis, mux)
+		addr := srv.lis.Addr() // not valid after addr closed
+		logger.Debugf("Starting API http server on address %q", addr)
+		err := http.Serve(srv.lis, mux)
+		// normally logging an error at debug level would be grounds for a beating,
+		// however in this case the error is *expected* to be non nil, and does not
+		// affect the operation of the apiserver, but for completeness log it anyway.
+		logger.Debugf("API http server exited, final error was: %v", err)
 	}()
 
 	<-srv.tomb.Dying()
-	lis.Close()
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	reqNotifier := newRequestNotifier()
+	reqNotifier := newRequestNotifier(&srv.connections)
 	reqNotifier.join(req)
 	defer reqNotifier.leave()
 	wsServer := websocket.Server{
@@ -436,11 +465,6 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-// Addr returns the address that the server is listening on.
-func (srv *Server) Addr() *net.TCPAddr {
-	return srv.addr
-}
-
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, modelUUID string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
@@ -456,7 +480,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 
 	h, err := srv.newAPIHandler(conn, reqNotifier, modelUUID)
 	if err != nil {
-		conn.Serve(&errRoot{err}, serverError)
+		conn.ServeFinder(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminApiFactories {

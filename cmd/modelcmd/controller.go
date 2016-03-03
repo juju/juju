@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 // ErrNoControllerSpecified is returned by commands that operate on
@@ -24,6 +25,15 @@ var ErrNoControllerSpecified = errors.New("no controller specified")
 // that need to operate on controllers as opposed to models.
 type ControllerCommand interface {
 	CommandBase
+
+	// SetClientStore is called prior to the wrapped command's Init method
+	// with the default controller store. It may also be called to override the
+	// default controller store for testing.
+	SetClientStore(jujuclient.ClientStore)
+
+	// ClientStore returns the controller store that the command is
+	// associated with.
+	ClientStore() jujuclient.ClientStore
 
 	// SetControllerName is called prior to the wrapped command's Init method with
 	// the active controller name. The controller name is guaranteed to be non-empty
@@ -45,10 +55,21 @@ type ControllerCommand interface {
 type ControllerCommandBase struct {
 	JujuCommandBase
 
+	store          jujuclient.ClientStore
 	controllerName string
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
+}
+
+// SetClientStore implements the ControllerCommand interface.
+func (c *ControllerCommandBase) SetClientStore(store jujuclient.ClientStore) {
+	c.store = store
+}
+
+// ClientStore implements the ControllerCommand interface.
+func (c *ControllerCommandBase) ClientStore() jujuclient.ClientStore {
+	return c.store
 }
 
 // SetControllerName implements the ControllerCommand interface.
@@ -106,9 +127,9 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	}
 	opener := c.opener
 	if opener == nil {
-		opener = NewPassthroughOpener(c.JujuCommandBase.NewAPIRoot)
+		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	return opener.Open(c.controllerName)
+	return opener.Open(c.store, c.controllerName, "")
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -144,7 +165,10 @@ func (c *ControllerCommandBase) ConnectionInfo() (configstore.EnvironInfo, error
 	if c.controllerName == "" {
 		return nil, errors.Trace(ErrNoControllerSpecified)
 	}
-	info, err := ConnectionInfoForName(c.controllerName)
+	info, err := connectionInfoForName(
+		c.controllerName,
+		configstore.AdminModelName(c.controllerName),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -211,11 +235,6 @@ func (w *sysCommandWrapper) getDefaultControllerName() (string, error) {
 	} else if currentController != "" {
 		return currentController, nil
 	}
-	if currentEnv, err := ReadCurrentModel(); err != nil {
-		return "", errors.Trace(err)
-	} else if currentEnv != "" {
-		return currentEnv, nil
-	}
 	return "", errors.Trace(ErrNoControllerSpecified)
 }
 
@@ -232,6 +251,11 @@ func (w *sysCommandWrapper) Init(args []string) error {
 		if w.controllerName == "" && !w.useDefaultControllerName {
 			return ErrNoControllerSpecified
 		}
+	}
+	store := w.ClientStore()
+	if store == nil {
+		store = jujuclient.NewFileClientStore()
+		w.SetClientStore(store)
 	}
 	w.SetControllerName(w.controllerName)
 	return w.ControllerCommand.Init(args)

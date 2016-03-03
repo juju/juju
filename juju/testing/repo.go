@@ -68,8 +68,7 @@ func (s *RepoSuite) TearDownSuite(c *gc.C) {
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.BaseRepoSuite.SetUpTest(c)
-	// Change the environ's config to ensure we're using the one in state,
-	// not the one in the local environments.yaml
+	// Change the environ's config to ensure we're using the one in state.
 	updateAttrs := map[string]interface{}{"default-series": config.LatestLtsSeries()}
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

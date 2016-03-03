@@ -43,6 +43,18 @@ func (s *DeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
 }
 
+func (s *DeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	_, err := runDeployCommand(c, "bundle/wordpress-simple", "--config", "config.yaml")
+	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --config.")
+	_, err = runDeployCommand(c, "bundle/wordpress-simple", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: -n.")
+	_, err = runDeployCommand(c, "bundle/wordpress-simple", "--series", "trusty", "--force")
+	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --force, --series.")
+}
+
 func (s *DeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
@@ -127,6 +139,68 @@ deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 			},
 		},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
+	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertUnitsCreated(c, map[string]string{
+		"mysql/0":     "0",
+		"wordpress/0": "1",
+	})
+}
+
+func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
+	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
+	c.Assert(err, gc.ErrorMatches,
+		"cannot deploy bundle: cannot deploy service \"mysql\": "+
+			"cannot add service \"mysql\": unknown space \"db\" not valid")
+	c.Assert(output, gc.Equals, "added charm cs:trusty/mysql-42")
+	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42")
+	s.assertServicesDeployed(c, map[string]serviceInfo{})
+	s.assertUnitsCreated(c, map[string]string{})
+}
+
+func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c *gc.C) {
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
+	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/mysql-42
+service mysql deployed (charm: cs:trusty/mysql-42)
+added charm cs:trusty/wordpress-47
+service wordpress deployed (charm: cs:trusty/wordpress-47)
+related wordpress:db and mysql:server
+added mysql/0 unit to new machine
+added wordpress/0 unit to new machine
+deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"mysql":     {charm: "cs:trusty/mysql-42"},
+		"wordpress": {charm: "cs:trusty/wordpress-47"},
+	})
+	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
+		"mysql": {
+			endpointBindings: map[string]string{"server": "db"},
+		},
+		"wordpress": {
+			endpointBindings: map[string]string{
+				"cache":           "",
+				"url":             "public",
+				"logging-dir":     "",
+				"monitoring-port": "",
+				"db":              "db",
+			},
+		},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{

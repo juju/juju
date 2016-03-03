@@ -16,6 +16,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -346,12 +347,32 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
+	env0, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
-	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
+	env1, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := env1.(*environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
@@ -368,7 +389,17 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
@@ -382,7 +413,17 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)

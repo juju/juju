@@ -6,6 +6,8 @@ package rackspace_test
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/rackspace"
@@ -64,8 +66,8 @@ func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 	return nil, nil
 }
 
-func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	p.Push("PrepareForBootstrap", ctx, cfg)
+func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	p.Push("PrepareForBootstrap", ctx, args)
 	return nil, nil
 }
 
@@ -74,12 +76,17 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return cfg, nil
 }
 
-func (p *fakeProvider) BoilerplateConfig() string {
-	p.Push("BoilerplateConfig")
-	return ""
-}
-
 func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	p.Push("SecretAttrs", cfg)
 	return nil, nil
+}
+
+func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	p.Push("CredentialSchemas")
+	return nil
+}
+
+func (p *fakeProvider) DetectCredentials() ([]cloud.Credential, error) {
+	p.Push("DetectCredentials")
+	return nil, errors.NotFoundf("credentials")
 }

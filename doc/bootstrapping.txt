@@ -11,7 +11,7 @@ Initially this will check in the default config store, which is $JUJU_HOME/model
 This calls through to environs.PrepareForName in environs/open.go.  This makes sure that the
 model configuration contains an admin secret, a CA cert, and a UUID.
 
-It is at this time that the initial .jenv file is written out to $JUJU_HOME/models.
+It is at this time that the initial .jenv file is written out to $JUJU_DATA/models.
 
 Further checks are then done as part of the bootstrap command:
  * validating the constaints

@@ -108,7 +108,7 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			about: "unknown charm",
 			charm: "wordpress",
 			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found`,
+			err:   `charm "cs:missing/one-1" not found \(not found\)`,
 		},
 	}
 

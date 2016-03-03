@@ -471,9 +471,9 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	// Add a couple of spaces.
-	_, err := s.State.AddSpace("space1", nil, true)
+	_, err := s.State.AddSpace("space1", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 2 subnets into each space.
 	// Only the first subnet of space2 has AllocatableIPLow|High set.

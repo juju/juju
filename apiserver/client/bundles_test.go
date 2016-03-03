@@ -109,6 +109,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 			"$addCharm-0", "django",
 			map[string]interface{}{"debug": true}, "",
 			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{},
 		},
 		Requires: []string{"addCharm-0"},
 	}, {
@@ -120,7 +121,9 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 		Method: "deploy",
 		Args: []interface{}{
 			"$addCharm-2", "haproxy",
-			map[string]interface{}{}, "", map[string]string{},
+			map[string]interface{}{}, "",
+			map[string]string{},
+			map[string]string{},
 		},
 		Requires: []string{"addCharm-2"},
 	}, {
@@ -130,4 +133,37 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 		Requires: []string{"deploy-1", "deploy-3"},
 	}})
 	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *serverSuite) TestGetBundleChangesBundleEndpointBindingsSuccess(c *gc.C) {
+	args := params.GetBundleChangesParams{
+		BundleDataYAML: `
+            services:
+                django:
+                    charm: django
+                    num_units: 1
+                    bindings:
+                        url: public
+        `,
+	}
+	r, err := s.client.GetBundleChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, change := range r.Changes {
+		if change.Method == "deploy" {
+			c.Assert(change, jc.DeepEquals, &params.BundleChangesChange{
+				Id:     "deploy-1",
+				Method: "deploy",
+				Args: []interface{}{
+					"$addCharm-0",
+					"django",
+					map[string]interface{}{},
+					"",
+					map[string]string{},
+					map[string]string{"url": "public"},
+				},
+				Requires: []string{"addCharm-0"},
+			})
+		}
+	}
 }

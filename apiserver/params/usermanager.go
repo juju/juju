@@ -42,9 +42,16 @@ type AddUsers struct {
 
 // AddUser stores the parameters to add one user.
 type AddUser struct {
-	Username    string `json:"username"`
-	DisplayName string `json:"display-name"`
-	Password    string `json:"password"`
+	Username        string   `json:"username"`
+	DisplayName     string   `json:"display-name"`
+	SharedModelTags []string `json:"shared-model-tags"`
+
+	// Password is optional. If it is empty, then
+	// a secret key will be generated for the user
+	// and returned in AddUserResult. It will not
+	// be possible to login with a password until
+	// registration with the secret key is completed.
+	Password string `json:"password,omitempty"`
 }
 
 // AddUserResults holds the results of the bulk AddUser API call.
@@ -52,8 +59,11 @@ type AddUserResults struct {
 	Results []AddUserResult `json:"results"`
 }
 
-// AddUserResult returns the tag of the newly created user, or an error.
+// AddUserResult returns the tag of the newly created user
+// and the secret key required to complete registration,
+// or an error.
 type AddUserResult struct {
-	Tag   string `json:"tag,omitempty"`
-	Error *Error `json:"error,omitempty"`
+	Tag       string `json:"tag,omitempty"`
+	SecretKey []byte `json:"secret-key,omitempty"`
+	Error     *Error `json:"error,omitempty"`
 }

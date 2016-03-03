@@ -101,6 +101,86 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 	c.Assert(f.args.Series, gc.Equals, "aseries")
 }
 
+func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
+	wordpressCharm := s.addWordpressCharm(c)
+
+	service, err := juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName:      "bob",
+			Charm:            wordpressCharm,
+			EndpointBindings: nil,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertBindings(c, service, map[string]string{
+		"url":             "",
+		"logging-dir":     "",
+		"monitoring-port": "",
+		"db":              "",
+		"cache":           "",
+	})
+}
+
+func (s *DeployLocalSuite) addWordpressCharm(c *gc.C) *state.Charm {
+	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress")
+	wordpressCharm, err := testing.PutCharm(s.State, wordpressCharmURL, s.repo, false)
+	c.Assert(err, jc.ErrorIsNil)
+	return wordpressCharm
+}
+
+func (s *DeployLocalSuite) assertBindings(c *gc.C, service *state.Service, expected map[string]string) {
+	bindings, err := service.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, jc.DeepEquals, expected)
+}
+
+func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
+	wordpressCharm := s.addWordpressCharm(c)
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	service, err := juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       wordpressCharm,
+			EndpointBindings: map[string]string{
+				"":   "public",
+				"db": "db",
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertBindings(c, service, map[string]string{
+		"url":             "public",
+		"logging-dir":     "public",
+		"monitoring-port": "public",
+		"db":              "db",
+		"cache":           "public",
+	})
+}
+
+func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
+	f := &fakeDeployer{State: s.State}
+
+	_, err := juju.DeployService(f,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       s.charm,
+			EndpointBindings: map[string]string{
+				"":   "public",
+				"db": "db",
+			},
+			Resources: map[string]string{"foo": "bar"},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(f.args.Name, gc.Equals, "bob")
+	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
+	c.Assert(f.args.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+}
+
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{

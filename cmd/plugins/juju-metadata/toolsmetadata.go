@@ -39,7 +39,8 @@ generate-tools creates simplestreams tools metadata.
 
 This command works by scanning a directory for tools tarballs from which to generate
 simplestreams tools metadata. The working directory is specified using the -d argument
-(defaults to ~/.juju). The working directory is expected to contain a named subdirectory
+(defaults to $JUJU_DATA or if not defined $XDG_DATA_HOME/juju or if that is not defined
+~/.local/share/juju). The working directory is expected to contain a named subdirectory
 containing tools tarballs, and is where the resulting metadata is written.
 
 The stream for which metadata is generated is specified using the --stream parameter
@@ -96,7 +97,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = osenv.JujuHome()
+		c.metadataDir = osenv.JujuXDGDataHome()
 	} else {
 		c.metadataDir = context.AbsPath(c.metadataDir)
 	}
@@ -122,9 +123,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
-		toolsList, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return err
@@ -139,6 +138,20 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		writeMirrors = envtools.WriteMirrors
 	}
 	return mergeAndWriteMetadata(targetStorage, toolsDir, c.stream, c.clean, toolsList, writeMirrors)
+}
+
+func toolsDataSources(urls ...string) []simplestreams.DataSource {
+	dataSources := make([]simplestreams.DataSource, len(urls))
+	for i, url := range urls {
+		dataSources[i] = simplestreams.NewURLSignedDataSource(
+			"local source",
+			url,
+			simplestreams.SimplestreamsJujuPublicKey,
+			utils.VerifySSLHostnames,
+			simplestreams.CUSTOM_CLOUD_DATA,
+			false)
+	}
+	return dataSources
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also

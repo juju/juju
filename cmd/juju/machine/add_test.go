@@ -16,14 +16,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
-	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
 type AddMachineSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fakeAddMachine     *fakeAddMachineAPI
 	fakeMachineManager *fakeMachineManagerAPI
 }
@@ -31,9 +31,8 @@ type AddMachineSuite struct {
 var _ = gc.Suite(&AddMachineSuite{})
 
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}
-	s.fakeAddMachine.agentVersion = "1.21.0"
 	s.fakeMachineManager = &fakeMachineManagerAPI{}
 }
 
@@ -190,8 +189,8 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
 }
 
-func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
-	s.fakeAddMachine.agentVersion = "1.18.1"
+func (s *AddMachineSuite) TestProviderDoesNotSupportJobManageNetworking(c *gc.C) {
+	s.fakeAddMachine.providerType = "maas"
 	_, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -225,7 +224,7 @@ type fakeAddMachineAPI struct {
 	currentOp    int
 	args         []params.AddMachineParams
 	addError     error
-	agentVersion interface{}
+	providerType string
 }
 
 func (f *fakeAddMachineAPI) Close() error {
@@ -268,7 +267,13 @@ func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) 
 }
 
 func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
-	return map[string]interface{}{"agent-version": f.agentVersion}, nil
+	providerType := "dummy"
+	if f.providerType != "" {
+		providerType = f.providerType
+	}
+	return dummy.SampleConfig().Merge(map[string]interface{}{
+		"type": providerType,
+	}), nil
 }
 
 type fakeMachineManagerAPI struct {

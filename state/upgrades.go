@@ -236,3 +236,39 @@ func settingsDocNeedsMigration(doc bson.M) bool {
 	}
 	return true
 }
+
+func addDefaultBindingsToServices(st *State) error {
+	services, err := st.AllServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	upgradesLogger.Debugf("adding default endpoint bindings to services (where missing)")
+	ops := make([]txn.Op, 0, len(services))
+	for _, service := range services {
+		ch, _, err := service.Charm()
+		if err != nil {
+			return errors.Annotatef(err, "cannot get charm for service %q", service.Name())
+		}
+		if _, err := service.EndpointBindings(); err == nil {
+			upgradesLogger.Debugf("service %q already has bindings (skipping)", service.Name())
+			continue
+		} else if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "checking service %q for existing bindings", service.Name())
+		}
+		// Passing nil for the bindings map will use the defaults.
+		createOp, err := createEndpointBindingsOp(st, service.globalKey(), nil, ch.Meta())
+		if err != nil {
+			return errors.Annotatef(err, "setting default endpoint bindings for service %q", service.Name())
+		}
+		ops = append(ops, createOp)
+	}
+	return st.runTransaction(ops)
+}
+
+// AddDefaultEndpointBindingsToServices adds default endpoint bindings for each
+// service. As long as the service has a charm URL set, each charm endpoint will
+// be bound to the default space.
+func AddDefaultEndpointBindingsToServices(st *State) error {
+	return runForAllEnvStates(st, addDefaultBindingsToServices)
+}

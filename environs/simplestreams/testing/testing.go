@@ -591,14 +591,27 @@ func SignMetadata(fileName string, fileData []byte) (string, []byte, error) {
 	return signString(fileName), signedBytes, nil
 }
 
-func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURLs []string) {
-	var obtainedURLs = make([]string, len(baseURLs))
+// SourceDetails stored some details that need to be checked about data source.
+type SourceDetails struct {
+	URL string
+	Key string
+}
+
+func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetails []SourceDetails) {
+	// Some data sources do not require to contain signed data.
+	// However, they may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a public key. Check keys are provided where needed.
+	// Bugs #1542127, #1542131
 	for i, source := range obtained {
 		url, err := source.URL("")
 		c.Assert(err, jc.ErrorIsNil)
-		obtainedURLs[i] = url
+		expected := dsDetails[i]
+		c.Assert(url, gc.DeepEquals, expected.URL)
+		c.Assert(source.PublicSigningKey(), gc.DeepEquals, expected.Key)
 	}
-	c.Assert(obtainedURLs, gc.DeepEquals, baseURLs)
+	c.Assert(obtained, gc.HasLen, len(dsDetails))
 }
 
 type LocalLiveSimplestreamsSuite struct {

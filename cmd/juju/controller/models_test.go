@@ -19,7 +19,7 @@ import (
 )
 
 type ModelsSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeModelMgrAPIClient
 	creds *configstore.APICredentials
 }
@@ -55,7 +55,7 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 }
 
 func (s *ModelsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)

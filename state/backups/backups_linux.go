@@ -43,11 +43,14 @@ func ensureMongoService(agentConfig agent.Config) error {
 		return errors.Errorf("agent config has no state serving info")
 	}
 
+	// TODO(perrito666) determine mongo version from dump.
 	err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
-		agentConfig.Value(agent.Namespace),
 		si.StatePort,
 		oplogSize,
-		numaCtlPolicy)
+		numaCtlPolicy,
+		mongo.Mongo24,
+		true,
+	)
 	return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
 }
 
@@ -76,7 +79,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	version := meta.Origin.Version
 	backupMachine := names.NewMachineTag(meta.Origin.Machine)
 
-	if err := mongo.StopService(agent.Namespace); err != nil {
+	if err := mongo.StopService(); err != nil {
 		return nil, errors.Annotate(err, "cannot stop mongo to replace files")
 	}
 

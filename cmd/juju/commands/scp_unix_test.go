@@ -103,7 +103,7 @@ var scpTests = []struct {
 	}, {
 		about: "scp with no such machine",
 		args:  []string{"5:foo", "bar"},
-		error: "machine 5 not found",
+		error: `machine 5 not found \(not found\)`,
 	},
 }
 

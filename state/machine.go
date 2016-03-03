@@ -136,6 +136,10 @@ type machineDoc struct {
 	// Placement is the placement directive that should be used when provisioning
 	// an instance for the machine.
 	Placement string `bson:",omitempty"`
+
+	// StopMongoUntilVersion holds the version that must be checked to
+	// know if mongo must be stopped.
+	StopMongoUntilVersion string `bson:",omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -283,6 +287,28 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 	}
 	m.doc.HasVote = hasVote
 	return nil
+}
+
+// SetStopMongoUntilVersion sets a version that is to be checked against
+// the agent config before deciding if mongo must be started on a
+// state server.
+func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
+	}}
+	if err := m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, ErrDead))
+	}
+	m.doc.StopMongoUntilVersion = v.String()
+	return nil
+}
+
+// StopMongoUntilVersion returns the current minimum version that
+// is required for this machine to have mongo running.
+func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
+	return mongo.NewVersion(m.doc.StopMongoUntilVersion)
 }
 
 // IsManager returns true if the machine has JobManageModel.
@@ -1141,25 +1167,6 @@ func (m *Machine) SetInstanceInfo(
 	return m.SetProvisioned(id, nonce, characteristics)
 }
 
-func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
-	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	providerValues := set.NewStrings()
-	for _, address := range providerAddresses {
-		// Older versions of Juju may have stored an empty address so ignore it here.
-		if address.Value == "" || providerValues.Contains(address.Value) {
-			continue
-		}
-		providerValues.Add(address.Value)
-		merged = append(merged, address.networkAddress())
-	}
-	for _, address := range machineAddresses {
-		if !providerValues.Contains(address.Value) {
-			merged = append(merged, address.networkAddress())
-		}
-	}
-	return merged
-}
-
 // Addresses returns any hostnames and ips associated with a machine,
 // determined both by the machine itself, and by asking the provider.
 //
@@ -1168,7 +1175,7 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 // Provider-reported addresses always come before machine-reported
 // addresses. Duplicates are removed.
 func (m *Machine) Addresses() (addresses []network.Address) {
-	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
+	return network.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
 }
 
 func containsAddress(addresses []address, address address) bool {

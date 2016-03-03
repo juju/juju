@@ -8,9 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -18,7 +21,7 @@ import (
 )
 
 type ValidateImageMetadataSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	metadataDir string
 }
 
@@ -59,8 +62,8 @@ func (s *ValidateImageMetadataSuite) TestInvalidProviderError(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	err := runValidateImageMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `local provider does not support image metadata validation`)
+	err := runValidateImageMetadata(c, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
+	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
 func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) error {
@@ -84,29 +87,50 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	return nil
 }
 
-const metadataTestEnvConfig = `
-default: ec2
+func cacheTestEnvConfig(c *gc.C) {
+	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":           "ec2",
+		"type":           "ec2",
+		"default-series": "precise",
+		"region":         "us-east-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-environments:
-    ec2:
-        type: ec2
-        default-series: precise
-        region: us-east-1
+	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":                      "azure",
+		"type":                      "azure",
+		"default-series":            "raring",
+		"location":                  "West US",
+		"endpoint":                  "https://management.azure.com",
+		"storage-endpoint":          "https://core.windows.net",
+		"subscription-id":           "foo",
+		"application-id":            "bar",
+		"application-password":      "baz",
+		"tenant-id":                 "qux",
+		"controller-resource-group": "fnord",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-    azure:
-        type: azure
-        default-series: raring
-        location: West US
-        subscription-id: foo
-        application-id: bar
-        application-password: baz
-        tenant-id: qux
-`
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ec2 := store.CreateInfo("ec2")
+	c.Assert(err, jc.ErrorIsNil)
+	ec2.SetBootstrapConfig(ec2Config.AllAttrs())
+	err = ec2.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	azure := store.CreateInfo("azure")
+	c.Assert(err, jc.ErrorIsNil)
+	azure.SetBootstrapConfig(azureConfig.AllAttrs())
+	err = azure.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
-	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
+	cacheTestEnvConfig(c)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 	// All of the following are recognized as fallbacks by goamz.
@@ -131,12 +155,14 @@ func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *g
 	code := cmd.Main(
 		newValidateImageMetadataCommand(), ctx, []string{"-m", "ec2", "-d", s.metadataDir, "--stream", stream},
 	)
-	c.Assert(code, gc.Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(code, gc.Equals, 0)
+	stdout := ctx.Stdout.(*bytes.Buffer).String()
+	stderr := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(stdout, "\n", "", -1)
 	c.Check(
 		strippedOut, gc.Matches,
 		`ImageIds:.*"1234".*Region:.*us-east-1.*Resolve Metadata:.*source: local metadata directory.*`)
+	c.Check(stderr, gc.Matches, "")
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
@@ -234,4 +260,15 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 	errOut = ctx.Stderr.(*bytes.Buffer).String()
 	strippedOut = strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
+}
+
+func (s *ValidateImageMetadataSuite) TestImagesDataSourceHasKey(c *gc.C) {
+	ds := imagesDataSources("test.me")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a user provided public key. For this test, none is provided.
+	// Bugs #1542127, #1542131
+	c.Assert(ds[0].PublicSigningKey(), gc.Equals, "")
 }

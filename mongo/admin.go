@@ -22,11 +22,10 @@ var (
 	processSignal = (*os.Process).Signal
 )
 
+// EnsureAdminUserParams holds the params to call EnsureAdminUser.
 type EnsureAdminUserParams struct {
 	// DialInfo specifies how to connect to the mongo server.
 	DialInfo *mgo.DialInfo
-	// Namespace is the agent namespace, used to derive the Mongo service name.
-	Namespace string
 	// DataDir is the Juju data directory, used to start a --noauth server.
 	DataDir string
 	// Port is the listening port of the Mongo server.
@@ -35,6 +34,9 @@ type EnsureAdminUserParams struct {
 	User string
 	// Password holds the password for the user to log in as.
 	Password string
+	// MongoVersion holds the version of mongo that we are supposed to be
+	// using.
+	MongoVersion Version
 }
 
 // EnsureAdminUser ensures that the specified user and password
@@ -76,18 +78,17 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 
 	// Login failed, so we need to add the user.
 	// Stop mongo, so we can start it in --noauth mode.
-	mongoServiceName := ServiceName(p.Namespace)
-	mongoService, err := discoverService(mongoServiceName)
+	mongoService, err := discoverService(ServiceName)
 	if err != nil {
-		return false, errors.Annotatef(err, "failed to discover service", mongoServiceName)
+		return false, errors.Annotatef(err, "failed to discover service", ServiceName)
 	}
 	if err := mongoService.Stop(); err != nil {
-		return false, fmt.Errorf("failed to stop %v: %v", mongoServiceName, err)
+		return false, fmt.Errorf("failed to stop %v: %v", ServiceName, err)
 	}
 
 	// Start mongod in --noauth mode.
 	logger.Debugf("starting mongo with --noauth")
-	cmd, err := noauthCommand(p.DataDir, p.Port)
+	cmd, err := noauthCommand(p.DataDir, p.Port, p.MongoVersion)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare mongod command: %v", err)
 	}

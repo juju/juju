@@ -38,7 +38,7 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
 	// create connection to CloudSigma
-	conn, err := gosigma.NewClient(cfg.region(), cfg.username(), cfg.password(), nil)
+	conn, err := gosigma.NewClient(cfg.endpoint(), cfg.username(), cfg.password(), nil)
 	if err != nil {
 		return nil, err
 	}

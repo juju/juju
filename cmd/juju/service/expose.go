@@ -48,8 +48,8 @@ func (c *exposeCommand) Init(args []string) error {
 
 type serviceExposeAPI interface {
 	Close() error
-	ServiceExpose(serviceName string) error
-	ServiceUnexpose(serviceName string) error
+	Expose(serviceName string) error
+	Unexpose(serviceName string) error
 }
 
 func (c *exposeCommand) getAPI() (serviceExposeAPI, error) {
@@ -68,5 +68,5 @@ func (c *exposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.ServiceExpose(c.ServiceName), block.BlockChange)
+	return block.ProcessBlockedError(client.Expose(c.ServiceName), block.BlockChange)
 }

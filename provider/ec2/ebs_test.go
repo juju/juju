@@ -18,6 +18,7 @@ import (
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
@@ -55,6 +56,7 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 
 type ebsVolumeSuite struct {
 	testing.BaseSuite
+	// TODO(axw) the EBS tests should not be embedding jujutest.Tests.
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
@@ -65,10 +67,23 @@ type ebsVolumeSuite struct {
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
+	s.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	s.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
-	s.TestConfig = localConfigAttrs
+	s.TestConfig = localConfigAttrs.Merge(testing.Attrs{
+		"access-key": "x",
+		"secret-key": "x",
+		"region":     "test",
+	})
 	s.restoreEC2Patching = patchEC2ForTesting(c)
 }
 

@@ -217,7 +217,7 @@ func TemplateUserData(
 // /etc/network/interfaces file which is left on the template LXC
 // container on shutdown. This is needed to allow cloned containers to
 // start in case no network config is provided during cloud-init, e.g.
-// when AUFS is used or with the local provider (see bug #1431888).
+// when AUFS is used.
 const defaultEtcNetworkInterfaces = `
 # loopback interface
 auto lo

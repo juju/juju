@@ -7,9 +7,3 @@ var (
 	Providers       = &globalProviders.providers
 	ProviderAliases = &globalProviders.aliases
 )
-
-func UpdateEnvironAttrs(envs *Environs, name string, newAttrs map[string]interface{}) {
-	for k, v := range newAttrs {
-		envs.rawEnvirons[name][k] = v
-	}
-}

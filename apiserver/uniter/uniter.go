@@ -1652,3 +1652,124 @@ func (u *UniterAPIV3) AddMetricBatches(args params.MetricBatchParams) (params.Er
 	}
 	return result, nil
 }
+
+// NetworkConfig returns information about all given relation/unit pairs,
+// including their id, key and the local endpoint.
+func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
+	result := params.UnitNetworkConfigResults{
+		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
+	}
+
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.UnitNetworkConfigResults{}, err
+	}
+
+	for i, rel := range args.RelationUnits {
+		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
+		if err == nil {
+			result.Results[i].Error = nil
+			result.Results[i].Config = netConfig
+		} else {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tagUnit string) ([]params.NetworkConfig, error) {
+	unitTag, err := names.ParseUnitTag(tagUnit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !canAccess(unitTag) {
+		return nil, common.ErrPerm
+	}
+
+	relTag, err := names.ParseRelationTag(tagRel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	service, err := unit.Service()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	bindings, err := service.EndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rel, err := u.st.KeyRelation(relTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	endpoint, err := rel.Endpoint(service.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machineID, err := unit.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machine, err := u.st.Machine(machineID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []params.NetworkConfig
+
+	boundSpace, isBound := bindings[endpoint.Name]
+	if !isBound || boundSpace == "" {
+		name := endpoint.Name
+		logger.Debugf("endpoint %q not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
+
+		privateAddress, err := machine.PrivateAddress()
+		if err != nil && !network.IsNoAddress(err) {
+			return nil, errors.Annotatef(err, "getting machine %q preferred private address", machineID)
+		}
+
+		results = append(results, params.NetworkConfig{
+			Address: privateAddress.Value,
+		})
+		return results, nil
+	}
+	logger.Debugf("endpoint %q is explicitly bound to space %q", endpoint.Name, boundSpace)
+
+	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
+	// the PoC to enable minimal network-get implementation returning just the
+	// primary address.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
+	addresses := machine.ProviderAddresses()
+	logger.Infof(
+		"geting network config for machine %q with addresses %+v, hosting unit %q of service %q, with bindings %+v",
+		machineID, addresses, unit.Name(), service.Name(), bindings,
+	)
+
+	for _, addr := range addresses {
+		space := string(addr.SpaceName)
+		if space != boundSpace {
+			logger.Debugf("skipping address %q: want bound to space %q, got space %q", addr.Value, boundSpace, space)
+			continue
+		}
+		logger.Debugf("endpoint %q bound to space %q has address %q", endpoint.Name, boundSpace, addr.Value)
+
+		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
+		results = append(results, params.NetworkConfig{
+			Address: addr.Value,
+		})
+	}
+
+	return results, nil
+}

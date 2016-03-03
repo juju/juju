@@ -31,40 +31,49 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AddUser creates a new local user in the juju server.
-func (c *Client) AddUser(username, displayName, password string) (names.UserTag, error) {
+// AddUser creates a new local user in the controller, sharing with that user any specified models.
+func (c *Client) AddUser(
+	username, displayName, password string, modelUUIDs ...string,
+) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
-		return names.UserTag{}, fmt.Errorf("invalid user name %q", username)
+		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
+	}
+	modelTags := make([]string, len(modelUUIDs))
+	for i, uuid := range modelUUIDs {
+		modelTags[i] = names.NewModelTag(uuid).String()
 	}
 	userArgs := params.AddUsers{
-		Users: []params.AddUser{{Username: username, DisplayName: displayName, Password: password}},
+		Users: []params.AddUser{{
+			Username:        username,
+			DisplayName:     displayName,
+			Password:        password,
+			SharedModelTags: modelTags}},
 	}
 	var results params.AddUserResults
 	err := c.facade.FacadeCall("AddUser", userArgs, &results)
 	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
+		return names.UserTag{}, nil, errors.Trace(err)
 	}
 	if count := len(results.Results); count != 1 {
 		logger.Errorf("expected 1 result, got %#v", results)
-		return names.UserTag{}, errors.Errorf("expected 1 result, got %d", count)
+		return names.UserTag{}, nil, errors.Errorf("expected 1 result, got %d", count)
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return names.UserTag{}, errors.Trace(result.Error)
+		return names.UserTag{}, nil, errors.Trace(result.Error)
 	}
 	tag, err := names.ParseUserTag(result.Tag)
 	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
+		return names.UserTag{}, nil, errors.Trace(err)
 	}
-	logger.Infof("created user %s", result.Tag)
-	return tag, nil
+	return tag, result.SecretKey, nil
 }
 
 func (c *Client) userCall(username string, methodCall string) error {
-	if !names.IsValidUserName(username) {
+	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	tag := names.NewLocalUserTag(username)
+	tag := names.NewUserTag(username)
 
 	var results params.ErrorResults
 	args := params.Entities{
@@ -108,10 +117,10 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 	var results params.UserInfoResults
 	var entities []params.Entity
 	for _, username := range usernames {
-		if !names.IsValidUserName(username) {
+		if !names.IsValidUser(username) {
 			return nil, errors.Errorf("%q is not a valid username", username)
 		}
-		tag := names.NewLocalUserTag(username)
+		tag := names.NewUserTag(username)
 		entities = append(entities, params.Entity{Tag: tag.String()})
 	}
 	args := params.UserInfoRequest{
@@ -150,10 +159,10 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 
 // SetPassword changes the password for the specified user.
 func (c *Client) SetPassword(username, password string) error {
-	if !names.IsValidUserName(username) {
+	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	tag := names.NewLocalUserTag(username)
+	tag := names.NewUserTag(username)
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      tag.String(),

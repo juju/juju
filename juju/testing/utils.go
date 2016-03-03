@@ -78,22 +78,22 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 
 		// permute replaces the contents of *s with the result of interpreting
 		// *s as a template.
-		permute := func(s *string) {
-			t, err := template.New("").Parse(*s)
+		permute := func(s string) string {
+			t, err := template.New("").Parse(s)
 			c.Assert(err, jc.ErrorIsNil)
 
 			var buf bytes.Buffer
 			err = t.Execute(&buf, subnetIndex)
 			c.Assert(err, jc.ErrorIsNil)
-			*s = buf.String()
+			return buf.String()
 		}
 
-		permute(&info.ProviderId)
-		permute(&info.CIDR)
-		permute(&info.AllocatableIPHigh)
-		permute(&info.AllocatableIPLow)
-		permute(&info.AvailabilityZone)
-		permute(&info.SpaceName)
+		info.ProviderId = network.Id(permute(string(info.ProviderId)))
+		info.CIDR = permute(info.CIDR)
+		info.AllocatableIPHigh = permute(info.AllocatableIPHigh)
+		info.AllocatableIPLow = permute(info.AllocatableIPLow)
+		info.AvailabilityZone = permute(info.AvailabilityZone)
+		info.SpaceName = permute(info.SpaceName)
 
 		_, err := st.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)

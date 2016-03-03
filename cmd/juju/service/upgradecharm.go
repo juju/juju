@@ -160,7 +160,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	oldURL, err := serviceClient.ServiceGetCharmURL(c.ServiceName)
+	oldURL, err := serviceClient.GetCharmURL(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(
-		serviceClient.ServiceSetCharm(c.ServiceName, addedURL.String(), c.ForceSeries, c.ForceUnits),
+		serviceClient.SetCharm(c.ServiceName, addedURL.String(), c.ForceSeries, c.ForceUnits),
 		block.BlockChange)
 }
 

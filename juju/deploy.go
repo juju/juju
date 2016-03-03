@@ -30,8 +30,11 @@ type DeployServiceParams struct {
 	Placement []*instance.Placement
 	// Networks holds a list of networks to required to start on boot.
 	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
-	Networks []string
-	Storage  map[string]storage.Constraints
+	Networks         []string
+	Storage          map[string]storage.Constraints
+	EndpointBindings map[string]string
+	// Resources is a map of resource name to IDs of pending resources.
+	Resources map[string]string
 }
 
 type ServiceDeployer interface {
@@ -67,16 +70,23 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
 	}
 
+	effectiveBindings, err := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot determine effective service endpoint bindings")
+	}
+
 	asa := state.AddServiceArgs{
-		Name:      args.ServiceName,
-		Series:    args.Series,
-		Owner:     args.ServiceOwner,
-		Charm:     args.Charm,
-		Networks:  args.Networks,
-		Storage:   stateStorageConstraints(args.Storage),
-		Settings:  settings,
-		NumUnits:  args.NumUnits,
-		Placement: args.Placement,
+		Name:             args.ServiceName,
+		Series:           args.Series,
+		Owner:            args.ServiceOwner,
+		Charm:            args.Charm,
+		Networks:         args.Networks,
+		Storage:          stateStorageConstraints(args.Storage),
+		Settings:         settings,
+		NumUnits:         args.NumUnits,
+		Placement:        args.Placement,
+		Resources:        args.Resources,
+		EndpointBindings: effectiveBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {
@@ -86,6 +96,30 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	// TODO(dimitern): In a follow-up drop Networks and use spaces
 	// constraints for this when possible.
 	return st.AddService(asa)
+}
+
+func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) (map[string]string, error) {
+	combinedEndpoints, err := state.CombinedCharmRelations(charmMeta)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if givenBindings == nil {
+		givenBindings = make(map[string]string, len(combinedEndpoints))
+	}
+
+	// Get the service-level default binding for all unspecified endpoint, if
+	// set, otherwise use the empty default.
+	serviceDefaultSpace, _ := givenBindings[""]
+
+	effectiveBindings := make(map[string]string, len(combinedEndpoints))
+	for endpoint, _ := range combinedEndpoints {
+		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
+			effectiveBindings[endpoint] = givenSpace
+		} else {
+			effectiveBindings[endpoint] = serviceDefaultSpace
+		}
+	}
+	return effectiveBindings, nil
 }
 
 // AddUnits starts n units of the given service using the specified placement

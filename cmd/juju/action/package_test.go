@@ -37,13 +37,14 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseActionSuite struct {
-	jujutesting.IsolationSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	command cmd.Command
 
 	modelFlags []string
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.command = action.NewSuperCommand()
 
 	s.modelFlags = []string{"-m", "--model"}

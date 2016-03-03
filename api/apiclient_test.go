@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/version"
 )
 
@@ -127,7 +129,10 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.ModelTag = names.NewModelTag("bad-tag")
 	_, err := api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown model: "bad-tag"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown model: "bad-tag"`,
+		Code:    "not found",
+	})
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 
 	// Now set it to the right tag, and we should succeed.

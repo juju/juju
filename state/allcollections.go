@@ -293,16 +293,29 @@ func allCollections() collectionSchema {
 		},
 		openedPortsC:       {},
 		requestedNetworksC: {},
-		subnetsC: {
+		spacesC: {
 			indexes: []mgo.Index{{
-				// TODO(dimitern): make unique per-model, not globally.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support spaces, it can be empty, hence both
+				// unique and sparse.
+				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
 			}},
 		},
+		subnetsC: {
+			indexes: []mgo.Index{{
+				// NOTE: Like the DocID field, ProviderId also has the model
+				// UUID as prefix to ensure uniqueness per model. However since
+				// not all providers support subnets, it can be empty, hence both
+				// unique and sparse.
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		endpointBindingsC: {},
 
 		// -----
 
@@ -317,6 +330,10 @@ func allCollections() collectionSchema {
 		// This collection holds information associated with charm payloads.
 		// See payload/persistence/mongo.go.
 		"payloads": {},
+
+		// This collection holds information associated with charm resources.
+		// See resource/persistence/mongo.go.
+		"resources": {},
 
 		// -----
 
@@ -343,7 +360,6 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "globalkey"},
 			}},
 		},
-		spacesC: {},
 
 		// This collection holds information about cloud image metadata.
 		cloudimagemetadataC: {},
@@ -402,6 +418,7 @@ const (
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
 	servicesC                = "services"
+	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
 	spacesC                  = "spaces"
@@ -422,4 +439,5 @@ const (
 	volumeAttachmentsC       = "volumeattachments"
 	volumesC                 = "volumes"
 	// "payloads" (see payload/persistence/mongo.go)
+	// "resources" (see resource/persistence/mongo.go)
 )

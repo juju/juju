@@ -10,6 +10,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
@@ -38,17 +40,54 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }
 
-func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
+func (suite *EnvironProviderSuite) TestCredentialsSetup(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":        "maas",
-		"maas-oauth":  "aa:bb:cc",
-		"maas-server": "http://maas.testing.invalid/maas/",
+		"type": "maas",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	environ, err := providerInstance.PrepareForBootstrap(ctx, config)
+	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config:        config,
+		CloudEndpoint: "http://maas.testing.invalid/maas/",
+		Credentials: cloud.NewCredential(
+			cloud.OAuth1AuthType,
+			map[string]string{
+				"maas-oauth": "aa:bb:cc",
+			},
+		),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := environ.Config()
+	attrs = cfg.UnknownAttrs()
+	server, ok := attrs["maas-server"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(server, gc.Equals, "http://maas.testing.invalid/maas/")
+	oauth, ok := attrs["maas-oauth"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(oauth, gc.Equals, "aa:bb:cc")
+}
+
+func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "maas",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := envtesting.BootstrapContext(c)
+	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config:        config,
+		CloudEndpoint: "http://maas.testing.invalid/maas/",
+		Credentials: cloud.NewCredential(
+			cloud.OAuth1AuthType,
+			map[string]string{
+				"maas-oauth": "aa:bb:cc",
+			},
+		),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	preparedConfig := environ.Config()
@@ -94,15 +133,22 @@ func (suite *EnvironProviderSuite) TestPrepareExistingAgentName(c *gc.C) {
 func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "maas",
-		"maas-oauth":      "aa:bb:cc",
-		"maas-server":     "http://maas.testing.invalid/maas/",
 		"maas-agent-name": "foobar",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err = providerInstance.PrepareForBootstrap(ctx, config)
+	_, err = providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config:        config,
+		CloudEndpoint: "http://maas.testing.invalid/maas/",
+		Credentials: cloud.NewCredential(
+			cloud.OAuth1AuthType,
+			map[string]string{
+				"maas-oauth": "aa:bb:cc",
+			},
+		),
+	})
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 

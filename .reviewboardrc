@@ -1,4 +1,4 @@
-REVIEWBOARD_URL = "https://reviews.vapour.ws/"
+REVIEWBOARD_URL = "http://reviews.vapour.ws/"
 REPOSITORY = "juju (core)"
 BRANCH = "master"
 TRACKING_BRANCH = "upstream/master"

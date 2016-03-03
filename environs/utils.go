@@ -73,6 +73,13 @@ func APIInfo(env Environ) (*api.Info, error) {
 	if err != nil {
 		return nil, err
 	}
+	defaultSpaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
+	if ok {
+		addrs = []network.Address{defaultSpaceAddr}
+		logger.Debugf("selected %q as API address in space %q", defaultSpaceAddr.Value, network.DefaultSpace)
+	} else {
+		logger.Warningf("using all API addresses (cannot pick by space %q): %+v", network.DefaultSpace, addrs)
+	}
 	config := env.Config()
 	cert, hasCert := config.CACert()
 	if !hasCert {

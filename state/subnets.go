@@ -18,7 +18,7 @@ import (
 // SubnetInfo describes a single subnet.
 type SubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId string
+	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -40,7 +40,7 @@ type SubnetInfo struct {
 	AvailabilityZone string
 
 	// SpaceName is the name of the space the subnet is associated with. It
-	// can be empty if the subnet is in the default space.
+	// can be empty if the subnet is not associated with a space yet.
 	SpaceName string
 }
 
@@ -84,8 +84,9 @@ func (s *Subnet) GoString() string {
 	return s.String()
 }
 
-// EnsureDead sets the Life of the subnet to Dead, if it's Alive. It
-// does nothing otherwise.
+// EnsureDead sets the Life of the subnet to Dead, if it's Alive. If the subnet
+// is already Dead, no error is returned. When the subnet is no longer Alive or
+// already removed, errNotAlive is returned.
 func (s *Subnet) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set subnet %q to dead", s)
 
@@ -99,26 +100,29 @@ func (s *Subnet) EnsureDead() (err error) {
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
-	if err = s.st.runTransaction(ops); err != nil {
-		// Ignore ErrAborted if it happens, otherwise return err.
-		return onAbort(err, nil)
+
+	txnErr := s.st.runTransaction(ops)
+	if txnErr == nil {
+		s.doc.Life = Dead
+		return nil
 	}
-	s.doc.Life = Dead
-	return nil
+	return onAbort(txnErr, errNotAlive)
 }
 
-// Remove removes a dead subnet. If the subnet is not dead it returns an error.
-// It also removes any IP addresses associated with the subnet.
+// Remove removes a Dead subnet. If the subnet is not Dead or it is already
+// removed, an error is returned. On success, all IP addresses added to the
+// subnet are also removed.
 func (s *Subnet) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove subnet %q", s)
 
 	if s.doc.Life != Dead {
 		return errors.New("subnet is not dead")
 	}
+
 	addresses, closer := s.st.getCollection(ipaddressesC)
 	defer closer()
 
-	ops := []txn.Op{}
+	var ops []txn.Op
 	id := s.ID()
 	var doc struct {
 		DocID string `bson:"_id"`
@@ -139,13 +143,19 @@ func (s *Subnet) Remove() (err error) {
 		C:      subnetsC,
 		Id:     s.doc.DocID,
 		Remove: true,
+		Assert: isDeadDoc,
 	})
-	return s.st.runTransaction(ops)
+
+	txnErr := s.st.runTransaction(ops)
+	if txnErr == nil {
+		return nil
+	}
+	return onAbort(txnErr, errors.New("not found or not dead"))
 }
 
 // ProviderId returns the provider-specific id of the subnet.
-func (s *Subnet) ProviderId() string {
-	return s.doc.ProviderId
+func (s *Subnet) ProviderId() network.Id {
+	return network.Id(s.st.localID(s.doc.ProviderId))
 }
 
 // CIDR returns the subnet CIDR (e.g. 192.168.50.0/24).
@@ -176,7 +186,7 @@ func (s *Subnet) AvailabilityZone() string {
 }
 
 // SpaceName returns the space the subnet is associated with. If the subnet is
-// in the default space it will be the empty string.
+// not associated with a space it will be the empty string.
 func (s *Subnet) SpaceName() string {
 	return s.doc.SpaceName
 }

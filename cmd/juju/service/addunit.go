@@ -131,7 +131,7 @@ func (c *addUnitCommand) Init(args []string) error {
 type serviceAddUnitAPI interface {
 	Close() error
 	ModelUUID() string
-	AddServiceUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error)
+	AddUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error)
 }
 
 func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
@@ -146,7 +146,7 @@ func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
 }
 
 // Run connects to the environment specified on the command line
-// and calls AddServiceUnits for the given service.
+// and calls AddUnits for the given service.
 func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
@@ -160,7 +160,7 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 		}
 		c.Placement[i] = p
 	}
-	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.Placement)
+	_, err = apiclient.AddUnits(c.ServiceName, c.NumUnits, c.Placement)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

@@ -16,12 +16,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
 type ImageMetadataSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	environ []string
 	dir     string
 }
@@ -29,15 +30,14 @@ type ImageMetadataSuite struct {
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
-	// Create a fake certificate so azure test environment can be opened.
-	testing.WriteEnvironments(c, metadataTestEnvConfig)
+	cacheTestEnvConfig(c)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
@@ -135,11 +135,26 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
-	envConfig := strings.Replace(metadataTestEnvConfig, "default-series: precise", "", -1)
-	testing.WriteEnvironments(c, envConfig)
+	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":   "ec2-latest-lts",
+		"type":   "ec2",
+		"region": "us-east-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+
+	info := store.CreateInfo("ec2-latest-lts")
+	c.Assert(err, jc.ErrorIsNil)
+	info.SetBootstrapConfig(ec2Config.AllAttrs())
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		newImageMetadataCommand(), ctx, []string{
+			"-m", "ec2-latest-lts",
 			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
@@ -223,14 +238,11 @@ var errTests = []errTestParams{
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
-	testing.MakeSampleJujuHome(c)
-	s.AddCleanup(func(*gc.C) {
-		dummy.Reset()
-	})
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
 		code := cmd.Main(newImageMetadataCommand(), ctx, t.args)
 		c.Check(code, gc.Equals, 1)
+		dummy.Reset()
 	}
 }

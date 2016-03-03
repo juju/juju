@@ -58,7 +58,7 @@ type Machiner struct {
 //
 // The machineDead function will be called immediately after the machine's
 // lifecycle is updated to Dead.
-func NewMachiner(cfg Config) (worker.Worker, error) {
+var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
 	}
