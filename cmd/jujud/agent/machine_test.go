@@ -18,6 +18,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	apimachiner "github.com/juju/juju/api/machiner"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
@@ -70,7 +71,6 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
-	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -380,12 +380,15 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = os.Stat(ac.DataDir())
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
@@ -398,21 +401,8 @@ func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Since the machine is removed from state, when
-	// the agent attempts to open the API connection
-	// it will receive an error stating that either
-	// the entity does not exist, or the agent is
-	// not authorised. Since we don't know which, we
-	// do not uninstall unless the uninstall-agent
-	// file is found (which we haven't written in
-	// this test).
-	//
-	// Since the machine agent is responsible for
-	// setting itself to Dead, this could only happen
-	// if it failed to write the uninstall-agent file,
-	// and then bounced.
 	_, err = os.Stat(ac.DataDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *MachineSuite) TestDyingMachine(c *gc.C) {
@@ -994,7 +984,7 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 		st, err := api.Open(apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
-		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
+		m, err := apimachiner.NewState(st).Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
@@ -1254,76 +1244,6 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 			c.Fatalf("time out wating for operation")
 		}
 	}
-}
-
-func (s *MachineSuite) TestOpenAPIStateWorksForJobHostUnits(c *gc.C) {
-	machine, conf, _ := s.primeAgent(c, state.JobHostUnits)
-	s.runOpenAPIStateTest(c, machine, conf)
-}
-
-func (s *MachineSuite) TestOpenAPIStateWorksForJobManageNetworking(c *gc.C) {
-	machine, conf, _ := s.primeAgent(c, state.JobManageNetworking)
-	s.runOpenAPIStateTest(c, machine, conf)
-}
-
-func (s *MachineSuite) TestOpenAPIStateWorksForJobManageModel(c *gc.C) {
-	machine, conf, _ := s.primeAgent(c, state.JobManageModel)
-	s.runOpenAPIStateTest(c, machine, conf)
-}
-
-func (s *MachineSuite) runOpenAPIStateTest(c *gc.C, machine *state.Machine, conf agent.Config) {
-	configPath := agent.ConfigPath(conf.DataDir(), conf.Tag())
-
-	// Set a failing password...
-	confW, err := agent.ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
-	confW.SetPassword("not-set-on-controller")
-
-	// ...and also make sure the api info points to the testing api
-	// server (and not, as for JobManageModel machines, to the port
-	// chosen for the agent's own API server to run on. This is usually
-	// sane, but inconvenient here because we're not running the full
-	// agent and so the configured API server is not actually there).
-	apiInfo := s.APIInfo(c)
-	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
-	c.Assert(err, jc.ErrorIsNil)
-	confW.SetAPIHostPorts([][]network.HostPort{hostPorts})
-	err = confW.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that it successfully connects with the conf's old password.
-	assertOpen := func() {
-		tagString := conf.Tag().String()
-		agent := NewAgentConf(conf.DataDir())
-		err := agent.ReadConfig(tagString)
-		c.Assert(err, jc.ErrorIsNil)
-		st, err := apicaller.OpenAPIState(agent)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st, gc.NotNil)
-		st.Close()
-	}
-	assertOpen()
-
-	// Check that the initial password is no longer valid.
-	assertPassword := func(password string, valid bool) {
-		err := machine.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(machine.PasswordValid(password), gc.Equals, valid)
-	}
-	assertPassword(initialMachinePassword, false)
-
-	// Read the configuration and check that we can connect with it.
-	confR, err := agent.ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
-	apiInfo, ok := confR.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	newPassword := apiInfo.Password
-	assertPassword(newPassword, true)
-
-	// Double-check that we can open a fresh connection with the stored
-	// conf ... and that the password hasn't been changed again.
-	assertOpen()
-	assertPassword(newPassword, true)
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {

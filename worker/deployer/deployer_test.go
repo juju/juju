@@ -37,7 +37,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.SimpleToolsFixture.SetUp(c, s.DataDir())
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the deployer facade.
-	s.deployerState = s.stateAPI.Deployer()
+	s.deployerState = apideployer.NewState(s.stateAPI)
 	c.Assert(s.deployerState, gc.NotNil)
 }
 

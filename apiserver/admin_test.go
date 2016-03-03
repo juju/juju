@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	apimachiner "github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
@@ -135,7 +136,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
 
-			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
+			_, err = apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 				Message: `unknown object type "Machiner"`,
 				Code:    "not implemented",
@@ -146,7 +147,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(errors.Cause(err), gc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
-			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
+			_, err = apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 				Message: `unknown object type "Machiner"`,
 				Code:    "not implemented",
@@ -202,7 +203,7 @@ func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiConn.Close()
 
-	apiMachine, err := apiConn.Machiner().Machine(machine.MachineTag())
+	apiMachine, err := apimachiner.NewState(apiConn).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machine.Tag())
 }
@@ -559,7 +560,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 	defer st.Close()
 
 	// Ensure not already logged in.
-	_, err := st.Machiner().Machine(names.NewMachineTag("0"))
+	_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Machiner"`,
 		Code:    "not implemented",

@@ -4,15 +4,17 @@
 package upgradesteps
 
 import (
-	"errors"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/names"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -56,20 +58,27 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Get API connection.
+			// TODO(fwereade): can we make the worker use an
+			// APICaller instead? should be able to depend on
+			// the Engine to abort us when conn is closed...
 			var apiConn api.Connection
 			if err := getResource(config.APICallerName, &apiConn); err != nil {
 				return nil, err
 			}
 
 			// Get the machine agent's jobs.
-			entity, err := apiConn.Agent().Entity(tag)
+			// TODO(fwereade): use appropriate facade!
+			agentFacade := apiagent.NewState(apiConn)
+			entity, err := agentFacade.Entity(tag)
 			if err != nil {
 				return nil, err
 			}
 			jobs := entity.Jobs()
 
 			// Get machine instance for setting status on.
-			machine, err := apiConn.Machiner().Machine(tag)
+			// TODO(fwereade): use appropriate facade!
+			machinerFacade := apimachiner.NewState(apiConn)
+			machine, err := machinerFacade.Machine(tag)
 			if err != nil {
 				return nil, err
 			}

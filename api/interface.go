@@ -10,16 +10,13 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/addresser"
-	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
@@ -161,14 +158,11 @@ type Connection interface {
 	// will be easy to remove, but until we're using them via manifolds it's
 	// prohibitively ugly to do so.
 	Client() *Client
-	Machiner() *machiner.State
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
 	Firewaller() *firewaller.State
-	Agent() *agent.State
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
-	Deployer() *deployer.State
 	Addresser() *addresser.API
 	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API

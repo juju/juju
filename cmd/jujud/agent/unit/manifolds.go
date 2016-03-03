@@ -6,8 +6,11 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	coreagent "github.com/juju/juju/agent"
 	msapi "github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -48,6 +51,20 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+
+	// connectFilter exists to let us retry api connections immediately
+	// on password change, rather than causing the dependency engine to
+	// wait for a while.
+	connectFilter := func(err error) error {
+		cause := errors.Cause(err)
+		if cause == apicaller.ErrChangedPassword {
+			return dependency.ErrBounce
+		} else if cause == apicaller.ErrConnectImpossible {
+			return worker.ErrTerminateAgent
+		}
+		return err
+	}
+
 	return dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
@@ -68,7 +85,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName: AgentName,
+			AgentName:     AgentName,
+			APIOpen:       apicaller.APIOpen,
+			NewConnection: apicaller.ScaryConnect,
+			Filter:        connectFilter,
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
