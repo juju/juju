@@ -4,22 +4,25 @@
 package cloud_test
 
 import (
+	"fmt"
+	"io"
+	"regexp"
 	"strings"
 
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type detectCredentialsSuite struct {
-	testing.FakeJujuXDGDataHomeSuite
-	store       jujuclient.CredentialStore
+	store       *jujuclienttesting.MemStore
 	aCredential jujucloud.CloudCredential
 }
 
@@ -27,80 +30,141 @@ var _ = gc.Suite(&detectCredentialsSuite{})
 
 type mockProvider struct {
 	environs.EnvironProvider
-	detectedCreds jujucloud.CloudCredential
+	detectedCreds *jujucloud.CloudCredential
 }
 
 func (p *mockProvider) DetectCredentials() (*jujucloud.CloudCredential, error) {
-	return &p.detectedCreds, nil
+	if len(p.detectedCreds.AuthCredentials) == 0 {
+		return nil, errors.NotFoundf("credentials")
+	}
+	return p.detectedCreds, nil
 }
 
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
-	s.aCredential = jujucloud.CloudCredential{
-		DefaultRegion: "detected region",
-		AuthCredentials: map[string]jujucloud.Credential{
-			"test": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil)},
-	}
-	environs.RegisterProvider("test", &mockProvider{detectedCreds: s.aCredential})
+	environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
 }
 
 func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.store = jujuclienttesting.NewMemStore()
-	err := jujucloud.WritePersonalCloudMetadata(map[string]jujucloud.Cloud{
-		"test": jujucloud.Cloud{Type: "test"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.aCredential = jujucloud.CloudCredential{}
 }
 
-func (s *detectCredentialsSuite) TestDetectCredentials(c *gc.C) {
-	s.detectCredentials(c, "test")
-	creds, err := s.store.CredentialForCloud("test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds, jc.DeepEquals, &s.aCredential)
-}
-
-func (s *detectCredentialsSuite) TestDetectPromptsForOverwrite(c *gc.C) {
-	inital := jujucloud.CloudCredential{
-		AuthCredentials: map[string]jujucloud.Credential{
-			"test": jujucloud.NewCredential(jujucloud.UserPassAuthType, nil)},
+func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string]jujucloud.Cloud) (*cmd.Context, error) {
+	registeredProvidersFunc := func() []string {
+		return []string{"mock-provider"}
 	}
-	s.store.UpdateCredential("test", inital)
-	out := s.detectCredentials(c, "test")
-	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Equals, `Detected credentials [test] would overwrite existing credentials for cloud test.Use the --replace option.`)
-
-	// Has not been replaced.
-	creds, err := s.store.CredentialForCloud("test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds, jc.DeepEquals, &inital)
-}
-
-func (s *detectCredentialsSuite) TestDetectForceOverwrite(c *gc.C) {
-	inital := jujucloud.CloudCredential{
-		DefaultRegion: "region",
-		AuthCredentials: map[string]jujucloud.Credential{
-			"test":    jujucloud.NewCredential(jujucloud.UserPassAuthType, nil),
-			"another": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil)},
+	allCloudsFunc := func() (map[string]jujucloud.Cloud, error) {
+		return clouds, nil
 	}
-	s.store.UpdateCredential("test", inital)
-	out := s.detectCredentials(c, "test", "--replace")
-	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Equals, `test cloud credential "test" found`)
-
-	// Has been replaced.
-	creds, err := s.store.CredentialForCloud("test")
+	cloudByNameFunc := func(cloudName string) (*jujucloud.Cloud, error) {
+		if cloud, ok := clouds[cloudName]; ok {
+			return &cloud, nil
+		}
+		return nil, errors.NotFoundf("cloud %s", cloudName)
+	}
+	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, allCloudsFunc, cloudByNameFunc)
+	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	replaced := inital
-	replaced.DefaultRegion = "detected region"
-	replaced.AuthCredentials["test"] = s.aCredential.AuthCredentials["test"]
-	c.Assert(creds, jc.DeepEquals, &replaced)
+	ctx := testing.Context(c)
+	ctx.Stdin = stdin
+	return ctx, command.Run(ctx)
 }
 
-// TODO(wallyworld) - add more test coverage
+func (s *detectCredentialsSuite) credentialWithLabel(authType jujucloud.AuthType, label string) jujucloud.Credential {
+	cred := jujucloud.NewCredential(authType, nil)
+	cred.Label = label
+	return cred
+}
 
-func (s *detectCredentialsSuite) detectCredentials(c *gc.C, args ...string) string {
-	ctx, err := testing.RunCommand(c, cloud.NewDetectCredentialsCommandForTest(s.store), args...)
+func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, cloudName, expectedRegion, errText string) {
+	s.aCredential = jujucloud.CloudCredential{
+		DefaultRegion: "default region",
+		AuthCredentials: map[string]jujucloud.Credential{
+			"test": s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential")},
+	}
+	clouds := map[string]jujucloud.Cloud{
+		"test-cloud": {
+			Type: "mock-provider",
+		},
+		"another-cloud": {
+			Type: "another-provider",
+		},
+	}
+
+	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", cloudName))
+	ctx, err := s.run(c, stdin, clouds)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	return testing.Stdout(ctx)
+	if errText == "" {
+		if expectedRegion != "" {
+			s.aCredential.DefaultRegion = expectedRegion
+		}
+		c.Assert(s.store.Credentials["test-cloud"], jc.DeepEquals, s.aCredential)
+	} else {
+		output := strings.Replace(testing.Stderr(ctx), "\n", "", -1)
+		c.Assert(output, gc.Matches, ".*"+regexp.QuoteMeta(errText)+".*")
+	}
+}
+
+func (s *detectCredentialsSuite) TestDetectNewCredential(c *gc.C) {
+	s.assertDetectCredential(c, "test-cloud", "", "")
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialOverwrites(c *gc.C) {
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"test-cloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"test": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
+			},
+		},
+	}
+	s.assertDetectCredential(c, "test-cloud", "", "")
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialKeepsExistingRegion(c *gc.C) {
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"test-cloud": {
+			DefaultRegion: "west",
+			AuthCredentials: map[string]jujucloud.Credential{
+				"test": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
+			},
+		},
+	}
+	s.assertDetectCredential(c, "test-cloud", "west", "")
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialDefaultCloud(c *gc.C) {
+	s.assertDetectCredential(c, "", "", "")
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialUnknownCloud(c *gc.C) {
+	s.assertDetectCredential(c, "foo", "", "cloud foo not found")
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialInvalidCloud(c *gc.C) {
+	s.assertDetectCredential(c, "another-cloud", "", "chosen credentials not compatible with a another-provider cloud")
+}
+
+func (s *detectCredentialsSuite) TestNewDetectCredentialNoneFound(c *gc.C) {
+	stdin := strings.NewReader("")
+	ctx, err := s.run(c, stdin, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.Replace(testing.Stderr(ctx), "\n", "", -1)
+	c.Assert(output, gc.Matches, ".*No cloud credentials found.*")
+	c.Assert(s.store.Credentials, gc.HasLen, 0)
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialInvalidChoice(c *gc.C) {
+	s.aCredential = jujucloud.CloudCredential{
+		DefaultRegion: "detected region",
+		AuthCredentials: map[string]jujucloud.Credential{
+			"test":    s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential 1"),
+			"another": s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential 2")},
+	}
+
+	stdin := strings.NewReader("3\nQ\n")
+	ctx, err := s.run(c, stdin, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.Replace(testing.Stderr(ctx), "\n", "", -1)
+	c.Assert(output, gc.Matches, ".*Invalid choice, enter a number between 1 and 2.*")
+	c.Assert(s.store.Credentials, gc.HasLen, 0)
 }
