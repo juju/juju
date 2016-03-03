@@ -59,8 +59,8 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "sequences")
 	}
 	// We need to import the sequences first as we may add blocks
-	// in the modelAspects which will touch the block sequence.
-	if err := restore.modelAspects(); err != nil {
+	// in the modelExtras which will touch the block sequence.
+	if err := restore.modelExtras(); err != nil {
 		return nil, nil, errors.Annotate(err, "base model aspects")
 	}
 	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
@@ -101,7 +101,7 @@ type importer struct {
 	serviceUnits map[string][]*Unit
 }
 
-func (i *importer) modelAspects() error {
+func (i *importer) modelExtras() error {
 	if latest := i.model.LatestToolsVersion(); latest != version.Zero {
 		if err := i.dbModel.UpdateLatestToolsVersion(latest); err != nil {
 			return errors.Trace(err)

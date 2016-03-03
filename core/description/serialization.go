@@ -54,7 +54,6 @@ func convertToStringSlice(field interface{}) []string {
 // values are strings, but doesn't return them as strings. So we need to do
 // that here.
 func convertToStringMap(field interface{}) map[string]string {
-	logger.Debugf("convertToStringMap %#v", field)
 	if field == nil {
 		return nil
 	}

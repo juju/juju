@@ -85,7 +85,7 @@ func (t BlockType) String() string {
 	return string(t.ToParams())
 }
 
-// MigrationValue converts the state job into a useful human readable
+// MigrationValue converts the block type value into a useful human readable
 // string for model migration.
 func (t BlockType) MigrationValue() string {
 	if value, ok := blockMigrationValue[t]; ok {
