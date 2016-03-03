@@ -122,9 +122,9 @@ type ContextStatus interface {
 	SetServiceStatus(StatusInfo) error
 }
 
-// ContextInstance is the part of a hook context related to the unit's intance.
+// ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
-	// AvailabilityZone returns the executing unit's availablilty zone.
+	// AvailabilityZone returns the executing unit's availability zone.
 	AvailabilityZone() (string, bool)
 
 	// RequestReboot will set the reboot flag to true on the machine agent

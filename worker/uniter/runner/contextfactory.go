@@ -63,6 +63,7 @@ type contextFactory struct {
 	envName    string
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
+	zone       string
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -96,6 +97,10 @@ func NewContextFactory(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	zone, err := unit.AvailabilityZone()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	f := &contextFactory{
 		unit:             unit,
 		state:            state,
@@ -108,6 +113,7 @@ func NewContextFactory(
 		relationCaches:   map[int]*RelationCache{},
 		storage:          storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
+		zone:             zone,
 	}
 	return f, nil
 }
@@ -140,6 +146,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		storage:            f.storage,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
+		availabilityzone:   f.zone,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
