@@ -53,7 +53,8 @@ type credentialsMap struct {
 // NewListCredentialsCommand returns a command to list cloud credentials.
 func NewListCredentialsCommand() cmd.Command {
 	return &listCredentialsCommand{
-		store: jujuclient.NewFileCredentialStore(),
+		store:           jujuclient.NewFileCredentialStore(),
+		cloudByNameFunc: jujucloud.CloudByName,
 	}
 }
 
@@ -138,15 +139,8 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	return c.out.Write(ctxt, credentialsMap{displayCredentials})
 }
 
-func (c *listCredentialsCommand) cloudByName(name string) (*jujucloud.Cloud, error) {
-	if c.cloudByNameFunc == nil {
-		return jujucloud.CloudByName(name)
-	}
-	return c.cloudByNameFunc(name)
-}
-
 func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential) error {
-	cloud, err := c.cloudByName(cloudName)
+	cloud, err := c.cloudByNameFunc(cloudName)
 	if err != nil {
 		return err
 	}
