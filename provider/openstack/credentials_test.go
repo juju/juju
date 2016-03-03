@@ -6,6 +6,7 @@ package openstack_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -110,6 +111,9 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNovarc(c *gc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip("not running linux")
+	}
 	home := utils.Home()
 	dir := c.MkDir()
 	utils.SetHome(dir)
