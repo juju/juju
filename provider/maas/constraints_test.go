@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -333,6 +334,17 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 }
 
 func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
+	suite.addSubnet(c, 1, 1, "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-2"}))
+	suite.addSubnet(c, 2, 2, "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-3"}))
+	suite.addSubnet(c, 3, 3, "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-4"}))
+	suite.addSubnet(c, 4, 4, "node1")
+
 	var shortLimit uint = 0
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 	env := suite.makeEnviron()
@@ -340,7 +352,7 @@ func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpT
 
 	_, err := env.acquireNode(
 		"", "",
-		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
+		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
 		nil,
 	)
