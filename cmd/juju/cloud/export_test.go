@@ -8,9 +8,15 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-func NewListCredentialsCommandForTest(testStore jujuclient.CredentialGetter) *listCredentialsCommand {
+func NewListCredentialsCommandForTest(
+	testStore jujuclient.CredentialGetter,
+	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+) *listCredentialsCommand {
 	return &listCredentialsCommand{
-		store: testStore,
+		store:              testStore,
+		personalCloudsFunc: personalCloudsFunc,
+		cloudByNameFunc:    cloudByNameFunc,
 	}
 }
 

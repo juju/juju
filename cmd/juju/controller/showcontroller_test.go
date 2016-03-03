@@ -94,7 +94,7 @@ local.mallards:
   current-account: admin@local
 `[1:]
 
-	s.assertShowController(c, "local.mallards", "--include-passwords")
+	s.assertShowController(c, "local.mallards", "--show-passwords")
 }
 
 func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
