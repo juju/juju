@@ -357,7 +357,7 @@ func (s *ModelMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 	s.assertMigrationCleanedUp(c, mig)
 }
 
-func (s *ModelMigrationSuite) assertMigrationCleanedUp(c *gc.C, mig *state.ModelMigration) {
+func (s *ModelMigrationSuite) assertMigrationCleanedUp(c *gc.C, mig state.ModelMigration) {
 	c.Assert(mig.PhaseChangedTime(), gc.Equals, s.clock.Now())
 	c.Assert(mig.EndTime(), gc.Equals, s.clock.Now())
 	assertMigrationNotActive(c, s.State2)
@@ -472,7 +472,7 @@ func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
 	return w, statetesting.NewNotifyWatcherC(c, st, w)
 }
 
-func assertPhase(c *gc.C, mig *state.ModelMigration, phase migration.Phase) {
+func assertPhase(c *gc.C, mig state.ModelMigration, phase migration.Phase) {
 	actualPhase, err := mig.Phase()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(actualPhase, gc.Equals, phase)
