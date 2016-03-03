@@ -91,6 +91,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "service-foo")
+	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,6 +112,11 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
 		"machine":     machineSeq,
 		"service-foo": fooSeq,
+		// blocks is added by the switch block on call above.
+		"block": 1,
+	})
+	c.Assert(model.Blocks(), jc.DeepEquals, map[string]string{
+		"all-changes": "locked down",
 	})
 }
 

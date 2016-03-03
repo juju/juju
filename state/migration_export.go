@@ -49,10 +49,16 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.New("missing environ config")
 	}
 
+	blocks, err := export.readBlocks()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	args := description.ModelArgs{
 		Owner:              dbModel.Owner(),
 		Config:             envConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
+		Blocks:             blocks,
 	}
 	export.model = description.NewModel(args)
 	modelKey := dbModel.globalKey()
@@ -117,6 +123,25 @@ func (e *exporter) sequences() error {
 		e.model.SetSequence(doc.Name, doc.Counter)
 	}
 	return nil
+}
+
+func (e *exporter) readBlocks() (map[string]string, error) {
+	blocks, closer := e.st.getCollection(blocksC)
+	defer closer()
+
+	var docs []blockDoc
+	if err := blocks.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make(map[string]string)
+	for _, doc := range docs {
+		// We don't care about the id, uuid, or tag.
+		// The uuid and tag both refer to the model uuid, and the
+		// id is opaque - even though it is sequence generated.
+		result[doc.Type.MigrationValue()] = doc.Message
+	}
+	return result, nil
 }
 
 func (e *exporter) modelUsers() error {

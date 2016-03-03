@@ -68,6 +68,19 @@ func minimalMachine(id string, containers ...*machine) *machine {
 	return m
 }
 
+func addMinimalMachine(model Model, id string) {
+	m := model.AddMachine(MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	m.SetInstance(minimalCloudInstanceArgs())
+	m.SetTools(minimalAgentToolsArgs())
+	m.SetStatus(minimalStatusArgs())
+}
+
 func (s *MachineSerializationSuite) machineArgs(id string) MachineArgs {
 	return MachineArgs{
 		Id:            names.NewMachineTag(id),

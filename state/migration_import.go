@@ -48,18 +48,6 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		}
 	}()
 
-	if latest := model.LatestToolsVersion(); latest != version.Zero {
-		if err := dbModel.UpdateLatestToolsVersion(latest); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
-
-	if annotations := model.Annotations(); len(annotations) > 0 {
-		if err := newSt.SetAnnotations(dbModel, annotations); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
-
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
 		st:      newSt,
@@ -69,6 +57,11 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
+	}
+	// We need to import the sequences first as we may add blocks
+	// in the modelExtras which will touch the block sequence.
+	if err := restore.modelExtras(); err != nil {
+		return nil, nil, errors.Annotate(err, "base model aspects")
 	}
 	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
 		return nil, nil, errors.Annotate(err, "model constraints")
@@ -106,6 +99,35 @@ type importer struct {
 	// serviceUnits is populated at the end of loading the services, and is a
 	// map of service name to units of that service.
 	serviceUnits map[string][]*Unit
+}
+
+func (i *importer) modelExtras() error {
+	if latest := i.model.LatestToolsVersion(); latest != version.Zero {
+		if err := i.dbModel.UpdateLatestToolsVersion(latest); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if annotations := i.model.Annotations(); len(annotations) > 0 {
+		if err := i.st.SetAnnotations(i.dbModel, annotations); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	blockType := map[string]BlockType{
+		"destroy-model": DestroyBlock,
+		"remove-object": RemoveBlock,
+		"all-changes":   ChangeBlock,
+	}
+
+	for blockName, message := range i.model.Blocks() {
+		block, ok := blockType[blockName]
+		if !ok {
+			return errors.Errorf("unknown block type: %q", blockName)
+		}
+		i.st.SwitchBlockOn(block, message)
+	}
+	return nil
 }
 
 func (i *importer) sequences() error {

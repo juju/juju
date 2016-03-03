@@ -47,3 +47,20 @@ func convertToStringSlice(field interface{}) []string {
 	}
 	return result
 }
+
+// convertToStringMap is expected to be used on a field with the schema
+// checker `schema.StringMap(schema.String())`. The schema will return a
+// string map as map[string]interface{}. It will make sure that the interface
+// values are strings, but doesn't return them as strings. So we need to do
+// that here.
+func convertToStringMap(field interface{}) map[string]string {
+	if field == nil {
+		return nil
+	}
+	fieldMap := field.(map[string]interface{})
+	result := make(map[string]string)
+	for key, value := range fieldMap {
+		result[key] = value.(string)
+	}
+	return result
+}

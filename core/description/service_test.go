@@ -69,6 +69,15 @@ func minimalService() *service {
 	return s
 }
 
+func addMinimalService(model Model) {
+	s := model.AddService(minimalServiceArgs())
+	s.SetStatus(minimalStatusArgs())
+	u := s.AddUnit(minimalUnitArgs())
+	u.SetAgentStatus(minimalStatusArgs())
+	u.SetWorkloadStatus(minimalStatusArgs())
+	u.SetTools(minimalAgentToolsArgs())
+}
+
 func minimalServiceArgs() ServiceArgs {
 	return ServiceArgs{
 		Tag:      names.NewServiceTag("ubuntu"),
