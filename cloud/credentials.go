@@ -285,3 +285,21 @@ func ParseCredentials(data []byte) (map[string]CloudCredential, error) {
 	}
 	return credentials, nil
 }
+
+// RemoveSecrets returns a copy of the given credential with secret fields removed.
+func RemoveSecrets(
+	credential Credential,
+	schemas map[AuthType]CredentialSchema,
+) (*Credential, error) {
+	schema, ok := schemas[credential.authType]
+	if !ok {
+		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
+	}
+	redactedAttrs := credential.Attributes()
+	for attrName, attr := range schema {
+		if attr.Hidden {
+			delete(redactedAttrs, attrName)
+		}
+	}
+	return &Credential{credential.authType, redactedAttrs}, nil
+}

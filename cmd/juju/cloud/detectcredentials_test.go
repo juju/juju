@@ -34,6 +34,34 @@ func (p *mockProvider) DetectCredentials() (*jujucloud.CloudCredential, error) {
 	return &p.detectedCreds, nil
 }
 
+func (p *mockProvider) CredentialSchemas() map[jujucloud.AuthType]jujucloud.CredentialSchema {
+	return map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.AccessKeyAuthType: {
+			"access-key": {},
+			"secret-key": {
+				Hidden: true,
+			},
+		},
+		jujucloud.UserPassAuthType: {
+			"username": {},
+			"password": {
+				Hidden: true,
+			},
+			"application-password": {
+				Hidden: true,
+			},
+		},
+		jujucloud.OAuth2AuthType: {
+			"client-id":    {},
+			"client-email": {},
+			"private-key": {
+				Hidden: true,
+			},
+			"project-id": {},
+		},
+	}
+}
+
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
 	s.aCredential = jujucloud.CloudCredential{
 		DefaultRegion: "detected region",
