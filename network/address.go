@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -51,6 +52,17 @@ type Scope string
 
 // SpaceName holds the Juju space name of an address.
 type SpaceName string
+type SpaceNames []SpaceName
+
+func (s SpaceNames) String() string {
+	var tmp []string
+	tmp = make([]string, len(s))
+	for i, v := range s {
+		tmp[i] = string(v)
+	}
+
+	return strings.Join(tmp, ", ")
+}
 
 const (
 	ScopeUnknown      Scope = ""
@@ -118,6 +130,17 @@ func (a Address) GoString() string {
 // NewScopedAddress(value, ScopeUnknown).
 func NewAddress(value string) Address {
 	return NewScopedAddress(value, ScopeUnknown)
+}
+
+// NewScopedNamedAddress creates a new Address, deriving its type from the value.
+func NewScopedNamedAddress(value, networkName string, scope Scope) Address {
+	addr := Address{
+		Value:       value,
+		Type:        DeriveAddressType(value),
+		NetworkName: networkName,
+		Scope:       scope,
+	}
+	return addr
 }
 
 // NewScopedAddress creates a new Address, deriving its type from the
@@ -243,9 +266,9 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
-// SelectAddressBySpace picks the first address from the given slice that has
+// SelectAddressBySpaces picks the first address from the given slice that has
 // the given space name associated.
-func SelectAddressBySpace(addresses []Address, spaceNames []SpaceName) (Address, bool) {
+func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
 	for _, addr := range addresses {
 		for _, spaceName := range spaceNames {
 			if addr.SpaceName == spaceName {
@@ -254,15 +277,15 @@ func SelectAddressBySpace(addresses []Address, spaceNames []SpaceName) (Address,
 			}
 		}
 	}
-	logger.Warningf("no addresses found in spaces %q", spaceNames)
+	logger.Warningf("no addresses found in spaces %s", spaceNames)
 	return Address{}, false
 }
 
-// SelectHostPortBySpace picks the first HostPort from the given slice that has
+// SelectHostsPortBySpaces picks the first HostPort from the given slice that has
 // the given space name associated.
-func SelectHostsPortBySpaces(hps []HostPort, spaceNames []SpaceName) ([]HostPort, bool) {
+func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
-		logger.Debugf("host ports not filtered - no spaces given.")
+		logger.Warningf("host ports not filtered - no spaces given.")
 		return hps, false
 	}
 
@@ -280,7 +303,7 @@ func SelectHostsPortBySpaces(hps []HostPort, spaceNames []SpaceName) ([]HostPort
 		return selectedHostPorts, true
 	}
 
-	logger.Warningf("no hostPorts found in spaces %q", spaceNames)
+	logger.Warningf("no hostPorts found in spaces %s", spaceNames)
 	return hps, false
 }
 
@@ -298,16 +321,16 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectControllerHostPort returns the most suitable HostPort (as string) to
+// SelectMongoHostPorts returns the most suitable HostPort (as string) to
 // use as a Juju Controller (API/state server) endpoint given the list of
 // hostPorts. It first tries to find the first HostPort bound to the
 // spaces provided, then, if that fails, uses the older selection method based on scope.
 // When machineLocal is true and an address can't be selected by space both
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
-func SelectControllerHostPorts(hostPorts []HostPort, machineLocal bool, spaces []SpaceName, spaceNameValid bool) []string {
+func SelectMongoHostPorts(hostPorts []HostPort, machineLocal bool, spaces []SpaceName, spaceNameValid bool) []string {
 	if spaceNameValid {
-		filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces)
+		filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
 		if ok {
 			logger.Debugf(
 				"selected %q as controller host:port, using spaces %q",
@@ -654,8 +677,8 @@ type SpaceStats struct {
 	LargestSpaceContainsAll bool
 }
 
-// GenerateSpaceStats takes a list of machines and returns information about
-// what spaces are referenced by those machines.
+// GenerateSpaceStats takes a list of machine addresses and returns information
+// about what spaces are referenced by those machines.
 func GenerateSpaceStats(addresses [][]Address) SpaceStats {
 	var stats SpaceStats
 	stats.SpaceCount = make(map[SpaceName]int)

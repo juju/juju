@@ -547,8 +547,8 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 			"foo-bar":         "",
 		},
 
-		"ms-no-bindings":      noBindings,
-		"ms-default-bindings": noBindings,
+		"ms-no-bindings":      msDefaults,
+		"ms-default-bindings": msDefaults,
 		"ms-given-bindings": map[string]string{
 			"server": "db",
 		},

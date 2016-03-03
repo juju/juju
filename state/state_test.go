@@ -1916,7 +1916,11 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	// expected.
 	bindings, err := svc.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, map[string]string{})
+	c.Assert(bindings, jc.DeepEquals, map[string]string{
+		"server":  "",
+		"client":  "",
+		"cluster": "",
+	})
 
 	// Removing the service also removes its bindings.
 	err = svc.Destroy()
@@ -1951,6 +1955,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	bindings, err := svc.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, map[string]string{
+		"server":  "", // inherited from defaults.
 		"client":  "client",
 		"cluster": "db",
 	})

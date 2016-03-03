@@ -70,7 +70,14 @@ peers:
 `
 	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings, 2)
 	s.newMeta = newCharm.Meta()
-	s.newDefaults = map[string]string{}
+	s.newDefaults = map[string]string{
+		"foo1": "",
+		"foo2": "",
+		"bar2": "",
+		"bar3": "",
+		"self": "",
+		"me":   "",
+	}
 
 	// Add some spaces to use in bindings, but notably NOT the default space, as
 	// it should be always allowed.
@@ -84,6 +91,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 	// The test cases below are not exhaustive, but just check basic
 	// functionality. Most of the logic is tested by calling service.SetCharm()
 	// in various ways.
+
 	for i, test := range []struct {
 		about          string
 		newMap, oldMap map[string]string
@@ -91,7 +99,14 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		updated        map[string]string
 		removed        []string
 	}{{
-		about:  "oldMap used when newMap is nil. Unbound endpoints are removed.",
+		about:   "defaults used when both newMap and oldMap are nil",
+		newMap:  nil,
+		oldMap:  nil,
+		meta:    s.oldMeta,
+		updated: s.copyMap(s.oldDefaults),
+		removed: nil,
+	}, {
+		about:  "oldMap overrides defaults, newMap is nil",
 		newMap: nil,
 		oldMap: map[string]string{
 			"foo1": "client",
@@ -104,9 +119,9 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "",
 		},
-		removed: []string{"bar1"},
+		removed: nil,
 	}, {
-		about: "newMap overrides oldMap",
+		about: "oldMap overrides defaults, newMap overrides oldMap",
 		newMap: map[string]string{
 			"foo1":      "",
 			"self":      "db",
@@ -126,7 +141,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		removed: nil,
 	}, {
-		about: "newMap used when oldMap is nil",
+		about: "newMap overrides defaults, oldMap is nil",
 		newMap: map[string]string{
 			"self": "db",
 		},
@@ -138,9 +153,9 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self":      "db",
 			"one-extra": "",
 		},
-		removed: []string{"bar1", "foo1"},
+		removed: nil,
 	}, {
-		about:  "obsolete entries in oldMap are removed",
+		about:  "obsolete entries in oldMap missing in defaults are removed",
 		newMap: nil,
 		oldMap: map[string]string{
 			"any-old-thing": "boo",
