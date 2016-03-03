@@ -32,8 +32,7 @@ type listCredentialsCommand struct {
 
 var listCredentialsDoc = `
 The list-credentials command lists the credentials for clouds on which Juju workloads
-can be deployed. The credentials listed are those added with the add-credentials
-command.
+can be deployed. The credentials listed are those added with the add-credential command.
 
 Example:
    # List all credentials.
