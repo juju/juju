@@ -56,7 +56,13 @@ func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string
 	allCloudsFunc := func() (map[string]jujucloud.Cloud, error) {
 		return clouds, nil
 	}
-	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, allCloudsFunc)
+	cloudByNameFunc := func(cloudName string) (*jujucloud.Cloud, error) {
+		if cloud, ok := clouds[cloudName]; ok {
+			return &cloud, nil
+		}
+		return nil, errors.NotFoundf("cloud %s", cloudName)
+	}
+	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, allCloudsFunc, cloudByNameFunc)
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)

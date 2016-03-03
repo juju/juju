@@ -27,10 +27,13 @@ type detectCredentialsCommand struct {
 	store jujuclient.CredentialStore
 
 	// registeredProvidersFunc is set by tests to return all registered environ providers
-	registeredProvdersFunc func() []string
+	registeredProvidersFunc func() []string
 
 	// allCloudsFunc is set by tests to return all public and personal clouds
 	allCloudsFunc func() (map[string]jujucloud.Cloud, error)
+
+	// cloudByNameFunc is set by tests to return a named cloud.
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 }
 
 var detectCredentialsDoc = `
@@ -68,9 +71,15 @@ See Also:
 
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.
 func NewDetectCredentialsCommand() cmd.Command {
-	return &detectCredentialsCommand{
+	c := &detectCredentialsCommand{
 		store: jujuclient.NewFileCredentialStore(),
+		registeredProvidersFunc: environs.RegisteredProviders,
+		cloudByNameFunc:         jujucloud.CloudByName,
 	}
+	c.allCloudsFunc = func() (map[string]jujucloud.Cloud, error) {
+		return c.allClouds()
+	}
+	return c
 }
 
 func (c *detectCredentialsCommand) Info() *cmd.Info {
@@ -90,17 +99,7 @@ type discoveredCredential struct {
 	isNew            bool
 }
 
-func (c *detectCredentialsCommand) registeredProviders() []string {
-	if c.registeredProvdersFunc != nil {
-		return c.registeredProvdersFunc()
-	}
-	return environs.RegisteredProviders()
-}
-
 func (c *detectCredentialsCommand) allClouds() (map[string]jujucloud.Cloud, error) {
-	if c.allCloudsFunc != nil {
-		return c.allCloudsFunc()
-	}
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return nil, err
@@ -118,7 +117,7 @@ func (c *detectCredentialsCommand) allClouds() (map[string]jujucloud.Cloud, erro
 func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 	fmt.Fprintln(ctxt.Stderr, "\nLooking for cloud and credential information locally...")
 
-	clouds, err := c.allClouds()
+	clouds, err := c.allCloudsFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -141,7 +140,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 		defaultCloudNames[cloud.Type] = cloudName
 	}
 
-	providerNames := c.registeredProviders()
+	providerNames := c.registeredProvidersFunc()
 	sort.Strings(providerNames)
 
 	var discovered []discoveredCredential
@@ -218,9 +217,12 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 // The first match allows the default cloud and region to be set. The default
 // cloud is used when prompting to save a credential. The sorted cloud names
 // ensures that "aws" is preferred over "aws-china".
-func (c *detectCredentialsCommand) guessCloudInfo(sortedCloudNames []string, clouds map[string]jujucloud.Cloud, providerName, credName string) (string, string, bool, error) {
-	var defaultCloud, defaultRegion string
-	isNew := true
+func (c *detectCredentialsCommand) guessCloudInfo(
+	sortedCloudNames []string,
+	clouds map[string]jujucloud.Cloud,
+	providerName, credName string,
+) (defaultCloud, defaultRegion string, isNew bool, _ error) {
+	isNew = true
 	for _, cloudName := range sortedCloudNames {
 		cloud := clouds[cloudName]
 		if cloud.Type != providerName {
@@ -325,47 +327,32 @@ func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, dis
 	}
 }
 
-func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, stdin io.Reader) (string, error) {
+func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.Reader) (string, error) {
 	fmt.Fprint(out, "Save any? Type number, or Q to quit, then enter. ")
 	defer out.Write([]byte{'\n'})
-	input, err := c.readLine(stdin)
+	input, err := c.readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return strings.TrimSpace(input), nil
 }
 
-func (c *detectCredentialsCommand) cloudByName(cloudName string) (*jujucloud.Cloud, error) {
-	if c.allCloudsFunc == nil {
-		return jujucloud.CloudByName(cloudName)
-	}
-	// We get here in tests only.
-	clouds, err := c.allCloudsFunc()
-	if err != nil {
-		return nil, err
-	}
-	if cloud, ok := clouds[cloudName]; ok {
-		return &cloud, nil
-	}
-	return nil, errors.NotFoundf("cloud %s", cloudName)
-}
-
-func (c *detectCredentialsCommand) promptCloudName(out io.Writer, stdin io.Reader, defaultCloudName, cloudType string) (string, error) {
+func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, defaultCloudName, cloudType string) (string, error) {
 	text := fmt.Sprintf(`Enter cloud to which the credential belongs, or Q to quit [%s] `, defaultCloudName)
 	fmt.Fprint(out, text)
 	defer out.Write([]byte{'\n'})
-	input, err := c.readLine(stdin)
+	input, err := c.readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	cloudName := strings.TrimSpace(input)
-	if strings.ToLower(input) == "q" {
+	if strings.ToLower(cloudName) == "q" {
 		return "", nil
 	}
 	if cloudName == "" {
 		return defaultCloudName, nil
 	}
-	cloud, err := c.cloudByName(cloudName)
+	cloud, err := c.cloudByNameFunc(cloudName)
 	if err != nil {
 		return "", err
 	}
