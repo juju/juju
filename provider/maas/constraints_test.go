@@ -372,9 +372,9 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 		expected: "volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
 	}} {
 		c.Logf("test #%d: volumes=%v", i, test.volumes)
+		server.SetVersionJSON(`{"capabilities": []}`)
 		env := suite.makeEnviron()
 		// Make sure spaces are not supported.
-		server.SetVersionJSON(`{"capabilities": []}`)
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		_, err := env.acquireNode("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
@@ -467,9 +467,9 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError: `duplicated interface binding "dup-name"`,
 	}} {
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
+		server.SetVersionJSON(`{"capabilities": []}`)
 		env := suite.makeEnviron()
 		// Make sure spaces are not supported.
-		server.SetVersionJSON(`{"capabilities": []}`)
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		_, err := env.acquireNode("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
@@ -478,7 +478,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
-		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+		requestValues := server.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
 		if c.Check(found, jc.IsTrue) {
 

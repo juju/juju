@@ -733,11 +733,11 @@ func (environ *maasEnviron) acquireNode(
 	positiveSpaceIds, negativeSpaceIds, err := environ.spaceNamesToIds(positiveSpaces, negativeSpaces)
 	// If spaces aren't supported the constraints should be empty anyway.
 	if err != nil && !errors.IsNotSupported(err) {
-		return gomaasapi.MAASObject{}, err
+		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
 	err = addInterfaces(acquireParams, interfaces, positiveSpaceIds, negativeSpaceIds)
 	if err != nil {
-		return gomaasapi.MAASObject{}, err
+		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
 	addStorage(acquireParams, volumes)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
