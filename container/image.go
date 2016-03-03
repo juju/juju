@@ -32,7 +32,8 @@ type ImageURLGetterConfig struct {
 	EnvUUID           string
 	CACert            []byte
 	CloudimgBaseUrl   string
-	ImageDownloadFunc func(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error)
+	CloudimgStream    string
+	ImageDownloadFunc func(kind instance.ContainerType, series, arch, cloudimgBaseUrl, cloudimgStream string) (string, error)
 }
 
 type imageURLGetter struct {
@@ -47,7 +48,7 @@ func NewImageURLGetter(config ImageURLGetterConfig) ImageURLGetter {
 
 // ImageURL is specified on the NewImageURLGetter interface.
 func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
-	imageURL, err := ug.config.ImageDownloadFunc(kind, series, arch, ug.config.CloudimgBaseUrl)
+	imageURL, err := ug.config.ImageDownloadFunc(kind, series, arch, ug.config.CloudimgBaseUrl, ug.config.CloudimgStream)
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}
@@ -66,7 +67,7 @@ func (ug *imageURLGetter) CACert() []byte {
 
 // ImageDownloadURL determines the public URL which can be used to obtain an
 // image blob with the specified parameters.
-func ImageDownloadURL(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error) {
+func ImageDownloadURL(kind instance.ContainerType, series, arch, cloudimgBaseUrl, cloudimgStream string) (string, error) {
 	// TODO - we currently only need to support LXC images - kind is ignored.
 	if kind != instance.LXC {
 		return "", errors.Errorf("unsupported container type: %v", kind)
@@ -74,7 +75,7 @@ func ImageDownloadURL(kind instance.ContainerType, series, arch, cloudimgBaseUrl
 
 	// Use the ubuntu-cloudimg-query command to get the url from which to fetch the image.
 	// This will be somewhere on http://cloud-images.ubuntu.com.
-	cmd := exec.Command("ubuntu-cloudimg-query", series, "released", arch, "--format", "%{url}")
+	cmd := exec.Command("ubuntu-cloudimg-query", series, cloudimgStream, arch, "--format", "%{url}")
 	if cloudimgBaseUrl != "" {
 		// If the base url isn't specified, we don't need to copy the current
 		// environment, because this is the default behaviour of the exec package.
