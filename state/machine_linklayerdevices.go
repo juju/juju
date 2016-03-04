@@ -325,13 +325,19 @@ func parseLinkLayerDeviceParentNameAsGlobalKey(parentName string) (hostMachineID
 
 func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMachineID, parentDeviceName string) error {
 	hostMachine, err := m.st.Machine(hostMachineID)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get host machine %q of used parent device %q", hostMachineID, parentDeviceName)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("host machine %q of parent device %q", hostMachineID, parentDeviceName)
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+
 	parentDevice, err := hostMachine.LinkLayerDevice(parentDeviceName)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get parent device %q on host machine %q", parentDeviceName, hostMachineID)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("parent device %q on host machine %q", parentDeviceName, hostMachineID)
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+
 	if parentDevice.Type() != BridgeDevice {
 		errorMessage := fmt.Sprintf(
 			"parent device %q on host machine %q must be of type %q, not type %q",
@@ -401,22 +407,6 @@ func (m *Machine) areLinkLayerDeviceDocsStillValid(newDocs []linkLayerDeviceDoc)
 }
 
 func (m *Machine) verifyParentDeviceExists(name, parentName string) error {
-	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(parentName)
-	if err != nil {
-		return errors.Trace(err)
-	} else if hostMachineID != "" {
-		err := m.verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMachineID, parentDeviceName)
-		if errors.IsNotFound(err) {
-			return errors.NotFoundf(
-				"parent device %q on host machine %q of device %q on container machine %q",
-				parentDeviceName, hostMachineID, name, m.Id(),
-			)
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
 	if _, err := m.LinkLayerDevice(parentName); errors.IsNotFound(err) {
 		return errors.NotFoundf("parent device %q of device %q", parentName, name)
 	} else if err != nil {
