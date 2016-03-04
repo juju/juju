@@ -100,7 +100,7 @@ def assess_deployer(args, client):
         client.wait_for_started()
     else:
         client.deployer(args.bundle_path, args.bundle_name)
-    client.wait_for_workloads(timeout=1200)
+    client.wait_for_workloads(timeout=1800)
     if args.health_cmd:
         environ = client._shell_environ()
         check_health(args.health_cmd, args.temp_env_name, environ)
