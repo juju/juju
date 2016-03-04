@@ -3875,9 +3875,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion)
-	c.Assert(errors.Cause(err), gc.Equals, state.UpgradeInProgressError)
-	c.Assert(err, gc.ErrorMatches,
-		"an upgrade is already in progress or the last upgrade did not complete")
+	c.Assert(err, jc.Satisfies, state.IsUpgradeInProgressError)
 }
 
 func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
