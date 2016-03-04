@@ -1735,8 +1735,9 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 			Address: privateAddress.Value,
 		})
 		return results, nil
+	} else {
+		logger.Debugf("endpoint %q is explicitly bound to space %q", bindingName, boundSpace)
 	}
-	logger.Debugf("endpoint %q is explicitly bound to space %q", bindingName, boundSpace)
 
 	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
 	// the PoC to enable minimal network-get implementation returning just the
