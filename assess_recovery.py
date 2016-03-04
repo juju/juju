@@ -38,8 +38,6 @@ def deploy_stack(client, charm_prefix):
     client.juju('deploy', (charm_prefix + 'ubuntu',))
     client.wait_for_started().status
     print_now("%s is ready to testing" % client.env.environment)
-    instance_id = client.get_status().status['machines']['0']['instance-id']
-    return instance_id
 
 
 def restore_present_state_server(client, backup_file):
@@ -134,6 +132,11 @@ def make_client_from_args(args):
                        args.temp_env_name)
 
 
+def get_controllers(client):
+    instance_id = client.get_status().status['machines']['0']['instance-id']
+    return instance_id
+
+
 def main(argv):
     args = parse_args(argv)
     client = make_client_from_args(args)
@@ -145,7 +148,9 @@ def main(argv):
         jes_enabled=jes_enabled)
     with bs_manager.booted_context(upload_tools=False):
         try:
-            instance_id = deploy_stack(client, args.charm_prefix)
+            deploy_stack(client, args.charm_prefix)
+            # TODO: This is a very bad assumption. api-info the controller.
+            instance_id = get_controllers(client)
             if args.strategy in ('ha', 'ha-backup'):
                 client.enable_ha()
                 client.wait_for_ha()

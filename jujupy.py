@@ -1,6 +1,9 @@
 from __future__ import print_function
 
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    namedtuple,
+)
 from contextlib import (
     contextmanager,
     nested,
@@ -53,12 +56,12 @@ _DEFAULT_BUNDLE_TIMEOUT = 3600
 _jes_cmds = {KILL_CONTROLLER: {
     'create': 'create-environment',
     'kill': KILL_CONTROLLER,
-    }}
+}
 for super_cmd in [SYSTEM, CONTROLLER]:
     _jes_cmds[super_cmd] = {
         'create': '{} create-environment'.format(super_cmd),
         'kill': '{} kill'.format(super_cmd),
-        }
+    }
 
 log = logging.getLogger("jujupy")
 
@@ -138,6 +141,52 @@ def coalesce_agent_status(agent_item):
     if state is None:
         state = 'no-agent'
     return state
+
+
+Machine = namedtuple('Machine', ['number', 'info'])
+
+
+def get_controller_endpoint(client):
+    # Push this versioned set of rules into clients.
+    if client.version.startswith('1.'):
+        # juju2 api-endpoints -e curtis
+        endpoint = client.juju('api-endpoints', ())
+    else:
+        # juju2 show-controller curtis
+        info = yaml_loads(client.juju('show-controller', ()))
+        endpoint = info[client.env.environment]['details']['servers'][0]
+    address, port = endpoint.split(':')
+
+
+def get_controller_members(client):
+    """Return a list of machines that are members of the controller.
+
+    The first machine in the list is the leader. the remanining machines
+    are followers in a HA relationship.
+    """
+    unordered_members = []
+    status = client.get_status()
+    for number, machine in status.iter_machines():
+        if client.get_controller_member_status(machine):
+            unordered_members.append(Machine(number, machine))
+    if len(unordered_members) <= 1:
+        return unordered_members
+    # Search for the leader and make it the first in the list.
+    endpoint = get_controller_endpoint(client)
+    ordered_members = []
+    for machine in unordered_members:
+        if machine.info.get('dns-name') == endpoint:
+            ordered_members.insert(0, machine)
+        else:
+            ordered_members.append(machine)
+    return ordered_members
+
+
+def get_controller_leader(client):
+    controller_members = get_controller_members(client)
+    if controller_members:
+        return controller_members[0]
+    return None
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
@@ -448,7 +497,7 @@ class EnvJujuClient:
             'tenant-name',
             'type',
             'username',
-            })
+        })
         with temp_yaml_file(config_dict) as config_filename:
             yield config_filename
 

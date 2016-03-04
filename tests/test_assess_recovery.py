@@ -97,7 +97,8 @@ def make_mocked_client(name, status_error=None):
        return_value='new_host')
 @patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
 @patch('assess_recovery.delete_instance', autospec=True)
-@patch('assess_recovery.deploy_stack', autospec=True, return_value='i_id')
+@patch('assess_recovery.deploy_stack', autospec=True)
+@patch('assess_recovery.get_controllers', autospec=True, return_value='i_id')
 @patch('deploy_stack.get_machine_dns_name', autospec=True,
        return_value='host')
 @patch('subprocess.check_output', autospec=True)
@@ -106,7 +107,7 @@ def make_mocked_client(name, status_error=None):
 class TestMain(FakeHomeTestCase):
 
     def test_ha(self, so_mock, cc_mock, co_mock,
-                dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
+                dns_mock, gc_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         client = make_mocked_client('foo')
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
@@ -129,7 +130,8 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(0, ns_mock.call_count)
 
     def test_ha_error(self, so_mock, cc_mock, co_mock,
-                      dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
+                      dns_mock, gc_mock, ds_mock, di_mock,
+                      ws_mock, ns_mock, dl_mock):
         error = Exception()
         client = make_mocked_client('foo', status_error=error)
         with patch('assess_recovery.make_client_from_args', autospec=True,
@@ -154,8 +156,8 @@ class TestMain(FakeHomeTestCase):
                                         {'0': 'new_host'})
 
     def test_destroy_on_boot_error(self, so_mock, cc_mock, co_mock,
-                                   dns_mock, ds_mock, di_mock, ws_mock,
-                                   ns_mock, dl_mock):
+                                   dns_mock, gc_mock, ds_mock, di_mock,
+                                   ws_mock, ns_mock, dl_mock):
         client = make_mocked_client('foo')
         with patch('assess_recovery.make_client', autospec=True,
                    return_value=client):
