@@ -109,7 +109,11 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	svc, err := s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
-	err = svc.SetCharm(ch, false, true)
+	cfg := state.SetCharmConfig{
+		Charm:      ch,
+		ForceUnits: true,
+	}
+	err = svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = s.charmrevisionupdater.UpdateLatestRevisions()

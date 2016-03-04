@@ -6,9 +6,11 @@ package state
 import (
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -86,6 +88,15 @@ func (s *stubPersistence) StageResource(res resource.Resource, storagePath strin
 
 func (s *stubPersistence) SetResource(res resource.Resource) error {
 	s.stub.AddCall("SetResource", res)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubPersistence) SetCharmStoreResource(id, serviceID string, chRes charmresource.Resource, lastPolled time.Time) error {
+	s.stub.AddCall("SetCharmStoreResource", id, serviceID, chRes, lastPolled)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

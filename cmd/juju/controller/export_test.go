@@ -47,9 +47,9 @@ func NewCreateModelCommandForTest(
 	return modelcmd.WrapController(c), &CreateModelCommand{c}
 }
 
-// NewModelsCommandForTest returns a ModelsCommand with the API
+// NewListModelsCommandForTest returns a ListModelsCommand with the API
 // and userCreds provided as specified.
-func NewModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore) cmd.Command {
+func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &modelsCommand{
 		modelAPI: modelAPI,
 		sysAPI:   sysAPI,

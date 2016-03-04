@@ -9,6 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/resource"
@@ -28,11 +29,16 @@ type ResourcesSuite struct {
 }
 
 func (s *ResourcesSuite) TestFunctional(c *gc.C) {
+	ch := s.ConnSuite.AddTestingCharm(c, "wordpress")
+	s.ConnSuite.AddTestingService(c, "a-service", ch)
+
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
 
 	resources, err := st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(resources.Resources, gc.HasLen, 0)
 
 	data := "spamspamspam"
 	res := newResource(c, "spam", data)
@@ -41,13 +47,18 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	_, err = st.SetResource("a-service", res.Username, res.Resource, file)
 	c.Assert(err, jc.ErrorIsNil)
 
+	csResources := []charmresource.Resource{res.Resource}
+	err = st.SetCharmStoreResources("a-service", csResources, time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+
 	resources, err = st.ListResources("a-service")
 	c.Assert(err, jc.ErrorIsNil)
 
 	res.Timestamp = resources.Resources[0].Timestamp
-	c.Check(resources, jc.DeepEquals, resource.ServiceResources{Resources: []resource.Resource{
-		res,
-	}})
+	c.Check(resources, jc.DeepEquals, resource.ServiceResources{
+		Resources:           []resource.Resource{res},
+		CharmStoreResources: csResources,
+	})
 
 	// TODO(ericsnow) Add more as state.Resources grows more functionality.
 }

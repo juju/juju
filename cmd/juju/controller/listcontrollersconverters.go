@@ -20,9 +20,13 @@ type ControllerSet struct {
 
 // ControllerItem defines the serialization behaviour of controller information.
 type ControllerItem struct {
-	ModelName string `yaml:"model,omitempty" json:"model,omitempty"`
-	User      string `yaml:"user,omitempty" json:"user,omitempty"`
-	Server    string `yaml:"server,omitempty" json:"server,omitempty"`
+	ModelName      string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
+	User           string   `yaml:"user,omitempty" json:"user,omitempty"`
+	Server         string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
+	Servers        []string `yaml:"servers,flow" json:"servers"`
+	ControllerUUID string   `yaml:"uuid" json:"uuid"`
+	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
+	CACert         string   `yaml:"ca-cert" json:"ca-cert"`
 }
 
 // convertControllerDetails takes a map of Controllers and
@@ -74,9 +78,13 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		}
 
 		controllers[controllerName] = ControllerItem{
-			modelName,
-			userName,
-			serverName,
+			ModelName:      modelName,
+			User:           userName,
+			Server:         serverName,
+			Servers:        details.Servers,
+			APIEndpoints:   details.APIEndpoints,
+			ControllerUUID: details.ControllerUUID,
+			CACert:         details.CACert,
 		}
 	}
 	return controllers, errs

@@ -4,7 +4,6 @@
 package common
 
 import (
-	stderrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,17 +19,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type notSupportedError struct {
-	tag       names.Tag
-	operation string
-}
-
-func (e *notSupportedError) Error() string {
-	return fmt.Sprintf("entity %q does not support %s", e.tag, e.operation)
-}
-
 func NotSupportedError(tag names.Tag, operation string) error {
-	return &notSupportedError{tag, operation}
+	return errors.Errorf("entity %q does not support %s", tag, operation)
 }
 
 type noAddressSetError struct {
@@ -46,7 +36,7 @@ func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
 	return &noAddressSetError{unitTag, addressName}
 }
 
-func IsNoAddressSetError(err error) bool {
+func isNoAddressSetError(err error) bool {
 	_, ok := err.(*noAddressSetError)
 	return ok
 }
@@ -63,7 +53,7 @@ func UnknownModelError(uuid string) error {
 	return &unknownModelError{uuid: uuid}
 }
 
-func IsUnknownModelError(err error) bool {
+func isUnknownModelError(err error) bool {
 	_, ok := err.(*unknownModelError)
 	return ok
 }
@@ -88,16 +78,16 @@ func IsDischargeRequiredError(err error) bool {
 }
 
 var (
-	ErrBadId              = stderrors.New("id not found")
-	ErrBadCreds           = stderrors.New("invalid entity name or password")
-	ErrPerm               = stderrors.New("permission denied")
-	ErrNotLoggedIn        = stderrors.New("not logged in")
-	ErrUnknownWatcher     = stderrors.New("unknown watcher id")
-	ErrUnknownPinger      = stderrors.New("unknown pinger id")
-	ErrStoppedWatcher     = stderrors.New("watcher has been stopped")
-	ErrBadRequest         = stderrors.New("invalid request")
-	ErrTryAgain           = stderrors.New("try again")
-	ErrActionNotAvailable = stderrors.New("action no longer available")
+	ErrBadId              = errors.New("id not found")
+	ErrBadCreds           = errors.New("invalid entity name or password")
+	ErrPerm               = errors.New("permission denied")
+	ErrNotLoggedIn        = errors.New("not logged in")
+	ErrUnknownWatcher     = errors.New("unknown watcher id")
+	ErrUnknownPinger      = errors.New("unknown pinger id")
+	ErrStoppedWatcher     = errors.New("watcher has been stopped")
+	ErrBadRequest         = errors.New("invalid request")
+	ErrTryAgain           = errors.New("try again")
+	ErrActionNotAvailable = errors.New("action no longer available")
 )
 
 // OperationBlockedError returns an error which signifies that
@@ -206,7 +196,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
-	case IsNoAddressSetError(err):
+	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
 		code = params.CodeNotProvisioned
@@ -214,7 +204,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
-	case IsUnknownModelError(err):
+	case isUnknownModelError(err):
 		code = params.CodeNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
@@ -255,65 +245,64 @@ func DestroyErr(desc string, ids, errs []string) error {
 }
 
 // RestoreError makes a best effort at converting the given error
-// back into an error originally converted by ServerError(). If the
-// error could not be converted then false is returned.
-func RestoreError(err error) (error, bool) {
+// back into an error originally converted by ServerError().
+func RestoreError(err error) error {
 	err = errors.Cause(err)
 
 	if apiErr, ok := err.(*params.Error); !ok {
-		return err, false
+		return err
 	} else if apiErr == nil {
-		return nil, true
+		return nil
 	}
 	if params.ErrCode(err) == "" {
-		return err, false
+		return err
 	}
 	msg := err.Error()
 
 	if singleton, ok := singletonError(err); ok {
-		return singleton, true
+		return singleton
 	}
 
 	// TODO(ericsnow) Support the other error types handled by ServerError().
 	switch {
 	case params.IsCodeUnauthorized(err):
-		return errors.NewUnauthorized(nil, msg), true
+		return errors.NewUnauthorized(nil, msg)
 	case params.IsCodeNotFound(err):
 		// TODO(ericsnow) UnknownModelError should be handled here too.
 		// ...by parsing msg?
-		return errors.NewNotFound(nil, msg), true
+		return errors.NewNotFound(nil, msg)
 	case params.IsCodeAlreadyExists(err):
-		return errors.NewAlreadyExists(nil, msg), true
+		return errors.NewAlreadyExists(nil, msg)
 	case params.IsCodeNotAssigned(err):
-		return errors.NewNotAssigned(nil, msg), true
+		return errors.NewNotAssigned(nil, msg)
 	case params.IsCodeHasAssignedUnits(err):
 		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeNoAddressSet(err):
 		// TODO(ericsnow) Handle isNoAddressSetError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeNotProvisioned(err):
-		return errors.NewNotProvisioned(nil, msg), true
+		return errors.NewNotProvisioned(nil, msg)
 	case params.IsCodeUpgradeInProgress(err):
 		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeMachineHasAttachedStorage(err):
 		// TODO(ericsnow) Handle state.HasAttachmentsError here.
 		// ...by parsing msg?
-		return err, false
+		return err
 	case params.IsCodeNotSupported(err):
-		return errors.NewNotSupported(nil, msg), true
+		return errors.NewNotSupported(nil, msg)
 	case params.IsBadRequest(err):
-		return errors.NewBadRequest(nil, msg), true
+		return errors.NewBadRequest(nil, msg)
 	case params.IsMethodNotAllowed(err):
-		return errors.NewMethodNotAllowed(nil, msg), true
+		return errors.NewMethodNotAllowed(nil, msg)
 	case params.ErrCode(err) == params.CodeDischargeRequired:
 		// TODO(ericsnow) Handle DischargeRequiredError here.
-		return err, false
+		return err
 	default:
-		return err, false
+		return err
 	}
 }

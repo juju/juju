@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state/storage"
 )
@@ -27,6 +28,10 @@ type Persistence interface {
 
 	// NewStorage returns a new blob storage for the environment.
 	NewStorage() storage.Storage
+
+	// IncCharmModifiedVersionOps returns the operations necessary to increment
+	// the CharmModifiedVersion field for the given service.
+	IncCharmModifiedVersionOps(serviceID string) []txn.Op
 }
 
 type statePersistence struct {
@@ -79,4 +84,10 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 	session := sp.st.session
 	store := storage.NewStorage(envUUID, session)
 	return store
+}
+
+// IncCharmModifiedVersionOps returns the operations necessary to increment the
+// CharmModifiedVersion field for the given service.
+func (sp *statePersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return incCharmModifiedVersionOps(serviceID)
 }

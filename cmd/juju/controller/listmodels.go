@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewModelsCommand returns a command to list models.
-func NewModelsCommand() cmd.Command {
+// NewListModelsCommand returns a command to list models.
+func NewListModelsCommand() cmd.Command {
 	return modelcmd.WrapController(&modelsCommand{})
 }
 
@@ -36,7 +36,7 @@ type modelsCommand struct {
 	sysAPI    ModelsSysAPI
 }
 
-var modelsDoc = `
+var listModelsDoc = `
 List all the models the user can access on the current controller.
 
 The models listed here are either models you have created
@@ -57,7 +57,7 @@ type ModelManagerAPI interface {
 }
 
 // ModelsSysAPI defines the methods on the controller manager API that the
-// environments command calls.
+// list models command calls.
 type ModelsSysAPI interface {
 	Close() error
 	AllModels() ([]base.UserModel, error)
@@ -68,7 +68,7 @@ func (c *modelsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-models",
 		Purpose: "list all models the user can access on the current controller",
-		Doc:     modelsDoc,
+		Doc:     listModelsDoc,
 	}
 }
 
