@@ -56,7 +56,7 @@ _DEFAULT_BUNDLE_TIMEOUT = 3600
 _jes_cmds = {KILL_CONTROLLER: {
     'create': 'create-environment',
     'kill': KILL_CONTROLLER,
-}
+}}
 for super_cmd in [SYSTEM, CONTROLLER]:
     _jes_cmds[super_cmd] = {
         'create': '{} create-environment'.format(super_cmd),
@@ -153,7 +153,8 @@ def get_controller_endpoint(client):
         endpoint = client.juju('api-endpoints', ())
     else:
         # juju2 show-controller curtis
-        info = yaml_loads(client.juju('show-controller', ()))
+        info = yaml_loads(client.juju(
+            'show-controller', (client.env.environment, )))
         endpoint = info[client.env.environment]['details']['servers'][0]
     address, port = endpoint.split(':')
 
