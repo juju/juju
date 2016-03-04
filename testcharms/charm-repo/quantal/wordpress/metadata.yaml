@@ -21,3 +21,7 @@ requires:
     interface: varnish
     limit: 2
     optional: true
+extra-bindings:
+    db-client:
+    admin-api:
+    foo-bar:
