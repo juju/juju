@@ -153,8 +153,7 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 
 func expectedBindings(c *gc.C, charmMeta *charm.Meta, initialBindings map[string]string) map[string]string {
 	expectedBindings := map[string]string{}
-	rel, err := state.CombinedCharmRelations(charmMeta)
-	c.Assert(err, jc.ErrorIsNil)
+	rel := charmMeta.CombinedRelations()
 	for name := range rel {
 		if v, ok := initialBindings[name]; ok {
 			expectedBindings[name] = v
