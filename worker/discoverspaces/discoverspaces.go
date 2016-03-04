@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
-// Facade apes a *discoverspaces.API; it's a bit raw but at
-// least it's easily mockable.
+// Facade exposes the relevant capabilities of a *discoverspaces.API; it's
+// a bit raw but at least it's easily mockable.
 type Facade interface {
 	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
 	AddSubnets(params.AddSubnetsParams) (params.ErrorResults, error)
@@ -125,6 +125,7 @@ func (dw *discoverspacesWorker) loop() (err error) {
 			if err := dw.handleSubnets(); err != nil {
 				return errors.Trace(err)
 			}
+			logger.Debugf("space discovery complete")
 			if gate != nil {
 				gate.Unlock()
 				gate = nil
@@ -136,13 +137,13 @@ func (dw *discoverspacesWorker) loop() (err error) {
 func (dw *discoverspacesWorker) handleSubnets() error {
 	environ, ok := environs.SupportsNetworking(dw.config.Environ)
 	if !ok {
-		// Nothing to do.
+		logger.Debugf("not a networking environ")
 		return nil
 	}
 	if supported, err := environ.SupportsSpaceDiscovery(); err != nil {
 		return errors.Trace(err)
 	} else if !supported {
-		// Nothing to do.
+		logger.Debugf("environ does not support space discovery")
 		return nil
 	}
 	providerSpaces, err := environ.Spaces()

@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent
@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
@@ -83,6 +84,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var (
@@ -627,8 +629,30 @@ func (s *MachineSuite) TestManageModelStartsInstancePoller(c *gc.C) {
 	// start.
 	_ = s.singularRecord.nextRunner(c)
 	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
+	r.waitForWorker(c, "instancepoller")
 	started.assertTriggered(c, "instancepoller worker to start")
+}
+
+func (s *MachineSuite) TestManageModelStartsSpaceDiscovery(c *gc.C) {
+	started := newSignal()
+	s.AgentSuite.PatchValue(&newDiscoverSpaces, func(config discoverspaces.Config) (worker.Worker, error) {
+		started.trigger()
+		return workertest.NewErrorWorker(nil), nil
+	})
+
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the instancepoller to
+	// start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "discoverspaces")
+	started.assertTriggered(c, "discoverspaces worker to start")
 }
 
 const startWorkerWait = 250 * time.Millisecond
@@ -986,10 +1010,6 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
-}
-
-func (s *MachineSuite) TestSpaceDiscoveryRuns(c *gc.C) {
-	c.Fatalf("test me")
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
