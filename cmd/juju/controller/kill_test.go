@@ -63,7 +63,7 @@ func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 
 func (s *KillSuite) TestKillNonControllerEnvFails(c *gc.C) {
 	_, err := s.runKillCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju model destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju destroy-model to destroy it")
 }
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
