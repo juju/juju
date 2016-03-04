@@ -26,7 +26,7 @@ This release replaces version {previous}.
 
 ## Getting Juju
 
-juju-core {version} is available for Xenial and backported to earlier
+Juju {version} is available for Xenial and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/devel

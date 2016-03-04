@@ -61,11 +61,11 @@ def get_archives(lp, to_archive_name):
 
 
 def copy_packages(lp, version, to_archive_name, dry_run=False):
-    """Copy the juju-core source and binary packages to and archive."""
+    """Copy the juju-core/juju2 source and binary packages to and archive."""
     from_archive, to_archive = get_archives(lp, to_archive_name)
-    # Look for juju-core2 first.
+    # Look for juju2 first.
     package_histories = from_archive.getPublishedSources(
-        source_name='juju-core2', status='Published')
+        source_name='juju2', status='Published')
     package_histories = [
         package for package in package_histories
         if package.source_package_version.startswith(version)]
@@ -95,7 +95,7 @@ def copy_packages(lp, version, to_archive_name, dry_run=False):
 
 def get_args(argv=None):
     """Return the option parser for this program."""
-    parser = ArgumentParser('Copy juju-core from one archive to another')
+    parser = ArgumentParser('Copy juju-core/juju2 from one archive to another')
     parser.add_argument(
         '--dry-run', action="store_true", default=False,
         help='Explain what will happen without making changes')

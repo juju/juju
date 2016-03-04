@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assemble simple stream metadata.
 #
-# Retrieve the published juju-core debs for a specific release.
+# Retrieve the published juju-core/juju2 debs for a specific release.
 # Extract the jujud from the packages.
 # Generate the streams data.
 
@@ -174,11 +174,11 @@ init_tools_maybe() {
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
-    echo "Phase 5: Retrieving juju-core packages from archives"
+    echo "Phase 5: Retrieving juju-core/juju2 packages from archives"
     echo "$(date +%Y-%m-%dT%H:%M:%S)"
     if [[ $IS_LOCAL == "true" ]]; then
         linked_files=$(
-            find $TEST_DEBS_DIR -name 'juju-core*.deb' -or -name 'juju-*.tgz')
+            find $TEST_DEBS_DIR -name 'juju*.deb' -or -name 'juju-*.tgz')
         for linked_file in $linked_files; do
             # We need the real file location which includes series and arch.
             deb_file=$(readlink -f $linked_file)
@@ -189,13 +189,13 @@ retrieve_packages() {
         for archive in $ALL_ARCHIVES; do
             safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
             echo "checking $safe_archive for $RELEASE."
-            lftp -c mirror -I "juju-core*${RELEASE}*.$UPATCH~juj*.deb" \
+            lftp -c mirror -i "(juju2|juju-core).*${RELEASE}.*\.$UPATCH~juj.*\.deb" \
                 $archive || true
         done
-        if [ -d $DEST_DEBS/juju-core ]; then
+        if [ -d $DEST_DEBS/juju2 ]; then
+            FOUND_PACKAGE_DIR="$DEST_DEBS/juju2"
+        elif [ -d $DEST_DEBS/juju-core ]; then
             FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core"
-        elif [ -d $DEST_DEBS/juju-core2 ]; then
-            FOUND_PACKAGE_DIR="$DEST_DEBS/juju-core2"
         else
             FOUND_PACKAGE_DIR=""
         fi
@@ -380,7 +380,7 @@ extract_new_juju() {
     echo "Using juju from a downloaded deb."
     source /etc/lsb-release
     ARCH=$(dpkg --print-architecture)
-    juju_cores=$(find $DEST_DEBS -name "juju-core*${RELEASE}*${ARCH}.deb")
+    juju_cores=$(find $DEST_DEBS -name "juju*${RELEASE}*${ARCH}.deb")
     juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
     if [[ $juju_core == "" ]]; then
         juju_core=$(echo "$juju_cores" | head -1)

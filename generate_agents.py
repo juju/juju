@@ -44,12 +44,12 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
         safe_archive = urlunsplit((scheme, netloc, path, query, fragment))
         print("checking {} for {}".format(safe_archive, release))
         subprocess.call([
-            'lftp', '-c', 'mirror', '-I',
-            "juju-core*{}*.{}~juj*.deb".format(release, upatch),
+            'lftp', '-c', 'mirror', '-i',
+            "(juju2|juju-core).*{}.*\.{}~juj.*\.deb".format(release, upatch),
             archive], cwd=dest_debs)
-    juju_core_dir = os.path.join(dest_debs, 'juju-core2')
+    juju_core_dir = os.path.join(dest_debs, 'juju2')
     if not os.path.isdir(juju_core_dir):
-        # The juju-core2 package was not found, try the juju-core package.
+        # The juju2 package was not found, try the juju-core package.
         juju_core_dir = os.path.join(dest_debs, 'juju-core')
     if os.path.isdir(juju_core_dir):
         debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
