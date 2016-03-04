@@ -69,6 +69,12 @@ func NewEmptyCredential() Credential {
 	return Credential{EmptyAuthType, nil}
 }
 
+// NewEmptyCloudCredential returns a new CloudCredential with an empty
+// default credential.
+func NewEmptyCloudCredential() *CloudCredential {
+	return &CloudCredential{AuthCredentials: map[string]Credential{"default": NewEmptyCredential()}}
+}
+
 // CredentialSchema describes the schema of a credential. Credential schemas
 // are specific to cloud providers.
 type CredentialSchema map[string]CredentialAttr

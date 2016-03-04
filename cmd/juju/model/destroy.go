@@ -15,7 +15,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.model")
@@ -89,22 +88,19 @@ func (c *destroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Annotate(err, "cannot open model info storage")
-	}
-
 	controllerName := c.ControllerName()
 	accountName := c.AccountName()
 	modelName := c.ModelName()
-	cfgInfo, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
+
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Annotate(err, "cannot read controller details")
+	}
+	modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read model info")
 	}
-
-	// Verify that we're not destroying a controller
-	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID == apiEndpoint.ServerUUID {
+	if modelDetails.ModelUUID == controllerDetails.ControllerUUID {
 		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
 	}
 
@@ -133,7 +129,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	return errors.Trace(cfgInfo.Destroy())
+	return nil
 }
 
 func (c *destroyCommand) handleError(err error, modelName string) error {

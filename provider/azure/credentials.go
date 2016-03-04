@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
 )
 
 // environPoviderCredentials is an implementation of
@@ -37,6 +36,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]environs.LabeledCredential, error) {
+func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }

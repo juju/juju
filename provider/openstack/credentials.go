@@ -7,10 +7,10 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/goose.v1/identity"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
 )
 
 type OpenstackCredentials struct{}
@@ -46,7 +46,7 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (OpenstackCredentials) DetectCredentials() ([]environs.LabeledCredential, error) {
+func (OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	creds := identity.CredentialsFromEnv()
 	if creds.TenantName == "" {
 		return nil, errors.NewNotFound(nil, "OS_TENANT_NAME environment variable not set")
@@ -78,5 +78,13 @@ func (OpenstackCredentials) DetectCredentials() ([]environs.LabeledCredential, e
 			},
 		)
 	}
-	return []environs.LabeledCredential{{Credential: credential}}, nil
+
+	user, err := utils.LocalUsername()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			user: credential,
+		}}, nil
 }

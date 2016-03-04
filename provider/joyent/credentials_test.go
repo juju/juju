@@ -49,7 +49,6 @@ func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	// No environment variables set, so no credentials should be found.
-	credentials, err := s.provider.DetectCredentials()
+	_, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(credentials, gc.HasLen, 0)
 }

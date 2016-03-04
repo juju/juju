@@ -88,6 +88,16 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
+func (s *InterfaceSuite) TestUnitNetworkConfig(c *gc.C) {
+	// Only the error case is tested to ensure end-to-end integration, the rest
+	// of the cases are tested separately for network-get, api/uniter, and
+	// apiserver/uniter, respectively.
+	ctx := s.GetContext(c, -1, "")
+	netConfig, err := ctx.NetworkConfig("unknown")
+	c.Check(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
+	c.Check(netConfig, gc.IsNil)
+}
+
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	defer context.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()

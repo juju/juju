@@ -72,8 +72,8 @@ func (s *stubClient) CertificateAdd(cert *x509.Certificate, name string) error {
 	return nil
 }
 
-func (s *stubClient) ContainerStatus(name string) (*shared.ContainerState, error) {
-	s.stub.AddCall("ContainerStatus", name)
+func (s *stubClient) ContainerState(name string) (*shared.ContainerState, error) {
+	s.stub.AddCall("ContainerState", name)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
