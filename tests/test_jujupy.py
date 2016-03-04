@@ -54,6 +54,7 @@ from jujupy import (
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
+    Machine,
     make_client,
     make_safe_config,
     parse_new_state_server_from_error,
@@ -1670,6 +1671,56 @@ class TestEnvJujuClient(ClientTest):
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
         gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+
+    def test_get_controller_members(self):
+        status = Status.from_text("""\
+            model: admin
+            machines:
+              "0":
+                dns-name: 10.0.0.0
+                instance-id: juju-aaaa-machine-0
+                controller-member-status: has-vote
+              "1":
+                dns-name: 10.0.0.1
+                instance-id: juju-bbbb-machine-1
+              "2":
+                dns-name: 10.0.0.2
+                instance-id: juju-cccc-machine-2
+                controller-member-status: has-vote
+              "3":
+                dns-name: 10.0.0.3
+                instance-id: juju-dddd-machine-3
+                controller-member-status: has-vote
+        """)
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            with patch.object(client, 'get_controller_endpoint', autospec=True,
+                              return_value='10.0.0.3') as gce_mock:
+                with patch.object(client, 'get_controller_member_status',
+                                  wraps=client.get_controller_member_status,
+                                  ) as gcms_mock:
+                    members = client.get_controller_members()
+        # Machine 1 was ignored. Machine 3 is the leader, thus first.
+        expected = [
+            Machine('3', {
+                'dns-name': '10.0.0.3',
+                'instance-id': 'juju-dddd-machine-3',
+                'controller-member-status': 'has-vote'}),
+            Machine('0', {
+                'dns-name': '10.0.0.0',
+                'instance-id': 'juju-aaaa-machine-0',
+                'controller-member-status': 'has-vote'}),
+            Machine('2', {
+                'dns-name': '10.0.0.2',
+                'instance-id': 'juju-cccc-machine-2',
+                'controller-member-status': 'has-vote'}),
+        ]
+        self.assertEqual(expected, members)
+        gce_mock.assert_called_once_with()
+        # get_controller_member_status must be called to ensure compatibility
+        # with all version of Juju.
+        self.assertEqual(4, gcms_mock.call_count)
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({

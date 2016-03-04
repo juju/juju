@@ -146,32 +146,8 @@ def coalesce_agent_status(agent_item):
 Machine = namedtuple('Machine', ['number', 'info'])
 
 
-def get_controller_members(client):
-    """Return a list of machines that are members of the controller.
-
-    The first machine in the list is the leader. the remanining machines
-    are followers in a HA relationship.
-    """
-    unordered_members = []
-    status = client.get_status()
-    for number, machine in status.iter_machines():
-        if client.get_controller_member_status(machine):
-            unordered_members.append(Machine(number, machine))
-    if len(unordered_members) <= 1:
-        return unordered_members
-    # Search for the leader and make it the first in the list.
-    endpoint = client.get_controller_endpoint()
-    ordered_members = []
-    for machine in unordered_members:
-        if machine.info.get('dns-name') == endpoint:
-            ordered_members.insert(0, machine)
-        else:
-            ordered_members.append(machine)
-    return ordered_members
-
-
 def get_controller_leader(client):
-    controller_members = get_controller_members(client)
+    controller_members = client.get_controller_members()
     if controller_members:
         return controller_members[0]
     return None
@@ -807,6 +783,29 @@ class EnvJujuClient:
         endpoint = info[self.env.environment]['details']['api-endpoints'][0]
         address, port = endpoint.split(':')
         return address
+
+    def get_controller_members(self):
+        """Return a list of machines that are members of the controller.
+
+        The first machine in the list is the leader. the remanining machines
+        are followers in a HA relationship.
+        """
+        unordered_members = []
+        status = self.get_status()
+        for number, machine in status.iter_machines():
+            if self.get_controller_member_status(machine):
+                unordered_members.append(Machine(number, machine))
+        if len(unordered_members) <= 1:
+            return unordered_members
+        # Search for the leader and make it the first in the list.
+        endpoint = self.get_controller_endpoint()
+        ordered_members = []
+        for machine in unordered_members:
+            if machine.info.get('dns-name') == endpoint:
+                ordered_members.insert(0, machine)
+            else:
+                ordered_members.append(machine)
+        return ordered_members
 
     @staticmethod
     def get_controller_member_status(info_dict):
