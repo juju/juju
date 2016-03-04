@@ -508,7 +508,6 @@ func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
 	}
 
 	for _, addr := range addrs {
-		// We found it.
 		// Check if it's an IP or a CIDR.
 
 		ip := net.ParseIP(addr.String())
