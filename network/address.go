@@ -52,16 +52,26 @@ type Scope string
 
 // SpaceName holds the Juju space name of an address.
 type SpaceName string
+
+// SpaceNames holds a list of the SpaceName type.
 type SpaceNames []SpaceName
 
 func (s SpaceNames) String() string {
-	var tmp []string
-	tmp = make([]string, len(s))
+	namesString := make([]string, len(s))
 	for i, v := range s {
-		tmp[i] = string(v)
+		namesString[i] = string(v)
 	}
 
-	return strings.Join(tmp, ", ")
+	return strings.Join(namesString, ", ")
+}
+
+func (s SpaceNames) IndexOf(name SpaceName) int {
+	for i := range s {
+		if s[i] == name {
+			return i
+		}
+	}
+	return -1
 }
 
 const (
@@ -133,6 +143,8 @@ func NewAddress(value string) Address {
 }
 
 // NewScopedNamedAddress creates a new Address, deriving its type from the value.
+// TODO(dooferlad): Once NetworkName has gone strip that out and rename to
+// NewScopedAddressWithoutDeriveScope (better names may be available).
 func NewScopedNamedAddress(value, networkName string, scope Scope) Address {
 	addr := Address{
 		Value:       value,
@@ -270,14 +282,17 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 // the given space name associated.
 func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
 	for _, addr := range addresses {
-		for _, spaceName := range spaceNames {
-			if addr.SpaceName == spaceName {
-				logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
-				return addr, true
-			}
+		if SpaceNames(spaceNames).IndexOf(addr.SpaceName) >= 0 {
+			logger.Debugf("selected %q as first address in space %q", addr.Value, addr.SpaceName)
+			return addr, true
 		}
 	}
-	logger.Warningf("no addresses found in spaces %s", spaceNames)
+
+	if len(spaceNames) == 0 {
+		logger.Warningf("no spaces to select addresses from")
+	} else {
+		logger.Warningf("no addresses found in spaces %s", spaceNames)
+	}
 	return Address{}, false
 }
 
@@ -291,11 +306,9 @@ func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPor
 
 	var selectedHostPorts []HostPort
 	for _, hp := range hps {
-		for _, spaceName := range spaceNames {
-			if hp.SpaceName == spaceName {
-				logger.Debugf("selected %q as a hostPort in space %q", hp.Value, spaceName)
-				selectedHostPorts = append(selectedHostPorts, hp)
-			}
+		if SpaceNames(spaceNames).IndexOf(hp.SpaceName) >= 0 {
+			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, hp.SpaceName)
+			selectedHostPorts = append(selectedHostPorts, hp)
 		}
 	}
 
@@ -328,17 +341,18 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 // When machineLocal is true and an address can't be selected by space both
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
-func SelectMongoHostPorts(hostPorts []HostPort, machineLocal bool, spaces []SpaceName, spaceNameValid bool) []string {
-	if spaceNameValid {
-		filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
-		if ok {
-			logger.Debugf(
-				"selected %q as controller host:port, using spaces %q",
-				filteredHostPorts, spaces,
-			)
-			return HostPortsToStrings(filteredHostPorts)
-		}
+func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
+	filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
+	if ok {
+		logger.Debugf(
+			"selected %q as controller host:port, using spaces %q",
+			filteredHostPorts, spaces,
+		)
 	}
+	return HostPortsToStrings(filteredHostPorts), ok
+}
+
+func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.
 	internalHP := SelectInternalHostPort(hostPorts, machineLocal)

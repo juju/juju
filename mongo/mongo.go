@@ -258,7 +258,14 @@ func SelectPeerAddress(addrs []network.Address) string {
 func SelectPeerHostPort(hostPorts []network.HostPort, space network.SpaceName, spaceNameValid bool) string {
 	logger.Debugf("selecting mongo peer hostPort from %+v", hostPorts)
 	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	suitableHostPorts := network.SelectMongoHostPorts(hostPorts, true, []network.SpaceName{space}, spaceNameValid)
+	var suitableHostPorts []string
+	var foundHostPortsInSpaces bool
+	if spaceNameValid {
+		suitableHostPorts, foundHostPortsInSpaces = network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
+	}
+	if !spaceNameValid || !foundHostPortsInSpaces {
+		suitableHostPorts = network.SelectMongoHostPortsByScope(hostPorts, true)
+	}
 	return suitableHostPorts[0]
 }
 

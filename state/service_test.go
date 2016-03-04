@@ -151,19 +151,6 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	})
 }
 
-func expectedBindings(c *gc.C, charmMeta *charm.Meta, initialBindings map[string]string) map[string]string {
-	expectedBindings := map[string]string{}
-	rel := charmMeta.CombinedRelations()
-	for name := range rel {
-		if v, ok := initialBindings[name]; ok {
-			expectedBindings[name] = v
-		} else {
-			expectedBindings[name] = ""
-		}
-	}
-	return expectedBindings
-}
-
 func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
 	// This test ensures if special characters appear in endpoint names of the
 	// charm metadata, they are properly escaped before saving to mongo, and
@@ -175,7 +162,7 @@ func (s *ServiceSuite) TestSetCharmWithWeirdlyNamedEndpoints(c *gc.C) {
 
 	initialBindings := map[string]string{
 		"$pull":     "db",
-		"$set.foo":  "db",
+		"$set.foo":  "",
 		"cli ent .": "client",
 		".":         "db",
 	}
@@ -211,13 +198,29 @@ peers:
 	weirdService := s.AddTestingServiceWithBindings(c, "weird", weirdOldCharm, initialBindings)
 	readBindings, err := weirdService.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(readBindings, jc.DeepEquals, expectedBindings(c, weirdOldCharm.Meta(), initialBindings))
+	expectedBindings := map[string]string{
+		"cli ent .": "client",
+		"foo":       "",
+		"$":         "",
+		".":         "db",
+		"$set.foo":  "",
+		"$pull":     "db",
+	}
+	c.Check(readBindings, jc.DeepEquals, expectedBindings)
 
 	err = weirdService.SetCharm(weirdNewCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	readBindings, err = weirdService.EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(readBindings, jc.DeepEquals, expectedBindings(c, weirdNewCharm.Meta(), initialBindings))
+
+	expectedBindings = map[string]string{
+		"ser$ver2":  "",
+		"cli ent 2": "",
+		"$":         "",
+		".":         "db",
+		"$set.foo":  "",
+		"$pull":     "db",
+	}
+	c.Check(readBindings, jc.DeepEquals, expectedBindings)
 }
 
 var metaBase = `
@@ -2334,7 +2337,6 @@ func (s *ServiceSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 func (s *ServiceSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
 	service := s.AddTestingServiceWithBindings(c, "theirsql", oldCharm, nil)
-	service.EndpointBindings()
 	state.RemoveEndpointBindingsForService(c, service)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
