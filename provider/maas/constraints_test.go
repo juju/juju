@@ -404,12 +404,13 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
+	server := suite.testMAASObject.TestServer
 	// Add some constraints, including spaces to verify specified bindings
 	// always override any spaces constraints.
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-	server := suite.testMAASObject.TestServer
+	// In the tests below "space:5" means foo, "space:6" means bar.
 	for i, test := range []struct {
 		interfaces        []interfaceBinding
 		expectedPositives string
@@ -417,34 +418,36 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError     string
 	}{{ // without specified bindings, spaces constraints are used instead.
 		interfaces:        nil,
-		expectedPositives: "0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "0:space=5",
+		expectedNegatives: "space:6",
 		expectedError:     "",
 	}, {
 		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
-		expectedPositives: "name-1:space=space-1;0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "name-1:space=space-1;0:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces: []interfaceBinding{
-			{"name-1", "space-1"},
-			{"name-2", "space-2"},
-			{"name-3", "space-3"},
+			{"name-1", "1"},
+			{"name-2", "2"},
+			{"name-3", "3"},
 		},
-		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3;0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "name-1:space=1;name-2:space=2;name-3:space=3;0:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
-		interfaces:    []interfaceBinding{{"shared-db", "bar"}},
-		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
+		interfaces: []interfaceBinding{{"shared-db", "6"}},
+		// TODO: (mfoord) we would really prefer to report "bar" rather
+		// than 6 here.
+		expectedError: `negative space "6" from constraints clashes with interface bindings`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"shared-db", "dup-space"},
-			{"db", "dup-space"},
+			{"shared-db", "1"},
+			{"db", "1"},
 		},
-		expectedPositives: "shared-db:space=dup-space;db:space=dup-space;0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "shared-db:space=1;db:space=1;0:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
@@ -469,21 +472,26 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError: `invalid interface binding "bar": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"dup-name", "space-1"},
-			{"dup-name", "space-2"},
+			{"dup-name", "1"},
+			{"dup-name", "2"},
 		},
 		expectedError: `duplicated interface binding "dup-name"`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"valid-1", "space-0"},
-			{"dup-name", "space-1"},
-			{"dup-name", "space-2"},
-			{"valid-2", "space-3"},
+			{"valid-1", "0"},
+			{"dup-name", "1"},
+			{"dup-name", "2"},
+			{"valid-2", "3"},
 		},
 		expectedError: `duplicated interface binding "dup-name"`,
 	}} {
+		suite.testMAASObject.TestServer.Clear()
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
-		server.SetVersionJSON(`{"capabilities": []}`)
+		suite.createSpaces(c)
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "foo"}))
+		suite.addSubnetWithSpace(c, 6, 6, "foo", "node1")
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
+		suite.addSubnetWithSpace(c, 7, 7, "bar", "node1")
 		env := suite.makeEnviron()
 		// Make sure spaces are not supported.
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
@@ -501,6 +509,5 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
 			c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
 		}
-		suite.testMAASObject.TestServer.Clear()
 	}
 }
