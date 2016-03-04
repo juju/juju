@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -375,4 +376,107 @@ func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 	}
 
 	return result, nil
+}
+
+// ModifyModelAccess changes the model access granted to users.
+func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
+	// API user must be a controller admin.
+	createdBy, ok := em.authorizer.GetAuthTag().(names.UserTag)
+	if !ok {
+		return result, errors.Errorf("api connection is not through a user")
+	}
+	isAdmin, err := em.state.IsControllerAdministrator(createdBy)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isAdmin {
+		return result, errors.New("only controller admins can grant or revoke model access")
+	}
+
+	result = params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	for i, arg := range args.Changes {
+		modelAccess, err := permission.ParseModelAccess(string(arg.Access))
+		if err != nil {
+			err = errors.Annotate(err, "could not share model")
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		readOnly := (modelAccess == permission.ModelReadAccess)
+
+		userTagString := arg.UserTag
+		user, err := names.ParseUserTag(userTagString)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
+			continue
+		}
+		modelTagString := arg.ModelTag
+		model, err := names.ParseModelTag(modelTagString)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
+			continue
+		}
+
+		result.Results[i].Error = common.ServerError(
+			ChangeModelAccess(em.state, model, createdBy, user, arg.Action, readOnly))
+	}
+	return result, nil
+}
+
+type stateAccessor interface {
+	ForModel(tag names.ModelTag) (*state.State, error)
+}
+
+// ChangeModelAccess performs the requested access grant or revoke action for the
+// specified user on the specified model.
+func ChangeModelAccess(stateAccess stateAccessor, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, readAccess bool) error {
+	st, err := stateAccess.ForModel(modelTag)
+	if err != nil {
+		return errors.Annotate(err, "could not lookup model")
+	}
+	defer st.Close()
+
+	_, err = st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	switch action {
+	case params.GrantModelAccess:
+		_, err = st.AddModelUser(state.ModelUserSpec{User: accessedBy, CreatedBy: createdBy, ReadOnly: readAccess})
+		if errors.IsAlreadyExists(err) {
+			modelUser, err := st.ModelUser(accessedBy)
+			if err != nil {
+				return errors.Annotate(err, "could not look up model access for user")
+			}
+			err = modelUser.SetReadOnly(readAccess)
+			if err != nil {
+				return errors.Annotate(err, "could not set model access for user")
+			}
+			return nil
+		}
+		return errors.Annotate(err, "could not grant model access")
+
+	case params.RevokeModelAccess:
+		// Revoking read access removes all access.
+		if readAccess {
+			err := st.RemoveModelUser(accessedBy)
+			return errors.Annotate(err, "could not revoke model access")
+		}
+		// Otherwise remove write access by setting read-only.
+		modelUser, err := st.ModelUser(accessedBy)
+		if err != nil {
+			return errors.Annotate(err, "could not look up model access for user")
+		}
+		err = modelUser.SetReadOnly(true)
+		return errors.Annotate(err, "could not set model access to read-only")
+
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
 }

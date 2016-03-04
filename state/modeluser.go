@@ -87,6 +87,19 @@ func (e *ModelUser) ReadOnly() bool {
 	return e.doc.ReadOnly
 }
 
+// SetReadOnly changes the user's access to the model. The user
+// will have read-only access if true, read-write if false.
+func (e *ModelUser) SetReadOnly(readOnly bool) error {
+	op := txn.Op{
+		C:      modelUsersC,
+		Id:     e.st.docID(strings.ToLower(e.UserName())),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"readonly", readOnly}}}},
+	}
+	err := e.st.runTransaction([]txn.Op{op})
+	return errors.Trace(err)
+}
+
 // LastConnection returns when this ModelUser last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
 func (e *ModelUser) LastConnection() (time.Time, error) {
@@ -242,7 +255,7 @@ func (st *State) RemoveModelUser(user names.UserTag) error {
 	}}
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.NewNotFound(err, fmt.Sprintf("env user %q does not exist", user.Canonical()))
+		err = errors.NewNotFound(err, fmt.Sprintf("model user %q does not exist", user.Canonical()))
 	}
 	if err != nil {
 		return errors.Trace(err)

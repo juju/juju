@@ -75,6 +75,22 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 }
 
+func (s *ModelUserSuite) TestSetReadOnlyModelUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
+		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+
+	err = modelUser.SetReadOnly(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelUser, err = s.State.ModelUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+}
+
 func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

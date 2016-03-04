@@ -27,26 +27,6 @@ type ModelUnset struct {
 	Keys []string
 }
 
-// ModifyModelUsers holds the parameters for making Client ShareModel calls.
-type ModifyModelUsers struct {
-	Changes []ModifyModelUser
-}
-
-// ModelAction is an action that can be preformed on a model.
-type ModelAction string
-
-// Actions that can be preformed on a model.
-const (
-	AddModelUser    ModelAction = "add"
-	RemoveModelUser ModelAction = "remove"
-)
-
-// ModifyModelUser stores the parameters used for a Client.ShareModel call.
-type ModifyModelUser struct {
-	UserTag string      `json:"user-tag"`
-	Action  ModelAction `json:"action"`
-}
-
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
@@ -72,3 +52,34 @@ type ModelUserInfoResult struct {
 type ModelUserInfoResults struct {
 	Results []ModelUserInfoResult `json:"results"`
 }
+
+// ModifyModelAccessRequest holds the parameters for making grant and revoke model calls.
+type ModifyModelAccessRequest struct {
+	Changes []ModifyModelAccess `json:"changes"`
+}
+
+type ModifyModelAccess struct {
+	UserTag  string                `json:"user-tag"`
+	Action   ModelAction           `json:"action"`
+	Access   ModelAccessPermission `json:"access"`
+	ModelTag string                `json:"model-tag"`
+}
+
+// ModelAction is an action that can be performed on a model.
+type ModelAction string
+
+// Actions that can be preformed on a model.
+const (
+	GrantModelAccess  ModelAction = "grant"
+	RevokeModelAccess ModelAction = "revoke"
+)
+
+// ModelAccessPermission is the type of permission that a user has to access a
+// model.
+type ModelAccessPermission string
+
+// Model access permissions that may be set on a user.
+const (
+	ModelReadAccess  ModelAccessPermission = "read"
+	ModelAdminAccess ModelAccessPermission = "admin"
+)

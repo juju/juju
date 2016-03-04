@@ -30,7 +30,7 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
-	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	user, err := s.State.User(tag)
@@ -40,11 +40,14 @@ func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.PasswordValid("password"), jc.IsTrue)
 }
 
-func (s *usermanagerSuite) TestAddUserWithSharedModel(c *gc.C) {
+func (s *usermanagerSuite) TestAddUserWithModelAccess(c *gc.C) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
-	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", sharedModelState.ModelUUID())
+	foobarTag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read", sharedModelState.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	altAdminTag, _, err := s.usermanager.AddUser("altadmin", "Alt Admin", "password", "admin", sharedModelState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check model is shared with expected users.
@@ -52,13 +55,19 @@ func (s *usermanagerSuite) TestAddUserWithSharedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	users, err := sharedModel.Users()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(users, gc.HasLen, 2)
+	c.Assert(users, gc.HasLen, 3)
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()
+		if u.UserTag().Name() == "foobar" {
+			c.Assert(u.ReadOnly(), jc.IsTrue)
+		} else {
+			c.Assert(u.ReadOnly(), jc.IsFalse)
+		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
-		tag,
+		foobarTag,
+		altAdminTag,
 		names.NewLocalUserTag("admin"),
 	})
 }
@@ -66,7 +75,7 @@ func (s *usermanagerSuite) TestAddUserWithSharedModel(c *gc.C) {
 func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read")
 	c.Assert(err, gc.ErrorMatches, "failed to create user: user already exists")
 }
 
@@ -76,7 +85,7 @@ func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
 			return errors.New("call error")
 		},
 	)
-	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "write")
 	c.Assert(err, gc.ErrorMatches, "call error")
 }
 
@@ -90,7 +99,7 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 			return errors.New("wrong result type")
 		},
 	)
-	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 

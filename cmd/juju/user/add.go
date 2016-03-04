@@ -7,6 +7,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -30,9 +31,12 @@ setting the user's initial password.
 Examples:
     # Add user "foobar"
     juju add-user foobar
-    
-    # Add user and share model.
-    juju add-user foobar --share somemodel
+
+    # Add user with default (read) access to models "qa" and "prod".
+    juju add-user foobar --models qa,prod
+
+    # Add user with write access to model "devel".
+    juju add-user foobar --models devel --acl write
 
 
 See Also:
@@ -42,7 +46,7 @@ See Also:
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
-	AddUser(username, displayName, password string, modelUUIDs ...string) (names.UserTag, []byte, error)
+	AddUser(username, displayName, password, access string, modelUUIDs ...string) (names.UserTag, []byte, error)
 	Close() error
 }
 
@@ -56,19 +60,21 @@ type addCommand struct {
 	api         AddUserAPI
 	User        string
 	DisplayName string
-	ModelName   string
+	ModelNames  string
+	ModelAccess string
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ModelName, "share", "", "share a model with the new user")
+	f.StringVar(&c.ModelNames, "models", "", "models the new user is granted access to")
+	f.StringVar(&c.ModelAccess, "acl", "read", "access controls")
 }
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-user",
-		Args:    "<username> [<display name>] [--share <model name>]",
-		Purpose: "adds a user to a controller and optionally shares a model",
+		Args:    "<username> [<display name>] [--models <model1> [<m2> .. <mN>] ] [--acl <read|write>]",
+		Purpose: "adds a user to a controller, optionally with access to models",
 		Doc:     useraddCommandDoc,
 	}
 }
@@ -97,31 +103,39 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		defer api.Close()
 	}
 
+	var modelNames []string
+	for _, modelArg := range strings.Split(c.ModelNames, ",") {
+		modelArg = strings.TrimSpace(modelArg)
+		if len(modelArg) > 0 {
+			modelNames = append(modelNames, modelArg)
+		}
+	}
+
 	// If we need to share a model, look up the model UUID from the supplied name.
 	var modelUUIDs []string
-	if c.ModelName != "" {
+	for _, modelName := range modelNames {
 		store := c.ClientStore()
 		controllerName := c.ControllerName()
 		accountName := c.AccountName()
-		model, err := store.ModelByName(controllerName, accountName, c.ModelName)
+		model, err := store.ModelByName(controllerName, accountName, modelName)
 		if errors.IsNotFound(err) {
 			// The model isn't known locally, so query the models available in the controller.
-			ctx.Verbosef("model %q not cached locally, refreshing models from controller", c.ModelName)
+			ctx.Verbosef("model %q not cached locally, refreshing models from controller", modelName)
 			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
 				return errors.Annotate(err, "refreshing models")
 			}
-			model, err = store.ModelByName(controllerName, accountName, c.ModelName)
+			model, err = store.ModelByName(controllerName, accountName, modelName)
 		}
 		if err != nil {
 			return err
 		}
-		modelUUIDs = []string{model.ModelUUID}
+		modelUUIDs = append(modelUUIDs, model.ModelUUID)
 	}
 
 	// Add a user without a password. This will generate a temporary
 	// secret key, which we'll print out for the user to supply to
 	// "juju register".
-	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", modelUUIDs...)
+	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", c.ModelAccess, modelUUIDs...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -164,8 +178,8 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	)
 
 	fmt.Fprintf(ctx.Stdout, "User %q added\n", displayName)
-	if c.ModelName != "" {
-		fmt.Fprintf(ctx.Stdout, "Model  %q is now shared\n", c.ModelName)
+	for _, modelName := range modelNames {
+		fmt.Fprintf(ctx.Stdout, "User %q granted %s access to model %q\n", displayName, c.ModelAccess, modelName)
 	}
 	fmt.Fprintf(ctx.Stdout, "Please send this command to %v:\n", c.User)
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",

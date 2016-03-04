@@ -194,33 +194,6 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
-// ShareModel allows the given users access to the model.
-func (c *Client) ShareModel(users ...names.UserTag) error {
-	var args params.ModifyModelUsers
-	for _, user := range users {
-		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyModelUser{
-				UserTag: user.String(),
-				Action:  params.AddModelUser,
-			})
-		}
-	}
-
-	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareModel", args, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for i, r := range result.Results {
-		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("model is already shared with %s", users[i].Canonical())
-			result.Results[i].Error = nil
-		}
-	}
-	return result.Combine()
-}
-
 // ModelUserInfo returns information on all users in the model.
 func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	var results params.ModelUserInfoResults
@@ -237,33 +210,6 @@ func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 		info = append(info, *result.Result)
 	}
 	return info, nil
-}
-
-// UnshareModel removes access to the model for the given users.
-func (c *Client) UnshareModel(users ...names.UserTag) error {
-	var args params.ModifyModelUsers
-	for _, user := range users {
-		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyModelUser{
-				UserTag: user.String(),
-				Action:  params.RemoveModelUser,
-			})
-		}
-	}
-
-	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareModel", args, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for i, r := range result.Results {
-		if r.Error != nil && r.Error.Code == params.CodeNotFound {
-			logger.Warningf("model was not previously shared with user %s", users[i].Canonical())
-			result.Results[i].Error = nil
-		}
-	}
-	return result.Combine()
 }
 
 // WatchAll holds the id of the newly-created AllWatcher/AllModelWatcher.

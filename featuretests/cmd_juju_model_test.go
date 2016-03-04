@@ -38,9 +38,11 @@ func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
+func (s *cmdEnvironmentSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: username})
+
+	context := s.run(c, "grant", username, "dummymodel")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -55,10 +57,12 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
-func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
+func (s *cmdEnvironmentSuite) TestRevokeModelCmdStack(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: username})
+
+	context := s.run(c, "grant", username, "dummymodel")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,7 +74,7 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context = s.run(c, "unshare-model", username)
+	context = s.run(c, "revoke", username, "dummymodel")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -80,10 +84,10 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	c.Assert(modelUser, gc.IsNil)
 }
 
-func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
+func (s *cmdEnvironmentSuite) TestModelUsersCmd(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	context := s.run(c, "grant", username, "dummymodel")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
