@@ -565,3 +565,21 @@ func (suite *environSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	_, err := env.acquireNode("", "", cons, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }
+
+func (suite *environSuite) TestAcquireNodeSpacesIgnoredWhenNotSupported(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	server.SetVersionJSON(`{"capabilities": []}`)
+	cons := constraints.Value{
+		Spaces: stringslicep("baz"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	requestValues := server.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "")
+	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "")
+}
