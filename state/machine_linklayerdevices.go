@@ -286,12 +286,12 @@ func (m *Machine) validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 }
 
 func (m *Machine) maybeValidateParentAsGlobalKey(args *LinkLayerDeviceArgs) error {
-	hostMachineID, parentDeviceName, err := parseParentNameAsGlobalKey(args.ParentName)
+	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(args.ParentName)
 	if err != nil {
 		return errors.Trace(err)
 	} else if hostMachineID == "" {
 		// Not a global key, so validate as usual.
-		return validateParentNameWhenItIsNotAGlobalKey(args)
+		return m.validateParentDeviceNameWhenNotAGlobalKey(args)
 	}
 	ourParentMachineID, hasParent := m.ParentId()
 	if !hasParent {
@@ -309,7 +309,7 @@ func (m *Machine) maybeValidateParentAsGlobalKey(args *LinkLayerDeviceArgs) erro
 	return errors.Trace(err)
 }
 
-func parseParentNameAsGlobalKey(parentName string) (hostMachineID, parentDeviceName string, err error) {
+func parseLinkLayerDeviceParentNameAsGlobalKey(parentName string) (hostMachineID, parentDeviceName string, err error) {
 	if !strings.Contains(parentName, "#") {
 		// Can't be a global key.
 		return "", "", nil
@@ -342,7 +342,7 @@ func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMach
 	return nil
 }
 
-func validateParentNameWhenItIsNotAGlobalKey(args *LinkLayerDeviceArgs) error {
+func (m *Machine) validateParentDeviceNameWhenNotAGlobalKey(args *LinkLayerDeviceArgs) error {
 	if !IsValidLinkLayerDeviceName(args.ParentName) {
 		return errors.NotValidf("ParentName %q", args.ParentName)
 	}
@@ -401,7 +401,7 @@ func (m *Machine) areLinkLayerDeviceDocsStillValid(newDocs []linkLayerDeviceDoc)
 }
 
 func (m *Machine) verifyParentDeviceExists(name, parentName string) error {
-	hostMachineID, parentDeviceName, err := parseParentNameAsGlobalKey(parentName)
+	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(parentName)
 	if err != nil {
 		return errors.Trace(err)
 	} else if hostMachineID != "" {
@@ -449,7 +449,7 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op
 	if newDoc.ParentName != "" {
 		var parentDocID string
 
-		hostMachineID, parentDeviceName, err := parseParentNameAsGlobalKey(newDoc.ParentName)
+		hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(newDoc.ParentName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		} else if hostMachineID != "" {

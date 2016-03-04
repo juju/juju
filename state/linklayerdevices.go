@@ -171,7 +171,7 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 		return nil, nil
 	}
 
-	hostMachineID, parentDeviceName, err := parseParentNameAsGlobalKey(dev.doc.ParentName)
+	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(dev.doc.ParentName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if hostMachineID != "" {
