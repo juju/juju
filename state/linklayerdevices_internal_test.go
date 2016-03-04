@@ -6,6 +6,7 @@ package state
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -91,6 +92,46 @@ func (s *linkLayerDevicesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
 
 	config = s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
 	c.Check(config.globalKey(), gc.Equals, "")
+}
+
+func (s *linkLayerDevicesInternalSuite) TestParseLinkLayerParentNameAsGlobalKey(c *gc.C) {
+	for i, test := range []struct {
+		about              string
+		input              string
+		expectedError      string
+		expectedMachineID  string
+		expectedParentName string
+	}{{
+		about: "empty input - empty outputs and no error",
+		input: "",
+	}, {
+		about: "name only as input - empty outputs and no error",
+		input: "some-parent",
+	}, {
+		about:              "global key as input - parsed outputs and no error",
+		input:              "m#42#d#br-eth1",
+		expectedMachineID:  "42",
+		expectedParentName: "br-eth1",
+	}, {
+		about:         "invalid name as input - empty outputs and NotValidError",
+		input:         "some name with not enough # in it",
+		expectedError: `ParentName "some name with not enough # in it" format not valid`,
+	}, {
+		about:         "almost a global key as input - empty outputs and NotValidError",
+		input:         "x#foo#y#bar",
+		expectedError: `ParentName "x#foo#y#bar" format not valid`,
+	}} {
+		c.Logf("test #%d: %q", i, test.about)
+		gotMachineID, gotParentName, gotError := parseLinkLayerDeviceParentNameAsGlobalKey(test.input)
+		if test.expectedError != "" {
+			c.Check(gotError, gc.ErrorMatches, test.expectedError)
+			c.Check(gotError, jc.Satisfies, errors.IsNotValid)
+		} else {
+			c.Check(gotError, jc.ErrorIsNil)
+		}
+		c.Check(gotMachineID, gc.Equals, test.expectedMachineID)
+		c.Check(gotParentName, gc.Equals, test.expectedParentName)
+	}
 }
 
 func (s *linkLayerDevicesInternalSuite) TestStringIncludesTypeNameAndMachineID(c *gc.C) {
