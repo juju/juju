@@ -146,19 +146,6 @@ def coalesce_agent_status(agent_item):
 Machine = namedtuple('Machine', ['number', 'info'])
 
 
-def get_controller_endpoint(client):
-    # Push this versioned set of rules into clients.
-    if client.version.startswith('1.'):
-        # juju2 api-endpoints -e curtis
-        endpoint = client.juju('api-endpoints', ())
-    else:
-        # juju2 show-controller curtis
-        info = yaml_loads(client.juju(
-            'show-controller', (client.env.environment, )))
-        endpoint = info[client.env.environment]['details']['servers'][0]
-    address, port = endpoint.split(':')
-
-
 def get_controller_members(client):
     """Return a list of machines that are members of the controller.
 
@@ -173,7 +160,7 @@ def get_controller_members(client):
     if len(unordered_members) <= 1:
         return unordered_members
     # Search for the leader and make it the first in the list.
-    endpoint = get_controller_endpoint(client)
+    endpoint = client.get_controller_endpoint()
     ordered_members = []
     for machine in unordered_members:
         if machine.info.get('dns-name') == endpoint:
@@ -1313,6 +1300,12 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
         self.deployer(bundle, timeout=timeout)
+
+    def get_controller_endpoint(self):
+        """Return the address of the state-server leader."""
+        endpoint = self.get_juju_output('api-endpoints', ())
+        address, port = endpoint.split(':')
+        return address
 
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()

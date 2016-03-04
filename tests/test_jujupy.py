@@ -3769,6 +3769,15 @@ class TestEnvJujuClient1X(ClientTest):
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
+    def test_get_controller_endpoint(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_juju_output',
+                          return_value='10.0.0.1:17070') as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('10.0.0.1', endpoint)
+        gjo_mock.assert_called_once_with('api-endpoints', ())
+
     def test_action_do(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
