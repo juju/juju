@@ -67,17 +67,18 @@ def delete_instance(client, instance_id):
     return terminate_instances(client.env, [instance_id])
 
 
-def delete_extra_state_servers(client, instance_id):
+def delete_extra_state_servers(client):
     """Delete the extra state-server instances."""
-    status = client.get_status()
-    for machine, info in status.iter_machines():
-        extra_instance_id = info.get('instance-id')
-        status = client.get_controller_member_status(info)
-        if extra_instance_id != instance_id and status is not None:
-            print_now("Deleting state-server-member {}".format(machine))
-            host = get_machine_dns_name(client, machine)
-            delete_instance(client, extra_instance_id)
-            wait_for_state_server_to_shutdown(host, client, extra_instance_id)
+    members = client.get_controller_members()
+    # Pop the leader off. Zero or more remaining members are extra.
+    members.pop(0)
+    for machine in members:
+        instance_id = machine.info.get('instance-id')
+        print_now("Deleting member {}: {}".format(
+                  machine.number, instance_id))
+        host = get_machine_dns_name(client, machine.info)
+        delete_instance(client, instance_id)
+        wait_for_state_server_to_shutdown(host, client, instance_id)
 
 
 def restore_missing_state_server(client, backup_file):
@@ -132,9 +133,8 @@ def make_client_from_args(args):
                        args.temp_env_name)
 
 
-def get_controllers(client):
-    instance_id = client.get_status().status['machines']['0']['instance-id']
-    return instance_id
+def get_leader(client):
+    return client.get_controller_leader().info['instance-id']
 
 
 def main(argv):
@@ -150,7 +150,6 @@ def main(argv):
         try:
             deploy_stack(client, args.charm_prefix)
             # TODO: This is a very bad assumption. api-info the controller.
-            instance_id = get_controllers(client)
             if args.strategy in ('ha', 'ha-backup'):
                 client.enable_ha()
                 client.wait_for_ha()
@@ -158,7 +157,8 @@ def main(argv):
                 backup_file = client.backup()
                 restore_present_state_server(client, backup_file)
             if args.strategy == 'ha-backup':
-                delete_extra_state_servers(client, instance_id)
+                delete_extra_state_servers(client)
+            instance_id = get_leader(client)
             delete_instance(client, instance_id)
             wait_for_state_server_to_shutdown(
                 bs_manager.known_hosts['0'], client, instance_id)
