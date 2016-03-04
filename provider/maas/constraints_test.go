@@ -317,7 +317,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 }
 
 func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
-	suite.createSpaces(c)
+	suite.createFourSpaces(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 
@@ -334,7 +334,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 	c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:3,space:5")
 }
 
-func (suite *environSuite) createSpaces(c *gc.C) {
+func (suite *environSuite) createFourSpaces(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
@@ -348,7 +348,7 @@ func (suite *environSuite) createSpaces(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
-	suite.createSpaces(c)
+	suite.createFourSpaces(c)
 	var shortLimit uint = 0
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 	env := suite.makeEnviron()
@@ -487,13 +487,12 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}} {
 		suite.testMAASObject.TestServer.Clear()
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
-		suite.createSpaces(c)
+		suite.createFourSpaces(c)
 		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "foo"}))
 		suite.addSubnetWithSpace(c, 6, 6, "foo", "node1")
 		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
 		suite.addSubnetWithSpace(c, 7, 7, "bar", "node1")
 		env := suite.makeEnviron()
-		// Make sure spaces are not supported.
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		_, err := env.acquireNode("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
@@ -510,4 +509,59 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
 		}
 	}
+}
+
+func (suite *environSuite) createFooBarSpaces(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "foo"}))
+	suite.addSubnetWithSpace(c, 1, 2, "foo", "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
+	suite.addSubnetWithSpace(c, 2, 3, "bar", "node1")
+}
+
+func (suite *environSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("foo", "^bar"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	requestValues := server.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
+	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
+}
+
+func (suite *environSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("foo-1", "^bar-3"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	requestValues := server.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
+	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
+}
+
+func (suite *environSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("baz"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }

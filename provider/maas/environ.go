@@ -710,7 +710,7 @@ func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []str
 			}
 			// A -number was added to the space name when we
 			// converted to a juju name, we found
-			id, ok = spaceMap[matches[1][0]]
+			id, ok = spaceMap[matches[0][1]]
 			if !ok {
 				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", neg)
 			}
