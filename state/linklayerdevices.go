@@ -163,6 +163,28 @@ func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
 }
 
+func (dev *LinkLayerDevice) parentDeviceNameAndMachineID() (string, string) {
+	if dev.doc.ParentName == "" {
+		// No parent set, so no ID and name to return.
+		return "", ""
+	}
+	// In case ParentName is a global key, try getting the host machine ID from
+	// there first.
+	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(dev.doc.ParentName)
+	if err != nil {
+		// We validate the ParentName before setting it, so this case cannot
+		// happen and we're only logging the error.
+		logger.Errorf("%s has invalid parent: %v", dev, err)
+		return "", ""
+	}
+	if hostMachineID == "" {
+		// Parent device is on the same machine and ParentName is not a global
+		// key.
+		return dev.doc.ParentName, dev.doc.MachineID
+	}
+	return parentDeviceName, hostMachineID
+}
+
 // ParentDevice returns the LinkLayerDevice corresponding to the parent device
 // of this device, if set. When no parent device name is set, it returns nil and
 // no error.
@@ -171,28 +193,17 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 		return nil, nil
 	}
 
-	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(dev.doc.ParentName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if hostMachineID != "" {
-		// parent device is on the host machine.
-		return dev.machineProxy(hostMachineID).LinkLayerDevice(parentDeviceName)
-	}
-
-	// parent device is on the same machine.
-	return dev.machineProxy(dev.doc.MachineID).LinkLayerDevice(dev.doc.ParentName)
+	parentDeviceName, parentMachineID := dev.parentDeviceNameAndMachineID()
+	return dev.machineProxy(parentMachineID).LinkLayerDevice(parentDeviceName)
 }
 
 func (dev *LinkLayerDevice) parentDocID() string {
-	parentGlobalKey := dev.parentGlobalKey()
+	parentDeviceName, parentMachineID := dev.parentDeviceNameAndMachineID()
+	parentGlobalKey := linkLayerDeviceGlobalKey(parentMachineID, parentDeviceName)
 	if parentGlobalKey == "" {
 		return ""
 	}
 	return dev.st.docID(parentGlobalKey)
-}
-
-func (dev *LinkLayerDevice) parentGlobalKey() string {
-	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.ParentName)
 }
 
 // machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()
