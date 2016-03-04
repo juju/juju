@@ -328,12 +328,10 @@ type MachineAgent struct {
 	// longer any immediately pending agent upgrades.
 	initialUpgradeCheckComplete gate.Lock
 
+	discoverSpacesComplete gate.Lock
+
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
-
-	// Used to signal that spaces have been discovered.
-	discoveringSpaces      chan struct{}
-	discoveringSpacesMutex sync.Mutex
 
 	loopDeviceManager looputil.LoopDeviceManager
 }
@@ -1200,16 +1198,25 @@ func (a *MachineAgent) startEnvWorkers(
 		return w, nil
 	})
 	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		w, discoveringSpaces := newDiscoverSpaces(conn.DiscoverSpaces())
-		a.discoveringSpacesMutex.Lock()
-		if a.discoveringSpaces == nil {
-			// If the discovery channel has not been set, set it here. If
-			// it has been set then the worker has been restarted and we
-			// should *not* signal that discovery has restarted as this
-			// will block the api.
-			a.discoveringSpaces = discoveringSpaces
+		facade := conn.DiscoverSpaces()
+		envConfig, err := facade.ModelConfig()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get model config")
 		}
-		a.discoveringSpacesMutex.Unlock()
+		environ, err := environs.New(envConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot create environment")
+		}
+
+		config := discoverspaces.Config{
+			Facade:  facade,
+			Environ: environ,
+			NewName: discoverspaces.ConvertSpaceName,
+		}
+		w, err := newDiscoverSpaces(config)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start space discovery worker")
+		}
 		return w, nil
 	})
 
@@ -1410,10 +1417,6 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
-	if err := a.limitLoginsUntilSpacesDiscovered(req); err != nil {
-		return err
-	}
-
 	if err := a.limitLoginsDuringUpgrade(req); err != nil {
 		return err
 	}
@@ -1432,38 +1435,6 @@ func (a *MachineAgent) limitLoginsDuringMongoUpgrade(req params.LoginRequest) er
 		return errors.New("Upgrading Mongo")
 	}
 	return nil
-}
-
-// limitLoginsUntilSpacesDiscovered will prevent logins from clients until
-// space discovery is completed.
-func (a *MachineAgent) limitLoginsUntilSpacesDiscovered(req params.LoginRequest) error {
-	if a.discoveringSpaces == nil {
-		// Space discovery not started.
-		return nil
-	}
-	select {
-	case <-a.discoveringSpaces:
-		logger.Debugf("space discovery completed - client login unblocked")
-		return nil
-	default:
-		// Space discovery still in progress.
-	}
-	err := errors.New("space discovery still in progress")
-	authTag, parseErr := names.ParseTag(req.AuthTag)
-	if parseErr != nil {
-		return errors.Annotatef(err, "could not parse auth tag")
-	}
-	switch authTag := authTag.(type) {
-	case names.UserTag:
-		// use a restricted API mode
-		return err
-	case names.MachineTag:
-		if authTag == a.Tag() {
-			// allow logins from the local machine
-			return nil
-		}
-	}
-	return err
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
