@@ -1,33 +1,32 @@
 #!/bin/bash
 set -eux
-s3_url=$1
-revision_build=$2
-NEW_VERSION=$3
-OLD_VERSION=$4
+streams_url=$1
+s3_url=$2
+revision_build=$3
+NEW_VERSION=$4
+OLD_VERSION=$5
 s3_params="--config $HOME/cloud-city/juju-qa.s3cfg -P"
+stream=revision-build-$revision_build
+streams_subjson=$streams_url/streams/v1/com.ubuntu.juju-$stream-tools.json
 
 export PATH=$HOME/juju-release-tools:$PATH
-content_id="com.ubuntu.juju:revision-build-$revision_build:tools"
-TESTING=$HOME/new-streams/parallel
-sstream-query --json $TESTING/streams/v1/index2.json \
+content_id="com.ubuntu.juju:$stream:tools"
+sstream-query --json $streams_subjson \
   "version~($OLD_VERSION|$NEW_VERSION)" content_id=$content_id \
   release='trusty' arch='amd64'\
   | sed "s/$content_id/com.ubuntu.juju:released:tools/" > released-streams.json
-sstream-query --json $TESTING/streams/v1/index2.json \
-  "version~($NEW_VERSION)" content_id=$content_id \
-  release='trusty' arch='amd64'\
+sstream-query --json $streams_subjson "version~($NEW_VERSION)" \
+  content_id=$content_id release='trusty' arch='amd64'\
   | sed "s/$content_id/com.ubuntu.juju:devel:tools/" > devel-streams.json
 json2streams --juju-format released-streams.json devel-streams.json \
   test-streams
-agents=$(sstream-query test-streams/streams/v1/index.json \
-         --output-format="%(path)s"|sort|uniq)
-for agent in $agents; do
-  parent=$(dirname $agent)
-  if [ $parent = 'agent' ]; then
-    source=root
-  else
-    source=$(basename $TESTING)
-  fi
-  s3cmd sync $HOME/new-streams/$source/$agent $s3_url/$parent/ $s3_params
+agents=$(sstream-query $streams_subjson \
+  "version~($OLD_VERSION|$NEW_VERSION)" content_id=$content_id \
+  release='trusty' arch='amd64' --output-format='%(path)s ')
+for path in $agents; do
+  url=$streams_url/$path
+  filename=$(basename $path)
+  curl $url -o $filename
+  s3cmd put $filename $s3_url/$path $s3_params
 done
 s3cmd sync test-streams/ $s3_url/ $s3_params
