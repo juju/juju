@@ -1008,7 +1008,7 @@ func (a *MachineAgent) updateSupportedContainers(
 				EnvUUID:           envUUID.Id(),
 				CACert:            []byte(agentConfig.CACert()),
 				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
-				CloudimgStream:    cfg.ImageStream(),
+				Stream:            cfg.ImageStream(),
 				ImageDownloadFunc: container.ImageDownloadURL,
 			})
 	}
