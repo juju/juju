@@ -813,6 +813,14 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
                               timeout=timeout, start=start)
 
+    def get_controller_endpoint(self):
+        """Return the address of the controller leader."""
+        info = yaml_loads(self.get_juju_output(
+            'show-controller', (self.env.environment, )))
+        endpoint = info[self.env.environment]['details']['api-endpoints'][0]
+        address, port = endpoint.split(':')
+        return address
+
     @staticmethod
     def get_controller_member_status(info_dict):
         return info_dict.get('controller-member-status')

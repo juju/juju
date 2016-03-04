@@ -1305,7 +1305,7 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
-    def test_deploy_bundle_2X(self):
+    def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)
         with patch.object(client, 'juju') as mock_juju:
@@ -1657,6 +1657,19 @@ class TestEnvJujuClient(ClientTest):
                                   side_effect=lambda _, s: writes.append(s)):
                     client.wait_for_workloads(timeout=1)
         self.assertEqual(writes, [])
+
+    def test_get_controller_endpoint(self):
+        data = dedent("""\
+          foo:
+            details:
+              api-endpoints: ['10.0.0.1:17070', '10.0.0.2:17070']
+        """)
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=data) as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('10.0.0.1', endpoint)
+        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
@@ -3689,7 +3702,7 @@ class TestEnvJujuClient1X(ClientTest):
         expected = {"juju op1": [1], "juju op2": [2]}
         self.assertEqual(flattened_timings, expected)
 
-    def test_deploy_bundle_1X(self):
+    def test_deploy_bundle_1x(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
                                  '1.23-series-arch', None)
         with patch.object(client, 'juju') as mock_juju:
@@ -5097,7 +5110,7 @@ class AssessParseStateServerFromErrorTestCase(TestCase):
         address = parse_new_state_server_from_error(error)
         self.assertEqual('1.2.3.4', address)
 
-    def test_parse_new_state_server_from_error_output_None(self):
+    def test_parse_new_state_server_from_error_output_none(self):
         error = subprocess.CalledProcessError(1, ['foo'], None)
         address = parse_new_state_server_from_error(error)
         self.assertIs(None, address)
