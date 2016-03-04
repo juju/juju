@@ -778,9 +778,9 @@ class EnvJujuClient:
         return address
 
     def get_controller_members(self):
-        """Return a list of machines that are members of the controller.
+        """Return a list of Machines that are members of the controller.
 
-        The first machine in the list is the leader. the remanining machines
+        The first machine in the list is the leader. the remaining machines
         are followers in a HA relationship.
         """
         unordered_members = []
@@ -801,11 +801,13 @@ class EnvJujuClient:
         return ordered_members
 
     def get_controller_leader(self):
+        """Return the controller leader Machine."""
         controller_members = self.get_controller_members()
         return controller_members[0]
 
     @staticmethod
     def get_controller_member_status(info_dict):
+        """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
     def wait_for_ha(self, timeout=1200):
