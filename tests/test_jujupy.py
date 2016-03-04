@@ -1722,6 +1722,42 @@ class TestEnvJujuClient(ClientTest):
         # with all version of Juju.
         self.assertEqual(4, gcms_mock.call_count)
 
+    def test_get_controller_members_one(self):
+        status = Status.from_text("""\
+            model: admin
+            machines:
+              "0":
+                dns-name: 10.0.0.0
+                instance-id: juju-aaaa-machine-0
+                controller-member-status: has-vote
+        """)
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            with patch.object(client, 'get_controller_endpoint') as gce_mock:
+                members = client.get_controller_members()
+        # Machine 0 was the only choice, no need to find the leader.
+        expected = [
+            Machine('0', {
+                'dns-name': '10.0.0.0',
+                'instance-id': 'juju-aaaa-machine-0',
+                'controller-member-status': 'has-vote'}),
+        ]
+        self.assertEqual(expected, members)
+        self.assertEqual(0, gce_mock.call_count)
+
+    def test_get_controller_leader(self):
+        members = [
+            Machine('3', {}),
+            Machine('0', {}),
+            Machine('2', {}),
+        ]
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_controller_members', autospec=True,
+                          return_value=members):
+            leader = client.get_controller_leader()
+        self.assertEqual(Machine('3', {}), leader)
+
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
             'machines': {

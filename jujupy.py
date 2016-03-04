@@ -127,6 +127,9 @@ class JESByDefault(Exception):
             'This client does not need to enable JES')
 
 
+Machine = namedtuple('Machine', ['number', 'info'])
+
+
 def yaml_loads(yaml_str):
     return yaml.safe_load(StringIO(yaml_str))
 
@@ -141,16 +144,6 @@ def coalesce_agent_status(agent_item):
     if state is None:
         state = 'no-agent'
     return state
-
-
-Machine = namedtuple('Machine', ['number', 'info'])
-
-
-def get_controller_leader(client):
-    controller_members = client.get_controller_members()
-    if controller_members:
-        return controller_members[0]
-    return None
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
@@ -806,6 +799,10 @@ class EnvJujuClient:
             else:
                 ordered_members.append(machine)
         return ordered_members
+
+    def get_controller_leader(self):
+        controller_members = self.get_controller_members()
+        return controller_members[0]
 
     @staticmethod
     def get_controller_member_status(info_dict):
