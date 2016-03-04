@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -83,8 +84,15 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Users {
+		modelAccess, err := permission.ParseModelAccess(string(arg.ModelAccess))
+		if err != nil {
+			err = errors.Annotate(err, "failed to create user")
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		readOnly := (modelAccess == permission.ModelReadAccess)
+
 		var user *state.User
-		var err error
 		if arg.Password != "" {
 			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
 		} else {
@@ -108,7 +116,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 				result.Results[i].Error = common.ServerError(err)
 				break
 			}
-			err = ShareModelAction(api.state, modelTag, loggedInUser, userTag, params.AddModelUser)
+			err = ShareModelAction(api.state, modelTag, loggedInUser, userTag, params.AddModelUser, readOnly)
 			if err != nil {
 				err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
 				result.Results[i].Error = common.ServerError(err)
@@ -125,7 +133,7 @@ type stateAccessor interface {
 
 // ShareModelAction performs the requested share action (add/remove) for the specified
 // sharedWith user on the specified model.
-func ShareModelAction(stateAccess stateAccessor, modelTag names.ModelTag, createdBy, sharedWith names.UserTag, action params.ModelAction) error {
+func ShareModelAction(stateAccess stateAccessor, modelTag names.ModelTag, createdBy, sharedWith names.UserTag, action params.ModelAction, readOnly bool) error {
 	st, err := stateAccess.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could lookup model")
@@ -133,7 +141,7 @@ func ShareModelAction(stateAccess stateAccessor, modelTag names.ModelTag, create
 	defer st.Close()
 	switch action {
 	case params.AddModelUser:
-		_, err = st.AddModelUser(state.ModelUserSpec{User: sharedWith, CreatedBy: createdBy})
+		_, err = st.AddModelUser(state.ModelUserSpec{User: sharedWith, CreatedBy: createdBy, ReadOnly: readOnly})
 		return errors.Annotate(err, "could not share model")
 	case params.RemoveModelUser:
 		err := st.RemoveModelUser(sharedWith)

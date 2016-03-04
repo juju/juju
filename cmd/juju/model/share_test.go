@@ -47,6 +47,17 @@ func (s *shareSuite) TestPassesValues(c *gc.C) {
 	_, err := s.run(c, "sam", "ralph")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.addUsers, jc.DeepEquals, []names.UserTag{sam, ralph})
+	c.Assert(s.fake.access, gc.Equals, "write")
+}
+
+func (s *shareSuite) TestAccess(c *gc.C) {
+	sam := names.NewUserTag("sam")
+	ralph := names.NewUserTag("ralph")
+
+	_, err := s.run(c, "--acl", "write", "sam", "ralph")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.addUsers, jc.DeepEquals, []names.UserTag{sam, ralph})
+	c.Assert(s.fake.access, gc.Equals, "write")
 }
 
 func (s *shareSuite) TestBlockShare(c *gc.C) {

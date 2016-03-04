@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.usermanager")
@@ -33,7 +34,7 @@ func NewClient(st base.APICallCloser) *Client {
 
 // AddUser creates a new local user in the controller, sharing with that user any specified models.
 func (c *Client) AddUser(
-	username, displayName, password string, modelUUIDs ...string,
+	username, displayName, password, access string, modelUUIDs ...string,
 ) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
 		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
@@ -42,15 +43,20 @@ func (c *Client) AddUser(
 	for i, uuid := range modelUUIDs {
 		modelTags[i] = names.NewModelTag(uuid).String()
 	}
+	modelAccess, err := permission.ParseModelAccess(access)
+	if err != nil {
+		return names.UserTag{}, nil, errors.Trace(err)
+	}
 	userArgs := params.AddUsers{
 		Users: []params.AddUser{{
 			Username:        username,
 			DisplayName:     displayName,
 			Password:        password,
-			SharedModelTags: modelTags}},
+			SharedModelTags: modelTags,
+			ModelAccess:     params.ModelAccessPermission(modelAccess)}},
 	}
 	var results params.AddUserResults
-	err := c.facade.FacadeCall("AddUser", userArgs, &results)
+	err = c.facade.FacadeCall("AddUser", userArgs, &results)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}

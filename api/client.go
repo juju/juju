@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -195,19 +196,24 @@ func (c *Client) ModelUUID() string {
 }
 
 // ShareModel allows the given users access to the model.
-func (c *Client) ShareModel(users ...names.UserTag) error {
+func (c *Client) ShareModel(access string, users ...names.UserTag) error {
 	var args params.ModifyModelUsers
+	modelAccess, err := permission.ParseModelAccess(access)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, user := range users {
 		if &user != nil {
 			args.Changes = append(args.Changes, params.ModifyModelUser{
 				UserTag: user.String(),
 				Action:  params.AddModelUser,
+				Access:  params.ModelAccessPermission(modelAccess),
 			})
 		}
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareModel", args, &result)
+	err = c.facade.FacadeCall("ShareModel", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

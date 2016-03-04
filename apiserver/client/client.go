@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
@@ -369,6 +370,14 @@ func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorRe
 	}
 
 	for i, arg := range args.Changes {
+		modelAccess, err := permission.ParseModelAccess(string(arg.Access))
+		if err != nil {
+			err = errors.Annotate(err, "could not share model")
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		readOnly := (modelAccess == permission.ModelReadAccess)
+
 		userTagString := arg.UserTag
 		user, err := names.ParseUserTag(userTagString)
 		if err != nil {
@@ -376,7 +385,7 @@ func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorRe
 			continue
 		}
 		result.Results[i].Error = common.ServerError(
-			usermanager.ShareModelAction(c.api.stateAccessor, c.api.stateAccessor.ModelTag(), createdBy, user, arg.Action))
+			usermanager.ShareModelAction(c.api.stateAccessor, c.api.stateAccessor.ModelTag(), createdBy, user, arg.Action, readOnly))
 	}
 	return result, nil
 }
