@@ -1004,8 +1004,12 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
-				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+				ServerRoot:        st.Addr(),
+				EnvUUID:           envUUID.Id(),
+				CACert:            []byte(agentConfig.CACert()),
+				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
+				CloudimgStream:    cfg.ImageStream(),
+				ImageDownloadFunc: container.ImageDownloadURL,
 			})
 	}
 	params := provisioner.ContainerSetupParams{
