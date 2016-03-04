@@ -244,7 +244,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage controllers
 	r.Register(controller.NewCreateModelCommand())
 	r.Register(controller.NewDestroyCommand())
-	r.Register(controller.NewModelsCommand())
+	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())

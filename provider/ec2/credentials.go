@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -77,6 +78,7 @@ func (e environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 				"secret-key": values.AwsSecretAccessKey,
 			},
 		)
+		accessKeyCredential.Label = fmt.Sprintf("aws credential %q", credName)
 		result.AuthCredentials[credName] = accessKeyCredential
 	}
 
@@ -113,6 +115,7 @@ func (environProviderCredentials) detectEnvCredentials() (*cloud.CloudCredential
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	accessKeyCredential.Label = fmt.Sprintf("aws credential %q", user)
 	return &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			user: accessKeyCredential,
