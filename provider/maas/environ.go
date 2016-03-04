@@ -735,6 +735,8 @@ func (environ *maasEnviron) acquireNode(
 	if err != nil && !errors.IsNotSupported(err) {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
+	// TODO: (mfoord) for better error reporting (names rather than ids) it
+	// would be better to pass network.SpaceInfo rather than just space ids.
 	err = addInterfaces(acquireParams, interfaces, positiveSpaceIds, negativeSpaceIds)
 	if err != nil {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
