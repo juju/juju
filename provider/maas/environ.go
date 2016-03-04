@@ -737,6 +737,7 @@ func (environ *maasEnviron) acquireNode(
 	}
 	// TODO: (mfoord) for better error reporting (names rather than ids) it
 	// would be better to pass network.SpaceInfo rather than just space ids.
+	// The same is true of interfaceBinding.
 	err = addInterfaces(acquireParams, interfaces, positiveSpaceIds, negativeSpaceIds)
 	if err != nil {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
