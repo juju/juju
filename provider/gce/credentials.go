@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -69,7 +70,8 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if possbleFilePath == "" {
 		return nil, errors.NotFoundf("gce credentials")
 	}
-	if _, err := parseJSONAuthFile(possbleFilePath); err != nil {
+	parsedCred, err := parseJSONAuthFile(possbleFilePath)
+	if err != nil {
 		return nil, errors.Annotatef(err, "invalid json credential file %s", possbleFilePath)
 	}
 
@@ -80,6 +82,11 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	cred := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{
 		"file": possbleFilePath,
 	})
+	credName := parsedCred.Attributes()["client-email"]
+	if credName == "" {
+		credName = parsedCred.Attributes()["client-id"]
+	}
+	cred.Label = fmt.Sprintf("google credential %q", credName)
 	return &cloud.CloudCredential{
 		DefaultRegion: os.Getenv("CLOUDSDK_COMPUTE_REGION"),
 		AuthCredentials: map[string]cloud.Credential{

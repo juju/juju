@@ -19,14 +19,14 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// NewModelsCommand returns a command to list environments.
-func NewModelsCommand() cmd.Command {
-	return modelcmd.WrapController(&environmentsCommand{})
+// NewListModelsCommand returns a command to list models.
+func NewListModelsCommand() cmd.Command {
+	return modelcmd.WrapController(&modelsCommand{})
 }
 
-// environmentsCommand returns the list of all the environments the
+// modelsCommand returns the list of all the models the
 // current user can access on the current controller.
-type environmentsCommand struct {
+type modelsCommand struct {
 	modelcmd.ControllerCommandBase
 	out       cmd.Output
 	all       bool
@@ -38,7 +38,7 @@ type environmentsCommand struct {
 	userCreds *configstore.APICredentials
 }
 
-var envsDoc = `
+var listModelsDoc = `
 List all the models the user can access on the current controller.
 
 The models listed here are either models you have created
@@ -59,36 +59,36 @@ type ModelManagerAPI interface {
 }
 
 // ModelsSysAPI defines the methods on the controller manager API that the
-// environments command calls.
+// list models command calls.
 type ModelsSysAPI interface {
 	Close() error
 	AllModels() ([]base.UserModel, error)
 }
 
 // Info implements Command.Info
-func (c *environmentsCommand) Info() *cmd.Info {
+func (c *modelsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-models",
 		Purpose: "list all models the user can access on the current controller",
-		Doc:     envsDoc,
+		Doc:     listModelsDoc,
 	}
 }
 
-func (c *environmentsCommand) getEnvAPI() (ModelManagerAPI, error) {
+func (c *modelsCommand) getModelManagerAPI() (ModelManagerAPI, error) {
 	if c.modelAPI != nil {
 		return c.modelAPI, nil
 	}
 	return c.NewModelManagerAPIClient()
 }
 
-func (c *environmentsCommand) getSysAPI() (ModelsSysAPI, error) {
+func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 	if c.sysAPI != nil {
 		return c.sysAPI, nil
 	}
 	return c.NewControllerAPIClient()
 }
 
-func (c *environmentsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
+func (c *modelsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
 	if c.userCreds != nil {
 		return *c.userCreds, nil
 	}
@@ -96,7 +96,7 @@ func (c *environmentsCommand) getConnectionCredentials() (configstore.APICredent
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *environmentsCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "", "the user to list models for (administrative users only)")
 	f.BoolVar(&c.all, "all", false, "show all models  (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for models")
@@ -117,7 +117,7 @@ type UserModel struct {
 }
 
 // Run implements Command.Run
-func (c *environmentsCommand) Run(ctx *cmd.Context) error {
+func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
 		creds, err := c.getConnectionCredentials()
 		if err != nil {
@@ -126,32 +126,32 @@ func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 		c.user = creds.User
 	}
 
-	var envs []base.UserModel
+	var models []base.UserModel
 	var err error
 	if c.all {
-		envs, err = c.getAllModels()
+		models, err = c.getAllModels()
 	} else {
-		envs, err = c.getUserModels()
+		models, err = c.getUserModels()
 	}
 	if err != nil {
 		return errors.Annotate(err, "cannot list models")
 	}
 
-	output := make([]UserModel, len(envs))
+	output := make([]UserModel, len(models))
 	now := time.Now()
-	for i, env := range envs {
+	for i, model := range models {
 		output[i] = UserModel{
-			Name:           env.Name,
-			UUID:           env.UUID,
-			Owner:          env.Owner,
-			LastConnection: user.LastConnection(env.LastConnection, now, c.exactTime),
+			Name:           model.Name,
+			UUID:           model.UUID,
+			Owner:          model.Owner,
+			LastConnection: user.LastConnection(model.LastConnection, now, c.exactTime),
 		}
 	}
 
 	return c.out.Write(ctx, output)
 }
 
-func (c *environmentsCommand) getAllModels() ([]base.UserModel, error) {
+func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
 	client, err := c.getSysAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -160,8 +160,8 @@ func (c *environmentsCommand) getAllModels() ([]base.UserModel, error) {
 	return client.AllModels()
 }
 
-func (c *environmentsCommand) getUserModels() ([]base.UserModel, error) {
-	client, err := c.getEnvAPI()
+func (c *modelsCommand) getUserModels() ([]base.UserModel, error) {
+	client, err := c.getModelManagerAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,10 +170,10 @@ func (c *environmentsCommand) getUserModels() ([]base.UserModel, error) {
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *environmentsCommand) formatTabular(value interface{}) ([]byte, error) {
-	envs, ok := value.([]UserModel)
+func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
+	models, ok := value.([]UserModel)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)
+		return nil, errors.Errorf("expected value of type %T, got %T", models, value)
 	}
 	var out bytes.Buffer
 	const (
@@ -190,12 +190,12 @@ func (c *environmentsCommand) formatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintf(tw, "\tMODEL UUID")
 	}
 	fmt.Fprintf(tw, "\tOWNER\tLAST CONNECTION\n")
-	for _, env := range envs {
-		fmt.Fprintf(tw, "%s", env.Name)
+	for _, model := range models {
+		fmt.Fprintf(tw, "%s", model.Name)
 		if c.listUUID {
-			fmt.Fprintf(tw, "\t%s", env.UUID)
+			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\n", env.Owner, env.LastConnection)
+		fmt.Fprintf(tw, "\t%s\t%s\n", model.Owner, model.LastConnection)
 	}
 	tw.Flush()
 	return out.Bytes(), nil

@@ -87,9 +87,9 @@ func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *gc.C) {
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
-	c.Assert(
-		credentials.AuthCredentials["fred"], jc.DeepEquals,
-		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
+	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
+	expected.Label = `google credential "test@example.com"`
+	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpath string) {
@@ -98,9 +98,9 @@ func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpat
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
-	c.Assert(
-		credentials.AuthCredentials["fred"], jc.DeepEquals,
-		cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath}))
+	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
+	expected.Label = `google credential "test@example.com"`
+	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {

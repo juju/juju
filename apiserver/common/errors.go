@@ -4,7 +4,6 @@
 package common
 
 import (
-	stderrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,17 +19,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type notSupportedError struct {
-	tag       names.Tag
-	operation string
-}
-
-func (e *notSupportedError) Error() string {
-	return fmt.Sprintf("entity %q does not support %s", e.tag, e.operation)
-}
-
 func NotSupportedError(tag names.Tag, operation string) error {
-	return &notSupportedError{tag, operation}
+	return errors.Errorf("entity %q does not support %s", tag, operation)
 }
 
 type noAddressSetError struct {
@@ -46,7 +36,7 @@ func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
 	return &noAddressSetError{unitTag, addressName}
 }
 
-func IsNoAddressSetError(err error) bool {
+func isNoAddressSetError(err error) bool {
 	_, ok := err.(*noAddressSetError)
 	return ok
 }
@@ -63,7 +53,7 @@ func UnknownModelError(uuid string) error {
 	return &unknownModelError{uuid: uuid}
 }
 
-func IsUnknownModelError(err error) bool {
+func isUnknownModelError(err error) bool {
 	_, ok := err.(*unknownModelError)
 	return ok
 }
@@ -88,16 +78,16 @@ func IsDischargeRequiredError(err error) bool {
 }
 
 var (
-	ErrBadId              = stderrors.New("id not found")
-	ErrBadCreds           = stderrors.New("invalid entity name or password")
-	ErrPerm               = stderrors.New("permission denied")
-	ErrNotLoggedIn        = stderrors.New("not logged in")
-	ErrUnknownWatcher     = stderrors.New("unknown watcher id")
-	ErrUnknownPinger      = stderrors.New("unknown pinger id")
-	ErrStoppedWatcher     = stderrors.New("watcher has been stopped")
-	ErrBadRequest         = stderrors.New("invalid request")
-	ErrTryAgain           = stderrors.New("try again")
-	ErrActionNotAvailable = stderrors.New("action no longer available")
+	ErrBadId              = errors.New("id not found")
+	ErrBadCreds           = errors.New("invalid entity name or password")
+	ErrPerm               = errors.New("permission denied")
+	ErrNotLoggedIn        = errors.New("not logged in")
+	ErrUnknownWatcher     = errors.New("unknown watcher id")
+	ErrUnknownPinger      = errors.New("unknown pinger id")
+	ErrStoppedWatcher     = errors.New("watcher has been stopped")
+	ErrBadRequest         = errors.New("invalid request")
+	ErrTryAgain           = errors.New("try again")
+	ErrActionNotAvailable = errors.New("action no longer available")
 )
 
 // OperationBlockedError returns an error which signifies that
@@ -206,7 +196,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
-	case IsNoAddressSetError(err):
+	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
 		code = params.CodeNotProvisioned
@@ -214,7 +204,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
-	case IsUnknownModelError(err):
+	case isUnknownModelError(err):
 		code = params.CodeNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
