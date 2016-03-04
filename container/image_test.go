@@ -6,6 +6,8 @@
 package container_test
 
 import (
+	"fmt"
+
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -26,18 +28,23 @@ func (s *imageURLSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageURLSuite) TestImageURL(c *gc.C) {
+	s.assertImageURLForStream(c, "released")
+	s.assertImageURLForStream(c, "daily")
+}
+
+func (s *imageURLSuite) assertImageURLForStream(c *gc.C, stream string) {
 	imageURLGetter := container.NewImageURLGetter(
 		container.ImageURLGetterConfig{
 			ServerRoot:        "host:port",
 			ModelUUID:         "12345",
 			CACert:            []byte("cert"),
 			CloudimgBaseUrl:   "",
-			Stream:            "released",
+			Stream:            stream,
 			ImageDownloadFunc: container.ImageDownloadURL,
 		})
 	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 	c.Assert(err, gc.IsNil)
-	c.Assert(imageURL, gc.Equals, "https://host:port/model/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
+	c.Assert(imageURL, gc.Equals, fmt.Sprintf("https://host:port/model/12345/images/lxc/trusty/amd64/trusty-%s-amd64-root.tar.gz", stream))
 	c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
 }
 
