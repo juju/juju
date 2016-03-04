@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent
@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/api"
 	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/discoverspaces"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
@@ -74,6 +73,7 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
@@ -629,8 +629,30 @@ func (s *MachineSuite) TestManageModelStartsInstancePoller(c *gc.C) {
 	// start.
 	_ = s.singularRecord.nextRunner(c)
 	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
+	r.waitForWorker(c, "instancepoller")
 	started.assertTriggered(c, "instancepoller worker to start")
+}
+
+func (s *MachineSuite) TestManageModelStartsSpaceDiscovery(c *gc.C) {
+	started := newSignal()
+	s.AgentSuite.PatchValue(&newDiscoverSpaces, func(config discoverspaces.Config) (worker.Worker, error) {
+		started.trigger()
+		return workertest.NewErrorWorker(nil), nil
+	})
+
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the instancepoller to
+	// start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "discoverspaces")
+	started.assertTriggered(c, "discoverspaces worker to start")
 }
 
 const startWorkerWait = 250 * time.Millisecond
@@ -988,96 +1010,6 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
-}
-
-func (s *MachineSuite) TestManageModelBlocksAPIUntilSpacesDiscovered(c *gc.C) {
-	var called bool
-	spacesDiscovered := make(chan struct{})
-	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan struct{}) {
-		called = true
-		return newDummyWorker(), spacesDiscovered
-	}
-	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
-	m, conf, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	_ = s.singularRecord.nextRunner(c)
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "discoverspaces")
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if called {
-			break
-		}
-		if !attempt.HasNext() {
-			c.Fatalf("discoverspaces worker not created")
-		}
-	}
-	s.assertDiscoveryBlocksAPIUntilChannelClosed(c, spacesDiscovered, conf)
-
-}
-
-func (s *MachineSuite) assertDiscoveryBlocksAPIUntilChannelClosed(c *gc.C, spacesChan chan struct{}, conf agent.ConfigSetterWriter) {
-	info, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	info.Tag = s.AdminUserTag(c)
-	// User can't log in
-	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
-
-	// Local machine can log in
-	info, ok = conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	close(spacesChan)
-
-	// Now the user can log in
-	info.Tag = s.AdminUserTag(c)
-	info.Password = "dummy-secret"
-	_, err = api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MachineSuite) TestSpaceDiscoveryErrorDoesntBlockAPI(c *gc.C) {
-	var calls int
-	spacesDiscovered := make(chan struct{})
-	w := workertest.NewErrorWorker(errors.New("boom"))
-	fakeNewDiscoverSpaces := func(api *discoverspaces.API) (worker.Worker, chan struct{}) {
-		calls += 1
-		if calls == 1 {
-			return w, spacesDiscovered
-		}
-		return newDummyWorker(), make(chan struct{})
-	}
-	s.PatchValue(&newDiscoverSpaces, fakeNewDiscoverSpaces)
-	m, conf, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	_ = s.singularRecord.nextRunner(c)
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "discoverspaces")
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if calls == 1 {
-			break
-		}
-		if !attempt.HasNext() {
-			c.Fatalf("discoverspaces worker not created")
-		}
-	}
-	w.Kill()
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if calls == 2 {
-			break
-		}
-		if !attempt.HasNext() {
-			c.Fatalf("second discoverspaces worker not created")
-		}
-	}
-	s.assertDiscoveryBlocksAPIUntilChannelClosed(c, spacesDiscovered, conf)
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
