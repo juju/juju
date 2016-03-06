@@ -9,14 +9,30 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-func NewWorker(
-	stateOpener func() (*state.State, error),
+type CertChanger interface {
+	CertChangedChan() chan params.StateServingInfo
+}
+
+type apiServerWorker struct {
+	worker.Worker
+	certChanged chan params.StateServingInfo
+}
+
+func (a *apiServerWorker) CertChangedChan() chan params.StateServingInfo {
+	return a.certChanged
+}
+
+var NewWorker = func(
+	st *state.State,
 	newApiserverWorker func(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error),
 	certChanged chan params.StateServingInfo,
 ) (worker.Worker, error) {
-	st, err := stateOpener()
+	w, err := newApiserverWorker(st, certChanged)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newApiserverWorker(st, certChanged)
+	return &apiServerWorker{
+		Worker:      w,
+		certChanged: certChanged,
+	}, nil
 }

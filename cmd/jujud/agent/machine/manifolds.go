@@ -101,9 +101,6 @@ type ManifoldsConfig struct {
 	// TODO(ericsnow) For now we simply do not close the channel.
 	CertChangedChan chan params.StateServingInfo
 
-	// ChangeConfig changes the agent's config. It is used by the certupdater worker.
-	ChangeConfig func(mutate coreagent.ConfigMutator) error
-
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.
 	LogSource logsender.LogRecordCh
@@ -114,6 +111,9 @@ type ManifoldsConfig struct {
 	// tests can be run without waiting for the 5s watcher refresh time to which we would
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
+
+	// ChangeConfig is used by the certupdater worker
+	ChangeConfig func(mutate coreagent.ConfigMutator) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -266,15 +266,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The apiserver worker starts the apisever.
 		apiserverName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:          agentName,
+			StateName:          stateName,
 			NewApiserverWorker: config.NewApiserverWorker,
-			OpenState:          config.OpenState,
-		}),
-
-		// The apiserver worker starts the apisever.
-		certupdaterName: certupdater.Manifold(certupdater.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -345,6 +338,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		certupdaterName: certupdater.Manifold(certupdater.ManifoldConfig{
+			StateName:     stateName,
+			APIServerName: apiserverName,
+			ChangeConfig:  config.ChangeConfig,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         agentName,
+				APICallerName:     apiCallerName,
+				UpgradeWaiterName: upgradeWaiterName,
+			},
+		}),
 	}
 }
 
@@ -367,7 +371,6 @@ const (
 	rebootName               = "reboot"
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiserverName            = "apiserver"
-	certupdaterName          = "certupdater"
 	diskmanagerName          = "disk-manager"
 	proxyConfigUpdater       = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
@@ -375,4 +378,5 @@ const (
 	logSenderName            = "log-sender"
 	deployerName             = "deployer"
 	authenticationworkerName = "authenticationworker"
+	certupdaterName          = "certupdater"
 )

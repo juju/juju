@@ -487,12 +487,11 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
-			OpenState:            a.openState,
 			NewApiserverWorker:   a.newApiserverWorker,
-			ChangeConfig:         a.ChangeConfig,
 			CertChangedChan:      make(chan params.StateServingInfo, 1),
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
+			ChangeConfig:         a.ChangeConfig,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -912,12 +911,12 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	st, _, err := openState(agentConfig, stateWorkerDialOpts)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	reportOpenedState(st)
@@ -969,34 +968,6 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
 				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
 			})
-
-			// TODO(waigani) apiserver is now also started via the dependency
-			// engine. Once dblogpruner and txnpruner are moved over, remove
-			// apiserver.
-
-			// certChangedChan is shared by multiple workers it's up
-			// to the agent to close it rather than any one of the
-			// workers.  It is possible that multiple cert changes
-			// come in before the apiserver is up to receive them.
-			// Specify a bigger buffer to prevent deadlock when
-			// the apiserver isn't up yet.  Use a size of 10 since we
-			// allow up to 7 controllers, and might also update the
-			// addresses of the local machine (127.0.0.1, ::1, etc).
-			//
-			// TODO(cherylj/waigani) Remove this workaround when
-			// certupdater and apiserver can properly manage dependencies
-			// through the dependency engine.
-			//
-			// TODO(ericsnow) For now we simply do not close the channel.
-			certChangedChan := make(chan params.StateServingInfo, 10)
-			// Each time apiserver worker is restarted, we need a fresh copy of state due
-			// to the fact that state holds lease managers which are killed and need to be reset.
-			stateOpener := func() (*state.State, error) {
-				logger.Debugf("opening state for apiserver worker")
-				st, _, err := openState(agentConfig, stateWorkerDialOpts)
-				return st, err
-			}
-			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
 
 			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
 				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
