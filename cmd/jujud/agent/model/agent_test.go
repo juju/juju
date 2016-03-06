@@ -59,14 +59,14 @@ func (mock *mockAgent) CurrentConfig() agent.Config {
 type mockConfig struct{ agent.Config }
 
 func (mock *mockConfig) Model() names.ModelTag {
-	return names.NewModelTag("bad-wrong-no")
+	return names.NewModelTag("mock-model-uuid")
 }
 
 func (mock *mockConfig) APIInfo() (*api.Info, bool) {
 	return &api.Info{
 		Addrs:    []string{"here", "there"},
 		CACert:   "trust-me",
-		ModelTag: names.NewModelTag("bad-wrong-no"),
+		ModelTag: names.NewModelTag("mock-model-uuid"),
 		Tag:      names.NewMachineTag("123"),
 		Password: "12345",
 		Nonce:    "11111",

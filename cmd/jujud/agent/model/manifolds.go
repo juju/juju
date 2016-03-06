@@ -6,7 +6,6 @@ package model
 import (
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 
 	coreagent "github.com/juju/juju/agent"
@@ -37,14 +36,12 @@ import (
 // and manipulate a single model.
 type ManifoldsConfig struct {
 
-	// ModelUUID identifies the model these manifolds administer.
-	ModelUUID string
-
 	// Agent identifies, and exposes configuration for, the controller
-	// machine running these manifolds. It really ought to be something
-	// narrower, that doesn't expose config-modification capabilities,
-	// but the Manifolds func will wrap the supplied agent to prevent
-	// misuse so it's not the end of the world.
+	// machine running these manifolds and the model the manifolds
+	// should administer.
+	//
+	// You should almost certainly set this value to one created by
+	// model.WrapAgent.
 	Agent coreagent.Agent
 
 	// Clock supplies timing services to any manifolds that need them.
@@ -70,13 +67,13 @@ type ManifoldsConfig struct {
 // Manifolds returns a set of interdependent dependency manifolds that will
 // run together to administer a model, as configured.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	modelAgent := WrapAgent(config.Agent, config.ModelUUID)
+	modelTag := config.Agent.CurrentConfig().Model()
 	return dependency.Manifolds{
 
 		// The first group are somewhat special; the agent and clock
 		// which wrap those supplied in config, and the api-caller
 		// and run-flag on which pretty much all the others depend.
-		agentName: agent.Manifold(modelAgent),
+		agentName: agent.Manifold(config.Agent),
 		clockName: clockManifold(config.Clock),
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
@@ -98,8 +95,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// NOTE: not perfectly reliable at this stage? i.e. a worker
 		// that ignores its stop signal for "too long" might continue
 		// to take admin actions after the window of responsibility
-		// closes. We should make sure the apiserver also closes any
-		// connections that lose responsibility..?
+		// closes. This *is* a pre-existing proble,, but demands some
+		// thought/care: e.g. should we make sure the apiserver also
+		// closes any connections that lose responsibility..? can we
+		// make sure all possible environ operations are either time-
+		// bounded or interruptible? etc
+		//
+		// On the other hand, all workers *should* be written in the
+		// expectation of dealing with a sucky infrastructure running
+		// things in parallel, just because the universe hates us and
+		// will engineer matters such that it happens sometimes, even
+		// when we try to avoid it.
 
 		// The environ tracker is currently only used by the space
 		// discovery worker, but could/should be used by several
@@ -124,7 +130,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		storageProvisionerName: runFlag(storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
-			Scope:         names.NewModelTag(config.ModelUUID),
+			Scope:         modelTag,
 		})),
 		firewallerName: runFlag(firewaller.Manifold(firewaller.ManifoldConfig{
 			APICallerName: apiCallerName,
