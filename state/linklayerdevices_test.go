@@ -667,7 +667,8 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesRefusesToAddContaine
 	s.addContainerMachine(c)
 
 	// Now try adding an EthernetDevice on the container specifying each of the
-	// hostDevices as parent and expect only last one to succeed.
+	// hostDevices as parent and expect none of them to succeed, as none of the
+	// hostDevices is a BridgeDevice.
 	for _, hostDevice := range hostDevices {
 		parentDeviceGlobalKey := hostMachineParentDeviceGlobalKeyPrefix + hostDevice.Name()
 		containerDeviceArgs := state.LinkLayerDeviceArgs{
