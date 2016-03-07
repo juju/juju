@@ -672,10 +672,31 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 
 var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
 
+func spaceNamesToIds(spaces []string, spaceMap map[string]string) ([]string, error) {
+	spaceIds := []string{}
+	for _, name := range spaces {
+		id, ok := spaceMap[name]
+		if !ok {
+			matches := dashSuffix.FindAllStringSubmatch(name, 1)
+			if matches == nil {
+				return nil, errors.Errorf("unrecognised space in constraint %q", name)
+			}
+			// A -number was added to the space name when we
+			// converted to a juju name, we found
+			id, ok = spaceMap[matches[0][1]]
+			if !ok {
+				return nil, errors.Errorf("unrecognised space in constraint %q", name)
+			}
+		}
+		spaceIds = append(spaceIds, id)
+	}
+	return spaceIds, nil
+}
+
 func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []string) ([]string, []string, error) {
 	spaces, err := environ.Spaces()
 	if err != nil {
-		return []string{}, []string{}, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	spaceMap := make(map[string]string)
 	empty := set.Strings{}
@@ -683,39 +704,13 @@ func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []str
 		jujuName := network.ConvertSpaceName(space.Name, empty)
 		spaceMap[jujuName] = string(space.ProviderId)
 	}
-	positiveSpaceIds := []string{}
-	negativeSpaceIds := []string{}
-	for _, pos := range positiveSpaces {
-		id, ok := spaceMap[pos]
-		if !ok {
-			matches := dashSuffix.FindAllStringSubmatch(pos, 1)
-			if matches == nil {
-				return nil, nil, errors.Errorf("unrecognised space in constraint %q", pos)
-			}
-			// A -number was added to the space name when we
-			// converted to a juju name, we found
-			id, ok = spaceMap[matches[0][1]]
-			if !ok {
-				return nil, nil, errors.Errorf("unrecognised space in constraint %q", pos)
-			}
-		}
-		positiveSpaceIds = append(positiveSpaceIds, id)
+	positiveSpaceIds, err := spaceNamesToIds(positiveSpaces, spaceMap)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	for _, neg := range negativeSpaces {
-		id, ok := spaceMap[neg]
-		if !ok {
-			matches := dashSuffix.FindAllStringSubmatch(neg, 1)
-			if matches == nil {
-				return nil, nil, errors.Errorf("unrecognised space in constraint %q", neg)
-			}
-			// A -number was added to the space name when we
-			// converted to a juju name, we found
-			id, ok = spaceMap[matches[0][1]]
-			if !ok {
-				return nil, nil, errors.Errorf("unrecognised space in constraint %q", neg)
-			}
-		}
-		negativeSpaceIds = append(negativeSpaceIds, id)
+	negativeSpaceIds, err := spaceNamesToIds(negativeSpaces, spaceMap)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 	return positiveSpaceIds, negativeSpaceIds, nil
 }
