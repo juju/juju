@@ -8,13 +8,16 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/state"
+	corestate "github.com/juju/juju/state"
 )
 
 type service struct {
-	*state.Service
+	*corestate.Service
 }
 
+// ID returns the service's tag.
 func (s *service) ID() names.ServiceTag {
 	return names.NewServiceTag(s.Name())
 }
@@ -27,8 +30,8 @@ func (s *service) CharmURL() *charm.URL {
 
 // DataStore implements functionality wrapping state for resources.
 type DataStore struct {
-	state.Resources
-	State *state.State
+	corestate.Resources
+	State *corestate.State
 }
 
 // Units returns the tags for all units in the service.
@@ -45,4 +48,31 @@ func (d DataStore) Units(serviceID string) (tags []names.UnitTag, err error) {
 		tags = append(tags, u.UnitTag())
 	}
 	return tags, nil
+}
+
+// RawState is a wrapper around state.State that supports the needs
+// of resources.
+type RawState struct {
+	// Persist is the persistence layer underlying state.
+	Persist corestate.Persistence
+}
+
+// Persistence implements resource/state.RawState.
+func (st RawState) Persistence() state.Persistence {
+	persist := corestate.NewResourcePersistence(st.Persist)
+	return resourcePersistence{persist}
+}
+
+// Storage implements resource/state.RawState.
+func (st RawState) Storage() state.Storage {
+	return st.Persist.NewStorage()
+}
+
+type resourcePersistence struct {
+	*corestate.ResourcePersistence
+}
+
+// StageResource implements state.resourcePersistence.
+func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
+	return p.ResourcePersistence.StageResource(res, storagePath)
 }

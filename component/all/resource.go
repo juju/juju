@@ -97,37 +97,13 @@ func (resources) registerState() {
 	}
 
 	newResources := func(persist corestate.Persistence) corestate.Resources {
-		st := state.NewState(&resourceState{persist: persist})
+		st := state.NewState(&resourceadapters.RawState{
+			Persist: persist,
+		})
 		return st
 	}
 
 	corestate.SetResourcesComponent(newResources)
-}
-
-// resourceState is a wrapper around state.State that supports the needs
-// of resources.
-type resourceState struct {
-	persist corestate.Persistence
-}
-
-// Persistence implements resource/state.RawState.
-func (st resourceState) Persistence() state.Persistence {
-	persist := corestate.NewResourcePersistence(st.persist)
-	return resourcePersistence{persist}
-}
-
-// Storage implements resource/state.RawState.
-func (st resourceState) Storage() state.Storage {
-	return st.persist.NewStorage()
-}
-
-type resourcePersistence struct {
-	*corestate.ResourcePersistence
-}
-
-// StageResource implements state.resourcePersistence.
-func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
-	return p.ResourcePersistence.StageResource(res, storagePath)
 }
 
 // registerPublicCommands adds the resources-related commands
