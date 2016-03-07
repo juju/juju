@@ -690,13 +690,13 @@ func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []str
 		if !ok {
 			matches := dashSuffix.FindAllStringSubmatch(pos, 1)
 			if matches == nil {
-				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", pos)
+				return nil, nil, errors.Errorf("unrecognised space in constraint %q", pos)
 			}
 			// A -number was added to the space name when we
 			// converted to a juju name, we found
 			id, ok = spaceMap[matches[0][1]]
 			if !ok {
-				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", pos)
+				return nil, nil, errors.Errorf("unrecognised space in constraint %q", pos)
 			}
 		}
 		positiveSpaceIds = append(positiveSpaceIds, id)
@@ -706,13 +706,13 @@ func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []str
 		if !ok {
 			matches := dashSuffix.FindAllStringSubmatch(neg, 1)
 			if matches == nil {
-				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", neg)
+				return nil, nil, errors.Errorf("unrecognised space in constraint %q", neg)
 			}
 			// A -number was added to the space name when we
 			// converted to a juju name, we found
 			id, ok = spaceMap[matches[0][1]]
 			if !ok {
-				return []string{}, []string{}, errors.Errorf("unrecognised space in constraint %q", neg)
+				return nil, nil, errors.Errorf("unrecognised space in constraint %q", neg)
 			}
 		}
 		negativeSpaceIds = append(negativeSpaceIds, id)
