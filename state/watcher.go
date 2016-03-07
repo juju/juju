@@ -191,7 +191,7 @@ func (st *State) WatchModels() StringsWatcher {
 // WatchIPAddresses returns a StringsWatcher that notifies of changes to the
 // lifecycles of IP addresses.
 func (st *State) WatchIPAddresses() StringsWatcher {
-	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
+	return newLifecycleWatcher(st, legacyipaddressesC, nil, nil, nil)
 }
 
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to

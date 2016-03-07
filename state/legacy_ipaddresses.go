@@ -52,7 +52,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 	ops := []txn.Op{
 		assertModelAliveOp(st.ModelUUID()),
 		{
-			C:      ipaddressesC,
+			C:      legacyipaddressesC,
 			Id:     addressID,
 			Assert: txn.DocMissing,
 			Insert: ipDoc,
@@ -77,7 +77,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 // ipAddress implements the State method to return an existing IP
 // address by its value.
 func ipAddress(st *State, value string) (*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
+	addresses, closer := st.getCollection(legacyipaddressesC)
 	defer closer()
 
 	doc := &ipaddressDoc{}
@@ -94,7 +94,7 @@ func ipAddress(st *State, value string) (*IPAddress, error) {
 // ipAddressByTag implements the State method to return an existing IP
 // address by its tag.
 func ipAddressByTag(st *State, tag names.IPAddressTag) (*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
+	addresses, closer := st.getCollection(legacyipaddressesC)
 	defer closer()
 
 	doc := &ipaddressDoc{}
@@ -110,7 +110,7 @@ func ipAddressByTag(st *State, tag names.IPAddressTag) (*IPAddress, error) {
 
 // fetchIPAddresses is a helper function for finding IP addresses
 func fetchIPAddresses(st *State, query bson.D) ([]*IPAddress, error) {
-	addresses, closer := st.getCollection(ipaddressesC)
+	addresses, closer := st.getCollection(legacyipaddressesC)
 	result := []*IPAddress{}
 	defer closer()
 	doc := ipaddressDoc{}
@@ -326,7 +326,7 @@ func (i *IPAddress) Remove() (err error) {
 			}
 		}
 		return []txn.Op{{
-			C:      ipaddressesC,
+			C:      legacyipaddressesC,
 			Id:     i.doc.DocID,
 			Assert: isDeadDoc,
 			Remove: true,
@@ -359,7 +359,7 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 
 		}
 		return []txn.Op{{
-			C:      ipaddressesC,
+			C:      legacyipaddressesC,
 			Id:     i.doc.DocID,
 			Assert: append(isAliveDoc, unknownOrSame),
 			Update: bson.D{{"$set", bson.D{{"state", string(newState)}}}},
@@ -416,7 +416,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 		return []txn.Op{
 			assertModelAliveOp(i.st.ModelUUID()),
 			{
-				C:      ipaddressesC,
+				C:      legacyipaddressesC,
 				Id:     i.doc.DocID,
 				Assert: append(isAliveDoc, bson.DocElem{"state", AddressStateUnknown}),
 				Update: bson.D{{"$set", bson.D{
@@ -445,7 +445,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 // state. It an error that satisfies errors.IsNotFound if the Subnet has
 // been removed.
 func (i *IPAddress) Refresh() error {
-	addresses, closer := i.st.getCollection(ipaddressesC)
+	addresses, closer := i.st.getCollection(legacyipaddressesC)
 	defer closer()
 
 	err := addresses.FindId(i.doc.DocID).One(&i.doc)
@@ -460,7 +460,7 @@ func (i *IPAddress) Refresh() error {
 
 func ensureIPAddressDeadOp(addr *IPAddress) txn.Op {
 	op := txn.Op{
-		C:      ipaddressesC,
+		C:      legacyipaddressesC,
 		Id:     addr.Id(),
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}

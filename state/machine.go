@@ -1389,7 +1389,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
 		// which are not in the IP address collection.
-		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		ipAddresses, closer := m.st.getCollection(legacyipaddressesC)
 		defer closer()
 
 		addressValues := make([]string, len(addresses))
