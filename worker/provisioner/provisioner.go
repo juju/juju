@@ -128,7 +128,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
-		errors.Errorf("expacted names.MachineTag, got %T", tag)
+		errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 
 	envCfg, err := p.st.EnvironConfig()
@@ -190,7 +190,9 @@ func (p *environProvisioner) loop() error {
 	}
 	p.broker = p.environ
 
-	harvestMode := p.environ.Config().ProvisionerHarvestMode()
+	modelConfig := p.environ.Config()
+	p.configObserver.notify(modelConfig)
+	harvestMode := modelConfig.ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
 		return utils.LoggedErrorStack(errors.Trace(err))
@@ -211,11 +213,10 @@ func (p *environProvisioner) loop() error {
 			}
 			environConfig, err := p.st.EnvironConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
-				return err
+				return errors.Annotate(err, "cannot load environment configuration")
 			}
 			if err := p.setConfig(environConfig); err != nil {
-				logger.Errorf("loaded invalid environment configuration: %v", err)
+				return errors.Annotate(err, "loaded invalid environment configuration")
 			}
 			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
 		}
@@ -282,6 +283,7 @@ func (p *containerProvisioner) loop() error {
 	if err != nil {
 		return err
 	}
+	p.configObserver.notify(config)
 	harvestMode := config.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
