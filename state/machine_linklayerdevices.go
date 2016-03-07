@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -122,7 +123,9 @@ type LinkLayerDeviceArgs struct {
 	IsUp bool
 
 	// ParentName is the name of the parent device, which may be empty. If set,
-	// it needs to be an existing device on the same machine. Traffic
+	// it needs to be an existing device on the same machine, unless the current
+	// device is inside a container, in which case ParentName can be a global
+	// key of a BridgeDevice on the host machine of the container. Traffic
 	// originating from a device egresses from its parent device.
 	ParentName string
 }
@@ -140,7 +143,8 @@ type LinkLayerDeviceArgs struct {
 //   machine;
 // - errors.AlreadyExistsError, when Name is set to an existing device.
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique;
-// Adding parent devices must be done in a separate call than adding their children.
+// Adding parent devices must be done in a separate call than adding their children
+// on the same machine.
 func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add link-layer devices to machine %q", m.doc.Id)
 
@@ -176,7 +180,11 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 
 		for _, newDoc := range newDocs {
-			ops = append(ops, m.insertLinkLayerDeviceOps(&newDoc)...)
+			insertOps, err := m.insertLinkLayerDeviceOps(&newDoc)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, insertOps...)
 		}
 		return ops, nil
 	}
@@ -236,7 +244,7 @@ func (m *Machine) prepareToAddLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs
 func (m *Machine) prepareOneAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pendingNames, allProviderIDs set.Strings) (_ *linkLayerDeviceDoc, err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid device %q", args.Name)
 
-	if err := validateAddLinkLayerDeviceArgs(args); err != nil {
+	if err := m.validateAddLinkLayerDeviceArgs(args); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -251,7 +259,7 @@ func (m *Machine) prepareOneAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pe
 	return m.newLinkLayerDeviceDocFromArgs(args), nil
 }
 
-func validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) error {
+func (m *Machine) validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) error {
 	if args.Name == "" {
 		return errors.NotValidf("empty Name")
 	}
@@ -260,11 +268,8 @@ func validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) error {
 	}
 
 	if args.ParentName != "" {
-		if !IsValidLinkLayerDeviceName(args.ParentName) {
-			return errors.NotValidf("ParentName %q", args.ParentName)
-		}
-		if args.Name == args.ParentName {
-			return errors.NewNotValid(nil, "Name and ParentName must be different")
+		if err := m.validateLinkLayerDeviceParent(args); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -276,6 +281,79 @@ func validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) error {
 		if _, err := net.ParseMAC(args.MACAddress); err != nil {
 			return errors.NotValidf("MACAddress %q", args.MACAddress)
 		}
+	}
+	return nil
+}
+
+func (m *Machine) validateLinkLayerDeviceParent(args *LinkLayerDeviceArgs) error {
+	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(args.ParentName)
+	if err != nil {
+		return errors.Trace(err)
+	} else if hostMachineID == "" {
+		// Not a global key, so validate as usual.
+		return m.validateParentDeviceNameWhenNotAGlobalKey(args)
+	}
+	ourParentMachineID, hasParent := m.ParentId()
+	if !hasParent {
+		// Using global key for ParentName not allowed for non-container machine
+		// devices.
+		return errors.NotValidf("ParentName %q for non-container machine %q", args.ParentName, m.Id())
+	}
+	if hostMachineID != ourParentMachineID {
+		// ParentName as global key only allowed when the key's machine ID is
+		// the container's host machine.
+		return errors.NotValidf("ParentName %q on non-host machine %q", args.ParentName, hostMachineID)
+	}
+
+	err = m.verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMachineID, parentDeviceName)
+	return errors.Trace(err)
+}
+
+func parseLinkLayerDeviceParentNameAsGlobalKey(parentName string) (hostMachineID, parentDeviceName string, err error) {
+	if !strings.Contains(parentName, "#") {
+		// Can't be a global key.
+		return "", "", nil
+	}
+	keyParts := strings.Split(parentName, "#")
+	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
+		// Invalid global key format.
+		return "", "", errors.NotValidf("ParentName %q format", parentName)
+	}
+	hostMachineID, parentDeviceName = keyParts[1], keyParts[3]
+	return hostMachineID, parentDeviceName, nil
+}
+
+func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMachineID, parentDeviceName string) error {
+	hostMachine, err := m.st.Machine(hostMachineID)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("host machine %q of parent device %q", hostMachineID, parentDeviceName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	parentDevice, err := hostMachine.LinkLayerDevice(parentDeviceName)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("parent device %q on host machine %q", parentDeviceName, hostMachineID)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	if parentDevice.Type() != BridgeDevice {
+		errorMessage := fmt.Sprintf(
+			"parent device %q on host machine %q must be of type %q, not type %q",
+			parentDeviceName, hostMachineID, BridgeDevice, parentDevice.Type(),
+		)
+		return errors.NewNotValid(nil, errorMessage)
+	}
+	return nil
+}
+
+func (m *Machine) validateParentDeviceNameWhenNotAGlobalKey(args *LinkLayerDeviceArgs) error {
+	if !IsValidLinkLayerDeviceName(args.ParentName) {
+		return errors.NotValidf("ParentName %q", args.ParentName)
+	}
+	if args.Name == args.ParentName {
+		return errors.NewNotValid(nil, "Name and ParentName must be different")
 	}
 	return nil
 }
@@ -354,18 +432,29 @@ func (m *Machine) assertAliveOp() txn.Op {
 	}
 }
 
-func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) []txn.Op {
+func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op, error) {
 	modelUUID, linkLayerDeviceDocID := newDoc.ModelUUID, newDoc.DocID
 
 	var ops []txn.Op
 	if newDoc.ParentName != "" {
-		parentDocID := m.linkLayerDeviceDocIDFromName(newDoc.ParentName)
+		var parentDocID string
+
+		hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(newDoc.ParentName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else if hostMachineID != "" {
+			parentGlobalKey := linkLayerDeviceGlobalKey(hostMachineID, parentDeviceName)
+			parentDocID = m.st.docID(parentGlobalKey)
+		} else {
+			parentDocID = m.linkLayerDeviceDocIDFromName(newDoc.ParentName)
+		}
+
 		ops = append(ops, incrementDeviceNumChildrenOp(parentDocID))
 	}
 	return append(ops,
 		insertLinkLayerDeviceDocOp(newDoc),
 		insertLinkLayerDevicesRefsOp(modelUUID, linkLayerDeviceDocID),
-	)
+	), nil
 }
 
 // rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded prepares a transaction

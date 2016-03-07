@@ -49,7 +49,10 @@ type linkLayerDeviceDoc struct {
 	// IsUp is true when the device is up (enabled).
 	IsUp bool `bson:"is-up"`
 
-	// ParentName is the name of the parent device, which may be empty.
+	// ParentName is the name of the parent device, which may be empty. When set
+	// the parent device must be on the same machine, unless the current device
+	// is inside a container, in which case ParentName can be a global key of a
+	// BridgeDevice on the host machine of the container.
 	ParentName string `bson:"parent-name"`
 }
 
@@ -57,9 +60,6 @@ type linkLayerDeviceDoc struct {
 type LinkLayerDeviceType string
 
 const (
-	// UnknownDevice represents a device of unknown type.
-	UnknownDevice LinkLayerDeviceType = "unknown"
-
 	// LoopbackDevice is used for loopback devices.
 	LoopbackDevice LinkLayerDeviceType = "loopback"
 
@@ -154,9 +154,35 @@ func (dev *LinkLayerDevice) IsUp() bool {
 	return dev.doc.IsUp
 }
 
-// ParentName returns the name of this device's parent device, if set.
+// ParentName returns the name of this device's parent device, if set. The
+// parent device is almost always on the same machine as the child device, but
+// as a special case a child device on a container machine can have a parent
+// BridgeDevice on the container's host machine. In the last case ParentName()
+// returns the global key of the parent device, not just its name.
 func (dev *LinkLayerDevice) ParentName() string {
 	return dev.doc.ParentName
+}
+
+func (dev *LinkLayerDevice) parentDeviceNameAndMachineID() (string, string) {
+	if dev.doc.ParentName == "" {
+		// No parent set, so no ID and name to return.
+		return "", ""
+	}
+	// In case ParentName is a global key, try getting the host machine ID from
+	// there first.
+	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(dev.doc.ParentName)
+	if err != nil {
+		// We validate the ParentName before setting it, so this case cannot
+		// happen and we're only logging the error.
+		logger.Errorf("%s has invalid parent: %v", dev, err)
+		return "", ""
+	}
+	if hostMachineID == "" {
+		// Parent device is on the same machine and ParentName is not a global
+		// key.
+		return dev.doc.ParentName, dev.doc.MachineID
+	}
+	return parentDeviceName, hostMachineID
 }
 
 // ParentDevice returns the LinkLayerDevice corresponding to the parent device
@@ -167,25 +193,23 @@ func (dev *LinkLayerDevice) ParentDevice() (*LinkLayerDevice, error) {
 		return nil, nil
 	}
 
-	return dev.machineProxy().LinkLayerDevice(dev.doc.ParentName)
+	parentDeviceName, parentMachineID := dev.parentDeviceNameAndMachineID()
+	return dev.machineProxy(parentMachineID).LinkLayerDevice(parentDeviceName)
 }
 
 func (dev *LinkLayerDevice) parentDocID() string {
-	parentGlobalKey := dev.parentGlobalKey()
+	parentDeviceName, parentMachineID := dev.parentDeviceNameAndMachineID()
+	parentGlobalKey := linkLayerDeviceGlobalKey(parentMachineID, parentDeviceName)
 	if parentGlobalKey == "" {
 		return ""
 	}
 	return dev.st.docID(parentGlobalKey)
 }
 
-func (dev *LinkLayerDevice) parentGlobalKey() string {
-	return linkLayerDeviceGlobalKey(dev.doc.MachineID, dev.doc.ParentName)
-}
-
 // machineProxy is a convenience wrapper for calling Machine.LinkLayerDevice()
-// or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice.
-func (dev *LinkLayerDevice) machineProxy() *Machine {
-	return &Machine{st: dev.st, doc: machineDoc{Id: dev.doc.MachineID}}
+// or Machine.forEachLinkLayerDeviceDoc() from a *LinkLayerDevice and machineID.
+func (dev *LinkLayerDevice) machineProxy(machineID string) *Machine {
+	return &Machine{st: dev.st, doc: machineDoc{Id: machineID}}
 }
 
 // Remove removes the device, if it exists. No error is returned when the device
@@ -206,7 +230,7 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 }
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
-	_, err := dev.machineProxy().LinkLayerDevice(dev.doc.Name)
+	_, err := dev.machineProxy(dev.doc.MachineID).LinkLayerDevice(dev.doc.Name)
 	if errors.IsNotFound(err) {
 		return jujutxn.ErrNoOperations
 	} else if err != nil {
