@@ -171,8 +171,7 @@ func newAPIFromStore(
 	// Update API addresses if they've changed. Error is non-fatal.
 	hostPorts := st.APIHostPorts()
 	if localerr := updateControllerAddresses(
-		store, legacyStore, controllerName, controllerDetails,
-		hostPorts, addrConnectedTo,
+		store, controllerName, controllerDetails, hostPorts, addrConnectedTo,
 	); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
@@ -288,7 +287,7 @@ func getBootstrapConfig(legacyStore configstore.Storage, controllerName, modelNa
 	// to derive it, in jujuclient.
 	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
 	if err != nil {
-		return nil, errors.Annotate(err, "getting controller info")
+		return nil, errors.Annotate(err, "getting bootstrap controller info")
 	}
 	if len(info.BootstrapConfig()) == 0 {
 		return nil, errors.NotFoundf("bootstrap config")
@@ -300,32 +299,17 @@ func getBootstrapConfig(legacyStore configstore.Storage, controllerName, modelNa
 	return cfg, err
 }
 
-var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {
-	// BootstrapConfig will exist in production environments after
-	// bootstrap, but for testing it's easier to mock this function.
-	cfg := info.BootstrapConfig()
-	result := false
-	if cfg != nil {
-		if val, ok := cfg["prefer-ipv6"]; ok {
-			// It's optional, so if missing assume false.
-			result, _ = val.(bool)
-		}
-	}
-	return result
-}
-
 var resolveOrDropHostnames = network.ResolveOrDropHostnames
 
 // PrepareEndpointsForCaching performs the necessary operations on the
-// given API hostPorts so they are suitable for caching into the
-// environment's .jenv file, taking into account the addrConnectedTo
+// given API hostPorts so they are suitable for saving into the
+// controller.yaml file, taking into account the addrConnectedTo
 // and the existing config store info:
 //
 // 1. Collapses hostPorts into a single slice.
 // 2. Filters out machine-local and link-local addresses.
 // 3. Removes any duplicates
-// 4. Call network.SortHostPorts() on the list, respecing prefer-ipv6
-// flag.
+// 4. Call network.SortHostPorts() on the list.
 // 5. Puts the addrConnectedTo on top.
 // 6. Compares the result against info.APIEndpoint.Hostnames.
 // 7. If the addresses differ, call network.ResolveOrDropHostnames()
@@ -337,19 +321,19 @@ var resolveOrDropHostnames = network.ResolveOrDropHostnames
 // 9. If the hostnames haven't changed, return two empty slices and set
 // haveChanged to false. No DNS resolution is performed to save time.
 //
-// This is used right after bootstrap to cache the initial API
+// This is used right after bootstrap to saved the initial API
 // endpoints, as well as on each CLI connection to verify if the
-// cached endpoints need updating.
-func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort) (addresses, hostnames []string, haveChanged bool) {
+// saved endpoints need updating.
+func PrepareEndpointsForCaching(
+	controllerDetails jujuclient.ControllerDetails,
+	hostPorts [][]network.HostPort,
+	addrConnectedTo ...network.HostPort,
+) (addresses, hostnames []string, haveChanged bool) {
 	processHostPorts := func(allHostPorts [][]network.HostPort) []network.HostPort {
 		collapsedHPs := network.CollapseHostPorts(allHostPorts)
 		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
 		uniqueHPs := network.DropDuplicatedHostPorts(filteredHPs)
-		// Sort the result to prefer public IPs on top (when prefer-ipv6
-		// is true, IPv6 addresses of the same scope will come before IPv4
-		// ones).
-		preferIPv6 := maybePreferIPv6(info)
-		network.SortHostPorts(uniqueHPs, preferIPv6)
+		network.SortHostPorts(uniqueHPs, false)
 
 		for _, addr := range addrConnectedTo {
 			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
@@ -359,15 +343,14 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 
 	apiHosts := processHostPorts(hostPorts)
 	hostsStrings := network.HostPortsToStrings(apiHosts)
-	endpoint := info.APIEndpoint()
 	needResolving := false
 
 	// Verify if the unresolved addresses have changed.
-	if len(apiHosts) > 0 && len(endpoint.Hostnames) > 0 {
-		if addrsChanged(hostsStrings, endpoint.Hostnames) {
+	if len(apiHosts) > 0 && len(controllerDetails.Servers) > 0 {
+		if addrsChanged(hostsStrings, controllerDetails.Servers) {
 			logger.Debugf(
 				"API hostnames changed from %v to %v - resolving hostnames",
-				endpoint.Hostnames, hostsStrings,
+				controllerDetails.Servers, hostsStrings,
 			)
 			needResolving = true
 		}
@@ -385,11 +368,11 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 	resolved := resolveOrDropHostnames(apiHosts)
 	apiAddrs := processHostPorts([][]network.HostPort{resolved})
 	addrsStrings := network.HostPortsToStrings(apiAddrs)
-	if len(apiAddrs) > 0 && len(endpoint.Addresses) > 0 {
-		if addrsChanged(addrsStrings, endpoint.Addresses) {
+	if len(apiAddrs) > 0 && len(controllerDetails.APIEndpoints) > 0 {
+		if addrsChanged(addrsStrings, controllerDetails.APIEndpoints) {
 			logger.Infof(
 				"API addresses changed from %v to %v",
-				endpoint.Addresses, addrsStrings,
+				controllerDetails.APIEndpoints, addrsStrings,
 			)
 			return addrsStrings, hostsStrings, true
 		}
@@ -420,7 +403,7 @@ func addrsChanged(a, b []string) bool {
 // UpdateControllerAddresses writes any new api addresses to the client controller file.
 // Controller may be specified by a UUID or name, and must already exist.
 func UpdateControllerAddresses(
-	store jujuclient.ControllerStore, legacystore configstore.Storage, controllerName string,
+	store jujuclient.ControllerStore, controllerName string,
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
 	controllerDetails, err := store.ControllerByName(controllerName)
@@ -428,71 +411,25 @@ func UpdateControllerAddresses(
 		return errors.Trace(err)
 	}
 	return updateControllerAddresses(
-		store, legacystore, controllerName, controllerDetails,
+		store, controllerName, controllerDetails,
 		currentHostPorts, addrConnectedTo...,
 	)
 }
 
 func updateControllerAddresses(
-	store jujuclient.ControllerStore, legacystore configstore.Storage,
+	store jujuclient.ControllerStore,
 	controllerName string, controllerDetails *jujuclient.ControllerDetails,
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
-	// TODO(wallyworld) - stop storing legacy controller info when all code ported across to use new yaml files.
-	var controllerInfo configstore.EnvironInfo
-	var matchingModelInfos []configstore.EnvironInfo
-	// Get all the controller names.
-	systemNames, err := legacystore.ListSystems()
-	if err != nil {
-		return errors.Annotate(err, "failed to get legacy controller connection names")
-	}
-	// Get all the model names.
-	infoNames, err := legacystore.List()
-	if err != nil {
-		return errors.Annotate(err, "failed to get legacy connection names")
-	}
-	infoNames = append(infoNames, systemNames...)
-
-	// Figure out what we need to update.
-	for _, name := range infoNames {
-		info, err := legacystore.ReadInfo(name)
-		if err != nil {
-			return errors.Annotate(err, "failed to read legacy connection info")
-		}
-		ep := info.APIEndpoint()
-		if ep.ServerUUID == controllerDetails.ControllerUUID {
-			if ep.ServerUUID == ep.ModelUUID || ep.ModelUUID == "" {
-				controllerInfo = info
-			}
-			matchingModelInfos = append(matchingModelInfos, info)
-		}
-	}
-	if controllerInfo == nil {
-		return errors.New("cannot update addresses, no controllers found")
-	}
-
 	// Get the new endpoint addresses.
-	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(controllerInfo, currentHostPorts, addrConnectedTo...)
+	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, currentHostPorts, addrConnectedTo...)
 	if !addrsChanged {
 		return nil
-	}
-
-	// Write the legacy data.
-	for _, info := range matchingModelInfos {
-		endpoint := info.APIEndpoint()
-		endpoint.Addresses = addrs
-		endpoint.Hostnames = hosts
-		endpoint.ServerUUID = controllerDetails.ControllerUUID
-		info.SetAPIEndpoint(endpoint)
-		err = info.Write()
-		if err != nil {
-			return errors.Annotate(err, "failed to write API endpoint to connection info")
-		}
 	}
 
 	// Write the new controller data.
 	controllerDetails.Servers = hosts
 	controllerDetails.APIEndpoints = addrs
-	err = store.UpdateController(controllerName, *controllerDetails)
+	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)
 }

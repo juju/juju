@@ -52,7 +52,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	cache := jujuclienttesting.NewMemStore()
-	env, err := environs.Prepare(ctx, configstore.NewMem(), cache, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, cache, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()
@@ -70,8 +70,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 }
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
-	store := configstore.NewMem()
-	cache := jujuclienttesting.NewMemStore()
+	store := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type":            "dummy",
@@ -80,24 +79,14 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 		"uuid":            utils.MustNewUUID().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(ctx, store, cache, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
+	_, err = environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := store.ReadInfo("controller-name:admin-model")
+	foundController, err := store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.NotNil)
-	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
-	c.Assert(info.APIEndpoint().ModelUUID, gc.Not(gc.Equals), "")
-	c.Assert(info.APICredentials().Password, gc.Not(gc.Equals), "")
-	c.Assert(info.APICredentials().User, gc.Equals, "admin@local")
-
-	foundController, err := cache.ControllerByName("controller-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController, jc.DeepEquals, &jujuclient.ControllerDetails{
-		ControllerUUID: cfg.ControllerUUID(),
-		CACert:         info.APIEndpoint().CACert,
-	})
-	foundModel, err := cache.ModelByName("controller-name", "admin@local", "admin-model")
+	c.Assert(foundController.ControllerUUID, gc.Equals, cfg.ControllerUUID())
+	c.Assert(foundController.CACert, gc.Not(gc.Equals), "")
+	foundModel, err := store.ModelByName("controller-name", "admin@local", "admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: cfg.UUID(),
@@ -140,18 +129,10 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	store := configstore.NewMem()
 	controllerStore := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(ctx, store, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the model info file was correctly created.
-	info, err := store.ReadInfo("erewhemos:erewhemos")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Initialized(), jc.IsTrue)
-	c.Assert(info.BootstrapConfig(), gc.DeepEquals, env.Config().AllAttrs())
-	c.Logf("bootstrap config: %#v", info.BootstrapConfig())
 
 	// Check that an admin-secret was chosen.
 	adminSecret := env.Config().AdminSecret()
@@ -175,7 +156,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
 
 	// Check we cannot call Prepare again.
-	env, err = environs.Prepare(ctx, store, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err = environs.Prepare(ctx, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
 }
@@ -191,13 +172,13 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	env0, err := environs.Prepare(ctx, configstore.NewMem(), jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env0, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret0 := env0.Config().AdminSecret()
 	c.Assert(adminSecret0, gc.HasLen, 32)
 	c.Assert(adminSecret0, gc.Matches, "^[0-9a-f]*$")
 
-	env1, err := environs.Prepare(ctx, configstore.NewMem(), jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env1, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret1 := env1.Config().AdminSecret()
 	c.Assert(adminSecret1, gc.HasLen, 32)
@@ -215,14 +196,10 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	store := configstore.NewMem()
 	controllerStore := jujuclienttesting.NewMemStore()
-	env, err := environs.Prepare(envtesting.BootstrapContext(c), store, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(envtesting.BootstrapContext(c), controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: controller configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
-	// Ensure that the config storage info is cleaned up.
-	_, err = store.ReadInfo(cfg.Name())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
@@ -236,7 +213,7 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(ctx, configstore.NewMem(), jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
@@ -255,18 +232,16 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 
-	configstore := configstore.NewMem()
 	store := jujuclienttesting.NewMemStore()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.Prepare(ctx, configstore, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = configstore.ReadInfo("controller-name:erewhemos")
+	e, err := environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
+	configstore := configstore.NewMem()
 	err = environs.Destroy("controller-name", e, configstore, store)
 	c.Assert(err, jc.ErrorIsNil)
 

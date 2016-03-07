@@ -122,13 +122,13 @@ func cacheTestEnvConfig(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 
-	ec2 := store.CreateInfo("ec2")
+	ec2 := store.CreateInfo(coretesting.ModelTag.Id(), "ec2")
 	c.Assert(err, jc.ErrorIsNil)
 	ec2.SetBootstrapConfig(ec2Config.AllAttrs())
 	err = ec2.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	azure := store.CreateInfo("azure")
+	azure := store.CreateInfo(coretesting.ModelTag.Id(), "azure")
 	c.Assert(err, jc.ErrorIsNil)
 	azure.SetBootstrapConfig(azureConfig.AllAttrs())
 	err = azure.Write()

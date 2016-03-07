@@ -9,7 +9,6 @@ import (
 var (
 	ProviderConnectDelay   = &providerConnectDelay
 	GetBootstrapConfig     = getBootstrapConfig
-	MaybePreferIPv6        = &maybePreferIPv6
 	ResolveOrDropHostnames = &resolveOrDropHostnames
 	ServerAddress          = &serverAddress
 )

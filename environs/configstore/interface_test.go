@@ -23,9 +23,7 @@ type interfaceSuite struct {
 
 func (s *interfaceSuite) TestCreate(c *gc.C) {
 	store := s.NewStore(c)
-	info := store.CreateInfo("somemodel")
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
-	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
+	info := store.CreateInfo("uuid", "somemodel")
 	c.Assert(info.Initialized(), jc.IsFalse)
 
 	// The info isn't written until you call Write
@@ -40,91 +38,22 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now that it exists, we cannot write a newly created info again.
-	info = store.CreateInfo("somemodel")
+	info = store.CreateInfo("uuid", "somemodel")
 	err = info.Write()
 	c.Assert(errors.Cause(err), gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 }
 
 func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName, modelUUID, serverUUID string) {
-	info := store.CreateInfo(envName)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:  []string{"localhost"},
-		CACert:     testing.CACert,
-		ModelUUID:  modelUUID,
-		ServerUUID: serverUUID,
-	})
+	info := store.CreateInfo(serverUUID, envName)
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *interfaceSuite) TestList(c *gc.C) {
-	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
-	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
-	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
-	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
-
-	environs, err := store.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
-}
-
-func (s *interfaceSuite) TestListSystems(c *gc.C) {
-	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
-	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
-	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
-	s.createInitialisedEnvironment(c, store, "envd", "envd-uuid", "envc-uuid")
-	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
-
-	environs, err := store.ListSystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc", "system"})
-}
-
-func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
-	store := s.NewStore(c)
-
-	info := store.CreateInfo("somemodel")
-
-	expectEndpoint := configstore.APIEndpoint{
-		Addresses: []string{"0.1.2.3"},
-		Hostnames: []string{"example.com"},
-		CACert:    "a cert",
-		ModelUUID: "dead-beef",
-	}
-	info.SetAPIEndpoint(expectEndpoint)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
-
-	expectCreds := configstore.APICredentials{
-		User:     "foobie",
-		Password: "bletch",
-	}
-	info.SetAPICredentials(expectCreds)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
 }
 
 func (s *interfaceSuite) TestWrite(c *gc.C) {
 	store := s.NewStore(c)
 
 	// Create the info.
-	info := store.CreateInfo("somemodel")
-
-	// Set it up with some actual data and write it out.
-	expectCreds := configstore.APICredentials{
-		User:     "foobie",
-		Password: "bletch",
-	}
-	info.SetAPICredentials(expectCreds)
-
-	expectEndpoint := configstore.APIEndpoint{
-		Addresses: []string{"0.1.2.3"},
-		Hostnames: []string{"example.invalid"},
-		CACert:    "a cert",
-		ModelUUID: "dead-beef",
-	}
-	info.SetAPIEndpoint(expectEndpoint)
-
+	info := store.CreateInfo("uuid", "somemodel")
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
@@ -132,57 +61,12 @@ func (s *interfaceSuite) TestWrite(c *gc.C) {
 	// Check we can read the information back
 	info, err = store.ReadInfo("somemodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
-
-	// Change the information and write it again.
-	expectCreds.User = "arble"
-	info.SetAPICredentials(expectCreds)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check we can read the information back
-	info, err = store.ReadInfo("somemodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.APICredentials(), gc.DeepEquals, expectCreds)
-}
-
-func (s *interfaceSuite) TestWriteTwice(c *gc.C) {
-	store := s.NewStore(c)
-
-	// Create the info.
-	info := store.CreateInfo("somemodel")
-
-	// Set it up with some actual data and write it out.
-	expectCreds := configstore.APICredentials{
-		User:     "foobie",
-		Password: "bletch",
-	}
-	info.SetAPICredentials(expectCreds)
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectEndpoint := configstore.APIEndpoint{
-		Addresses: []string{"0.1.2.3"},
-		Hostnames: []string{"example.invalid"},
-		CACert:    "a cert",
-		ModelUUID: "dead-beef",
-	}
-	info.SetAPIEndpoint(expectEndpoint)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check we can read the information back
-	again, err := store.ReadInfo("somemodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(again.APICredentials(), gc.DeepEquals, expectCreds)
-	c.Assert(again.APIEndpoint(), gc.DeepEquals, expectEndpoint)
 }
 
 func (s *interfaceSuite) TestDestroy(c *gc.C) {
 	store := s.NewStore(c)
 
-	info := store.CreateInfo("somemodel")
+	info := store.CreateInfo("uuid", "somemodel")
 	// Destroying something that hasn't been written is fine.
 	err := info.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,10 +84,8 @@ func (s *interfaceSuite) TestDestroy(c *gc.C) {
 func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 	store := s.NewStore(c)
 
-	info := store.CreateInfo("somemodel")
+	info := store.CreateInfo("uuid", "somemodel")
 
-	info.SetAPICredentials(configstore.APICredentials{User: "foo"})
-	info.SetAPIEndpoint(configstore.APIEndpoint{CACert: "blah"})
 	attrs := map[string]interface{}{"foo": "bar"}
 	info.SetBootstrapConfig(attrs)
 
@@ -221,7 +103,7 @@ func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 func (s *interfaceSuite) TestSetBootstrapConfigPanicsWhenNotCreated(c *gc.C) {
 	store := s.NewStore(c)
 
-	info := store.CreateInfo("somemodel")
+	info := store.CreateInfo("uuid", "somemodel")
 	info.SetBootstrapConfig(map[string]interface{}{"foo": "bar"})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)

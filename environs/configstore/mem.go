@@ -45,45 +45,16 @@ func NewMem() Storage {
 }
 
 // CreateInfo implements Storage.CreateInfo.
-func (m *memStore) CreateInfo(envName string) EnvironInfo {
+func (m *memStore) CreateInfo(serverUUID, envName string) EnvironInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	info := &memInfo{
 		store: m,
 		name:  envName,
 	}
+	info.serverUUID = serverUUID
 	info.source = sourceCreated
 	return info
-}
-
-// List implements Storage.List
-func (m *memStore) List() ([]string, error) {
-	var envs []string
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for name, env := range m.envs {
-		api := env.APIEndpoint()
-		if api.ServerUUID == "" || api.ModelUUID != "" {
-			envs = append(envs, name)
-		}
-	}
-	return envs, nil
-}
-
-// ListSystems implements Storage.ListSystems
-func (m *memStore) ListSystems() ([]string, error) {
-	var servers []string
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for name, env := range m.envs {
-		api := env.APIEndpoint()
-		if api.ServerUUID == "" ||
-			api.ServerUUID == api.ModelUUID ||
-			api.ModelUUID == "" {
-			servers = append(servers, name)
-		}
-	}
-	return servers, nil
 }
 
 // ReadInfo implements Storage.ReadInfo.

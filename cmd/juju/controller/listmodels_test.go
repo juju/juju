@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -23,7 +22,6 @@ import (
 type ModelsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeModelMgrAPIClient
-	creds *configstore.APICredentials
 	store *jujuclienttesting.MemStore
 }
 

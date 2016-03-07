@@ -5,7 +5,6 @@ package configstore
 
 var (
 	CacheFilename          = cacheFilename
-	JENVFilename           = jenvFilename
 	ReadCacheFile          = readCacheFile
 	AcquireEnvironmentLock = acquireEnvironmentLock
 )

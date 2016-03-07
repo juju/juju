@@ -7,7 +7,6 @@ import "github.com/juju/juju/jujuclient"
 
 var (
 	GetCurrentControllerFilePath = getCurrentControllerFilePath
-	GetConfigStore               = &getConfigStore
 )
 
 // NewModelCommandBase returns a new ModelCommandBase with the given client

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -33,7 +32,6 @@ import (
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	apiConnection         *mockAPIConnection
-	legacystore           configstore.Storage
 	store                 jujuclient.ClientStore
 	apiOpenError          error
 	apiOpenControllerName string
@@ -64,11 +62,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 	s.apiOpenAccountName = ""
 	s.apiOpenModelName = ""
 
-	s.legacystore = configstore.NewMem()
 	s.store = jujuclienttesting.NewMemStore()
-	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
-		return s.legacystore, nil
-	})
 }
 
 func (s *RegisterSuite) TearDownTest(c *gc.C) {
@@ -229,8 +223,10 @@ func (s *RegisterSuite) TestRegisterEmptyControllerName(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegisterControllerNameExists(c *gc.C) {
-	err := s.legacystore.CreateInfo("controller-name").Write()
-	c.Assert(err, jc.ErrorIsNil)
+	err := s.store.UpdateController("controller-name", jujuclient.ControllerDetails{
+		ControllerUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		CACert:         testing.CACert,
+	})
 
 	secretKey := []byte(strings.Repeat("X", 32))
 	registrationData := s.encodeRegistrationData(c, "bob", secretKey)
@@ -281,6 +277,6 @@ func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {
 	_, err = s.run(c, stdin, registrationData)
 	c.Assert(err, gc.ErrorMatches, "xyz")
 
-	_, err = s.legacystore.ReadInfo("controller-name")
+	_, err = s.store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -35,7 +34,7 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, mockConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.env, err = environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(),
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
 	)
