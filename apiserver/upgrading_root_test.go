@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +37,7 @@ func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
 
 	caller, err := root.FindMethod("Client", 1, "ModelSet")
 
-	c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
+	c.Assert(errors.Cause(err), gc.Equals, apiserver.UpgradeInProgressError)
 	c.Assert(caller, gc.IsNil)
 }
 

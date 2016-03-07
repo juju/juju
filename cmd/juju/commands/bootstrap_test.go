@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -142,13 +143,13 @@ type mockBlockClient struct {
 func (c *mockBlockClient) List() ([]params.Block, error) {
 	c.retryCount += 1
 	if c.retryCount == 5 {
-		return nil, fmt.Errorf("upgrade in progress")
+		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress}
 	}
 	if c.numRetries < 0 {
 		return nil, fmt.Errorf("other error")
 	}
 	if c.retryCount < c.numRetries {
-		return nil, fmt.Errorf("upgrade in progress")
+		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress}
 	}
 	return []params.Block{}, nil
 }

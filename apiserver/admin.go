@@ -34,7 +34,7 @@ type admin struct {
 	loggedIn bool
 }
 
-var UpgradeInProgressError = errors.New("upgrade in progress")
+var UpgradeInProgressError = errors.New(params.CodeUpgradeInProgress)
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
