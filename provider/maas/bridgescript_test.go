@@ -6,6 +6,7 @@ package maas
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -23,6 +24,7 @@ type bridgeConfigSuite struct {
 	testConfig       string
 	testConfigPath   string
 	testPythonScript string
+	pythonVersions   []string
 }
 
 var _ = gc.Suite(&bridgeConfigSuite{})
@@ -32,28 +34,44 @@ func (s *bridgeConfigSuite) SetUpSuite(c *gc.C) {
 		c.Skip("Skipping bridge config tests on windows")
 	}
 	s.BaseSuite.SetUpSuite(c)
+
+	for _, version := range []string{
+		"/usr/bin/python2",
+		"/usr/bin/python3",
+		"/usr/bin/python",
+	} {
+		if _, err := os.Stat(version); err == nil {
+			s.pythonVersions = append(s.pythonVersions, version)
+		}
+	}
 }
 
 func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
+	// We need at least one Python package installed.
+	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
+
 	s.testConfigPath = filepath.Join(c.MkDir(), "network-config")
 	s.testPythonScript = filepath.Join(c.MkDir(), bridgeScriptName)
 	s.testConfig = "# test network config\n"
 	err := ioutil.WriteFile(s.testConfigPath, []byte(s.testConfig), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(s.testPythonScript, []byte(bridgeScriptPython), 0755)
+	err = ioutil.WriteFile(s.testPythonScript, []byte(bridgeScriptPython), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string) {
-	// To simplify most cases, trim trailing new lines.
-	initialConfig = strings.TrimSuffix(initialConfig, "\n")
-	expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
-	err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
-	c.Check(err, jc.ErrorIsNil)
-	// Run the script and verify the modified config.
-	output, retcode := s.runScript(c, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
-	c.Check(retcode, gc.Equals, 0)
-	c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		// To simplify most cases, trim trailing new lines.
+		initialConfig = strings.TrimSuffix(initialConfig, "\n")
+		expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
+		err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
+		c.Check(err, jc.ErrorIsNil)
+		// Run the script and verify the modified config.
+		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
+		c.Check(retcode, gc.Equals, 0)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+	}
 }
 
 func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string) {
@@ -69,8 +87,11 @@ func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
-	_, code := s.runScript(c, "", "", "", "")
-	c.Check(code, gc.Equals, 1)
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		_, code := s.runScript(c, python, "", "", "", "")
+		c.Check(code, gc.Equals, 1)
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptDHCP(c *gc.C) {
@@ -146,15 +167,21 @@ func (s *bridgeConfigSuite) TestBridgeScriptMismatchedBridgeNameAndInterfaceArgs
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
-	output, code := s.runScript(c, "# no content", "", "juju-br0", "")
-	c.Check(code, gc.Equals, 1)
-	c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
+		c.Check(code, gc.Equals, 1)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
-	output, code := s.runScript(c, "# no content", "", "", "eth0")
-	c.Check(code, gc.Equals, 1)
-	c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		output, code := s.runScript(c, python, "# no content", "", "", "eth0")
+		c.Check(code, gc.Equals, 1)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
@@ -169,7 +196,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc
 	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0")
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
+func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
 	if bridgePrefix != "" {
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
 	}
@@ -182,7 +209,8 @@ func (s *bridgeConfigSuite) runScript(c *gc.C, configFile, bridgePrefix, bridgeN
 		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
 	}
 
-	script := fmt.Sprintf("%q %s %s %s %q\n", s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	script := fmt.Sprintf("%q %q %s %s %s %q\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
 	stdout := string(result.Stdout)
