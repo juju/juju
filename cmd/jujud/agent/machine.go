@@ -73,7 +73,6 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
-	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -485,6 +484,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
 			Clock:                clock.WallClock,
+			AgentRestart:         a.Restart,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -758,18 +758,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 				return newMetadataUpdater(apiConn.MetadataUpdater()), nil
 			})
 		}
-	} else {
-		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
-			// TODO(fwereade): this worker needs its own facade.
-			handler := conv2state.New(apiConn.Machiner(), a)
-			w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-				Handler: handler,
-			})
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start controller promoter worker")
-			}
-			return w, nil
-		})
 	}
 	return runner, nil
 }

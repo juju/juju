@@ -61,6 +61,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"storage-provisioner-machine",
 		"resumer",
 		"identity-file-writer",
+		"stateconverter",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
