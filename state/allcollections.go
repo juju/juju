@@ -263,7 +263,8 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with networking.
-		ipaddressesC: {
+		// TODO(dimitern): Remove the obsolete collections below once possible.
+		legacyipaddressesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"uuid"},
 			}, {
@@ -293,6 +294,7 @@ func allCollections() collectionSchema {
 		},
 		openedPortsC:       {},
 		requestedNetworksC: {},
+		// TODO(dimitern): End of obsolete networking collections.
 		spacesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
@@ -315,7 +317,14 @@ func allCollections() collectionSchema {
 			}},
 		},
 		linkLayerDevicesRefsC: {},
-		endpointBindingsC:     {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		endpointBindingsC: {},
 
 		// -----
 
@@ -394,7 +403,7 @@ const (
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	instanceDataC            = "instanceData"
-	ipaddressesC             = "ipaddresses"
+	legacyipaddressesC       = "ipaddresses"
 	leaseC                   = "lease"
 	leasesC                  = "leases"
 	machinesC                = "machines"
@@ -430,6 +439,7 @@ const (
 	subnetsC                 = "subnets"
 	linkLayerDevicesC        = "linklayerdevices"
 	linkLayerDevicesRefsC    = "linklayerdevicesrefs"
+	ipAddressesC             = "ip.addresses"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"
