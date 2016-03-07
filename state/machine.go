@@ -896,6 +896,10 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
+	if err != nil {
+		return err
+	}
 	portsOps, err := m.removePortsOps()
 	if err != nil {
 		return err
@@ -909,6 +913,7 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	ops = append(ops, ifacesOps...)
+	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
