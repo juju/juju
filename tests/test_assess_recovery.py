@@ -100,7 +100,8 @@ def make_mocked_client(name, status_error=None):
 @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
 @patch('assess_recovery.parse_new_state_server_from_error', autospec=True,
        return_value='new_host')
-@patch('assess_recovery.delete_controller_members', autospec=True)
+@patch('assess_recovery.delete_controller_members', autospec=True,
+       return_value=['0'])
 @patch('assess_recovery.deploy_stack', autospec=True)
 @patch('deploy_stack.get_machine_dns_name', autospec=True,
        return_value='host')
@@ -190,7 +191,8 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         ]
         with patch.object(client, 'get_controller_members',
                           autospec=True, return_value=members) as gcm_mock:
-            delete_controller_members(client)
+            deleted = delete_controller_members(client)
+        self.assertEqual(['2', '0', '3'], deleted)
         gcm_mock.assert_called_once_with()
         # terminate_instance was call in the reverse order of members.
         self.assertEqual(
@@ -213,7 +215,8 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'controller-member-status': 'has-vote'})
         with patch.object(client, 'get_controller_leader',
                           autospec=True, return_value=leader) as gcl_mock:
-            delete_controller_members(client, leader_only=True)
+            deleted = delete_controller_members(client, leader_only=True)
+        self.assertEqual(['3'], deleted)
         gcl_mock.assert_called_once_with()
         ti_mock.assert_called_once_with(client.env, ['juju-dddd-machine-3'])
         wsss_mock.assert_called_once_with(

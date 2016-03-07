@@ -75,6 +75,7 @@ def delete_controller_members(client, leader_only=False):
     else:
         members = client.get_controller_members()
         members.reverse()
+    deleted_machines = []
     for machine in members:
         instance_id = machine.info.get('instance-id')
         host = machine.info.get('dns-name')
@@ -82,6 +83,8 @@ def delete_controller_members(client, leader_only=False):
                   machine.number, instance_id, host))
         terminate_instances(client.env, [instance_id])
         wait_for_state_server_to_shutdown(host, client, instance_id)
+        deleted_machines.append(machine.number)
+    return deleted_machines
 
 
 def restore_missing_state_server(client, backup_file):
@@ -159,9 +162,11 @@ def main(argv):
                 leader_only = True
             else:
                 leader_only = False
-            delete_controller_members(client, leader_only=leader_only)
-            # This command is bogus.
-            del bs_manager.known_hosts['0']
+            deleted_numbers = delete_controller_members(
+                client, leader_only=leader_only)
+            for num in deleted_numbers:
+                if bs_manager.known_hosts.get(num):
+                    del bs_manager.known_hosts[num]
             if args.strategy == 'ha':
                 client.get_status(600)
             else:
