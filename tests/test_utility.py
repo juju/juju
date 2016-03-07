@@ -34,6 +34,7 @@ from utility import (
     quote,
     run_command,
     scoped_environ,
+    split_address_port,
     temp_dir,
     until_timeout,
     wait_for_port,
@@ -213,6 +214,21 @@ class TestIsIPv6Address(TestCase):
             result = is_ipv6_address("2001:db8::4")
         # Would use expectedFailure here, but instead just assert wrong result.
         self.assertIs(False, result)
+
+
+class TestSplitAddressPort(TestCase):
+
+    def test_hostname(self):
+        self.assertEqual(
+            ("name.testing", None), split_address_port("name.testing"))
+
+    def test_ipv4(self):
+        self.assertEqual(
+            ("127.0.0.2", "17017"), split_address_port("127.0.0.2:17017"))
+
+    def test_ipv6(self):
+        self.assertEqual(
+            ("2001:db8::7", "17017"), split_address_port("2001:db8::7:17017"))
 
 
 class TestWaitForPort(TestCase):

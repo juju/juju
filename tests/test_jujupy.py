@@ -54,6 +54,7 @@ from jujupy import (
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
+    Machine,
     make_client,
     make_safe_config,
     parse_new_state_server_from_error,
@@ -1305,7 +1306,7 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
-    def test_deploy_bundle_2X(self):
+    def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)
         with patch.object(client, 'juju') as mock_juju:
@@ -1657,6 +1658,118 @@ class TestEnvJujuClient(ClientTest):
                                   side_effect=lambda _, s: writes.append(s)):
                     client.wait_for_workloads(timeout=1)
         self.assertEqual(writes, [])
+
+    def test_get_controller_endpoint_ipv4(self):
+        data = """\
+          foo:
+            details:
+              api-endpoints: ['10.0.0.1:17070', '10.0.0.2:17070']
+        """
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=data) as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('10.0.0.1', endpoint)
+        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+
+    def test_get_controller_endpoint_ipv6(self):
+        data = """\
+          foo:
+            details:
+              api-endpoints: ['[::1]:17070', '[fe80::216:3eff:0:9dc7]:17070']
+        """
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=data) as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('::1', endpoint)
+        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+
+    def test_get_controller_members(self):
+        status = Status.from_text("""\
+            model: admin
+            machines:
+              "0":
+                dns-name: 10.0.0.0
+                instance-id: juju-aaaa-machine-0
+                controller-member-status: has-vote
+              "1":
+                dns-name: 10.0.0.1
+                instance-id: juju-bbbb-machine-1
+              "2":
+                dns-name: 10.0.0.2
+                instance-id: juju-cccc-machine-2
+                controller-member-status: has-vote
+              "3":
+                dns-name: 10.0.0.3
+                instance-id: juju-dddd-machine-3
+                controller-member-status: has-vote
+        """)
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            with patch.object(client, 'get_controller_endpoint', autospec=True,
+                              return_value='10.0.0.3') as gce_mock:
+                with patch.object(client, 'get_controller_member_status',
+                                  wraps=client.get_controller_member_status,
+                                  ) as gcms_mock:
+                    members = client.get_controller_members()
+        # Machine 1 was ignored. Machine 3 is the leader, thus first.
+        expected = [
+            Machine('3', {
+                'dns-name': '10.0.0.3',
+                'instance-id': 'juju-dddd-machine-3',
+                'controller-member-status': 'has-vote'}),
+            Machine('0', {
+                'dns-name': '10.0.0.0',
+                'instance-id': 'juju-aaaa-machine-0',
+                'controller-member-status': 'has-vote'}),
+            Machine('2', {
+                'dns-name': '10.0.0.2',
+                'instance-id': 'juju-cccc-machine-2',
+                'controller-member-status': 'has-vote'}),
+        ]
+        self.assertEqual(expected, members)
+        gce_mock.assert_called_once_with()
+        # get_controller_member_status must be called to ensure compatibility
+        # with all version of Juju.
+        self.assertEqual(4, gcms_mock.call_count)
+
+    def test_get_controller_members_one(self):
+        status = Status.from_text("""\
+            model: admin
+            machines:
+              "0":
+                dns-name: 10.0.0.0
+                instance-id: juju-aaaa-machine-0
+                controller-member-status: has-vote
+        """)
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_status', autospec=True,
+                          return_value=status):
+            with patch.object(client, 'get_controller_endpoint') as gce_mock:
+                members = client.get_controller_members()
+        # Machine 0 was the only choice, no need to find the leader.
+        expected = [
+            Machine('0', {
+                'dns-name': '10.0.0.0',
+                'instance-id': 'juju-aaaa-machine-0',
+                'controller-member-status': 'has-vote'}),
+        ]
+        self.assertEqual(expected, members)
+        self.assertEqual(0, gce_mock.call_count)
+
+    def test_get_controller_leader(self):
+        members = [
+            Machine('3', {}),
+            Machine('0', {}),
+            Machine('2', {}),
+        ]
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_controller_members', autospec=True,
+                          return_value=members):
+            leader = client.get_controller_leader()
+        self.assertEqual(Machine('3', {}), leader)
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
@@ -3689,7 +3802,7 @@ class TestEnvJujuClient1X(ClientTest):
         expected = {"juju op1": [1], "juju op2": [2]}
         self.assertEqual(flattened_timings, expected)
 
-    def test_deploy_bundle_1X(self):
+    def test_deploy_bundle_1x(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
                                  '1.23-series-arch', None)
         with patch.object(client, 'juju') as mock_juju:
@@ -3755,6 +3868,24 @@ class TestEnvJujuClient1X(ClientTest):
             ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
+
+    def test_get_controller_endpoint_ipv4(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_juju_output',
+                          return_value='10.0.0.1:17070') as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('10.0.0.1', endpoint)
+        gjo_mock.assert_called_once_with('api-endpoints', ())
+
+    def test_get_controller_endpoint_ipv6(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_juju_output',
+                          return_value='[::1]:17070') as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('::1', endpoint)
+        gjo_mock.assert_called_once_with('api-endpoints', ())
 
     def test_action_do(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -5097,7 +5228,7 @@ class AssessParseStateServerFromErrorTestCase(TestCase):
         address = parse_new_state_server_from_error(error)
         self.assertEqual('1.2.3.4', address)
 
-    def test_parse_new_state_server_from_error_output_None(self):
+    def test_parse_new_state_server_from_error_output_none(self):
         error = subprocess.CalledProcessError(1, ['foo'], None)
         address = parse_new_state_server_from_error(error)
         self.assertIs(None, address)

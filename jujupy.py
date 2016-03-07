@@ -1,6 +1,9 @@
 from __future__ import print_function
 
-from collections import defaultdict
+from collections import (
+    defaultdict,
+    namedtuple,
+)
 from contextlib import (
     contextmanager,
     nested,
@@ -33,6 +36,7 @@ from utility import (
     is_ipv6_address,
     pause,
     scoped_environ,
+    split_address_port,
     temp_dir,
     until_timeout,
 )
@@ -53,12 +57,12 @@ _DEFAULT_BUNDLE_TIMEOUT = 3600
 _jes_cmds = {KILL_CONTROLLER: {
     'create': 'create-environment',
     'kill': KILL_CONTROLLER,
-    }}
+}}
 for super_cmd in [SYSTEM, CONTROLLER]:
     _jes_cmds[super_cmd] = {
         'create': '{} create-environment'.format(super_cmd),
         'kill': '{} kill'.format(super_cmd),
-        }
+    }
 
 log = logging.getLogger("jujupy")
 
@@ -122,6 +126,9 @@ class JESByDefault(Exception):
     def __init__(self):
         super(JESByDefault, self).__init__(
             'This client does not need to enable JES')
+
+
+Machine = namedtuple('Machine', ['number', 'info'])
 
 
 def yaml_loads(yaml_str):
@@ -448,7 +455,7 @@ class EnvJujuClient:
             'tenant-name',
             'type',
             'username',
-            })
+        })
         with temp_yaml_file(config_dict) as config_filename:
             yield config_filename
 
@@ -763,8 +770,43 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
                               timeout=timeout, start=start)
 
+    def get_controller_endpoint(self):
+        """Return the address of the controller leader."""
+        info = yaml_loads(self.get_juju_output(
+            'show-controller', (self.env.environment, )))
+        endpoint = info[self.env.environment]['details']['api-endpoints'][0]
+        address, port = split_address_port(endpoint)
+        return address
+
+    def get_controller_members(self):
+        """Return a list of Machines that are members of the controller.
+
+        The first machine in the list is the leader. the remaining machines
+        are followers in a HA relationship.
+        """
+        members = []
+        status = self.get_status()
+        for number, machine in status.iter_machines():
+            if self.get_controller_member_status(machine):
+                members.append(Machine(number, machine))
+        if len(members) <= 1:
+            return members
+        # Search for the leader and make it the first in the list.
+        # If the endpoint address is not the same as the leader's dns_name,
+        # the members are return in the order they were discovered.
+        endpoint = self.get_controller_endpoint()
+        log.debug('Controller endpoint is at {}'.format(endpoint))
+        members.sort(key=lambda m: m.info.get('dns-name') != endpoint)
+        return members
+
+    def get_controller_leader(self):
+        """Return the controller leader Machine."""
+        controller_members = self.get_controller_members()
+        return controller_members[0]
+
     @staticmethod
     def get_controller_member_status(info_dict):
+        """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
     def wait_for_ha(self, timeout=1200):
@@ -1255,6 +1297,12 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
         self.deployer(bundle, timeout=timeout)
+
+    def get_controller_endpoint(self):
+        """Return the address of the state-server leader."""
+        endpoint = self.get_juju_output('api-endpoints', ())
+        address, port = split_address_port(endpoint)
+        return address
 
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
