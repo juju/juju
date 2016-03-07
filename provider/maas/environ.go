@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -669,6 +670,51 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 	return env.maasClientUnlocked
 }
 
+var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
+
+func spaceNamesToIds(spaces []string, spaceMap map[string]string) ([]string, error) {
+	spaceIds := []string{}
+	for _, name := range spaces {
+		id, ok := spaceMap[name]
+		if !ok {
+			matches := dashSuffix.FindAllStringSubmatch(name, 1)
+			if matches == nil {
+				return nil, errors.Errorf("unrecognised space in constraint %q", name)
+			}
+			// A -number was added to the space name when we
+			// converted to a juju name, we found
+			id, ok = spaceMap[matches[0][1]]
+			if !ok {
+				return nil, errors.Errorf("unrecognised space in constraint %q", name)
+			}
+		}
+		spaceIds = append(spaceIds, id)
+	}
+	return spaceIds, nil
+}
+
+func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []string) ([]string, []string, error) {
+	spaces, err := environ.Spaces()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	spaceMap := make(map[string]string)
+	empty := set.Strings{}
+	for _, space := range spaces {
+		jujuName := network.ConvertSpaceName(space.Name, empty)
+		spaceMap[jujuName] = string(space.ProviderId)
+	}
+	positiveSpaceIds, err := spaceNamesToIds(positiveSpaces, spaceMap)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	negativeSpaceIds, err := spaceNamesToIds(negativeSpaces, spaceMap)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return positiveSpaceIds, negativeSpaceIds, nil
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
 	nodeName, zoneName string,
@@ -679,9 +725,17 @@ func (environ *maasEnviron) acquireNode(
 
 	acquireParams := convertConstraints(cons)
 	positiveSpaces, negativeSpaces := convertSpacesFromConstraints(cons.Spaces)
-	err := addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	positiveSpaceIds, negativeSpaceIds, err := environ.spaceNamesToIds(positiveSpaces, negativeSpaces)
+	// If spaces aren't supported the constraints should be empty anyway.
+	if err != nil && !errors.IsNotSupported(err) {
+		return gomaasapi.MAASObject{}, errors.Trace(err)
+	}
+	// TODO: (mfoord) for better error reporting (names rather than ids) it
+	// would be better to pass network.SpaceInfo rather than just space ids.
+	// The same is true of interfaceBinding.
+	err = addInterfaces(acquireParams, interfaces, positiveSpaceIds, negativeSpaceIds)
 	if err != nil {
-		return gomaasapi.MAASObject{}, err
+		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
 	addStorage(acquireParams, volumes)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
