@@ -23,7 +23,7 @@ type addCredentialCommand struct {
 	// Replace, if true, existing credential information is overwritten.
 	Replace bool
 
-	// Cloud is the name fo the cloud for which we add credentials.
+	// Cloud is the name of the cloud for which we add credentials.
 	Cloud string
 
 	// CredentialsFile is the name of the credentials YAML file.
@@ -52,7 +52,7 @@ been defined is never overwritten.
 Example:
    juju add-credential aws -f my-credentials.yaml
    juju add-credential aws -f my-credentials.yaml --replace
-   
+
 See Also:
    juju list-credentials
 `
@@ -106,7 +106,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 	credentials, ok := specifiedCredentials[c.Cloud]
 	if !ok {
-		return errors.Errorf("no credentiala for cloud %s exist in file %s", c.Cloud, c.CredentialsFile)
+		return errors.Errorf("no credentials for cloud %s exist in file %s", c.Cloud, c.CredentialsFile)
 	}
 	existingCredentials, err := c.store.CredentialForCloud(c.Cloud)
 	if err != nil && !errors.IsNotFound(err) {
