@@ -35,7 +35,7 @@ type Tests struct {
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
 	// ConfigStore holds the configuration storage
-	// used when preparing the environment.
+	// used after preparing the environment.
 	// This is initialized by SetUpTest.
 	ConfigStore configstore.Storage
 
@@ -46,12 +46,7 @@ type Tests struct {
 }
 
 // Open opens an instance of the testing environment.
-func (t *Tests) Open(c *gc.C) environs.Environ {
-	modelName := t.TestConfig["name"].(string)
-	info, err := t.ConfigStore.ReadInfo(configstore.EnvironInfoName(modelName, modelName))
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-	c.Assert(err, jc.ErrorIsNil)
+func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
 	e, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
@@ -72,7 +67,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 		CloudEndpoint: t.CloudEndpoint,
 		CloudRegion:   t.CloudRegion,
 	}
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, t.ControllerStore, args.Config.Name(), args)
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args.Config.Name(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -150,7 +145,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
-	e2 := t.Open(c)
+	e2 := t.Open(c, e.Config())
 	controllerInstances2, err := e2.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)

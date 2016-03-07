@@ -40,7 +40,6 @@ func New(config *config.Config) (Environ, error) {
 // the controller, admin account, and admin model.
 func Prepare(
 	ctx BootstrapContext,
-	legacyStore configstore.Storage,
 	store jujuclient.ClientStore,
 	controllerName string,
 	args PrepareForBootstrapParams,
@@ -58,26 +57,11 @@ func Prepare(
 		return nil, errors.Trace(err)
 	}
 
-	info := legacyStore.CreateInfo(
-		configstore.EnvironInfoName(controllerName, args.Config.Name()),
-	)
-	defer func() {
-		if resultErr == nil {
-			return
-		}
-		if err := info.Destroy(); err != nil {
-			logger.Warningf(
-				"cannot destroy newly created controller %q info: %v",
-				controllerName, err,
-			)
-		}
-	}()
-
-	env, details, err := prepare(ctx, info, p, args)
+	env, details, err := prepare(ctx, p, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := decorateAndWriteInfo(info, store, details, controllerName, env.Config()); err != nil {
+	if err := decorateAndWriteInfo(store, details, controllerName, env.Config()); err != nil {
 		return nil, errors.Annotatef(err, "cannot create controller %q info", controllerName)
 	}
 	return env, nil
@@ -86,31 +70,11 @@ func Prepare(
 // decorateAndWriteInfo decorates the info struct with information
 // from the given cfg, and the writes that out to the filesystem.
 func decorateAndWriteInfo(
-	info configstore.EnvironInfo,
 	store jujuclient.ClientStore,
 	details prepareDetails,
 	controllerName string,
 	cfg *config.Config,
 ) error {
-
-	// TODO(axw) drop this when the tests are all updated to rely only on
-	// the jujuclient store.
-	endpoint := configstore.APIEndpoint{
-		CACert:     details.CACert,
-		ModelUUID:  details.ControllerUUID,
-		ServerUUID: details.ControllerUUID,
-	}
-	creds := configstore.APICredentials{
-		User:     details.User,
-		Password: details.Password,
-	}
-	info.SetAPICredentials(creds)
-	info.SetAPIEndpoint(endpoint)
-	info.SetBootstrapConfig(cfg.AllAttrs())
-	if err := info.Write(); err != nil {
-		return errors.Trace(err)
-	}
-
 	accountName := details.User
 	modelName := cfg.Name()
 	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
@@ -133,7 +97,6 @@ func decorateAndWriteInfo(
 
 func prepare(
 	ctx BootstrapContext,
-	info configstore.EnvironInfo,
 	p EnvironProvider,
 	args PrepareForBootstrapParams,
 ) (Environ, prepareDetails, error) {

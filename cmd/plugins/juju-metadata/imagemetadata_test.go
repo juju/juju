@@ -165,7 +165,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := store.CreateInfo("ec2-latest-lts")
+	info := store.CreateInfo(testing.ModelTag.Id(), "ec2-latest-lts")
 	c.Assert(err, jc.ErrorIsNil)
 	info.SetBootstrapConfig(ec2Config.AllAttrs())
 	err = info.Write()

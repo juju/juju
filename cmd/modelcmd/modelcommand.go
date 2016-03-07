@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
@@ -214,14 +213,6 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 		}
 	}
 	return opener.Open(c.store, c.controllerName, c.accountName, c.modelName)
-}
-
-var getConfigStore = func() (configstore.Storage, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return store, nil
 }
 
 // ConnectionName returns the name of the connection if there is one.

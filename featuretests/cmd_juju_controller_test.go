@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -30,6 +30,16 @@ import (
 
 type cmdControllerSuite struct {
 	jujutesting.JujuConnSuite
+}
+
+func (s *cmdControllerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	// Write the legacy cache info to simulate a bootstrap occurring.
+	cfg := s.Environ.Config()
+	info := s.ConfigStore.CreateInfo(cfg.ControllerUUID(), "kontroll:admin")
+	info.SetBootstrapConfig(cfg.AllAttrs())
+	err := info.Write()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
@@ -145,8 +155,8 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	close(stop)
 	<-done
 
-	store, err := configstore.Default()
-	_, err = store.ReadInfo("kontroll:admin")
+	store := jujuclient.NewFileClientStore()
+	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -171,8 +181,8 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 
 	s.run(c, "kill-controller", "kontroll", "-y")
 
-	store, err := configstore.Default()
-	_, err = store.ReadInfo("kontroll:admin")
+	store := jujuclient.NewFileClientStore()
+	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -206,8 +216,8 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	mClock := testing.NewClock(startTime)
 	undertaker.NewUndertaker(client, mClock)
 
-	store, err := configstore.Default()
-	_, err = store.ReadInfo("kontroll:admin")
+	store := jujuclient.NewFileClientStore()
+	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "kill-controller", "kontroll", "-y")
@@ -216,7 +226,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
 
 	// ... and that the configstore was removed.
-	_, err = store.ReadInfo("kontroll:admin")
+	_, err = store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

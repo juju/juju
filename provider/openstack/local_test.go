@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -411,7 +410,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), s.ConfigStore,
+		envtesting.BootstrapContext(c),
 		s.ControllerStore,
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
@@ -894,7 +893,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
 		return "", errors.New("cannae do it captain")
 	})
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 3)
@@ -908,7 +907,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, "")
 
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 2)
@@ -926,21 +925,21 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
@@ -948,7 +947,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10")
@@ -958,7 +957,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=arm64")
@@ -970,7 +969,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
@@ -981,7 +980,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -996,7 +995,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -1009,7 +1008,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
@@ -1017,7 +1016,7 @@ func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
@@ -1050,7 +1049,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
@@ -1066,7 +1065,7 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		return simplestreams.NewURLDataSource("my datasource", "bar", false, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	var sourceIds []string
@@ -1173,7 +1172,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env, err = environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(),
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)
@@ -1787,9 +1786,8 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	configStore := configstore.NewMem()
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configStore,
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
 	)

@@ -180,15 +180,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		})
 
 		// TODO(wallyworld) - remove legacy store
-		info := s.legacyStore.CreateInfo(model.name)
+		info := s.legacyStore.CreateInfo(model.serverUUID, model.name)
 		uuid := model.modelUUID
-		info.SetAPIEndpoint(configstore.APIEndpoint{
-			Addresses:  []string{"localhost"},
-			CACert:     testing.CACert,
-			ModelUUID:  uuid,
-			ServerUUID: model.serverUUID,
-		})
-
 		if model.bootstrapCfg != nil {
 			info.SetBootstrapConfig(model.bootstrapCfg)
 		}
@@ -313,13 +306,7 @@ func (s *DestroySuite) resetController(c *gc.C) {
 		CurrentAccount: "admin@local",
 	}
 
-	info := s.legacyStore.CreateInfo("local.test1:admin")
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:  []string{"localhost"},
-		CACert:     testing.CACert,
-		ModelUUID:  "test1-uuid",
-		ServerUUID: "test1-uuid",
-	})
+	info := s.legacyStore.CreateInfo("test1-uuid", "local.test1:admin")
 	info.SetBootstrapConfig(createBootstrapInfo(c, "admin"))
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)

@@ -57,10 +57,6 @@ const ControllerName = "kontroll"
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including
 // the following:
-//     RootDir/home/ubuntu/.local/share/juju/models/cache.yaml
-//         The dummy cache.yaml file, holding a default
-//         controller called "kontroll" and model named "admin"
-//         which uses the "dummy" provider.
 //     RootDir/var/lib/juju
 //         An empty directory returned as DataDir - the
 //         root of the juju data storage space.
@@ -243,7 +239,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	ctx := testing.Context(c)
 	environ, err := environs.Prepare(
 		modelcmd.BootstrapContext(ctx),
-		s.ConfigStore,
 		s.ControllerStore,
 		ControllerName,
 		environs.PrepareForBootstrapParams{
@@ -300,7 +295,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Make sure the config store has the api endpoint address set
+	// Make sure the controller store has the controller api endpoint address set
 	controller, err := s.ControllerStore.ControllerByName(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
@@ -308,19 +303,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = modelcmd.WriteCurrentController(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO (anastasiamac 2016-02-08) START REMOVE with cache.yaml
-	info, err := s.ConfigStore.ReadInfo(ControllerName + ":admin")
-	c.Assert(err, jc.ErrorIsNil)
-	endpoint := info.APIEndpoint()
-	endpoint.Addresses = []string{s.APIState.APIHostPorts()[0][0].String()}
-	info.SetAPIEndpoint(endpoint)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	// END REMOVE with cache.yaml
-
-	// Make sure the jenv file has the local host ports.
-	c.Logf("jenv host ports: %#v", s.APIState.APIHostPorts())
 
 	s.Environ = environ
 

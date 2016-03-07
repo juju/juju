@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -96,21 +95,12 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerInfo, err := legacyStore.ReadInfo(registrationParams.controllerName)
+	_, err = c.store.ControllerByName(registrationParams.controllerName)
 	if err == nil {
 		return errors.AlreadyExistsf("controller %q", registrationParams.controllerName)
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	fullModelName := configstore.EnvironInfoName(
-		registrationParams.controllerName,
-		configstore.AdminModelName,
-	)
-	controllerInfo = legacyStore.CreateInfo(fullModelName)
 
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.
@@ -150,19 +140,6 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	var responsePayload params.SecretKeyLoginResponsePayload
 	if err := json.Unmarshal(payloadBytes, &responsePayload); err != nil {
 		return errors.Annotate(err, "unmarshalling response payload")
-	}
-
-	// Ensure there's a skeleton legacy record written with basic minimum information.
-	endpoint := controllerInfo.APIEndpoint()
-	endpoint.ServerUUID = responsePayload.ControllerUUID
-	endpoint.CACert = responsePayload.CACert
-	controllerInfo.SetAPIEndpoint(endpoint)
-	controllerInfo.SetAPICredentials(configstore.APICredentials{
-		User:     registrationParams.userTag.Id(),
-		Password: registrationParams.newPassword,
-	})
-	if err := controllerInfo.Write(); err != nil {
-		return errors.Trace(err)
 	}
 
 	// Store the controller and account details.

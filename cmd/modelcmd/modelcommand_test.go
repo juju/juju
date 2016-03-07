@@ -251,7 +251,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 
 	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
+	c.Assert(err, gc.ErrorMatches, `getting bootstrap controller info: model "my-controller:my-model" not found`)
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -261,5 +261,5 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 
 	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, `getting controller info: model "my-controller:my-model" not found`)
+	c.Assert(err, gc.ErrorMatches, `getting bootstrap controller info: model "my-controller:my-model" not found`)
 }

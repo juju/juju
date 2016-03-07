@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
@@ -92,21 +93,23 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 }
 
 func cacheTestEnvConfig(c *gc.C) {
+	ec2UUID := utils.MustNewUUID().String()
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2",
 		"type":            "ec2",
-		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ModelTag.Id(),
 		"default-series":  "precise",
 		"region":          "us-east-1",
+		"controller-uuid": ec2UUID,
+		"uuid":            ec2UUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	azureUUID := utils.MustNewUUID().String()
 	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":                      "azure",
 		"type":                      "azure",
-		"uuid":                      coretesting.ModelTag.Id(),
-		"controller-uuid":           coretesting.ModelTag.Id(),
+		"controller-uuid":           azureUUID,
+		"uuid":                      azureUUID,
 		"default-series":            "raring",
 		"location":                  "West US",
 		"endpoint":                  "https://management.azure.com",
@@ -122,13 +125,13 @@ func cacheTestEnvConfig(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 
-	ec2 := store.CreateInfo("ec2")
+	ec2 := store.CreateInfo(ec2Config.ControllerUUID(), "ec2")
 	c.Assert(err, jc.ErrorIsNil)
 	ec2.SetBootstrapConfig(ec2Config.AllAttrs())
 	err = ec2.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	azure := store.CreateInfo("azure")
+	azure := store.CreateInfo(azureConfig.ControllerUUID(), "azure")
 	c.Assert(err, jc.ErrorIsNil)
 	azure.SetBootstrapConfig(azureConfig.AllAttrs())
 	err = azure.Write()

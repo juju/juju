@@ -4,12 +4,9 @@
 package configstore_test
 
 import (
-	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -37,28 +34,8 @@ func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-// storePath returns the path to the environment info
-// for the named environment in the given directory.
-// If envName is empty, it returns the path
-// to the info files' containing directory.
-func storePath(dir string, envName string) string {
-	path := filepath.Join(dir, "models")
-	if envName != "" {
-		path = filepath.Join(path, envName+".jenv")
-	}
-	return path
-}
-
 func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 	s.NewStore = nil
-	// Check that no stray temp files have been left behind
-	entries, err := ioutil.ReadDir(storePath(s.dir, ""))
-	c.Assert(err, jc.ErrorIsNil)
-	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".jenv") && entry.Name() != "cache.yaml" {
-			c.Errorf("found possible stray temp file %s, %q", s.dir, entry.Name())
-		}
-	}
 	s.interfaceSuite.TearDownTest(c)
 }
 
@@ -79,50 +56,6 @@ func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 	c.Assert(store, gc.NotNil)
 }
 
-var sampleInfo = `
-  user: rog
-  password: guessit
-  controllers:
-  - 10.0.0.1
-  - 127.0.0.1
-  server-hostnames:
-  - example.com
-  - kremvax.ru
-  ca-cert: 'first line
-
-    second line'
-  bootstrap-config:
-    secret: blah
-    arble: bletch
-`[1:]
-
-func (*diskStoreSuite) TestRead(c *gc.C) {
-	dir := c.MkDir()
-	err := os.Mkdir(storePath(dir, ""), 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(storePath(dir, "somemodel"), []byte(sampleInfo), 0666)
-	c.Assert(err, jc.ErrorIsNil)
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	info, err := store.ReadInfo("somemodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Initialized(), jc.IsTrue)
-	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{
-		User:     "rog",
-		Password: "guessit",
-	})
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{
-		Addresses: []string{"10.0.0.1", "127.0.0.1"},
-		Hostnames: []string{"example.com", "kremvax.ru"},
-		CACert:    "first line\nsecond line",
-	})
-	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filepath.Join(dir, "models", "somemodel.jenv")))
-	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
-		"secret": "blah",
-		"arble":  "bletch",
-	})
-}
-
 func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
@@ -137,10 +70,10 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := store.CreateInfo("somemodel")
+	info := store.CreateInfo("uuid", "somemodel")
 
 	// Make the directory non-writable
-	err = os.Chmod(storePath(dir, ""), 0555)
+	err = os.Chmod(dir, 0555)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Cannot use permissions properly on windows for now
@@ -150,78 +83,8 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	}
 
 	// Make the directory writable again so that gocheck can clean it up.
-	err = os.Chmod(storePath(dir, ""), 0777)
+	err = os.Chmod(dir, 0777)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*diskStoreSuite) TestRenameFails(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: the way the error is checked doesn't work on windows")
-	}
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Replace the file by an directory which can't be renamed over.
-	path := storePath(dir, "somemodel")
-	err = os.Mkdir(path, 0777)
-	c.Assert(err, jc.ErrorIsNil)
-
-	info := store.CreateInfo("somemodel")
-	err = info.Write()
-	c.Assert(err, gc.ErrorMatches, "model info already exists")
-}
-
-func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	info := store.CreateInfo("somemodel")
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = os.Stat(storePath(dir, "somemodel"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = info.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = os.Stat(storePath(dir, "somemodel"))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	err = info.Destroy()
-	c.Assert(err, gc.ErrorMatches, "model info has already been removed")
-}
-
-func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo("somemodel")
-	endpoint := configstore.APIEndpoint{
-		Addresses: []string{"this", "is", "never", "validated", "here"},
-		Hostnames: []string{"neither", "is", "this"},
-		ModelUUID: testing.ModelTag.Id(),
-	}
-	info.SetAPIEndpoint(endpoint)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	newInfo, err := store.ReadInfo("somemodel")
-	c.Assert(err, jc.ErrorIsNil)
-	// Now change the number of addresses to be shorter.
-	endpoint.Addresses = []string{"just one"}
-	endpoint.Hostnames = []string{"just this"}
-	newInfo.SetAPIEndpoint(endpoint)
-	err = newInfo.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We should be able to read in in fine.
-	yaInfo, err := store.ReadInfo("somemodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
-	c.Assert(yaInfo.APIEndpoint().Hostnames, gc.DeepEquals, []string{"just this"})
 }
 
 func (*diskStoreSuite) TestConcurrentAccessBreaksIfTimeExceeded(c *gc.C) {
@@ -232,8 +95,7 @@ func (*diskStoreSuite) TestConcurrentAccessBreaksIfTimeExceeded(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envDir := storePath(dir, "")
-	_, err = configstore.AcquireEnvironmentLock(envDir, "blocking-op")
+	_, err = configstore.AcquireEnvironmentLock(dir, "blocking-op")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = store.ReadInfo("somemodel")
@@ -242,7 +104,7 @@ func (*diskStoreSuite) TestConcurrentAccessBreaksIfTimeExceeded(c *gc.C) {
 	// Using . between environments and env.lock so we don't have to care
 	// about forward vs. backwards slash separator.
 	messages := []jc.SimpleMessage{
-		{loggo.WARNING, `breaking configstore lock, lock dir: .*models.env\.lock`},
+		{loggo.WARNING, `breaking configstore lock, lock dir: .*env\.lock`},
 		{loggo.WARNING, `lock holder message: pid: \d+, operation: blocking-op`},
 	}
 

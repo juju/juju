@@ -117,7 +117,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Networki
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), s.ConfigStore,
+		envtesting.BootstrapContext(c),
 		s.ControllerStore, cfg.Name(),
 		environs.PrepareForBootstrapParams{Config: cfg},
 	)

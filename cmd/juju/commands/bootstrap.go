@@ -370,13 +370,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Annotate(err, "creating environment configuration")
 	}
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	store := c.ClientStore()
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), legacyStore, store, c.controllerName,
+		modelcmd.BootstrapContext(ctx), store, c.controllerName,
 		environs.PrepareForBootstrapParams{
 			Config:               cfg,
 			Credentials:          *credential,
@@ -389,8 +385,46 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	// Store the legacy bootstrap config.
+	legacyStore, err := configstore.Default()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	info := legacyStore.CreateInfo(controllerUUID.String(), configstore.EnvironInfoName(c.controllerName, cfg.Name()))
+	var accountName string
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		if err := info.Destroy(); err != nil {
+			logger.Warningf(
+				"cannot destroy newly created controller bootstrap config %q info: %v",
+				c.controllerName, err,
+			)
+		}
+		if err := store.RemoveController(c.controllerName); err != nil {
+			logger.Warningf(
+				"cannot destroy newly created controller info %q info: %v",
+				c.controllerName, err,
+			)
+		}
+		if accountName != "" {
+			if err := store.RemoveAccount(c.controllerName, accountName); err != nil {
+				logger.Warningf(
+					"cannot destroy newly created account info %q info: %v",
+					accountName, err,
+				)
+			}
+		}
+	}()
+
+	info.SetBootstrapConfig(environ.Config().AllAttrs())
+	if err := info.Write(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Set the current model to the initial hosted model.
-	accountName, err := store.CurrentAccount(c.controllerName)
+	accountName, err = store.CurrentAccount(c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -490,7 +524,7 @@ to clean up the model.`[1:])
 		return errors.Trace(err)
 	}
 
-	err = c.setBootstrapEndpointAddress(legacyStore, environ)
+	err = c.setBootstrapEndpointAddress(environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -641,10 +675,7 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 // bootstrap server into the connection information. This should only be run
 // once directly after Bootstrap. It assumes that there is just one instance
 // in the environment - the bootstrap instance.
-func (c *bootstrapCommand) setBootstrapEndpointAddress(
-	legacyStore configstore.Storage,
-	environ environs.Environ,
-) error {
+func (c *bootstrapCommand) setBootstrapEndpointAddress(environ environs.Environ) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)
@@ -667,5 +698,5 @@ func (c *bootstrapCommand) setBootstrapEndpointAddress(
 	cfg := environ.Config()
 	apiPort := cfg.APIPort()
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerAddresses(c.ClientStore(), legacyStore, c.controllerName, nil, apiHostPorts...)
+	return juju.UpdateControllerAddresses(c.ClientStore(), c.controllerName, nil, apiHostPorts...)
 }
