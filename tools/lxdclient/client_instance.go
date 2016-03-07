@@ -305,17 +305,6 @@ func checkInstanceName(name string, instances []Instance) bool {
 	return false
 }
 
-func lxdAddressFamilyToNetworkType(addrFamily string) (network.AddressType, error) {
-	switch addrFamily {
-	case "inet":
-		return network.IPv4Address, nil
-	case "inet6":
-		return network.IPv6Address, nil
-	default:
-		return "", errors.Errorf("invalid LXD address family type %s", addrFamily)
-	}
-}
-
 // Addresses returns the list of network.Addresses for this instance. It
 // converts the information that LXD tracks into the Juju network model.
 func (client *instanceClient) Addresses(name string) ([]network.Address, error) {
@@ -331,26 +320,19 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 	addrs := []network.Address{}
 
-	for name, net := range networks {
+	for _, net := range networks {
 		for _, addr := range net.Addresses {
-			type_, err := lxdAddressFamilyToNetworkType(addr.Family)
 			if err != nil {
 				return nil, err
 			}
 
-			// TODO(jam) 2016-02-26 For multi NIC support we'll
-			// need to start tracking scope and space information.
-			// But it doesn't make sense for lxdclient to be space
-			// aware. That information at best would need to be
-			// passed in. (only the DB really knows what spaces are
-			// available, and lxdclient doesn't talk to the DB.)
-			addrs = append(addrs, network.Address{
-				Value:       addr.Address,
-				Type:        type_,
-				NetworkName: name,
-			})
+			addr := network.NewAddress(addr.Address)
+			if addr.Scope == network.ScopeLinkLocal || addr.Scope == network.ScopeMachineLocal {
+				logger.Tracef("for container %q ignoring address", name, addr)
+				continue
+			}
+			addrs = append(addrs, addr)
 		}
 	}
-
 	return addrs, nil
 }
