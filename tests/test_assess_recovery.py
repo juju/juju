@@ -100,9 +100,8 @@ def make_mocked_client(name, status_error=None):
 @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
 @patch('assess_recovery.parse_new_state_server_from_error', autospec=True,
        return_value='new_host')
-@patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
-@patch('assess_recovery.delete_instance', autospec=True)
-@patch('assess_recovery.deploy_stack', autospec=True, return_value='i_id')
+@patch('assess_recovery.delete_controller_members', autospec=True)
+@patch('assess_recovery.deploy_stack', autospec=True)
 @patch('deploy_stack.get_machine_dns_name', autospec=True,
        return_value='host')
 @patch('subprocess.check_output', autospec=True)
@@ -111,7 +110,7 @@ def make_mocked_client(name, status_error=None):
 class TestMain(FakeHomeTestCase):
 
     def test_ha(self, so_mock, cc_mock, co_mock,
-                dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
+                dns_mock, ds_mock, dcm_mock, ns_mock, dl_mock):
         client = make_mocked_client('foo')
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
@@ -126,15 +125,13 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(2, client.kill_controller.call_count)
         dns_mock.assert_called_once_with(client, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
-        di_mock.assert_called_once_with(client, 'i_id')
-        ws_mock.assert_called_once_with('host', client, 'i_id')
+        dcm_mock.assert_called_once_with(client, leader_only=True)
         cache_path = get_cache_path(client.env.juju_home, models=True)
-        dl_mock.assert_called_once_with(client, 'log_dir', cache_path,
-                                        {})
+        dl_mock.assert_called_once_with(client, 'log_dir', cache_path, {})
         self.assertEqual(0, ns_mock.call_count)
 
     def test_ha_error(self, so_mock, cc_mock, co_mock,
-                      dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
+                      dns_mock, ds_mock, dcm_mock, ns_mock, dl_mock):
         error = Exception()
         client = make_mocked_client('foo', status_error=error)
         with patch('assess_recovery.make_client_from_args', autospec=True,
@@ -151,16 +148,15 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(2, client.kill_controller.call_count)
         dns_mock.assert_called_once_with(client, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
-        di_mock.assert_called_once_with(client, 'i_id')
-        ws_mock.assert_called_once_with('host', client, 'i_id')
+        dcm_mock.assert_called_once_with(client, leader_only=True)
         ns_mock.assert_called_once_with(error)
         cache_path = get_cache_path(client.env.juju_home, models=True)
         dl_mock.assert_called_once_with(client, 'log_dir', cache_path,
                                         {'0': 'new_host'})
 
     def test_destroy_on_boot_error(self, so_mock, cc_mock, co_mock,
-                                   dns_mock, ds_mock, di_mock, ws_mock,
-                                   ns_mock, dl_mock):
+                                   dns_mock, ds_mock, dcm_mock, ns_mock,
+                                   dl_mock):
         client = make_mocked_client('foo')
         with patch('assess_recovery.make_client', autospec=True,
                    return_value=client):
