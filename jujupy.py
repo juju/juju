@@ -286,8 +286,6 @@ class EnvJujuClient:
             client_class = EnvJujuClient26
         elif re.match('^1\.', version):
             client_class = EnvJujuClient1X
-        elif re.match('^2\.0-alpha2-fake-wrapper', version):
-            client_class = EnvJujuClient
         elif re.match('^2\.0-alpha1', version):
             client_class = EnvJujuClient2A1
         elif re.match('^2\.0-alpha2', version):
@@ -353,8 +351,6 @@ class EnvJujuClient:
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
         self.env = self._get_env(env)
-        if version == '2.0-alpha2-fake-wrapper':
-            version = '2.0-alpha1-juju-wrapped'
         self.version = version
         self.full_path = full_path
         self.debug = debug
