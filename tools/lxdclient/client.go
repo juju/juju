@@ -53,6 +53,7 @@ func Connect(cfg Config) (*Client, error) {
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
 var lxdLoadConfig = lxd.LoadConfig
 
+// TODO(jam) 
 func newRawClient(cfg Config) (*lxd.Client, error) {
 	logger.Debugf("using LXD remote %q", cfg.Remote.ID())
 	remote := cfg.Remote.ID()
@@ -93,6 +94,42 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 		if remote == remoteIDForLocal {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
+		return nil, errors.Trace(err)
+	}
+	return client, nil
+}
+
+// newRawClientToDefault connects to one of the known DefaultRemotes that are
+// pre-set inside of the lxd bindings.
+func newRawClientToDefault(cfg Config, remote string) (*lxd.Client, error) {
+	logger.Debugf("connecting to LXD static remote: %q", remote)
+
+	clientCert := ""
+	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
+		clientCert = string(cfg.Remote.Cert.CertPEM)
+	}
+
+	clientKey := ""
+	if cfg.Remote.Cert != nil && cfg.Remote.Cert.KeyPEM != nil {
+		clientKey = string(cfg.Remote.Cert.KeyPEM)
+	}
+
+	remoteConf, ok := lxd.DefaultRemotes[remote]
+	if !ok {
+		knownRemotes := make([]string, 0, len(lxd.DefaultRemotes))
+		for name, _ := range lxd.DefaultRemotes {
+			knownRemotes = append(knownRemotes, name)
+		}
+		return nil, errors.Errorf("remote %q is not a known DefaultRemote: %v", knownRemotes)
+	}
+
+	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
+		Name:          cfg.Remote.ID(),
+		RemoteConfig:  remoteConf,
+		ClientPEMCert: clientCert,
+		ClientPEMKey:  clientKey,
+	})
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return client, nil
