@@ -1,7 +1,11 @@
 from argparse import Namespace
-from mock import patch
+from mock import (
+    call,
+    patch,
+)
 
 from assess_recovery import (
+    delete_controller_members,
     main,
     make_client_from_args,
     parse_args,
@@ -10,6 +14,7 @@ from jujupy import (
     EnvJujuClient,
     get_cache_path,
     JujuData,
+    Machine,
     _temp_env as temp_env,
 )
 from tests import (
@@ -164,3 +169,56 @@ class TestMain(FakeHomeTestCase):
                     main(['./', 'foo', 'log_dir',
                           '--ha', '--charm-prefix', 'prefix'])
         self.assertEqual(2, client.kill_controller.call_count)
+
+
+@patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
+@patch('assess_recovery.terminate_instances', autospec=True)
+@patch('sys.stderr', autospec=True)
+class TestDeleteControllerMembers(FakeHomeTestCase):
+
+    def test_delete_controller_members(self, so_mock, ti_mock, wsss_mock):
+        client = make_mocked_client('foo')
+        members = [
+            Machine('3', {
+                'dns-name': '10.0.0.3',
+                'instance-id': 'juju-dddd-machine-3',
+                'controller-member-status': 'has-vote'}),
+            Machine('0', {
+                'dns-name': '10.0.0.0',
+                'instance-id': 'juju-aaaa-machine-0',
+                'controller-member-status': 'has-vote'}),
+            Machine('2', {
+                'dns-name': '10.0.0.2',
+                'instance-id': 'juju-cccc-machine-2',
+                'controller-member-status': 'has-vote'}),
+        ]
+        with patch.object(client, 'get_controller_members',
+                          autospec=True, return_value=members) as gcm_mock:
+            delete_controller_members(client)
+        gcm_mock.assert_called_once_with()
+        # terminate_instance was call in the reverse order of members.
+        self.assertEqual(
+            [call(client.env, ['juju-cccc-machine-2']),
+             call(client.env, ['juju-aaaa-machine-0']),
+             call(client.env, ['juju-dddd-machine-3'])],
+            ti_mock.mock_calls)
+        self.assertEqual(
+            [call('10.0.0.2', client, 'juju-cccc-machine-2'),
+             call('10.0.0.0', client, 'juju-aaaa-machine-0'),
+             call('10.0.0.3', client, 'juju-dddd-machine-3')],
+            wsss_mock.mock_calls)
+
+    def test_delete_controller_members_leader_only(
+            self, so_mock, ti_mock, wsss_mock):
+        client = make_mocked_client('foo')
+        leader = Machine('3', {
+            'dns-name': '10.0.0.3',
+            'instance-id': 'juju-dddd-machine-3',
+            'controller-member-status': 'has-vote'})
+        with patch.object(client, 'get_controller_leader',
+                          autospec=True, return_value=leader) as gcl_mock:
+            delete_controller_members(client, leader_only=True)
+        gcl_mock.assert_called_once_with()
+        ti_mock.assert_called_once_with(client.env, ['juju-dddd-machine-3'])
+        wsss_mock.assert_called_once_with(
+            '10.0.0.3', client, 'juju-dddd-machine-3')

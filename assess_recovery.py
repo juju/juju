@@ -82,6 +82,28 @@ def delete_extra_state_servers(client, instance_id):
             wait_for_state_server_to_shutdown(host, client, extra_instance_id)
 
 
+def delete_controller_members(client, leader_only=False):
+    """Delete controller members.
+
+    The all members are delete by default. The followers are deleted before the
+    leader to simulates a total controller failure. When leader_only is true,
+    the leader is deleted to trigger a new leader election.
+    """
+    if leader_only:
+        leader = client.get_controller_leader()
+        members = [leader]
+    else:
+        members = client.get_controller_members()
+        members.reverse()
+    for machine in members:
+        instance_id = machine.info.get('instance-id')
+        host = machine.info.get('dns-name')
+        print_now("Instrumenting node failure for member {}: {} at {}".format(
+                  machine.number, instance_id, host))
+        terminate_instances(client.env, [instance_id])
+        wait_for_state_server_to_shutdown(host, client, instance_id)
+
+
 def restore_missing_state_server(client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     print_now("Starting restore.")
@@ -136,6 +158,7 @@ def make_client_from_args(args):
 
 def main(argv):
     args = parse_args(argv)
+    # configure_logging(args.verbose)
     client = make_client_from_args(args)
     jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
