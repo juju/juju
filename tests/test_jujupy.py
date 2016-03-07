@@ -1659,17 +1659,30 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_workloads(timeout=1)
         self.assertEqual(writes, [])
 
-    def test_get_controller_endpoint(self):
-        data = dedent("""\
+    def test_get_controller_endpoint_ipv4(self):
+        data = """\
           foo:
             details:
               api-endpoints: ['10.0.0.1:17070', '10.0.0.2:17070']
-        """)
+        """
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
+        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+
+    def test_get_controller_endpoint_ipv6(self):
+        data = """\
+          foo:
+            details:
+              api-endpoints: ['[::1]:17070', '[fe80::216:3eff:0:9dc7]:17070']
+        """
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=data) as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('::1', endpoint)
         gjo_mock.assert_called_once_with('show-controller', ('foo', ))
 
     def test_get_controller_members(self):
@@ -3856,13 +3869,22 @@ class TestEnvJujuClient1X(ClientTest):
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
-    def test_get_controller_endpoint(self):
+    def test_get_controller_endpoint_ipv4(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
         with patch.object(client, 'get_juju_output',
                           return_value='10.0.0.1:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
+        gjo_mock.assert_called_once_with('api-endpoints', ())
+
+    def test_get_controller_endpoint_ipv6(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_juju_output',
+                          return_value='[::1]:17070') as gjo_mock:
+            endpoint = client.get_controller_endpoint()
+        self.assertEqual('::1', endpoint)
         gjo_mock.assert_called_once_with('api-endpoints', ())
 
     def test_action_do(self):

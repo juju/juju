@@ -150,6 +150,20 @@ def as_literal_address(address):
     return address
 
 
+def split_address_port(address_port):
+    """Split an ipv4 or ipv6 address and port into a tuple.
+
+    ipv6 addresses must be in the literal form with a port ([::12af]:80).
+    ipv4 addresses may be without a port, which translates to None.
+    """
+    if ':' not in address_port:
+        # This is correct for ipv4.
+        return address_port, None
+    address, port = address_port.rsplit(':', 1)
+    address = address.strip('[]')
+    return address, port
+
+
 def wait_for_port(host, port, closed=False, timeout=30):
     family = socket.AF_INET6 if is_ipv6_address(host) else socket.AF_INET
     for remaining in until_timeout(timeout):

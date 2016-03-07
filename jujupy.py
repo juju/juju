@@ -36,6 +36,7 @@ from utility import (
     is_ipv6_address,
     pause,
     scoped_environ,
+    split_address_port,
     temp_dir,
     until_timeout,
 )
@@ -774,7 +775,7 @@ class EnvJujuClient:
         info = yaml_loads(self.get_juju_output(
             'show-controller', (self.env.environment, )))
         endpoint = info[self.env.environment]['details']['api-endpoints'][0]
-        address, port = endpoint.split(':')
+        address, port = split_address_port(endpoint)
         return address
 
     def get_controller_members(self):
@@ -1302,7 +1303,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
         endpoint = self.get_juju_output('api-endpoints', ())
-        address, port = endpoint.split(':')
+        address, port = split_address_port(endpoint)
         return address
 
     def upgrade_mongo(self):
