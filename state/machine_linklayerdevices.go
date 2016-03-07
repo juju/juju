@@ -268,7 +268,7 @@ func (m *Machine) validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 	}
 
 	if args.ParentName != "" {
-		if err := m.maybeValidateParentAsGlobalKey(args); err != nil {
+		if err := m.validateLinkLayerDeviceParent(args); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -285,7 +285,7 @@ func (m *Machine) validateAddLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 	return nil
 }
 
-func (m *Machine) maybeValidateParentAsGlobalKey(args *LinkLayerDeviceArgs) error {
+func (m *Machine) validateLinkLayerDeviceParent(args *LinkLayerDeviceArgs) error {
 	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(args.ParentName)
 	if err != nil {
 		return errors.Trace(err)
