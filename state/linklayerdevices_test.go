@@ -785,3 +785,15 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesToContainerWhenConta
 	c.Assert(err, gc.ErrorMatches, `.*host machine "0" of parent device "br-eth1" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevices(c *gc.C) {
+	s.assertNoDevicesOnMachine(c, s.machine)
+	s.addNamedParentDeviceWithChildrenAndCheckAllAdded(c, "foo", "bar")
+
+	err := s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertNoDevicesOnMachine(c, s.machine)
+}

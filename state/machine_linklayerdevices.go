@@ -84,18 +84,27 @@ func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFu
 // machine in a single transaction. No error is returned when some or all of the
 // devices were already removed.
 func (m *Machine) RemoveAllLinkLayerDevices() error {
-	var removeAllDevicesOps []txn.Op
+	ops, err := m.removeAllLinkLayerDevicesOps()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return m.st.runTransaction(ops)
+}
+
+func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
+	var ops []txn.Op
 	callbackFunc := func(resultDoc *linkLayerDeviceDoc) {
 		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
-		removeAllDevicesOps = append(removeAllDevicesOps, removeOps...)
+		ops = append(ops, removeOps...)
 	}
 
 	selectDocIDOnly := bson.D{{"_id", 1}}
 	if err := m.forEachLinkLayerDeviceDoc(selectDocIDOnly, callbackFunc); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return m.st.runTransaction(removeAllDevicesOps)
+	return ops, nil
 }
 
 // LinkLayerDeviceArgs contains the arguments accepted by Machine.AddLinkLayerDevices().
