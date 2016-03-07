@@ -79,7 +79,12 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
 		Name:          cfg.Remote.ID(),
-		Addr:          host,
+		RemoteConfig:  lxd.RemoteConfig{
+			Addr: host,
+			Static: false,
+			Public: false,
+			Protocol: "",
+			},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
 		ServerPEMCert: cfg.Remote.ServerPEMCert,
