@@ -51,7 +51,6 @@ func Connect(cfg Config) (*Client, error) {
 }
 
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
-var lxdLoadConfig = lxd.LoadConfig
 
 func newRawClient(cfg Config) (*lxd.Client, error) {
 	logger.Debugf("using LXD remote %q", cfg.Remote.ID())

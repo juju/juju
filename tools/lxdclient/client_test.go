@@ -18,7 +18,6 @@ type ConnectSuite struct {
 
 func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cs.PatchValue(lxdNewClientFromInfo, fakeNewClientFromInfo)
-	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
 
 	cfg := Config{
 		Remote: Local,
@@ -32,7 +31,6 @@ func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 
 func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	cs.PatchValue(lxdNewClientFromInfo, fakeNewClientFromInfo)
-	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
 
 	cfg := Config{
 		Remote: Remote{
@@ -49,8 +47,4 @@ var testerr = errors.Errorf("boo!")
 
 func fakeNewClientFromInfo(config *lxd.Config, remote string) (*lxd.Client, error) {
 	return nil, testerr
-}
-
-func fakeLoadConfig() (*lxd.Config, error) {
-	return nil, nil
 }
