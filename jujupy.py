@@ -784,22 +784,20 @@ class EnvJujuClient:
         The first machine in the list is the leader. the remaining machines
         are followers in a HA relationship.
         """
-        unordered_members = []
+        members = []
         status = self.get_status()
         for number, machine in status.iter_machines():
             if self.get_controller_member_status(machine):
-                unordered_members.append(Machine(number, machine))
-        if len(unordered_members) <= 1:
-            return unordered_members
+                members.append(Machine(number, machine))
+        if len(members) <= 1:
+            return members
         # Search for the leader and make it the first in the list.
+        # If the endpoint address is not the same as the leader's dns_name,
+        # the members are return in the order they were discovered.
         endpoint = self.get_controller_endpoint()
-        ordered_members = []
-        for machine in unordered_members:
-            if machine.info.get('dns-name') == endpoint:
-                ordered_members.insert(0, machine)
-            else:
-                ordered_members.append(machine)
-        return ordered_members
+        log.debug('Controller endpoint is at {}'.format(endpoint))
+        members.sort(key=lambda m: m.info.get('dns-name') != endpoint)
+        return members
 
     def get_controller_leader(self):
         """Return the controller leader Machine."""
