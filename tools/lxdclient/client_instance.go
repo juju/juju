@@ -46,12 +46,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	}
 
 	imageAlias := spec.Image
-	if imageAlias == "" {
-		// TODO(ericsnow) Do not have a default?
-		// XXX(jam) I don't think we should do this, imageAlias should
-		// be mandatory
-		imageAlias = "ubuntu"
-	}
 
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
