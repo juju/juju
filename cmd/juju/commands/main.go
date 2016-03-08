@@ -258,6 +258,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
+	r.Register(cloud.NewUpdateCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
