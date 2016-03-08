@@ -46,7 +46,7 @@ func (c *updateCloudsCommand) Info() *cmd.Info {
 }
 
 func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
-	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list... ")
+	fmt.Fprint(ctxt.Stdout, "Fetching latest public cloud list... ")
 	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
 	resp, err := client.Get(c.publicCloudURL)
 	if err != nil {
@@ -58,7 +58,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			fmt.Fprintln(ctxt.Stderr, noNewClouds)
+			fmt.Fprintln(ctxt.Stdout, noNewClouds)
 			return nil
 		case http.StatusUnauthorized:
 			return errors.Unauthorizedf("unauthorised access to URL %q", c.publicCloudURL)
@@ -84,12 +84,12 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stderr, noNewClouds)
+		fmt.Fprintln(ctxt.Stdout, noNewClouds)
 		return nil
 	}
 	if err := jujucloud.WritePublicCloudMetadata(newPublicClouds); err != nil {
 		return errors.Annotate(err, "error writing new local public cloud data")
 	}
-	fmt.Fprintln(ctxt.Stderr, "done.")
+	fmt.Fprintln(ctxt.Stdout, "done.")
 	return nil
 }

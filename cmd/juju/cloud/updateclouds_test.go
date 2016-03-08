@@ -56,7 +56,7 @@ func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
 		errString := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(errString, gc.Matches, errMsg)
 	}
-	return strings.Replace(testing.Stderr(out), "\n", "", -1)
+	return strings.Replace(testing.Stdout(out), "\n", "", -1)
 }
 
 func (s *updateCloudsSuite) Test404(c *gc.C) {
