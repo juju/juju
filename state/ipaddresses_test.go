@@ -27,10 +27,21 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a few subnets uses by the tests.
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR: "0.1.2.0/24",
+	})
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR: "fc00::/64",
+	})
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		CIDR: "10.20.0.0/16",
+	})
 }
 
 func (s *ipAddressesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 
 	result, err := addresses[0].Machine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,8 +61,8 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string
 	allAddresses := make([]*state.Address, len(addresses))
 	for i, address := range addresses {
 		args := state.LinkLayerDeviceAddress{
-			DeviceName: name,
-			Address:    address,
+			DeviceName:  name,
+			CIDRAddress: address,
 		}
 		// TODO: Use SetDevicesAddresses instead once implemented.
 		addedAddress, err := device.AddAddress(args)
@@ -62,7 +73,7 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string
 }
 
 func (s *ipAddressesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 	s.ensureMachineDeadAndRemove(c, s.machine)
 
 	result, err := addresses[0].Machine()
@@ -72,14 +83,23 @@ func (s *ipAddressesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing
 }
 
 func (s *ipAddressesStateSuite) ensureMachineDeadAndRemove(c *gc.C, machine *state.Machine) {
-	err := machine.EnsureDead()
+	s.ensureEntityDeadAndRemoved(c, machine)
+}
+
+type ensureDeaderRemover interface {
+	state.EnsureDeader
+	state.Remover
+}
+
+func (s *ipAddressesStateSuite) ensureEntityDeadAndRemoved(c *gc.C, entity ensureDeaderRemover) {
+	err := entity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove()
+	err = entity.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ipAddressesStateSuite) TestDeviceMethodReturnsLinkLayerDevice(c *gc.C) {
-	addedDevice, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	addedDevice, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 
 	returnedDevice, err := addresses[0].Device()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +107,7 @@ func (s *ipAddressesStateSuite) TestDeviceMethodReturnsLinkLayerDevice(c *gc.C) 
 }
 
 func (s *ipAddressesStateSuite) TestDeviceMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	device, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	device, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 	err := device.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -98,23 +118,39 @@ func (s *ipAddressesStateSuite) TestDeviceMethodReturnsNotFoundErrorWhenMissing(
 }
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsSubnet(c *gc.C) {
-	// TODO: Finish once SubnetID is getting set properly on ipAddressDoc
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.41/16")
+
+	result, err := addresses[0].Subnet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.CIDR(), gc.Equals, "10.20.0.0/16")
 }
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
-	// TODO: Finish once SubnetID is getting set properly on ipAddressDoc
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.41/16")
+	subnet, err := s.State.Subnet("10.20.0.0/16")
+	c.Assert(err, jc.ErrorIsNil)
+	s.ensureEntityDeadAndRemoved(c, subnet)
+
+	result, err := addresses[0].Subnet()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `subnet "10.20.0.0/16" not found`)
+	c.Assert(result, gc.IsNil)
 }
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNoErrorWithEmptySubnetID(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "127.0.1.1/8", "::1/128")
 
 	result, err := addresses[0].Subnet()
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err = addresses[1].Subnet()
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ipAddressesStateSuite) TestRemoveSuccess(c *gc.C) {
-	_, existingAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	_, existingAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 
 	s.removeAddressAndAssertSuccess(c, existingAddresses[0])
 	s.assertNoAddressesOnMachine(c, s.machine)
@@ -136,7 +172,7 @@ func (s *ipAddressesStateSuite) assertAllAddressesOnMachineMatchCount(c *gc.C, m
 }
 
 func (s *ipAddressesStateSuite) TestRemoveTwiceStillSucceeds(c *gc.C) {
-	_, existingAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3")
+	_, existingAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 
 	s.removeAddressAndAssertSuccess(c, existingAddresses[0])
 	s.removeAddressAndAssertSuccess(c, existingAddresses[0])
@@ -144,7 +180,7 @@ func (s *ipAddressesStateSuite) TestRemoveTwiceStillSucceeds(c *gc.C) {
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceAddressesReturnsAllDeviceAddresses(c *gc.C) {
-	device, addedAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3", "10.20.30.40", "fc00::/64")
+	device, addedAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 3)
 
 	resultAddresses, err := device.Addresses()
@@ -153,7 +189,7 @@ func (s *ipAddressesStateSuite) TestLinkLayerDeviceAddressesReturnsAllDeviceAddr
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAddressesSuccess(c *gc.C) {
-	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40", "fc00::/64")
+	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
 
 	s.removeDeviceAddressesAndAssertNoneRemainOnMacine(c, device)
@@ -166,7 +202,7 @@ func (s *ipAddressesStateSuite) removeDeviceAddressesAndAssertNoneRemainOnMacine
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAddressesTwiceStillSucceeds(c *gc.C) {
-	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40", "fc00::/64")
+	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
 
 	s.removeDeviceAddressesAndAssertNoneRemainOnMacine(c, device)
@@ -179,8 +215,8 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesSuccess(c *gc.C) {
 }
 
 func (s *ipAddressesStateSuite) addTwoDevicesWithTwoAddressesEach(c *gc.C) []*state.Address {
-	_, device1Addresses := s.addNamedDeviceWithAddresses(c, "eth1", "10.20.0.1", "10.20.0.2")
-	_, device2Addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.30.0.2", "fc00::/64")
+	_, device1Addresses := s.addNamedDeviceWithAddresses(c, "eth1", "10.20.0.1/16", "10.20.0.2/16")
+	_, device2Addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.100.2/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 4)
 	return append(device1Addresses, device2Addresses...)
 }
@@ -206,7 +242,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddresses(c *gc.C) {
-	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40", "fc00::/64")
+	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
 
 	err := device.Remove()

@@ -530,8 +530,9 @@ type LinkLayerDeviceAddress struct {
 	// supported.
 	ProviderID network.Id
 
-	// Address is the IP address assigned to the device.
-	Address string
+	// CIDRAddress is the IP address assigned to the device, in CIDR format
+	// (e.g. 10.20.30.5/24 or fc00:1234::/64).
+	CIDRAddress string
 
 	// DNSServers contains a list of DNS nameservers to use, which can be empty.
 	DNSServers []string
@@ -544,10 +545,26 @@ type LinkLayerDeviceAddress struct {
 	GatewayAddress string
 }
 
+const (
+	loopbackIPv4CIDR = "127.0.0.0/8"
+	loopbackIPv6CIDR = "::1/128"
+)
+
 // TODO: Temporary helper used to test the addresses methods apart from
 // SetDevicesAddresses. Remove once the later is implemented.
 func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address, error) {
-	globalKey := ipAddressGlobalKey(dev.doc.MachineID, address.DeviceName, address.Address)
+	ipAddress, ipNet, err := net.ParseCIDR(address.CIDRAddress)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addressValue := ipAddress.String()
+	subnetID := ipNet.String()
+	if subnetID == loopbackIPv4CIDR || subnetID == loopbackIPv6CIDR {
+		// Loopback addresses are not linked to a subnet.
+		subnetID = ""
+	}
+
+	globalKey := ipAddressGlobalKey(dev.doc.MachineID, address.DeviceName, addressValue)
 	ipAddressDocID := dev.st.docID(globalKey)
 
 	providerID := string(address.ProviderID)
@@ -556,14 +573,14 @@ func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address
 	}
 
 	newDoc := &ipAddressDoc{
-		DocID:      ipAddressDocID,
-		ModelUUID:  dev.st.ModelUUID(),
-		ProviderID: providerID,
-		DeviceName: address.DeviceName,
-		MachineID:  dev.doc.MachineID,
-		// TODO: Infer SubnetID from Address
+		DocID:            ipAddressDocID,
+		ModelUUID:        dev.st.ModelUUID(),
+		ProviderID:       providerID,
+		DeviceName:       address.DeviceName,
+		MachineID:        dev.doc.MachineID,
+		SubnetID:         subnetID,
 		ConfigMethod:     address.ConfigMethod,
-		Value:            address.Address,
+		Value:            addressValue,
 		DNSServers:       address.DNSServers,
 		DNSSearchDomains: address.DNSSearchDomains,
 		GatewayAddress:   address.GatewayAddress,
@@ -574,7 +591,7 @@ func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address
 	}
 
 	newAddress := newIPAddress(dev.st, *newDoc)
-	err := onAbort(dev.st.runTransaction(ops), errors.AlreadyExistsf("%s", newAddress))
+	err = onAbort(dev.st.runTransaction(ops), errors.AlreadyExistsf("%s", newAddress))
 	if err == nil {
 		return newAddress, nil
 	}
@@ -661,7 +678,7 @@ func (m *Machine) prepareToSetDevicesAddresses(devicesAddresses []LinkLayerDevic
 }
 
 func (m *Machine) prepareOneSetDevicesAddresses(args *LinkLayerDeviceAddress, allProviderIDs set.Strings) (_ *ipAddressDoc, err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid address %q", args.Address)
+	defer errors.DeferredAnnotatef(&err, "invalid address %q", args.CIDRAddress)
 
 	if err := m.validateSetDevicesAddressesArgs(args); err != nil {
 		return nil, errors.Trace(err)
@@ -675,8 +692,11 @@ func (m *Machine) prepareOneSetDevicesAddresses(args *LinkLayerDeviceAddress, al
 }
 
 func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) error {
-	if args.Address == "" {
-		return errors.NotValidf("empty Address")
+	if args.CIDRAddress == "" {
+		return errors.NotValidf("empty CIDRAddress")
+	}
+	if _, _, err := net.ParseCIDR(args.CIDRAddress); err != nil {
+		return errors.NewNotValid(err, "CIDRAddress")
 	}
 
 	if args.DeviceName == "" {
@@ -694,7 +714,17 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 }
 
 func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddressDoc, error) {
-	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, args.Address)
+	// Ignoring the error below, as we have already checked earlier CIDRAddress
+	// parses OK.
+	ip, ipNet, _ := net.ParseCIDR(args.CIDRAddress)
+	addressValue := ip.String()
+	subnetID := ipNet.String()
+	if subnetID == loopbackIPv4CIDR || subnetID == loopbackIPv6CIDR {
+		// Loopback addresses are not linked to a subnet.
+		subnetID = ""
+	}
+
+	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
 	ipAddressDocID := m.st.docID(globalKey)
 
 	providerID := string(args.ProviderID)
@@ -703,8 +733,9 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	}
 	modelUUID := m.st.ModelUUID()
 
-	// TODO: lookup subnet ID from the address.
-	subnetID := ""
+	if _, err := m.st.Subnet(subnetID); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	newDoc := &ipAddressDoc{
 		DocID:            ipAddressDocID,
@@ -714,7 +745,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		MachineID:        m.doc.Id,
 		SubnetID:         subnetID,
 		ConfigMethod:     args.ConfigMethod,
-		Value:            args.Address,
+		Value:            addressValue,
 		DNSServers:       args.DNSServers,
 		DNSSearchDomains: args.DNSSearchDomains,
 		GatewayAddress:   args.GatewayAddress,
