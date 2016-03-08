@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"errors"
+	"sync"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -90,7 +91,7 @@ func (s *StateWorkersSuite) TestStartSuccess(c *gc.C) {
 	c.Check(w, gc.Not(gc.IsNil))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.startCalled, jc.IsTrue)
-	c.Check(tracker.doneCalled, jc.IsFalse)
+	c.Check(tracker.isDoneCalled(), jc.IsFalse)
 
 	// Ensure Done is called on tracker when worker exits.
 	worker.Stop(w)
@@ -99,21 +100,32 @@ func (s *StateWorkersSuite) TestStartSuccess(c *gc.C) {
 
 // Implements StateTracker.
 type mockStateTracker struct {
+	mu         sync.Mutex
 	doneCalled bool
 }
 
 func (t *mockStateTracker) Use() (*state.State, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return new(state.State), nil
 }
 
 func (t *mockStateTracker) Done() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.doneCalled = true
 	return nil
 }
 
+func (t *mockStateTracker) isDoneCalled() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.doneCalled
+}
+
 func (t *mockStateTracker) assertDoneCalled(c *gc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if t.doneCalled {
+		if t.isDoneCalled() {
 			return
 		}
 	}
