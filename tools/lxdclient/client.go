@@ -134,3 +134,7 @@ func newRawClientToDefault(cfg Config, remote string) (*lxd.Client, error) {
 	}
 	return client, nil
 }
+
+func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
+	return newRawClientToDefault(cfg, "ubuntu")
+}

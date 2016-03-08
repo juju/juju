@@ -9,12 +9,25 @@ import (
 	"github.com/juju/errors"
 )
 
+type ImageStream string
+
+const (
+	StreamUnknown  ImageStream = ""
+	StreamReleases ImageStream = "releases"
+	StreamDaily    ImageStream = "daily"
+)
+
 // Config contains the config values used for a connection to the LXD API.
 type Config struct {
 	// Namespace identifies the namespace to associate with containers
-	// and other resources with which the client interacts. If may be
+	// and other resources with which the client interacts. It may be
 	// blank.
+	// TODO(jam) This doesn't appear to do much at the moment.
 	Namespace string
+
+	// ImageStream can be either blank (""), "releases", or "daily".
+	// This decides what Ubuntu stream we will use for LXD images.
+	ImageStream ImageStream
 
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
@@ -32,6 +45,9 @@ func (cfg Config) WithDefaults() (Config, error) {
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
+	if cfg.ImageStream == StreamUnknown {
+		cfg.ImageStream = StreamReleases
+	}
 
 	return cfg, nil
 }
@@ -39,13 +55,12 @@ func (cfg Config) WithDefaults() (Config, error) {
 // Validate checks the client's fields for invalid values.
 func (cfg Config) Validate() error {
 	// TODO(ericsnow) Check cfg.Namespace (if provided)?
-
-	// TODO(ericsnow) Check cfg.Dirname (if provided)?
-
-	// TODO(ericsnow) Check cfg.Filename (if provided)?
-
 	if err := cfg.Remote.Validate(); err != nil {
 		return errors.Trace(err)
+	}
+
+	if cfg.ImageStream != StreamReleases && cfg.ImageStream != StreamDaily {
+		return errors.NotValidf("invalid image stream: %q", cfg.ImageStream)
 	}
 
 	return nil
