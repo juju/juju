@@ -14,7 +14,6 @@ import (
 
 type rawImageClient interface {
 	ListAliases() (shared.ImageAliases, error)
-	CopyImage(string, *lxd.Client, bool, []string, bool, bool, func(string)) error
 }
 
 type imageClient struct {
