@@ -97,6 +97,10 @@ func (sp *statePersistence) ServiceExistsOps(serviceID string) []txn.Op {
 		C:      servicesC,
 		Id:     serviceID,
 		Assert: txn.DocExists,
+	}, {
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: isAliveDoc,
 	}}
 }
 
