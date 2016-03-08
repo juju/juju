@@ -85,11 +85,11 @@ type ResourcesPersistence interface {
 	NewRemoveResourcesOps(serviceID string) ([]txn.Op, error)
 }
 
-var newResourcesPersistence func(Persistence, *State) ResourcesPersistence
+var newResourcesPersistence func(Persistence) ResourcesPersistence
 
 // SetResourcesPersistence registers the function that provides the
 // state persistence functionality related to resources.
-func SetResourcesPersistence(fn func(Persistence, *State) ResourcesPersistence) {
+func SetResourcesPersistence(fn func(Persistence) ResourcesPersistence) {
 	newResourcesPersistence = fn
 }
 
@@ -101,6 +101,6 @@ func (st *State) ResourcesPersistence() (ResourcesPersistence, error) {
 	}
 
 	base := st.newPersistence()
-	persist := newResourcesPersistence(base, st)
+	persist := newResourcesPersistence(base)
 	return persist, nil
 }
