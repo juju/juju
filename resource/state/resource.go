@@ -98,6 +98,9 @@ type resourceState struct {
 
 // ListResources returns the resource data for the given service ID.
 func (st resourceState) ListResources(serviceID string) (resource.ServiceResources, error) {
+	if err := st.raw.VerifyService(serviceID); err != nil {
+		return resource.ServiceResources{}, errors.Trace(err)
+	}
 	resources, err := st.persist.ListResources(serviceID)
 	if err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
