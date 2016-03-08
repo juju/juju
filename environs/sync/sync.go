@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -159,7 +160,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, simplestreams.SimplestreamsJujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, juju.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.

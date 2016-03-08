@@ -4,21 +4,27 @@
 package cloud
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/juju"
 )
 
 type updateCloudsCommand struct {
 	cmd.CommandBase
 
-	publicCloudURL string
+	publicSigningKey string
+	publicCloudURL   string
 }
 
 var updateCloudsDoc = `
@@ -33,7 +39,8 @@ Example:
 // NewUpdateCloudsCommand returns a command to update cloud information.
 func NewUpdateCloudsCommand() cmd.Command {
 	return &updateCloudsCommand{
-		publicCloudURL: "https://streams.canonical.com/juju/public-clouds.yaml",
+		publicSigningKey: juju.JujuPublicKey,
+		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
 	}
 }
 
@@ -66,7 +73,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		return fmt.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
 	}
 
-	cloudData, err := ioutil.ReadAll(resp.Body)
+	cloudData, err := decodeCheckSignature(resp.Body, c.publicSigningKey)
 	if err != nil {
 		return errors.Annotate(err, "error receiving updated cloud data")
 	}
@@ -92,4 +99,25 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	}
 	fmt.Fprintln(ctxt.Stdout, "done.")
 	return nil
+}
+
+func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	b, _ := clearsign.Decode(data)
+	if b == nil {
+		return nil, errors.New("no PGP signature embedded in plain text data")
+	}
+	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(publicKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse public key: %v", err)
+	}
+
+	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)
+	if err != nil {
+		return nil, err
+	}
+	return b.Plaintext, nil
 }

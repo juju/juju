@@ -5,12 +5,15 @@ package cloud
 
 import (
 	jujucloud "github.com/juju/juju/cloud"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 )
 
 func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
 	return &updateCloudsCommand{
-		publicCloudURL: publicCloudURL,
+		// TODO(wallyworld) - move testing key elsewhere
+		publicSigningKey: sstesting.SignedMetadataPublicKey,
+		publicCloudURL:   publicCloudURL,
 	}
 }
 
