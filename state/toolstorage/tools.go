@@ -122,6 +122,28 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error
 	return nil
 }
 
+func (s *toolsStorage) Remove(v version.Binary) error {
+	metaDataDoc, err := s.toolsMetadata(v)
+	if err != nil {
+		return errors.Annotate(err, "retrieving metadata to remove from storage")
+	}
+	err = s.managedStorage.RemoveForBucket(s.modelUUID, metaDataDoc.Path)
+	if err != nil {
+		return errors.Annotate(err, "removing tools blob from storage")
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		op := txn.Op{
+			C:      s.metadataCollection.Name,
+			Id:     metaDataDoc.Id,
+			Assert: bson.D{{"path", metaDataDoc.Path}},
+			Remove: true,
+		}
+		return []txn.Op{op}, nil
+	}
+	return errors.Trace(s.txnRunner.Run(buildTxn))
+}
+
 func (s *toolsStorage) Tools(v version.Binary) (Metadata, io.ReadCloser, error) {
 	metadataDoc, err := s.toolsMetadata(v)
 	if err != nil {

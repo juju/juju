@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
-	toolstesting "github.com/juju/juju/environs/tools/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -1166,7 +1166,11 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(99, -1, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-precise-amd64"))
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	envtesting.UploadFakeToolsVersions(stor, version.MustParseBinary("2.99.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 99, "precise", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)

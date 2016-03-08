@@ -35,6 +35,10 @@ type Storage interface {
 	// Metadata returns the Metadata for the specified version
 	// if it exists, else an error satisfying errors.IsNotFound.
 	Metadata(v version.Binary) (Metadata, error)
+
+	// Remove removes the given version of tools from the storage
+	// or returns an error if not possible.
+	Remove(version.Binary) error
 }
 
 // StorageCloser extends the Storage interface with a Close method.

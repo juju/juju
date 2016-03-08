@@ -58,7 +58,8 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, cfg.AgentStream(), cfg.AgentStream())
+	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 

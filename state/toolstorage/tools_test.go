@@ -78,6 +78,17 @@ func (s *ToolsSuite) TestAddToolsReplaces(c *gc.C) {
 	s.testAddTools(c, "def")
 }
 
+func (s *ToolsSuite) TestRemoveTools(c *gc.C) {
+	s.testAddTools(c, "some-tools")
+	m, _, err := s.storage.Tools(current)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.SHA256, gc.Equals, "hash(some-tools)")
+	err = s.storage.Remove(current)
+	c.Assert(err, jc.ErrorIsNil)
+	_, _, err = s.storage.Tools(current)
+	c.Assert(err, gc.ErrorMatches, "* tools metadata not found")
+}
+
 func (s *ToolsSuite) testAddTools(c *gc.C, content string) {
 	r := bytes.NewReader([]byte(content))
 	addedMetadata := toolstorage.Metadata{

@@ -41,7 +41,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
 	v201 := version.MustParseBinary("2.0.1-precise-amd64")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v100, v101, v111, v201)
+	agentTools := envtesting.AssertUploadFakeToolsVersionsToSimplestreams(c, stor, "proposed", "proposed", v100, v101, v111, v201)
 	t100 := agentTools[0]
 	t101 := agentTools[1]
 	t111 := agentTools[2]
@@ -85,7 +85,7 @@ func (s *StorageSuite) TestReadListLegacyPPC64(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
 	v101 := version.MustParseBinary("1.0.1-precise-ppc64el")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v100, v101)
+	agentTools := envtesting.AssertUploadFakeToolsVersionsToSimplestreams(c, stor, "proposed", "proposed", v100, v101)
 
 	amd64Tools := agentTools[0]
 	ppc64elTools := agentTools[1]

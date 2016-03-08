@@ -23,9 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -130,10 +128,11 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 // configuration and the current tools.
 func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	c.Logf("priming agent %s", tag.String())
-	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
-	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
@@ -179,9 +178,11 @@ func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (a
 func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (
 	agent.ConfigSetterWriter, *coretools.Tools,
 ) {
-	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
+
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)

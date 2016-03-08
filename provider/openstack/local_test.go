@@ -261,7 +261,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	envtesting.UploadFakeToolsToSimpleStreams(s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
 	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 }
@@ -433,7 +433,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	}
 	for _, series := range series.SupportedSeries() {
 		amd64Version.Series = series
-		envtesting.AssertUploadFakeToolsVersions(
+		envtesting.AssertUploadFakeToolsVersionsToSimplestreams(
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
@@ -1221,8 +1221,8 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	url, err := metadataStorage.URL("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Generating fake tools for: %v", url)
-	envtesting.UploadFakeTools(c, metadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
-	defer envtesting.RemoveFakeTools(c, metadataStorage, s.env.Config().AgentStream())
+	envtesting.UploadFakeToolsToSimpleStreams(metadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	defer envtesting.RemoveFakeToolsFromSimpleStream(c, metadataStorage, s.env.Config().AgentStream())
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
 
@@ -1781,7 +1781,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	}
 	toolsStorage, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, toolsStorage, "released", "released")
+	envtesting.UploadFakeToolsToSimpleStreams(toolsStorage, "released", "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	imageStorage, err := filestorage.NewFileStorageWriter(imagesDir)
 	openstack.UseTestImageData(imageStorage, s.cred)

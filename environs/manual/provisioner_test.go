@@ -73,7 +73,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		Series: series,
 		Arch:   arch,
 	}
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, "released", "released", binVersion)
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	envtesting.AssertUploadFakeToolsVersions(c, stor, binVersion)
 	envtools.DefaultBaseURL = defaultToolsURL
 
 	for i, errorCode := range []int{255, 0} {

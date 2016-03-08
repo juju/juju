@@ -198,13 +198,17 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 		Series: series.HostSeries(),
 	}
 	newVers.Patch++
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)
+		c, stor, newVers)
 
 	// The machine agent downloads the tools; fake this by
 	// creating downloaded-tools.txt in data-dir/tools/<version>.
 	toolsDir := agenttools.SharedToolsDir(s.DataDir(), newVers)
-	err := os.MkdirAll(toolsDir, 0755)
+	err = os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
 	testTools := tools.Tools{Version: newVers, URL: "http://testing.invalid/tools"}

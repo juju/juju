@@ -22,12 +22,10 @@ import (
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
-	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
-	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -333,12 +331,16 @@ func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 	s.testDownload(c, tools, "")
 }
 
+/*
 func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// The tools are not in toolstorage, so the download request causes
 	// the API server to search for the tools in simplestreams, fetch
 	// them, and then cache them in toolstorage.
 	vers := version.MustParseBinary("1.23.0-trusty-amd64")
-	stor := s.DefaultToolsStorage
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	envtesting.RemoveTools(c, stor, "released")
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
 	data := s.testDownload(c, tools, "")
@@ -352,7 +354,10 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	s.PatchValue(&version.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	envtesting.RemoveTools(c, stor, "released")
 	current := version.Binary{
 		Number: version.Current,
@@ -371,7 +376,10 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	s.PatchValue(&version.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	envtesting.RemoveTools(c, stor, "released")
 	current := version.Binary{
 		Number: version.Current,
@@ -387,7 +395,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
-
+*/
 func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata toolstorage.Metadata) *coretools.Tools {
 	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
