@@ -99,3 +99,9 @@ type resourcePersistence struct {
 func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
 	return p.ResourcePersistence.StageResource(res, storagePath)
 }
+
+// NewResourcePersistence is a function that may be passed to
+// state.SetResourcesPersistence().
+func NewResourcePersistence(persist corestate.Persistence) corestate.ResourcesPersistence {
+	return corestate.NewResourcePersistence(persist)
+}

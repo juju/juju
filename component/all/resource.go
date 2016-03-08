@@ -116,6 +116,7 @@ func (resources) registerState() {
 	}
 
 	corestate.SetResourcesComponent(resourceadapters.NewResourceState)
+	corestate.SetResourcesPersistence(resourceadapters.NewResourcePersistence)
 }
 
 // registerPublicCommands adds the resources-related commands
