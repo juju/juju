@@ -28,7 +28,7 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a few subnets uses by the tests.
+	// Add the few subnets used by the tests.
 	_, err = s.State.AddSubnet(state.SubnetInfo{
 		CIDR: "0.1.2.0/24",
 	})
@@ -58,18 +58,20 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string
 	device, err := s.machine.LinkLayerDevice(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	allAddresses := make([]*state.Address, len(addresses))
+	addressesArgs := make([]state.LinkLayerDeviceAddress, len(addresses))
 	for i, address := range addresses {
-		args := state.LinkLayerDeviceAddress{
-			DeviceName:  name,
-			CIDRAddress: address,
+		addressesArgs[i] = state.LinkLayerDeviceAddress{
+			DeviceName:   name,
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  address,
 		}
-		// TODO: Use SetDevicesAddresses instead once implemented.
-		addedAddress, err := device.AddAddress(args)
-		c.Assert(err, jc.ErrorIsNil)
-		allAddresses[i] = addedAddress
 	}
-	return device, allAddresses
+	err = s.machine.SetDevicesAddresses(addressesArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+	deviceAddresses, err := device.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deviceAddresses, gc.HasLen, len(addresses))
+	return device, deviceAddresses
 }
 
 func (s *ipAddressesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {

@@ -550,59 +550,11 @@ const (
 	loopbackIPv6CIDR = "::1/128"
 )
 
-// TODO: Temporary helper used to test the addresses methods apart from
-// SetDevicesAddresses. Remove once the later is implemented.
-func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address, error) {
-	ipAddress, ipNet, err := net.ParseCIDR(address.CIDRAddress)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	addressValue := ipAddress.String()
-	subnetID := ipNet.String()
-	if subnetID == loopbackIPv4CIDR || subnetID == loopbackIPv6CIDR {
-		// Loopback addresses are not linked to a subnet.
-		subnetID = ""
-	}
-
-	globalKey := ipAddressGlobalKey(dev.doc.MachineID, address.DeviceName, addressValue)
-	ipAddressDocID := dev.st.docID(globalKey)
-
-	providerID := string(address.ProviderID)
-	if providerID != "" {
-		providerID = dev.st.docID(providerID)
-	}
-
-	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        dev.st.ModelUUID(),
-		ProviderID:       providerID,
-		DeviceName:       address.DeviceName,
-		MachineID:        dev.doc.MachineID,
-		SubnetID:         subnetID,
-		ConfigMethod:     address.ConfigMethod,
-		Value:            addressValue,
-		DNSServers:       address.DNSServers,
-		DNSSearchDomains: address.DNSSearchDomains,
-		GatewayAddress:   address.GatewayAddress,
-	}
-
-	ops := []txn.Op{
-		insertIPAddressDocOp(newDoc),
-	}
-
-	newAddress := newIPAddress(dev.st, *newDoc)
-	err = onAbort(dev.st.runTransaction(ops), errors.AlreadyExistsf("%s", newAddress))
-	if err == nil {
-		return newAddress, nil
-	}
-	return nil, errors.Trace(err)
-}
-
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
-// replacing existing assignments as needed, in a single transaction. ProviderID
-// field can be empty if not supported by the provider, but when set must be
-// unique within the model. Errors are returned and no changes are applied, in
-// the following cases:
+// adding new or updating existing assignments as needed, in a single
+// transaction. ProviderID field can be empty if not supported by the provider,
+// but when set must be unique within the model. Errors are returned and no
+// changes are applied, in the following cases:
 // - Zero arguments given;
 // - Machine is no longer alive or missing;
 // - Model no longer alive;
@@ -710,6 +662,12 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 		return errors.NotValidf("ConfigMethod %q", args.ConfigMethod)
 	}
 
+	if args.GatewayAddress != "" {
+		if ip := net.ParseIP(args.GatewayAddress); ip == nil {
+			return errors.NotValidf("GatewayAddress %q", args.GatewayAddress)
+		}
+	}
+
 	return nil
 }
 
@@ -722,6 +680,8 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	if subnetID == loopbackIPv4CIDR || subnetID == loopbackIPv6CIDR {
 		// Loopback addresses are not linked to a subnet.
 		subnetID = ""
+	} else if _, err := m.st.Subnet(subnetID); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
@@ -732,10 +692,6 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		providerID = m.st.docID(providerID)
 	}
 	modelUUID := m.st.ModelUUID()
-
-	if _, err := m.st.Subnet(subnetID); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	newDoc := &ipAddressDoc{
 		DocID:            ipAddressDocID,
