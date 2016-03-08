@@ -825,13 +825,13 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapUnknownCloudOrProvider(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "no-such-provider")
-	c.Assert(err, gc.ErrorMatches, `cloud "no-such-provider" not found`)
+	c.Assert(err, gc.ErrorMatches, `unknown cloud "no-such-provider", please try "juju update-clouds"`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoRegionDetection(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "no-cloud-region-detection")
-	c.Assert(err, gc.ErrorMatches, `cloud "no-cloud-region-detection" not found`)
+	c.Assert(err, gc.ErrorMatches, `unknown cloud "no-cloud-region-detection", please try "juju update-clouds"`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
@@ -884,7 +884,9 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentials(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/not-dummy")
-	c.Assert(err, gc.ErrorMatches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)`)
+	c.Assert(err, gc.NotNil)
+	errMsg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(errMsg, gc.Matches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)alternatively, try "juju update-clouds"`)
 }
 
 func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
