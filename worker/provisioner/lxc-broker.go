@@ -488,8 +488,9 @@ var setupRoutesAndIPTables = func(
 }
 
 var (
-	netInterfaces  = net.Interfaces
-	interfaceAddrs = (*net.Interface).Addrs
+	netInterfaceByName = net.InterfaceByName
+	netInterfaces      = net.Interfaces
+	interfaceAddrs     = (*net.Interface).Addrs
 )
 
 // discoverIPv4InterfaceAddress returns the address for ifaceName
@@ -497,12 +498,13 @@ var (
 // master CI failures and will be removed once multi-NIC container
 // support is landed from the maas-spaces2 feature branch.
 func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
-	iface, err := net.InterfaceByName(ifaceName)
+	iface, err := netInterfaceByName(ifaceName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get interface %q", ifaceName)
 	}
 
-	addrs, err := iface.Addrs()
+	addrs, err := interfaceAddrs(iface)
+
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get network addresses for interface %q", ifaceName)
 	}
@@ -532,7 +534,7 @@ func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
 		addr := network.NewAddress(ip.String())
 		return &addr, nil
 	}
-	return nil, errors.Annotatef(err, "no addresses found for %q", ifaceName)
+	return nil, errors.Errorf("no addresses found for %q", ifaceName)
 }
 
 func discoverPrimaryNIC() (string, network.Address, error) {
