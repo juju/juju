@@ -11,9 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/testing"
 )
 
-type cloudSuite struct{}
+type cloudSuite struct {
+	testing.BaseSuite
+}
 
 var _ = gc.Suite(&cloudSuite{})
 
@@ -101,4 +105,67 @@ func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 
 	generatedClouds := parsePublicClouds(c)
 	c.Assert(clouds, jc.DeepEquals, generatedClouds)
+}
+
+func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
+	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
+	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
+
+	clouds := map[string]cloud.Cloud{
+		"aws-me": cloud.Cloud{
+			Type:      "aws",
+			AuthTypes: []cloud.AuthType{"userpass"},
+		},
+	}
+	err := cloud.WritePublicCloudMetadata(clouds)
+	c.Assert(err, jc.ErrorIsNil)
+	publicClouds, fallbackUsed, err := cloud.PublicCloudMetadata(cloud.JujuPublicCloudsPath())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fallbackUsed, jc.IsFalse)
+	c.Assert(publicClouds, jc.DeepEquals, clouds)
+}
+
+func (s *cloudSuite) compareClouds(c *gc.C, meta1, meta2 string) bool {
+	c1, err := cloud.ParseCloudMetadata([]byte(meta1))
+	c.Assert(err, jc.ErrorIsNil)
+	c2, err := cloud.ParseCloudMetadata([]byte(meta2))
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := cloud.CompareCloudMetadata(c1, c2)
+	c.Assert(err, jc.ErrorIsNil)
+	return result
+}
+
+func (s *cloudSuite) TestCompareCloudsMetadata(c *gc.C) {
+	metadata := `
+clouds:
+  aws-me:
+    type: aws
+    auth-types: [ userpass ]
+`[1:]
+	equal := s.compareClouds(c, metadata, metadata)
+	c.Assert(equal, jc.IsTrue)
+
+	// Change to existing cloud.
+	metadata2 := `
+clouds:
+  aws-me:
+    type: aws
+    auth-types: [ userpass ]
+    endpoint: http://endpoint
+`[1:]
+	equal = s.compareClouds(c, metadata, metadata2)
+	c.Assert(equal, jc.IsFalse)
+
+	// Add new cloud.
+	metadata2 = `
+clouds:
+  aws-me:
+    type: aws
+    auth-types: [ userpass ]
+  gce-me:
+    type: gce
+    auth-types: [ userpass ]
+`[1:]
+	equal = s.compareClouds(c, metadata, metadata2)
+	c.Assert(equal, jc.IsFalse)
 }

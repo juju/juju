@@ -311,6 +311,7 @@ var commandNames = []string{
 	"update-allocation",
 	"unset-model-config",
 	"unshare-model",
+	"update-clouds",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",

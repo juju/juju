@@ -8,6 +8,12 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
+	return &updateCloudsCommand{
+		publicCloudURL: publicCloudURL,
+	}
+}
+
 func NewListCredentialsCommandForTest(
 	testStore jujuclient.CredentialGetter,
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
