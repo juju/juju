@@ -63,7 +63,7 @@ func SetResourcesComponent(fn func(Persistence, *State) Resources) {
 // Resources returns the resources functionality for the current state.
 func (st *State) Resources() (Resources, error) {
 	if newResources == nil {
-		return nil, errors.Errorf("resources not supported")
+		return nil, errors.NotSupportedf("resources")
 	}
 
 	persist := st.newPersistence()
