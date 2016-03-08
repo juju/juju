@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -119,6 +120,28 @@ func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
 		}
 	}
 	return nil
+}
+
+func (s *binaryStorage) Remove(v version.Binary) error {
+	metaDataDoc, err := s.toolsMetadata(v)
+	if err != nil {
+		return errors.Annotate(err, "retrieving metadata to remove from storage")
+	}
+	err = s.managedStorage.RemoveForBucket(s.modelUUID, metaDataDoc.Path)
+	if err != nil {
+		return errors.Annotate(err, "removing tools blob from storage")
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		op := txn.Op{
+			C:      s.metadataCollection.Name,
+			Id:     metaDataDoc.Id,
+			Assert: bson.D{{"path", metaDataDoc.Path}},
+			Remove: true,
+		}
+		return []txn.Op{op}, nil
+	}
+	return errors.Trace(s.txnRunner.Run(buildTxn))
 }
 
 func (s *binaryStorage) Open(version string) (Metadata, io.ReadCloser, error) {

@@ -23,7 +23,6 @@ import (
 	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -184,7 +183,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "no tools available",
+	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching major version",
 	tools:          []string{"4.2.0-quantal-amd64"},
@@ -319,18 +318,16 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		com := newUpgradeJujuCommand(test.upgradeMap)
 		if err := coretesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
-				c.Check(err, gc.ErrorMatches, test.expectInitErr)
+				c.Assert(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
-				c.Check(err, jc.ErrorIsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			}
 			continue
 		}
 
 		// Set up state and environ, and run the command.
-		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
-			"agent-version":      test.agentVersion,
-			"agent-metadata-url": "file://" + toolsDir + "/tools",
+			"agent-version": test.agentVersion,
 		}
 		err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -338,15 +335,18 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		for i, v := range test.tools {
 			versions[i] = version.MustParseBinary(v)
 		}
+
 		if len(versions) > 0 {
-			stor, err := filestorage.NewFileStorageWriter(toolsDir)
+			stor, err := s.State.ToolsStorage()
+			defer stor.Close()
 			c.Assert(err, jc.ErrorIsNil)
+
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
 		err = com.Run(coretesting.Context(c))
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Assert(err, gc.ErrorMatches, test.expectErr)
 			continue
 		} else if !c.Check(err, jc.ErrorIsNil) {
 			continue
@@ -419,12 +419,20 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 // in the environment state.
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
-	envtesting.RemoveTools(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream())
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	versions, err := stor.AllMetadata()
+	for _, v := range versions {
+		err := stor.Remove(v.Version)
+		//c.Assert(err, jc.ErrorIsNil)
+		c.Logf("reset errored: %v", err)
+	}
 	updateAttrs := map[string]interface{}{
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	}
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	err = s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 
@@ -566,16 +574,21 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	versions := make([]version.Binary, len(tools))
-	for i, v := range tools {
-		versions[i], err = version.ParseBinary(v)
+	//	versions := make([]version.Binary, len(tools))
+	var versions []version.Binary
+	for _, v := range tools {
+		ver, err := version.ParseBinary(v)
 		if err != nil {
 			c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
+			continue
 		}
+		versions = append(versions, ver)
 	}
 	if len(versions) > 0 {
-		stor, err := filestorage.NewFileStorageWriter(toolsDir)
+		stor, err := s.State.ToolsStorage()
+		defer stor.Close()
 		c.Assert(err, jc.ErrorIsNil)
+
 		envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 	}
 }

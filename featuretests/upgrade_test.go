@@ -161,9 +161,13 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	// Speed up the watcher frequency to make the test much faster.
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
+		c, stor, s.oldVersion)
 
 	// Create 3 controllers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)

@@ -5,14 +5,11 @@ package testing
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -20,12 +17,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -56,17 +54,9 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-// UploadFakeToolsToDirectory uploads fake tools of the architectures in
-// s.UploadArches for each LTS release to the specified directory.
-func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir, toolsDir, stream string) {
-	stor, err := filestorage.NewFileStorageWriter(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	s.UploadFakeTools(c, stor, toolsDir, stream)
-}
-
 // UploadFakeTools uploads fake tools of the architectures in
 // s.UploadArches for each LTS release to the specified storage.
-func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
+func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor toolstorage.Storage, toolsDir, stream string) {
 	arches := s.UploadArches
 	if len(arches) == 0 {
 		arches = []string{arch.HostArch()}
@@ -83,7 +73,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 		}
 	}
 	c.Logf("uploading fake tool versions: %v", versions)
-	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
+	_, err := UploadFakeToolsVersions(stor, versions...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -124,32 +114,43 @@ func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.Upgrade
 
 // PrimeTools sets up the current version of the tools to vers and
 // makes sure that they're available in the dataDir.
-func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers version.Binary) *coretools.Tools {
-	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
+func PrimeTools(c *gc.C, stor toolstorage.Storage, dataDir string, vers version.Binary) *coretools.Tools {
+	tgz, checksum := coretesting.TarGz(
+		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+vers.String()))
+	meta := toolstorage.Metadata{
+		Version: vers,
+		Size:    int64(len(tgz)),
+		SHA256:  checksum,
+	}
+	err := stor.AddTools(bytes.NewReader(tgz), meta)
 	c.Assert(err, jc.ErrorIsNil)
-	agentTools, err := uploadFakeToolsVersion(stor, toolsDir, vers)
-	c.Assert(err, jc.ErrorIsNil)
-	resp, err := utils.GetValidatingHTTPClient().Get(agentTools.URL)
-	c.Assert(err, jc.ErrorIsNil)
-	defer resp.Body.Close()
-	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
+
+	agentTools := &coretools.Tools{
+		Version: meta.Version,
+		SHA256:  meta.SHA256,
+		Size:    meta.Size,
+	}
+
+	err = agenttools.UnpackTools(dataDir, agentTools, bytes.NewReader(tgz))
 	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }
 
-func uploadFakeToolsVersion(stor storage.Storage, toolsDir string, vers version.Binary) (*coretools.Tools, error) {
+func uploadFakeToolsVersion(stor toolstorage.Storage, vers version.Binary) (*coretools.Tools, error) {
 	logger.Infof("uploading FAKE tools %s", vers)
 	tgz, checksum := makeFakeTools(vers)
 	size := int64(len(tgz))
-	name := envtools.StorageName(vers, toolsDir)
-	if err := stor.Put(name, bytes.NewReader(tgz), size); err != nil {
-		return nil, err
+	newMeta := toolstorage.Metadata{
+		Version: vers,
+		Size:    int64(len(tgz)),
+		SHA256:  checksum,
 	}
-	url, err := stor.URL(name)
+	err := stor.AddTools(bytes.NewReader(tgz), newMeta)
 	if err != nil {
 		return nil, err
 	}
-	return &coretools.Tools{URL: url, Version: vers, Size: size, SHA256: checksum}, nil
+
+	return &coretools.Tools{Version: vers, Size: size, SHA256: checksum}, nil
 }
 
 // InstallFakeDownloadedTools creates and unpacks fake tools of the
@@ -171,32 +172,29 @@ func makeFakeTools(vers version.Binary) ([]byte, string) {
 		coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))
 }
 
-// UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
-func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, versions ...version.Binary) ([]*coretools.Tools, error) {
+// NewUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
+func UploadFakeToolsVersions(stor toolstorage.Storage, versions ...version.Binary) ([]*coretools.Tools, error) {
 	// Leave existing tools alone.
-	existingTools := make(map[version.Binary]*coretools.Tools)
-	existing, _ := envtools.ReadList(stor, toolsDir, 1, -1)
-	for _, tools := range existing {
-		existingTools[tools.Version] = tools
-	}
 	var agentTools coretools.List = make(coretools.List, len(versions))
 	for i, version := range versions {
-		if tools, ok := existingTools[version]; ok {
-			agentTools[i] = tools
-		} else {
-			t, err := uploadFakeToolsVersion(stor, toolsDir, version)
-			if err != nil {
-				return nil, err
-			}
-			agentTools[i] = t
+		meta, err := stor.Metadata(version)
+		ctool := &coretools.Tools{
+			Version: meta.Version,
+			Size:    meta.Size,
+			SHA256:  meta.SHA256,
 		}
-	}
-	if err := envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
-		return nil, err
-	}
-	err := SignTestTools(stor)
-	if err != nil {
-		return nil, err
+		if errors.IsNotFound(err) {
+			var tool *coretools.Tools
+			tool, err = uploadFakeToolsVersion(stor, version)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ctool = tool
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		agentTools[i] = ctool
 	}
 	return agentTools, nil
 }
@@ -242,32 +240,26 @@ func SignFileData(stor storage.Storage, fileName string) error {
 }
 
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
-func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stream string, versions ...version.Binary) []*coretools.Tools {
-	agentTools, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors)
+func AssertUploadFakeToolsVersions(c *gc.C, stor toolstorage.Storage, versions ...version.Binary) []*coretools.Tools {
+	agentTools, err := UploadFakeToolsVersions(stor, versions...)
 	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }
 
 // MustUploadFakeToolsVersions acts as UploadFakeToolsVersions, but panics on failure.
-func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
+func MustUploadFakeToolsVersions(stor toolstorage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
 	var agentTools coretools.List = make(coretools.List, len(versions))
 	for i, version := range versions {
-		t, err := uploadFakeToolsVersion(stor, stream, version)
+		t, err := uploadFakeToolsVersion(stor, version)
 		if err != nil {
 			panic(err)
 		}
 		agentTools[i] = t
 	}
-	err := envtools.MergeAndWriteMetadata(stor, stream, stream, agentTools, envtools.DoNotWriteMirrors)
-	if err != nil {
-		panic(err)
-	}
 	return agentTools
 }
 
-func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
+func uploadFakeTools(stor toolstorage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
 	toolsSeries.Add(series.HostSeries())
 	var versions []version.Binary
@@ -279,7 +271,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 		}
 		versions = append(versions, vers)
 	}
-	if _, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...); err != nil {
+	if _, err := UploadFakeToolsVersions(stor, versions...); err != nil {
 		return err
 	}
 	return nil
@@ -290,19 +282,19 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 // to coretesting.FakeDefaultSeries, matching fake tools will be uploaded for that
 // series.  This is useful for tests that are kinda casual about specifying
 // their environment.
-func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
+func UploadFakeTools(c *gc.C, stor toolstorage.Storage, toolsDir, stream string) {
 	c.Assert(uploadFakeTools(stor, toolsDir, stream), gc.IsNil)
 }
 
 // MustUploadFakeTools acts as UploadFakeTools, but panics on failure.
-func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
+func MustUploadFakeTools(stor toolstorage.Storage, toolsDir, stream string) {
 	if err := uploadFakeTools(stor, toolsDir, stream); err != nil {
 		panic(err)
 	}
 }
 
-// RemoveFakeTools deletes the fake tools from the supplied storage.
-func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
+// RemoveFakeToolsFromSimpleStream deletes the fake tools from the supplied storage.
+func RemoveFakeToolsFromSimpleStream(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Logf("removing fake tools")
 	toolsVersion := version.Binary{
 		Number: jujuversion.Current,
@@ -317,18 +309,6 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
-		c.Check(err, jc.ErrorIsNil)
-	}
-	RemoveFakeToolsMetadata(c, stor)
-}
-
-// RemoveTools deletes all tools from the supplied storage.
-func RemoveTools(c *gc.C, stor storage.Storage, toolsDir string) {
-	names, err := storage.List(stor, fmt.Sprintf("tools/%s/juju-", toolsDir))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("removing files: %v", names)
-	for _, name := range names {
-		err = stor.Remove(name)
 		c.Check(err, jc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
@@ -565,4 +545,84 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
 	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// AssertUploadFakeToolsVersionsToSimplestreams puts fake tools in the supplied storage for the supplied versions.
+func AssertUploadFakeToolsVersionsToSimplestreams(c *gc.C, stor storage.Storage, toolsDir, stream string, versions ...version.Binary) []*coretools.Tools {
+	agentTools, err := UploadFakeToolsVersionsToSimplestreams(stor, toolsDir, stream, versions...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors)
+	c.Assert(err, jc.ErrorIsNil)
+	return agentTools
+}
+
+// UploadFakeToolsVersionsToSimplestreams puts fake tools in the supplied storage for the supplied versions.
+func UploadFakeToolsVersionsToSimplestreams(stor storage.Storage, toolsDir, stream string, versions ...version.Binary) ([]*coretools.Tools, error) {
+	// Leave existing tools alone.
+	existingTools := make(map[version.Binary]*coretools.Tools)
+	existing, _ := envtools.ReadList(stor, toolsDir, 1, -1)
+	for _, tools := range existing {
+		existingTools[tools.Version] = tools
+	}
+	var agentTools coretools.List = make(coretools.List, len(versions))
+	for i, version := range versions {
+		if tools, ok := existingTools[version]; ok {
+			agentTools[i] = tools
+		} else {
+			t, err := uploadFakeToolsVersionToSimpleStreams(stor, toolsDir, version)
+			if err != nil {
+				return nil, err
+			}
+			agentTools[i] = t
+		}
+	}
+	if err := envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
+		return nil, err
+	}
+	err := SignTestTools(stor)
+	if err != nil {
+		return nil, err
+	}
+	return agentTools, nil
+}
+
+// UploadFakeToolsToSimpleStreams uploads lts tools to a fake simple streams folder.
+func UploadFakeToolsToSimpleStreams(stor storage.Storage, toolsDir, stream string) error {
+	toolsSeries := set.NewStrings(toolsLtsSeries...)
+	toolsSeries.Add(series.HostSeries())
+	var versions []version.Binary
+	for _, series := range toolsSeries.Values() {
+		vers := version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series,
+		}
+		versions = append(versions, vers)
+	}
+	if _, err := UploadFakeToolsVersionsToSimplestreams(stor, toolsDir, stream, versions...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func uploadFakeToolsVersionToSimpleStreams(stor storage.Storage, toolsDir string, vers version.Binary) (*coretools.Tools, error) {
+	logger.Infof("uploading FAKE tools %s", vers)
+	tgz, checksum := makeFakeTools(vers)
+	size := int64(len(tgz))
+	name := envtools.StorageName(vers, toolsDir)
+	if err := stor.Put(name, bytes.NewReader(tgz), size); err != nil {
+		return nil, err
+	}
+	url, err := stor.URL(name)
+	if err != nil {
+		return nil, err
+	}
+	return &coretools.Tools{URL: url, Version: vers, Size: size, SHA256: checksum}, nil
+}
+
+// MustUploadFakeToolsToSimpleStreams acts as UploadFakeToolsToSimpleStreams, but panics on failure.
+func MustUploadFakeToolsToSimpleStreams(stor storage.Storage, toolsDir, stream string) {
+	if err := UploadFakeToolsToSimpleStreams(stor, toolsDir, stream); err != nil {
+		panic(err)
+	}
 }

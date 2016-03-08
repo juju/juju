@@ -31,9 +31,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
@@ -1244,10 +1242,10 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 		return
 	}
 
-	storageDir := c.MkDir()
-	s.CommonProvisionerSuite.PatchValue(&tools.DefaultBaseURL, storageDir)
-	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	//storageDir := c.MkDir()
+	//s.CommonProvisionerSuite.PatchValue(&tools.DefaultBaseURL, storageDir)
+	//stor, err := filestorage.NewFileStorageWriter(storageDir)
+	//c.Assert(err, jc.ErrorIsNil)
 
 	defaultTools := version.Binary{
 		Number: jujuversion.Current,
@@ -1255,8 +1253,11 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 		Series: coretesting.FakeDefaultSeries,
 	}
 
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", defaultTools)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", defaultTools)
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	envtesting.AssertUploadFakeToolsVersions(c, stor, defaultTools)
 }
 
 func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {

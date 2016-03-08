@@ -63,9 +63,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	// Upload tools to both release and devel streams since config will dictate that we
+	// end up looking in both places.
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
-
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	c.Assert(err, jc.ErrorIsNil)
+	//
 	// Patch the function used to retrieve GUI archive info from simplestreams.
 	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		return nil, nil
@@ -79,7 +82,6 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined, nil)
-	s.setDummyStorage(c, env)
 	fixEnv := func(key string, value interface{}) {
 		cfg, err := env.Config().Apply(map[string]interface{}{
 			key: value,
@@ -106,7 +108,6 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -116,7 +117,6 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
 	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
 	modelCons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -149,7 +149,6 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
 	placement := "directive"
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
@@ -163,8 +162,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
 
 	env := bootstrapEnvironWithRegion{
 		newEnviron("foo", useDefaultKeys, nil),
@@ -173,7 +171,6 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 			Endpoint: "hearnoretheir",
 		},
 	}
-	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -512,11 +509,9 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		MetadataDir: metadataDir,
 	})
@@ -558,10 +553,9 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	noImagesDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		MetadataDir: noImagesDir,
 	})
@@ -585,7 +579,11 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
+	simpleStreamStorageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(simpleStreamStorageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	env.storage = stor
+
 	envtools.RegisterToolsDataSourceFunc("local storage", func(environs.Environ) (simplestreams.DataSource, error) {
 		return storage.NewStorageSimpleStreamsDataSource("test datasource", env.storage, "tools", simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	})
@@ -601,7 +599,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 		stream = "devel"
 		currentVersion.Tag = toolsVersion.Tag
 	}
-	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)
+	_, err = envtesting.UploadFakeToolsVersionsToSimplestreams(env.storage, stream, stream, toolsBinaries...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -696,15 +694,6 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 	return &bootstrapEnviron{
 		cfg: cfg,
 	}
-}
-
-// setDummyStorage injects the local provider's fake storage implementation
-// into the given environment, so that tests can manipulate storage as if it
-// were real.
-func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
-	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
-	env.storage = stor
-	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
