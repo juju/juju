@@ -10,20 +10,26 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, "MigrationMaster")}
+// Client describes the client side API for the MigrationMaster facade
+// (used by the migration master worker).
+type Client interface {
+	// Watch returns a watcher which reports when a migration is
+	// active for the model associated with the API connection.
+	Watch() (watcher.MigrationMasterWatcher, error)
 }
 
-// Client provides the client side API for the MigrationMaster facade
-// (to be used by the migration master worker).
-type Client struct {
+// NewClient returns a new Client based on an existing API connection.
+func NewClient(caller base.APICaller) Client {
+	return &client{base.NewFacadeCaller(caller, "MigrationMaster")}
+}
+
+// client implements Client.
+type client struct {
 	caller base.FacadeCaller
 }
 
-// Watch returns a watcher which reports when a migration is active
-// for the model associated with the API connection.
-func (c *Client) Watch() (watcher.MigrationMasterWatcher, error) {
+// Watch implements Client.
+func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {
