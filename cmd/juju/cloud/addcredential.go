@@ -80,7 +80,7 @@ func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *addCredentialCommand) Init(args []string) (err error) {
-	if len(args) < 1 {
+	if len(args) < 1 || c.CredentialsFile == "" {
 		return errors.New("Usage: juju add-credential <cloud-name> -f <credentials.yaml>")
 	}
 	// Check that the supplied cloud is valid.
@@ -118,7 +118,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	// If there are *any* credentials already for the cloud, we'll ask for the --replace flag.
-	if len(existingCredentials.AuthCredentials) > 0 && len(credentials.AuthCredentials) > 0 && !c.Replace {
+	if !c.Replace && len(existingCredentials.AuthCredentials) > 0 && len(credentials.AuthCredentials) > 0 {
 		return errors.Errorf("credentials for cloud %s already exist; use --replace to overwrite / merge", c.Cloud)
 	}
 	for name, cred := range credentials.AuthCredentials {

@@ -7,10 +7,10 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -48,6 +48,8 @@ func (s *addCredentialSuite) run(c *gc.C, args ...string) error {
 func (s *addCredentialSuite) TestBadArgs(c *gc.C) {
 	err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju add-credential <cloud-name> -f <credentials.yaml>")
+	err = s.run(c, "somecloud")
+	c.Assert(err, gc.ErrorMatches, `Usage: juju add-credential <cloud-name> -f <credentials.yaml>`)
 	err = s.run(c, "somecloud", "-f", "credential.yaml", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 	err = s.run(c, "bad-cloud", "-f", "credential.yaml")
@@ -78,7 +80,7 @@ credentials:
 func (s *addCredentialSuite) TestAddNoCredentialsFound(c *gc.C) {
 	sourceFile := s.createTestCredentialData(c)
 	err := s.run(c, "anothercloud", "-f", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `no credentiala for cloud anothercloud exist in file.*`)
+	c.Assert(err, gc.ErrorMatches, `no credentials for cloud anothercloud exist in file.*`)
 }
 
 func (s *addCredentialSuite) TestAddExisting(c *gc.C) {
