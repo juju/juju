@@ -13,21 +13,17 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-// Facade exposes capabilities required by the worker.
 type Facade interface {
 	Watch(names.Tag) (watcher.NotifyWatcher, error)
 	Life(names.Tag) (life.Value, error)
 }
 
-// Config holds the configuration and dependencies for a worker.
 type Config struct {
 	Facade Facade
 	Entity names.Tag
 	Result life.Predicate
 }
 
-// Validate returns an error if the config cannot be expected
-// to drive a functional worker.
 func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
@@ -42,20 +38,12 @@ func (config Config) Validate() error {
 }
 
 var (
-	// ErrNotFound indicates that the worker cannot run because
-	// the configured entity does not exist.
-	ErrNotFound = errors.New("entity not found")
-
-	// ErrValueChanged indicates that the result of Check is
-	// outdated, and the worker should be restarted.
+	ErrNotFound     = errors.New("entity not found")
 	ErrValueChanged = errors.New("flag value changed")
 )
 
-// filter is used to wrap errors that might have come from the api,
-// so that we can return an error appropriate to our level. Was
-// tempted to make it a manifold-level thing, but that'd be even
-// worse (because the worker should not be emitting api errors for
-// conditions it knows about, full stop).
+// filter wraps errors that might have come from the api, so that
+// we can return an error appropriate to our level.
 func filter(err error) error {
 	if cause := errors.Cause(err); cause == lifeflag.ErrNotFound {
 		return ErrNotFound
@@ -63,9 +51,6 @@ func filter(err error) error {
 	return err
 }
 
-// New returns a worker that exposes the result of the configured
-// predicate when applied to the configured entity's life value,
-// and fails with ErrValueChanged when the result changes.
 func New(config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)

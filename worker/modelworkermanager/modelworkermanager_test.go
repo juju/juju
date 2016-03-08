@@ -4,7 +4,6 @@
 package modelworkermanager_test
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,10 +21,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/modelworkermanager"
 )
-
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&suite{})
 

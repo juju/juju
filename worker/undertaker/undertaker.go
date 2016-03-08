@@ -8,26 +8,52 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	uc "github.com/juju/utils/clock"
+	"github.com/juju/utils/clock"
 
-	apiundertaker "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.undertaker")
 
-// ripTime is the time to wait after an model has been set to
-// dead, before removing all model docs.
-const ripTime = 24 * time.Hour
+// Facade covers the parts of the api/undertaker.UndertakerClient that we
+// need for the worker. It's more than a little raw, but we'll survive.
+type Facade interface {
+	ModelInfo() (params.UndertakerModelInfoResult, error)
+	WatchModelResources() (watcher.NotifyWatcher, error)
+	ProcessDyingModel() error
+	RemoveModel() error
+}
+
+type Config struct {
+	Facade      Facade
+	Environ     environs.Environ
+	Clock       clock.Clock
+	RemoveDelay time.Duration
+}
+
+func (config Config) Validate() error {
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.RemoveDelay <= 0 {
+		return errors.NotValidf("non-positive RemoveDelay")
+	}
+	return nil
+}
 
 // NewUndertaker returns a worker which processes a dying model.
-func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) (worker.Worker, error) {
-	u := &undertaker{
-		client: client,
-		clock:  clock,
+func NewUndertaker(config Config) (*Undertaker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	u := &Undertaker{
+		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -39,14 +65,13 @@ func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) (worke
 	return u, nil
 }
 
-type undertaker struct {
+type Undertaker struct {
 	catacomb catacomb.Catacomb
-	client   apiundertaker.UndertakerClient
-	clock    uc.Clock
+	config   Config
 }
 
-func (u *undertaker) run() error {
-	result, err := u.client.ModelInfo()
+func (u *Undertaker) run() error {
+	result, err := u.config.Facade.ModelInfo()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -61,75 +86,78 @@ func (u *undertaker) run() error {
 
 	if modelInfo.Life == params.Dying {
 		// Process the dying model. This blocks until the model
-		// is dead.
-		u.processDyingModel()
+		// is dead or the worker is stopped.
+		if err := u.processDyingModel(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// If model is not alive or dying, it must be dead.
-
 	if modelInfo.IsSystem {
-		// Nothing to do. We don't remove model docs for a controller
-		// model.
+		// Nothing to do. We don't destroy environ resources or
+		// delete model docs for a controller model, because we're
+		// running inside that controller and can't safely clean up
+		// our own infrastructure. (That'll be the client's job in
+		// the end, once we've reported that we've tidied up what we
+		// can, by returning nil here, indicating that we've set it
+		// to Dead -- implied by processDyingModel succeeding.)
 		return nil
 	}
 
-	err = u.destroyProviderModel()
+	// Now the model is known to be hosted and dead, we can tidy up any
+	// provider resources it might have used.
+	err = u.destroyEnviron()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	tod := u.clock.Now()
+	// Wait a reasonable amount of time before destroying model docs.
+	// Recorded time of death is assumed correct; if not recorded,
+	// assume we did it just now.
+	deadSince := u.config.Clock.Now()
 	if modelInfo.TimeOfDeath != nil {
-		// If TimeOfDeath is not nil, the model was already dead
-		// before the worker was started. So we use the recorded time of
-		// death. This may happen if the system is rebooted after an
-		// model is set to dead, but before the model docs are
-		// removed.
-		tod = *modelInfo.TimeOfDeath
+		deadSince = *modelInfo.TimeOfDeath
 	}
-
-	// Process the dead model
-	return u.processDeadModel(tod)
+	return u.processDeadModel(deadSince)
 }
 
 // Kill is part of the worker.Worker interface.
-func (u *undertaker) Kill() {
+func (u *Undertaker) Kill() {
 	u.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (u *undertaker) Wait() error {
+func (u *Undertaker) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *undertaker) processDyingModel() error {
-	// ProcessDyingModel will fail quite a few times before it succeeds as
-	// it is being woken up as every machine or service changes. We ignore the
-	// error here and rely on the logging inside the ProcessDyingModel.
-	if err := u.client.ProcessDyingModel(); err == nil {
-		return nil
-	}
+func (u *Undertaker) processDyingModel() error {
 
-	watcher, err := u.client.WatchModelResources()
+	watcher, err := u.config.Facade.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Kill() // The watcher is not needed once this func returns.
 	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
+	defer watcher.Kill() // The watcher is not needed once this func returns.
 
 	for {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
-		case _, ok := <-watcher.Changes():
-			if !ok {
-				return errors.New("model resources watcher failed")
-			}
-			err := u.client.ProcessDyingModel()
+		case <-watcher.Changes():
+			// TODO(fwereade): this is wrong. If there's a time
+			// it's ok to ignore an error, it's when we know
+			// exactly what an error is/means. If there's a
+			// specific code for "not done yet", *that* is what
+			// we should be ignoring. But unknown errors are
+			// *unknown*, and we can't just assume that it's
+			// safe to continue.
+			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {
-				// ProcessDyingModel succeeded. We're done.
+				// ProcessDyingModel succeeded. We're free to
+				// destroy any remaining environ resources.
 				return nil
 			}
 			// Yes, we ignore the error. See comment above.
@@ -137,31 +165,18 @@ func (u *undertaker) processDyingModel() error {
 	}
 }
 
-func (u *undertaker) destroyProviderModel() error {
-	cfg, err := u.client.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = env.Destroy()
+func (u *Undertaker) destroyEnviron() error {
+	err := u.config.Environ.Destroy()
 	return errors.Trace(err)
 }
 
-func (u *undertaker) processDeadModel(timeOfDeath time.Time) error {
-	timeDead := u.clock.Now().Sub(timeOfDeath)
-	wait := ripTime - timeDead
-	if wait < 0 {
-		wait = 0
-	}
-
+func (u *Undertaker) processDeadModel(deadSince time.Time) error {
+	removeTime := deadSince.Add(u.config.RemoveDelay)
 	select {
 	case <-u.catacomb.Dying():
 		return u.catacomb.ErrDying()
-	case <-u.clock.After(wait):
-		err := u.client.RemoveModel()
+	case <-clock.Alarm(u.config.Clock, removeTime):
+		err := u.config.Facade.RemoveModel()
 		return errors.Annotate(err, "could not remove all docs for dead model")
 	}
 }

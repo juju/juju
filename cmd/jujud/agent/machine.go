@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
-	apiundertaker "github.com/juju/juju/api/undertaker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
@@ -41,7 +40,6 @@ import (
 	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
@@ -55,7 +53,6 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
@@ -75,7 +72,6 @@ import (
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/certupdater"
-	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -88,19 +84,14 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
-	"github.com/juju/juju/worker/metricworker"
-	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/singular"
-	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
-	"github.com/juju/juju/worker/undertaker"
-	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -131,7 +122,6 @@ var (
 	newUpgradeMongoWorker    = mongoupgrader.New
 	reportOpenedState        = func(io.Closer) {}
 	getMetricAPI             = metricAPI
-	getUndertakerAPI         = undertakerAPI
 )
 
 // Variable to override in tests, default is true
@@ -970,8 +960,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Take advantage of special knowledge here in that we will only ever want
-	// the storage provider on one machine, and that is the "bootstrap" node.
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
@@ -979,7 +967,15 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobManageModel:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
-				return modelworkermanager.NewModelWorkerManager(st, a.startEnvWorkers, a.undertakerWorker, worker.RestartDelay), nil
+				w, err := modelworkermanager.New(modelworkermanager.Config{
+					Backend:    st,
+					NewWorker:  a.startModelWorkers,
+					ErrorDelay: worker.RestartDelay,
+				})
+				if err != nil {
+					return nil, errors.Annotate(err, "cannot start model worker manager")
+				}
+				return w, nil
 			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				w, err := peergrouperNew(st)
@@ -1063,293 +1059,41 @@ func (s stateWorkerCloser) Close() error {
 	return s.stateCloser.Close()
 }
 
-// startEnvWorkers starts controller workers that need to run per
-// environment.
-func (a *MachineAgent) startEnvWorkers(
-	ssSt modelworkermanager.InitialState,
-	st *state.State,
-) (_ worker.Worker, err error) {
-	modelUUID := st.ModelUUID()
-	defer errors.DeferredAnnotatef(&err, "failed to start workers for env %s", modelUUID)
-	logger.Infof("starting workers for env %s", modelUUID)
-
-	// Establish API connection for this model.
-	modelAgent, err := model.WrapAgent(a, st.ModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	conn, err := apicaller.OnlyConnect(modelAgent, apicaller.APIOpen)
+// startModelWorkers starts the set of workers that run for every model
+// in each controller.
+func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
+	modelAgent, err := model.WrapAgent(a, uuid)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Create a runner for workers specific to this model. Either
-	// the State or API connection failing will be considered fatal,
-	// killing the runner and all its workers.
-	runner := newConnRunner(st, conn)
-	defer func() {
-		if err != nil && runner != nil {
-			runner.Kill()
-			runner.Wait()
-		}
-	}()
-	// Close the API connection when the runner for this model dies.
-	go func() {
-		runner.Wait()
-		err := conn.Close()
-		if err != nil {
-			logger.Errorf("failed to close API connection for model %s: %v", modelUUID, err)
-		}
-	}()
-
-	// Create a singular runner for this environment.
-	machine, err := ssSt.Machine(a.machineId)
+	engine, err := dependency.NewEngine(dependency.EngineConfig{
+		IsFatal:     model.IsFatal,
+		WorstError:  model.WorstError,
+		Filter:      model.IgnoreErrRemoved,
+		ErrorDelay:  3 * time.Second,
+		BounceDelay: 10 * time.Millisecond,
+	})
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	singularRunner, err := newSingularStateRunner(runner, ssSt, machine)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() {
-		if err != nil && singularRunner != nil {
-			singularRunner.Kill()
-			singularRunner.Wait()
-		}
-	}()
-
-	// Start workers that depend on a *state.State.
-	// TODO(fwereade): 2015-04-21 THIS SHALL NOT PASS
-	// Seriously, these should all be using the API.
-	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
-		return minunitsworker.NewMinUnitsWorker(st), nil
-	})
-
-	// Start workers that use an API connection.
-	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-		w, err := provisioner.NewEnvironProvisioner(conn.Provisioner(), a.CurrentConfig())
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start environment compute provisioner worker")
-		}
-		return w, nil
-	})
-	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
-		scope := st.ModelTag()
-		api, err := apistorageprovisioner.NewState(conn, scope)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		w, err := newStorageWorker(storageprovisioner.Config{
-			Scope:       scope,
-			Volumes:     api,
-			Filesystems: api,
-			Life:        api,
-			Environ:     api,
-			Machines:    api,
-			Status:      api,
-			Clock:       clock.WallClock,
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start environment storage provisioner worker")
-		}
-		return w, nil
-	})
-	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
-		w, err := charmrevision.NewWorker(charmrevision.Config{
-			RevisionUpdater: conn.CharmRevisionUpdater(),
-			Clock:           clock.WallClock,
-			Period:          24 * time.Hour,
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start charm revision updater worker")
-		}
-		return w, nil
-	})
-	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
-		client, err := getMetricAPI(conn)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot construct metrics api facade")
-		}
-		w, err := metricworker.NewMetricsManager(client)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start metrics manager worker")
-		}
-		return w, nil
-	})
-	singularRunner.StartWorker("instancepoller", func() (worker.Worker, error) {
-		w, err := newInstancePoller(conn.InstancePoller())
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start instance poller worker")
-		}
-		return w, nil
-	})
-	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
-		w, err := newCleaner(conn.Cleaner())
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start state cleaner worker")
-		}
-		return w, nil
-	})
-	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		w, err := newAddresser(conn.Addresser())
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start addresser worker")
-		}
-		return w, nil
-	})
-	singularRunner.StartWorker("discoverspaces", func() (worker.Worker, error) {
-		facade := conn.DiscoverSpaces()
-		envConfig, err := facade.ModelConfig()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get model config")
-		}
-		environ, err := environs.New(envConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot create environment")
-		}
-
-		config := discoverspaces.Config{
-			Facade:  facade,
-			Environ: environ,
-			NewName: discoverspaces.ConvertSpaceName,
-		}
-		w, err := newDiscoverSpaces(config)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start space discovery worker")
-		}
-		return w, nil
-	})
-
-	if machine.IsManager() {
-		singularRunner.StartWorker("unitassigner", func() (worker.Worker, error) {
-			return unitassigner.New(conn.UnitAssigner())
-		})
+		return nil, err
 	}
 
-	// TODO(axw) 2013-09-24 bug #1229506
-	// Make another job to enable the firewaller. Not all
-	// environments are capable of managing ports
-	// centrally.
-	fwMode, err := getFirewallMode(conn)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get firewall mode")
-	}
-	if fwMode != config.FwNone {
-		singularRunner.StartWorker("firewaller", func() (worker.Worker, error) {
-			w, err := newFirewaller(conn.Firewaller())
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot start firewaller worker")
-			}
-			return w, nil
-		})
-	} else {
-		logger.Debugf("not starting firewaller worker - firewall-mode is %q", fwMode)
-	}
-
-	singularRunner.StartWorker("statushistorypruner", func() (worker.Worker, error) {
-		f := statushistory.NewFacade(conn)
-		conf := statushistorypruner.Config{
-			Facade:           f,
-			MaxLogsPerEntity: params.DefaultMaxLogsPerEntity,
-			PruneInterval:    params.DefaultPruneInterval,
-			NewTimer:         worker.NewTimer,
-		}
-		w, err := statushistorypruner.New(conf)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start status history pruner worker")
-		}
-		return w, nil
+	manifolds := model.Manifolds(model.ManifoldsConfig{
+		Agent:                       modelAgent,
+		Clock:                       clock.WallClock,
+		RunFlagDuration:             time.Minute,
+		CharmRevisionUpdateInterval: 24 * time.Hour,
+		EntityStatusHistoryCount:    100,
+		EntityStatusHistoryInterval: 5 * time.Minute,
+		ModelRemoveDelay:            24 * time.Hour,
 	})
-
-	return runner, nil
-}
-
-// undertakerWorker manages the controlled take-down of a dying environment.
-func (a *MachineAgent) undertakerWorker(
-	ssSt modelworkermanager.InitialState,
-	st *state.State,
-) (_ worker.Worker, err error) {
-	modelUUID := st.ModelUUID()
-	defer errors.DeferredAnnotatef(&err, "failed to start undertaker worker for model %s", modelUUID)
-	logger.Infof("starting undertaker worker for model %s", modelUUID)
-	singularRunner, runner, apiSt, err := a.newRunnersForAPIConn(ssSt, st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() {
-		if err != nil && singularRunner != nil {
-			singularRunner.Kill()
-			singularRunner.Wait()
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
-	}()
-
-	// Start the undertaker worker.
-	singularRunner.StartWorker("undertaker", func() (worker.Worker, error) {
-		return undertaker.NewUndertaker(getUndertakerAPI(apiSt), clock.WallClock)
-	})
-
-	return runner, nil
-}
-
-func (a *MachineAgent) newRunnersForAPIConn(
-	ssSt modelworkermanager.InitialState,
-	st *state.State,
-) (
-	worker.Runner,
-	worker.Runner,
-	api.Connection,
-	error,
-) {
-	// Establish API connection for this model.
-	modelAgent, err := model.WrapAgent(a, st.ModelUUID())
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, err
 	}
-	conn, err := apicaller.OnlyConnect(modelAgent, apicaller.APIOpen)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	// Create a runner for workers specific to this model. Either
-	// the State or API connection failing will be considered fatal,
-	// killing the runner and all its workers.
-	runner := newConnRunner(st, conn)
-	defer func() {
-		if err != nil && runner != nil {
-			runner.Kill()
-			runner.Wait()
-		}
-	}()
-	// Close the API connection when the runner for this model dies.
-	go func() {
-		runner.Wait()
-		err := conn.Close()
-		if err != nil {
-			logger.Errorf("failed to close API connection for model %s: %v", st.ModelUUID(), err)
-		}
-	}()
-
-	// Create a singular runner for this model.
-	machine, err := ssSt.Machine(a.machineId)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-	singularRunner, err := newSingularStateRunner(runner, ssSt, machine)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	return singularRunner, runner, conn, nil
-}
-
-var getFirewallMode = _getFirewallMode
-
-func _getFirewallMode(apiSt api.Connection) (string, error) {
-	modelConfig, err := apiagent.NewState(apiSt).ModelConfig()
-	if err != nil {
-		return "", errors.Annotate(err, "cannot read model config")
-	}
-	return modelConfig.FirewallMode(), nil
+	return engine, nil
 }
 
 // stateWorkerDialOpts is a mongo.DialOpts suitable
@@ -1957,10 +1701,6 @@ func metricAPI(st api.Connection) (metricsmanager.MetricsManagerClient, error) {
 		return nil, errors.Trace(err)
 	}
 	return client, nil
-}
-
-func undertakerAPI(st api.Connection) apiundertaker.UndertakerClient {
-	return apiundertaker.NewClient(st)
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context
