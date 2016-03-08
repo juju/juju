@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/state"
 )
 
@@ -51,4 +52,25 @@ func (api *API) Watch() (params.NotifyWatchResult, error) {
 	return params.NotifyWatchResult{
 		NotifyWatcherId: api.resources.Register(w),
 	}, nil
+}
+
+// SetPhase sets the phase of the active model migration. The provided
+// phase must be a valid phase value, for example QUIESCE" or
+// "ABORT". See the core/modelmigration package for the complete list.
+func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
+	mig, err := api.state.GetModelMigration()
+	if err != nil {
+		return errors.Annotate(err, "could not get migration")
+	}
+
+	phase, ok := modelmigration.ParsePhase(args.Phase)
+	if !ok {
+		return errors.Errorf("invalid phase: %q", args.Phase)
+	}
+
+	err = mig.SetPhase(phase)
+	if err != nil {
+		return errors.Annotate(err, "failed to set phase")
+	}
+	return nil
 }
