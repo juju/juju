@@ -62,6 +62,7 @@ type rawImageMethods interface {
 	//PutImageProperties(name string, p shared.ImageProperties) error
 
 	// image data (create, upload, download, destroy)
+	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool, autoUpdate bool, progresHandler func(string)) error
 	ImageFromContainer(cname string, public bool, aliases []string, properties map[string]string) (string, error)
 	DeleteImage(image string) error
 }
