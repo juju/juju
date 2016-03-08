@@ -50,22 +50,31 @@ func (d DataStore) Units(serviceID string) (tags []names.UnitTag, err error) {
 	return tags, nil
 }
 
-// RawState is a wrapper around state.State that supports the needs
+// rawState is a wrapper around state.State that supports the needs
 // of resources.
-type RawState struct {
-	// Persist is the persistence layer underlying state.
-	Persist corestate.Persistence
+type rawState struct {
+	base    *corestate.State
+	persist corestate.Persistence
+}
+
+// NewResourceState is a function that may be passed to
+// state.SetResourcesComponent().
+func NewResourceState(persist corestate.Persistence, base *corestate.State) corestate.Resources {
+	return state.NewState(&rawState{
+		base:    base,
+		persist: persist,
+	})
 }
 
 // Persistence implements resource/state.RawState.
-func (st RawState) Persistence() state.Persistence {
-	persist := corestate.NewResourcePersistence(st.Persist)
+func (st rawState) Persistence() state.Persistence {
+	persist := corestate.NewResourcePersistence(st.persist)
 	return resourcePersistence{persist}
 }
 
 // Storage implements resource/state.RawState.
-func (st RawState) Storage() state.Storage {
-	return st.Persist.NewStorage()
+func (st rawState) Storage() state.Storage {
+	return st.persist.NewStorage()
 }
 
 type resourcePersistence struct {

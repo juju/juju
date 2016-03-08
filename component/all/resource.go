@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -116,14 +115,7 @@ func (resources) registerState() {
 		return
 	}
 
-	newResources := func(persist corestate.Persistence) corestate.Resources {
-		st := state.NewState(&resourceadapters.RawState{
-			Persist: persist,
-		})
-		return st
-	}
-
-	corestate.SetResourcesComponent(newResources)
+	corestate.SetResourcesComponent(resourceadapters.NewResourceState)
 }
 
 // registerPublicCommands adds the resources-related commands

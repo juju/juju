@@ -52,11 +52,11 @@ type Resources interface {
 	NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error)
 }
 
-var newResources func(Persistence) Resources
+var newResources func(Persistence, *State) Resources
 
 // SetResourcesComponent registers the function that provide the state
 // functionality related to resources.
-func SetResourcesComponent(fn func(Persistence) Resources) {
+func SetResourcesComponent(fn func(Persistence, *State) Resources) {
 	newResources = fn
 }
 
@@ -67,6 +67,6 @@ func (st *State) Resources() (Resources, error) {
 	}
 
 	persist := st.newPersistence()
-	resources := newResources(persist)
+	resources := newResources(persist, st)
 	return resources, nil
 }
