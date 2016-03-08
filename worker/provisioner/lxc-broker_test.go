@@ -784,10 +784,10 @@ func (s *lxcBrokerSuite) patchNetInterfaceByName(c *gc.C, interfaceName string) 
 }
 
 func (s *lxcBrokerSuite) patchNetInterfaceByNameAddrs(c *gc.C, interfaceName string, fakeAddrs ...string) {
-	addrs := make([]net.Addr, 0)
+	addrs := make([]net.Addr, len(fakeAddrs))
 
-	for _, a := range fakeAddrs {
-		addrs = append(addrs, &fakeAddr{a})
+	for i, a := range fakeAddrs {
+		addrs[i] = &fakeAddr{a}
 	}
 
 	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
