@@ -6,19 +6,11 @@
 package lxdclient
 
 import (
-	"os/exec"
-
-	"github.com/lxc/lxd/shared"
-
-	"github.com/juju/errors"
+	"github.com/lxc/lxd"
 )
 
-type rawImageClient interface {
-	ListAliases() (shared.ImageAliases, error)
-}
-
 type imageClient struct {
-	raw rawImageClient
+	raw *lxd.Client
 }
 
 func (i imageClient) EnsureImageExists(series string) error {
@@ -35,8 +27,15 @@ func (i imageClient) EnsureImageExists(series string) error {
 		}
 	}
 
-	cmd := exec.Command("lxd-images", "import", "ubuntu", series, "--alias", name)
-	return errors.Trace(cmd.Run())
+	/* "ubuntu" here is cloud-images.ubuntu.com's "releases" stream;
+	 * "ubuntu-daily" would be the daily stream
+	 */
+	ubuntu, err := lxd.NewClient(&lxd.DefaultConfig, "ubuntu")
+	if err != nil {
+		return err
+	}
+
+	return ubuntu.CopyImage(series, i.raw, false, []string{name}, false, true, nil)
 }
 
 // A common place to compute image names (alises) based on the series
