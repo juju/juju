@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
@@ -58,7 +59,7 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 	}
 	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
 		logger.Debugf("Facade (%v) method (%v) was called during the upgrade but it was blocked.", rootName, methodName)
-		return nil, UpgradeInProgressError
+		return nil, params.UpgradeInProgressError
 	}
 	return caller, nil
 }

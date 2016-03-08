@@ -34,7 +34,6 @@ type admin struct {
 	loggedIn bool
 }
 
-var UpgradeInProgressError = errors.New(params.CodeUpgradeInProgress)
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
@@ -57,7 +56,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	if a.srv.validator != nil {
 		err := a.srv.validator(req)
 		switch err {
-		case UpgradeInProgressError:
+		case params.UpgradeInProgressError:
 			authedApi = newUpgradingRoot(authedApi)
 		case AboutToRestoreError:
 			authedApi = newAboutToRestoreRoot(authedApi)

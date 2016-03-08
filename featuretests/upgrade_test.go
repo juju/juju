@@ -316,7 +316,7 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 				return
 			}
 		case RestrictedAPIExposed:
-			if reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress}) {
+			if reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}) {
 				return
 			}
 		}

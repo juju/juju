@@ -32,7 +32,7 @@ var (
 // the error type returned from a facade call is rpc.RequestError
 // and we cannot use params.IsCodeUpgradeInProgress
 func isUpgradeInProgressErr(err error) bool {
-	return reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: ""})
+	return reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 }
 
 // ClientConnection type represents a function capable of spawning a new Client connection

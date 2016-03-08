@@ -140,16 +140,18 @@ type mockBlockClient struct {
 	discoveringSpacesError int
 }
 
+var errOther = errors.New("other error")
+
 func (c *mockBlockClient) List() ([]params.Block, error) {
 	c.retryCount += 1
 	if c.retryCount == 5 {
-		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress}
+		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}
 	}
 	if c.numRetries < 0 {
-		return nil, fmt.Errorf("other error")
+		return nil, errOther
 	}
 	if c.retryCount < c.numRetries {
-		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress}
+		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}
 	}
 	return []params.Block{}, nil
 }
@@ -169,12 +171,15 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 	for _, t := range []struct {
 		numRetries int
-		err        string
+		err        error
 	}{
-		{0, ""},                    // agent ready immediately
-		{2, ""},                    // agent ready after 2 polls
-		{6, "upgrade in progress"}, // agent ready after 6 polls but that's too long
-		{-1, "other error"},        // another error is returned
+		{0, nil}, // agent ready immediately
+		{2, nil}, // agent ready after 2 polls
+		{6, &rpc.RequestError{
+			Message: params.CodeUpgradeInProgress,
+			Code:    params.CodeUpgradeInProgress,
+		}}, // agent ready after 6 polls but that's too long
+		{-1, errOther}, // another error is returned
 	} {
 		resetJujuXDGDataHome(c)
 		dummy.Reset()
@@ -186,11 +191,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 			c, s.newBootstrapCommand(),
 			"devcontroller", "dummy", "--auto-upgrade",
 		)
-		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
-		}
+		c.Check(err, gc.DeepEquals, t.err)
 		expectedRetries := t.numRetries
 		if t.numRetries <= 0 {
 			expectedRetries = 1

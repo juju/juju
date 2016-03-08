@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,7 +38,7 @@ func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
 
 	caller, err := root.FindMethod("Client", 1, "ModelSet")
 
-	c.Assert(errors.Cause(err), gc.Equals, apiserver.UpgradeInProgressError)
+	c.Assert(errors.Cause(err), gc.Equals, params.UpgradeInProgressError)
 	c.Assert(caller, gc.IsNil)
 }
 
