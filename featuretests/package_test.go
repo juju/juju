@@ -27,7 +27,6 @@ func init() {
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&blockSuite{})
-	gc.Suite(&apiCharmsSuite{})
 	gc.Suite(&cmdEnvironmentSuite{})
 	gc.Suite(&cmdStorageSuite{})
 	gc.Suite(&cmdControllerSuite{})

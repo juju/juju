@@ -108,12 +108,37 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
 
+		// First, attempt to match machines. Any units on those
+		// machines are implicitly matched.
+		matchedMachines := make(set.Strings)
+		for _, machineList := range context.machines {
+			for _, m := range machineList {
+				matches, err := predicate(m)
+				if err != nil {
+					return noStatus, errors.Annotate(
+						err, "could not filter machines",
+					)
+				}
+				if matches {
+					matchedMachines.Add(m.Id())
+				}
+			}
+		}
+
 		// Filter units
-		unfilteredSvcs := make(set.Strings)
-		unfilteredMachines := make(set.Strings)
+		matchedSvcs := make(set.Strings)
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
+				machineId, err := unit.AssignedMachineId()
+				if err != nil {
+					machineId = ""
+				} else if matchedMachines.Contains(machineId) {
+					// Unit is on a matching machine.
+					matchedSvcs.Add(unit.ServiceName())
+					continue
+				}
+
 				// Always start examining at the top-level. This
 				// prevents a situation where we filter a subordinate
 				// before we discover its parent is a match.
@@ -125,23 +150,17 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					delete(unitMap, name)
 					continue
 				}
-
-				// Track which services are utilized by the units so
-				// that we can be sure to not filter that service out.
-				unfilteredSvcs.Add(unit.ServiceName())
-				machineId, err := unit.AssignedMachineId()
-				if err != nil {
-					return noStatus, err
+				matchedSvcs.Add(unit.ServiceName())
+				if machineId != "" {
+					matchedMachines.Add(machineId)
 				}
-				unfilteredMachines.Add(machineId)
 			}
 		}
 
 		// Filter services
 		for svcName, svc := range context.services {
-			if unfilteredSvcs.Contains(svcName) {
-				// Don't filter services which have units that were
-				// not filtered.
+			if matchedSvcs.Contains(svcName) {
+				// There are matched units for this service.
 				continue
 			} else if matches, err := predicate(svc); err != nil {
 				return noStatus, errors.Annotate(err, "could not filter services")
@@ -152,7 +171,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 		// Filter machines
 		for status, machineList := range context.machines {
-			filteredList := make([]*state.Machine, 0, len(machineList))
+			matched := make([]*state.Machine, 0, len(machineList))
 			for _, m := range machineList {
 				machineContainers, err := m.Containers()
 				if err != nil {
@@ -160,19 +179,15 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				}
 				machineContainersSet := set.NewStrings(machineContainers...)
 
-				if unfilteredMachines.Contains(m.Id()) || !unfilteredMachines.Intersection(machineContainersSet).IsEmpty() {
-					// Don't filter machines which have an unfiltered
-					// unit running on them.
-					logger.Debugf("mid %s is hosting something.", m.Id())
-					filteredList = append(filteredList, m)
+				if matchedMachines.Contains(m.Id()) || !matchedMachines.Intersection(machineContainersSet).IsEmpty() {
+					// The machine is matched directly, or contains a unit
+					// or container that matches.
+					logger.Tracef("machine %s is hosting something.", m.Id())
+					matched = append(matched, m)
 					continue
-				} else if matches, err := predicate(m); err != nil {
-					return noStatus, errors.Annotate(err, "could not filter machines")
-				} else if matches {
-					filteredList = append(filteredList, m)
 				}
 			}
-			context.machines[status] = filteredList
+			context.machines[status] = matched
 		}
 	}
 

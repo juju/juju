@@ -34,8 +34,8 @@ var (
 	lastConnection = time.Unix(1388534400, 0).UTC()
 )
 
-func NewShowUserCommand() cmd.Command {
-	return user.NewShowUserCommandForTest(&fakeUserInfoAPI{})
+func (s *UserInfoCommandSuite) NewShowUserCommand() cmd.Command {
+	return user.NewShowUserCommandForTest(&fakeUserInfoAPI{}, s.store)
 }
 
 type fakeUserInfoAPI struct{}
@@ -63,7 +63,7 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 }
 
 func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
-	context, err := testing.RunCommand(c, NewShowUserCommand())
+	context, err := testing.RunCommand(c, s.NewShowUserCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: user-test
 display-name: ""
@@ -73,7 +73,7 @@ last-connection: 2014-01-01
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoExactTime(c *gc.C) {
-	context, err := testing.RunCommand(c, NewShowUserCommand(), "--exact-time")
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: user-test
 display-name: ""
@@ -83,7 +83,7 @@ last-connection: 2014-01-01 00:00:00 +0000 UTC
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoWithUsername(c *gc.C) {
-	context, err := testing.RunCommand(c, NewShowUserCommand(), "foobar")
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: foobar
 display-name: Foo Bar
@@ -92,29 +92,29 @@ last-connection: 2014-01-01
 `)
 }
 
-func (*UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
-	_, err := testing.RunCommand(c, NewShowUserCommand(), "barfoo")
+func (s *UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
+	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "barfoo")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (*UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
-	context, err := testing.RunCommand(c, NewShowUserCommand(), "--format", "json")
+func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 {"user-name":"user-test","display-name":"","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
-func (*UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
-	context, err := testing.RunCommand(c, NewShowUserCommand(), "foobar", "--format", "json")
+func (s *UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 {"user-name":"foobar","display-name":"Foo Bar","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
-func (*UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, NewShowUserCommand(), "--format", "yaml")
+func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: user-test
 display-name: ""
@@ -123,8 +123,8 @@ last-connection: 2014-01-01
 `)
 }
 
-func (*UserInfoCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, NewShowUserCommand(), "username", "whoops")
+func (s *UserInfoCommandSuite) TestTooManyArgs(c *gc.C) {
+	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "username", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 

@@ -18,13 +18,13 @@ var ErrConnTimedOut = errors.New("open connection timed out")
 // APIOpener provides a way to open a connection to the Juju
 // API Server through the named connection.
 type APIOpener interface {
-	Open(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error)
+	Open(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error)
 }
 
-type OpenFunc func(jujuclient.ClientStore, string, string) (api.Connection, error)
+type OpenFunc func(jujuclient.ClientStore, string, string, string) (api.Connection, error)
 
-func (f OpenFunc) Open(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
-	return f(store, controllerName, modelName)
+func (f OpenFunc) Open(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
+	return f(store, controllerName, accountName, modelName)
 }
 
 type timeoutOpener struct {
@@ -44,13 +44,13 @@ func NewTimeoutOpener(opener APIOpener, clock clock.Clock, timeout time.Duration
 	}
 }
 
-func (t *timeoutOpener) Open(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+func (t *timeoutOpener) Open(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 	// Make the channels buffered so the created goroutine is guaranteed
 	// not go get blocked trying to send down the channel.
 	apic := make(chan api.Connection, 1)
 	errc := make(chan error, 1)
 	go func() {
-		api, dialErr := t.opener.Open(store, controllerName, modelName)
+		api, dialErr := t.opener.Open(store, controllerName, accountName, modelName)
 		if dialErr != nil {
 			errc <- dialErr
 			return

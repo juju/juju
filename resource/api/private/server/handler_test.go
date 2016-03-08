@@ -27,34 +27,36 @@ var _ = gc.Suite(&LegacyHTTPHandlerSuite{})
 type LegacyHTTPHandlerSuite struct {
 	testing.IsolationSuite
 
-	stub  *testing.Stub
-	store *stubUnitDataStore
-	deps  *stubLegacyHTTPHandlerDeps
-	resp  *stubResponseWriter
+	stub   *testing.Stub
+	opener *stubResourceOpener
+	deps   *stubLegacyHTTPHandlerDeps
+	resp   *stubResponseWriter
 }
 
 func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.store = &stubUnitDataStore{Stub: s.stub}
+	s.opener = &stubResourceOpener{Stub: s.stub}
 	s.deps = &stubLegacyHTTPHandlerDeps{Stub: s.stub}
 	s.resp = newStubResponseWriter(s.stub)
 }
 
 func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
-	s.store.ReturnOpenResource = opened
-	s.deps.ReturnConnect = s.store
-	h := server.NewLegacyHTTPHandler(s.deps.Connect)
+	s.opener.ReturnOpenResource = opened
+	s.deps.ReturnNewResourceOpener = s.opener
+	deps := server.NewLegacyHTTPHandlerDeps(s.deps)
+	h := server.NewLegacyHTTPHandler(deps)
 	req, err := api.NewHTTPDownloadRequest("spam")
 	c.Assert(err, jc.ErrorIsNil)
-	req.URL, err = url.ParseRequestURI("https://api:17017/units/eggs/1/resources/spam?:resource=spam")
+	req.URL, err = url.ParseRequestURI("https://api:17018/units/eggs/1/resources/spam?:resource=spam")
 	c.Assert(err, jc.ErrorIsNil)
 	resp := &fakeResponseWriter{
 		stubResponseWriter: s.resp,
 	}
 
+	c.Logf("%#v", opened.ReadCloser)
 	h.ServeHTTP(resp, req)
 
 	resp.checkWritten(c, "some data", http.Header{
@@ -65,14 +67,14 @@ func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestNewLegacyHTTPHandler(c *gc.C) {
-	h := server.NewLegacyHTTPHandler(s.deps.Connect)
+	h := server.NewLegacyHTTPHandler(s.deps)
 
 	s.stub.CheckNoCalls(c)
 	c.Check(h, gc.NotNil)
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadOkay(c *gc.C) {
-	s.deps.ReturnConnect = s.store
+	s.deps.ReturnNewResourceOpener = s.opener
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
 	s.deps.ReturnHandleDownload = opened
 	h := &server.LegacyHTTPHandler{
@@ -84,15 +86,15 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadOkay(c *gc.C) {
 	h.ServeHTTP(s.resp, req)
 
 	s.stub.CheckCallNames(c,
-		"Connect",
+		"NewResourceOpener",
 		"HandleDownload",
 		"UpdateDownloadResponse",
 		"WriteHeader",
 		"Copy",
 		"Close",
 	)
-	s.stub.CheckCall(c, 0, "Connect", req)
-	s.stub.CheckCall(c, 1, "HandleDownload", s.store, req)
+	s.stub.CheckCall(c, 0, "NewResourceOpener", req)
+	s.stub.CheckCall(c, 1, "HandleDownload", s.opener, req)
 	s.stub.CheckCall(c, 2, "UpdateDownloadResponse", s.resp, opened.Resource)
 	s.stub.CheckCall(c, 3, "WriteHeader", http.StatusOK)
 	s.stub.CheckCall(c, 4, "Copy", s.resp, opened)
@@ -110,7 +112,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadHandlerFailed(c *gc.C) {
 	h.ServeHTTP(s.resp, req)
 
 	s.stub.CheckCallNames(c,
-		"Connect",
+		"NewResourceOpener",
 		"HandleDownload",
 		"SendHTTPError",
 	)
@@ -130,7 +132,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadCopyFailed(c *gc.C) {
 	h.ServeHTTP(s.resp, req)
 
 	s.stub.CheckCallNames(c,
-		"Connect",
+		"NewResourceOpener",
 		"HandleDownload",
 		"UpdateDownloadResponse",
 		"WriteHeader",
@@ -151,7 +153,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailed(c *gc.C) {
 	h.ServeHTTP(s.resp, req)
 
 	s.stub.CheckCallNames(c,
-		"Connect",
+		"NewResourceOpener",
 		"SendHTTPError",
 	)
 	s.stub.CheckCall(c, 1, "SendHTTPError", s.resp, failure)
@@ -167,7 +169,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	h.ServeHTTP(s.resp, req)
 
 	s.stub.CheckCallNames(c,
-		"Connect",
+		"NewResourceOpener",
 		"SendHTTPError",
 	)
 }
@@ -175,17 +177,17 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 type stubLegacyHTTPHandlerDeps struct {
 	*testing.Stub
 
-	ReturnConnect        server.UnitDataStore
-	ReturnHandleDownload resource.Opened
+	ReturnNewResourceOpener resource.Opener
+	ReturnHandleDownload    resource.Opened
 }
 
-func (s *stubLegacyHTTPHandlerDeps) Connect(req *http.Request) (server.UnitDataStore, error) {
-	s.AddCall("Connect", req)
+func (s *stubLegacyHTTPHandlerDeps) NewResourceOpener(req *http.Request) (resource.Opener, error) {
+	s.AddCall("NewResourceOpener", req)
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}
 
-	return s.ReturnConnect, nil
+	return s.ReturnNewResourceOpener, nil
 }
 
 func (s *stubLegacyHTTPHandlerDeps) SendHTTPError(resp http.ResponseWriter, err error) {
@@ -198,13 +200,28 @@ func (s *stubLegacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWri
 	s.NextErr() // Pop one off.
 }
 
-func (s *stubLegacyHTTPHandlerDeps) HandleDownload(st server.UnitDataStore, req *http.Request) (resource.Resource, io.ReadCloser, error) {
-	s.AddCall("HandleDownload", st, req)
+func (s *stubLegacyHTTPHandlerDeps) HandleDownload(opener resource.Opener, req *http.Request) (resource.Opened, error) {
+	s.AddCall("HandleDownload", opener, req)
 	if err := s.NextErr(); err != nil {
-		return resource.Resource{}, nil, err
+		return resource.Opened{}, err
 	}
 
-	return s.ReturnHandleDownload.Resource, s.ReturnHandleDownload, nil
+	return s.ReturnHandleDownload, nil
+}
+
+type stubResourceOpener struct {
+	*testing.Stub
+
+	ReturnOpenResource resource.Opened
+}
+
+func (s *stubResourceOpener) OpenResource(name string) (resource.Opened, error) {
+	s.AddCall("OpenResource", name)
+	if err := s.NextErr(); err != nil {
+		return resource.Opened{}, err
+	}
+
+	return s.ReturnOpenResource, nil
 }
 
 func (s *stubLegacyHTTPHandlerDeps) Copy(w io.Writer, r io.Reader) error {

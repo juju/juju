@@ -35,6 +35,7 @@ func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = &mockAddUserAPI{}
 	s.mockAPI.secretKey = []byte(strings.Repeat("X", 32))
 	store := jujuclienttesting.NewMemStore()
+	store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	store.Accounts["testing"] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"current-user@local": {

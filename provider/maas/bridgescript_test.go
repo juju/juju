@@ -6,6 +6,7 @@ package maas
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -23,6 +24,7 @@ type bridgeConfigSuite struct {
 	testConfig       string
 	testConfigPath   string
 	testPythonScript string
+	pythonVersions   []string
 }
 
 var _ = gc.Suite(&bridgeConfigSuite{})
@@ -32,28 +34,44 @@ func (s *bridgeConfigSuite) SetUpSuite(c *gc.C) {
 		c.Skip("Skipping bridge config tests on windows")
 	}
 	s.BaseSuite.SetUpSuite(c)
+
+	for _, version := range []string{
+		"/usr/bin/python2",
+		"/usr/bin/python3",
+		"/usr/bin/python",
+	} {
+		if _, err := os.Stat(version); err == nil {
+			s.pythonVersions = append(s.pythonVersions, version)
+		}
+	}
 }
 
 func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
+	// We need at least one Python package installed.
+	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
+
 	s.testConfigPath = filepath.Join(c.MkDir(), "network-config")
 	s.testPythonScript = filepath.Join(c.MkDir(), bridgeScriptName)
 	s.testConfig = "# test network config\n"
 	err := ioutil.WriteFile(s.testConfigPath, []byte(s.testConfig), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(s.testPythonScript, []byte(bridgeScriptPython), 0755)
+	err = ioutil.WriteFile(s.testPythonScript, []byte(bridgeScriptPython), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string) {
-	// To simplify most cases, trim trailing new lines.
-	initialConfig = strings.TrimSuffix(initialConfig, "\n")
-	expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
-	err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
-	c.Check(err, jc.ErrorIsNil)
-	// Run the script and verify the modified config.
-	output, retcode := s.runScript(c, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
-	c.Check(retcode, gc.Equals, 0)
-	c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		// To simplify most cases, trim trailing new lines.
+		initialConfig = strings.TrimSuffix(initialConfig, "\n")
+		expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
+		err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
+		c.Check(err, jc.ErrorIsNil)
+		// Run the script and verify the modified config.
+		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
+		c.Check(retcode, gc.Equals, 0)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+	}
 }
 
 func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string) {
@@ -69,92 +87,74 @@ func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
-	_, code := s.runScript(c, "", "", "", "")
-	c.Check(code, gc.Equals, 1)
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		_, code := s.runScript(c, python, "", "", "", "")
+		c.Check(code, gc.Equals, 1)
+	}
 }
 
-func (s *bridgeConfigSuite) TestBridgeScriptDHCP(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDHCPInitial, networkDHCPExpected, "test-br-")
+func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
+	for i, v := range []struct {
+		initial  string
+		expected string
+		prefix   string
+	}{
+		{networkDHCPInitial, networkDHCPExpected, "test-br-"},
+		{networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-"},
+		{networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-"},
+		{networkDualNICInitial, networkDualNICExpected, "test-br-"},
+		{networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-"},
+		{networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-"},
+		{networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-"},
+		{networkStaticInitial, networkStaticExpected, "test-br-"},
+		{networkVLANInitial, networkVLANExpected, "vlan-br-"},
+		{networkWithAliasInitial, networkWithAliasExpected, "test-br-"},
+	} {
+		c.Logf("test #%v - expected transformation", i)
+		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix)
+		c.Logf("test #%v - idempotent transformation", i)
+		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix)
+	}
 }
 
-func (s *bridgeConfigSuite) TestBridgeScriptStatic(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkStaticInitial, networkStaticExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptDualNIC(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDualNICInitial, networkDualNICExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithAlias(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkWithAliasInitial, networkWithAliasExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithAlias(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMultipleStaticWithAliases(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithBond(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMultipleAliases(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptSmorgasboard(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithVLANs(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkVLANInitial, networkVLANExpected, "vlan-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithMultipleNameservers(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithLoopbackOnly(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptBondWithVLANs(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptVLANWithInactive(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptVLANWithActiveDHCPDevice(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMultipleDNSValues(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptEmptyDNSValues(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMismatchedBridgeNameAndInterfaceArgs(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected)
+func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *gc.C) {
+	for i, v := range []struct {
+		initial  string
+		expected string
+	}{
+		{networkLoopbackOnlyInitial, networkLoopbackOnlyExpected},
+		{networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected},
+		{networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected},
+		{networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected},
+		{networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected},
+		{networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected},
+		{networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected},
+		{networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
+	} {
+		c.Logf("test #%v - expected transformation", i)
+		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected)
+		c.Logf("test #%v - idempotent transformation", i)
+		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected)
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
-	output, code := s.runScript(c, "# no content", "", "juju-br0", "")
-	c.Check(code, gc.Equals, 1)
-	c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
+		c.Check(code, gc.Equals, 1)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
-	output, code := s.runScript(c, "# no content", "", "", "eth0")
-	c.Check(code, gc.Equals, 1)
-	c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
+	for i, python := range s.pythonVersions {
+		c.Logf("test #%v using %s", i, python)
+		output, code := s.runScript(c, python, "# no content", "", "", "eth0")
+		c.Check(code, gc.Equals, 1)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
@@ -169,7 +169,7 @@ func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc
 	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0")
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
+func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
 	if bridgePrefix != "" {
 		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
 	}
@@ -182,7 +182,8 @@ func (s *bridgeConfigSuite) runScript(c *gc.C, configFile, bridgePrefix, bridgeN
 		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
 	}
 
-	script := fmt.Sprintf("%q %s %s %s %q\n", s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	script := fmt.Sprintf("%q %q %s %s %s %q\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
 	stdout := string(result.Stdout)
@@ -1517,6 +1518,45 @@ iface eth1 inet manual
 auto juju-br0
 iface juju-br0 inet static
     address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth1`
+
+const networkPartiallyBridgedInitial = `auto lo
+iface lo inet loopback
+
+iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+auto eth1
+iface eth1 inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 4.3.2.1`
+
+const networkPartiallyBridgedExpected = `auto lo
+iface lo inet loopback
+
+iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+iface eth1 inet manual
+
+auto br-eth1
+iface br-eth1 inet static
+    address 1.2.3.5
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth1`

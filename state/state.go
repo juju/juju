@@ -29,6 +29,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -464,11 +465,12 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
-var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+// IsUpgradeInProgressError returns true if the error is cause by an
+// upgrade in progress
 func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == UpgradeInProgressError
+	return errors.Cause(err) == errUpgradeInProgress
 }
 
 // SetModelAgentVersion changes the agent version for the model to the
@@ -527,7 +529,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = UpgradeInProgressError
+			err = errUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
@@ -1269,6 +1271,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
+
+	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
+	// has, by definition, at its initial state.
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
@@ -1305,31 +1310,21 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		NeverSet: true,
 	}
 
-	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern): Drop requested networks across the board in a
-		// follow-up.
-		createRequestedNetworksOp(st, svc.globalKey(), nil),
-		endpointBindingsOp,
-		createStorageConstraintsOp(svc.globalKey(), args.Storage),
-		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
-		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOp(st, svc.globalKey(), statusDoc),
-		{
-			C:      settingsrefsC,
-			Id:     st.docID(svc.settingsKey()),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount:  1,
-				ModelUUID: st.ModelUUID()},
-		}, {
-			C:      servicesC,
-			Id:     serviceID,
-			Assert: txn.DocMissing,
-			Insert: svcDoc,
+	// The addServiceOps does not include the environment alive assertion,
+	// so we add it here.
+	ops := append(
+		[]txn.Op{
+			env.assertAliveOp(),
+			endpointBindingsOp,
 		},
-	}
+		addServiceOps(st, addServiceOpsArgs{
+			serviceDoc:       svcDoc,
+			statusDoc:        statusDoc,
+			constraints:      args.Constraints,
+			storage:          args.Storage,
+			settings:         map[string]interface{}(args.Settings),
+			settingsRefCount: 1,
+		})...)
 
 	// Collect peer relation addition operations.
 	//
@@ -1356,7 +1351,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
-		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+		unitName, unitOps, err := svc.addServiceUnitOps(serviceAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

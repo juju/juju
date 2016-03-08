@@ -149,6 +149,12 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	}, nil
 }
 
+// stop returns a channel which will be closed when a handler should
+// exit.
+func (ctxt *httpContext) stop() <-chan struct{} {
+	return ctxt.srv.tomb.Dying()
+}
+
 // sendJSON writes a JSON-encoded response value
 // to the given writer along with a trailing newline.
 func sendJSON(w io.Writer, response interface{}) {

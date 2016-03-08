@@ -728,7 +728,7 @@ func (u *Unit) machine() (*Machine, error) {
 	}
 	m, err := u.st.Machine(id)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u)
+		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u, id)
 	}
 	return m, nil
 }
@@ -2199,4 +2199,33 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	// TODO(axw) eventually we should be able to override service
 	// storage constraints at the unit level.
 	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
+}
+
+type addUnitOpsArgs struct {
+	unitDoc           *unitDoc
+	agentStatusDoc    statusDoc
+	workloadStatusDoc statusDoc
+	meterStatusDoc    *meterStatusDoc
+}
+
+// addUnitOps returns the operations required to add a unit to the units
+// collection, along with all the associated expected other unit entries. This
+// method is used by both the *Service.addUnitOpsWithCons method and the
+// migration import code.
+func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
+	name := args.unitDoc.Name
+	agentGlobalKey := unitAgentGlobalKey(name)
+	// TODO: consider the constraints op
+	// TODO: consider storageOps
+	return []txn.Op{
+		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
+		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+		{
+			C:      unitsC,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: args.unitDoc,
+		},
+	}
 }

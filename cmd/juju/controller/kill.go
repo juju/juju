@@ -99,7 +99,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju model destroy to destroy it", c.ControllerName())
+		return errors.Errorf("%q is not a controller; use juju destroy-model to destroy it", c.ControllerName())
 	}
 
 	if !c.assumeYes {

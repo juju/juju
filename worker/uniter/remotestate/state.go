@@ -35,12 +35,24 @@ type Unit interface {
 }
 
 type Service interface {
+	// CharmModifiedVersion returns a revision number for the charm that
+	// increments whenever the charm or a resource for the charm changes.
+	CharmModifiedVersion() (int, error)
+	// CharmURL returns the url for the charm for this service.
 	CharmURL() (*charm.URL, bool, error)
+	// Life returns whether the service is alive.
 	Life() params.Life
+	// Refresh syncs this value with the api server.
 	Refresh() error
+	// Tag returns the tag for this service.
 	Tag() names.ServiceTag
+	// Watch returns a watcher that fires when this service changes.
 	Watch() (watcher.NotifyWatcher, error)
+	// WatchLeadershipSettings returns a watcher that fires when the leadership
+	// settings for this service change.
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
+	// WatchRelation returns a watcher that fires when the relations on this
+	// service change.
 	WatchRelations() (watcher.StringsWatcher, error)
 }
 

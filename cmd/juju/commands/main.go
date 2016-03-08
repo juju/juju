@@ -180,6 +180,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewListCommand())
 	r.Register(user.NewEnableCommand())
 	r.Register(user.NewDisableCommand())
+	r.Register(user.NewSwitchUserCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())
@@ -243,7 +244,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage controllers
 	r.Register(controller.NewCreateModelCommand())
 	r.Register(controller.NewDestroyCommand())
-	r.Register(controller.NewModelsCommand())
+	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
@@ -261,6 +262,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
+	r.Register(cloud.NewDetectCredentialsCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

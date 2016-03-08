@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
@@ -42,10 +43,13 @@ var provisionalProviders = map[string]string{
 }
 
 const bootstrapDoc = `
-bootstrap starts a new model of the current type (it will return an error
-if the model has already been bootstrapped).  Bootstrapping a model
-will provision a new machine in the model and run the juju controller on
+bootstrap starts a new controller in the specified cloud (it will return
+an error if a controller with the same name has already been bootstrapped).
+Bootstrapping a controller will provision a new machine and run the controller on
 that machine.
+
+The controller will be setup with an intial controller model called "admin" as well
+as a hosted model which can be used to run workloads.
 
 If boostrap-constraints are specified in the bootstrap command, 
 they will apply to the machine provisioned for the juju controller, 
@@ -86,6 +90,9 @@ is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is
 By default, Juju will bootstrap using the exact same version as the client.
 
 See Also:
+   juju help glossary
+   juju list-controllers
+   juju list-models
    juju help switch
    juju help constraints
    juju help set-constraints
@@ -93,13 +100,17 @@ See Also:
 `
 
 func newBootstrapCommand() cmd.Command {
-	return modelcmd.Wrap(&bootstrapCommand{})
+	return modelcmd.Wrap(&bootstrapCommand{
+		CredentialStore: jujuclient.NewFileCredentialStore(),
+	})
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
+	CredentialStore jujuclient.CredentialStore
+
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
 	BootstrapSeries       string
@@ -123,6 +134,7 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
 		Purpose: "start up an environment from scratch",
+		Args:    "<controllername> <cloud>[/<region>]",
 		Doc:     bootstrapDoc,
 	}
 }
@@ -205,9 +217,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 }
 
 var bootstrappedControllerName = func(controllerName string) string {
-	// TODO(axw) re-enable this once we've got CI updated.
-	return controllerName
-	//return fmt.Sprintf("local.%s", controllerName)
+	return fmt.Sprintf("local.%s", controllerName)
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
@@ -228,6 +238,11 @@ var getBootstrapFuncs = func() BootstrapInterface {
 var (
 	environsPrepare = environs.Prepare
 	environsDestroy = environs.Destroy
+)
+
+var ambiguousCredentialError = errors.New(`
+more than one credential detected
+run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -295,12 +310,22 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return errors.Annotatef(err, "detecting credentials for %q cloud provider", c.Cloud)
 		}
 		logger.Tracef("provider detected credentials: %v", detected)
-		if len(detected) == 0 {
+		if len(detected.AuthCredentials) == 0 {
 			return errors.NotFoundf("credentials for cloud %q", c.Cloud)
 		}
-		credential = &detected[0]
+		if len(detected.AuthCredentials) > 1 {
+			return ambiguousCredentialError
+		}
+		// We have one credential so extract it from the map.
+		var oneCredential jujucloud.Credential
+		for _, oneCredential = range detected.AuthCredentials {
+		}
+		credential = &oneCredential
 		regionName = c.Region
-		logger.Tracef("authenticating with %v", credential)
+		if regionName == "" {
+			regionName = detected.DefaultRegion
+		}
+		logger.Tracef("authenticating with region %q and %v", regionName, credential)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -348,6 +373,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		},
 	)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Set the current controller so "juju status" can be run while
+	// bootstrapping is underway.
+	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -424,9 +455,6 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
-		return errors.Trace(err)
-	}
 	if err := c.SetModelName(cfg.Name()); err != nil {
 		return errors.Trace(err)
 	}
@@ -442,14 +470,48 @@ to clean up the model.`[1:])
 	return c.waitForAgentInitialisation(ctx)
 }
 
+// credentialByName returns the credential and default region to use for the
+// specified cloud, optionally specifying a credential name. If no credential
+// name is specified, then use the default credential for the cloud if one has
+// been specified. The credential name is returned also, in case the default
+// credential is used. If there is only one credential, it is implicitly the
+// default.
+//
+// If there exists no matching credentials, an error satisfying
+// errors.IsNotFound will be returned.
+func credentialByName(
+	store jujuclient.CredentialGetter, cloudName, credentialName string,
+) (_ *jujucloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
+
+	cloudCredentials, err := store.CredentialForCloud(cloudName)
+	if err != nil {
+		return nil, "", "", errors.Annotate(err, "loading credentials")
+	}
+	if credentialName == "" {
+		// No credential specified, so use the default for the cloud.
+		credentialName = cloudCredentials.DefaultCredential
+		if credentialName == "" && len(cloudCredentials.AuthCredentials) == 1 {
+			for credentialName = range cloudCredentials.AuthCredentials {
+			}
+		}
+	}
+	credential, ok := cloudCredentials.AuthCredentials[credentialName]
+	if !ok {
+		return nil, "", "", errors.NotFoundf(
+			"%q credential for cloud %q", credentialName, cloudName,
+		)
+	}
+	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
+}
+
 func (c *bootstrapCommand) getCredentials(
 	ctx *cmd.Context,
 	cloudName string,
 	cloud *jujucloud.Cloud,
 ) (_ *jujucloud.Credential, region string, _ error) {
 
-	credential, credentialName, defaultRegion, err := jujucloud.CredentialByName(
-		cloudName, c.CredentialName,
+	credential, credentialName, defaultRegion, err := credentialByName(
+		c.CredentialStore, cloudName, c.CredentialName,
 	)
 	if err != nil {
 		return nil, "", errors.Trace(err)
