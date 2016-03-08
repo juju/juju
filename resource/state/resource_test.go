@@ -74,8 +74,8 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, jc.DeepEquals, expected)
-	s.stub.CheckCallNames(c, "ListResources")
-	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+	s.stub.CheckCallNames(c, "VerifyService", "ListResources")
+	s.stub.CheckCall(c, 1, "ListResources", "a-service")
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
@@ -86,7 +86,7 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "VerifyService", "ListResources")
 }
 
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
@@ -95,12 +95,12 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(failure)
+	s.stub.SetErrors(nil, failure)
 
 	_, err := st.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "VerifyService", "ListResources")
 }
 
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
