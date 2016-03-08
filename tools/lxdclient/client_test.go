@@ -54,6 +54,8 @@ func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
 }
 
 func (cs ConnectSuite) TestLXDClientForCloudImagesDefault(c *gc.C) {
+	// Note: this assumes current LXD behavior to not actually connect to
+	// the remote host until we try to perform an action.
 	client, err := lxdClientForCloudImages(Config{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(client.BaseURL, gc.Equals, lxd.UbuntuRemote.Addr)
