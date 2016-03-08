@@ -52,10 +52,10 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	noNewClouds := "\nno new public cloud information available at this time"
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusNotFound:
 			fmt.Fprintln(ctxt.Stderr, noNewClouds)
@@ -66,7 +66,6 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		return fmt.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
 	}
 
-	defer resp.Body.Close()
 	cloudData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return errors.Annotate(err, "error receiving updated cloud data")
@@ -79,7 +78,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "invalid local public cloud data")
 	}
-	sameCloudInfo, err := jujucloud.CompareCloudMetadata(newPublicClouds, currentPublicClouds)
+	sameCloudInfo, err := jujucloud.IsSameCloudMetadata(newPublicClouds, currentPublicClouds)
 	if err != nil {
 		// Should never happen.
 		return err

@@ -125,39 +125,42 @@ func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
 	c.Assert(publicClouds, jc.DeepEquals, clouds)
 }
 
-func (s *cloudSuite) compareClouds(c *gc.C, meta1, meta2 string) bool {
-	c1, err := cloud.ParseCloudMetadata([]byte(meta1))
-	c.Assert(err, jc.ErrorIsNil)
-	c2, err := cloud.ParseCloudMetadata([]byte(meta2))
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := cloud.CompareCloudMetadata(c1, c2)
-	c.Assert(err, jc.ErrorIsNil)
-	return result
-}
-
-func (s *cloudSuite) TestCompareCloudsMetadata(c *gc.C) {
-	metadata := `
+func (s *cloudSuite) assertCompareClouds(c *gc.C, meta2 string, expected bool) {
+	meta1 := `
 clouds:
   aws-me:
     type: aws
     auth-types: [ userpass ]
 `[1:]
-	equal := s.compareClouds(c, metadata, metadata)
-	c.Assert(equal, jc.IsTrue)
+	if meta2 == "" {
+		meta2 = meta1
+	}
+	c1, err := cloud.ParseCloudMetadata([]byte(meta1))
+	c.Assert(err, jc.ErrorIsNil)
+	c2, err := cloud.ParseCloudMetadata([]byte(meta2))
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := cloud.IsSameCloudMetadata(c1, c2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, expected)
+}
 
-	// Change to existing cloud.
-	metadata2 := `
+func (s *cloudSuite) TestIsSameCloudsMetadataSameData(c *gc.C) {
+	s.assertCompareClouds(c, "", true)
+}
+
+func (s *cloudSuite) TestIsSameCloudsMetadataExistingCloudChanged(c *gc.C) {
+	metadata := `
 clouds:
   aws-me:
     type: aws
     auth-types: [ userpass ]
     endpoint: http://endpoint
 `[1:]
-	equal = s.compareClouds(c, metadata, metadata2)
-	c.Assert(equal, jc.IsFalse)
+	s.assertCompareClouds(c, metadata, false)
+}
 
-	// Add new cloud.
-	metadata2 = `
+func (s *cloudSuite) TestIsSameCloudsMetadataNewCloudAdded(c *gc.C) {
+	metadata := `
 clouds:
   aws-me:
     type: aws
@@ -166,6 +169,5 @@ clouds:
     type: gce
     auth-types: [ userpass ]
 `[1:]
-	equal = s.compareClouds(c, metadata, metadata2)
-	c.Assert(equal, jc.IsFalse)
+	s.assertCompareClouds(c, metadata, false)
 }

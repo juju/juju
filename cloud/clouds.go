@@ -226,9 +226,9 @@ func WritePublicCloudMetadata(cloudsMap map[string]Cloud) error {
 	return utils.AtomicWriteFile(JujuPublicCloudsPath(), data, 0600)
 }
 
-// CompareCloudMetadata returns true if both meta and meta2 contain the
+// IsSameCloudMetadata returns true if both meta and meta2 contain the
 // same cloud metadata.
-func CompareCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
+func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
 	// The easiest approach is to simply marshall to YAML and compare.
 	yaml1, err := marshalCloudMetadata(meta1)
 	if err != nil {
