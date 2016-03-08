@@ -18,8 +18,6 @@ var (
 	RestartSymlink          = restartSymlink
 	ReleaseVersion          = &releaseVersion
 	PreferFastLXC           = preferFastLXC
-	RuntimeGOOS             = &runtimeGOOS
-	RunningInsideLXC        = &runningInsideLXC
 	WriteWgetTmpFile        = &writeWgetTmpFile
 )
 
