@@ -53,8 +53,6 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	docs, err := p.resources(serviceID)
 	if err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
@@ -210,6 +208,8 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
+
+	// TODO(ericsnow) Ensure that the service is still there?
 
 	csRes := charmStoreResource{
 		Resource:   res,
