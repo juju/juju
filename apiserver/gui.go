@@ -170,7 +170,7 @@ func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse archive")
 		}
-		if !strings.HasPrefix(hdr.Name, sourceDir+"/") {
+		if hdr.Name != sourceDir && !strings.HasPrefix(hdr.Name, sourceDir+"/") {
 			continue
 		}
 		path := filepath.Join(tempDir, hdr.Name)

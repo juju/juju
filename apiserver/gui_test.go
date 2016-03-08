@@ -405,36 +405,56 @@ func makeGUIArchive(c *gc.C, vers string, files map[string]string) (r io.Reader,
 	if runtime.GOOS == "windows" {
 		// Skipping the tests on Windows is not a problem as the Juju GUI is
 		// only served from Linux machines.
-		c.Skip("tar command not available")
+		c.Skip("bzip2 command not available")
 	}
+	cmd := exec.Command("bzip2", "--compress", "--stdout", "--fast")
 
-	// Prepare the archive files and directories.
-	target := filepath.Join(c.MkDir(), "gui.tar.bz2")
-	source := c.MkDir()
-	baseDir := "jujugui-" + vers
-	guiDir := filepath.Join(source, baseDir, "jujugui")
-	err := os.MkdirAll(guiDir, 0755)
+	stdin, err := cmd.StdinPipe()
+	c.Assert(err, jc.ErrorIsNil)
+	stdout, err := cmd.StdoutPipe()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cmd.Start()
+	c.Assert(err, jc.ErrorIsNil)
+
+	tw := tar.NewWriter(stdin)
+	baseDir := filepath.Join("jujugui-"+vers, "jujugui")
+	err = tw.WriteHeader(&tar.Header{
+		Name:     baseDir,
+		Mode:     0700,
+		Typeflag: tar.TypeDir,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	for path, content := range files {
-		path = filepath.Join(guiDir, path)
-		err = os.MkdirAll(filepath.Dir(path), 0755)
+		name := filepath.Join(baseDir, path)
+		err = tw.WriteHeader(&tar.Header{
+			Name:     filepath.Dir(name),
+			Mode:     0700,
+			Typeflag: tar.TypeDir,
+		})
 		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path, []byte(content), 0644)
+		err = tw.WriteHeader(&tar.Header{
+			Name: name,
+			Mode: 0600,
+			Size: int64(len(content)),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = io.WriteString(tw, content)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-
-	// Build the tar.bz2 archive.
-	err = exec.Command("tar", "cjf", target, "-C", source, baseDir).Run()
+	err = tw.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	err = stdin.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Calculate hash and size for the archive.
 	h := sha256.New()
-	f, err := os.Open(target)
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-	r = io.TeeReader(f, h)
+	r = io.TeeReader(stdout, h)
 	b, err := ioutil.ReadAll(r)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = cmd.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+
 	return bytes.NewReader(b), fmt.Sprintf("%x", h.Sum(nil)), int64(len(b))
 }
 
