@@ -4,6 +4,8 @@
 package resourceadapters
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -79,9 +81,12 @@ func (st rawState) Storage() state.Storage {
 
 // VerifyService implements resource/state.RawState.
 func (st rawState) VerifyService(id string) error {
-	_, err := st.base.Service(id)
+	svc, err := st.base.Service(id)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if svc.Life() != corestate.Alive {
+		return errors.NewNotFound(nil, fmt.Sprintf("service %q dying or dead", id))
 	}
 	return nil
 }
