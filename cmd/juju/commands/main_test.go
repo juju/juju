@@ -194,6 +194,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 var commandNames = []string{
 	"action",
 	"add-cloud",
+	"add-credential",
 	"add-machine",
 	"add-machines",
 	"add-relation",

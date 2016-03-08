@@ -33,3 +33,13 @@ func NewDetectCredentialsCommandForTest(
 		cloudByNameFunc:         cloudsByNameFunc,
 	}
 }
+
+func NewAddCredentialCommandForTest(
+	testStore jujuclient.CredentialStore,
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+) *addCredentialCommand {
+	return &addCredentialCommand{
+		store:           testStore,
+		cloudByNameFunc: cloudByNameFunc,
+	}
+}
