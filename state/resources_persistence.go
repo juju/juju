@@ -335,3 +335,27 @@ func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID strin
 	ops := newResolvePendingResourceOps(pending, exists)
 	return ops, nil
 }
+
+// NewRemoveUnitResourcesOps returns mgo transaction operations
+// that remove resource information specific to the unit from state.
+func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op, error) {
+	docs, err := p.unitResources(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	return ops, nil
+}
+
+// NewRemoveResourcesOps returns mgo transaction operations that
+// remove all the service's resources from state.
+func (p ResourcePersistence) NewRemoveResourcesOps(serviceID string) ([]txn.Op, error) {
+	docs, err := p.resources(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	return ops, nil
+}
