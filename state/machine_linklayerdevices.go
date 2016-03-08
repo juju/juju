@@ -616,7 +616,8 @@ func (st *State) allProviderIDsForModelIPAddresses() (set.Strings, error) {
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the
-// machine, in a single transaction.
+// machine, in a single transaction. No error is returned when some or all of
+// the addresses were already removed.
 func (m *Machine) RemoveAllAddresses() error {
 	ops, err := m.removeAllAddressesOps()
 	if err != nil {

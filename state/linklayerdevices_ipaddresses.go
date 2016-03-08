@@ -149,18 +149,6 @@ func (addr *Address) Device() (*LinkLayerDevice, error) {
 	return addr.machineProxy().LinkLayerDevice(addr.doc.DeviceName)
 }
 
-func (addr *Address) deviceDocID() string {
-	deviceGlobalKey := addr.deviceGlobalKey()
-	if deviceGlobalKey == "" {
-		return ""
-	}
-	return addr.st.docID(deviceGlobalKey)
-}
-
-func (addr *Address) deviceGlobalKey() string {
-	return linkLayerDeviceGlobalKey(addr.doc.MachineID, addr.doc.DeviceName)
-}
-
 // SubnetID returns the ID of the subnet this IP address comes from. For a
 // LoopbackAddress, the subnet is always empty.
 func (addr *Address) SubnetID() string {
