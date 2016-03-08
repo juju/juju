@@ -206,8 +206,6 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 }
 
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddresses(c *gc.C) {
-	c.ExpectFailure("TODO: addresses not yet removed along with the device removal")
-
 	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
 
@@ -217,8 +215,6 @@ func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddres
 }
 
 func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemoveAllAddresses(c *gc.C) {
-	c.ExpectFailure("TODO: addresses not yet removed along with the machine removal")
-
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	s.ensureMachineDeadAndRemove(c, s.machine)
 

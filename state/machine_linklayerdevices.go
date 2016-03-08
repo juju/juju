@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -323,16 +322,12 @@ func (m *Machine) validateLinkLayerDeviceParent(args *LinkLayerDeviceArgs) error
 }
 
 func parseLinkLayerDeviceParentNameAsGlobalKey(parentName string) (hostMachineID, parentDeviceName string, err error) {
-	if !strings.Contains(parentName, "#") {
-		// Can't be a global key.
+	hostMachineID, parentDeviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(parentName)
+	if !canBeGlobalKey {
 		return "", "", nil
-	}
-	keyParts := strings.Split(parentName, "#")
-	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
-		// Invalid global key format.
+	} else if hostMachineID == "" {
 		return "", "", errors.NotValidf("ParentName %q format", parentName)
 	}
-	hostMachineID, parentDeviceName = keyParts[1], keyParts[3]
 	return hostMachineID, parentDeviceName, nil
 }
 
@@ -628,22 +623,8 @@ func (m *Machine) RemoveAllAddresses() error {
 }
 
 func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {
-	var ops []txn.Op
-	callbackFunc := func(resultDoc *ipAddressDoc) {
-		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
-	}
-
-	selectDocIDOnly := bson.D{{"_id", 1}}
-	if err := m.forEachIPAddressDoc(selectDocIDOnly, callbackFunc); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return ops, nil
-}
-
-func (m *Machine) forEachIPAddressDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
-	findQuery := bson.D{{"machine-id", m.doc.Id}}
-	return m.st.forEachIPAddressDoc(findQuery, docFieldsToSelect, callbackFunc)
+	findQuery := findAddressesQuery(m.doc.Id, "")
+	return m.st.removeMatchingIPAddressesDocOps(findQuery)
 }
 
 // AllAddresses returns the all addresses assigned to all devices of the
@@ -654,7 +635,8 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 		allAddresses = append(allAddresses, newIPAddress(m.st, *resultDoc))
 	}
 
-	if err := m.forEachIPAddressDoc(nil, callbackFunc); err != nil {
+	findQuery := findAddressesQuery(m.doc.Id, "")
+	if err := m.st.forEachIPAddressDoc(findQuery, nil, callbackFunc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allAddresses, nil

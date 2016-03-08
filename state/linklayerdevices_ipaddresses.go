@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -235,4 +236,48 @@ func insertIPAddressDocOp(newDoc *ipAddressDoc) txn.Op {
 		Assert: txn.DocMissing,
 		Insert: *newDoc,
 	}
+}
+
+func findAddressesQuery(machineID, deviceName string) bson.D {
+	var query bson.D
+	if machineID != "" {
+		query = append(query, bson.DocElem{Name: "machine-id", Value: machineID})
+	}
+	if deviceName != "" {
+		query = append(query, bson.DocElem{Name: "device-name", Value: deviceName})
+	}
+	return query
+}
+
+func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, error) {
+	var ops []txn.Op
+	callbackFunc := func(resultDoc *ipAddressDoc) {
+		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
+	}
+
+	selectDocIDOnly := bson.D{{"_id", 1}}
+	err := st.forEachIPAddressDoc(findQuery, selectDocIDOnly, callbackFunc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ops, nil
+}
+
+func (st *State) forEachIPAddressDoc(findQuery, docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
+	addresses, closer := st.getCollection(ipAddressesC)
+	defer closer()
+
+	query := addresses.Find(findQuery)
+	if docFieldsToSelect != nil {
+		query = query.Select(docFieldsToSelect)
+	}
+	iter := query.Iter()
+
+	var resultDoc ipAddressDoc
+	for iter.Next(&resultDoc) {
+		callbackFunc(&resultDoc)
+	}
+
+	return errors.Trace(iter.Close())
 }

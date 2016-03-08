@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -256,8 +255,10 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 		}
 	}
 
+	// We know the DocID has a valid format for a global key, hence the last
+	// return below is ignored.
+	machineID, deviceName, _ := parseLinkLayerDeviceGlobalKey(linkLayerDeviceDocID)
 	if numChildren > 0 {
-		deviceName := linkLayerDeviceNameFromDocID(linkLayerDeviceDocID)
 		return nil, newParentDeviceHasChildrenError(deviceName, numChildren)
 	}
 
@@ -265,17 +266,18 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 	if parentDeviceDocID != "" {
 		ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
 	}
+
+	addressesQuery := findAddressesQuery(machineID, deviceName)
+	if addressesOps, err := st.removeMatchingIPAddressesDocOps(addressesQuery); err == nil {
+		ops = append(ops, addressesOps...)
+	} else {
+		return nil, errors.Trace(err)
+	}
+
 	return append(ops,
 		removeLinkLayerDeviceDocOp(linkLayerDeviceDocID),
 		removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID),
 	), nil
-}
-
-// linkLayerDeviceNameFromDocID extracts the last part of linkLayerDeviceDocID - the name.
-func linkLayerDeviceNameFromDocID(linkLayerDeviceDocID string) string {
-	lastHash := strings.LastIndex(linkLayerDeviceDocID, "#")
-	deviceName := linkLayerDeviceDocID[lastHash+1:]
-	return deviceName
 }
 
 // removeLinkLayerDeviceDocOp returns an operation to remove the
@@ -344,6 +346,20 @@ func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 	return "m#" + machineID + "#d#" + deviceName
 }
 
+func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
+	if !strings.Contains(globalKey, "#") {
+		// Can't be a global key.
+		return "", "", false
+	}
+	keyParts := strings.Split(globalKey, "#")
+	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
+		// Invalid global key format.
+		return "", "", true
+	}
+	machineID, deviceName = keyParts[1], keyParts[3]
+	return machineID, deviceName, true
+}
+
 // IsValidLinkLayerDeviceName returns whether the given name is a valid network
 // link-layer device name, depending on the runtime.GOOS value.
 func IsValidLinkLayerDeviceName(name string) bool {
@@ -393,55 +409,20 @@ func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
 		allAddresses = append(allAddresses, newIPAddress(dev.st, *resultDoc))
 	}
 
-	if err := dev.forEachIPAddressDoc(nil, callbackFunc); err != nil {
+	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
+	if err := dev.st.forEachIPAddressDoc(findQuery, nil, callbackFunc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allAddresses, nil
 }
 
-func (dev *LinkLayerDevice) forEachIPAddressDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
-	findQuery := bson.D{{"machine-id", dev.doc.MachineID}, {"device-name", dev.doc.Name}}
-	return dev.st.forEachIPAddressDoc(findQuery, docFieldsToSelect, callbackFunc)
-}
-
-func (st *State) forEachIPAddressDoc(findQuery, docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
-	addresses, closer := st.getCollection(ipAddressesC)
-	defer closer()
-
-	query := addresses.Find(findQuery)
-	if docFieldsToSelect != nil {
-		query = query.Select(docFieldsToSelect)
-	}
-	iter := query.Iter()
-
-	var resultDoc ipAddressDoc
-	for iter.Next(&resultDoc) {
-		callbackFunc(&resultDoc)
-	}
-
-	return errors.Trace(iter.Close())
-}
-
 // RemoveAddresses removes all IP addresses assigned to the device.
 func (dev *LinkLayerDevice) RemoveAddresses() error {
-	ops, err := dev.removeAllAddressesOps()
+	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
+	ops, err := dev.st.removeMatchingIPAddressesDocOps(findQuery)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return dev.st.runTransaction(ops)
-}
-
-func (dev *LinkLayerDevice) removeAllAddressesOps() ([]txn.Op, error) {
-	var ops []txn.Op
-	callbackFunc := func(resultDoc *ipAddressDoc) {
-		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
-	}
-
-	selectDocIDOnly := bson.D{{"_id", 1}}
-	if err := dev.forEachIPAddressDoc(selectDocIDOnly, callbackFunc); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return ops, nil
 }
