@@ -25,75 +25,75 @@ func (s *utilsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *utilsSuite) TestValidateEmpty(c *gc.C) {
-	uuid, err := validateEnvironUUID(
+	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
 func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
-	_, err := validateEnvironUUID(
+	_, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
 			strict:    true,
 		})
-	c.Assert(err, gc.ErrorMatches, `unknown environment: ""`)
+	c.Assert(err, gc.ErrorMatches, `unknown model: ""`)
 }
 
-func (s *utilsSuite) TestValidateStateServer(c *gc.C) {
-	uuid, err := validateEnvironUUID(
+func (s *utilsSuite) TestValidateController(c *gc.C) {
+	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			envUUID:   s.State.EnvironUUID(),
+			modelUUID: s.State.ModelUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
-func (s *utilsSuite) TestValidateStateServerStrict(c *gc.C) {
-	uuid, err := validateEnvironUUID(
+func (s *utilsSuite) TestValidateControllerStrict(c *gc.C) {
+	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			envUUID:   s.State.EnvironUUID(),
+			modelUUID: s.State.ModelUUID(),
 			strict:    true,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
 }
 
-func (s *utilsSuite) TestValidateBadEnvUUID(c *gc.C) {
-	_, err := validateEnvironUUID(
+func (s *utilsSuite) TestValidateBadModelUUID(c *gc.C) {
+	_, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			envUUID:   "bad",
+			modelUUID: "bad",
 		})
-	c.Assert(err, gc.ErrorMatches, `unknown environment: "bad"`)
+	c.Assert(err, gc.ErrorMatches, `unknown model: "bad"`)
 }
 
-func (s *utilsSuite) TestValidateOtherEnvironment(c *gc.C) {
-	envState := s.Factory.MakeEnvironment(c, nil)
+func (s *utilsSuite) TestValidateOtherModel(c *gc.C) {
+	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 
-	uuid, err := validateEnvironUUID(
+	uuid, err := validateModelUUID(
 		validateArgs{
 			statePool: s.pool,
-			envUUID:   envState.EnvironUUID(),
+			modelUUID: envState.ModelUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid, gc.Equals, envState.EnvironUUID())
+	c.Assert(uuid, gc.Equals, envState.ModelUUID())
 }
 
-func (s *utilsSuite) TestValidateOtherEnvironmentStateServerOnly(c *gc.C) {
-	envState := s.Factory.MakeEnvironment(c, nil)
+func (s *utilsSuite) TestValidateOtherModelControllerOnly(c *gc.C) {
+	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 
-	_, err := validateEnvironUUID(
+	_, err := validateModelUUID(
 		validateArgs{
-			statePool:          s.pool,
-			envUUID:            envState.EnvironUUID(),
-			stateServerEnvOnly: true,
+			statePool:           s.pool,
+			modelUUID:           envState.ModelUUID(),
+			controllerModelOnly: true,
 		})
-	c.Assert(err, gc.ErrorMatches, `requested environment ".*" is not the state server environment`)
+	c.Assert(err, gc.ErrorMatches, `requested model ".*" is not the controller model`)
 }

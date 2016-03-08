@@ -28,7 +28,7 @@ func (s *FetchSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FetchSuite) TestHelp(c *gc.C) {
-	cmd := action.NewFetchCommand()
+	cmd, _ := action.NewFetchCommand(s.store)
 	s.checkHelp(c, cmd)
 }
 
@@ -48,13 +48,15 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		c.Logf("test %d: it should %s: juju actions fetch %s", i,
-			t.should, strings.Join(t.args, " "))
-		cmd := action.NewFetchCommand()
-		args := append([]string{"-e", "dummyenv"}, t.args...)
-		err := testing.InitCommand(cmd, args)
-		if t.expectError != "" {
-			c.Check(err, gc.ErrorMatches, t.expectError)
+		for _, modelFlag := range s.modelFlags {
+			c.Logf("test %d: it should %s: juju actions fetch %s", i,
+				t.should, strings.Join(t.args, " "))
+			cmd, _ := action.NewFetchCommand(s.store)
+			args := append([]string{modelFlag, "dummymodel"}, t.args...)
+			err := testing.InitCommand(cmd, args)
+			if t.expectError != "" {
+				c.Check(err, gc.ErrorMatches, t.expectError)
+			}
 		}
 	}
 }
@@ -272,32 +274,34 @@ timing:
 	}}
 
 	for i, t := range tests {
-		c.Logf("test %d: should %s", i, t.should)
-		testRunHelper(
-			c, s,
-			makeFakeClient(
-				t.withAPIDelay,
-				t.withAPITimeout,
-				t.withTags,
-				t.withAPIResponse,
-				t.withAPIError),
-			t.expectedErr,
-			t.expectedOutput,
-			t.withClientWait,
-			t.withClientQueryID,
-		)
+		for _, modelFlag := range s.modelFlags {
+			c.Logf("test %d (model flag %v): should %s", i, modelFlag, t.should)
+			testRunHelper(
+				c, s,
+				makeFakeClient(
+					t.withAPIDelay,
+					t.withAPITimeout,
+					t.withTags,
+					t.withAPIResponse,
+					t.withAPIError),
+				t.expectedErr,
+				t.expectedOutput,
+				t.withClientWait,
+				t.withClientQueryID,
+				modelFlag,
+			)
+		}
 	}
 }
 
-func testRunHelper(c *gc.C, s *FetchSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query string) {
+func testRunHelper(c *gc.C, s *FetchSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query, modelFlag string) {
 	unpatch := s.BaseActionSuite.patchAPIClient(client)
 	defer unpatch()
-	args := append([]string{"-e", "dummyenv"}, []string{query}...)
+	args := append([]string{modelFlag, "dummymodel"}, query)
 	if wait != "" {
-		args = append(args, "--wait")
-		args = append(args, wait)
+		args = append(args, "--wait", wait)
 	}
-	cmd := action.NewFetchCommand()
+	cmd, _ := action.NewFetchCommand(s.store)
 	ctx, err := testing.RunCommand(c, cmd, args...)
 	if expectedErr != "" {
 		c.Check(err, gc.ErrorMatches, expectedErr)

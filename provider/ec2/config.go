@@ -13,53 +13,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-const boilerplateConfig = `
-# https://juju.ubuntu.com/docs/config-aws.html
-amazon:
-    type: ec2
-
-    # region specifies the EC2 region. It defaults to us-east-1.
-    #
-    # region: us-east-1
-
-    # access-key holds the EC2 access key. It defaults to the
-    # environment variable AWS_ACCESS_KEY_ID.
-    #
-    # access-key: <secret>
-
-    # secret-key holds the EC2 secret key. It defaults to the
-    # environment variable AWS_SECRET_ACCESS_KEY.
-    #
-    # secret-key: <secret>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`
-
 var configSchema = environschema.Fields{
 	"access-key": {
 		Description: "The EC2 access key",
@@ -166,7 +119,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
 		auth, err := aws.EnvAuth()
 		if err != nil || ecfg.accessKey() != "" || ecfg.secretKey() != "" {
-			return nil, fmt.Errorf("environment has no access-key or secret-key")
+			return nil, fmt.Errorf("model has no access-key or secret-key")
 		}
 		ecfg.attrs["access-key"] = auth.AccessKey
 		ecfg.attrs["secret-key"] = auth.SecretKey

@@ -15,7 +15,7 @@ You can use Juju from the command line or through its beautiful GUI.
 
 What is service modelling?
 
-In modern environments, services are rarely deployed in isolation. Even simple
+In modern models, services are rarely deployed in isolation. Even simple
 applications may require several actual services in order to function - like a
 database and a web server for example. For deploying a more complex system,
 e.g. OpenStack, many more services need to be installed, configured and
@@ -43,7 +43,7 @@ particular service brilliantly. All you have to do is use any available charm
 seconds, on any cloud or server or virtual machine.
 
 See Also:
-    juju help juju-systems
+    juju help controllers
     juju help bootstrap
     juju help topics
     https://jujucharms.com/docs

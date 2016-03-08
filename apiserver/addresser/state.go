@@ -28,8 +28,8 @@ type StateIPAddress interface {
 // StateInterface defines the needed methods of state.State
 // for the work of the Addresser API.
 type StateInterface interface {
-	// EnvironConfig retrieves the environment configuration.
-	EnvironConfig() (*config.Config, error)
+	// ModelConfig retrieves the model configuration.
+	ModelConfig() (*config.Config, error)
 
 	// DeadIPAddresses retrieves all dead IP addresses.
 	DeadIPAddresses() ([]StateIPAddress, error)

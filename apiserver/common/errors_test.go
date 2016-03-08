@@ -16,7 +16,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -128,15 +129,15 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeTryAgain,
 }, {
-	err:        state.UpgradeInProgressError,
-	code:       params.CodeUpgradeInProgress,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeUpgradeInProgress,
-}, {
 	err:        leadership.ErrClaimDenied,
 	code:       params.CodeLeadershipClaimDenied,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeadershipClaimDenied,
+}, {
+	err:        lease.ErrClaimDenied,
+	code:       params.CodeLeaseClaimDenied,
+	status:     http.StatusInternalServerError,
+	helperFunc: params.IsCodeLeaseClaimDenied,
 }, {
 	err:        common.OperationBlockedError("test"),
 	code:       params.CodeOperationBlocked,
@@ -180,7 +181,7 @@ var errorTransformTests = []struct {
 	status: http.StatusInternalServerError,
 	code:   "",
 }, {
-	err:        common.UnknownEnvironmentError("dead-beef-123456"),
+	err:        common.UnknownModelError("dead-beef-123456"),
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
@@ -234,7 +235,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeDischargeRequired:
 			continue
 		case params.CodeNotFound:
-			if common.IsUnknownEnviromentError(t.err) {
+			if common.IsUnknownModelError(t.err) {
 				continue
 			}
 		case params.CodeOperationBlocked:
@@ -243,15 +244,12 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 		}
 
 		c.Logf("  checking restore (%#v)", err1)
-		restored, ok := common.RestoreError(err1)
+		restored := common.RestoreError(err1)
 		if t.err == nil {
-			c.Check(ok, jc.IsTrue)
 			c.Check(restored, jc.ErrorIsNil)
 		} else if t.code == "" {
-			c.Check(ok, jc.IsFalse)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		} else {
-			c.Check(ok, jc.IsTrue)
 			// TODO(ericsnow) Use a stricter DeepEquals check.
 			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
@@ -259,7 +257,28 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	}
 }
 
-func (s *errorsSuite) TestUnknownEnvironment(c *gc.C) {
-	err := common.UnknownEnvironmentError("dead-beef")
-	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef"`)
+func (s *errorsSuite) TestUnknownModel(c *gc.C) {
+	err := common.UnknownModelError("dead-beef")
+	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
+}
+
+func (s *errorsSuite) TestDestroyErr(c *gc.C) {
+	errs := []string{
+		"error one",
+		"error two",
+		"error three",
+	}
+	ids := []string{
+		"id1",
+		"id2",
+		"id3",
+	}
+
+	c.Assert(common.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
+
+	err := common.DestroyErr("entities", ids, errs)
+	c.Assert(err, gc.ErrorMatches, "no entities were destroyed: error one; error two; error three")
+
+	err = common.DestroyErr("entities", ids, errs[1:])
+	c.Assert(err, gc.ErrorMatches, "some entities were not destroyed: error two; error three")
 }

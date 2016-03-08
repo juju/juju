@@ -12,8 +12,6 @@ type listFormatter struct {
 }
 
 func newListFormatter(payloads []payload.FullPayloadInfo) *listFormatter {
-	// Note that unlike the "juju status" code, we don't worry
-	// about "compatVersion".
 	lf := listFormatter{
 		payloads: payloads,
 	}

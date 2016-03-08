@@ -59,11 +59,7 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	touch(dirname, "machine-"+machineID+".conf")
 
 	dirname = mkdir(paths.LogsDir)
-	touch(dirname, "all-machines.log")
 	touch(dirname, "machine-"+machineID+".log")
-
-	dirname = mkdir("/etc/rsyslog.d")
-	touch(dirname, "spam-juju.conf")
 
 	dirname = mkdir("/home/ubuntu/.ssh")
 	touch(dirname, "authorized_keys")
@@ -109,7 +105,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
@@ -117,7 +112,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
 		filepath.Join(s.root, "/var/log/juju/machine-0.log"),
 	}
 	c.Check(files, jc.SameContents, expected)
@@ -192,7 +186,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-10.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
@@ -200,7 +193,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
 		filepath.Join(s.root, "/var/log/juju/machine-10.log"),
 	}
 	c.Check(files, jc.SameContents, expected)
@@ -217,7 +209,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	missing := []string{
 		"/var/lib/juju/nonce.txt",
 		"/home/ubuntu/.ssh/authorized_keys",
-		"/var/log/juju/all-machines.log",
 		"/var/log/juju/machine-0.log",
 	}
 	for _, filename := range missing {
@@ -229,7 +220,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),

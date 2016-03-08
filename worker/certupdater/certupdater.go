@@ -10,27 +10,27 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.certupdater")
 
-// CertificateUpdater is responsible for generating state server certificates.
+// CertificateUpdater is responsible for generating controller certificates.
 //
-// In practice, CertificateUpdater is used by a state server's machine agent to watch
+// In practice, CertificateUpdater is used by a controller's machine agent to watch
 // that server's machines addresses in state, and write a new certificate to the
 // agent's config file.
 type CertificateUpdater struct {
 	addressWatcher  AddressWatcher
 	getter          StateServingInfoGetter
 	setter          StateServingInfoSetter
-	configGetter    EnvironConfigGetter
+	configGetter    ModelConfigGetter
 	hostPortsGetter APIHostPortsGetter
 	addresses       []network.Address
 }
@@ -42,10 +42,10 @@ type AddressWatcher interface {
 	Addresses() (addresses []network.Address)
 }
 
-// EnvironConfigGetter is an interface that is provided to NewCertificateUpdater
+// ModelConfigGetter is an interface that is provided to NewCertificateUpdater
 // which can be used to get environment config.
-type EnvironConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+type ModelConfigGetter interface {
+	ModelConfig() (*config.Config, error)
 }
 
 // StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
@@ -59,18 +59,18 @@ type StateServingInfoGetter interface {
 type StateServingInfoSetter func(info params.StateServingInfo, done <-chan struct{}) error
 
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater
-// whose APIHostPorts method will be invoked to get state server addresses.
+// whose APIHostPorts method will be invoked to get controller addresses.
 type APIHostPortsGetter interface {
 	APIHostPorts() ([][]network.HostPort, error)
 }
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
-// machine addresses and then generates a new state server certificate with those
+// machine addresses and then generates a new controller certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
+	configGetter ModelConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
 ) worker.Worker {
-	return worker.NewNotifyWorker(&CertificateUpdater{
+	return legacy.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
 		configGetter:    configGetter,
 		hostPortsGetter: hostPortsGetter,
@@ -80,7 +80,7 @@ func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInf
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
+func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
 	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
 	if err != nil {
@@ -131,13 +131,13 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 		return nil
 	}
 	// Grab the env config and update a copy with ca cert private key.
-	envConfig, err := c.configGetter.EnvironConfig()
+	envConfig, err := c.configGetter.ModelConfig()
 	if err != nil {
-		return errors.Annotate(err, "cannot read environment config")
+		return errors.Annotate(err, "cannot read model config")
 	}
 	envConfig, err = envConfig.Apply(map[string]interface{}{"ca-private-key": caPrivateKey})
 	if err != nil {
-		return errors.Annotate(err, "cannot add CA private key to environment config")
+		return errors.Annotate(err, "cannot add CA private key to model config")
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -161,10 +161,10 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 		return nil
 	}
 
-	// Generate a new state server certificate with the machine addresses in the SAN value.
-	newCert, newKey, err := envConfig.GenerateStateServerCertAndKey(newServerAddrs)
+	// Generate a new controller certificate with the machine addresses in the SAN value.
+	newCert, newKey, err := envConfig.GenerateControllerCertAndKey(newServerAddrs)
 	if err != nil {
-		return errors.Annotate(err, "cannot generate state server certificate")
+		return errors.Annotate(err, "cannot generate controller certificate")
 	}
 	stateInfo.Cert = string(newCert)
 	stateInfo.PrivateKey = string(newKey)
@@ -172,7 +172,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 	if err != nil {
 		return errors.Annotate(err, "cannot write agent config")
 	}
-	logger.Infof("State Server cerificate addresses updated to %q", newServerAddrs)
+	logger.Infof("controller cerificate addresses updated to %q", newServerAddrs)
 	return nil
 }
 

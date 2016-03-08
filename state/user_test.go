@@ -205,7 +205,7 @@ func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.Disable()
-	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
+	c.Assert(err, gc.ErrorMatches, "cannot disable controller model owner")
 }
 
 func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
@@ -241,7 +241,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "erica"})
-	// There is the existing state server owner called "test-admin"
+	// There is the existing controller owner called "test-admin"
 
 	includeDeactivated := false
 	users, err := s.State.AllUsers(includeDeactivated)
@@ -264,4 +264,29 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	c.Check(users[4].Name(), gc.Equals, "erica")
 	c.Check(users[5].Name(), gc.Equals, "fred")
 	c.Check(users[6].Name(), gc.Equals, "test-admin")
+}
+
+func (s *UserSuite) TestAddUserNoSecretKey(c *gc.C) {
+	u, err := s.State.AddUser("bob", "display", "pass", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
+}
+
+func (s *UserSuite) TestAddUserSecretKey(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	c.Assert(u.PasswordValid(""), jc.IsFalse)
+}
+
+func (s *UserSuite) TestSetPasswordClearsSecretKey(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	err = u.SetPassword("anything")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
+	err = u.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
 }

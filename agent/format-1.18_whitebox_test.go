@@ -13,11 +13,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
@@ -27,36 +25,6 @@ type format_1_18Suite struct {
 }
 
 var _ = gc.Suite(&format_1_18Suite{})
-
-var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWithoutNewAttributes
-
-func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
-	logDir, err := paths.LogDir(series.HostSeries())
-	c.Assert(err, jc.ErrorIsNil)
-	realDataDir, err := paths.DataDir(series.HostSeries())
-	c.Assert(err, jc.ErrorIsNil)
-
-	realDataDir = filepath.FromSlash(realDataDir)
-	logPath := filepath.Join(logDir, "juju")
-	logPath = filepath.FromSlash(logPath)
-
-	dataDir := c.MkDir()
-	configPath := filepath.Join(dataDir, agentConfigFilename)
-	err = utils.AtomicWriteFile(configPath, []byte(configData1_18WithoutUpgradedToVersion), 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
-	configLogDir := filepath.FromSlash(readConfig.LogDir())
-	configDataDir := filepath.FromSlash(readConfig.DataDir())
-	c.Assert(configLogDir, gc.Equals, logPath)
-	c.Assert(configDataDir, gc.Equals, realDataDir)
-	c.Assert(readConfig.PreferIPv6(), jc.IsFalse)
-	// The api info doesn't have the environment tag set.
-	apiInfo, ok := readConfig.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo.EnvironTag.Id(), gc.Equals, "")
-}
 
 func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	dataDir := c.MkDir()
@@ -78,18 +46,18 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 	config, err := ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
-	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
+	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 	c.Assert(config.PreferIPv6(), jc.IsTrue)
 }
 
 var agentConfig1_18Contents = `
 # format 1.18
 tag: machine-0
-datadir: /home/user/.juju/local
+datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
 nonce: user-admin:bootstrap
 jobs:
-- JobManageEnviron
+- JobManageModel
 upgradedToVersion: 1.17.5.1
 cacert: '-----BEGIN CERTIFICATE-----
 
@@ -135,8 +103,8 @@ values:
   NAMESPACE: user-local
   PROVIDER_TYPE: local
   STORAGE_ADDR: 10.0.3.1:8040
-  STORAGE_DIR: /home/user/.juju/local/storage
-stateservercert: '-----BEGIN CERTIFICATE-----
+  STORAGE_DIR: /home/user/.local/share/juju/local/storage
+controllercert: '-----BEGIN CERTIFICATE-----
 
   MIICNzCCAaKgAwIBAgIBADALBgkqhkiG9w0BAQUwQzENMAsGA1UEChMEanVqdTEy
 
@@ -165,7 +133,7 @@ stateservercert: '-----BEGIN CERTIFICATE-----
   -----END CERTIFICATE-----
 
 '
-stateserverkey: '-----BEGIN RSA PRIVATE KEY-----
+controllerkey: '-----BEGIN RSA PRIVATE KEY-----
 
   MIICXAIBAAKBgQDJnbuNL3m/oY7Er2lEF6ye1SodepvpI0CLCdLwrYP52cRxbVzo
 
@@ -234,11 +202,11 @@ prefer-ipv6: true
 var agentConfig1_18NotStateMachine = `
 # format 1.18
 tag: machine-1
-datadir: /home/user/.juju/local
+datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
 nonce: user-admin:bootstrap
 jobs:
-- JobManageEnviron
+- JobManageModel
 upgradedToVersion: 1.17.5.1
 cacert: '-----BEGIN CERTIFICATE-----
 
@@ -285,7 +253,7 @@ values:
   NAMESPACE: user-local
   PROVIDER_TYPE: local
   STORAGE_ADDR: 10.0.3.1:8040
-  STORAGE_DIR: /home/user/.juju/local/storage
+  STORAGE_DIR: /home/user/.local/share/juju/local/storage
 apiport: 17070
 prefer-ipv6: true
 `[1:]

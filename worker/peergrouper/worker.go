@@ -21,14 +21,16 @@ import (
 
 type stateInterface interface {
 	Machine(id string) (stateMachine, error)
-	WatchStateServerInfo() state.NotifyWatcher
-	StateServerInfo() (*state.StateServerInfo, error)
+	WatchControllerInfo() state.NotifyWatcher
+	WatchControllerStatusChanges() state.StringsWatcher
+	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
 }
 
 type stateMachine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
+	Status() (state.StatusInfo, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -45,7 +47,7 @@ type mongoSession interface {
 }
 
 type publisherInterface interface {
-	// publish publishes information about the given state servers
+	// publish publishes information about the given controllers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
 	publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
@@ -101,7 +103,7 @@ type pgWorker struct {
 	notifyCh chan notifyFunc
 
 	// machines holds the set of machines we are currently
-	// watching (all the state server machines). Each one has an
+	// watching (all the controller machines). Each one has an
 	// associated goroutine that
 	// watches attributes of that machine.
 	machines map[string]*machine
@@ -114,7 +116,7 @@ type pgWorker struct {
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
 func New(st *state.State) (worker.Worker, error) {
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +158,10 @@ func (w *pgWorker) Wait() error {
 }
 
 func (w *pgWorker) loop() error {
-	infow := w.watchStateServerInfo()
+	infow := w.watchControllerInfo()
 	defer infow.stop()
 
-	retry := time.NewTimer(0)
-	retry.Stop()
+	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
 	for {
 		select {
@@ -174,8 +175,9 @@ func (w *pgWorker) loop() error {
 				break
 			}
 			// Try to update the replica set immediately.
-			retry.Reset(0)
-		case <-retry.C:
+			updateChan = time.After(0)
+
+		case <-updateChan:
 			ok := true
 			servers, instanceIds, err := w.apiPublishInfo()
 			if err != nil {
@@ -196,10 +198,10 @@ func (w *pgWorker) loop() error {
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
-				retry.Reset(pollInterval)
+				updateChan = time.After(pollInterval)
 				retryInterval = initialRetryInterval
 			} else {
-				retry.Reset(retryInterval)
+				updateChan = time.After(retryInterval)
 				retryInterval *= 2
 				if retryInterval > maxRetryInterval {
 					retryInterval = maxRetryInterval
@@ -272,7 +274,7 @@ type replicaSetError struct {
 func (w *pgWorker) updateReplicaset() error {
 	info, err := w.peerGroupInfo()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get peergrouper info")
 	}
 	members, voting, err := desiredPeerGroup(info)
 	if err != nil {
@@ -316,7 +318,7 @@ func (w *pgWorker) updateReplicaset() error {
 		}
 	}
 	if err := setHasVote(added, true); err != nil {
-		return err
+		return errors.Annotate(err, "cannot set HasVote added")
 	}
 	if members != nil {
 		if err := w.st.MongoSession().Set(members); err != nil {
@@ -330,7 +332,7 @@ func (w *pgWorker) updateReplicaset() error {
 		logger.Infof("successfully changed replica set to %#v", members)
 	}
 	if err := setHasVote(removed, false); err != nil {
-		return err
+		return errors.Annotate(err, "cannot set HasVote removed")
 	}
 	return nil
 }
@@ -363,17 +365,19 @@ func setHasVote(ms []*machine, hasVote bool) error {
 	return nil
 }
 
-// serverInfoWatcher watches the state server info and
+// serverInfoWatcher watches the controller info and
 // notifies the worker when it changes.
 type serverInfoWatcher struct {
-	worker  *pgWorker
-	watcher state.NotifyWatcher
+	worker               *pgWorker
+	controllerWatcher    state.NotifyWatcher
+	machineStatusWatcher state.StringsWatcher
 }
 
-func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
+func (w *pgWorker) watchControllerInfo() *serverInfoWatcher {
 	infow := &serverInfoWatcher{
-		worker:  w,
-		watcher: w.st.WatchStateServerInfo(),
+		worker:               w,
+		controllerWatcher:    w.st.WatchControllerInfo(),
+		machineStatusWatcher: w.st.WatchControllerStatusChanges(),
 	}
 	w.start(infow.loop)
 	return infow
@@ -382,9 +386,14 @@ func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
 func (infow *serverInfoWatcher) loop() error {
 	for {
 		select {
-		case _, ok := <-infow.watcher.Changes():
+		case _, ok := <-infow.machineStatusWatcher.Changes():
 			if !ok {
-				return infow.watcher.Err()
+				return infow.machineStatusWatcher.Err()
+			}
+			infow.worker.notify(infow.updateMachines)
+		case _, ok := <-infow.controllerWatcher.Changes():
+			if !ok {
+				return infow.controllerWatcher.Err()
 			}
 			infow.worker.notify(infow.updateMachines)
 		case <-infow.worker.tomb.Dying():
@@ -394,18 +403,19 @@ func (infow *serverInfoWatcher) loop() error {
 }
 
 func (infow *serverInfoWatcher) stop() {
-	infow.watcher.Stop()
+	infow.machineStatusWatcher.Stop()
+	infow.controllerWatcher.Stop()
 }
 
 // updateMachines is a notifyFunc that updates the current
-// machines when the state server info has changed.
+// machines when the controller info has changed.
 func (infow *serverInfoWatcher) updateMachines() (bool, error) {
-	info, err := infow.worker.st.StateServerInfo()
+	info, err := infow.worker.st.ControllerInfo()
 	if err != nil {
-		return false, fmt.Errorf("cannot get state server info: %v", err)
+		return false, fmt.Errorf("cannot get controller info: %v", err)
 	}
 	changed := false
-	// Stop machine goroutines that no longer correspond to state server
+	// Stop machine goroutines that no longer correspond to controller
 	// machines.
 	for _, m := range infow.worker.machines {
 		if !inStrings(m.id, info.MachineIds) {
@@ -425,15 +435,27 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 			if errors.IsNotFound(err) {
 				// If the machine isn't found, it must have been
 				// removed and will soon enough be removed
-				// from the state server list. This will probably
+				// from the controller list. This will probably
 				// never happen, but we'll code defensively anyway.
-				logger.Warningf("machine %q from state server list not found", id)
+				logger.Warningf("machine %q from controller list not found", id)
 				continue
 			}
 			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
 		}
-		infow.worker.machines[id] = infow.worker.newMachine(stm)
-		changed = true
+
+		// Don't add the machine unless it is "Started"
+		status, err := stm.Status()
+		if err != nil {
+			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
+		}
+		if status.Status == state.StatusStarted {
+			logger.Tracef("machine %q has started, adding it to peergrouper list", id)
+			infow.worker.machines[id] = infow.worker.newMachine(stm)
+			changed = true
+		} else {
+			logger.Tracef("machine %q not ready: %v", id, status.Status)
+		}
+
 	}
 	return changed, nil
 }
@@ -499,7 +521,7 @@ func (m *machine) refresh() (bool, error) {
 		if errors.IsNotFound(err) {
 			// We want to be robust when the machine
 			// state is out of date with respect to the
-			// state server info, so if the machine
+			// controller info, so if the machine
 			// has been removed, just assume that
 			// no change has happened - the machine
 			// loop will be stopped very soon anyway.

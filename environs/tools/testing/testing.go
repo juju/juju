@@ -26,8 +26,10 @@ import (
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/jujuversion"
@@ -118,6 +120,10 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	c.Assert(err, jc.ErrorIsNil)
 	err = tools.MergeAndWriteMetadata(stor, stream, stream, toolsList, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Sign metadata
+	err = envtesting.SignTestTools(stor)
+	c.Assert(err, jc.ErrorIsNil)
 	return toolsList
 }
 
@@ -140,7 +146,7 @@ func ParseMetadataFromDir(c *gc.C, metadataDir, stream string, expectMirrors boo
 
 // ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
 func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string, expectMirrors bool) []*tools.ToolsMetadata {
-	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools")
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools", simplestreams.CUSTOM_CLOUD_DATA, false)
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
@@ -230,14 +236,25 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	}
 	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	objects := []metadataFile{
-		{simplestreams.UnsignedIndex("v1", 2), index},
+
+	objects := []metadataFile{}
+	addTools := func(fileName string, content []byte) {
+		// add unsigned
+		objects = append(objects, metadataFile{fileName, content})
+
+		signedFilename, signedContent, err := sstesting.SignMetadata(fileName, content)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// add signed
+		objects = append(objects, metadataFile{signedFilename, signedContent})
 	}
+
+	addTools(simplestreams.UnsignedIndex("v1", 2), index)
 	if stream == "released" {
-		objects = append(objects, metadataFile{simplestreams.UnsignedIndex("v1", 1), legacyIndex})
+		addTools(simplestreams.UnsignedIndex("v1", 1), legacyIndex)
 	}
 	for stream, metadata := range products {
-		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
+		addTools(tools.ProductMetadataPath(stream), metadata)
 	}
 	return objects
 }

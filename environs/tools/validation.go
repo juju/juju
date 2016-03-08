@@ -58,7 +58,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 			Arches: params.Architectures,
 		})
 	}
-	matchingTools, resolveInfo, err := Fetch(params.Sources, toolsConstraint, false)
+	matchingTools, resolveInfo, err := Fetch(params.Sources, toolsConstraint)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

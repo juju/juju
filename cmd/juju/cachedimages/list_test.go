@@ -16,7 +16,7 @@ import (
 )
 
 type listImagesCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	mockAPI *fakeImagesListAPI
 }
 
@@ -45,7 +45,7 @@ func (f *fakeImagesListAPI) ListImages(kind, series, arch string) ([]params.Imag
 }
 
 func (s *listImagesCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.mockAPI = &fakeImagesListAPI{}
 	s.PatchValue(cachedimages.GetListImagesAPI, func(_ *cachedimages.CachedImagesCommandBase) (cachedimages.ListImagesAPI, error) {
 		return s.mockAPI, nil

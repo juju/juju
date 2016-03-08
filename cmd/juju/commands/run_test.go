@@ -16,12 +16,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
 type RunSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&RunSuite{})
@@ -110,7 +110,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
-		runCmd := envcmd.Wrap(cmd)
+		runCmd := modelcmd.Wrap(cmd)
 		testing.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(cmd.all, gc.Equals, test.all)
@@ -147,7 +147,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
-		runCmd := envcmd.Wrap(cmd)
+		runCmd := modelcmd.Wrap(cmd)
 		testing.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(cmd.timeout, gc.Equals, test.timeout)
@@ -277,7 +277,6 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock.block = true
 	_, err := testing.RunCommand(c, newRunCommand(),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
-		"-e blah",
 	)
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged

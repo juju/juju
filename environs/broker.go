@@ -6,6 +6,8 @@ package environs
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -55,6 +57,14 @@ type StartInstanceParams struct {
 	// in. It is only populated when valid positive spaces constraints
 	// are present.
 	SubnetsToZones map[network.Id][]string
+
+	// EndpointBindings holds the mapping between service endpoint names to
+	// provider-specific space IDs. It is populated when provisioning a machine
+	// to host a unit of a service with endpoint bindings.
+	EndpointBindings map[string]network.Id
+	// ImageMetadata is a collection of image metadata
+	// that may be used to start this instance.
+	ImageMetadata []*imagemetadata.ImageMetadata
 }
 
 // StartInstanceResult holds the result of an
@@ -62,6 +72,10 @@ type StartInstanceParams struct {
 type StartInstanceResult struct {
 	// Instance is an interface representing a cloud instance.
 	Instance instance.Instance
+
+	// Config holds the environment config to be used for any further
+	// operations, if the instance is for a controller.
+	Config *config.Config
 
 	// HardwareCharacteristics represents the hardware characteristics
 	// of the newly created instance.

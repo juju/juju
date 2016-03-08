@@ -18,7 +18,10 @@ type MetadataAttributes struct {
 	// Region is the name of cloud region associated with the image.
 	Region string
 
-	// Series is Os version, for e.g. "quantal".
+	// Version is OS version, for e.g. "12.04".
+	Version string
+
+	// Series is OS series, for e.g. "trusty".
 	Series string
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
@@ -34,12 +37,17 @@ type MetadataAttributes struct {
 	RootStorageSize *uint64
 
 	// Source describes where this image is coming from: is it public? custom?
-	Source SourceType
+	Source string
 }
 
 // Metadata describes a cloud image metadata.
 type Metadata struct {
 	MetadataAttributes
+
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int
 
 	// ImageId contains image identifier.
 	ImageId string
@@ -48,14 +56,21 @@ type Metadata struct {
 // Storage provides methods for storing and retrieving cloud image metadata.
 type Storage interface {
 	// SaveMetadata adds cloud images metadata into state if it's new or
-	// updates metadata if it already exists,
-	SaveMetadata(Metadata) error
+	// updates metadata if it already exists.
+	SaveMetadata([]Metadata) error
+
+	// DeleteMetadata deletes cloud image metadata from state.
+	DeleteMetadata(imageId string) error
 
 	// FindMetadata returns all Metadata that match specified
 	// criteria or a "not found" error if none match.
 	// Empty criteria will return all cloud image metadata.
 	// Returned result is grouped by source type and ordered by date created.
-	FindMetadata(criteria MetadataFilter) (map[SourceType][]Metadata, error)
+	FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error)
+
+	// SupportedArchitectures returns collection of unique architectures
+	// that stored metadata contains.
+	SupportedArchitectures(criteria MetadataFilter) ([]string, error)
 }
 
 // DataStore exposes data store operations for use by the cloud image metadata package.

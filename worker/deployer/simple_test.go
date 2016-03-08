@@ -323,8 +323,8 @@ func (mock *mockConfig) WriteUpgradedToVersion(newVersion version.Number) error 
 	return nil
 }
 
-func (mock *mockConfig) Environment() names.EnvironTag {
-	return testing.EnvironmentTag
+func (mock *mockConfig) Model() names.ModelTag {
+	return testing.ModelTag
 }
 
 func (mock *mockConfig) CACert() string {

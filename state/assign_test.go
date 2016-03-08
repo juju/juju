@@ -227,10 +227,10 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	econs := constraints.MustParse("mem=4G cpu-cores=2")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Machine will take environment constraints on creation.
+	// Machine will take model constraints on creation.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -283,6 +283,33 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 	testWhenDying(c, machine, expect, expect, assignTest)
 }
 
+func (s *AssignSuite) TestAssignMachineDifferentSeries(c *gc.C) {
+	machine, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot assign unit "wordpress/0" to machine 0: series does not match`)
+}
+
+func (s *AssignSuite) TestPrincipals(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	principals := machine.Principals()
+	c.Assert(principals, jc.DeepEquals, []string{})
+
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	principals = machine.Principals()
+	c.Assert(principals, jc.DeepEquals, []string{"wordpress/0"})
+}
+
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -297,14 +324,9 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	subUnit := s.addSubordinate(c, unit)
 
 	checkPrincipals := func() []string {
-		docID := state.DocID(s.State, machine.Id())
-		doc := make(map[string][]string)
-		s.machines.FindId(docID).One(&doc)
-		principals, ok := doc["principals"]
-		if !ok {
-			c.Errorf(`machine document does not have a "principals" field`)
-		}
-		return principals
+		err := machine.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		return machine.Principals()
 	}
 	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0", "wordpress/1"})
 
@@ -378,7 +400,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 func (s *AssignSuite) TestAssignUnitToNewMachineDefaultContainerConstraint(c *gc.C) {
 	// Set up env constraints.
 	econs := constraints.MustParse("container=lxc")
-	err := s.State.SetEnvironConstraints(econs)
+	err := s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitToNewMachineContainerConstraint(c)
 }
@@ -402,7 +424,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	econs := constraints.MustParse("mem=4G cpu-cores=2")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit will take combined service/environ constraints on creation.
@@ -414,7 +436,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	econs = constraints.MustParse("cpu-cores=4")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The new machine takes the original combined unit constraints.
@@ -494,12 +516,12 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnitRemoved(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create some units and a clean machine.
@@ -527,12 +549,12 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a unit and a clean machine.
@@ -572,7 +594,7 @@ func (s *AssignSuite) TestAssignUnitBadPolicy(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitLocalPolicy(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits) // bootstrap machine
+	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -638,13 +660,13 @@ func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	// Set up env constraints.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitNewPolicyWithContainerConstraint(c)
 }
 
 func (s *AssignSuite) TestAssignUnitWithSubordinate(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -715,7 +737,7 @@ func (s *assignCleanSuite) assertMachineNotEmpty(c *gc.C, machine *state.Machine
 
 // setupMachines creates a combination of machines with which to test.
 func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, container *state.Machine, cleanEmptyMachine *state.Machine) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add some units to another service and allocate them to machines
@@ -802,7 +824,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	// Add a state management machine which can host units and check it is not chosen.
 	// Note that this must the first machine added, as AddMachine can only
 	// be used to add state-manager machines for the bootstrap machine.
-	m, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
+	m, err = s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, gc.IsNil)
@@ -818,7 +840,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add two environ manager machines and check they are not chosen.
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 
@@ -926,7 +948,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 	for i, t := range assignUsingConstraintsTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.unitConstraints)
-		err := s.State.SetEnvironConstraints(cons)
+		err := s.State.SetModelConstraints(cons)
 		c.Assert(err, jc.ErrorIsNil)
 
 		unit, err := s.wordpress.AddUnit()
@@ -955,7 +977,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -971,7 +993,7 @@ func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1111,7 +1133,7 @@ func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check unassigned placements with no clean and/or empty machines.
@@ -1191,7 +1213,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a machine and add a new container.
@@ -1208,7 +1230,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxc")
-	err = s.State.SetEnvironConstraints(econs)
+	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the first placement goes into the newly created, clean container above.
@@ -1258,7 +1280,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	us := make([]*state.Unit, 50)
 	for i := range us {

@@ -16,7 +16,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 type ProtectionCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 func (s *ProtectionCommandSuite) assertErrorMatches(c *gc.C, err error, expected string) {

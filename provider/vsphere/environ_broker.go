@@ -25,7 +25,7 @@ const (
 	DefaultMemMb    = uint64(2000)
 )
 
-func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
+func isController(mcfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
@@ -135,7 +135,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			continue
 		}
 		apiPort := 0
-		if isStateServer(args.InstanceConfig) {
+		if isController(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
 		spec := &instanceSpec{
@@ -145,7 +145,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			img:       img,
 			userData:  userData,
 			sshKey:    args.InstanceConfig.AuthorizedKeys,
-			isState:   isStateServer(args.InstanceConfig),
+			isState:   isController(args.InstanceConfig),
 			apiPort:   apiPort,
 		}
 		inst, err = env.client.CreateInstance(env.ecfg, spec)

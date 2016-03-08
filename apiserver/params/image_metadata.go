@@ -40,7 +40,10 @@ type CloudImageMetadata struct {
 	// Region is the name of cloud region associated with the image.
 	Region string `json:"region"`
 
-	// Series is OS version, for e.g. "quantal".
+	// Version is OS version, for e.g. "12.04".
+	Version string `json:"version"`
+
+	// Series is OS series, for e.g. "trusty".
 	Series string `json:"series"`
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
@@ -57,6 +60,11 @@ type CloudImageMetadata struct {
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source string `json:"source"`
+
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int `json:"priority"`
 }
 
 // ListCloudImageMetadataResult holds the results of querying cloud image metadata.
@@ -64,7 +72,18 @@ type ListCloudImageMetadataResult struct {
 	Result []CloudImageMetadata `json:"result"`
 }
 
-// MetadataSaveParams holds cloud image metadata details to save.
+// MetadataSaveParams holds lists of cloud image metadata to save. Each list
+// will be saved atomically.
 type MetadataSaveParams struct {
-	Metadata []CloudImageMetadata `json:"metadata"`
+	Metadata []CloudImageMetadataList `json:"metadata,omitempty"`
+}
+
+// CloudImageMetadataList holds a list of cloud image metadata.
+type CloudImageMetadataList struct {
+	Metadata []CloudImageMetadata `json:"metadata,omitempty"`
+}
+
+// MetadataImageIds holds image ids and can be used to identify related image metadata.
+type MetadataImageIds struct {
+	Ids []string `json:"image_ids"`
 }

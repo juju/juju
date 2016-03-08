@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.instancepoller")
@@ -51,10 +52,18 @@ type instanceInfo struct {
 	status    string
 }
 
-type machineContext interface {
-	killAll(err error)
-	instanceInfo(id instance.Id) (instanceInfo, error)
+// lifetimeContext was extracted to allow the various context clients to get
+// the benefits of the catacomb encapsulating everything that should happen
+// here. A clean implementation would almost certainly not need this.
+type lifetimeContext interface {
+	kill(error)
 	dying() <-chan struct{}
+	errDying() error
+}
+
+type machineContext interface {
+	lifetimeContext
+	instanceInfo(id instance.Id) (instanceInfo, error)
 }
 
 type machineAddress struct {
@@ -62,16 +71,10 @@ type machineAddress struct {
 	addresses []network.Address
 }
 
-type machinesWatcher interface {
-	Changes() <-chan []string
-	Err() error
-	Stop() error
-}
-
 type updaterContext interface {
+	lifetimeContext
 	newMachineContext() machineContext
 	getMachine(tag names.MachineTag) (machine, error)
-	dying() <-chan struct{}
 }
 
 type updater struct {
@@ -84,29 +87,27 @@ type updater struct {
 // machinesWatcher and starts machine goroutines to deal with them,
 // using the provided newMachineContext function to create the
 // appropriate context for each new machine tag.
-func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
+func watchMachinesLoop(context updaterContext, machinesWatcher watcher.StringsWatcher) (err error) {
 	p := &updater{
 		context:     context,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan machine),
 	}
 	defer func() {
-		if stopErr := w.Stop(); stopErr != nil {
-			if err == nil {
-				err = fmt.Errorf("error stopping watcher: %v", stopErr)
-			} else {
-				logger.Warningf("ignoring error when stopping watcher: %v", stopErr)
-			}
-		}
+		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
+		// strongly suspect these machine goroutines could be managed rather
+		// less opaquely if we made them all workers.
 		for len(p.machines) > 0 {
 			delete(p.machines, (<-p.machineDead).Tag())
 		}
 	}()
 	for {
 		select {
-		case ids, ok := <-w.Changes():
+		case <-p.context.dying():
+			return p.context.errDying()
+		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(w)
+				return errors.New("machines watcher closed")
 			}
 			tags := make([]names.MachineTag, len(ids))
 			for i := range ids {
@@ -117,8 +118,6 @@ func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 			}
 		case m := <-p.machineDead:
 			delete(p.machines, m.Tag())
-		case <-p.context.dying():
-			return nil
 		}
 	}
 }
@@ -148,7 +147,11 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			p.machines[tag] = c
 			go runMachine(p.context.newMachineContext(), m, c, p.machineDead)
 		} else {
-			c <- struct{}{}
+			select {
+			case <-p.context.dying():
+				return p.context.errDying()
+			case c <- struct{}{}:
+			}
 		}
 	}
 	return nil
@@ -170,7 +173,7 @@ func runMachine(context machineContext, m machine, changed <-chan struct{}, died
 		}
 	}()
 	if err := machineLoop(context, m, changed); err != nil {
-		context.killAll(err)
+		context.kill(err)
 	}
 }
 
@@ -184,18 +187,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 		if pollInstance {
 			instInfo, err := pollInstanceInfo(context, m)
 			if err != nil && !params.IsCodeNotProvisioned(err) {
-				// If the provider doesn't implement Addresses/Status now,
-				// it never will until we're upgraded, so don't bother
-				// asking any more. We could use less resources
-				// by taking down the entire worker, but this is easier for now
-				// (and hopefully the local provider will implement
-				// Addresses/Status in the not-too-distant future),
-				// so we won't need to worry about this case at all.
-				if params.IsCodeNotImplemented(err) {
-					pollInterval = 365 * 24 * time.Hour
-				} else {
-					return err
-				}
+				return err
 			}
 			machineStatus := params.StatusPending
 			if err == nil {
@@ -216,10 +208,10 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 			pollInstance = false
 		}
 		select {
+		case <-context.dying():
+			return context.errDying()
 		case <-time.After(pollInterval):
 			pollInstance = true
-		case <-context.dying():
-			return nil
 		case <-changed:
 			if err := m.Refresh(); err != nil {
 				return err
@@ -245,6 +237,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
+		// TODO (anastasiamac 2016-02-01) This does not look like it needs to be removed now.
 		if params.IsCodeNotImplemented(err) {
 			return instInfo, err
 		}

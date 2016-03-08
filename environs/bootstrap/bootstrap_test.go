@@ -5,9 +5,10 @@ package bootstrap_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"runtime"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -32,10 +34,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 const (
 	useDefaultKeys = true
@@ -53,6 +51,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
@@ -78,15 +77,15 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	}
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
+	c.Assert(err, gc.ErrorMatches, "model configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
+	c.Assert(err, gc.ErrorMatches, "model configuration has no ca-cert")
 
 	fixEnv("ca-cert", coretesting.CACert)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
+	c.Assert(err, gc.ErrorMatches, "model configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -106,11 +105,16 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Constraints: cons})
+	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
+	environCons := constraints.MustParse("cpu-cores=2 mem=4G")
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapConstraints: bootstrapCons,
+		EnvironConstraints:   environCons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
+	c.Assert(env.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
+	c.Assert(env.args.EnvironConstraints, gc.DeepEquals, environCons)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
@@ -121,6 +125,48 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
+}
+
+func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	metadataDir, metadata := createImageMetadata(c)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	env := bootstrapEnvironWithRegion{
+		newEnviron("foo", useDefaultKeys, nil),
+		simplestreams.CloudSpec{
+			Region:   "nether",
+			Endpoint: "hearnoretheir",
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	bootstrapCons := constraints.MustParse("arch=amd64")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapImage:       "img-id",
+		BootstrapSeries:      "precise",
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.ImageMetadata, gc.HasLen, 1)
+	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
+		Id:         "img-id",
+		Arch:       "amd64",
+		Version:    "12.04",
+		RegionName: "nether",
+		Endpoint:   "hearnoretheir",
+		Stream:     "released",
+	})
+	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 2)
+	c.Assert(env.instanceConfig.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Constraints, jc.DeepEquals, bootstrapCons)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
@@ -255,11 +301,30 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 2)
+	c.Assert(datasources, gc.HasLen, 3)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a user provided key.
+	// for this test, user provided key is empty.
+	// Bugs #1542127, #1542131
+	c.Assert(datasources[0].PublicSigningKey(), gc.Equals, "")
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
 	c.Assert(env.instanceConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "key")
+	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.PublicImageSigningKey, gc.Equals, "publickey")
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
@@ -280,8 +345,9 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 
 	datasources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(datasources, gc.HasLen, 1)
+	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
+	c.Assert(datasources[1].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
 func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {
@@ -296,7 +362,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtools.RegisterToolsDataSourceFunc("local storage", func(environs.Environ) (simplestreams.DataSource, error) {
-		return storage.NewStorageSimpleStreamsDataSource("test datasource", env.storage, "tools"), nil
+		return storage.NewStorageSimpleStreamsDataSource("test datasource", env.storage, "tools", simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
@@ -416,7 +482,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
 	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
@@ -424,7 +490,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	return arch.HostArch(), series.HostSeries(), finalizer, nil
+	return &environs.BootstrapResult{Arch: arch.HostArch(), Series: series.HostSeries(), Finalize: finalizer}, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {
@@ -447,4 +513,13 @@ func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return constraints.NewValidator(), nil
+}
+
+type bootstrapEnvironWithRegion struct {
+	*bootstrapEnviron
+	region simplestreams.CloudSpec
+}
+
+func (e bootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
+	return e.region, nil
 }

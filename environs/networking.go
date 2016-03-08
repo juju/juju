@@ -11,16 +11,24 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// SupportsNetworking is a convenience helper to check if an environment
+// supports networking. It returns an interface containing Environ and
+// Networking in this case.
+var SupportsNetworking = supportsNetworking
+
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
-	// AllocateAddress requests a specific address to be allocated for the
-	// given instance on the given subnet.
-	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
+	// AllocateAddress requests a specific address to be allocated for the given
+	// instance on the given subnet, using the specified macAddress and
+	// hostnameSuffix. If addr is empty, this is interpreted as an output
+	// argument, which will contain the allocated address. Otherwise, addr must
+	// be non-empty and will be allocated as specified, if possible.
+	AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostnameSuffix string) error
 
 	// ReleaseAddress releases a specific address previously allocated with
 	// AllocateAddress.
-	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error
+	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
 
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
@@ -37,9 +45,20 @@ type Networking interface {
 	// (e.g. "subnetId must be set").
 	SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
-	// SupportsSpaces returns whether the current environment supports spaces. The
-	// returned error satisfies errors.IsNotSupported(), unless a general API failure occurs.
+	// SupportsSpaces returns whether the current environment supports
+	// spaces. The returned error satisfies errors.IsNotSupported(),
+	// unless a general API failure occurs.
 	SupportsSpaces() (bool, error)
+
+	// SupportsSpaceDiscovery returns whether the current environment
+	// supports discovering spaces from the provider. The returned error
+	// satisfies errors.IsNotSupported(), unless a general API failure occurs.
+	SupportsSpaceDiscovery() (bool, error)
+
+	// Spaces returns a slice of network.SpaceInfo with info, including
+	// details of all associated subnets, about all spaces known to the
+	// provider that have subnets available.
+	Spaces() ([]network.SpaceInfo, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -52,10 +71,7 @@ type NetworkingEnviron interface {
 	Networking
 }
 
-// SupportsNetworking is a convenience helper to check if an environment
-// supports networking. It returns an interface containing Environ and
-// Networking in this case.
-func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
+func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
 }

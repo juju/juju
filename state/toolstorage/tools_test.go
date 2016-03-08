@@ -10,7 +10,6 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/jujuversion"
@@ -157,9 +157,9 @@ func (s *ToolsSuite) TestTools(c *gc.C) {
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	_, _, err = s.storage.Tools(current)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `resource at path "environs/my-uuid/path" not found`)
+	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
 
-	err = s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	err = s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	metadata, r, err := s.storage.Tools(current)
@@ -180,7 +180,7 @@ func (s *ToolsSuite) TestAddToolsRemovesExisting(c *gc.C) {
 	// Add a metadata doc and a blob at a known path, then
 	// call AddTools and ensure the original blob is removed.
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	err := s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addedMetadata := toolstorage.Metadata{
@@ -192,7 +192,7 @@ func (s *ToolsSuite) TestAddToolsRemovesExisting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// old blob should be gone
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", "path")
+	_, _, err = s.managedStorage.GetForBucket("my-uuid", "path")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertTools(c, addedMetadata, "xyzzzz")
@@ -204,7 +204,7 @@ func (s *ToolsSuite) TestAddToolsRemovesExistingRemoveFails(c *gc.C) {
 	// the original blob, but does not return an error if it
 	// fails.
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	err := s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	storage := toolstorage.NewStorage(
@@ -222,7 +222,7 @@ func (s *ToolsSuite) TestAddToolsRemovesExistingRemoveFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// old blob should still be there
-	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", "path")
+	r, _, err := s.managedStorage.GetForBucket("my-uuid", "path")
 	c.Assert(err, jc.ErrorIsNil)
 	r.Close()
 
@@ -245,7 +245,7 @@ func (s *ToolsSuite) TestAddToolsRemovesBlobOnFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot store tools metadata: Run fails")
 
 	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+	_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -266,7 +266,7 @@ func (s *ToolsSuite) TestAddToolsRemovesBlobOnFailureRemoveFails(c *gc.C) {
 
 	// blob should still be there, because the removal failed.
 	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
-	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", path)
+	r, _, err := s.managedStorage.GetForBucket("my-uuid", path)
 	c.Assert(err, jc.ErrorIsNil)
 	r.Close()
 }
@@ -287,7 +287,7 @@ func (s *ToolsSuite) TestAddToolsConcurrent(c *gc.C) {
 	addMetadata := func() {
 		err := s.storage.AddTools(strings.NewReader("0"), metadata0)
 		c.Assert(err, jc.ErrorIsNil)
-		r, _, err := s.managedStorage.GetForEnvironment("my-uuid", fmt.Sprintf("tools/%s-0", current))
+		r, _, err := s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
 		c.Assert(err, jc.ErrorIsNil)
 		r.Close()
 	}
@@ -297,7 +297,7 @@ func (s *ToolsSuite) TestAddToolsConcurrent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Blob added in before-hook should be removed.
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", fmt.Sprintf("tools/%s-0", current))
+	_, _, err = s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertTools(c, metadata1, "1")
@@ -325,7 +325,7 @@ func (s *ToolsSuite) TestAddToolsExcessiveContention(c *gc.C) {
 	// There should be no blobs apart from the last one added by the before-hook.
 	for _, metadata := range metadata[:3] {
 		path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
-		_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+		_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 
@@ -365,7 +365,7 @@ type removeFailsManagedStorage struct {
 	blobstore.ManagedStorage
 }
 
-func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
+func (removeFailsManagedStorage) RemoveForBucket(uuid, path string) error {
 	return errors.Errorf("cannot remove %s:%s", uuid, path)
 }
 

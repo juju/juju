@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Deployer", 0, NewDeployerAPI)
+	common.RegisterStandardFacade("Deployer", 1, NewDeployerAPI)
 }
 
 // DeployerAPI provides access to the Deployer API facade.

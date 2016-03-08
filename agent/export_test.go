@@ -57,7 +57,6 @@ func ConfigFileExists(config Config) bool {
 
 var (
 	MachineJobFromParams = machineJobFromParams
-	IsLocalEnv           = &isLocalEnv
 )
 
 func EmptyConfig() Config {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
 	coretesting "github.com/juju/juju/testing"
@@ -40,15 +40,14 @@ var _ = gc.Suite(&imageSuite{})
 
 func (s *imageSuite) SetUpSuite(c *gc.C) {
 	s.authHttpSuite.SetUpSuite(c)
-	testRoundTripper.RegisterForScheme("test")
 }
 
-func (s *imageSuite) TestDownloadMissingEnvUUIDPath(c *gc.C) {
+func (s *imageSuite) TestDownloadMissingModelUUIDPath(c *gc.C) {
 	s.storeFakeImage(c, s.State, "lxc", "trusty", "amd64")
 
-	s.envUUID = ""
+	s.modelUUID = ""
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, "/environment//images")
+	c.Assert(url.Path, jc.HasPrefix, "/model//images")
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
@@ -58,37 +57,33 @@ func (s *imageSuite) TestDownloadEnvironmentPath(c *gc.C) {
 	s.storeFakeImage(c, s.State, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/environment/%s/", s.State.EnvironUUID()))
+	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", s.State.ModelUUID()))
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
 }
 
 func (s *imageSuite) TestDownloadOtherEnvironmentPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
+	envState := s.setupOtherModel(c)
 	s.storeFakeImage(c, envState, "lxc", "trusty", "amd64")
 
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
-	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/environment/%s/", envState.EnvironUUID()))
+	c.Assert(url.Path, jc.HasPrefix, fmt.Sprintf("/model/%s/", envState.ModelUUID()))
 
 	response := s.downloadRequest(c, url)
 	s.testDownload(c, response)
 }
 
-func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
-	s.envUUID = "dead-beef-123456"
+func (s *imageSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
+	s.modelUUID = "dead-beef-123456"
 	url := s.imageURL(c, "lxc", "trusty", "amd64")
 	response := s.downloadRequest(c, url)
-	s.assertErrorResponse(c, response, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, response, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
-
-// This provides the content for code accessing test:///... URLs. This allows
-// us to set the responses for things like image queries.
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 type CountingRoundTripper struct {
 	count int
-	*jujutest.CannedRoundTripper
+	*coretesting.CannedRoundTripper
 }
 
 func (v *CountingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -98,11 +93,11 @@ func (v *CountingRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 
 func useTestImageData(files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = &CountingRoundTripper{
-			CannedRoundTripper: jujutest.NewCannedRoundTripper(files, nil),
+		sstesting.TestRoundTripper.Sub = &CountingRoundTripper{
+			CannedRoundTripper: coretesting.NewCannedRoundTripper(files, nil),
 		}
 	} else {
-		testRoundTripper.Sub = nil
+		sstesting.TestRoundTripper.Sub = nil
 	}
 }
 
@@ -168,7 +163,7 @@ func (s *imageSuite) TestDownloadFetchesAndCachesConcurrent(c *gc.C) {
 	}
 
 	// Downloading an image is 2 requests - one for image, one for SA256.
-	c.Assert(testRoundTripper.Sub.(*CountingRoundTripper).count, gc.Equals, 2)
+	c.Assert(sstesting.TestRoundTripper.Sub.(*CountingRoundTripper).count, gc.Equals, 2)
 
 	// Check that the image is correctly cached.
 	metadata, cachedData := s.getImageFromStorage(c, s.State, "lxc", "trusty", "amd64")
@@ -234,7 +229,7 @@ func (s *imageSuite) downloadRequest(c *gc.C, url *url.URL) *http.Response {
 func (s *imageSuite) storeFakeImage(c *gc.C, st *state.State, kind, series, arch string) {
 	storage := st.ImageStorage()
 	metadata := &imagestorage.Metadata{
-		EnvUUID:   st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		Kind:      kind,
 		Series:    series,
 		Arch:      arch,
@@ -258,7 +253,7 @@ func (s *imageSuite) getImageFromStorage(c *gc.C, st *state.State, kind, series,
 
 func (s *imageSuite) imageURL(c *gc.C, kind, series, arch string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/environment/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", s.envUUID, kind, series, arch)
+	uri.Path = fmt.Sprintf("/model/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", s.modelUUID, kind, series, arch)
 	return uri
 }
 

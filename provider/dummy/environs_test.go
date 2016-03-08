@@ -70,6 +70,7 @@ func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
+	s.BaseSuite.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *liveSuite) TearDownTest(c *gc.C) {
@@ -101,6 +102,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
+	s.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -114,14 +116,16 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Networki
 	s.TestConfig["prefer-ipv6"] = preferIPv6
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), s.ConfigStore,
+		s.ControllerStore, cfg.Name(),
+		environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(env, gc.NotNil)
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.EnsureNotBootstrapped(netenv)
-	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv
@@ -199,6 +203,33 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	// Without change space discovery is not supported.
+	ok, err := e.SupportsSpaceDiscovery()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now turn it on.
+	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
+	c.Assert(isEnabled, jc.IsFalse)
+	ok, err = e.SupportsSpaceDiscovery()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// And finally turn it off again.
+	isEnabled = dummy.SetSupportsSpaceDiscovery(false)
+	c.Assert(isEnabled, jc.IsTrue)
+	ok, err = e.SupportsSpaceDiscovery()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
 	cfg := e.Config()
 	brokenCfg, err := cfg.Apply(map[string]interface{}{
@@ -225,25 +256,25 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 
 	// Test allocating a couple of addresses.
 	newAddress := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err := e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress, "foo", "bar")
 
 	newAddress = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress, "foo", "bar")
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "AllocateAddress")
 	newAddress = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `dummy\.AllocateAddress is broken`)
 
 	// Finally, test the method respects the feature flag when
 	// disabled.
 	s.SetFeatureFlags() // clear the flags.
-	err = e.AllocateAddress(inst.Id(), subnetId, newAddress, "foo", "bar")
+	err = e.AllocateAddress(inst.Id(), subnetId, &newAddress, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
@@ -265,25 +296,26 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 	// Release a couple of addresses.
 	address := network.NewScopedAddress("0.1.2.1", network.ScopeCloudLocal)
 	macAddress := "foobar"
-	err := e.ReleaseAddress(inst.Id(), subnetId, address, macAddress)
+	hostname := "myhostname"
+	err := e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
 	c.Assert(err, jc.ErrorIsNil)
-	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address, macAddress)
+	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address, macAddress, hostname)
 
 	address = network.NewScopedAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress)
+	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
 	c.Assert(err, jc.ErrorIsNil)
-	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address, macAddress)
+	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address, macAddress, hostname)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "ReleaseAddress")
 	address = network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal)
-	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress)
+	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
 	c.Assert(err, gc.ErrorMatches, `dummy\.ReleaseAddress is broken`)
 
 	// Finally, test the method respects the feature flag when
 	// disabled.
 	s.SetFeatureFlags() // clear the flags.
-	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress)
+	err = e.ReleaseAddress(inst.Id(), subnetId, address, macAddress, hostname)
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
@@ -549,7 +581,16 @@ func (s *suite) TestPreferIPv6Off(c *gc.C) {
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1"))
 }
 
-func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectSubnetId network.Id, expectAddress network.Address, expectMAC, expectHostName string) {
+func assertAllocateAddress(
+	c *gc.C,
+	e environs.Environ,
+	opc chan dummy.Operation,
+	expectInstId instance.Id,
+	expectSubnetId network.Id,
+	expectAddress network.Address,
+	expectMAC string,
+	expectHost string,
+) {
 	select {
 	case op := <-opc:
 		addrOp, ok := op.(dummy.OpAllocateAddress)
@@ -560,14 +601,23 @@ func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation
 		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(addrOp.Address, gc.Equals, expectAddress)
 		c.Check(addrOp.MACAddress, gc.Equals, expectMAC)
-		c.Check(addrOp.HostName, gc.Equals, expectHostName)
+		c.Check(addrOp.HostName, gc.Equals, expectHost)
 		return
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("time out wating for operation")
 	}
 }
 
-func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectSubnetId network.Id, expectAddress network.Address, macAddress string) {
+func assertReleaseAddress(
+	c *gc.C,
+	e environs.Environ,
+	opc chan dummy.Operation,
+	expectInstId instance.Id,
+	expectSubnetId network.Id,
+	expectAddress network.Address,
+	expectMAC string,
+	expectHost string,
+) {
 	select {
 	case op := <-opc:
 		addrOp, ok := op.(dummy.OpReleaseAddress)
@@ -577,7 +627,8 @@ func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation,
 		c.Check(addrOp.SubnetId, gc.Equals, expectSubnetId)
 		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(addrOp.Address, gc.Equals, expectAddress)
-		c.Check(addrOp.MACAddress, gc.Equals, macAddress)
+		c.Check(addrOp.MACAddress, gc.Equals, expectMAC)
+		c.Check(addrOp.HostName, gc.Equals, expectHost)
 		return
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("time out wating for operation")

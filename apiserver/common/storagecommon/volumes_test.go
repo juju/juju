@@ -38,7 +38,7 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 	p, err := storagecommon.VolumeParams(
 		&fakeVolume{tag: tag, params: volumeParams, info: info},
 		nil, // StorageInstance
-		testing.CustomEnvironConfig(c, testing.Attrs{
+		testing.CustomModelConfig(c, testing.Attrs{
 			"resource-tags": "a=b c=",
 		}),
 		&fakePoolManager{},
@@ -49,9 +49,9 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 		Provider:  "loop",
 		Size:      1024,
 		Tags: map[string]string{
-			tags.JujuEnv: testing.EnvironmentTag.Id(),
-			"a":          "b",
-			"c":          "",
+			tags.JujuModel: testing.ModelTag.Id(),
+			"a":            "b",
+			"c":            "",
 		},
 	})
 }
@@ -65,7 +65,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 			Pool: "loop", Size: 1024,
 		}},
 		&fakeStorageInstance{tag: storageTag, owner: unitTag},
-		testing.CustomEnvironConfig(c, nil),
+		testing.CustomModelConfig(c, nil),
 		&fakePoolManager{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 		Provider:  "loop",
 		Size:      1024,
 		Tags: map[string]string{
-			tags.JujuEnv:             testing.EnvironmentTag.Id(),
+			tags.JujuModel:           testing.ModelTag.Id(),
 			tags.JujuStorageInstance: "mystore/0",
 			tags.JujuStorageOwner:    "mysql/123",
 		},

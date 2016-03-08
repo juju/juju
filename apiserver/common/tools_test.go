@@ -301,7 +301,7 @@ func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 	})
 	url, err := g.ToolsURL(current)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/environment/my-uuid/tools/"+current.String())
+	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/model/my-uuid/tools/"+current.String())
 }
 
 type sprintfURLGetter string

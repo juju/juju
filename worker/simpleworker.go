@@ -3,9 +3,7 @@
 
 package worker
 
-import (
-	"launchpad.net/tomb"
-)
+import "launchpad.net/tomb"
 
 // simpleWorker implements the worker returned by NewSimpleWorker.
 type simpleWorker struct {

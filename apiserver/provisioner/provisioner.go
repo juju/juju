@@ -6,8 +6,6 @@ package provisioner
 import (
 	"fmt"
 	"math/rand"
-	"sort"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,16 +15,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -36,14 +31,14 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
-	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
 
 	// Version 1 has the same set of methods as 0, with the same
 	// signatures, but its ProvisioningInfo returns additional
 	// information. Clients may require version 1 so that they
 	// receive this additional information; otherwise they are
 	// compatible.
-	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
+	common.RegisterStandardFacade("Provisioner", 2, NewProvisionerAPI)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -56,8 +51,8 @@ type ProvisionerAPI struct {
 	*common.LifeGetter
 	*common.StateAddresser
 	*common.APIAddresser
-	*common.EnvironWatcher
-	*common.EnvironMachinesWatcher
+	*common.ModelWatcher
+	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsFinder
 	*common.ToolsGetter
@@ -70,11 +65,11 @@ type ProvisionerAPI struct {
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
 func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		isEnvironManager := authorizer.AuthEnvironManager()
+		isModelManager := authorizer.AuthModelManager()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
@@ -89,7 +84,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 				if parentId == "" {
 					// All top-level machines are accessible by the
 					// environment manager.
-					return isEnvironManager
+					return isModelManager
 				}
 				// All containers with the authenticated machine as a
 				// parent are accessible by it.
@@ -105,29 +100,29 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
-		Remover:                common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
-		StatusGetter:           common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:         common.NewStateAddresser(st),
-		APIAddresser:           common.NewAPIAddresser(st, resources),
-		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
-		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
-		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
-		ToolsGetter:            common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
-		st:                     st,
-		resources:              resources,
-		authorizer:             authorizer,
-		getAuthFunc:            getAuthFunc,
+		Remover:              common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
+		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:       common.NewStateAddresser(st),
+		APIAddresser:         common.NewAPIAddresser(st, resources),
+		ModelWatcher:         common.NewModelWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		InstanceIdGetter:     common.NewInstanceIdGetter(st, getAuthFunc),
+		ToolsFinder:          common.NewToolsFinder(st, st, urlGetter),
+		ToolsGetter:          common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
+		st:                   st,
+		resources:            resources,
+		authorizer:           authorizer,
+		getAuthFunc:          getAuthFunc,
 	}, nil
 }
 
@@ -234,7 +229,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -293,7 +288,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.st.EnvironConfig()
+	config, err := p.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -381,69 +376,6 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
-// ProvisioningInfo returns the provisioning information for each given machine entity.
-func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
-	result := params.ProvisioningInfoResults{
-		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result, err = p.getProvisioningInfo(machine)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
-	cons, err := m.Constraints()
-	if err != nil {
-		return nil, err
-	}
-	volumes, err := p.machineVolumeParams(m)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// TODO(dimitern) Drop this once we only use spaces for
-	// deployments.
-	networks, err := m.RequestedNetworks()
-	if err != nil {
-		return nil, err
-	}
-	var jobs []multiwatcher.MachineJob
-	for _, job := range m.Jobs() {
-		jobs = append(jobs, job.ToParams())
-	}
-	tags, err := p.machineTags(m, jobs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnetsToZones, err := p.machineSubnetsAndZones(m)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot match subnets to zones")
-	}
-	return &params.ProvisioningInfo{
-		Constraints:    cons,
-		Series:         m.Series(),
-		Placement:      m.Placement(),
-		Networks:       networks,
-		Jobs:           jobs,
-		Volumes:        volumes,
-		Tags:           tags,
-		SubnetsToZones: subnetsToZones,
-	}, nil
-}
-
 // DistributionGroup returns, for each given machine entity,
 // a slice of instance.Ids that belong to the same distribution
 // group as that machine. This information may be used to
@@ -481,7 +413,7 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 
 // environManagerInstances returns all environ manager instances.
 func environManagerInstances(st *state.State) ([]instance.Id, error) {
-	info, err := st.StateServerInfo()
+	info, err := st.ControllerInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -555,70 +487,6 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// machineVolumeParams retrieves VolumeParams for the volumes that should be
-// provisioned with, and attached to, the machine. The client should ignore
-// parameters that it does not know how to handle.
-func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeParams, error) {
-	volumeAttachments, err := m.VolumeAttachments()
-	if err != nil {
-		return nil, err
-	}
-	if len(volumeAttachments) == 0 {
-		return nil, nil
-	}
-	envConfig, err := p.st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	poolManager := poolmanager.New(state.NewStateSettings(p.st))
-	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
-	for _, volumeAttachment := range volumeAttachments {
-		volumeTag := volumeAttachment.Volume()
-		volume, err := p.st.Volume(volumeTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
-		}
-		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
-			volume.StorageInstance, p.st.StorageInstance,
-		)
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
-		}
-		volumeParams, err := storagecommon.VolumeParams(volume, storageInstance, envConfig, poolManager)
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
-		}
-		provider, err := registry.StorageProvider(storage.ProviderType(volumeParams.Provider))
-		if err != nil {
-			return nil, errors.Annotate(err, "getting storage provider")
-		}
-		if provider.Dynamic() {
-			// Leave dynamic storage to the storage provisioner.
-			continue
-		}
-		volumeAttachmentParams, ok := volumeAttachment.Params()
-		if !ok {
-			// Attachment is already provisioned; this is an insane
-			// state, so we should not proceed with the volume.
-			return nil, errors.Errorf(
-				"volume %s already attached to machine %s",
-				volumeTag.Id(), m.Id(),
-			)
-		}
-		// Not provisioned yet, so ask the cloud provisioner do it.
-		volumeParams.Attachment = &params.VolumeAttachmentParams{
-			volumeTag.String(),
-			m.Tag().String(),
-			"", // we're creating the volume, so it has no volume ID.
-			"", // we're creating the machine, so it has no instance ID.
-			volumeParams.Provider,
-			volumeAttachmentParams.ReadOnly,
-		}
-		allVolumeParams = append(allVolumeParams, volumeParams)
-	}
-	return allVolumeParams, nil
 }
 
 // storageConfig returns the provider type and config attributes for the
@@ -732,36 +600,6 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	return result, nil
 }
 
-// SetProvisioned sets the provider specific instance id, nonce and
-// metadata for each given machine. Once set, the instance id cannot
-// be changed.
-//
-// TODO(dimitern) This is not used anymore (as of 1.19.0) and is
-// retained only for backwards-compatibility. It should be removed as
-// deprecated. SetInstanceInfo is used instead.
-func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Machines)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Machines {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
@@ -816,7 +654,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthEnvironManager() {
+	if !p.authorizer.AuthModelManager() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
@@ -829,6 +667,10 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
+func containerHostname(containerTag names.Tag) string {
+	return fmt.Sprintf("%s-%s", container.DefaultNamespace, containerTag.String())
+}
+
 // ReleaseContainerAddresses finds addresses allocated to a container
 // and marks them as Dead, to be released and removed. It accepts
 // container tags as arguments. If address allocation feature flag is
@@ -836,10 +678,6 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-
-	if !environs.AddressAllocationEnabled() {
-		return result, errors.NotSupportedf("address allocation")
 	}
 
 	canAccess, err := p.getAuthFunc()
@@ -920,6 +758,9 @@ const MACAddressTemplate = "00:16:3e:%02x:%02x:%02x"
 
 // generateMACAddress creates a random MAC address within the space defined by
 // MACAddressTemplate above.
+//
+// TODO(dimitern): We should make a best effort to ensure the MAC address we
+// generate is unique at least within the current environment.
 func generateMACAddress() string {
 	digits := make([]interface{}, 3)
 	for i := range digits {
@@ -931,14 +772,14 @@ func generateMACAddress() string {
 // prepareOrGetContainerInterfaceInfo optionally allocates an address and returns information
 // for configuring networking on a container. It accepts container tags as arguments.
 func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
-	args params.Entities, provisionContainer bool) (
-	params.MachineNetworkConfigResults, error) {
+	args params.Entities,
+	provisionContainer bool,
+) (
+	params.MachineNetworkConfigResults,
+	error,
+) {
 	result := params.MachineNetworkConfigResults{
 		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
-	}
-
-	if !environs.AddressAllocationEnabled() {
-		return result, errors.NotSupportedf("address allocation")
 	}
 
 	// Some preparations first.
@@ -954,9 +795,27 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 		err = errors.NotProvisionedf("cannot allocate addresses: host machine %q", host)
 		return result, err
 	}
-	subnet, subnetInfo, interfaceInfo, err := p.prepareAllocationNetwork(environ, host, instId)
-	if err != nil {
-		return result, errors.Annotate(err, "cannot allocate addresses")
+	var subnet *state.Subnet
+	var subnetInfo network.SubnetInfo
+	var interfaceInfo network.InterfaceInfo
+	if environs.AddressAllocationEnabled() {
+		// We don't need a subnet unless we need to allocate a static IP.
+		subnet, subnetInfo, interfaceInfo, err = p.prepareAllocationNetwork(environ, instId)
+		if err != nil {
+			return result, errors.Annotate(err, "cannot allocate addresses")
+		}
+	} else {
+		var allInterfaceInfos []network.InterfaceInfo
+		allInterfaceInfos, err = environ.NetworkInterfaces(instId)
+		if err != nil {
+			return result, errors.Annotatef(err, "cannot instance %q interfaces", instId)
+		} else if len(allInterfaceInfos) == 0 {
+			return result, errors.New("no interfaces available")
+		}
+		// Currently we only support a single NIC per container, so we only need
+		// the information from the host instance's first NIC.
+		logger.Tracef("interfaces for instance %q: %v", instId, allInterfaceInfos)
+		interfaceInfo = allInterfaceInfos[0]
 	}
 
 	// Loop over the passed container tags.
@@ -994,7 +853,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 		var macAddress string
 		var address *state.IPAddress
 		if provisionContainer {
-			// Allocate and set address.
+			// Allocate and set an address.
 			macAddress = generateMACAddress()
 			address, err = p.allocateAddress(environ, subnet, host, container, instId, macAddress)
 			if err != nil {
@@ -1022,15 +881,17 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 			address = addresses[0]
 			macAddress = address.MACAddress()
 		}
+
 		// Store it on the machine, construct and set an interface result.
 		dnsServers := make([]string, len(interfaceInfo.DNSServers))
-		for i, dns := range interfaceInfo.DNSServers {
-			dnsServers[i] = dns.Value
+		for l, dns := range interfaceInfo.DNSServers {
+			dnsServers[l] = dns.Value
 		}
 
 		if macAddress == "" {
 			macAddress = interfaceInfo.MACAddress
 		}
+
 		// TODO(dimitern): Support allocating one address per NIC on
 		// the host, effectively creating the same number of NICs in
 		// the container.
@@ -1049,30 +910,37 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 				DNSServers:       dnsServers,
 				ConfigType:       string(network.ConfigStatic),
 				Address:          address.Value(),
-				// container's gateway is the host's primary NIC's IP.
-				GatewayAddress: interfaceInfo.Address.Value,
-				ExtraConfig:    interfaceInfo.ExtraConfig,
+				GatewayAddress:   interfaceInfo.GatewayAddress.Value,
+				ExtraConfig:      interfaceInfo.ExtraConfig,
 			}},
 		}
 	}
 	return result, nil
 }
 
-// prepareContainerAccessEnvironment retrieves the environment, host machine, and access
-// for working with containers.
-func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
-	cfg, err := p.st.EnvironConfig()
+func (p *ProvisionerAPI) maybeGetNetworkingEnviron() (environs.NetworkingEnviron, error) {
+	cfg, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "failed to get environment config")
+		return nil, errors.Annotate(err, "failed to get model config")
 	}
 	environ, err := environs.New(cfg)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "failed to construct an environment from config")
+		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}
 	netEnviron, supported := environs.SupportsNetworking(environ)
 	if !supported {
 		// " not supported" will be appended to the message below.
-		return nil, nil, nil, errors.NotSupportedf("environment %q networking", cfg.Name())
+		return nil, errors.NotSupportedf("model %q networking", cfg.Name())
+	}
+	return netEnviron, nil
+}
+
+// prepareContainerAccessEnvironment retrieves the environment, host machine, and access
+// for working with containers.
+func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
+	netEnviron, err := p.maybeGetNetworkingEnviron()
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
 	}
 
 	canAccess, err := p.getAuthFunc()
@@ -1098,7 +966,6 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Networkin
 // for the allocations.
 func (p *ProvisionerAPI) prepareAllocationNetwork(
 	environ environs.NetworkingEnviron,
-	host *state.Machine,
 	instId instance.Id,
 ) (
 	*state.Subnet,
@@ -1113,7 +980,7 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 	if err != nil {
 		return nil, subnetInfo, interfaceInfo, errors.Trace(err)
 	} else if len(interfaces) == 0 {
-		return nil, subnetInfo, interfaceInfo, errors.Errorf("no interfaces available")
+		return nil, subnetInfo, interfaceInfo, errors.New("no interfaces available")
 	}
 	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
 
@@ -1159,10 +1026,24 @@ func (p *ProvisionerAPI) prepareAllocationNetwork(
 			// this subnet has no allocatable IPs
 			continue
 		}
+		if sub.AllocatableIPLow != nil && sub.AllocatableIPLow.To4() == nil {
+			logger.Tracef("ignoring IPv6 subnet %q - allocating IPv6 addresses not yet supported", sub.ProviderId)
+			// Until we change the way we pick addresses, IPv6 subnets with
+			// their *huge* ranges (/64 being the default), there is no point in
+			// allowing such subnets (it won't even work as PickNewAddress()
+			// assumes IPv4 allocatable range anyway).
+			continue
+		}
 		ok, err := environ.SupportsAddressAllocation(sub.ProviderId)
 		if err == nil && ok {
 			subnetInfo = sub
 			interfaceInfo = subnetIdToInterface[sub.ProviderId]
+
+			// Since with addressable containers the host acts like a gateway
+			// for the containers, instead of using the same gateway for the
+			// containers as their host's
+			interfaceInfo.GatewayAddress.Value = interfaceInfo.Address.Value
+
 			success = true
 			break
 		}
@@ -1205,17 +1086,50 @@ func (p *ProvisionerAPI) allocateAddress(
 	instId instance.Id,
 	macAddress string,
 ) (*state.IPAddress, error) {
+	hostname := containerHostname(container.Tag())
+
+	if !environs.AddressAllocationEnabled() {
+		// Even if the address allocation feature flag is not enabled, we might
+		// be running on MAAS 1.8+ with devices support, which we can use to
+		// register containers getting IPs via DHCP. However, most of the usual
+		// allocation code can be bypassed, we just need the parent instance ID
+		// and a MAC address (no subnet or IP address).
+		allocatedAddress := network.Address{}
+		err := environ.AllocateAddress(instId, network.AnySubnet, &allocatedAddress, macAddress, hostname)
+		if err != nil {
+			// Not using MAAS 1.8+ or some other error.
+			return nil, errors.Trace(err)
+		}
+
+		logger.Infof(
+			"allocated address %q on instance %q for container %q",
+			allocatedAddress.String(), instId, hostname,
+		)
+
+		// Add the address to state, so we can look it up later by MAC address.
+		stateAddr, err := p.st.AddIPAddress(allocatedAddress, string(network.AnySubnet))
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to save address %q", allocatedAddress)
+		}
+
+		err = p.setAllocatedOrRelease(stateAddr, environ, instId, container, network.AnySubnet, macAddress)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return stateAddr, nil
+	}
 
 	subnetId := network.Id(subnet.ProviderId())
-	name := names.NewMachineTag(container.Id()).String()
 	for {
 		addr, err := subnet.PickNewAddress()
 		if err != nil {
 			return nil, err
 		}
+		netAddr := addr.Address()
 		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
 		// Attempt to allocate with environ.
-		err = environ.AllocateAddress(instId, subnetId, addr.Address(), macAddress, name)
+		err = environ.AllocateAddress(instId, subnetId, &netAddr, macAddress, hostname)
 		if err != nil {
 			logger.Warningf(
 				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",
@@ -1279,7 +1193,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 				addr.String(), state.AddressStateUnavailable, err,
 			)
 		}
-		err = environ.ReleaseAddress(instId, subnetId, addr.Address(), addr.MACAddress())
+		err = environ.ReleaseAddress(instId, subnetId, addr.Address(), addr.MACAddress(), "")
 		if err == nil {
 			logger.Infof("address %q released; trying to allocate new", addr.String())
 			return
@@ -1305,7 +1219,7 @@ func (p *ProvisionerAPI) setAllocatedOrRelease(
 
 func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo) (*state.Subnet, error) {
 	stateSubnetInfo := state.SubnetInfo{
-		ProviderId:        string(subnetInfo.ProviderId),
+		ProviderId:        subnetInfo.ProviderId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AllocatableIPHigh: subnetInfo.AllocatableIPHigh.String(),
@@ -1321,91 +1235,4 @@ func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo)
 		}
 	}
 	return subnet, nil
-}
-
-// machineTags returns machine-specific tags to set on the instance.
-func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.MachineJob) (map[string]string, error) {
-	// Names of all units deployed to the machine.
-	//
-	// TODO(axw) 2015-06-02 #1461358
-	// We need a worker that periodically updates
-	// instance tags with current deployment info.
-	units, err := m.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	unitNames := make([]string, 0, len(units))
-	for _, unit := range units {
-		if !unit.IsPrincipal() {
-			continue
-		}
-		unitNames = append(unitNames, unit.Name())
-	}
-	sort.Strings(unitNames)
-
-	cfg, err := p.st.EnvironConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machineTags := instancecfg.InstanceTags(cfg, jobs)
-	if len(unitNames) > 0 {
-		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
-	}
-	return machineTags, nil
-}
-
-// machineSubnetsAndZones returns a map of subnet provider-specific id
-// to list of availability zone names for that subnet. The result can
-// be empty if there are no spaces constraints specified for the
-// machine, or there's an error fetching them.
-func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
-	mcons, err := m.Constraints()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get machine constraints")
-	}
-	includeSpaces := mcons.IncludeSpaces()
-	if len(includeSpaces) < 1 {
-		// Nothing to do.
-		return nil, nil
-	}
-	// TODO(dimitern): For the network model MVP we only use the first
-	// included space and ignore the rest.
-	spaceName := includeSpaces[0]
-	if len(includeSpaces) > 1 {
-		logger.Debugf(
-			"using space %q from constraints for machine %q (ignoring remaining: %v)",
-			spaceName, m.Id(), includeSpaces[1:],
-		)
-	}
-	space, err := p.st.Space(spaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnets, err := space.Subnets()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnetsToZones := make(map[string][]string, len(subnets))
-	for _, subnet := range subnets {
-		warningPrefix := fmt.Sprintf(
-			"not using subnet %q in space %q for machine %q provisioning: ",
-			subnet.CIDR(), spaceName, m.Id(),
-		)
-		// TODO(dimitern): state.Subnet.ProviderId needs to be of type
-		// network.Id.
-		providerId := subnet.ProviderId()
-		if providerId == "" {
-			logger.Warningf(warningPrefix + "no ProviderId set")
-			continue
-		}
-		// TODO(dimitern): Once state.Subnet supports multiple zones,
-		// use all of them below.
-		zone := subnet.AvailabilityZone()
-		if zone == "" {
-			logger.Warningf(warningPrefix + "no availability zone(s) set")
-			continue
-		}
-		subnetsToZones[providerId] = []string{zone}
-	}
-	return subnetsToZones, nil
 }

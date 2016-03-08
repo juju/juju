@@ -92,19 +92,19 @@ type NetworkSuite struct {
 var _ = gc.Suite(&NetworkSuite{})
 
 func (*NetworkSuite) TestInitializeFromConfig(c *gc.C) {
-	c.Check(network.GetPreferIPv6(), jc.IsFalse)
+	c.Check(network.PreferIPv6(), jc.IsFalse)
 
-	envConfig := testing.CustomEnvironConfig(c, testing.Attrs{
+	envConfig := testing.CustomModelConfig(c, testing.Attrs{
 		"prefer-ipv6": true,
 	})
-	network.InitializeFromConfig(envConfig)
-	c.Check(network.GetPreferIPv6(), jc.IsTrue)
+	network.SetPreferIPv6(envConfig.PreferIPv6())
+	c.Check(network.PreferIPv6(), jc.IsTrue)
 
-	envConfig = testing.CustomEnvironConfig(c, testing.Attrs{
+	envConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"prefer-ipv6": false,
 	})
-	network.InitializeFromConfig(envConfig)
-	c.Check(network.GetPreferIPv6(), jc.IsFalse)
+	network.SetPreferIPv6(envConfig.PreferIPv6())
+	c.Check(network.PreferIPv6(), jc.IsFalse)
 }
 
 func (s *NetworkSuite) TestFilterLXCAddresses(c *gc.C) {

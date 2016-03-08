@@ -10,19 +10,20 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type archSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&archSuite{})
 
 func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, simplestreams.CloudSpec) {
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := &mockEnviron{
 		config: configGetter(c),
 	}
@@ -56,7 +57,7 @@ func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, s
 
 	id := "SupportedArchitectures"
 	environs.RegisterImageDataSourceFunc(id, func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource(id, "file://"+metadataDir+"/images", false), nil
+		return simplestreams.NewURLDataSource(id, "file://"+metadataDir+"/images", false, simplestreams.DEFAULT_CLOUD_DATA, false), nil
 	})
 	s.AddCleanup(func(*gc.C) {
 		environs.UnregisterImageDataSourceFunc(id)

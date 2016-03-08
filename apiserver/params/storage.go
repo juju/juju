@@ -162,13 +162,13 @@ type MachineStorageIds struct {
 	Ids []MachineStorageId `json:"ids"`
 }
 
-// Volume identifies and describes a storage volume in the environment.
+// Volume identifies and describes a storage volume in the model.
 type Volume struct {
 	VolumeTag string     `json:"volumetag"`
 	Info      VolumeInfo `json:"info"`
 }
 
-// Volume describes a storage volume in the environment.
+// Volume describes a storage volume in the model.
 type VolumeInfo struct {
 	VolumeId   string `json:"volumeid"`
 	HardwareId string `json:"hardwareid,omitempty"`
@@ -177,7 +177,7 @@ type VolumeInfo struct {
 	Persistent bool   `json:"persistent"`
 }
 
-// Volumes describes a set of storage volumes in the environment.
+// Volumes describes a set of storage volumes in the model.
 type Volumes struct {
 	Volumes []Volume `json:"volumes"`
 }
@@ -283,21 +283,21 @@ type VolumeAttachmentParamsResults struct {
 	Results []VolumeAttachmentParamsResult `json:"results,omitempty"`
 }
 
-// Filesystem identifies and describes a storage filesystem in the environment.
+// Filesystem identifies and describes a storage filesystem in the model.
 type Filesystem struct {
 	FilesystemTag string         `json:"filesystemtag"`
 	VolumeTag     string         `json:"volumetag,omitempty"`
 	Info          FilesystemInfo `json:"info"`
 }
 
-// Filesystem describes a storage filesystem in the environment.
+// Filesystem describes a storage filesystem in the model.
 type FilesystemInfo struct {
 	FilesystemId string `json:"filesystemid"`
 	// Size is the size of the filesystem in MiB.
 	Size uint64 `json:"size"`
 }
 
-// Filesystems describes a set of storage filesystems in the environment.
+// Filesystems describes a set of storage filesystems in the model.
 type Filesystems struct {
 	Filesystems []Filesystem `json:"filesystems"`
 }
@@ -414,44 +414,38 @@ type StorageDetails struct {
 	Attachments map[string]StorageAttachmentDetails `json:"attachments,omitempty"`
 }
 
-// LegacyStorageDetails holds information about storage.
-//
-// NOTE(axw): this is for backwards compatibility only. This struct
-// should not be changed!
-type LegacyStorageDetails struct {
-	// StorageTag holds tag for this storage.
-	StorageTag string `json:"storagetag"`
+// StorageFilter holds filter terms for listing storage details.
+type StorageFilter struct {
+	// We don't currently implement any filters. This exists to get the
+	// API structure right, and so we can add filters later as necessary.
+}
 
-	// OwnerTag holds tag for the owner of this storage, unit or service.
-	OwnerTag string `json:"ownertag"`
-
-	// Kind holds what kind of storage this instance is.
-	Kind StorageKind `json:"kind"`
-
-	// Status indicates storage status, e.g. pending, provisioned, attached.
-	Status string `json:"status,omitempty"`
-
-	// UnitTag holds tag for unit for attached instances.
-	UnitTag string `json:"unittag,omitempty"`
-
-	// Location holds location for provisioned attached instances.
-	Location string `json:"location,omitempty"`
-
-	// Persistent indicates whether the storage is persistent or not.
-	Persistent bool `json:"persistent"`
+// StorageFilters holds a set of storage filters.
+type StorageFilters struct {
+	Filters []StorageFilter `json:"filters,omitempty"`
 }
 
 // StorageDetailsResult holds information about a storage instance
 // or error related to its retrieval.
 type StorageDetailsResult struct {
-	Result *StorageDetails      `json:"details,omitempty"`
-	Legacy LegacyStorageDetails `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+	Result *StorageDetails `json:"result,omitempty"`
+	Error  *Error          `json:"error,omitempty"`
 }
 
 // StorageDetailsResults holds results for storage details or related storage error.
 type StorageDetailsResults struct {
 	Results []StorageDetailsResult `json:"results,omitempty"`
+}
+
+// StorageDetailsListResult holds a collection of storage details.
+type StorageDetailsListResult struct {
+	Result []StorageDetails `json:"result,omitempty"`
+	Error  *Error           `json:"error,omitempty"`
+}
+
+// StorageDetailsListResults holds a collection of collections of storage details.
+type StorageDetailsListResults struct {
+	Results []StorageDetailsListResult `json:"results,omitempty"`
 }
 
 // StorageAttachmentDetails holds detailed information about a storage attachment.
@@ -472,7 +466,6 @@ type StorageAttachmentDetails struct {
 
 // StoragePool holds data for a pool instance.
 type StoragePool struct {
-
 	// Name is the pool's name.
 	Name string `json:"name"`
 
@@ -483,9 +476,8 @@ type StoragePool struct {
 	Attrs map[string]interface{} `json:"attrs"`
 }
 
-// StoragePoolFilter holds a filter for pool API call.
+// StoragePoolFilter holds a filter for matching storage pools.
 type StoragePoolFilter struct {
-
 	// Names are pool's names to filter on.
 	Names []string `json:"names,omitempty"`
 
@@ -493,9 +485,20 @@ type StoragePoolFilter struct {
 	Providers []string `json:"providers,omitempty"`
 }
 
-// StoragePoolsResult holds a collection of pool instances.
+// StoragePoolFilters holds a collection of storage pool filters.
+type StoragePoolFilters struct {
+	Filters []StoragePoolFilter `json:"filters,omitempty"`
+}
+
+// StoragePoolsResult holds a collection of storage pools.
 type StoragePoolsResult struct {
-	Results []StoragePool `json:"results,omitempty"`
+	Result []StoragePool `json:"storagepools,omitempty"`
+	Error  *Error        `json:"error,omitempty"`
+}
+
+// StoragePoolsResults holds a collection of storage pools results.
+type StoragePoolsResults struct {
+	Results []StoragePoolsResult `json:"results,omitempty"`
 }
 
 // VolumeFilter holds a filter for volume list API call.
@@ -509,6 +512,11 @@ func (f *VolumeFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 
+// VolumeFilters holds a collection of volume filters.
+type VolumeFilters struct {
+	Filters []VolumeFilter `json:"filters,omitempty"`
+}
+
 // FilesystemFilter holds a filter for filter list API call.
 type FilesystemFilter struct {
 	// Machines are machine tags to filter on.
@@ -520,7 +528,12 @@ func (f *FilesystemFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 
-// VolumeDetails describes a storage volume in the environment
+// FilesystemFilters holds a collection of filesystem filters.
+type FilesystemFilters struct {
+	Filters []FilesystemFilter `json:"filters,omitempty"`
+}
+
+// VolumeDetails describes a storage volume in the model
 // for the purpose of volume CLI commands.
 //
 // This is kept separate from Volume which contains only information
@@ -528,7 +541,6 @@ func (f *FilesystemFilter) IsEmpty() bool {
 // to contain complete information about a volume and related
 // information (status, attachments, storage).
 type VolumeDetails struct {
-
 	// VolumeTag is the tag for the volume.
 	VolumeTag string `json:"volumetag"`
 
@@ -547,67 +559,11 @@ type VolumeDetails struct {
 	Storage *StorageDetails `json:"storage,omitempty"`
 }
 
-// LegacyVolumeDetails describes a storage volume in the environment
-// for the purpose of volume CLI commands.
-//
-// This is kept separate from Volume which contains only information
-// specific to the volume model, whereas LegacyVolumeDetails is intended
-// to contain complete information about a volume.
-//
-// NOTE(axw): this is for backwards compatibility only. This struct
-// should not be changed!
-type LegacyVolumeDetails struct {
-
-	// VolumeTag is tag for this volume instance.
-	VolumeTag string `json:"volumetag"`
-
-	// StorageInstance returns the tag of the storage instance that this
-	// volume is assigned to, if any.
-	StorageTag string `json:"storage,omitempty"`
-
-	// UnitTag is the tag of the unit attached to storage instance
-	// for this volume.
-	UnitTag string `json:"unit,omitempty"`
-
-	// VolumeId is a unique provider-supplied ID for the volume.
-	VolumeId string `json:"volumeid,omitempty"`
-
-	// HardwareId is the volume's hardware ID.
-	HardwareId string `json:"hardwareid,omitempty"`
-
-	// Size is the size of the volume in MiB.
-	Size uint64 `json:"size,omitempty"`
-
-	// Persistent reflects whether the volume is destroyed with the
-	// machine to which it is attached.
-	Persistent bool `json:"persistent"`
-
-	// Status contains the current status of the volume.
-	Status EntityStatus `json:"status"`
-}
-
 // VolumeDetailsResult contains details about a volume, its attachments or
 // an error preventing retrieving those details.
 type VolumeDetailsResult struct {
-
-	// Details describes the volume in detail.
-	Details *VolumeDetails `json:"details,omitempty"`
-
-	// LegacyVolume describes the volume in detail.
-	//
-	// NOTE(axw): VolumeDetails contains redundant and nonsensical
-	// information. Use Details if it is available, and only use
-	// this for backwards-compatibility.
-	LegacyVolume *LegacyVolumeDetails `json:"volume,omitempty"`
-
-	// LegacyAttachments describes the attachments of the volume to
-	// machines.
-	//
-	// NOTE(axw): this should have gone into VolumeDetails, but it's too
-	// late for that now. We'll continue to populate it, and use it
-	// if it's defined but Volume.Attachments is not. Please do not
-	// copy this structure.
-	LegacyAttachments []VolumeAttachment `json:"attachments,omitempty"`
+	// Result describes the volume in detail.
+	Result *VolumeDetails `json:"details,omitempty"`
 
 	// Error contains volume retrieval error.
 	Error *Error `json:"error,omitempty"`
@@ -618,7 +574,18 @@ type VolumeDetailsResults struct {
 	Results []VolumeDetailsResult `json:"results,omitempty"`
 }
 
-// FilesystemDetails describes a storage filesystem in the environment
+// VolumeDetailsListResult holds a collection of volume details.
+type VolumeDetailsListResult struct {
+	Result []VolumeDetails `json:"result,omitempty"`
+	Error  *Error          `json:"error,omitempty"`
+}
+
+// VolumeDetailsListResults holds a collection of collections of volume details.
+type VolumeDetailsListResults struct {
+	Results []VolumeDetailsListResult `json:"results,omitempty"`
+}
+
+// FilesystemDetails describes a storage filesystem in the model
 // for the purpose of filesystem CLI commands.
 //
 // This is kept separate from Filesystem which contains only information
@@ -626,7 +593,6 @@ type VolumeDetailsResults struct {
 // to contain complete information about a filesystem and related
 // information (status, attachments, storage).
 type FilesystemDetails struct {
-
 	// FilesystemTag is the tag for the filesystem.
 	FilesystemTag string `json:"filesystemtag"`
 
@@ -659,6 +625,18 @@ type FilesystemDetailsResult struct {
 // FilesystemDetailsResults holds filesystem details.
 type FilesystemDetailsResults struct {
 	Results []FilesystemDetailsResult `json:"results,omitempty"`
+}
+
+// FilesystemDetailsListResult holds a collection of filesystem details.
+type FilesystemDetailsListResult struct {
+	Result []FilesystemDetails `json:"result,omitempty"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// FilesystemDetailsListResults holds a collection of collections of
+// filesystem details.
+type FilesystemDetailsListResults struct {
+	Results []FilesystemDetailsListResult `json:"results,omitempty"`
 }
 
 // StorageConstraints contains constraints for storage instance.

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/api/meterstatus"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	factory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type meterStatusIntegrationSuite struct {
@@ -58,8 +58,8 @@ func (s *meterStatusIntegrationSuite) TestMeterStatus(c *gc.C) {
 func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	w, err := s.status.WatchMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	wc.AssertOneChange()
 
@@ -85,7 +85,4 @@ func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	status := mm.MeterStatus()
 	c.Assert(status.Code, gc.Equals, state.MeterAmber) // Confirm meter status has changed
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

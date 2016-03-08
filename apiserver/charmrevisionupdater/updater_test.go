@@ -75,7 +75,7 @@ func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIRefusesNonStateManager
 }
 
 func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
 	curl := charm.MustParseURL("cs:quantal/mysql")
@@ -109,7 +109,11 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	svc, err := s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
-	err = svc.SetCharm(ch, true)
+	cfg := state.SetCharmConfig{
+		Charm:      ch,
+		ForceUnits: true,
+	}
+	err = svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = s.charmrevisionupdater.UpdateLatestRevisions()
@@ -123,7 +127,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 }
 
 func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
 	// Disallow read access to the wordpress charm in the charm store.
@@ -148,7 +152,7 @@ func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
 }
 
 func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageEnviron)
+	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 
 	// Set up a charm store server that stores the request header.
@@ -169,7 +173,7 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(header.Get(charmrepo.JujuMetadataHTTPHeader), gc.Equals, "environment_uuid="+env.UUID())
 }

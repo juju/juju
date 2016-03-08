@@ -10,7 +10,6 @@ package provisioner_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -35,20 +34,15 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/watcher/watchertest"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
-	*apitesting.EnvironWatcherTests
+	*apitesting.ModelWatcherTests
 	*apitesting.APIAddresserTests
 
 	st      api.Connection
@@ -67,7 +61,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,22 +78,26 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = s.st.Provisioner()
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
 func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	// We'll still attempt to reserve an address, in case we're running on MAAS
+	// 1.8+ and have registered the container as a device.
+	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
 	c.Assert(ifaceInfo, gc.HasLen, 0)
 }
 
 func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
+	// We'll still attempt to release all addresses, in case we're running on
+	// MAAS 1.8+ and have registered the container as a device.
 	c.Assert(err, gc.ErrorMatches,
-		`cannot release static addresses for "42": address allocation not supported`,
+		`cannot release static addresses for "42": machine 42 not found`,
 	)
 }
 
@@ -209,7 +207,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apiMachine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
 
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
@@ -474,9 +472,9 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	// Add a couple of spaces.
-	_, err := s.State.AddSpace("space1", nil, true)
+	_, err := s.State.AddSpace("space1", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 2 subnets into each space.
 	// Only the first subnet of space2 has AllocatableIPLow|High set.
@@ -542,8 +540,8 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	w, err := apiMachine.WatchContainers(instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange(container.Id())
@@ -563,9 +561,6 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(container.Id())
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
@@ -590,11 +585,11 @@ func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "container type must be specified")
 }
 
-func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
-	w, err := s.provisioner.WatchEnvironMachines()
+func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
+	w, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange(s.machine.Id())
@@ -619,9 +614,6 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
@@ -667,7 +659,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.State.ModelTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -703,7 +695,7 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	// Change lxc-clone, and ensure it gets picked up.
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
-		err = st.UpdateEnvironConfig(map[string]interface{}{
+		err = st.UpdateModelConfig(map[string]interface{}{
 			"lxc-clone":      t.lxcUseClone,
 			"lxc-clone-aufs": t.lxcUseCloneAufs,
 		}, nil, nil)
@@ -876,12 +868,13 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigStatic,
-		// Overwrite the Address field below with the actual one, as
-		// it's chosen randomly.
-		Address:        network.Address{},
-		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress: network.NewAddress("0.10.0.2"),
-		ExtraConfig:    nil,
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   network.NewAddress("0.10.0.2"),
+		ExtraConfig:      nil,
+		// Overwrite Address and MACAddress fields below with the actual ones,
+		// as they are chosen randomly.
+		Address:    network.Address{},
+		MACAddress: "",
 	}}
 	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
 	c.Assert(ifaceInfo[0].MACAddress, gc.Not(gc.DeepEquals), "")
@@ -913,7 +906,7 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
 		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
 		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(container.Id(), "", "")
+		err = ipaddr.AllocateTo(container.Id(), "nic42", "aa:bb:cc:dd:ee:f0")
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(err, jc.ErrorIsNil)

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
@@ -17,13 +18,17 @@ import (
 // State provides access to an agent's view of the state.
 type State struct {
 	facade base.FacadeCaller
+	*common.ModelWatcher
 }
 
 // NewState returns a version of the state that provides functionality
 // required by agent code.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
-	return &State{facadeCaller}
+	return &State{
+		facade:       facadeCaller,
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
+	}
 }
 
 func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
@@ -54,7 +59,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // agent lives at the same network address as the primary
 // mongo server for the replica set.
 // This call will return an error if the connected
-// agent is not a machine agent with environment-manager
+// agent is not a machine agent with model-manager
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult

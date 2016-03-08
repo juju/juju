@@ -9,8 +9,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/all"
 )
 
@@ -18,7 +21,7 @@ var logger = loggo.GetLogger("juju.plugins.metadata")
 
 var metadataDoc = `
 Juju metadata is used to find the correct image and tools when bootstrapping a
-Juju environment.
+Juju model.
 `
 
 // Main registers subcommands for the juju-metadata executable, and hands over control
@@ -30,10 +33,16 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
-	if err := juju.InitJujuHome(); err != nil {
+	if err := juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
+	os.Exit(cmd.Main(NewSuperCommand(), ctx, args[1:]))
+}
+
+// NewSuperCommand creates the metadata plugin supercommand and registers the
+// subcommands that it supports.
+func NewSuperCommand() cmd.Command {
 	metadatacmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "metadata",
 		UsagePrefix: "juju",
@@ -46,10 +55,16 @@ func Main(args []string) {
 	metadatacmd.Register(newToolsMetadataCommand())
 	metadatacmd.Register(newValidateToolsMetadataCommand())
 	metadatacmd.Register(newSignMetadataCommand())
-	metadatacmd.Register(newListImagesCommand())
-	metadatacmd.Register(newAddImageMetadataCommand())
+	if featureflag.Enabled(feature.ImageMetadata) {
+		metadatacmd.Register(newListImagesCommand())
+		metadatacmd.Register(newAddImageMetadataCommand())
+		metadatacmd.Register(newDeleteImageMetadataCommand())
+	}
+	return metadatacmd
+}
 
-	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
+func init() {
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func main() {

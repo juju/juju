@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -25,7 +24,6 @@ type cacheFileInterfaceSuite struct {
 
 func (s *cacheFileInterfaceSuite) SetUpTest(c *gc.C) {
 	s.interfaceSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 	s.dir = c.MkDir()
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)
@@ -35,14 +33,14 @@ func (s *cacheFileInterfaceSuite) SetUpTest(c *gc.C) {
 	s.store = s.NewStore(c)
 }
 
-func (s *cacheFileInterfaceSuite) writeEnv(c *gc.C, name, envUUID, srvUUID, user, password string) configstore.EnvironInfo {
+func (s *cacheFileInterfaceSuite) writeEnv(c *gc.C, name, modelUUID, srvUUID, user, password string) configstore.EnvironInfo {
 	info := s.store.CreateInfo(name)
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"address1", "address2"},
-		Hostnames:   []string{"hostname1", "hostname2"},
-		CACert:      testing.CACert,
-		EnvironUUID: envUUID,
-		ServerUUID:  srvUUID,
+		Addresses:  []string{"address1", "address2"},
+		Hostnames:  []string{"hostname1", "hostname2"},
+		CACert:     testing.CACert,
+		ModelUUID:  modelUUID,
+		ServerUUID: srvUUID,
 	})
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     user,
@@ -54,11 +52,11 @@ func (s *cacheFileInterfaceSuite) writeEnv(c *gc.C, name, envUUID, srvUUID, user
 }
 
 func (s *cacheFileInterfaceSuite) TestServerUUIDWrite(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	info := s.writeEnv(c, "testing", envUUID, envUUID, "tester", "secret")
+	modelUUID := testing.ModelTag.Id()
+	info := s.writeEnv(c, "testing", modelUUID, modelUUID, "tester", "secret")
 
 	// Now make sure the cache file exists and the jenv doesn't
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	filename := configstore.CacheFilename(envDir)
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filename))
 
@@ -68,24 +66,24 @@ func (s *cacheFileInterfaceSuite) TestServerUUIDWrite(c *gc.C) {
 	c.Assert(cache.Environment, gc.HasLen, 1)
 }
 
-func (s *cacheFileInterfaceSuite) TestServerEnvNameExists(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	s.writeEnv(c, "testing", envUUID, envUUID, "tester", "secret")
+func (s *cacheFileInterfaceSuite) TestServerModelNameExists(c *gc.C) {
+	modelUUID := testing.ModelTag.Id()
+	s.writeEnv(c, "testing", modelUUID, modelUUID, "tester", "secret")
 
 	info := s.store.CreateInfo("testing")
 	// In order to trigger the writing to the cache file, we need to store
 	// a server uuid.
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		EnvironUUID: envUUID,
-		ServerUUID:  envUUID,
+		ModelUUID:  modelUUID,
+		ServerUUID: modelUUID,
 	})
 	err := info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (s *cacheFileInterfaceSuite) TestWriteServerOnly(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	s.writeEnv(c, "testing", "", envUUID, "tester", "secret")
+	modelUUID := testing.ModelTag.Id()
+	s.writeEnv(c, "testing", "", modelUUID, "tester", "secret")
 	cache := s.readCacheFile(c)
 	c.Assert(cache.Server, gc.HasLen, 1)
 	c.Assert(cache.ServerData, gc.HasLen, 1)
@@ -93,13 +91,13 @@ func (s *cacheFileInterfaceSuite) TestWriteServerOnly(c *gc.C) {
 }
 
 func (s *cacheFileInterfaceSuite) TestWriteEnvAfterServer(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	s.writeEnv(c, "testing", "", envUUID, "tester", "secret")
+	modelUUID := testing.ModelTag.Id()
+	s.writeEnv(c, "testing", "", modelUUID, "tester", "secret")
 	info := s.store.CreateInfo("testing")
 
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		EnvironUUID: envUUID,
-		ServerUUID:  envUUID,
+		ModelUUID:  modelUUID,
+		ServerUUID: modelUUID,
 	})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,21 +108,21 @@ func (s *cacheFileInterfaceSuite) TestWriteEnvAfterServer(c *gc.C) {
 }
 
 func (s *cacheFileInterfaceSuite) TestWriteDupEnvAfterServer(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	s.writeEnv(c, "testing", "", envUUID, "tester", "secret")
+	modelUUID := testing.ModelTag.Id()
+	s.writeEnv(c, "testing", "", modelUUID, "tester", "secret")
 	info := s.store.CreateInfo("testing")
 
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		EnvironUUID: "fake-uuid",
-		ServerUUID:  "fake-uuid",
+		ModelUUID:  "fake-uuid",
+		ServerUUID: "fake-uuid",
 	})
 	err := info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (s *cacheFileInterfaceSuite) TestServerUUIDRead(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	s.writeEnv(c, "testing", envUUID, envUUID, "tester", "secret")
+	modelUUID := testing.ModelTag.Id()
+	s.writeEnv(c, "testing", modelUUID, modelUUID, "tester", "secret")
 
 	info, err := s.store.ReadInfo("testing")
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,18 +131,18 @@ func (s *cacheFileInterfaceSuite) TestServerUUIDRead(c *gc.C) {
 		Password: "secret",
 	})
 	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{
-		Addresses:   []string{"address1", "address2"},
-		Hostnames:   []string{"hostname1", "hostname2"},
-		CACert:      testing.CACert,
-		EnvironUUID: envUUID,
-		ServerUUID:  envUUID,
+		Addresses:  []string{"address1", "address2"},
+		Hostnames:  []string{"hostname1", "hostname2"},
+		CACert:     testing.CACert,
+		ModelUUID:  modelUUID,
+		ServerUUID: modelUUID,
 	})
 }
 
 func (s *cacheFileInterfaceSuite) TestServerDetailsShared(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	s.writeEnv(c, "testing", envUUID, envUUID, "tester", "secret")
-	info := s.writeEnv(c, "second", "fake-uuid", envUUID, "tester", "new-secret")
+	modelUUID := testing.ModelTag.Id()
+	s.writeEnv(c, "testing", modelUUID, modelUUID, "tester", "secret")
+	info := s.writeEnv(c, "second", "fake-uuid", modelUUID, "tester", "new-secret")
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = []string{"address2", "address3"}
 	endpoint.Hostnames = []string{"hostname2", "hostname3"}
@@ -159,11 +157,11 @@ func (s *cacheFileInterfaceSuite) TestServerDetailsShared(c *gc.C) {
 		Password: "new-secret",
 	})
 	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{
-		Addresses:   []string{"address2", "address3"},
-		Hostnames:   []string{"hostname2", "hostname3"},
-		CACert:      testing.CACert,
-		EnvironUUID: envUUID,
-		ServerUUID:  envUUID,
+		Addresses:  []string{"address2", "address3"},
+		Hostnames:  []string{"hostname2", "hostname3"},
+		CACert:     testing.CACert,
+		ModelUUID:  modelUUID,
+		ServerUUID: modelUUID,
 	})
 
 	cache := s.readCacheFile(c)
@@ -173,16 +171,16 @@ func (s *cacheFileInterfaceSuite) TestServerDetailsShared(c *gc.C) {
 }
 
 func (s *cacheFileInterfaceSuite) TestMigrateJENV(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	info := s.writeEnv(c, "testing", envUUID, "", "tester", "secret")
-	envDir := filepath.Join(s.dir, "environments")
+	modelUUID := testing.ModelTag.Id()
+	info := s.writeEnv(c, "testing", modelUUID, "", "tester", "secret")
+	envDir := filepath.Join(s.dir, "models")
 	jenvFilename := configstore.JENVFilename(envDir, "testing")
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", jenvFilename))
 
 	// Add server details and write again will migrate the info to the
 	// cache file.
 	endpoint := info.APIEndpoint()
-	endpoint.ServerUUID = envUUID
+	endpoint.ServerUUID = modelUUID
 	info.SetAPIEndpoint(endpoint)
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,13 +191,13 @@ func (s *cacheFileInterfaceSuite) TestMigrateJENV(c *gc.C) {
 	envInfo, ok := cache.Environment["testing"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(envInfo.User, gc.Equals, "tester")
-	c.Assert(envInfo.EnvironmentUUID, gc.Equals, envUUID)
-	c.Assert(envInfo.ServerUUID, gc.Equals, envUUID)
+	c.Assert(envInfo.ModelUUID, gc.Equals, modelUUID)
+	c.Assert(envInfo.ServerUUID, gc.Equals, modelUUID)
 	// Server entry also written.
 	srvInfo, ok := cache.Server["testing"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(srvInfo.User, gc.Equals, "tester")
-	c.Assert(srvInfo.ServerUUID, gc.Equals, envUUID)
+	c.Assert(srvInfo.ServerUUID, gc.Equals, modelUUID)
 
 	readInfo, err := s.store.ReadInfo("testing")
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,7 +205,7 @@ func (s *cacheFileInterfaceSuite) TestMigrateJENV(c *gc.C) {
 }
 
 func (s *cacheFileInterfaceSuite) readCacheFile(c *gc.C) configstore.CacheFile {
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	filename := configstore.CacheFilename(envDir)
 	cache, err := configstore.ReadCacheFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,9 +213,9 @@ func (s *cacheFileInterfaceSuite) readCacheFile(c *gc.C) configstore.CacheFile {
 }
 
 func (s *cacheFileInterfaceSuite) TestExistingJENVBlocksNew(c *gc.C) {
-	envUUID := testing.EnvironmentTag.Id()
-	info := s.writeEnv(c, "testing", envUUID, "", "tester", "secret")
-	envDir := filepath.Join(s.dir, "environments")
+	modelUUID := testing.ModelTag.Id()
+	info := s.writeEnv(c, "testing", modelUUID, "", "tester", "secret")
+	envDir := filepath.Join(s.dir, "models")
 	jenvFilename := configstore.JENVFilename(envDir, "testing")
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", jenvFilename))
 
@@ -225,11 +223,11 @@ func (s *cacheFileInterfaceSuite) TestExistingJENVBlocksNew(c *gc.C) {
 	// In order to trigger the writing to the cache file, we need to store
 	// a server uuid.
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		EnvironUUID: envUUID,
-		ServerUUID:  envUUID,
+		ModelUUID:  modelUUID,
+		ServerUUID: modelUUID,
 	})
 	err := info.Write()
-	c.Assert(err, gc.ErrorMatches, "environment info already exists")
+	c.Assert(err, gc.ErrorMatches, "model info already exists")
 }
 
 func (s *cacheFileInterfaceSuite) TestList(c *gc.C) {
@@ -244,7 +242,7 @@ func (s *cacheFileInterfaceSuite) TestList(c *gc.C) {
 	c.Assert(environments, jc.SameContents, []string{"jenv-1", "jenv-2", "cache-1", "cache-2"})
 
 	// Confirm that the sources are from where we'd expect.
-	envDir := filepath.Join(s.dir, "environments")
+	envDir := filepath.Join(s.dir, "models")
 	c.Assert(configstore.JENVFilename(envDir, "jenv-1"), jc.IsNonEmptyFile)
 	c.Assert(configstore.JENVFilename(envDir, "jenv-2"), jc.IsNonEmptyFile)
 	cache := s.readCacheFile(c)
@@ -273,7 +271,7 @@ func (s *cacheFileInterfaceSuite) TestDestroyTwice(c *gc.C) {
 	err := info.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = info.Destroy()
-	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
+	c.Assert(err, gc.ErrorMatches, "model info has already been removed")
 }
 
 func (s *cacheFileInterfaceSuite) TestDestroyKeepsSharedData(c *gc.C) {

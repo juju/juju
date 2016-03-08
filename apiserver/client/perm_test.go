@@ -6,6 +6,7 @@ package client_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -13,9 +14,12 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/annotations"
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/jujuversion"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
 
@@ -73,15 +77,11 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientStatus,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceSet",
+		about: "Service.Set",
 		op:    opClientServiceSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceSetYAML",
-		op:    opClientServiceSetYAML,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
-		about: "Client.ServiceGet",
+		about: "Service.Get",
 		op:    opClientServiceGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -89,71 +89,63 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientResolved,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceExpose",
+		about: "Service.Expose",
 		op:    opClientServiceExpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceUnexpose",
+		about: "Service.Unexpose",
 		op:    opClientServiceUnexpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceDeploy",
-		op:    opClientServiceDeploy,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
-		about: "Client.ServiceDeployWithNetworks",
-		op:    opClientServiceDeployWithNetworks,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
-		about: "Client.ServiceUpdate",
+		about: "Service.Update",
 		op:    opClientServiceUpdate,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceSetCharm",
+		about: "Service.SetCharm",
 		op:    opClientServiceSetCharm,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.GetAnnotations",
+		about: "Annotations.GetAnnotations",
 		op:    opClientGetAnnotations,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetAnnotations",
+		about: "Annotations.SetAnnotations",
 		op:    opClientSetAnnotations,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.AddServiceUnits",
+		about: "Service.AddUnits",
 		op:    opClientAddServiceUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.DestroyServiceUnits",
+		about: "Service.DestroyUnits",
 		op:    opClientDestroyServiceUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.ServiceDestroy",
+		about: "Service.Destroy",
 		op:    opClientServiceDestroy,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.GetServiceConstraints",
+		about: "Service.GetConstraints",
 		op:    opClientGetServiceConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetServiceConstraints",
+		about: "Service.SetConstraints",
 		op:    opClientSetServiceConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetEnvironmentConstraints",
+		about: "Client.SetModelConstraints",
 		op:    opClientSetEnvironmentConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.EnvironmentGet",
+		about: "Client.ModelGet",
 		op:    opClientEnvironmentGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.EnvironmentSet",
+		about: "Client.ModelSet",
 		op:    opClientEnvironmentSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.SetEnvironAgentVersion",
+		about: "Client.SetModelAgentVersion",
 		op:    opClientSetEnvironAgentVersion,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -165,11 +157,11 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientCharmInfo,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.AddRelation",
+		about: "Service.AddRelation",
 		op:    opClientAddRelation,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Client.DestroyRelation",
+		about: "Service.DestroyRelation",
 		op:    opClientDestroyRelation,
 		allow: []names.Tag{userAdmin, userOther},
 	}} {
@@ -181,7 +173,10 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 			if allow[e] {
 				c.Check(err, jc.ErrorIsNil)
 			} else {
-				c.Check(err, gc.ErrorMatches, "permission denied")
+				c.Check(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+					Message: "permission denied",
+					Code:    "unauthorized access",
+				})
 				c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)
 			}
 			reset()
@@ -216,7 +211,7 @@ func opClientCharmInfo(c *gc.C, st api.Connection, mst *state.State) (func(), er
 }
 
 func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
+	_, err := service.NewClient(st).AddRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -224,7 +219,7 @@ func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), 
 }
 
 func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
+	err := service.NewClient(st).DestroyRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -244,7 +239,7 @@ func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error
 
 func resetBlogTitle(c *gc.C, st api.Connection) func() {
 	return func() {
-		err := st.Client().ServiceSet("wordpress", map[string]string{
+		err := service.NewClient(st).Set("wordpress", map[string]string{
 			"blog-title": "",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -252,7 +247,7 @@ func resetBlogTitle(c *gc.C, st api.Connection) func() {
 }
 
 func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSet("wordpress", map[string]string{
+	err := service.NewClient(st).Set("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
 	if err != nil {
@@ -261,16 +256,8 @@ func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceSetYAML(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetYAML("wordpress", `"wordpress": {"blog-title": "foo"}`)
-	if err != nil {
-		return func() {}, err
-	}
-	return resetBlogTitle(c, st), nil
-}
-
 func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().ServiceGet("wordpress")
+	_, err := service.NewClient(st).Get("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -278,7 +265,7 @@ func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceExpose("wordpress")
+	err := service.NewClient(st).Expose("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -290,7 +277,7 @@ func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceUnexpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceUnexpose("wordpress")
+	err := service.NewClient(st).Unexpose("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -316,40 +303,33 @@ func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error
 }
 
 func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	ann, err := st.Client().GetAnnotations("service-wordpress")
+	ann, err := annotations.NewClient(st).Get([]string{"service-wordpress"})
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
+	c.Assert(ann, gc.DeepEquals, []params.AnnotationsGetResult{{
+		EntityTag:   "service-wordpress",
+		Annotations: map[string]string{},
+	}})
 	return func() {}, nil
 }
 
 func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
-	err := st.Client().SetAnnotations("service-wordpress", pairs)
+	setParams := map[string]map[string]string{
+		"service-wordpress": pairs,
+	}
+	_, err := annotations.NewClient(st).Set(setParams)
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
 		pairs := map[string]string{"key1": "", "key2": ""}
-		st.Client().SetAnnotations("service-wordpress", pairs)
+		setParams := map[string]map[string]string{
+			"service-wordpress": pairs,
+		}
+		annotations.NewClient(st).Set(setParams)
 	}, nil
-}
-
-func opClientServiceDeploy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
-	if err.Error() == `charm or bundle URL has invalid schema: "mad:bad/url-1"` {
-		err = nil
-	}
-	return func() {}, err
-}
-
-func opClientServiceDeployWithNetworks(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDeployWithNetworks("mad:bad/url-1", "x", 1, "", constraints.Value{}, "", nil)
-	if err.Error() == `charm or bundle URL has invalid schema: "mad:bad/url-1"` {
-		err = nil
-	}
-	return func() {}, err
 }
 
 func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
@@ -360,7 +340,7 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}
-	err := st.Client().ServiceUpdate(args)
+	err := service.NewClient(st).Update(args)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -368,7 +348,11 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
+	cfg := service.SetCharmConfig{
+		ServiceName: "nosuch",
+		CharmUrl:    "local:quantal/wordpress",
+	}
+	err := service.NewClient(st).SetCharm(cfg)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -376,7 +360,7 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().AddServiceUnits("nosuch", 1, "")
+	_, err := service.NewClient(st).AddUnits("nosuch", 1, nil)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -384,7 +368,7 @@ func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().DestroyServiceUnits("wordpress/99")
+	err := service.NewClient(st).DestroyUnits("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}
@@ -392,7 +376,7 @@ func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (
 }
 
 func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDestroy("non-existent")
+	err := service.NewClient(st).Destroy("non-existent")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -400,13 +384,13 @@ func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(
 }
 
 func opClientGetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().GetServiceConstraints("wordpress")
+	_, err := service.NewClient(st).GetConstraints("wordpress")
 	return func() {}, err
 }
 
 func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
+	err := service.NewClient(st).SetConstraints("wordpress", nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
@@ -415,7 +399,7 @@ func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State)
 
 func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := st.Client().SetEnvironmentConstraints(nullConstraints)
+	err := st.Client().SetModelConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
@@ -423,7 +407,7 @@ func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.St
 }
 
 func opClientEnvironmentGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := st.Client().EnvironmentGet()
+	_, err := st.Client().ModelGet()
 	if err != nil {
 		return func() {}, err
 	}
@@ -432,22 +416,22 @@ func opClientEnvironmentGet(c *gc.C, st api.Connection, mst *state.State) (func(
 
 func opClientEnvironmentSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	args := map[string]interface{}{"some-key": "some-value"}
-	err := st.Client().EnvironmentSet(args)
+	err := st.Client().ModelSet(args)
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
 		args["some-key"] = nil
-		st.Client().EnvironmentSet(args)
+		st.Client().ModelSet(args)
 	}, nil
 }
 
 func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	attrs, err := st.Client().EnvironmentGet()
+	attrs, err := st.Client().ModelGet()
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetEnvironAgentVersion(jujuversion.Current)
+	err = st.Client().SetModelAgentVersion(jujuversion.Current)
 	if err != nil {
 		return func() {}, err
 	}
@@ -456,7 +440,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			st.Client().SetEnvironAgentVersion(version.MustParse(versionString))
+			st.Client().SetModelAgentVersion(version.MustParse(versionString))
 		}
 	}, nil
 }

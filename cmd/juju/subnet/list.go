@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand displays a list of all subnets known to Juju

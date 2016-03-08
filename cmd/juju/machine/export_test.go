@@ -6,7 +6,7 @@ package machine
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
 
@@ -19,12 +19,24 @@ type AddCommand struct {
 }
 
 // NewAddCommand returns an AddCommand with the api provided as specified.
-func NewAddCommand(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddMachineAPI, mmApi MachineManagerAPI) (cmd.Command, *AddCommand) {
 	cmd := &addCommand{
 		api:               api,
 		machineManagerAPI: mmApi,
 	}
-	return envcmd.Wrap(cmd), &AddCommand{cmd}
+	return modelcmd.Wrap(cmd), &AddCommand{cmd}
+}
+
+// NewListCommandForTest returns a listMachineCommand with specified api
+func NewListCommandForTest(api statusAPI) cmd.Command {
+	cmd := newListMachinesCommand(api)
+	return modelcmd.Wrap(cmd)
+}
+
+// NewShowCommandForTest returns a showMachineCommand with specified api
+func NewShowCommandForTest(api statusAPI) cmd.Command {
+	cmd := newShowMachineCommand(api)
+	return modelcmd.Wrap(cmd)
 }
 
 type RemoveCommand struct {
@@ -32,11 +44,11 @@ type RemoveCommand struct {
 }
 
 // NewRemoveCommand returns an RemoveCommand with the api provided as specified.
-func NewRemoveCommand(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(api RemoveMachineAPI) (cmd.Command, *RemoveCommand) {
 	cmd := &removeCommand{
 		api: api,
 	}
-	return envcmd.Wrap(cmd), &RemoveCommand{cmd}
+	return modelcmd.Wrap(cmd), &RemoveCommand{cmd}
 }
 
 func NewDisksFlag(disks *[]storage.Constraints) *disksFlag {

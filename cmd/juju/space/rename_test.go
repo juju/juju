@@ -77,7 +77,7 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
-		// envcmd.Wrap().
+		// modelcmd.Wrap().
 		wrappedCommand, command := space.NewRenameCommand(s.api) // surely can use s.command??
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {

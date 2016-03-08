@@ -11,36 +11,35 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// fakeServiceAPI is the fake client API for testing the service set,
-// get and unset commands.  It implements the following interfaces:
-// SetServiceAPI, UnsetServiceAPI and GetServiceAPI
+// fakeServiceAPI is the fake service API for testing the service
+// update command.
 type fakeServiceAPI struct {
-	values    map[string]interface{}
-	servName  string
-	charmName string
-	config    string
-	err       error
+	serviceName string
+	charmName   string
+	values      map[string]interface{}
+	config      string
+	err         error
+}
+
+func (f *fakeServiceAPI) Update(args params.ServiceUpdate) error {
+	if f.err != nil {
+		return f.err
+	}
+
+	if args.ServiceName != f.serviceName {
+		return errors.NotFoundf("service %q", args.ServiceName)
+	}
+
+	f.config = args.SettingsYAML
+	return nil
 }
 
 func (f *fakeServiceAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAPI) ServiceSetYAML(service string, yaml string) error {
-	if f.err != nil {
-		return f.err
-	}
-
-	if service != f.servName {
-		return errors.NotFoundf("service %q", service)
-	}
-
-	f.config = yaml
-	return nil
-}
-
-func (f *fakeServiceAPI) ServiceGet(service string) (*params.ServiceGetResults, error) {
-	if service != f.servName {
+func (f *fakeServiceAPI) Get(service string) (*params.ServiceGetResults, error) {
+	if service != f.serviceName {
 		return nil, errors.NotFoundf("service %q", service)
 	}
 
@@ -54,21 +53,24 @@ func (f *fakeServiceAPI) ServiceGet(service string) (*params.ServiceGetResults, 
 	}
 
 	return &params.ServiceGetResults{
-		Service: f.servName,
+		Service: f.serviceName,
 		Charm:   f.charmName,
 		Config:  configInfo,
 	}, nil
 }
 
-func (f *fakeServiceAPI) ServiceSet(service string, options map[string]string) error {
+func (f *fakeServiceAPI) Set(service string, options map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}
 
-	if service != f.servName {
+	if service != f.serviceName {
 		return errors.NotFoundf("service %q", service)
 	}
 
+	if f.values == nil {
+		f.values = make(map[string]interface{})
+	}
 	for k, v := range options {
 		f.values[k] = v
 	}
@@ -76,12 +78,12 @@ func (f *fakeServiceAPI) ServiceSet(service string, options map[string]string) e
 	return nil
 }
 
-func (f *fakeServiceAPI) ServiceUnset(service string, options []string) error {
+func (f *fakeServiceAPI) Unset(service string, options []string) error {
 	if f.err != nil {
 		return f.err
 	}
 
-	if service != f.servName {
+	if service != f.serviceName {
 		return errors.NotFoundf("service %q", service)
 	}
 

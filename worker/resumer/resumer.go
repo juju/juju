@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 )
@@ -33,7 +34,7 @@ type Resumer struct {
 }
 
 // NewResumer periodically resumes pending transactions.
-func NewResumer(tr TransactionResumer) *Resumer {
+var NewResumer = func(tr TransactionResumer) worker.Worker {
 	rr := &Resumer{tr: tr}
 	go func() {
 		defer rr.tomb.Done()
@@ -48,11 +49,6 @@ func (rr *Resumer) String() string {
 
 func (rr *Resumer) Kill() {
 	rr.tomb.Kill(nil)
-}
-
-func (rr *Resumer) Stop() error {
-	rr.tomb.Kill(nil)
-	return rr.tomb.Wait()
 }
 
 func (rr *Resumer) Wait() error {

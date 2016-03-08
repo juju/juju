@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuversion"
+	"github.com/juju/juju/rpc"
 )
 
 type apiclientSuite struct {
@@ -39,12 +41,12 @@ func (s *apiclientSuite) TestConnectWebsocketToEnv(c *gc.C) {
 	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	assertConnAddrForEnv(c, conn, info.Addrs[0], s.State.EnvironUUID(), "/api")
+	assertConnAddrForEnv(c, conn, info.Addrs[0], s.State.ModelUUID(), "/api")
 }
 
 func (s *apiclientSuite) TestConnectWebsocketToRoot(c *gc.C) {
 	info := s.APIInfo(c)
-	info.EnvironTag = names.NewEnvironTag("")
+	info.ModelTag = names.NewModelTag("")
 	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
@@ -63,7 +65,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultiple(c *gc.C) {
 	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForEnv(c, conn, proxy.Addr(), s.State.EnvironUUID(), "/api")
+	assertConnAddrForEnv(c, conn, proxy.Addr(), s.State.ModelUUID(), "/api")
 
 	// Now break Addrs[0], and ensure that Addrs[1]
 	// is successfully connected to.
@@ -72,7 +74,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultiple(c *gc.C) {
 	conn, _, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForEnv(c, conn, serverAddr, s.State.EnvironUUID(), "/api")
+	assertConnAddrForEnv(c, conn, serverAddr, s.State.ModelUUID(), "/api")
 }
 
 func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
@@ -95,8 +97,8 @@ func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
 	_, _, err = api.ConnectWebsocket(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
-	c.Assert(count, gc.Equals, int32(3))
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/model/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
+	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
 }
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {
@@ -106,39 +108,42 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	defer st.Close()
 
 	c.Assert(st.Addr(), gc.Equals, info.Addrs[0])
-	envTag, err := st.EnvironTag()
+	modelTag, err := st.ModelTag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envTag, gc.Equals, s.State.EnvironTag())
+	c.Assert(modelTag, gc.Equals, s.State.ModelTag())
 
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
 	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
 }
 
-func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
+func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802
 	// we want to test this eventually, but for now s.APIInfo uses
-	// conn.StateInfo() which doesn't know about EnvironTag.
-	// c.Check(info.EnvironTag, gc.Equals, env.Tag())
-	// c.Assert(info.EnvironTag, gc.Not(gc.Equals), "")
+	// conn.StateInfo() which doesn't know about ModelTag.
+	// c.Check(info.ModelTag, gc.Equals, env.Tag())
+	// c.Assert(info.ModelTag, gc.Not(gc.Equals), "")
 
 	// We start by ensuring we have an invalid tag, and Open should fail.
-	info.EnvironTag = names.NewEnvironTag("bad-tag")
+	info.ModelTag = names.NewModelTag("bad-tag")
 	_, err := api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown model: "bad-tag"`,
+		Code:    "not found",
+	})
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 
 	// Now set it to the right tag, and we should succeed.
-	info.EnvironTag = s.State.EnvironTag()
+	info.ModelTag = s.State.ModelTag()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
 	// Backwards compatibility, we should succeed if we do not set an
-	// environ tag
-	info.EnvironTag = names.NewEnvironTag("")
+	// model tag
+	info.ModelTag = names.NewModelTag("")
 	st, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
@@ -158,8 +163,8 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
-func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, envUUID, tail string) {
-	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/environment/"+envUUID+tail+"$")
+func assertConnAddrForEnv(c *gc.C, conn *websocket.Conn, addr, modelUUID, tail string) {
+	c.Assert(conn.RemoteAddr(), gc.Matches, "^wss://"+addr+"/model/"+modelUUID+tail+"$")
 }
 
 func assertConnAddrForRoot(c *gc.C, conn *websocket.Conn, addr string) {

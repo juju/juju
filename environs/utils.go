@@ -1,7 +1,6 @@
 package environs
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -9,31 +8,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
-
-// LegacyStorage creates an Environ from the config in state and returns
-// its provider storage interface if it supports one. If the environment
-// does not support provider storage, then it will return an error
-// satisfying errors.IsNotSupported.
-func LegacyStorage(st *state.State) (storage.Storage, error) {
-	envConfig, err := st.EnvironConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get environment config: %v", err)
-	}
-	env, err := New(envConfig)
-	if err != nil {
-		return nil, fmt.Errorf("cannot access environment: %v", err)
-	}
-	if env, ok := env.(EnvironStorage); ok {
-		return env.Storage(), nil
-	}
-	errmsg := fmt.Sprintf("%s provider does not support provider storage", envConfig.Type())
-	return nil, errors.NewNotSupported(nil, errmsg)
-}
 
 // AddressesRefreshAttempt is the attempt strategy used when
 // refreshing instance addresses.
@@ -87,14 +64,21 @@ func waitAnyInstanceAddresses(
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
 func APIInfo(env Environ) (*api.Info, error) {
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := env.ControllerInstances()
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("StateServerInstances returned: %v", instanceIds)
+	logger.Debugf("ControllerInstances returned: %v", instanceIds)
 	addrs, err := waitAnyInstanceAddresses(env, instanceIds)
 	if err != nil {
 		return nil, err
+	}
+	defaultSpaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
+	if ok {
+		addrs = []network.Address{defaultSpaceAddr}
+		logger.Debugf("selected %q as API address in space %q", defaultSpaceAddr.Value, network.DefaultSpace)
+	} else {
+		logger.Warningf("using all API addresses (cannot pick by space %q): %+v", network.DefaultSpace, addrs)
 	}
 	config := env.Config()
 	cert, hasCert := config.CACert()
@@ -109,7 +93,20 @@ func APIInfo(env Environ) (*api.Info, error) {
 	if !uuidSet {
 		return nil, errors.New("config has no UUID")
 	}
-	envTag := names.NewEnvironTag(uuid)
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
+	modelTag := names.NewModelTag(uuid)
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, ModelTag: modelTag}
 	return apiInfo, nil
+}
+
+// CheckProviderAPI returns an error if a simple API call
+// to check a basic response from the specified environ fails.
+func CheckProviderAPI(env Environ) error {
+	// We will make a simple API call to the provider
+	// to ensure the underlying substrate is ok.
+	_, err := env.AllInstances()
+	switch err {
+	case nil, ErrPartialInstances, ErrNoInstances:
+		return nil
+	}
+	return errors.Annotate(err, "cannot make API call to provider")
 }

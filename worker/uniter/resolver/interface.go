@@ -51,8 +51,15 @@ type Resolver interface {
 	) (operation.Operation, error)
 }
 
+// LocalState is a cache of the state of the local unit, as needed by the
+// Uniter. It is generally compared to the remote state of the expected state of
+// the unit as stored in the controller.
 type LocalState struct {
 	operation.State
+
+	// CharmModifiedVersion increases any time the charm,
+	// or any part of it, is changed in some way.
+	CharmModifiedVersion int
 
 	// CharmURL reports the currently installed charm URL. This is set
 	// by the committing of deploy (install/upgrade) ops.
@@ -70,6 +77,10 @@ type LocalState struct {
 	// for which an update-status hook has been committed.
 	UpdateStatusVersion int
 
+	// RetryHookVersion is the version of hook-retries from
+	// remotestate.Snapshot for which a hook has been retried.
+	RetryHookVersion int
+
 	// ConfigVersion is the version of config from remotestate.Snapshot
 	// for which a config-changed hook has been committed.
 	ConfigVersion int
@@ -81,6 +92,6 @@ type LocalState struct {
 
 	// CompletedActions is the set of actions that have been completed.
 	// This is used to prevent us re running actions requested by the
-	// state server.
+	// controller.
 	CompletedActions map[string]struct{}
 }

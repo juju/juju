@@ -9,8 +9,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const storageProvisionerFacade = "StorageProvisioner"
@@ -20,23 +21,23 @@ type State struct {
 	facade base.FacadeCaller
 	scope  names.Tag
 
-	*common.EnvironWatcher
+	*common.ModelWatcher
 }
 
 // NewState creates a new client-side StorageProvisioner facade.
-func NewState(caller base.APICaller, scope names.Tag) *State {
+func NewState(caller base.APICaller, scope names.Tag) (*State, error) {
 	switch scope.(type) {
-	case names.EnvironTag:
+	case names.ModelTag:
 	case names.MachineTag:
 	default:
-		panic(errors.Errorf("expected EnvironTag or MachineTag, got %T", scope))
+		return nil, errors.Errorf("expected ModelTag or MachineTag, got %T", scope)
 	}
 	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
 	return &State{
 		facadeCaller,
 		scope,
-		common.NewEnvironWatcher(facadeCaller),
-	}
+		common.NewModelWatcher(facadeCaller),
+	}, nil
 }
 
 // WatchBlockDevices watches for changes to the specified machine's block devices.
@@ -56,7 +57,7 @@ func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, e
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -77,7 +78,7 @@ func (st *State) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -109,20 +110,20 @@ func (st *State) watchStorageEntities(method string) (watcher.StringsWatcher, er
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
 // WatchVolumeAttachments watches for changes to volume attachments
 // scoped to the entity with the tag passed to NewState.
 func (st *State) WatchVolumeAttachments() (watcher.MachineStorageIdsWatcher, error) {
-	return st.watchAttachments("WatchVolumeAttachments", watcher.NewVolumeAttachmentsWatcher)
+	return st.watchAttachments("WatchVolumeAttachments", apiwatcher.NewVolumeAttachmentsWatcher)
 }
 
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
 func (st *State) WatchFilesystemAttachments() (watcher.MachineStorageIdsWatcher, error) {
-	return st.watchAttachments("WatchFilesystemAttachments", watcher.NewFilesystemAttachmentsWatcher)
+	return st.watchAttachments("WatchFilesystemAttachments", apiwatcher.NewFilesystemAttachmentsWatcher)
 }
 
 func (st *State) watchAttachments(

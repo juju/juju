@@ -4,13 +4,11 @@
 package storage
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newListCommand() cmd.Command {
@@ -18,15 +16,15 @@ func newListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (StorageListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const listCommandDoc = `
 List information about storage instances.
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= tabular)
@@ -72,28 +70,14 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.List()
+	results, err := api.ListStorageDetails()
 	if err != nil {
 		return err
 	}
-	// filter out valid output, if any
-	var valid []params.StorageDetails
-	for _, one := range found {
-		if one.Error != nil {
-			fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
-			continue
-		}
-		if one.Result != nil {
-			valid = append(valid, *one.Result)
-		} else {
-			details := storageDetailsFromLegacy(one.Legacy)
-			valid = append(valid, details)
-		}
-	}
-	if len(valid) == 0 {
+	if len(results) == 0 {
 		return nil
 	}
-	details, err := formatStorageDetails(valid)
+	details, err := formatStorageDetails(results)
 	if err != nil {
 		return err
 	}
@@ -110,5 +94,5 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // StorageAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	List() ([]params.StorageDetailsResult, error)
+	ListStorageDetails() ([]params.StorageDetails, error)
 }

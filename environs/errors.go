@@ -8,10 +8,9 @@ import (
 )
 
 var (
-	ErrNotBootstrapped     = errors.New("environment is not bootstrapped")
-	ErrAlreadyBootstrapped = errors.New("environment is already bootstrapped")
-	ErrNoInstances         = errors.NotFoundf("instances")
-	ErrPartialInstances    = errors.New("only some instances were found")
+	ErrNotBootstrapped  = errors.New("model is not bootstrapped")
+	ErrNoInstances      = errors.NotFoundf("instances")
+	ErrPartialInstances = errors.New("only some instances were found")
 
 	// Errors indicating that the provider can't allocate an IP address to an
 	// instance.

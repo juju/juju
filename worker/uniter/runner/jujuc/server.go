@@ -60,6 +60,7 @@ var baseCommands = map[string]creator{
 	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
 	"status-get" + cmdSuffix:    NewStatusGetCommand,
 	"status-set" + cmdSuffix:    NewStatusSetCommand,
+	"network-get" + cmdSuffix:   NewNetworkGetCommand,
 }
 
 var storageCommands = map[string]creator{

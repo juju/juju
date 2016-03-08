@@ -160,7 +160,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLDataSource("sync tools source", sourceURL, utils.VerifySSLHostnames), nil
+	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, simplestreams.SimplestreamsJujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -195,7 +195,7 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 		return errors.Errorf("SHA-256 hash mismatch (%v/%v)", sha256, tools.SHA256)
 	}
 	sizeInKB := (size + 512) / 1024
-	logger.Infof("uploading %v (%dkB) to environment", toolsName, sizeInKB)
+	logger.Infof("uploading %v (%dkB) to model", toolsName, sizeInKB)
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
 }
 

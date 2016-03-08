@@ -12,11 +12,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newFetchCommand() cmd.Command {
-	return envcmd.Wrap(&fetchCommand{})
+	return modelcmd.Wrap(&fetchCommand{})
 }
 
 // fetchCommand fetches the results of an action by ID.

@@ -34,9 +34,9 @@ type Database interface {
 	// might or might not have its own session, depending on the Database; the
 	// closer must always be called regardless.
 	//
-	// If the schema specifies environment-filtering for the named collection,
+	// If the schema specifies model-filtering for the named collection,
 	// the returned collection will automatically filter queries; for details,
-	// see envStateCollection.
+	// see modelStateCollection.
 	GetCollection(name string) (mongo.Collection, SessionCloser)
 
 	// TransactionRunner() returns a runner responsible for making changes to
@@ -47,7 +47,7 @@ type Database interface {
 	// It will reject transactions that reference raw-access (or unknown)
 	// collections; it will automatically rewrite operations that reference
 	// non-global collections; and it will ensure that non-global documents can
-	// only be inserted while the corresponding environment is still Alive.
+	// only be inserted while the corresponding model is still Alive.
 	TransactionRunner() (jujutxn.Runner, SessionCloser)
 
 	// Schema returns the schema used to load the database. The returned schema
@@ -65,9 +65,9 @@ type collectionInfo struct {
 	// indexes listed here will be EnsureIndex~ed before state is opened.
 	indexes []mgo.Index
 
-	// global collections will not have environment filtering applied. Non-
+	// global collections will not have model filtering applied. Non-
 	// global collections will have both transactions and reads filtered by
-	// relevant environment uuid.
+	// relevant model uuid.
 	global bool
 
 	// rawAccess collections can be safely accessed as a mongo.WriteCollection.
@@ -95,10 +95,10 @@ type collectionSchema map[string]collectionInfo
 
 // Load causes all recorded collections to be created and indexed as specified;
 // the returned Database will filter queries and transactions according to the
-// suppplied environment UUID.
-func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Database, error) {
-	if !names.IsValidEnvironment(environUUID) {
-		return nil, errors.New("invalid environment UUID")
+// suppplied model UUID.
+func (schema collectionSchema) Load(db *mgo.Database, modelUUID string) (Database, error) {
+	if !names.IsValidModel(modelUUID) {
+		return nil, errors.New("invalid model UUID")
 	}
 	for name, info := range schema {
 		rawCollection := db.C(name)
@@ -115,9 +115,9 @@ func (schema collectionSchema) Load(db *mgo.Database, environUUID string) (Datab
 		}
 	}
 	return &database{
-		raw:         db,
-		schema:      schema,
-		environUUID: environUUID,
+		raw:       db,
+		schema:    schema,
+		modelUUID: modelUUID,
 	}, nil
 }
 
@@ -141,9 +141,9 @@ type database struct {
 	// schema specifies how the various collections must be handled.
 	schema collectionSchema
 
-	// environUUID is used to automatically filter queries and operations on
+	// modelUUID is used to automatically filter queries and operations on
 	// certain collections (as defined in .schema).
-	environUUID string
+	modelUUID string
 
 	// runner exists for testing purposes; if non-nil, the result of
 	// TransactionRunner will always ultimately use this value to run
@@ -159,11 +159,11 @@ type database struct {
 func (db *database) CopySession() (Database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
-		raw:         db.raw.With(session),
-		schema:      db.schema,
-		environUUID: db.environUUID,
-		runner:      db.runner,
-		ownSession:  true,
+		raw:        db.raw.With(session),
+		schema:     db.schema,
+		modelUUID:  db.modelUUID,
+		runner:     db.runner,
+		ownSession: true,
 	}, session.Close
 }
 
@@ -182,11 +182,11 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 		collection, closer = mongo.CollectionFromName(db.raw, name)
 	}
 
-	// Apply environment filtering.
+	// Apply model filtering.
 	if !info.global {
-		collection = &envStateCollection{
+		collection = &modelStateCollection{
 			WriteCollection: collection.Writeable(),
-			envUUID:         db.environUUID,
+			modelUUID:       db.modelUUID,
 		}
 	}
 
@@ -213,9 +213,9 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		params := jujutxn.RunnerParams{Database: raw}
 		runner = jujutxn.NewRunner(params)
 	}
-	return &multiEnvRunner{
+	return &multiModelRunner{
 		rawRunner: runner,
-		envUUID:   db.environUUID,
+		modelUUID: db.modelUUID,
 		schema:    db.schema,
 	}, closer
 }

@@ -16,13 +16,6 @@ import (
 // <config-encoded-as-yaml>
 // All of this is saved in a single agent.conf file.
 //
-// Historically the format file in the agent config directory was used
-// to identify the method of serialization. This was used by
-// individual legacy (pre 1.18) format readers and writers to be able
-// to translate from the file format to the in-memory structure. From
-// version 1.18, the format is part of the agent configuration file,
-// so there is only a single source of truth.
-//
 // Juju only supports upgrading from single steps, so Juju only needs
 // to know about the current format and the format of the previous
 // stable release. For convenience, the format name includes the

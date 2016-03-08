@@ -16,7 +16,7 @@ func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata
 	if err != nil {
 		return nil, err
 	}
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, false)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
 		return nil, err
 	}

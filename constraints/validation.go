@@ -40,6 +40,13 @@ type Validator interface {
 	// Merge merges cons into consFallback, with any conflicting attributes from cons
 	// overriding those from consFallback.
 	Merge(consFallback, cons Value) (Value, error)
+
+	// UpdateVocabulary merges new attribute values with existing values.
+	// This method does not overwrite or delete values, i.e.
+	//     if existing values are {a, b}
+	//     and new values are {c, d},
+	//     then the merge result would be {a, b, c, d}.
+	UpdateVocabulary(attributeName string, newValues interface{})
 }
 
 // NewValidator returns a new constraints Validator instance.
@@ -73,17 +80,51 @@ func (v *validator) RegisterUnsupported(unsupported []string) {
 
 // RegisterVocabulary is defined on Validator.
 func (v *validator) RegisterVocabulary(attributeName string, allowedValues interface{}) {
-	k := reflect.TypeOf(allowedValues).Kind()
+	v.vocab[attributeName] = convertToSlice(allowedValues)
+}
+
+var checkIsCollection = func(coll interface{}) {
+	k := reflect.TypeOf(coll).Kind()
 	if k != reflect.Slice && k != reflect.Array {
-		panic(fmt.Errorf("invalid vocab: %v of type %T is not a slice", allowedValues, allowedValues))
+		panic(fmt.Errorf("invalid vocab: %v of type %T is not a slice", coll, coll))
 	}
-	// Convert the vocab to a slice of interface{}
-	var allowedSlice []interface{}
-	val := reflect.ValueOf(allowedValues)
+}
+
+var convertToSlice = func(coll interface{}) []interface{} {
+	checkIsCollection(coll)
+	var slice []interface{}
+	val := reflect.ValueOf(coll)
 	for i := 0; i < val.Len(); i++ {
-		allowedSlice = append(allowedSlice, val.Index(i).Interface())
+		slice = append(slice, val.Index(i).Interface())
 	}
-	v.vocab[attributeName] = allowedSlice
+	return slice
+}
+
+// UpdateVocabulary is defined on Validator.
+func (v *validator) UpdateVocabulary(attributeName string, allowedValues interface{}) {
+	// If this attribute is not registered, delegate to RegisterVocabulary()
+	currentValues, ok := v.vocab[attributeName]
+	if !ok {
+		v.RegisterVocabulary(attributeName, allowedValues)
+	}
+
+	unique := map[interface{}]bool{}
+	writeUnique := func(all []interface{}) {
+		for _, one := range all {
+			unique[one] = true
+		}
+	}
+
+	// merge existing values with new, ensuring uniqueness
+	writeUnique(currentValues)
+	newValues := convertToSlice(allowedValues)
+	writeUnique(newValues)
+
+	var merged []interface{}
+	for one, _ := range unique {
+		merged = append(merged, one)
+	}
+	v.vocab[attributeName] = merged
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.

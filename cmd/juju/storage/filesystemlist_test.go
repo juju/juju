@@ -31,7 +31,7 @@ func (s *filesystemListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
-	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		return nil, nil
 	}
 	s.assertValidList(
@@ -42,7 +42,7 @@ func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
 }
 
 func (s *filesystemListSuite) TestFilesystemListError(c *gc.C) {
-	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		return nil, errors.New("just my luck")
 	}
 	context, err := s.runFilesystemList(c, "--format", "yaml")
@@ -53,7 +53,7 @@ func (s *filesystemListSuite) TestFilesystemListError(c *gc.C) {
 func (s *filesystemListSuite) TestFilesystemListArgs(c *gc.C) {
 	var called bool
 	expectedArgs := []string{"a", "b", "c"}
-	s.mockAPI.listFilesystems = func(arg []string) ([]params.FilesystemDetailsResult, error) {
+	s.mockAPI.listFilesystems = func(arg []string) ([]params.FilesystemDetailsListResult, error) {
 		c.Assert(arg, jc.DeepEquals, expectedArgs)
 		called = true
 		return nil, nil
@@ -83,12 +83,12 @@ func (s *filesystemListSuite) TestFilesystemListJSON(c *gc.C) {
 }
 
 func (s *filesystemListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
-	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		results, _ := mockFilesystemListAPI{}.ListFilesystems(nil)
-		results = append(results, params.FilesystemDetailsResult{
+		results = append(results, params.FilesystemDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
-		results = append(results, params.FilesystemDetailsResult{
+		results = append(results, params.FilesystemDetailsListResult{
 			Error: &params.Error{Message: "ness"},
 		})
 		return results, nil
@@ -115,7 +115,7 @@ func (s *filesystemListSuite) TestFilesystemListTabular(c *gc.C) {
 
 	// Do it again, reversing the results returned by the API.
 	// We should get everything sorted in the appropriate order.
-	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		results, _ := mockFilesystemListAPI{}.ListFilesystems(nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
@@ -149,10 +149,10 @@ func (s *filesystemListSuite) expect(c *gc.C, machines []string) map[string]stor
 	all, err := s.mockAPI.ListFilesystems(machines)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var valid []params.FilesystemDetailsResult
+	var valid []params.FilesystemDetails
 	for _, result := range all {
 		if result.Error == nil {
-			valid = append(valid, result)
+			valid = append(valid, result.Result...)
 		}
 	}
 	result, err := storage.ConvertToFilesystemInfo(valid)
@@ -168,7 +168,7 @@ func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOu
 
 func (s *filesystemListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		storage.NewFilesystemListCommand(s.mockAPI),
+		storage.NewFilesystemListCommand(s.mockAPI, s.store),
 		args...)
 }
 
@@ -181,22 +181,22 @@ func (s *filesystemListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Conte
 }
 
 type mockFilesystemListAPI struct {
-	listFilesystems func([]string) ([]params.FilesystemDetailsResult, error)
+	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
 }
 
 func (s mockFilesystemListAPI) Close() error {
 	return nil
 }
 
-func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsResult, error) {
+func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
 	if s.listFilesystems != nil {
 		return s.listFilesystems(machines)
 	}
-	results := []params.FilesystemDetailsResult{{
+	results := []params.FilesystemDetailsListResult{{Result: []params.FilesystemDetails{
 		// filesystem 0/0 is attached to machine 0, assigned to
 		// storage db-dir/1001, which is attached to unit
 		// abc/0.
-		Result: &params.FilesystemDetails{
+		{
 			FilesystemTag: "filesystem-0-0",
 			VolumeTag:     "volume-0-1",
 			Info: params.FilesystemInfo{
@@ -224,10 +224,9 @@ func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.File
 				},
 			},
 		},
-	}, {
 		// filesystem 1 is attaching to machine 0, but is not assigned
 		// to any storage.
-		Result: &params.FilesystemDetails{
+		{
 			FilesystemTag: "filesystem-1",
 			Info: params.FilesystemInfo{
 				FilesystemId: "provider-supplied-filesystem-1",
@@ -238,10 +237,9 @@ func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.File
 				"machine-0": params.FilesystemAttachmentInfo{},
 			},
 		},
-	}, {
 		// filesystem 3 is due to be attached to machine 1, but is not
 		// assigned to any storage and has not yet been provisioned.
-		Result: &params.FilesystemDetails{
+		{
 			FilesystemTag: "filesystem-3",
 			Info: params.FilesystemInfo{
 				Size: 42,
@@ -251,10 +249,9 @@ func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.File
 				"machine-1": params.FilesystemAttachmentInfo{},
 			},
 		},
-	}, {
 		// filesystem 2 is due to be attached to machine 1, but is not
 		// assigned to any storage.
-		Result: &params.FilesystemDetails{
+		{
 			FilesystemTag: "filesystem-2",
 			Info: params.FilesystemInfo{
 				FilesystemId: "provider-supplied-filesystem-2",
@@ -267,10 +264,9 @@ func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.File
 				},
 			},
 		},
-	}, {
 		// filesystem 4 is attached to machines 0 and 1, and is assigned
 		// to shared storage.
-		Result: &params.FilesystemDetails{
+		{
 			FilesystemTag: "filesystem-4",
 			Info: params.FilesystemInfo{
 				FilesystemId: "provider-supplied-filesystem-4",
@@ -308,6 +304,6 @@ func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.File
 				},
 			},
 		},
-	}}
+	}}}
 	return results, nil
 }

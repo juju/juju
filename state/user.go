@@ -9,6 +9,7 @@
 package state
 
 import (
+	"crypto/rand"
 	"fmt"
 	"sort"
 	"strings"
@@ -40,33 +41,61 @@ func (st *State) checkUserExists(name string) (bool, error) {
 
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
+	return st.addUser(name, displayName, password, creator, nil)
+}
+
+// AddUserWithSecretKey adds the user with the specified name, and assigns it
+// a randomly generated secret key. This secret key may be used for the user
+// and controller to mutually authenticate one another, without without relying
+// on TLS certificates.
+//
+// The new user will not have a password. A password must be set, clearing the
+// secret key in the process, before the user can login normally.
+func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User, error) {
+	// Generate a random, 32-byte secret key. This can be used
+	// to obtain the controller's (self-signed) CA certificate
+	// and set the user's password.
+	var secretKey [32]byte
+	if _, err := rand.Read(secretKey[:]); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.addUser(name, displayName, "", creator, secretKey[:])
+}
+
+func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
 	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
-	salt, err := utils.RandomSalt()
-	if err != nil {
-		return nil, err
-	}
 	nameToLower := strings.ToLower(name)
+
 	user := &User{
 		st: st,
 		doc: userDoc{
-			DocID:        nameToLower,
-			Name:         name,
-			DisplayName:  displayName,
-			PasswordHash: utils.UserPasswordHash(password, salt),
-			PasswordSalt: salt,
-			CreatedBy:    creator,
-			DateCreated:  nowToTheSecond(),
+			DocID:       nameToLower,
+			Name:        name,
+			DisplayName: displayName,
+			SecretKey:   secretKey,
+			CreatedBy:   creator,
+			DateCreated: nowToTheSecond(),
 		},
 	}
+
+	if password != "" {
+		salt, err := utils.RandomSalt()
+		if err != nil {
+			return nil, err
+		}
+		user.doc.PasswordHash = utils.UserPasswordHash(password, salt)
+		user.doc.PasswordSalt = salt
+	}
+
 	ops := []txn.Op{{
 		C:      usersC,
 		Id:     nameToLower,
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}
-	err = st.runTransaction(ops)
+	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user")
 	}
@@ -163,6 +192,7 @@ type userDoc struct {
 	DisplayName string `bson:"displayname"`
 	// Removing users means they still exist, but are marked deactivated
 	Deactivated  bool      `bson:"deactivated"`
+	SecretKey    []byte    `bson:"secretkey,omitempty"`
 	PasswordHash string    `bson:"passwordhash"`
 	PasswordSalt string    `bson:"passwordsalt"`
 	CreatedBy    string    `bson:"createdby"`
@@ -170,8 +200,8 @@ type userDoc struct {
 }
 
 type userLastLoginDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
 	// LastLogin is updated by the apiserver whenever the user
 	// connects over the API. This update is not done using mgo.txn
 	// so this value could well change underneath a normal transaction
@@ -281,12 +311,17 @@ func (u *User) UpdateLastLogin() (err error) {
 
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
-		EnvUUID:   u.st.EnvironUUID(),
+		ModelUUID: u.st.ModelUUID(),
 		LastLogin: nowToTheSecond(),
 	}
 
 	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)
 	return errors.Trace(err)
+}
+
+// SecretKey returns the user's secret key, if any.
+func (u *User) SecretKey() []byte {
+	return u.doc.SecretKey
 }
 
 // SetPassword sets the password associated with the User.
@@ -298,19 +333,31 @@ func (u *User) SetPassword(password string) error {
 	return u.SetPasswordHash(utils.UserPasswordHash(password, salt), salt)
 }
 
-// SetPasswordHash stores the hash and the salt of the password.
+// SetPasswordHash stores the hash and the salt of the
+// password. If the User has a secret key set then it
+// will be cleared.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
+	update := bson.D{{"$set", bson.D{
+		{"passwordhash", pwHash},
+		{"passwordsalt", pwSalt},
+	}}}
+	if u.doc.SecretKey != nil {
+		update = append(update,
+			bson.DocElem{"$unset", bson.D{{"secretkey", ""}}},
+		)
+	}
 	ops := []txn.Op{{
 		C:      usersC,
 		Id:     u.Name(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
+		Update: update,
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set password of user %q", u.Name())
 	}
 	u.doc.PasswordHash = pwHash
 	u.doc.PasswordSalt = pwSalt
+	u.doc.SecretKey = nil
 	return nil
 }
 
@@ -356,12 +403,12 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
-	environment, err := u.st.StateServerEnvironment()
+	environment, err := u.st.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if u.doc.Name == environment.Owner().Name() {
-		return errors.Unauthorizedf("cannot disable state server environment owner")
+		return errors.Unauthorizedf("cannot disable controller model owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
 }

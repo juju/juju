@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
@@ -93,18 +93,18 @@ func (s *ToolsSuite) TestStorage(c *gc.C) {
 }
 
 func (s *ToolsSuite) TestStorageParams(c *gc.C) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	var called bool
 	s.PatchValue(state.ToolstorageNewStorage, func(
-		envUUID string,
+		modelUUID string,
 		managedStorage blobstore.ManagedStorage,
 		metadataCollection *mgo.Collection,
 		runner jujutxn.Runner,
 	) toolstorage.Storage {
 		called = true
-		c.Assert(envUUID, gc.Equals, env.UUID())
+		c.Assert(modelUUID, gc.Equals, env.UUID())
 		c.Assert(managedStorage, gc.NotNil)
 		c.Assert(metadataCollection.Name, gc.Equals, "toolsmetadata")
 		c.Assert(runner, gc.NotNil)

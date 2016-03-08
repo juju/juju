@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 // ClientAssertSuite tests that AssertOp does what it should.
@@ -33,8 +33,10 @@ func (s *ClientAssertSuite) SetUpTest(c *gc.C) {
 func (s *ClientAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
 	info := s.fix.Client.Leases()["name"]
 
-	ops := []txn.Op{info.AssertOp}
-	err := s.fix.Runner.RunTransaction(ops)
+	var ops []txn.Op
+	err := info.Trapdoor(&ops)
+	c.Check(err, jc.ErrorIsNil)
+	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -45,7 +47,9 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *g
 	err := fix2.Client.ExtendLease("name", lease.Request{"holder", time.Hour})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ops := []txn.Op{info.AssertOp}
+	var ops []txn.Op
+	err = info.Trapdoor(&ops)
+	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, gc.IsNil)
 }
@@ -57,7 +61,9 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *
 	err := s.fix.Client.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	ops := []txn.Op{info.AssertOp}
+	var ops []txn.Op
+	err = info.Trapdoor(&ops)
+	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, gc.IsNil)
 }
@@ -69,7 +75,9 @@ func (s *ClientAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
 	err := s.fix.Client.ExpireLease("name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ops := []txn.Op{info.AssertOp}
+	var ops []txn.Op
+	err = info.Trapdoor(&ops)
+	c.Check(err, jc.ErrorIsNil)
 	err = s.fix.Runner.RunTransaction(ops)
 	c.Check(err, gc.Equals, txn.ErrAborted)
 }

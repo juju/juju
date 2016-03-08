@@ -10,21 +10,21 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // VolumeListAPI defines the API methods that the volume list command use.
 type VolumeListAPI interface {
 	Close() error
-	ListVolumes(machines []string) ([]params.VolumeDetailsResult, error)
+	ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error)
 }
 
 const volumeListCommandDoc = `
-List volumes (disks) in the environment.
+List volumes (disks) in the model.
 
 options:
--e, --environment (= "")
-    juju environment to operate in
+-m, --model (= "")
+    juju model to operate in
 -o, --output (= "")
     specify an output file
 [machine]
@@ -37,7 +37,7 @@ func newVolumeListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (VolumeListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // volumeListCommand lists storage volumes.
@@ -66,7 +66,7 @@ func (c *volumeListCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *volumeListCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.StorageCommandBase.SetFlags(f)
+	c.VolumeCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -83,19 +83,19 @@ func (c *volumeListCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.ListVolumes(c.Ids)
+	results, err := api.ListVolumes(c.Ids)
 	if err != nil {
 		return err
 	}
 	// filter out valid output, if any
-	var valid []params.VolumeDetailsResult
-	for _, one := range found {
-		if one.Error == nil {
-			valid = append(valid, one)
+	var valid []params.VolumeDetails
+	for _, result := range results {
+		if result.Error == nil {
+			valid = append(valid, result.Result...)
 			continue
 		}
 		// display individual error
-		fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
+		fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
 	}
 	if len(valid) == 0 {
 		return nil

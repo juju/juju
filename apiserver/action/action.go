@@ -15,7 +15,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.action")
 
 func init() {
-	common.RegisterStandardFacade("Action", 0, NewActionAPI)
+	common.RegisterStandardFacade("Action", 1, NewActionAPI)
 }
 
 // ActionAPI implements the client API for interacting with Actions

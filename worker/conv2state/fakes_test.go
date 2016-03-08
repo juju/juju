@@ -6,8 +6,8 @@ package conv2state
 import (
 	"github.com/juju/names"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 type fakeMachiner struct {
@@ -41,15 +41,14 @@ func (f fakeMachine) Watch() (watcher.NotifyWatcher, error) {
 
 type fakeWatcher struct{}
 
-func (fakeWatcher) Changes() <-chan struct{} {
+func (fakeWatcher) Changes() watcher.NotifyChannel {
 	return nil
 }
 
-func (fakeWatcher) Stop() error {
-	return nil
+func (fakeWatcher) Kill() {
 }
 
-func (fakeWatcher) Err() error {
+func (fakeWatcher) Wait() error {
 	return nil
 }
 

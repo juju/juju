@@ -15,7 +15,7 @@ import (
 
 const filesystemCmdDoc = `
 "juju storage filesystem" is used to manage storage filesystems in
- the Juju environment.
+ the Juju model.
 `
 
 const filesystemCmdPurpose = "manage storage filesystems"
@@ -71,7 +71,7 @@ type MachineFilesystemAttachment struct {
 }
 
 // convertToFilesystemInfo returns a map of filesystem IDs to filesystem info.
-func convertToFilesystemInfo(all []params.FilesystemDetailsResult) (map[string]FilesystemInfo, error) {
+func convertToFilesystemInfo(all []params.FilesystemDetails) (map[string]FilesystemInfo, error) {
 	result := make(map[string]FilesystemInfo)
 	for _, one := range all {
 		filesystemTag, info, err := createFilesystemInfo(one)
@@ -83,9 +83,7 @@ func convertToFilesystemInfo(all []params.FilesystemDetailsResult) (map[string]F
 	return result, nil
 }
 
-func createFilesystemInfo(result params.FilesystemDetailsResult) (names.FilesystemTag, FilesystemInfo, error) {
-	details := result.Result
-
+func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag, FilesystemInfo, error) {
 	filesystemTag, err := names.ParseFilesystemTag(details.FilesystemTag)
 	if err != nil {
 		return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)

@@ -5,6 +5,7 @@ package usermanager_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -29,7 +30,7 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
-	tag, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	user, err := s.State.User(tag)
@@ -39,10 +40,33 @@ func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.PasswordValid("password"), jc.IsTrue)
 }
 
+func (s *usermanagerSuite) TestAddUserWithSharedModel(c *gc.C) {
+	sharedModelState := s.Factory.MakeModel(c, nil)
+	defer sharedModelState.Close()
+
+	tag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", sharedModelState.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check model is shared with expected users.
+	sharedModel, err := sharedModelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	users, err := sharedModel.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 2)
+	var modelUserTags = make([]names.UserTag, len(users))
+	for i, u := range users {
+		modelUserTags[i] = u.UserTag()
+	}
+	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
+		tag,
+		names.NewLocalUserTag("admin"),
+	})
+}
+
 func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	_, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "failed to create user: user already exists")
 }
 
@@ -52,7 +76,7 @@ func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
 			return errors.New("call error")
 		},
 	)
-	_, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "call error")
 }
 
@@ -66,7 +90,7 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 			return errors.New("wrong result type")
 		},
 	)
-	_, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -82,8 +106,8 @@ func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestDisableUserBadName(c *gc.C) {
-	err := s.usermanager.DisableUser("not@home")
-	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+	err := s.usermanager.DisableUser("not!good")
+	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }
 
 func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
@@ -98,13 +122,13 @@ func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestEnableUserBadName(c *gc.C) {
-	err := s.usermanager.EnableUser("not@home")
-	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+	err := s.usermanager.EnableUser("not!good")
+	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 	err := s.usermanager.DisableUser(s.AdminUserTag(c).Name())
-	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable state server environment owner")
+	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable controller model owner")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
@@ -173,7 +197,16 @@ func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
 }
 
+func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *gc.C) {
+	tag := s.AdminUserTag(c)
+	err := s.usermanager.SetPassword(tag.Canonical(), "new-password")
+	c.Assert(err, jc.ErrorIsNil)
+	user, err := s.State.User(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
+}
+
 func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
-	err := s.usermanager.SetPassword("not@home", "new-password")
-	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+	err := s.usermanager.SetPassword("not!good", "new-password")
+	c.Assert(err, gc.ErrorMatches, `"not!good" is not a valid username`)
 }

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func newDebugLogDBHandler(ctxt httpContext, stop <-chan struct{}) http.Handler {
-	return newDebugLogHandler(ctxt, stop, handleDebugLogDBRequest)
+func newDebugLogDBHandler(ctxt httpContext) http.Handler {
+	return newDebugLogHandler(ctxt, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(
@@ -52,13 +52,12 @@ func handleDebugLogDBRequest(
 			}
 		}
 	}
-
-	return nil
 }
 
 func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	params := &state.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
+		NoTail:        reqParams.noTail,
 		InitialLines:  int(reqParams.backlog),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,

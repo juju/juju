@@ -12,7 +12,7 @@ import (
 
 const poolCmdDoc = `
 "juju storage pool" is used to manage storage pool instances in
- Juju environment.
+ Juju model.
 `
 
 const poolCmdPurpose = "manage storage pools"

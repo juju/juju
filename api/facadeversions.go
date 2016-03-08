@@ -3,6 +3,10 @@
 
 package api
 
+import (
+	"github.com/juju/errors"
+)
+
 // facadeVersions lists the best version of facades that we know about. This
 // will be used to pick out a default version for communication, given the list
 // of known versions that the API server tells us it is capable of supporting.
@@ -11,59 +15,72 @@ package api
 // New facades should start at 1.
 // Facades that existed before versioning start at 0.
 var facadeVersions = map[string]int{
-	"Action":                       0,
-	"Addresser":                    1,
-	"Agent":                        1,
-	"AllWatcher":                   0,
-	"AllEnvWatcher":                1,
-	"Annotations":                  1,
-	"Backups":                      0,
-	"Block":                        1,
-	"Charms":                       1,
-	"CharmRevisionUpdater":         0,
-	"Client":                       0,
-	"Cleaner":                      1,
-	"Deployer":                     0,
-	"DiskManager":                  1,
-	"EntityWatcher":                1,
-	"Environment":                  0,
-	"EnvironmentManager":           1,
-	"FilesystemAttachmentsWatcher": 1,
-	"Firewaller":                   1,
-	"HighAvailability":             1,
-	"ImageManager":                 1,
-	"ImageMetadata":                1,
-	"InstancePoller":               1,
-	"KeyManager":                   0,
-	"KeyUpdater":                   0,
-	"LeadershipService":            1,
-	"Logger":                       0,
-	"MachineManager":               1,
-	"Machiner":                     0,
-	"MetricsManager":               0,
+	"Action":                       1,
+	"Addresser":                    2,
+	"Agent":                        2,
+	"AgentTools":                   1,
+	"AllWatcher":                   1,
+	"AllModelWatcher":              2,
+	"Annotations":                  2,
+	"Backups":                      1,
+	"Block":                        2,
+	"Charms":                       2,
+	"CharmRevisionUpdater":         1,
+	"Client":                       1,
+	"Cleaner":                      2,
+	"Controller":                   2,
+	"Deployer":                     1,
+	"DiscoverSpaces":               2,
+	"DiskManager":                  2,
+	"EntityWatcher":                2,
+	"FilesystemAttachmentsWatcher": 2,
+	"Firewaller":                   2,
+	"HighAvailability":             2,
+	"ImageManager":                 2,
+	"ImageMetadata":                2,
+	"InstancePoller":               2,
+	"KeyManager":                   1,
+	"KeyUpdater":                   1,
+	"LeadershipService":            2,
+	"Logger":                       1,
+	"MachineManager":               2,
+	"Machiner":                     1,
+	"MetricsDebug":                 1,
+	"MetricsManager":               1,
 	"MeterStatus":                  1,
-	"MetricsAdder":                 1,
-	"Networker":                    0,
-	"NotifyWatcher":                0,
-	"Pinger":                       0,
-	"Provisioner":                  1,
-	"Reboot":                       1,
-	"RelationUnitsWatcher":         0,
-	"Resumer":                      1,
-	"Rsyslog":                      0,
-	"Service":                      1,
-	"Storage":                      1,
-	"Spaces":                       1,
-	"Subnets":                      1,
-	"StatusHistory":                1,
-	"StorageProvisioner":           1,
-	"StringsWatcher":               0,
-	"SystemManager":                1,
-	"Upgrader":                     0,
+	"MetricsAdder":                 2,
+	"ModelManager":                 2,
+	"NotifyWatcher":                1,
+	"Pinger":                       1,
+	"Provisioner":                  2,
+	"ProxyUpdater":                 1,
+	"Reboot":                       2,
+	"RelationUnitsWatcher":         1,
+	"Resumer":                      2,
+	"RetryStrategy":                1,
+	"Service":                      3,
+	"Storage":                      2,
+	"Spaces":                       2,
+	"Subnets":                      2,
+	"StatusHistory":                2,
+	"StorageProvisioner":           2,
+	"StringsWatcher":               1,
+	"Upgrader":                     1,
 	"UnitAssigner":                 1,
-	"Uniter":                       2,
-	"UserManager":                  0,
-	"VolumeAttachmentsWatcher":     1,
+	"Uniter":                       3,
+	"UserManager":                  1,
+	"VolumeAttachmentsWatcher":     2,
+	"Undertaker":                   1,
+}
+
+// RegisterFacadeVersion sets the API client to prefer the given version
+// for the facade.
+func RegisterFacadeVersion(name string, version int) error {
+	if ver, ok := facadeVersions[name]; ok && ver != version {
+		return errors.Errorf("facade %q already registered", name)
+	}
+	facadeVersions[name] = version
+	return nil
 }
 
 // bestVersion tries to find the newest version in the version list that we can

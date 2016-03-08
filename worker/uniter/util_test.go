@@ -33,17 +33,18 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -130,7 +131,7 @@ func (ctx *context) setExpectedError(err string) {
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
-			err := ctx.uniter.Stop()
+			err := worker.Stop(ctx.uniter)
 			if ctx.err == "" {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
@@ -241,8 +242,8 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
-	c.Logf("ctx.hooks: %#v", ctx.hooks)
+	c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
+	c.Logf("expected hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
@@ -277,20 +278,20 @@ type ensureStateWorker struct{}
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
-		addStateServerMachine(c, ctx.st)
+		addControllerMachine(c, ctx.st)
 	}
 	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
 
-func addStateServerMachine(c *gc.C, st *state.State) {
-	// The AddStateServerMachine call will update the API host ports
+func addControllerMachine(c *gc.C, st *state.State) {
+	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
 	// can download charms from the API server.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	testing.AddStateServerMachine(c, st)
+	testing.AddControllerMachine(c, st)
 	err = st.SetAPIHostPorts(apiHostPorts)
 	c.Assert(err, gc.IsNil)
 }
@@ -376,7 +377,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := storage.NewStorage(ctx.st.EnvironUUID(), ctx.st.MongoSession())
+	storage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
@@ -469,7 +470,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		panic(err.Error())
 	}
 	locksDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
+	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
@@ -491,7 +492,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// appropriately.
 		Clock: clock.WallClock,
 	}
-	ctx.uniter = uniter.NewUniter(&uniterParams)
+	ctx.uniter, err = uniter.NewUniter(&uniterParams)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type waitUniterDead struct {
@@ -526,25 +528,21 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 func (s waitUniterDead) waitDead(c *gc.C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
-	timeout := time.After(worstCase)
-	for {
-		// The repeated StartSync is to ensure timely completion of this method
-		// in the case(s) where a state change causes a uniter action which
-		// causes a state change which causes a uniter action, in which case we
-		// need more than one sync. At the moment there's only one situation
-		// that causes this -- setting the unit's service to Dying -- but it's
-		// not an intrinsically insane pattern of action (and helps to simplify
-		// the filter code) so this test seems like a small price to pay.
-		ctx.s.BackingState.StartSync()
-		select {
-		case <-u.Dead():
-			return u.Wait()
-		case <-time.After(coretesting.ShortWait):
-			continue
-		case <-timeout:
-			c.Fatalf("uniter still alive")
-		}
+
+	wait := make(chan error, 1)
+	go func() {
+		wait <- u.Wait()
+	}()
+
+	ctx.s.BackingState.StartSync()
+	select {
+	case err := <-wait:
+		return err
+	case <-time.After(worstCase):
+		u.Kill()
+		c.Fatalf("uniter still alive")
 	}
+	panic("unreachable")
 }
 
 type stopUniter struct {
@@ -558,7 +556,7 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 		return
 	}
 	ctx.uniter = nil
-	err := u.Stop()
+	err := worker.Stop(u)
 	if s.err == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -947,7 +945,11 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.svc.SetCharm(sch, s.forced)
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: s.forced,
+	}
+	err = ctx.svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
@@ -973,6 +975,22 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	url, ok := ctx.unit.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
+}
+
+type pushResource struct{}
+
+func (s pushResource) step(c *gc.C, ctx *context) {
+	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ServiceName(), "the bytes")
+
+	res, err := ctx.st.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = res.SetResource(
+		ctx.unit.ServiceName(),
+		opened.Username,
+		opened.Resource.Resource,
+		opened.ReadCloser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startUpgradeError struct{}
@@ -1337,7 +1355,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 
 func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
 	lockDir := filepath.Join(dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
+	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	return lock
 }
@@ -1379,7 +1397,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

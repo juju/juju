@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v1/cinder"
+	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
@@ -54,12 +55,12 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	}
 	uuid, ok := environConfig.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,
 		envName:        environConfig.Name(),
-		envUUID:        uuid,
+		modelUUID:      uuid,
 	}
 	return source, nil
 }
@@ -98,7 +99,7 @@ func (p *cinderProvider) Dynamic() bool {
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
 	envName        string // non unique, informational only
-	envUUID        string
+	modelUUID      string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -160,8 +161,8 @@ func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
 	}
 	volumeIds := make([]string, 0, len(cinderVolumes))
 	for _, volume := range cinderVolumes {
-		envUUID, ok := volume.Metadata[tags.JujuEnv]
-		if !ok || envUUID != s.envUUID {
+		modelUUID, ok := volume.Metadata[tags.JujuModel]
+		if !ok || modelUUID != s.modelUUID {
 			continue
 		}
 		volumeIds = append(volumeIds, cinderToJujuVolumeInfo(&volume).VolumeId)
@@ -396,28 +397,42 @@ type openstackStorage interface {
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 }
 
+type endpointResolver interface {
+	EndpointsForRegion(region string) identity.ServiceURLs
+}
+
+func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, error) {
+	endpointMap := client.EndpointsForRegion(region)
+	// The cinder openstack charm appends 'v2' to the type for the v2 api.
+	endpoint, ok := endpointMap["volumev2"]
+	if !ok {
+		logger.Debugf(`endpoint "volumev2" not found for %q region, trying "volume"`, region)
+		endpoint, ok = endpointMap["volume"]
+		if !ok {
+			return nil, errors.Errorf(`endpoint "volume" not found for %q region`, region)
+		}
+	}
+	return url.Parse(endpoint)
+}
+
 func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage, error) {
 	ecfg, err := providerInstance.newConfig(environConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authClient := authClient(ecfg)
-	if err := authClient.Authenticate(); err != nil {
+	client := authClient(ecfg)
+	if err := client.Authenticate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	endpoint, ok := authClient.EndpointsForRegion(ecfg.region())["volume"]
-	if !ok {
-		return nil, errors.Errorf("volume endpoint not found for %q endpoint", ecfg.region())
-	}
-	endpointUrl, err := url.Parse(endpoint)
+	endpointUrl, err := getVolumeEndpointURL(client, ecfg.region())
 	if err != nil {
-		return nil, errors.Annotate(err, "error parsing endpoint")
+		return nil, errors.Annotate(err, "getting volume endpoint")
 	}
 
 	return &openstackStorageAdapter{
-		cinderClient{cinder.Basic(endpointUrl, authClient.TenantId(), authClient.Token)},
-		novaClient{nova.New(authClient)},
+		cinderClient{cinder.Basic(endpointUrl, client.TenantId(), client.Token)},
+		novaClient{nova.New(client)},
 	}, nil
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/ssh"
 
@@ -26,6 +27,8 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
@@ -37,32 +40,53 @@ var logger = loggo.GetLogger("juju.provider.common")
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
 func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-) (arch, series string, _ environs.BootstrapFinalizer, err error) {
-	if result, series, finalizer, err := BootstrapInstance(ctx, env, args); err == nil {
-		return *result.Hardware.Arch, series, finalizer, nil
-	} else {
-		return "", "", nil, err
+) (*environs.BootstrapResult, error) {
+	result, series, finalizer, err := BootstrapInstance(ctx, env, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	bsResult := &environs.BootstrapResult{
+		Arch:     *result.Hardware.Arch,
+		Series:   series,
+		Finalize: finalizer,
+	}
+	return bsResult, nil
 }
 
 // BootstrapInstance creates a new instance with the series and architecture
 // of its choice, constrained to those of the available tools, and
 // returns the instance result, series, and a function that
 // must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial Juju state server.
+// the tools and installing the initial Juju controller.
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
 func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-) (_ *environs.StartInstanceResult, series string, _ environs.BootstrapFinalizer, err error) {
+) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	series = config.PreferredSeries(env.Config())
-	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
+	selectedSeries = config.PreferredSeries(env.Config())
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{
+		Series: selectedSeries,
+	})
 	if err != nil {
 		return nil, "", nil, err
+	}
+
+	// Filter image metadata to the selected series.
+	var imageMetadata []*imagemetadata.ImageMetadata
+	seriesVersion, err := series.SeriesVersion(selectedSeries)
+	if err != nil {
+		return nil, "", nil, errors.Trace(err)
+	}
+	for _, m := range args.ImageMetadata {
+		if m.Version != seriesVersion {
+			continue
+		}
+		imageMetadata = append(imageMetadata, m)
 	}
 
 	// Get the bootstrap SSH client. Do this early, so we know
@@ -74,7 +98,13 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil, "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	publicKey, err := simplestreams.UserPublicSigningKey()
+	if err != nil {
+		return nil, "", nil, err
+	}
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+		args.BootstrapConstraints, args.EnvironConstraints, selectedSeries, publicKey,
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -97,10 +127,11 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:    args.Constraints,
+		Constraints:    args.BootstrapConstraints,
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
+		ImageMetadata:  imageMetadata,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
@@ -110,13 +141,21 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		icfg.InstanceId = result.Instance.Id()
 		icfg.HardwareCharacteristics = result.Hardware
-		if err := instancecfg.FinishInstanceConfig(icfg, env.Config()); err != nil {
+		envConfig := env.Config()
+		if result.Config != nil {
+			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			envConfig = updated
+		}
+		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
 			return err
 		}
 		maybeSetBridge(icfg)
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
 	}
-	return result, series, finalize, nil
+	return result, selectedSeries, finalize, nil
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
@@ -133,6 +172,21 @@ var FinishBootstrap = func(
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
+	addr, err := WaitSSH(
+		ctx.GetStderr(),
+		interrupted,
+		client,
+		GetCheckNonceCommand(instanceConfig),
+		&RefreshableInstance{inst, env},
+		instanceConfig.Config.BootstrapSSHOpts(),
+	)
+	if err != nil {
+		return err
+	}
+	return ConfigureMachine(ctx, client, addr, instanceConfig)
+}
+
+func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
 	// Each attempt to connect to an address must verify the machine is the
 	// bootstrap machine by checking its nonce file exists and contains the
 	// nonce in the InstanceConfig. This also blocks sshinit from proceeding
@@ -151,18 +205,7 @@ var FinishBootstrap = func(
 		exit 1
 	fi
 	`, nonceFile, utils.ShQuote(instanceConfig.MachineNonce))
-	addr, err := waitSSH(
-		ctx,
-		interrupted,
-		client,
-		checkNonceCommand,
-		&refreshableInstance{inst, env},
-		instanceConfig.Config.BootstrapSSHOpts(),
-	)
-	if err != nil {
-		return err
-	}
-	return ConfigureMachine(ctx, client, addr, instanceConfig)
+	return checkNonceCommand
 }
 
 func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, instanceConfig *instancecfg.InstanceConfig) error {
@@ -202,7 +245,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	})
 }
 
-type addresser interface {
+type Addresser interface {
 	// Refresh refreshes the addresses for the instance.
 	Refresh() error
 
@@ -212,14 +255,14 @@ type addresser interface {
 	Addresses() ([]network.Address, error)
 }
 
-type refreshableInstance struct {
+type RefreshableInstance struct {
 	instance.Instance
-	env environs.Environ
+	Env environs.Environ
 }
 
 // Refresh refreshes the addresses for the instance.
-func (i *refreshableInstance) Refresh() error {
-	instances, err := i.env.Instances([]instance.Id{i.Id()})
+func (i *RefreshableInstance) Refresh() error {
+	instances, err := i.Env.Instances([]instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -359,7 +402,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
+func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
@@ -369,7 +412,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	checker := parallelHostChecker{
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
-		stderr:          ctx.GetStderr(),
+		stderr:          stdErr,
 		active:          make(map[network.Address]chan struct{}),
 		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
@@ -377,7 +420,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	defer checker.wg.Wait()
 	defer checker.Kill()
 
-	fmt.Fprintln(ctx.GetStderr(), "Waiting for address")
+	fmt.Fprintln(stdErr, "Waiting for address")
 	for {
 		select {
 		case <-pollAddresses.C:

@@ -118,7 +118,7 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 		}
 	}
 	f.numUnits++
-	f.stateToUnit[status.AgentState]++
+	f.stateToUnit[status.WorkloadStatusInfo.Current]++
 }
 
 func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {

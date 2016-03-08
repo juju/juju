@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package metricsender contains functions for sending
-// metrics from a state server to a remote metric collector.
+// metrics from a controller to a remote metric collector.
 package metricsender
 
 import (
@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
 	"github.com/juju/juju/state"
 )
 
@@ -25,7 +25,7 @@ type MetricSender interface {
 
 var (
 	defaultMaxBatchesPerSend              = 10
-	defaultSender            MetricSender = &NopSender{}
+	defaultSender            MetricSender = &HttpSender{}
 )
 
 func handleResponse(mm *state.MetricsManager, st *state.State, response wireformat.Response) {
@@ -79,7 +79,7 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 		}
 		wireData := make([]*wireformat.MetricBatch, lenM)
 		for i, m := range metrics {
-			wireData[i] = wireformat.ToWire(m)
+			wireData[i] = ToWire(m)
 		}
 		response, err := sender.Send(wireData)
 		if err != nil {
@@ -123,4 +123,26 @@ func DefaultMaxBatchesPerSend() int {
 // DefaultMetricSender returns the default metric sender.
 func DefaultMetricSender() MetricSender {
 	return defaultSender
+}
+
+// ToWire converts the state.MetricBatch into a type
+// that can be sent over the wire to the collector.
+func ToWire(mb *state.MetricBatch) *wireformat.MetricBatch {
+	metrics := make([]wireformat.Metric, len(mb.Metrics()))
+	for i, m := range mb.Metrics() {
+		metrics[i] = wireformat.Metric{
+			Key:   m.Key,
+			Value: m.Value,
+			Time:  m.Time.UTC(),
+		}
+	}
+	return &wireformat.MetricBatch{
+		UUID:        mb.UUID(),
+		ModelUUID:   mb.ModelUUID(),
+		UnitName:    mb.Unit(),
+		CharmUrl:    mb.CharmURL(),
+		Created:     mb.Created().UTC(),
+		Metrics:     metrics,
+		Credentials: mb.Credentials(),
+	}
 }

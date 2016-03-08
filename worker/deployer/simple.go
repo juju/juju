@@ -34,7 +34,7 @@ type APICalls interface {
 // SimpleContext is a Context that manages unit deployments on the local system.
 type SimpleContext struct {
 
-	// api is used to get the current state server addresses at the time the
+	// api is used to get the current controller addresses at the time the
 	// given unit is deployed.
 	api APICalls
 
@@ -116,13 +116,16 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
@@ -139,7 +142,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			Tag:               tag,
 			Password:          initialPassword,
 			Nonce:             "unused",
-			Environment:       ctx.agentConfig.Environment(),
+			Model:             ctx.agentConfig.Model(),
 			// TODO: remove the state addresses here and test when api only.
 			StateAddresses: result.StateAddresses,
 			APIAddresses:   result.APIAddresses,
@@ -150,7 +153,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			},
 		})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := conf.Write(); err != nil {
 		return err

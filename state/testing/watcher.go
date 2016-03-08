@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -252,7 +252,7 @@ func NewRelationUnitsWatcherC(c *gc.C, st SyncStarter, w RelationUnitsWatcher) R
 
 type RelationUnitsWatcher interface {
 	Stop() error
-	Changes() <-chan multiwatcher.RelationUnitsChange
+	Changes() <-chan params.RelationUnitsChange
 }
 
 func (c RelationUnitsWatcherC) AssertNoChange() {

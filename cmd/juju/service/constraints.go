@@ -7,27 +7,33 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/api/service"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 )
 
 const getConstraintsDoc = `
 Shows the list of constraints that have been set on the specified service
 using juju service set-constraints.  You can also view constraints
-set for an environment by using juju environment get-constraints.
+set for a model by using juju model get-constraints.
 
-Constraints set on a service are combined with environment constraints for
+Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
-environment and service constraints overlap, the service constraints take
+model and service constraints overlap, the service constraints take
 precedence.
+
+Example:
+
+    get-constraints wordpress
 
 See Also:
    juju help constraints
-   juju help service set-constraints
+   juju help set-constraints
    juju help deploy
    juju help machine add
    juju help add-unit
@@ -36,12 +42,12 @@ See Also:
 const setConstraintsDoc = `
 Sets machine constraints on specific service, which are used as the
 default constraints for all new machines provisioned by that service.
-You can also set constraints on an environment by using
-juju environment set-constraints.
+You can also set constraints on a model by using
+juju model set-constraints.
 
-Constraints set on a service are combined with environment constraints for
+Constraints set on a service are combined with model constraints for
 commands (such as juju deploy) that provision machines for services.  Where
-environment and service constraints overlap, the service constraints take
+model and service constraints overlap, the service constraints take
 precedence.
 
 Example:
@@ -50,21 +56,43 @@ Example:
 
 See Also:
    juju help constraints
-   juju help service get-constraints
+   juju help get-constraints
    juju help deploy
    juju help machine add
    juju help add-unit
 `
 
-func newServiceGetConstraintsCommand() cmd.Command {
-	return envcmd.Wrap(&serviceGetConstraintsCommand{})
+// NewServiceGetConstraintsCommand returns a command which gets service constraints.
+func NewServiceGetConstraintsCommand() cmd.Command {
+	return modelcmd.Wrap(&serviceGetConstraintsCommand{})
 }
 
-// serviceGetConstraintsCommand shows the constraints for a service.
-// It is just a wrapper for the common GetConstraintsCommand which
-// enforces that a service is specified.
+type serviceConstraintsAPI interface {
+	Close() error
+	GetConstraints(string) (constraints.Value, error)
+	SetConstraints(string, constraints.Value) error
+}
+
+type serviceConstraintsCommand struct {
+	modelcmd.ModelCommandBase
+	ServiceName string
+	out         cmd.Output
+	api         serviceConstraintsAPI
+}
+
+func (c *serviceConstraintsCommand) getAPI() (serviceConstraintsAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.NewClient(root), nil
+}
+
 type serviceGetConstraintsCommand struct {
-	common.GetConstraintsCommand
+	serviceConstraintsCommand
 }
 
 func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
@@ -76,6 +104,18 @@ func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
 	}
 }
 
+func formatConstraints(value interface{}) ([]byte, error) {
+	return []byte(value.(constraints.Value).String()), nil
+}
+
+func (c *serviceGetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
+		"constraints": formatConstraints,
+		"yaml":        cmd.FormatYaml,
+		"json":        cmd.FormatJson,
+	})
+}
+
 func (c *serviceGetConstraintsCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service name specified")
@@ -84,19 +124,32 @@ func (c *serviceGetConstraintsCommand) Init(args []string) error {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 
-	c.ServiceName = args[0]
-	return nil
+	c.ServiceName, args = args[0], args[1:]
+	return cmd.CheckEmpty(args)
 }
 
-func newServiceSetConstraintsCommand() cmd.Command {
-	return envcmd.Wrap(&serviceSetConstraintsCommand{})
+func (c *serviceGetConstraintsCommand) Run(ctx *cmd.Context) error {
+	apiclient, err := c.getAPI()
+	if err != nil {
+		return err
+	}
+	defer apiclient.Close()
+
+	cons, err := apiclient.GetConstraints(c.ServiceName)
+	if err != nil {
+		return err
+	}
+	return c.out.Write(ctx, cons)
 }
 
-// serviceSetConstraintsCommand sets the constraints for a service.
-// It is just a wrapper for the common SetConstraintsCommand which
-// enforces that a service is specified.
 type serviceSetConstraintsCommand struct {
-	common.SetConstraintsCommand
+	serviceConstraintsCommand
+	Constraints constraints.Value
+}
+
+// NewServiceSetConstraintsCommand returns a command which sets service constraints.
+func NewServiceSetConstraintsCommand() cmd.Command {
+	return modelcmd.Wrap(&serviceSetConstraintsCommand{})
 }
 
 func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
@@ -107,11 +160,6 @@ func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
 		Doc:     setConstraintsDoc,
 	}
 }
-
-// SetFlags overrides SetFlags for SetConstraintsCommand since that
-// will register a flag to specify the service, and the flag is not
-// required with this service supercommand.
-func (c *serviceSetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {}
 
 func (c *serviceSetConstraintsCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
@@ -125,4 +173,15 @@ func (c *serviceSetConstraintsCommand) Init(args []string) (err error) {
 
 	c.Constraints, err = constraints.Parse(args...)
 	return err
+}
+
+func (c *serviceSetConstraintsCommand) Run(_ *cmd.Context) (err error) {
+	apiclient, err := c.getAPI()
+	if err != nil {
+		return err
+	}
+	defer apiclient.Close()
+
+	err = apiclient.SetConstraints(c.ServiceName, c.Constraints)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }

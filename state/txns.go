@@ -31,11 +31,11 @@ func (st *State) runTransaction(ops []txn.Op) error {
 
 // runRawTransaction is a convenience method that will run a single
 // transaction using a "raw" transaction runner that won't perform
-// environment filtering.
+// model filtering.
 func (st *State) runRawTransaction(ops []txn.Op) error {
 	runner, closer := st.database.TransactionRunner()
 	defer closer()
-	if multiRunner, ok := runner.(*multiEnvRunner); ok {
+	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner
 	}
 	return runner.RunTransaction(ops)
@@ -63,16 +63,16 @@ func (st *State) MaybePruneTransactions() error {
 	return runner.MaybePruneTransactions(2.0)
 }
 
-type multiEnvRunner struct {
+type multiModelRunner struct {
 	rawRunner jujutxn.Runner
 	schema    collectionSchema
-	envUUID   string
+	modelUUID string
 }
 
 // RunTransaction is part of the jujutxn.Runner interface. Operations
-// that affect multi-environment collections will be modified to
+// that affect multi-model collections will be modified to
 // ensure correct interaction with these collections.
-func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
+func (r *multiModelRunner) RunTransaction(ops []txn.Op) error {
 	newOps, err := r.updateOps(ops)
 	if err != nil {
 		return errors.Trace(err)
@@ -81,10 +81,10 @@ func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
 }
 
 // Run is part of the jujutxn.Runner interface. Operations returned by
-// the given "transactions" function that affect multi-environment
+// the given "transactions" function that affect multi-model
 // collections will be modified to ensure correct interaction with
 // these collections.
-func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
+func (r *multiModelRunner) Run(transactions jujutxn.TransactionSource) error {
 	return r.rawRunner.Run(func(attempt int) ([]txn.Op, error) {
 		ops, err := transactions(attempt)
 		if err != nil {
@@ -101,20 +101,20 @@ func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
 }
 
 // ResumeTransactions is part of the jujutxn.Runner interface.
-func (r *multiEnvRunner) ResumeTransactions() error {
+func (r *multiModelRunner) ResumeTransactions() error {
 	return r.rawRunner.ResumeTransactions()
 }
 
 // MaybePruneTransactions is part of the jujutxn.Runner interface.
-func (r *multiEnvRunner) MaybePruneTransactions(pruneFactor float32) error {
+func (r *multiModelRunner) MaybePruneTransactions(pruneFactor float32) error {
 	return r.rawRunner.MaybePruneTransactions(pruneFactor)
 }
 
 // updateOps modifies the Insert and Update fields in a slice of
-// txn.Ops to ensure they are multi-environment safe where
+// txn.Ops to ensure they are multi-model safe where
 // possible. The returned []txn.Op is a new copy of the input (with
 // changes).
-func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
+func (r *multiModelRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 	var outOps []txn.Op
 	for _, op := range ops {
 		collInfo, found := r.schema[op.C]
@@ -126,9 +126,9 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		}
 		outOp := op
 		if !collInfo.global {
-			outOp.Id = ensureEnvUUIDIfString(r.envUUID, op.Id)
+			outOp.Id = ensureModelUUIDIfString(r.modelUUID, op.Id)
 			if op.Insert != nil {
-				newInsert, err := mungeDocForMultiEnv(op.Insert, r.envUUID, envUUIDRequired)
+				newInsert, err := mungeDocForMultiEnv(op.Insert, r.modelUUID, modelUUIDRequired)
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
@@ -149,8 +149,8 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 }
 
 // mungeUpdate takes the value of an txn.Op Update field and modifies
-// it to be multi-environment safe, returning the modified document.
-func (r *multiEnvRunner) mungeUpdate(updateDoc interface{}) (interface{}, error) {
+// it to be multi-model safe, returning the modified document.
+func (r *multiModelRunner) mungeUpdate(updateDoc interface{}) (interface{}, error) {
 	switch doc := updateDoc.(type) {
 	case bson.D:
 		return r.mungeBsonDUpdate(doc)
@@ -162,14 +162,14 @@ func (r *multiEnvRunner) mungeUpdate(updateDoc interface{}) (interface{}, error)
 }
 
 // mungeBsonDUpdate modifies a txn.Op's Update field values expressed
-// as a bson.D and attempts to make it multi-environment safe.
+// as a bson.D and attempts to make it multi-model safe.
 //
 // Currently, only $set operations are munged.
-func (r *multiEnvRunner) mungeBsonDUpdate(updateDoc bson.D) (bson.D, error) {
+func (r *multiModelRunner) mungeBsonDUpdate(updateDoc bson.D) (bson.D, error) {
 	outDoc := make(bson.D, 0, len(updateDoc))
 	for _, elem := range updateDoc {
 		if elem.Name == "$set" {
-			newSetDoc, err := mungeDocForMultiEnv(elem.Value, r.envUUID, 0)
+			newSetDoc, err := mungeDocForMultiEnv(elem.Value, r.modelUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -181,15 +181,15 @@ func (r *multiEnvRunner) mungeBsonDUpdate(updateDoc bson.D) (bson.D, error) {
 }
 
 // mungeBsonMUpdate modifies a txn.Op's Update field values expressed
-// as a bson.M and attempts to make it multi-environment safe.
+// as a bson.M and attempts to make it multi-model safe.
 //
 // Currently, only $set operations are munged.
-func (r *multiEnvRunner) mungeBsonMUpdate(updateDoc bson.M) (bson.M, error) {
+func (r *multiModelRunner) mungeBsonMUpdate(updateDoc bson.M) (bson.M, error) {
 	outDoc := make(bson.M)
 	for name, elem := range updateDoc {
 		if name == "$set" {
 			var err error
-			elem, err = mungeDocForMultiEnv(elem, r.envUUID, 0)
+			elem, err = mungeDocForMultiEnv(elem, r.modelUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

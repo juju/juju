@@ -68,10 +68,9 @@ func (s *RepoSuite) TearDownSuite(c *gc.C) {
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.BaseRepoSuite.SetUpTest(c)
-	// Change the environ's config to ensure we're using the one in state,
-	// not the one in the local environments.yaml
+	// Change the environ's config to ensure we're using the one in state.
 	updateAttrs := map[string]interface{}{"default-series": config.LatestLtsSeries()}
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -103,7 +102,7 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	r, _, err := storage.Get(ch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()

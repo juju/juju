@@ -11,7 +11,7 @@ import (
 
 	apiblock "github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -21,10 +21,10 @@ var logger = loggo.GetLogger("juju.cmd.juju.block")
 // supplied to the command.
 // These operations do not necessarily correspond to juju commands
 // but are rather juju command groupings.
-var blockArgs = []string{"destroy-environment", "remove-object", "all-changes"}
+var blockArgs = []string{"destroy-model", "remove-object", "all-changes"}
 
 // TypeFromOperation translates given operation string
-// such as destroy-environment, remove-object, etc to
+// such as destroy-model, remove-object, etc to
 // block type string as defined in multiwatcher.
 var TypeFromOperation = func(operation string) string {
 	for key, value := range blockTypes {
@@ -36,20 +36,20 @@ var TypeFromOperation = func(operation string) string {
 }
 
 var blockTypes = map[string]string{
-	string(multiwatcher.BlockDestroy): "destroy-environment",
+	string(multiwatcher.BlockDestroy): "destroy-model",
 	string(multiwatcher.BlockRemove):  "remove-object",
 	string(multiwatcher.BlockChange):  "all-changes",
 }
 
 // OperationFromType translates given block type as
 // defined in multiwatcher into the operation
-// such as destroy-environment.
+// such as destroy-model.
 var OperationFromType = func(blockType string) string {
 	return blockTypes[blockType]
 }
 
 // getBlockAPI returns a block api for block manipulation.
-func getBlockAPI(c *envcmd.EnvCommandBase) (*apiblock.Client, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (*apiblock.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
@@ -95,21 +95,21 @@ func ProcessBlockedError(err error, block Block) error {
 
 var removeMsg = `
 All operations that remove (or delete or terminate) machines, services, units or
-relations have been blocked for the current environment.
+relations have been blocked for the current model.
 To unblock removal, run
 
     juju unblock remove-object
 
 `
 var destroyMsg = `
-destroy-environment operation has been blocked for the current environment.
+destroy-model operation has been blocked for the current model.
 To remove the block run
 
-    juju unblock destroy-environment
+    juju unblock destroy-model
 
 `
 var changeMsg = `
-All operations that change environment have been blocked for the current environment.
+All operations that change model have been blocked for the current model.
 To unblock changes, run
 
     juju unblock all-changes

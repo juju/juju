@@ -8,15 +8,22 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	NewActionAPIClient = &newAPIClient
 	AddValueToMap      = addValueToMap
-	NewFetchCommand    = newFetchCommand
-	NewStatusCommand   = newStatusCommand
 )
+
+type FetchCommand struct {
+	*fetchCommand
+}
+
+type StatusCommand struct {
+	*statusCommand
+}
 
 type DoCommand struct {
 	*doCommand
@@ -54,15 +61,30 @@ func (c *DefinedCommand) FullSchema() bool {
 	return c.fullSchema
 }
 
-func NewDefinedCommand() (cmd.Command, *DefinedCommand) {
-	c := &definedCommand{}
-	return envcmd.Wrap(c, envcmd.EnvSkipDefault), &DefinedCommand{c}
+func NewFetchCommand(store jujuclient.ClientStore) (cmd.Command, *FetchCommand) {
+	c := &fetchCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c), &FetchCommand{c}
 }
 
-func NewDoCommand() (cmd.Command, *DoCommand) {
-	c := &doCommand{}
-	return envcmd.Wrap(c, envcmd.EnvSkipDefault), &DoCommand{c}
+func NewStatusCommand(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
+	c := &statusCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c), &StatusCommand{c}
 }
+
+func NewDefinedCommand(store jujuclient.ClientStore) (cmd.Command, *DefinedCommand) {
+	c := &definedCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &DefinedCommand{c}
+}
+
+func NewDoCommand(store jujuclient.ClientStore) (cmd.Command, *DoCommand) {
+	c := &doCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &DoCommand{c}
+}
+
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
 	return resultsToMap(results)
 }

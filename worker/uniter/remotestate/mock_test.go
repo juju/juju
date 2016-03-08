@@ -4,85 +4,95 @@
 package remotestate_test
 
 import (
+	"sync"
+
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
+func newMockWatcher() *mockWatcher {
+	return &mockWatcher{
+		stopped: make(chan struct{}),
+	}
+}
+
+type mockWatcher struct {
+	mu      sync.Mutex
+	stopped chan struct{}
+}
+
+func (w *mockWatcher) Kill() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if !w.Stopped() {
+		close(w.stopped)
+	}
+}
+
+func (w *mockWatcher) Wait() error {
+	<-w.stopped
+	return nil
+}
+
+func (w *mockWatcher) Stopped() bool {
+	select {
+	case <-w.stopped:
+		return true
+	default:
+		return false
+	}
+}
+
+func newMockNotifyWatcher() *mockNotifyWatcher {
+	return &mockNotifyWatcher{
+		mockWatcher: newMockWatcher(),
+		changes:     make(chan struct{}, 1),
+	}
+}
+
 type mockNotifyWatcher struct {
+	*mockWatcher
 	changes chan struct{}
-	stopped bool
 }
 
-func (w *mockNotifyWatcher) Stop() error {
-	w.stopped = true
-	return nil
-}
-
-func (*mockNotifyWatcher) Err() error {
-	return nil
-}
-
-func (w *mockNotifyWatcher) Changes() <-chan struct{} {
+func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
+}
+
+func newMockStringsWatcher() *mockStringsWatcher {
+	return &mockStringsWatcher{
+		mockWatcher: newMockWatcher(),
+		changes:     make(chan []string, 1),
+	}
 }
 
 type mockStringsWatcher struct {
+	*mockWatcher
 	changes chan []string
-	stopped bool
 }
 
-func (w *mockStringsWatcher) Stop() error {
-	w.stopped = true
-	return nil
-}
-
-func (*mockStringsWatcher) Err() error {
-	return nil
-}
-
-func (w *mockStringsWatcher) Changes() <-chan []string {
+func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
+}
+
+func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
+	return &mockRelationUnitsWatcher{
+		mockWatcher: newMockWatcher(),
+		changes:     make(chan watcher.RelationUnitsChange, 1),
+	}
 }
 
 type mockRelationUnitsWatcher struct {
-	changes chan multiwatcher.RelationUnitsChange
-	stopped bool
+	*mockWatcher
+	changes chan watcher.RelationUnitsChange
 }
 
-func (w *mockRelationUnitsWatcher) Stop() error {
-	w.stopped = true
-	return nil
-}
-
-func (*mockRelationUnitsWatcher) Err() error {
-	return nil
-}
-
-func (w *mockRelationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange {
-	return w.changes
-}
-
-type mockStorageAttachmentWatcher struct {
-	changes chan struct{}
-	stopped bool
-}
-
-func (w *mockStorageAttachmentWatcher) Stop() error {
-	w.stopped = true
-	return nil
-}
-
-func (*mockStorageAttachmentWatcher) Err() error {
-	return nil
-}
-
-func (w *mockStorageAttachmentWatcher) Changes() <-chan struct{} {
+func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.changes
 }
 
@@ -91,7 +101,7 @@ type mockState struct {
 	relations                 map[names.RelationTag]*mockRelation
 	storageAttachment         map[params.StorageAttachmentId]params.StorageAttachment
 	relationUnitsWatchers     map[names.RelationTag]*mockRelationUnitsWatcher
-	storageAttachmentWatchers map[names.StorageTag]*mockStorageAttachmentWatcher
+	storageAttachmentWatchers map[names.StorageTag]*mockNotifyWatcher
 }
 
 func (st *mockState) Relation(tag names.RelationTag) (remotestate.Relation, error) {
@@ -176,11 +186,11 @@ type mockUnit struct {
 	life                  params.Life
 	resolved              params.ResolvedMode
 	service               mockService
-	unitWatcher           mockNotifyWatcher
-	addressesWatcher      mockNotifyWatcher
-	configSettingsWatcher mockNotifyWatcher
-	storageWatcher        mockStringsWatcher
-	actionWatcher         mockStringsWatcher
+	unitWatcher           *mockNotifyWatcher
+	addressesWatcher      *mockNotifyWatcher
+	configSettingsWatcher *mockNotifyWatcher
+	storageWatcher        *mockStringsWatcher
+	actionWatcher         *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -204,33 +214,38 @@ func (u *mockUnit) Tag() names.UnitTag {
 }
 
 func (u *mockUnit) Watch() (watcher.NotifyWatcher, error) {
-	return &u.unitWatcher, nil
+	return u.unitWatcher, nil
 }
 
 func (u *mockUnit) WatchAddresses() (watcher.NotifyWatcher, error) {
-	return &u.addressesWatcher, nil
+	return u.addressesWatcher, nil
 }
 
 func (u *mockUnit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
-	return &u.configSettingsWatcher, nil
+	return u.configSettingsWatcher, nil
 }
 
 func (u *mockUnit) WatchStorage() (watcher.StringsWatcher, error) {
-	return &u.storageWatcher, nil
+	return u.storageWatcher, nil
 }
 
 func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
-	return &u.actionWatcher, nil
+	return u.actionWatcher, nil
 }
 
 type mockService struct {
 	tag                   names.ServiceTag
 	life                  params.Life
 	curl                  *charm.URL
+	charmModifiedVersion  int
 	forceUpgrade          bool
-	serviceWatcher        mockNotifyWatcher
-	leaderSettingsWatcher mockNotifyWatcher
-	relationsWatcher      mockStringsWatcher
+	serviceWatcher        *mockNotifyWatcher
+	leaderSettingsWatcher *mockNotifyWatcher
+	relationsWatcher      *mockStringsWatcher
+}
+
+func (s *mockService) CharmModifiedVersion() (int, error) {
+	return s.charmModifiedVersion, nil
 }
 
 func (s *mockService) CharmURL() (*charm.URL, bool, error) {
@@ -250,15 +265,15 @@ func (s *mockService) Tag() names.ServiceTag {
 }
 
 func (s *mockService) Watch() (watcher.NotifyWatcher, error) {
-	return &s.serviceWatcher, nil
+	return s.serviceWatcher, nil
 }
 
 func (s *mockService) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
-	return &s.leaderSettingsWatcher, nil
+	return s.leaderSettingsWatcher, nil
 }
 
 func (s *mockService) WatchRelations() (watcher.StringsWatcher, error) {
-	return &s.relationsWatcher, nil
+	return s.relationsWatcher, nil
 }
 
 type mockRelation struct {

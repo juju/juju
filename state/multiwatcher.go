@@ -336,7 +336,7 @@ type multiwatcherStore struct {
 }
 
 // newStore returns an Store instance holding information about the
-// current state of all entities in the environment.
+// current state of all entities in the model.
 // It is only exposed here for testing purposes.
 func newStore() *multiwatcherStore {
 	return &multiwatcherStore{

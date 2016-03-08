@@ -23,13 +23,13 @@ describes the API design for developers maintaining and extending the API.
 
 ### Scope
 
-Juju's working model is based on the description of a wanted environment in a 
+Juju's working model is based on the description of a wanted environment in a
 DBMS. Different workers observe the changes of this description and perform the 
 needed actions so that the reality is matching. Goal of the API is to provide a 
 secure, scalable, and high-available way to perform the needed changes or queries 
 with different clients like the Juju CLI, which is written in Go, or the Juju 
 GUI, which is written in JavaScript. Additionally the API provides multiple versions 
-of its functionality for a predictable behavior in environments with a mixed set of 
+of its functionality for a predictable behavior in environments with a mixed set of
 clients.
 
 ### Overview
@@ -59,14 +59,14 @@ This document provides a detailed specification of
 
 ## Requirements
 
-- As a user of Trusty, I want to be able to bootstrap an environment today, and be 
+- As a user of Trusty, I want to be able to bootstrap a model today, and be
   able to trust that in 2 years I will still be able to access/control/update that 
-  environment even when I’ve upgraded my juju client tools.
+  model even when I’ve upgraded my juju client tools.
 - As a group with heterogeneous clients, we want to be able to bootstrap a new 
-  environment, and trust that all clients are still able to connect and manage the 
-  environment.
-- As a user with a new Juju client, I want to be able to bootstrap a new environment 
-  and have access to all the latest features for that environment. (HA, User accounts, 
+  model, and trust that all clients are still able to connect and manage the
+  model.
+- As a user with a new Juju client, I want to be able to bootstrap a new model
+  and have access to all the latest features for that model. (HA, User accounts,
   etc.)
 - As an Agent, I want to be able to communicate with the API server to be able to perform 
   my regular tasks, and be able to upgrade to stay in sync with the desired agent version. 
@@ -82,7 +82,7 @@ This document provides a detailed specification of
 
 The major functionality of the Juju API is based on a request/response model 
 using WebSockets as communication layer. Each client connects to the API server 
-of the environment. In case of high-availability an environment provides multiple 
+of the model. In case of high-availability a model provides multiple
 API servers and a client connects to one of them.
 
 The requests sent via this connection are encoded in JSON. They contain a type
@@ -99,10 +99,6 @@ This part of the API handles two different major types of requests:
 Watcher requests are also request/response calls. But they create server-side
 resources which respond to future `Next()` calls. Those retrieve already happened
 changes or wait for the next ones and return them to the caller.
-
-Another handler using WebSockets for delivering a stream of data is the
-debug log handler. It opens the `all-machines.log` and continuously streams
-the data to the client.
 
 ### HTTP Requests
 
@@ -261,7 +257,7 @@ HTTP request and starts the individual WebSockets connection. Inside of
 `Server.serveConn()` it uses the WebSocket to etablish the RPC using 
 the JSON codec. 
 
-In case of a valid environment UUID a new server state server instance is
+In case of a valid model UUID a new server controller instance is
 created using `apiserver.initialRoot` with an `apiserver.srvAdmin` for the
 login process. If this is successful the root is changed to `apiserver.srvRoot`
 for the real API request handling. It implements `FindMethod()` which is needed

@@ -26,7 +26,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -83,7 +82,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
 			RequireSigned:  false,
 			DataType:       tools.ContentDownload,
 			StreamsVersion: tools.CurrentStreamsVersion,
@@ -103,7 +102,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, requireSigned),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		StreamsVersion:  tools.CurrentStreamsVersion,
@@ -262,9 +261,9 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				})
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
-		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, s.RequireSigned)
 		tools, resolveInfo, err := tools.Fetch(
-			[]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint, s.RequireSigned)
+			[]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
@@ -290,7 +289,7 @@ func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
 		Stream:    "proposed",
 	})
 	_, _, err := tools.Fetch(
-		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
+		[]simplestreams.DataSource{s.Source}, toolsConstraint)
 	c.Assert(err, gc.ErrorMatches, `"content-download" data not found`)
 }
 
@@ -302,7 +301,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 		Stream:    "released",
 	})
 	toolsMetadata, resolveInfo, err := tools.Fetch(
-		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
+		[]simplestreams.DataSource{s.Source}, toolsConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 
@@ -1019,14 +1018,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 }
 
 type signedSuite struct {
-	origKey string
-}
-
-var testRoundTripper *jujutest.ProxyRoundTripper
-
-func init() {
-	testRoundTripper = &jujutest.ProxyRoundTripper{}
-	testRoundTripper.RegisterForScheme("signedtest")
+	coretesting.BaseSuite
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
@@ -1054,18 +1046,18 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
-		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
-	s.origKey = tools.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
+	sstesting.SetRoundTripperFiles(imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
-	testRoundTripper.Sub = nil
-	tools.SetSigningPublicKey(s.origKey)
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLSignedDataSource(
+		"test", "signedtest://host/signed", sstesting.SignedMetadataPublicKey,
+		utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
@@ -1073,7 +1065,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 		Stream:    "released",
 	})
 	toolsMetadata, resolveInfo, err := tools.Fetch(
-		[]simplestreams.DataSource{signedSource}, toolsConstraint, true)
+		[]simplestreams.DataSource{signedSource}, toolsConstraint)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")

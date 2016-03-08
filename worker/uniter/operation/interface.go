@@ -155,7 +155,7 @@ type Callbacks interface {
 
 	// SetCurrentCharm records intent to deploy a given charm. It must be called
 	// *before* recording local state referencing that charm, to ensure there's
-	// no path by which the state server can legitimately garbage collect that
+	// no path by which the controller can legitimately garbage collect that
 	// charm or the service's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
 }

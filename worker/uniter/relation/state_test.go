@@ -74,7 +74,7 @@ var badRelationsTests = []struct {
 		`.* (is a directory|handle is invalid.)`,
 	}, {
 		map[string]string{"foo-1": "'"}, nil,
-		`invalid unit file "foo-1": YAML error: .*`,
+		`invalid unit file "foo-1": yaml: found unexpected end of stream`,
 	}, {
 		map[string]string{"foo-1": "blah: blah\n"}, nil,
 		`invalid unit file "foo-1": "changed-version" not set`,

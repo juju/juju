@@ -86,7 +86,7 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatus
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
-	cfg, err := c.api.stateAccessor.EnvironConfig()
+	cfg, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return params.FullStatus{}, errors.Annotate(err, "could not get environ config")
 	}
@@ -108,12 +108,37 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
 
+		// First, attempt to match machines. Any units on those
+		// machines are implicitly matched.
+		matchedMachines := make(set.Strings)
+		for _, machineList := range context.machines {
+			for _, m := range machineList {
+				matches, err := predicate(m)
+				if err != nil {
+					return noStatus, errors.Annotate(
+						err, "could not filter machines",
+					)
+				}
+				if matches {
+					matchedMachines.Add(m.Id())
+				}
+			}
+		}
+
 		// Filter units
-		unfilteredSvcs := make(set.Strings)
-		unfilteredMachines := make(set.Strings)
+		matchedSvcs := make(set.Strings)
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
+				machineId, err := unit.AssignedMachineId()
+				if err != nil {
+					machineId = ""
+				} else if matchedMachines.Contains(machineId) {
+					// Unit is on a matching machine.
+					matchedSvcs.Add(unit.ServiceName())
+					continue
+				}
+
 				// Always start examining at the top-level. This
 				// prevents a situation where we filter a subordinate
 				// before we discover its parent is a match.
@@ -125,23 +150,17 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					delete(unitMap, name)
 					continue
 				}
-
-				// Track which services are utilized by the units so
-				// that we can be sure to not filter that service out.
-				unfilteredSvcs.Add(unit.ServiceName())
-				machineId, err := unit.AssignedMachineId()
-				if err != nil {
-					return noStatus, err
+				matchedSvcs.Add(unit.ServiceName())
+				if machineId != "" {
+					matchedMachines.Add(machineId)
 				}
-				unfilteredMachines.Add(machineId)
 			}
 		}
 
 		// Filter services
 		for svcName, svc := range context.services {
-			if unfilteredSvcs.Contains(svcName) {
-				// Don't filter services which have units that were
-				// not filtered.
+			if matchedSvcs.Contains(svcName) {
+				// There are matched units for this service.
 				continue
 			} else if matches, err := predicate(svc); err != nil {
 				return noStatus, errors.Annotate(err, "could not filter services")
@@ -152,7 +171,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 		// Filter machines
 		for status, machineList := range context.machines {
-			filteredList := make([]*state.Machine, 0, len(machineList))
+			matched := make([]*state.Machine, 0, len(machineList))
 			for _, m := range machineList {
 				machineContainers, err := m.Containers()
 				if err != nil {
@@ -160,19 +179,15 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				}
 				machineContainersSet := set.NewStrings(machineContainers...)
 
-				if unfilteredMachines.Contains(m.Id()) || !unfilteredMachines.Intersection(machineContainersSet).IsEmpty() {
-					// Don't filter machines which have an unfiltered
-					// unit running on them.
-					logger.Debugf("mid %s is hosting something.", m.Id())
-					filteredList = append(filteredList, m)
+				if matchedMachines.Contains(m.Id()) || !matchedMachines.Intersection(machineContainersSet).IsEmpty() {
+					// The machine is matched directly, or contains a unit
+					// or container that matches.
+					logger.Tracef("machine %s is hosting something.", m.Id())
+					matched = append(matched, m)
 					continue
-				} else if matches, err := predicate(m); err != nil {
-					return noStatus, errors.Annotate(err, "could not filter machines")
-				} else if matches {
-					filteredList = append(filteredList, m)
 				}
 			}
-			context.machines[status] = filteredList
+			context.machines[status] = matched
 		}
 	}
 
@@ -180,9 +195,11 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
 	}
-
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot determine mongo information")
+	}
 	return params.FullStatus{
-		EnvironmentName:  cfg.Name(),
+		ModelName:        cfg.Name(),
 		AvailableVersion: newToolsVersion,
 		Machines:         processMachines(context.machines),
 		Services:         context.processServices(),
@@ -194,14 +211,14 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 // newToolsVersionAvailable will return a string representing a tools
 // version only if the latest check is newer than current tools.
 func (c *Client) newToolsVersionAvailable() (string, error) {
-	env, err := c.api.stateAccessor.Environment()
+	env, err := c.api.stateAccessor.Model()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot get environment")
+		return "", errors.Annotate(err, "cannot get model")
 	}
 
 	latestVersion := env.LatestToolsVersion()
 
-	envConfig, err := c.api.stateAccessor.EnvironConfig()
+	envConfig, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot obtain current environ config")
 	}
@@ -399,7 +416,8 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 		}
 
 		// Element 0 is assumed to be the top-level machine.
-		hostStatus := makeMachineStatus(machines[0])
+		tlMachine := machines[0]
+		hostStatus := makeMachineStatus(tlMachine)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 
@@ -419,15 +437,8 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 
 func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 	status.Id = machine.Id()
-	agentStatus, compatStatus := processMachine(machine)
+	agentStatus := processMachine(machine)
 	status.Agent = agentStatus
-
-	// These legacy status values will be deprecated for Juju 2.0.
-	status.AgentState = compatStatus.Status
-	status.AgentStateInfo = compatStatus.Info
-	status.AgentVersion = compatStatus.Version
-	status.Life = compatStatus.Life
-	status.Err = compatStatus.Err
 
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
@@ -445,7 +456,7 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 			// Usually this indicates that no addresses have been set on the
 			// machine yet.
 			addr = network.Address{}
-			logger.Warningf("error fetching public address: %q", err)
+			logger.Debugf("error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
 	} else {
@@ -454,11 +465,6 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 		} else {
 			status.InstanceId = "error"
 		}
-		// There's no point in reporting a pending agent state
-		// if the machine hasn't been provisioned. This
-		// also makes unprovisioned machines visually distinct
-		// in the output.
-		status.AgentState = ""
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
@@ -657,7 +663,7 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 		// Usually this indicates that no addresses have been set on the
 		// machine yet.
 		addr = network.Address{}
-		logger.Warningf("error fetching public address: %v", err)
+		logger.Debugf("error fetching public address: %v", err)
 	}
 	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
@@ -765,7 +771,7 @@ func populateStatusFromGetter(agent *params.AgentStatus, getter state.StatusGett
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func processMachine(machine *state.Machine) (out params.AgentStatus, compat params.AgentStatus) {
+func processMachine(machine *state.Machine) (out params.AgentStatus) {
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
@@ -773,7 +779,6 @@ func processMachine(machine *state.Machine) (out params.AgentStatus, compat para
 	}
 
 	populateStatusFromGetter(&out, machine)
-	compat = out
 
 	if out.Err != nil {
 		return
@@ -782,34 +787,6 @@ func processMachine(machine *state.Machine) (out params.AgentStatus, compat para
 		// The status is pending - there's no point
 		// in enquiring about the agent liveness.
 		return
-	}
-	agentAlive, err := machine.AgentPresence()
-	if err != nil {
-		return
-	}
-
-	if machine.Life() != state.Dead && !agentAlive {
-		// The agent *should* be alive but is not. Set status to
-		// StatusDown and munge Info to indicate the previous status and
-		// info. This is unfortunately making presentation decisions
-		// on behalf of the client (crappy).
-		//
-		// This is munging is only being left in place for
-		// compatibility with older clients.  TODO: At some point we
-		// should change this so that Info left alone. API version may
-		// help here.
-		//
-		// Better yet, Status shouldn't be changed here in the API at
-		// all! Status changes should only happen in State. One
-		// problem caused by this is that this status change won't be
-		// seen by clients using a watcher because it didn't happen in
-		// State.
-		if out.Info != "" {
-			compat.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
-		} else {
-			compat.Info = fmt.Sprintf("(%s)", out.Status)
-		}
-		compat.Status = params.StatusDown
 	}
 
 	return
@@ -831,10 +808,8 @@ func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.Age
 }
 
 func canBeLost(status *params.UnitStatus) bool {
-	// Pending and Installing are deprecated.
-	// Need to still check pending for existing deployments.
 	switch status.UnitAgent.Status {
-	case params.StatusPending, params.StatusInstalling, params.StatusAllocating:
+	case params.StatusAllocating:
 		return false
 	case params.StatusExecuting:
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))

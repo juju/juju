@@ -1,16 +1,16 @@
 Introduction to Juju
 
-This tutorial will show you how to get started with Juju, including installing, configuring and bootstrapping a new Juju environment. Before you start you will need:
+This tutorial will show you how to get started with Juju, including installing, configuring and bootstrapping a new Juju model. Before you start you will need:
 
 * An Ubuntu, Windows or OSX machine to install the client on.
 
-* An environment which can provide a new server with an Ubuntu cloud operating system image on-demand. This includes services such as Microsoft Azure, Amazon EC2, HP Cloud, or an OpenStack installation.
+* A model which can provide a new server with an Ubuntu cloud operating system image on-demand. This includes services such as Microsoft Azure, Amazon EC2, HP Cloud, or an OpenStack installation.
 
 * An SSH key-pair. Juju expects to find ssh keys called id_rsa and id_rsa.pub in a .ssh folder in your home directory.
 
 Configuring
 
-Now the Juju software is installed, it needs to be configured to use your particular cloud provider. This is done by generating and editing a file, "environments.yaml", which will live in your %LOCALAPPDATA%\Juju directory. You can generate the environments file manually, but Juju also includes a boilerplate configuration option that will flesh out most of the file for you and minimise the amount of work (and potential errors).
+Now the Juju software is installed, it needs to be configured to use your particular cloud provider. This is done by generating and editing a file, "environments.yaml", which will live in your %LOCALAPPDATA%\Juju directory. You can generate the models file manually, but Juju also includes a boilerplate configuration option that will flesh out most of the file for you and minimise the amount of work (and potential errors).
 
 To generate an initial config file, you simply need to run:
 
@@ -25,11 +25,11 @@ Testing your setup
 Once you have installed and configured Juju, it is probably a good idea to take it for a bit of a test drive and check that everything is working as expected. Because Juju makes it really easy to deploy services, this is actually quick and straightforward.
 
 
-The first thing to do is set up a bootstrap environment. This is an instance in the cloud that Juju will use to deploy and control other services with. It will be created according to the configuration you have provided, and your SSH key will automatically be uploaded so that Juju can communicate securely with the bootstrap instance.
+The first thing to do is set up a bootstrap model. This is an instance in the cloud that Juju will use to deploy and control other services with. It will be created according to the configuration you have provided, and your SSH key will automatically be uploaded so that Juju can communicate securely with the bootstrap instance.
 
 > juju bootstrap
 
-Note: If you have multiple environments configured, you can choose which one to address with a particular command by adding the -e switch followed by the environment name, E.g. "-e hpcloud".
+Note: If you have multiple models configured, you can choose which one to address with a particular command by adding the -e switch followed by the model name, E.g. "-e hpcloud".
 
 You may have to wait a few moments for this command to return, as it needs to perform various tasks and contact your cloud provider.
 
@@ -126,7 +126,7 @@ Now you are ready to deploy whatever service you really want from the 100s avail
 
 To remove all current deployments and clear up everything in your cloud, you can run the command:
 
-> juju destroy-environment
+> juju destroy-model
 
 This will remove everything, including the bootstrap node.
 

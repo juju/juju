@@ -65,12 +65,15 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	checkPayloads(c, payloads, p1, p2)
 	s.Stub.CheckCallNames(c,
 		"Machines",
+
 		"MachineUnits",
+
 		"MachineUnits",
 		"newUnitPersistence",
 		"ListAll",
 		"newUnitPersistence",
 		"ListAll",
+
 		"MachineUnits",
 		"newUnitPersistence",
 		"ListAll",
@@ -89,7 +92,9 @@ func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	c.Check(payloads, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c,
 		"Machines",
+
 		"MachineUnits",
+
 		"MachineUnits",
 		"newUnitPersistence",
 		"ListAll",
@@ -148,6 +153,7 @@ func checkPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...
 type stubEnvPersistenceBase struct {
 	PersistenceBase
 	stub         *testing.Stub
+	machines     []string
 	units        map[string]map[string]bool
 	unitPersists map[string]*stubUnitPersistence
 }
@@ -175,6 +181,7 @@ func (s *stubEnvPersistenceBase) setUnits(machine string, units ...string) {
 		s.units = make(map[string]map[string]bool)
 	}
 	if _, ok := s.units[machine]; !ok {
+		s.machines = append(s.machines, machine)
 		s.units[machine] = make(map[string]bool)
 	}
 
@@ -205,7 +212,7 @@ func (s *stubEnvPersistenceBase) Machines() ([]string, error) {
 	}
 
 	var names []string
-	for name := range s.units {
+	for _, name := range s.machines {
 		names = append(names, name)
 	}
 	return names, nil

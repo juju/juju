@@ -33,7 +33,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
-	registry.RegisterEnvironStorageProviders("dummyenv", ec2.EBS_ProviderType)
+	registry.RegisterEnvironStorageProviders("dummymodel", ec2.EBS_ProviderType)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -298,7 +298,7 @@ loop:
 }
 
 func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	registry.RegisterEnvironStorageProviders(cfg.Name(), provider.TmpfsProviderType)
 }
@@ -317,7 +317,7 @@ tmpfs:
 func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
 	_, stderr, err := runPoolList(c, "--provider", "oops")
 	c.Assert(err, gc.NotNil)
-	c.Assert(stderr, jc.Contains, `"oops" for environment "dummyenv" not supported`)
+	c.Assert(stderr, jc.Contains, `"oops" not supported`)
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
@@ -437,7 +437,7 @@ func runVolumeList(c *gc.C, args ...string) (string, string, error) {
 
 func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
 	_, stderr, err := runVolumeList(c, "abc")
-	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr, jc.Contains, `"machine-abc" is not a valid machine tag`)
 }
 

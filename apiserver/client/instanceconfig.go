@@ -10,17 +10,17 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
 // InstanceConfig returns information from the environment config that
-// is needed for machine cloud-init (for non-state servers only). It
+// is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
-	environConfig, err := st.EnvironConfig()
+	environConfig, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -43,9 +43,9 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	// Find the appropriate tools information.
 	agentVersion, ok := environConfig.AgentVersion()
 	if !ok {
-		return nil, errors.New("no agent version set in environment configuration")
+		return nil, errors.New("no agent version set in model configuration")
 	}
-	environment, err := st.Environment()
+	environment, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, err
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(),
+	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(), "",
 		secureServerConnection, networks, mongoInfo, apiInfo,
 	)
 	if err != nil {

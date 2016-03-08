@@ -3,7 +3,7 @@
 
 package params
 
-// Block describes a Juju block that protects environment from
+// Block describes a Juju block that protects model from
 // corruption.
 type Block struct {
 	// Id is this blocks id.

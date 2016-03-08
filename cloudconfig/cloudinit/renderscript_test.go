@@ -41,7 +41,7 @@ func init() {
 	environs.RegisterProvider("sshinit_test", &testProvider{})
 }
 
-func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
+func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
@@ -53,16 +53,19 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 	return testConfig
 }
 
-func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) cloudinit.CloudConfig {
+func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
-	if stateServer {
-		icfg, err = instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, vers.Series)
+	if controller {
+		icfg, err = instancecfg.NewBootstrapInstanceConfig(
+			constraints.Value{}, constraints.Value{},
+			vers.Series, "",
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.InstanceId = "instance-id"
-		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
+		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
+		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
@@ -70,7 +73,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		Version: vers,
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
-	environConfig := testConfig(c, stateServer, vers)
+	environConfig := testConfig(c, controller, vers)
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := cloudinit.New(icfg.Series)

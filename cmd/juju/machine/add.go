@@ -10,16 +10,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
@@ -63,19 +61,20 @@ MAAS provider to acquire a particular node by specifying its hostname.
 For more information on placement directives, see "juju help placement".
 
 Examples:
-   juju machine add                      (starts a new machine)
-   juju machine add -n 2                 (starts 2 new machines)
-   juju machine add lxc                  (starts a new machine with an lxc container)
-   juju machine add lxc -n 2             (starts 2 new machines with an lxc container)
-   juju machine add lxc:4                (starts a new lxc container on machine 4)
-   juju machine add --constraints mem=8G (starts a machine with at least 8GB RAM)
-   juju machine add ssh:user@10.10.0.3   (manually provisions a machine with ssh)
-   juju machine add zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
-   juju machine add maas2.name           (acquire machine maas2.name on MAAS)
+   juju add-machine                      (starts a new machine)
+   juju add-machine -n 2                 (starts 2 new machines)
+   juju add-machine lxc                  (starts a new machine with an lxc container)
+   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
+   juju add-machine lxc:4                (starts a new lxc container on machine 4)
+   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
+   juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
+   juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
+   juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
 See Also:
    juju help constraints
    juju help placement
+   juju help remove-machine
 `
 
 func init() {
@@ -91,18 +90,19 @@ func init() {
 	)
 }
 
-func newAddCommand() cmd.Command {
-	return envcmd.Wrap(&addCommand{})
+// NewAddCommand returns a command that adds a machine to a model.
+func NewAddCommand() cmd.Command {
+	return modelcmd.Wrap(&addCommand{})
 }
 
-// addCommand starts a new machine and registers it in the environment.
+// addCommand starts a new machine and registers it in the model.
 type addCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api               AddMachineAPI
 	machineManagerAPI MachineManagerAPI
-	// If specified, use this series, else use the environment default-series
+	// If specified, use this series, else use the model default-series
 	Series string
-	// If specified, these constraints are merged with those already in the environment.
+	// If specified, these constraints are merged with those already in the model.
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
 	Placement *instance.Placement
@@ -114,10 +114,11 @@ type addCommand struct {
 
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-machine",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
 		Doc:     addMachineDoc,
+		Aliases: []string{"add-machines"},
 	}
 }
 
@@ -138,7 +139,7 @@ func (c *addCommand) Init(args []string) error {
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
-		placement = "env-uuid" + ":" + placement
+		placement = "model-uuid" + ":" + placement
 		c.Placement, err = instance.ParsePlacement(placement)
 	}
 	if err != nil {
@@ -152,11 +153,10 @@ func (c *addCommand) Init(args []string) error {
 
 type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
-	EnvironmentGet() (map[string]interface{}, error)
-	EnvironmentUUID() string
+	ModelGet() (map[string]interface{}, error)
+	ModelUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -210,11 +210,13 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("load config")
-	var config *config.Config
-	if defaultStore, err := configstore.Default(); err != nil {
-		return err
-	} else if config, err = c.Config(defaultStore, client); err != nil {
-		return err
+	configAttrs, err := client.ModelGet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	config, err := config.New(config.NoDefaults, configAttrs)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
@@ -237,9 +239,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	logger.Infof("environment provisioning")
-	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
-		c.Placement.Scope = client.EnvironmentUUID()
+	logger.Infof("model provisioning")
+	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
+		c.Placement.Scope = client.ModelUUID()
 	}
 
 	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
@@ -249,21 +251,11 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 
-	envVersion, err := envcmd.GetEnvironmentVersion(client)
-	if err != nil {
-		return err
-	}
-
-	// Servers before 1.21-alpha2 don't have the networker so don't
-	// try to use JobManageNetworking with them.
-	//
 	// In case of MAAS and Joyent JobManageNetworking is not added
 	// to ensure the non-intrusive start of a networker like above
 	// for the manual provisioning. See this related joyent bug
 	// http://pad.lv/1401423
-	if envVersion.Compare(version.MustParse("1.21-alpha2")) >= 0 &&
-		config.Type() != provider.MAAS &&
-		config.Type() != provider.Joyent {
+	if config.Type() != provider.MAAS && config.Type() != provider.Joyent {
 		jobs = append(jobs, multiwatcher.JobManageNetworking)
 	}
 
@@ -285,24 +277,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		results, err = machineManager.AddMachines(machines)
 	} else {
 		results, err = client.AddMachines(machines)
-		if params.IsCodeNotImplemented(err) {
-			if c.Placement != nil {
-				containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-				if parseErr != nil {
-					// The user specified a non-container placement directive:
-					// return original API not implemented error.
-					return err
-				}
-				machineParams.ContainerType = containerType
-				machineParams.ParentId = c.Placement.Directive
-				machineParams.Placement = nil
-			}
-			logger.Infof(
-				"AddMachinesWithPlacement not supported by the API server, " +
-					"falling back to 1.18 compatibility mode",
-			)
-			results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
-		}
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)

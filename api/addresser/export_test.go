@@ -3,4 +3,4 @@
 
 package addresser
 
-var NewEntityWatcher = &newEntityWatcher
+var NewEntitiesWatcher = &newEntitiesWatcher

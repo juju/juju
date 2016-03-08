@@ -34,10 +34,11 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID        string    `bson:"_id"`
-	EnvUUID     string    `bson:"env-uuid"`
+	ModelUUID   string    `bson:"model-uuid"`
 	Unit        string    `bson:"unit"`
 	CharmUrl    string    `bson:"charmurl"`
 	Sent        bool      `bson:"sent"`
+	DeleteTime  time.Time `bson:"delete-time"`
 	Created     time.Time `bson:"created"`
 	Metrics     []Metric  `bson:"metrics"`
 	Credentials []byte    `bson:"credentials"`
@@ -105,7 +106,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		st: st,
 		doc: metricBatchDoc{
 			UUID:        batch.UUID,
-			EnvUUID:     st.EnvironUUID(),
+			ModelUUID:   st.ModelUUID(),
 			Unit:        batch.Unit.Id(),
 			CharmUrl:    charmURL.String(),
 			Sent:        false,
@@ -151,11 +152,11 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	return metric, nil
 }
 
-// MetricBatches returns all metric batches currently stored in state.
+// AllMetricBatches returns all metric batches currently stored in state.
 // TODO (tasdomas): this method is currently only used in the uniter worker test -
 //                  it needs to be modified to restrict the scope of the values it
 //                  returns if it is to be used outside of tests.
-func (st *State) MetricBatches() ([]MetricBatch, error) {
+func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
@@ -168,6 +169,47 @@ func (st *State) MetricBatches() ([]MetricBatch, error) {
 		results[i] = MetricBatch{st: st, doc: doc}
 	}
 	return results, nil
+}
+
+func (st *State) queryLocalMetricBatches(query bson.M) ([]MetricBatch, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	docs := []metricBatchDoc{}
+	if query == nil {
+		query = bson.M{}
+	}
+	query["charmurl"] = bson.M{"$regex": "^local:"}
+	err := c.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]MetricBatch, len(docs))
+	for i, doc := range docs {
+		results[i] = MetricBatch{st: st, doc: doc}
+	}
+	return results, nil
+}
+
+// MetricBatchesUnit returns metric batches for the given unit.
+func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+	return st.queryLocalMetricBatches(bson.M{"unit": unit})
+}
+
+// MetricBatchesUnit returns metric batches for the given service.
+func (st *State) MetricBatchesForService(service string) ([]MetricBatch, error) {
+	svc, err := st.Service(service)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := svc.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitNames := make([]bson.M, len(units))
+	for i, u := range units {
+		unitNames[i] = bson.M{"unit": u.Name()}
+	}
+	return st.queryLocalMetricBatches(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.
@@ -188,19 +230,21 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(CleanupAge))
-	metricsLogger.Tracef("cleaning up metrics created before %v", age)
+	now := time.Now()
 	metrics, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
 	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
 	metricsW := metrics.Writeable()
+	// TODO (mattyw) iter over this.
 	info, err := metricsW.RemoveAll(bson.M{
-		"sent":    true,
-		"created": bson.M{"$lte": age},
+		"sent":        true,
+		"delete-time": bson.M{"$lte": now},
 	})
-	metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
+	if err == nil {
+		metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
+	}
 	return errors.Trace(err)
 }
 
@@ -258,9 +302,9 @@ func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
 }
 
-// EnvUUID returns the environment UUID this metric applies to.
-func (m *MetricBatch) EnvUUID() string {
-	return m.doc.EnvUUID
+// ModelUUID returns the model UUID this metric applies to.
+func (m *MetricBatch) ModelUUID() string {
+	return m.doc.ModelUUID
 }
 
 // Unit returns the name of the unit this metric was generated in.
@@ -291,14 +335,17 @@ func (m *MetricBatch) Metrics() []Metric {
 	return result
 }
 
-// SetSent sets the sent flag to true
-func (m *MetricBatch) SetSent() error {
-	ops := setSentOps([]string{m.UUID()})
+// SetSent marks the metric has having been sent at
+// the specified time.
+func (m *MetricBatch) SetSent(t time.Time) error {
+	deleteTime := t.UTC().Add(CleanupAge)
+	ops := setSentOps([]string{m.UUID()}, deleteTime)
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
 
 	m.doc.Sent = true
+	m.doc.DeleteTime = deleteTime
 	return nil
 }
 
@@ -307,14 +354,14 @@ func (m *MetricBatch) Credentials() []byte {
 	return m.doc.Credentials
 }
 
-func setSentOps(batchUUIDs []string) []txn.Op {
+func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 	ops := make([]txn.Op, len(batchUUIDs))
 	for i, u := range batchUUIDs {
 		ops[i] = txn.Op{
 			C:      metricsC,
 			Id:     u,
 			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"sent": true}},
+			Update: bson.M{"$set": bson.M{"sent": true, "delete-time": deleteTime}},
 		}
 	}
 	return ops
@@ -322,7 +369,8 @@ func setSentOps(batchUUIDs []string) []txn.Op {
 
 // SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
-	ops := setSentOps(batchUUIDs)
+	deleteTime := time.Now().UTC().Add(CleanupAge)
+	ops := setSentOps(batchUUIDs, deleteTime)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")
 	}

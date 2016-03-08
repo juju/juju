@@ -115,7 +115,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "default-block",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +271,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
+func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
@@ -281,7 +281,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironVolumes()
+	w := s.State.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0") // initial

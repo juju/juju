@@ -9,17 +9,18 @@ import (
 	"github.com/juju/utils"
 	jujuos "github.com/juju/utils/os"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 type AmazonRenderer struct{}
 
-func (AmazonRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+func (AmazonRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
-		return utils.Gzip(udata), nil
+		return renderers.RenderYAML(cfg, utils.Gzip)
 	case jujuos.Windows:
-		return renderers.AddPowershellTags(renderers.WinEmbedInScript(udata)), nil
+		return renderers.RenderYAML(cfg, renderers.WinEmbedInScript, renderers.AddPowershellTags)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

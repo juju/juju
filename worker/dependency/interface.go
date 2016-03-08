@@ -117,6 +117,12 @@ type GetResourceFunc func(name string, out interface{}) error
 // because that's a lot of implementation hassle for little practical gain.
 var ErrMissing = errors.New("dependency not available")
 
+// ErrBounce can be returned by a StartFunc or a worker to indicate to
+// the engine that it should be restarted immediately, instead of
+// waiting for ErrorDelay. This is useful for workers which restart
+// themselves to alert dependents that an output has changed.
+var ErrBounce = errors.New("restart immediately")
+
 // ErrUninstall can be returned by a StartFunc or a worker to indicate to the
 // engine that it can/should never run again, and that the originating manifold
 // should be completely removed.

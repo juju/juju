@@ -75,7 +75,7 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 	})
 	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Service: s.wordpress,

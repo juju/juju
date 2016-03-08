@@ -129,7 +129,7 @@ func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
 		nil, // invalid tag
 		names.NewActionTag(uuid.String()),
 		names.NewCharmTag("cs:precise/missing"),
-		names.NewEnvironTag(uuid.String()),
+		names.NewModelTag(uuid.String()),
 		names.NewFilesystemTag("20/20"),
 		names.NewLocalUserTag("user"),
 		names.NewMachineTag("42"),

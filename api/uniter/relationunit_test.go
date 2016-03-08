@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite
@@ -72,6 +72,29 @@ func (s *relationUnitSuite) TestRelation(c *gc.C) {
 	apiRel := apiRelUnit.Relation()
 	c.Assert(apiRel, gc.NotNil)
 	c.Assert(apiRel.String(), gc.Equals, "wordpress:db mysql:server")
+}
+
+func (s *relationUnitSuite) TestNetworkConfig(c *gc.C) {
+	// Set some provider addresses bound to both "public" and "internal"
+	// spaces.
+	addresses := []network.Address{
+		network.NewAddressOnSpace("public", "8.8.8.8"),
+		network.NewAddressOnSpace("", "8.8.4.4"),
+		network.NewAddressOnSpace("internal", "10.0.0.1"),
+		network.NewAddressOnSpace("internal", "10.0.0.2"),
+		network.NewAddressOnSpace("public", "fc00::1"),
+	}
+	err := s.wordpressMachine.SetProviderAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, apiRelUnit := s.getRelationUnits(c)
+
+	netConfig, err := apiRelUnit.NetworkConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
+		{Address: "10.0.0.1"},
+		{Address: "10.0.0.2"},
+	})
 }
 
 func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
@@ -272,8 +295,8 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := apiRelUnit.Watch()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewRelationUnitsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange([]string{"mysql/0"}, nil)
@@ -288,12 +311,4 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	// NOTE: This test is not as exhaustive as the one in state,
-	// because the watcher is already tested there. Here we just
-	// ensure we get the events when we expect them and don't get
-	// them when they're not expected.
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

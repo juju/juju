@@ -9,17 +9,16 @@ import (
 	"github.com/juju/names"
 
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.worker.conv2state")
 
 // New returns a new notify watch handler that will convert the given machine &
-// agent to a state server.
-func New(m *apimachiner.State, agent Agent) worker.NotifyWatchHandler {
+// agent to a controller.
+func New(m *apimachiner.State, agent Agent) watcher.NotifyHandler {
 	return &converter{machiner: wrapper{m}, agent: agent}
 }
 

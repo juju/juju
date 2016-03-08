@@ -48,12 +48,17 @@ type instanceInfoReply struct {
 
 func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 	reply := make(chan instanceInfoReply)
-	a.reqc <- instanceInfoReq{
-		instId: id,
-		reply:  reply,
+	reqc := a.reqc
+	for {
+		select {
+		case <-a.tomb.Dying():
+			return instanceInfo{}, errors.New("instanceInfo call aborted")
+		case reqc <- instanceInfoReq{id, reply}:
+			reqc = nil
+		case r := <-reply:
+			return r.info, r.err
+		}
 	}
-	r := <-reply
-	return r.info, r.err
 }
 
 var gatherTime = 3 * time.Second
@@ -88,7 +93,11 @@ func (a *aggregator) loop() error {
 				} else {
 					reply.info, reply.err = a.instInfo(req.instId, insts[i])
 				}
-				req.reply <- reply
+				select {
+				case <-a.tomb.Dying():
+					return tomb.ErrDying
+				case req.reply <- reply:
+				}
 			}
 			reqs = nil
 		}

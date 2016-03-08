@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -50,6 +49,12 @@ const (
 // Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
+// Use longAttempt to poll for short-term events or for retrying API calls.
+var longAttempt = utils.AttemptStrategy{
+	Total: 60 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
@@ -201,11 +206,11 @@ func (e *environ) Storage() envstorage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(e, e.Storage())
 }
 
@@ -232,6 +237,11 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces() (bool, error) {
 	return true, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -470,16 +480,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
+	var zoneInstances []common.AvailabilityZoneInstances
 	if len(availabilityZones) == 0 {
-		var group []instance.Id
 		var err error
+		var group []instance.Id
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
 				return nil, err
 			}
 		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
+		zoneInstances, err = availabilityZoneAllocations(e, group)
 		if err != nil {
 			return nil, err
 		}
@@ -491,39 +502,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}
 
-	// If spaces= constraints is also set, then filter availabilityZones to only
-	// contain zones matching the space's subnets' zones
-	if len(args.SubnetsToZones) > 0 {
-		// find all the available zones that match the subnets that match our
-		// space/subnet constraints
-		zonesSet := set.NewStrings(availabilityZones...)
-		subnetZones := set.NewStrings()
-
-		for _, zones := range args.SubnetsToZones {
-			for _, zone := range zones {
-				subnetZones.Add(zone)
-			}
-		}
-
-		if len(zonesSet.Intersection(subnetZones).SortedValues()) == 0 {
-			return nil, errors.Errorf(
-				"unable to resolve constraints: space and/or subnet unavailable in zones %v",
-				availabilityZones)
-		}
-
-		availabilityZones = zonesSet.Intersection(subnetZones).SortedValues()
-	}
-
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 	arches := args.Tools.Arches()
-	sources, err := environs.ImageMetadataSources(e)
-	if err != nil {
-		return nil, err
-	}
 
-	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(args.ImageMetadata, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
@@ -557,29 +541,86 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
-	var instResp *ec2.RunInstancesResp
 
 	blockDeviceMappings := getBlockDeviceMappings(args.Constraints, args.InstanceConfig.Series)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
 
-	for _, availZone := range availabilityZones {
-		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
-			AvailZone: availZone,
-			// TODO: SubnetId: <a subnet in the AZ that conforms to our constraints>
-			ImageId:             spec.Image.Id,
-			MinCount:            1,
-			MaxCount:            1,
-			UserData:            userData,
-			InstanceType:        spec.InstanceType.Name,
-			SecurityGroups:      groups,
-			BlockDeviceMappings: blockDeviceMappings,
-		})
-		if isZoneConstrainedError(err) {
-			logger.Infof("%q is constrained, trying another availability zone", availZone)
+	// If --constraints spaces=foo was passed, the provisioner will populate
+	// args.SubnetsToZones map. In AWS a subnet can span only one zone, so here
+	// we build the reverse map zonesToSubnets, which we will use to below in
+	// the RunInstance loop to provide an explicit subnet ID, rather than just
+	// AZ. This ensures instances in the same group (units of a service or all
+	// instances when adding a machine manually) will still be evenly
+	// distributed across AZs, but only within subnets of the space constraint.
+	//
+	// TODO(dimitern): This should be done in a provider-independant way.
+	zonesToSubnets := make(map[string]string, len(args.SubnetsToZones))
+	var spaceSubnetIDs []string
+	for subnetID, zones := range args.SubnetsToZones {
+		// EC2-specific: subnets can only be in a single zone, hence the
+		// zones slice will always contain exactly one element when
+		// SubnetsToZones is populated.
+		zone := zones[0]
+		sid := string(subnetID)
+		zonesToSubnets[zone] = sid
+		spaceSubnetIDs = append(spaceSubnetIDs, sid)
+	}
+
+	// TODO(dimitern): For the network model MVP we only respect the
+	// first positive (a.k.a. "included") space specified in the
+	// constraints. Once we support any given list of positive or
+	// negative (prefixed with "^") spaces, fix this approach.
+	var spaceName string
+	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 0 {
+		spaceName = spaces[0]
+	}
+
+	var instResp *ec2.RunInstancesResp
+	commonRunArgs := &ec2.RunInstances{
+		MinCount:            1,
+		MaxCount:            1,
+		UserData:            userData,
+		InstanceType:        spec.InstanceType.Name,
+		SecurityGroups:      groups,
+		BlockDeviceMappings: blockDeviceMappings,
+		ImageId:             spec.Image.Id,
+	}
+
+	for _, zone := range availabilityZones {
+		runArgs := commonRunArgs
+
+		if subnetID, found := zonesToSubnets[zone]; found {
+			// Use SubnetId explicitly here so the instance ends up in the
+			// right space.
+			runArgs.SubnetId = subnetID
+		} else if spaceName != "" {
+			// Ignore AZs not matching any subnet of the space in constraints.
+			logger.Infof(
+				"skipping zone %q: not associated with any of space %q's subnets %q",
+				zone, spaceName, strings.Join(spaceSubnetIDs, ", "),
+			)
+			continue
 		} else {
+			// No space constraint specified, just use the usual zone
+			// distribution without an explicit SubnetId.
+			runArgs.AvailZone = zone
+		}
+
+		instResp, err = runInstances(e.ec2(), runArgs)
+		if err == nil {
 			break
 		}
+		if runArgs.SubnetId != "" && isSubnetConstrainedError(err) {
+			subID := runArgs.SubnetId
+			logger.Infof("%q (in zone %q) is constrained, try another subnet", subID, zone)
+			continue
+		} else if !isZoneConstrainedError(err) {
+			// Something else went wrong - bail out.
+			break
+		}
+		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot run instances")
 	}
@@ -591,7 +632,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
-	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
+	instAZ, instSubnet := inst.Instance.AvailZone, inst.Instance.SubnetId
+	logger.Infof("started instance %q in AZ %q, subnet %q", inst.Id(), instAZ, instSubnet)
 
 	// Tag instance, for accounting and identification.
 	instanceName := resourceName(
@@ -605,7 +647,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
 		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
@@ -868,9 +910,12 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *network.Address, _, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
+	}
+	if addr == nil || addr.Value == "" {
+		return errors.NewNotValid(nil, "invalid address: nil or empty")
 	}
 
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
@@ -882,17 +927,17 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		return errors.Trace(err)
 	}
 	for a := shortAttempt.Start(); a.Next(); {
-		err = AssignPrivateIPAddress(ec2Inst, nicId, addr)
-		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, addr, err)
+		err = AssignPrivateIPAddress(ec2Inst, nicId, *addr)
+		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, *addr, err)
 		if err == nil {
-			logger.Tracef("allocated address %v for instance %v, NIC %v", addr, instId, nicId)
+			logger.Tracef("allocated address %v for instance %v, NIC %v", *addr, instId, nicId)
 			break
 		}
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			if ec2Err.Code == invalidParameterValue {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
-				logger.Tracef("address %q not available for allocation", addr)
+				logger.Tracef("address %q not available for allocation", *addr)
 				return environs.ErrIPAddressUnavailable
 			} else if ec2Err.Code == privateAddressLimitExceeded {
 				logger.Tracef("no more addresses available on the subnet")
@@ -906,7 +951,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
-func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _ string) (err error) {
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
 	if !environs.AddressAllocationEnabled() {
 		return errors.NotSupportedf("address allocation")
 	}
@@ -1033,6 +1078,12 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 
 }
 
+// Spaces is not implemented by the ec2 provider as we don't currently have
+// provider level spaces.
+func (e *environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("Spaces")
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements
@@ -1111,6 +1162,15 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
+func getTagByKey(key string, ec2Tags []ec2.Tag) (string, bool) {
+	for _, tag := range ec2Tags {
+		if tag.Key == key {
+			return tag.Value, true
+		}
+	}
+	return "", false
+}
+
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
@@ -1125,10 +1185,23 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	eUUID, ok := e.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("enviroment UUID in configuration")
+	}
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
+			tagUUID, ok := getTagByKey(tags.JujuModel, inst.Tags)
+			// tagless instances will always be included to avoid
+			// breakage of old environments, if one of these exists it might
+			// hinder the ability to deploy a second environment of the same
+			// name.
+			if ok && tagUUID != eUUID {
+				continue
+			}
+
 			// TODO(wallyworld): lookup the details to fill in the instance type data
 			insts = append(insts, &ec2Instance{e: e, Instance: &inst})
 		}
@@ -1139,6 +1212,9 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
+	}
+	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
+		logger.Warningf("cannot delete default security group: %v", err)
 	}
 	return e.Storage().RemoveAll()
 }
@@ -1156,12 +1232,17 @@ func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
+func (e *environ) openPortsInGroup(name, legacyName string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
 	// Give permissions for anyone to access the given ports.
 	g, err := e.groupByName(name)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(legacyName)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -1189,7 +1270,7 @@ func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
+func (e *environ) closePortsInGroup(name, legacyName string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1197,6 +1278,10 @@ func (e *environ) closePortsInGroup(name string, ports []network.PortRange) erro
 	// Note that ec2 allows the revocation of permissions that aren't
 	// granted, so this is naturally idempotent.
 	g, err := e.groupByName(name)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(legacyName)
+	}
 	if err != nil {
 		return err
 	}
@@ -1229,10 +1314,10 @@ func (e *environ) portsInGroup(name string) (ports []network.PortRange, err erro
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
 			e.Config().FirewallMode())
 	}
-	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.openPortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in global group: %v", ports)
@@ -1241,10 +1326,10 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
 			e.Config().FirewallMode())
 	}
-	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
+	if err := e.closePortsInGroup(e.globalGroupName(), e.legacyGlobalGroupName(), ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in global group: %v", ports)
@@ -1253,7 +1338,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())
@@ -1263,12 +1348,78 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
+func (e *environ) instanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
+	ec2inst := e.ec2()
+	strInstID := make([]string, len(instIDs))
+	for i := range instIDs {
+		strInstID[i] = string(instIDs[i])
+	}
+	resp, err := ec2inst.Instances(strInstID, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
+	}
+
+	securityGroups := []ec2.SecurityGroup{}
+	for _, res := range resp.Reservations {
+		for _, inst := range res.Instances {
+			securityGroups = append(securityGroups, inst.SecurityGroups...)
+		}
+	}
+	return securityGroups, nil
+}
+
+func (e *environ) cleanEnvironmentSecurityGroup() error {
+	ec2inst := e.ec2()
+	var err error
+	jujuGroup := e.jujuGroupName()
+	g, err := e.groupByName(jujuGroup)
+	if ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		// We might be trying to destroy a legacy system
+		g, err = e.groupByName(e.legacyJujuGroupName())
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
+	}
+	for a := longAttempt.Start(); a.Next(); {
+		_, err = ec2inst.DeleteSecurityGroup(g)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.Annotate(err, "cannot delete default security group")
+}
+
 func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	var err error
+	securityGroups, err := e.instanceSecurityGroups(ids)
+	if err != nil {
+		// We should not stop termination because of this.
+		logger.Warningf("cannot determine security groups to delete: %v", err)
+	}
 	ec2inst := e.ec2()
+	defer func() {
+		// TODO(perrito666) we need to tag global security groups to be able
+		// to tell them appart from future groups that are neither machine
+		// nor environment group.
+		// https://bugs.launchpad.net/juju-core/+bug/1534289
+		jujuGroup := e.jujuGroupName()
+		legacyJujuGroup := e.legacyJujuGroupName()
+		for _, deletable := range securityGroups {
+			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
+				for a := longAttempt.Start(); a.Next(); {
+					_, err := ec2inst.DeleteSecurityGroup(deletable)
+					if err != nil {
+						logger.Warningf("could not delete security group %q: %v", deletable.Name, err)
+					} else {
+						break
+					}
+				}
+			}
+		}
+	}()
+
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
@@ -1298,6 +1449,13 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	return firstErr
 }
 
+func (e *environ) uuid() string {
+	// the bool component of uuid is for legacy compatibility
+	// and does not apply in this context.
+	eUUID, _ := e.Config().UUID()
+	return eUUID
+}
+
 func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
@@ -1307,7 +1465,22 @@ func (e *environ) machineGroupName(machineId string) string {
 }
 
 func (e *environ) jujuGroupName() string {
-	return "juju-" + e.name
+	return "juju-" + e.uuid()
+}
+
+// Legacy naming for groups, before multi environments with the same
+// name where supported.
+
+func (e *environ) legacyGlobalGroupName() string {
+	return fmt.Sprintf("%s-global", e.legacyJujuGroupName())
+}
+
+func (e *environ) legacyMachineGroupName(machineId string) string {
+	return fmt.Sprintf("%s-%s", e.legacyJujuGroupName(), machineId)
+}
+
+func (e *environ) legacyJujuGroupName() string {
+	return "juju-" + e.uuid()
 }
 
 // setUpGroups creates the security groups for the new machine, and
@@ -1503,6 +1676,26 @@ func isZoneConstrainedError(err error) bool {
 			// support for networks, we'll skip over these.
 			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
 		case "VolumeTypeNotAvailableInZone":
+			return true
+		}
+	}
+	return false
+}
+
+// isSubnetConstrainedError reports whether or not the error indicates
+// RunInstances failed due to the specified VPC subnet ID being constrained for
+// the instance type being provisioned, or is otherwise unusable for the
+// specific request made.
+func isSubnetConstrainedError(err error) bool {
+	switch err := err.(type) {
+	case *ec2.Error:
+		switch err.Code {
+		case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":
+			// Subnet and/or VPC general limits reached.
+			return true
+		case "InvalidSubnetID.NotFound":
+			// This shouldn't happen, as we validate the subnet IDs, but it can
+			// happen if the user manually deleted the subnet outside of Juju.
 			return true
 		}
 	}

@@ -14,13 +14,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 // Service represents the state of a service.
@@ -32,21 +33,22 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
-	DocID             string     `bson:"_id"`
-	Name              string     `bson:"name"`
-	EnvUUID           string     `bson:"env-uuid"`
-	Series            string     `bson:"series"`
-	Subordinate       bool       `bson:"subordinate"`
-	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:"forcecharm"`
-	Life              Life       `bson:"life"`
-	UnitCount         int        `bson:"unitcount"`
-	RelationCount     int        `bson:"relationcount"`
-	Exposed           bool       `bson:"exposed"`
-	MinUnits          int        `bson:"minunits"`
-	OwnerTag          string     `bson:"ownertag"`
-	TxnRevno          int64      `bson:"txn-revno"`
-	MetricCredentials []byte     `bson:"metric-credentials"`
+	DocID                string     `bson:"_id"`
+	Name                 string     `bson:"name"`
+	ModelUUID            string     `bson:"model-uuid"`
+	Series               string     `bson:"series"`
+	Subordinate          bool       `bson:"subordinate"`
+	CharmURL             *charm.URL `bson:"charmurl"`
+	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
+	ForceCharm           bool       `bson:"forcecharm"`
+	Life                 Life       `bson:"life"`
+	UnitCount            int        `bson:"unitcount"`
+	RelationCount        int        `bson:"relationcount"`
+	Exposed              bool       `bson:"exposed"`
+	MinUnits             int        `bson:"minunits"`
+	OwnerTag             string     `bson:"ownertag"`
+	TxnRevno             int64      `bson:"txn-revno"`
+	MetricCredentials    []byte     `bson:"metric-credentials"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -66,6 +68,12 @@ func (s *Service) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (s *Service) Tag() names.Tag {
+	return s.ServiceTag()
+}
+
+// ServiceTag returns the more specific ServiceTag rather than the generic
+// Tag.
+func (s *Service) ServiceTag() names.ServiceTag {
 	return names.NewServiceTag(s.Name())
 }
 
@@ -88,6 +96,11 @@ func serviceSettingsKey(serviceName string, curl *charm.URL) string {
 // key for the service.
 func (s *Service) settingsKey() string {
 	return serviceSettingsKey(s.doc.Name, s.doc.CharmURL)
+}
+
+// Series returns the specified series for this charm.
+func (s *Service) Series() string {
+	return s.doc.Series
 }
 
 // Life returns whether the service is Alive, Dying or Dead.
@@ -226,6 +239,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 			Remove: true,
 		},
 		removeRequestedNetworksOp(s.st, s.globalKey()),
+		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
@@ -282,6 +296,12 @@ func (s *Service) Charm() (ch *Charm, force bool, err error) {
 // have subordinate units.
 func (s *Service) IsPrincipal() bool {
 	return !s.doc.Subordinate
+}
+
+// CharmModifiedVersion increases whenever the service's charm is changed in any
+// way.
+func (s *Service) CharmModifiedVersion() int {
+	return s.doc.CharmModifiedVersion
 }
 
 // CharmURL returns the service's charm URL, and whether units should upgrade
@@ -458,7 +478,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
+func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
@@ -519,14 +539,26 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			C:      servicesC,
 			Id:     s.doc.DocID,
 			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
+			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
 		},
 	}...)
+
+	ops = append(ops, incCharmModifiedVersionOps(s.doc.DocID)...)
+
 	// Add any extra peer relations that need creation.
 	newPeers := s.extraPeerRelations(ch.Meta())
 	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if len(resourceIDs) > 0 {
+		// Collect pending resource resolution operations.
+		resOps, err := s.resolveResourceOps(resourceIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
 	}
 
 	// Get all relations - we need to check them later.
@@ -552,6 +584,20 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	}
 	ops = append(ops, relOps...)
 
+	// Update any existing endpoint bindings, using defaults for new endpoints.
+	//
+	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
+	// given bindings below, instead of nil.
+	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
+	if err == nil {
+		ops = append(ops, endpointBindingsOp)
+	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+		// If endpoint bindings do not exist this most likely means the service
+		// itself no longer exists, which will be caught soon enough anyway.
+		// ErrNoOperations on the other hand means there's nothing to update.
+		return nil, errors.Trace(err)
+	}
+
 	// Check storage to ensure no storage is removed, and no required
 	// storage is added for which there are no constraints.
 	if err := s.checkStorageUpgrade(ch.Meta()); err != nil {
@@ -562,20 +608,102 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	return append(ops, decOps...), nil
 }
 
+// incCharmModifiedVersionOps returns the operations necessary to increment
+// the CharmModifiedVersion field for the given service.
+func incCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
+	}}
+}
+
+func (s *Service) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
+	// Collect pending resource resolution operations.
+	resources, err := s.st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
+}
+
+// SetCharmConfig sets the charm for the service.
+type SetCharmConfig struct {
+	// Charm is the new charm to use for the service.
+	Charm *Charm
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"forceunits"`
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"forceseries"`
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resourceids"`
+}
+
 // SetCharm changes the charm for the service. New units will be started with
-// this charm, and existing units will be upgraded to use it. If force is true,
-// units will be upgraded even if they are in an error state.
-func (s *Service) SetCharm(ch *Charm, force bool) error {
-	if ch.Meta().Subordinate != s.doc.Subordinate {
+// this charm, and existing units will be upgraded to use it.
+// If forceUnits is true, units will be upgraded even if they are in an error state.
+// If forceSeries is true, the charm will be used even if it's the service's series
+// is not supported by the charm.
+func (s *Service) SetCharm(cfg SetCharmConfig) error {
+	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change a service's subordinacy")
 	}
-	if ch.URL().Series != s.doc.Series {
-		return errors.Errorf("cannot change a service's series")
+	// For old style charms written for only one series, we still retain
+	// this check. Newer charms written for multi-series have a URL
+	// with series = "".
+	if cfg.Charm.URL().Series != "" {
+		if cfg.Charm.URL().Series != s.doc.Series {
+			return errors.Errorf("cannot change a service's series")
+		}
+	} else if !cfg.ForceSeries {
+		supported := false
+		for _, series := range cfg.Charm.Meta().Series {
+			if series == s.doc.Series {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			supportedSeries := "no series"
+			if len(cfg.Charm.Meta().Series) > 0 {
+				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
+			}
+			return errors.Errorf("cannot upgrade charm, only these series are supported: %v", supportedSeries)
+		}
+	} else {
+		// Even with forceSeries=true, we do not allow a charm to be used which is for
+		// a different OS.
+		currentOS, err := series.GetOSFromSeries(s.doc.Series)
+		if err != nil {
+			// We don't expect an error here but there's not much we can
+			// do to recover.
+			return err
+		}
+		supportedOS := false
+		for _, chSeries := range cfg.Charm.Meta().Series {
+			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
+			if err != nil {
+				return nil
+			}
+			if currentOS == charmSeriesOS {
+				supportedOS = true
+				break
+			}
+		}
+		if !supportedOS {
+			return errors.Errorf("cannot upgrade charm, OS %q not supported by charm", currentOS)
+		}
 	}
 
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
+	// this value holds the *previous* charm modified version, before this
+	// transaction commits.
+	var charmModifiedVersion int
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharm to succeed
@@ -589,33 +717,65 @@ func (s *Service) SetCharm(ch *Charm, force bool) error {
 				return nil, ErrDead
 			}
 		}
+
+		// We can't update the in-memory service doc inside the transaction, so
+		// we manually udpate it at the end of the SetCharm method. However, we
+		// have no way of knowing what the charmModifiedVersion will be, since
+		// it's just incrementing the value in the DB (and that might be out of
+		// step with the value we have in memory).  What we have to do is read
+		// the DB, store the charmModifiedVersion we get, run the transaction,
+		// assert in the transaction that the charmModifiedVersion hasn't
+		// changed since we retrieved it, and then we know what its value must
+		// be after this transaction ends.  It's hacky, but there's no real
+		// other way to do it, thanks to the way mgo's transactions work.
+		var doc serviceDoc
+		err := services.FindId(s.doc.DocID).One(&doc)
+		var charmModifiedVersion int
+		switch {
+		case err == mgo.ErrNotFound:
+			// 0 is correct, since no previous charm existed.
+		case err != nil:
+			return nil, errors.Annotate(err, "can't open previous copy of charm")
+		default:
+			charmModifiedVersion = doc.CharmModifiedVersion
+		}
+		ops := []txn.Op{{
+			C:      servicesC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"charmmodifiedversion", charmModifiedVersion}},
+		}}
+
 		// Make sure the service doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
-		var ops []txn.Op
-		if count, err := services.Find(sel).Count(); err != nil {
+		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", cfg.Charm.URL()}}
+		count, err := services.Find(sel).Count()
+		if err != nil {
 			return nil, errors.Trace(err)
-		} else if count == 1 {
+		}
+		if count > 0 {
 			// Charm URL already set; just update the force flag.
-			sameCharm := bson.D{{"charmurl", ch.URL()}}
-			ops = []txn.Op{{
+			sameCharm := bson.D{{"charmurl", cfg.Charm.URL()}}
+			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
-				Update: bson.D{{"$set", bson.D{{"forcecharm", force}}}},
-			}}
+				Update: bson.D{{"$set", bson.D{{"forcecharm", cfg.ForceUnits}}}},
+			}}...)
 		} else {
 			// Change the charm URL.
-			ops, err = s.changeCharmOps(ch, force)
+			chng, err := s.changeCharmOps(cfg.Charm, cfg.ForceUnits, cfg.ResourceIDs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			ops = append(ops, chng...)
 		}
+
 		return ops, nil
 	}
 	err := s.st.run(buildTxn)
 	if err == nil {
-		s.doc.CharmURL = ch.URL()
-		s.doc.ForceCharm = force
+		s.doc.CharmURL = cfg.Charm.URL()
+		s.doc.ForceCharm = cfg.ForceUnits
+		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
 	return err
 }
@@ -675,7 +835,16 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			return "", nil, err
 		}
 	}
-	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
+	storageCons, err := s.StorageConstraints()
+	if err != nil {
+		return "", nil, err
+	}
+	args := serviceAddUnitOpsArgs{
+		cons:          cons,
+		principalName: principalName,
+		storageCons:   storageCons,
+	}
+	names, ops, err := s.addUnitOpsWithCons(args)
 	if err != nil {
 		return names, ops, err
 	}
@@ -685,21 +854,27 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return names, ops, err
 }
 
+type serviceAddUnitOpsArgs struct {
+	principalName string
+	cons          constraints.Value
+	storageCons   map[string]StorageConstraints
+}
+
 // addServiceUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at service creation time).
-func (s *Service) addServiceUnitOps(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
-	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
+func (s *Service) addServiceUnitOps(args serviceAddUnitOpsArgs) (string, []txn.Op, error) {
+	names, ops, err := s.addUnitOpsWithCons(args)
 	if err == nil {
-		ops = append(ops, s.incUnitCountOp(asserts))
+		ops = append(ops, s.incUnitCountOp(nil))
 	}
 	return names, ops, err
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Value) (string, []txn.Op, error) {
-	if s.doc.Subordinate && principalName == "" {
+func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.Op, error) {
+	if s.doc.Subordinate && args.principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
-	} else if !s.doc.Subordinate && principalName != "" {
+	} else if !s.doc.Subordinate && args.principalName != "" {
 		return "", nil, fmt.Errorf("service is not a subordinate")
 	}
 	name, err := s.newUnitName()
@@ -708,7 +883,7 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 	}
 
 	// Create instances of the charm's declared stores.
-	storageOps, numStorageAttachments, err := s.unitStorageOps(name)
+	storageOps, numStorageAttachments, err := s.unitStorageOps(name, args.storageCons)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -716,55 +891,47 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
-	meterStatusGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
-		EnvUUID:                s.doc.EnvUUID,
 		Service:                s.doc.Name,
 		Series:                 s.doc.Series,
 		Life:                   Alive,
-		Principal:              principalName,
+		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
 	now := time.Now()
 	agentStatusDoc := statusDoc{
 		Status:  StatusAllocating,
 		Updated: now.UnixNano(),
-		EnvUUID: s.st.EnvironUUID(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		Status:     StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
-		EnvUUID:    s.st.EnvironUUID(),
 	}
 
-	ops := []txn.Op{
-		createStatusOp(s.st, globalKey, unitStatusDoc),
-		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
-		createMeterStatusOp(s.st, meterStatusGlobalKey, &meterStatusDoc{Code: MeterNotSet.String()}),
-		{
-			C:      unitsC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: udoc,
-		},
-	}
+	ops := addUnitOps(s.st, addUnitOpsArgs{
+		unitDoc:           udoc,
+		agentStatusDoc:    agentStatusDoc,
+		workloadStatusDoc: unitStatusDoc,
+		meterStatusDoc:    &meterStatusDoc{Code: MeterNotSet.String()},
+	})
+
 	ops = append(ops, storageOps...)
 
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  unitsC,
-			Id: s.st.docID(principalName),
+			Id: s.st.docID(args.principalName),
 			Assert: append(isAliveDoc, bson.DocElem{
 				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
-		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
+		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, args.cons))
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
@@ -793,11 +960,7 @@ func (s *Service) incUnitCountOp(asserts bson.D) txn.Op {
 // instances and attachments for a new unit. unitStorageOps
 // returns the number of initial storage attachments, to
 // initialise the unit's storage attachment refcount.
-func (s *Service) unitStorageOps(unitName string) (ops []txn.Op, numStorageAttachments int, err error) {
-	cons, err := s.StorageConstraints()
-	if err != nil {
-		return nil, -1, err
-	}
+func (s *Service) unitStorageOps(unitName string, cons map[string]StorageConstraints) (ops []txn.Op, numStorageAttachments int, err error) {
 	charm, _, err := s.Charm()
 	if err != nil {
 		return nil, -1, err
@@ -836,6 +999,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(s.st, servicesC, s.doc.DocID); err != nil {
 			return nil, err
@@ -1127,10 +1291,44 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 // networks specified with constraints, these networks are required to
 // be present on machines hosting this service's units.
 //
-// TODO(dimitern): Convert this to use spaces from constraints or drop
-// it entirely.
+// TODO(dimitern): Drop this in a follow-up, as now we use endpoint bindings for
+// this.
 func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
+}
+
+// EndpointBindings returns the mapping for each endpoint name and the space
+// name it is bound to (or empty if unspecified). When no bindings are stored
+// for the service, defaults are returned.
+func (s *Service) EndpointBindings() (map[string]string, error) {
+	// We don't need the TxnRevno below.
+	bindings, _, err := readEndpointBindings(s.st, s.globalKey())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if bindings == nil {
+		bindings, err = s.defaultEndpointBindings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return bindings, nil
+}
+
+// defaultEndpointBindings returns a map with each endpoint from the current
+// charm metadata bound to an empty space. If no charm URL is set yet, it
+// returns an empty map.
+func (s *Service) defaultEndpointBindings() (map[string]string, error) {
+	if s.doc.CharmURL == nil {
+		return map[string]string{}, nil
+	}
+
+	charm, _, err := s.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return defaultEndpointBindingsForCharm(charm.Meta())
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
@@ -1193,8 +1391,8 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 			Id:     st.docID(key),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
-				RefCount: 1,
-				EnvUUID:  st.EnvironUUID()},
+				RefCount:  1,
+				ModelUUID: st.ModelUUID()},
 		}, nil
 	}
 	return txn.Op{
@@ -1257,8 +1455,8 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // There is an implicit _id field here, which mongo creates, which is
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
-	RefCount int
-	EnvUUID  string `bson:"env-uuid"`
+	RefCount  int
+	ModelUUID string `bson:"model-uuid"`
 }
 
 // Status returns the status of the service.
@@ -1359,4 +1557,55 @@ var statusServerities = map[Status]int{
 	StatusTerminated:  60,
 	StatusActive:      50,
 	StatusUnknown:     40,
+}
+
+type addServiceOpsArgs struct {
+	serviceDoc       *serviceDoc
+	statusDoc        statusDoc
+	constraints      constraints.Value
+	networks         []string
+	storage          map[string]StorageConstraints
+	settings         map[string]interface{}
+	settingsRefCount int
+	// These are nil when adding a new service, and most likely
+	// non-nil when migrating.
+	leadershipSettings map[string]interface{}
+}
+
+// addServiceOps returns the operations required to add a service to the
+// services collection, along with all the associated expected other service
+// entries. This method is used by both the *State.AddService method and the
+// migration import code.
+func addServiceOps(st *State, args addServiceOpsArgs) []txn.Op {
+	svc := newService(st, args.serviceDoc)
+
+	globalKey := svc.globalKey()
+	settingsKey := svc.settingsKey()
+	leadershipKey := leadershipSettingsKey(svc.Name())
+
+	return []txn.Op{
+		createConstraintsOp(st, globalKey, args.constraints),
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
+		createRequestedNetworksOp(st, globalKey, args.networks),
+		createStorageConstraintsOp(globalKey, args.storage),
+		createSettingsOp(settingsKey, args.settings),
+		createSettingsOp(leadershipKey, args.leadershipSettings),
+		createStatusOp(st, globalKey, args.statusDoc),
+		{
+			C:      settingsrefsC,
+			Id:     settingsKey,
+			Assert: txn.DocMissing,
+			Insert: settingsRefsDoc{
+				RefCount: args.settingsRefCount,
+			},
+		}, {
+			C:      servicesC,
+			Id:     svc.Name(),
+			Assert: txn.DocMissing,
+			Insert: args.serviceDoc,
+		},
+	}
 }

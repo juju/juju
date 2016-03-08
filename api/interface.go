@@ -16,20 +16,13 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/diskmanager"
-	"github.com/juju/juju/api/environment"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -43,16 +36,16 @@ type Info struct {
 
 	// This block of fields is sufficient to connect:
 
-	// Addrs holds the addresses of the state servers.
+	// Addrs holds the addresses of the controllers.
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
+	// to validate the controller's certificate, in PEM format.
 	CACert string
 
-	// EnvironTag holds the environ tag for the environment we are
+	// ModelTag holds the model tag for the model we are
 	// trying to connect to.
-	EnvironTag names.EnvironTag
+	ModelTag names.ModelTag
 
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
@@ -76,14 +69,14 @@ type Info struct {
 }
 
 // DialOpts holds configuration parameters that control the
-// Dialing behavior when connecting to a state server.
+// Dialing behavior when connecting to a controller.
 type DialOpts struct {
 	// DialAddressInterval is the amount of time to wait
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
 
 	// Timeout is the amount of time to wait contacting
-	// a state server.
+	// a controller.
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
@@ -96,10 +89,16 @@ type DialOpts struct {
 	// by Open, and any RoundTripper field
 	// the HTTP client is ignored.
 	BakeryClient *httpbakery.Client
+
+	// InsecureSkipVerify skips TLS certificate verification
+	// when connecting to the controller. This should only
+	// be used in tests, or when verification cannot be
+	// performed and the communication need not be secure.
+	InsecureSkipVerify bool
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
-// parameters for contacting a state server.
+// parameters for contacting a controller.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		DialAddressInterval: 50 * time.Millisecond,
@@ -133,11 +132,11 @@ type Connection interface {
 	// This should not be used outside the api/* packages or tests.
 	base.APICaller
 
-	// ControllerTag returns the environment tag of the controller
-	// (as opposed to the environment tag of the currently connected
-	// environment inside that controller).
+	// ControllerTag returns the model tag of the controller
+	// (as opposed to the model tag of the currently connected
+	// model inside that controller).
 	// This could be defined on base.APICaller.
-	ControllerTag() (names.EnvironTag, error)
+	ControllerTag() (names.ModelTag, error)
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
@@ -163,25 +162,18 @@ type Connection interface {
 	// prohibitively ugly to do so.
 	Client() *Client
 	Machiner() *machiner.State
-	Resumer() *resumer.API
-	Networker() networker.State
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
-	DiskManager() (*diskmanager.State, error)
-	StorageProvisioner(scope names.Tag) *storageprovisioner.State
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State
-	Reboot() (*reboot.State, error)
+	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
-	Environment() *environment.Facade
-	Logger() *apilogger.State
-	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
+	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
-	Rsyslog() *rsyslog.State
 	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
 }

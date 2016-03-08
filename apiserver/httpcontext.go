@@ -22,10 +22,10 @@ import (
 
 // httpContext provides context for HTTP handlers.
 type httpContext struct {
-	// strictValidation means that empty envUUID values are not valid.
+	// strictValidation means that empty modelUUID values are not valid.
 	strictValidation bool
-	// stateServerEnvOnly only validates the state server environment
-	stateServerEnvOnly bool
+	// controllerModelOnly only validates the controller model.
+	controllerModelOnly bool
 	// srv holds the API server instance.
 	srv *Server
 }
@@ -37,19 +37,19 @@ type errorSender interface {
 var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
 
 // stateForRequestUnauthenticated returns a state instance appropriate for
-// using for the environment implicit in the given request
+// using for the model implicit in the given request
 // without checking any authentication information.
 func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, error) {
-	envUUID, err := validateEnvironUUID(validateArgs{
-		statePool:          ctxt.srv.statePool,
-		envUUID:            r.URL.Query().Get(":envuuid"),
-		strict:             ctxt.strictValidation,
-		stateServerEnvOnly: ctxt.stateServerEnvOnly,
+	modelUUID, err := validateModelUUID(validateArgs{
+		statePool:           ctxt.srv.statePool,
+		modelUUID:           r.URL.Query().Get(":modeluuid"),
+		strict:              ctxt.strictValidation,
+		controllerModelOnly: ctxt.controllerModelOnly,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := ctxt.srv.statePool.Get(envUUID)
+	st, err := ctxt.srv.statePool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -57,7 +57,7 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 }
 
 // stateForRequestAuthenticated returns a state instance appropriate for
-// using for the environment implicit in the given request.
+// using for the model implicit in the given request.
 // It also returns the authenticated entity.
 func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.State, state.Entity, error) {
 	st, err := ctxt.stateForRequestUnauthenticated(r)
@@ -147,6 +147,12 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get(params.MachineNonceHeader),
 	}, nil
+}
+
+// stop returns a channel which will be closed when a handler should
+// exit.
+func (ctxt *httpContext) stop() <-chan struct{} {
+	return ctxt.srv.tomb.Dying()
 }
 
 // sendJSON writes a JSON-encoded response value

@@ -5,11 +5,12 @@ package unitassigner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
-
 	"github.com/juju/names"
+
+	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const uaFacade = "UnitAssigner"
@@ -25,7 +26,7 @@ func New(caller base.APICaller) API {
 	return API{facade: fc}
 }
 
-// AssignUnits tells the state server to run whatever unit assignments it has.
+// AssignUnits tells the controller to run whatever unit assignments it has.
 // Unit assignments for units that no longer exist will return an error that
 // satisfies errors.IsNotFound.
 func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
@@ -67,7 +68,7 @@ func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(a.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(a.facade.RawAPICaller(), result)
 	return w, nil
 }
 

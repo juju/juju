@@ -120,6 +120,11 @@ func IsEmpty(v *Value) bool {
 	return v.String() == ""
 }
 
+// HasArch returns true if the constraints.Value specifies an architecture.
+func (v *Value) HasArch() bool {
+	return v.Arch != nil && *v.Arch != ""
+}
+
 // HasInstanceType returns true if the constraints.Value specifies an instance type.
 func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""

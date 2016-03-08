@@ -63,13 +63,7 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// This might get replaced by a renderer.RenderUserdata which will either
-	// render it as YAML or Bash since some CentOS images might ship without cloudnit
-	udata, err := cloudcfg.RenderYAML()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	udata, err = renderer.EncodeUserdata(udata, operatingSystem)
+	udata, err := renderer.Render(cloudcfg, operatingSystem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

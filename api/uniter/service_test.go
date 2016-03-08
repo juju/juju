@@ -10,11 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type serviceSuite struct {
@@ -44,8 +43,8 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiService.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -59,16 +58,13 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	err = s.wordpressService.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	w, err := s.apiService.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange()
@@ -91,9 +87,6 @@ func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.String())
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *serviceSuite) TestRefresh(c *gc.C) {
@@ -121,30 +114,17 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestOwnerTagV0(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV0)
+func (s *serviceSuite) TestCharmModifiedVersion(c *gc.C) {
+	// Get the charm URL through state calls.
+	ver, err := s.apiService.CharmModifiedVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.Equals, s.wordpressService.CharmModifiedVersion())
+}
 
+func (s *serviceSuite) TestOwnerTag(c *gc.C) {
 	tag, err := s.apiService.OwnerTag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, s.AdminUserTag(c))
-}
-
-func (s *serviceSuite) TestOwnerTagV1(c *gc.C) {
-	s.patchNewState(c, uniter.NewStateV1)
-
-	tag, err := s.apiService.OwnerTag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, s.AdminUserTag(c))
-}
-
-func (s *serviceSuite) patchNewState(
-	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
-) {
-	s.uniterSuite.patchNewState(c, patchFunc)
-	var err error
-	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {

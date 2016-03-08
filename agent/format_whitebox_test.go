@@ -38,7 +38,7 @@ var agentParams = AgentConfigParams{
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
 	PreferIPv6:        false,
-	Environment:       testing.EnvironmentTag,
+	Model:             testing.ModelTag,
 }
 
 func newTestConfig(c *gc.C) *configInternal {
@@ -81,7 +81,7 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	configPath := ConfigPath(config.DataDir(), config.Tag())
-	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
+	formatPath := filepath.Join(config.Dir(), "format")
 	assertFileExists(c, configPath)
 	assertFileNotExist(c, formatPath)
 }

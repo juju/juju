@@ -609,10 +609,12 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		{changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
 	}
 
+	prefix := state.DocID(s.State, "")
+
 	for ix, test := range tests {
-		updates := mapify(test.adds, test.removes)
-		changes := sliceify(test.changes)
-		expected := sliceify(test.expected)
+		updates := mapify(prefix, test.adds, test.removes)
+		changes := sliceify("", test.changes)
+		expected := sliceify("", test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
 		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
@@ -624,28 +626,19 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 
 	var tests = []struct {
-		ok   bool
 		name string
 		key  interface{}
 	}{
-		{ok: false, name: "bool", key: true},
-		{ok: false, name: "int", key: 0},
-		{ok: false, name: "chan string", key: make(chan string)},
-
-		{ok: true, name: "string", key: ""},
+		{name: "bool", key: true},
+		{name: "int", key: 0},
+		{name: "chan string", key: make(chan string)},
 	}
 
 	for _, test := range tests {
 		changes, updates := []string{}, map[interface{}]bool{}
-
 		updates[test.key] = true
 		err := state.WatcherMergeIds(s.State, &changes, updates, state.ActionNotificationIdToActionId)
-
-		if test.ok {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, "id is not of type string, got "+test.name)
-		}
+		c.Assert(err, gc.ErrorMatches, "id is not of type string, got "+test.name)
 	}
 }
 
@@ -820,12 +813,12 @@ func expectActionIds(actions ...*state.Action) []string {
 // easier. It combines two comma delimited strings representing
 // additions and removals and turns it into the map[interface{}]bool
 // format needed
-func mapify(adds, removes string) map[interface{}]bool {
+func mapify(prefix, adds, removes string) map[interface{}]bool {
 	m := map[interface{}]bool{}
-	for _, v := range sliceify(adds) {
+	for _, v := range sliceify(prefix, adds) {
 		m[v] = true
 	}
-	for _, v := range sliceify(removes) {
+	for _, v := range sliceify(prefix, removes) {
 		m[v] = false
 	}
 	return m
@@ -833,7 +826,7 @@ func mapify(adds, removes string) map[interface{}]bool {
 
 // sliceify turns a comma separated list of strings into a slice
 // trimming white space and excluding empty strings.
-func sliceify(csvlist string) []string {
+func sliceify(prefix, csvlist string) []string {
 	slice := []string{}
 	if csvlist == "" {
 		return slice
@@ -841,7 +834,7 @@ func sliceify(csvlist string) []string {
 	for _, entry := range strings.Split(csvlist, ",") {
 		clean := strings.TrimSpace(entry)
 		if clean != "" {
-			slice = append(slice, clean)
+			slice = append(slice, prefix+clean)
 		}
 	}
 	return slice

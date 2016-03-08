@@ -20,7 +20,7 @@ Basic Workflow
 Whether images or tools, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
-1. For a running environment, the Juju state server database.
+1. For a running model, the Juju controller database.
 2. User supplied location (specified by agent-metadata-url or image-metadata-url config settings)
 3. Provider specific locations (eg keystone endpoint if on Openstack)
 4. A web location with metadata for supported public clouds (https://streams.canonical.com/juju)
@@ -99,7 +99,7 @@ override what is provided by the cloud.
 
 1. Bootstrap metadata
 
-The first location in the tools search path is the Juju state server database. When Juju bootstraps,
+The first location in the tools search path is the Juju controller database. When Juju bootstraps,
 it can optionally read tools and image metadata from a local directory and upload those to the database so
 that the tools are cached and available when needed.
 
@@ -124,13 +124,13 @@ and vice versa.
 2. User specified URLs
 
 These are initially specified in the environments.yaml file (and then subsequently copied to the
-jenv file when the environment is bootstrapped). For images, use "image-metadata-url"; for tools,
+jenv file when the model is bootstrapped). For images, use "image-metadata-url"; for tools,
 use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
 an address served by a http server, or even a shared directory accessible by all node instances
 running in the cloud.
 
 eg assume an Apache http server with base URL https://juju-metadata, providing access to
-information at <base>/images and <base>/tools. The Juju environment yaml file could have
+information at <base>/images and <base>/tools. The Juju model yaml file could have
 the following entries (one or both):
 
 agent-metadata-url: https://juju-metadata/tools
@@ -185,10 +185,10 @@ or
 If the bootstrap --metadata-source directory option is used, any image metadata and tools found
 in the specified directory will be uploaded automatically to the cloud storage for that deployment.
 This is useful for situations where image and tools metadata do not need to be shared amongst several
-users, since each Juju environment will upload its own separate copy of the required files.
+users, since each Juju model will upload its own separate copy of the required files.
 
 Using the image-metadata-url and agent-metadata-url to point to publicly accessible locations is useful
-when several Juju environments are to be deployed on a private cloud and the metadata should be shared.
+when several Juju models are to be deployed on a private cloud and the metadata should be shared.
 
 1. Image metadata
 
@@ -196,8 +196,8 @@ Generate image metadata using
   juju metadata generate-image -d <metadata_dir>
 
 As a minimum, the above command needs to know the image id to use and a directory in which to write the files.
-Other required parameters like region, series, architecture etc are taken from the current Juju environment (or
-an environment specified with the -e option). These parameters can also be overridden on the command line.
+Other required parameters like region, series, architecture etc are taken from the current Juju model (or
+a model specified with the -m option). These parameters can also be overridden on the command line.
 
 The image metadata command can be run multiple times with different regions, series, architecture, and
 it will keep adding to the metadata files. Once all required image ids have been added, the index and product
@@ -216,9 +216,9 @@ ensure an image id can be discovered for a given scenario (region series, arch):
   juju metadata validate-images
 
 If run without parameters, the validation command will take all required details from the current Juju
-environment (or as specified by -e) and print the image id it would use to spin up an instance.
+model (or as specified by -m) and print the image id it would use to spin up an instance.
 Alternatively, series, region, architecture etc can be specified on the command line to override values
-in the environment config.
+in the model config.
 
 2. Tools metadata
 
@@ -245,5 +245,5 @@ As with image metadata, the validation command is used to ensure tools are avail
   juju metadata validate-tools
 
 The same comments apply. Run the validation tool without parameters to use details from the Juju
-environment, or override values as required on the command line. See juju help metadata validate-tools
+model, or override values as required on the command line. See juju help metadata validate-tools
 for more details.

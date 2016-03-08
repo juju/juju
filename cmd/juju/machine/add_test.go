@@ -16,13 +16,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
 type AddMachineSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fakeAddMachine     *fakeAddMachineAPI
 	fakeMachineManager *fakeMachineManagerAPI
 }
@@ -30,9 +31,8 @@ type AddMachineSuite struct {
 var _ = gc.Suite(&AddMachineSuite{})
 
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAddMachine = &fakeAddMachineAPI{}
-	s.fakeAddMachine.agentVersion = "1.21.0"
 	s.fakeMachineManager = &fakeMachineManagerAPI{}
 }
 
@@ -80,11 +80,11 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		}, {
 			args:      []string{"zone=us-east-1a"},
 			count:     1,
-			placement: "env-uuid:zone=us-east-1a",
+			placement: "model-uuid:zone=us-east-1a",
 		}, {
 			args:      []string{"anything-here"},
 			count:     1,
-			placement: "env-uuid:anything-here",
+			placement: "model-uuid:anything-here",
 		}, {
 			args:        []string{"anything", "else"},
 			errorString: `unrecognized args: \["else"\]`,
@@ -95,7 +95,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, addCmd := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
+		wrappedCommand, addCmd := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeMachineManager)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -114,7 +114,7 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	add, _ := machine.NewAddCommand(s.fakeAddMachine, s.fakeMachineManager)
+	add, _ := machine.NewAddCommandForTest(s.fakeAddMachine, s.fakeMachineManager)
 	return testing.RunCommand(c, add, args...)
 }
 
@@ -189,8 +189,8 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
 }
 
-func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
-	s.fakeAddMachine.agentVersion = "1.18.1"
+func (s *AddMachineSuite) TestProviderDoesNotSupportJobManageNetworking(c *gc.C) {
+	s.fakeAddMachine.providerType = "maas"
 	_, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -224,14 +224,14 @@ type fakeAddMachineAPI struct {
 	currentOp    int
 	args         []params.AddMachineParams
 	addError     error
-	agentVersion interface{}
+	providerType string
 }
 
 func (f *fakeAddMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeAddMachineAPI) EnvironmentUUID() string {
+func (f *fakeAddMachineAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
@@ -258,10 +258,6 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	return f.AddMachines(args)
-}
-
 func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 	return errors.NotImplementedf("ForceDestroyMachines")
 }
@@ -270,8 +266,14 @@ func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) 
 	return "", errors.NotImplementedf("ProvisioningScript")
 }
 
-func (f *fakeAddMachineAPI) EnvironmentGet() (map[string]interface{}, error) {
-	return map[string]interface{}{"agent-version": f.agentVersion}, nil
+func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
+	providerType := "dummy"
+	if f.providerType != "" {
+		providerType = f.providerType
+	}
+	return dummy.SampleConfig().Merge(map[string]interface{}{
+		"type": providerType,
+	}), nil
 }
 
 type fakeMachineManagerAPI struct {

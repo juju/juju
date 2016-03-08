@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -32,5 +32,5 @@ func DisableFinishBootstrap() func() {
 
 // BootstrapContext creates a simple bootstrap execution context.
 func BootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envcmd.BootstrapContext(coretesting.Context(c))
+	return modelcmd.BootstrapContext(coretesting.Context(c))
 }

@@ -25,12 +25,14 @@ func NewKvmBroker(
 	managerConfig container.ManagerConfig,
 	enableNAT bool,
 ) (environs.InstanceBroker, error) {
+	namespace := maybeGetManagerConfigNamespaces(managerConfig)
 	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &kvmBroker{
 		manager:     manager,
+		namespace:   namespace,
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
@@ -39,6 +41,7 @@ func NewKvmBroker(
 
 type kvmBroker struct {
 	manager     container.Manager
+	namespace   string
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
@@ -60,29 +63,22 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
-	if !environs.AddressAllocationEnabled() {
-		logger.Debugf(
-			"address allocation feature flag not enabled; using DHCP for container %q",
-			machineId,
-		)
-	} else {
-		logger.Debugf("trying to allocate static IP for container %q", machineId)
 
-		allocatedInfo, err := configureContainerNetwork(
-			machineId,
-			bridgeDevice,
-			broker.api,
-			args.NetworkInfo,
-			true, // allocate a new address.
-			broker.enableNAT,
-		)
-		if err != nil {
-			// It's fine, just ignore it. The effect will be that the
-			// container won't have a static address configured.
-			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
-		} else {
-			args.NetworkInfo = allocatedInfo
-		}
+	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
+		broker.api,
+		machineId,
+		bridgeDevice,
+		true, // allocate if possible, do not maintain existing.
+		broker.enableNAT,
+		args.NetworkInfo,
+		kvmLogger,
+	)
+	if err != nil {
+		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
+		// container.
+		logger.Warningf("failed to prepare container %q network config: %v", machineId, err)
+	} else {
+		args.NetworkInfo = preparedInfo
 	}
 
 	// Unlike with LXC, we don't override the default MTU to use.
@@ -130,6 +126,33 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}, nil
 }
 
+// MaintainInstance ensures the container's host has the required iptables and
+// routing rules to make the container visible to both the host and other
+// machines on the same subnet. This is important mostly when address allocation
+// feature flag is enabled, as otherwise we don't create additional iptables
+// rules or routes.
+func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineID := args.InstanceConfig.MachineId
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = kvm.DefaultKvmBridge
+	}
+
+	// There's no InterfaceInfo we expect to get below.
+	_, err := prepareOrGetContainerInterfaceInfo(
+		broker.api,
+		machineID,
+		bridgeDevice,
+		false, // maintain, do not allocate.
+		broker.enableNAT,
+		args.NetworkInfo,
+		kvmLogger,
+	)
+	return err
+}
+
 // StopInstances shuts down the given instances.
 func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 	// TODO: potentially parallelise.
@@ -139,6 +162,7 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger)
 	}
 	return nil
 }
@@ -146,32 +170,4 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 // AllInstances only returns running containers.
 func (broker *kvmBroker) AllInstances() (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
-}
-
-// MaintainInstance checks that the container's host has the required iptables and routing
-// rules to make the container visible to both the host and other machines on the same subnet.
-func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
-	machineId := args.InstanceConfig.MachineId
-	if !environs.AddressAllocationEnabled() {
-		kvmLogger.Debugf("address allocation disabled: Not running maintenance for kvm with machineId: %s",
-			machineId)
-		return nil
-	}
-
-	kvmLogger.Debugf("running maintenance for kvm with machineId: %s", machineId)
-
-	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = kvm.DefaultKvmBridge
-	}
-	_, err := configureContainerNetwork(
-		machineId,
-		bridgeDevice,
-		broker.api,
-		args.NetworkInfo,
-		false, // don't allocate a new address.
-		broker.enableNAT,
-	)
-	return err
 }

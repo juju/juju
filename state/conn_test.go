@@ -4,9 +4,9 @@
 package state_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -14,11 +14,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 // ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
@@ -31,9 +26,9 @@ type ConnSuite struct {
 	relations    *mgo.Collection
 	services     *mgo.Collection
 	units        *mgo.Collection
-	stateServers *mgo.Collection
+	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
-	envTag       names.EnvironTag
+	modelTag     names.ModelTag
 }
 
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
@@ -44,7 +39,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 
 	cs.StateSuite.SetUpTest(c)
 
-	cs.envTag = cs.State.EnvironTag()
+	cs.modelTag = cs.State.ModelTag()
 
 	jujuDB := cs.MgoSuite.Session.DB("juju")
 	cs.annotations = jujuDB.C("annotations")
@@ -54,7 +49,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.relations = jujuDB.C("relations")
 	cs.services = jujuDB.C("services")
 	cs.units = jujuDB.C("units")
-	cs.stateServers = jujuDB.C("stateServers")
+	cs.controllers = jujuDB.C("controllers")
 
 	c.Log("SetUpTest done")
 }
@@ -73,6 +68,10 @@ func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *stat
 
 func (s *ConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
 	return state.AddTestingServiceWithStorage(c, s.State, name, ch, s.Owner, storage)
+}
+
+func (s *ConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Service {
+	return state.AddTestingServiceWithBindings(c, s.State, name, ch, s.Owner, bindings)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
@@ -102,4 +101,19 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 // given YAML string and adds it to the state, using the given revision.
 func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revsion int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revsion)
+}
+
+// NewStateForModelNamed returns an new model with the given modelName, which
+// has a unique UUID, and does not need to be closed when the test completes.
+func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.State {
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": modelName,
+		"uuid": utils.MustNewUUID().String(),
+	})
+	otherOwner := names.NewLocalUserTag("test-admin")
+	_, otherState, err := s.State.NewModel(cfg, otherOwner)
+
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { otherState.Close() })
+	return otherState
 }

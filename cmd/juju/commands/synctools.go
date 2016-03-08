@@ -13,8 +13,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
@@ -24,13 +24,13 @@ import (
 var syncTools = sync.SyncTools
 
 func newSyncToolsCommand() cmd.Command {
-	return envcmd.Wrap(&syncToolsCommand{})
+	return modelcmd.Wrap(&syncToolsCommand{})
 }
 
 // syncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
 type syncToolsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	allVersions  bool
 	versionStr   string
 	majorVersion int
@@ -49,14 +49,14 @@ var _ cmd.Command = (*syncToolsCommand)(nil)
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "copy tools from the official tool store into a local environment",
+		Purpose: "copy tools from the official tool store into a local model",
 		Doc: `
 This copies the Juju tools tarball from the official tools store (located
-at https://streams.canonical.com/juju) into your environment.
+at https://streams.canonical.com/juju) into your model.
 This is generally done when you want Juju to be able to run without having to
 access the Internet. Alternatively you can specify a local directory as source.
 
-Sometimes this is because the environment does not have public access,
+Sometimes this is because the model does not have public access,
 and sometimes you just want to avoid having to access data outside of
 the local cloud.
 `,

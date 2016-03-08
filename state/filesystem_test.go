@@ -31,35 +31,70 @@ func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 
 func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefault(c *gc.C) {
 	// no pool specified, no default configured: use rootfs.
-	s.testAddServiceDefaultPool(c, "rootfs")
+	s.testAddServiceDefaultPool(c, "rootfs", 0)
+}
+
+func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefaultWithUnits(c *gc.C) {
+	// no pool specified, no default configured: use rootfs, add a unit during
+	// service deploy.
+	s.testAddServiceDefaultPool(c, "rootfs", 1)
 }
 
 func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
 	// no pool specified, default block configured: use default
 	// block with managed fs on top.
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+	err := s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "machinescoped",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.testAddServiceDefaultPool(c, "machinescoped")
+	s.testAddServiceDefaultPool(c, "machinescoped", 0)
 }
 
-func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool string) {
+func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool string, numUnits int) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	svc, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+
+	args := state.AddServiceArgs{
+		Name:     "storage-filesystem",
+		Owner:    s.Owner.String(),
+		Charm:    ch,
+		Storage:  storage,
+		NumUnits: numUnits,
+	}
+	svc, err := s.State.AddService(args)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := svc.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+	expected := map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
 			Pool:  expectedPool,
 			Size:  1024,
 			Count: 1,
 		},
-	})
+	}
+	c.Assert(cons, jc.DeepEquals, expected)
+
+	svc, err = s.State.Service(args.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, numUnits)
+
+	for _, unit := range units {
+		scons, err := unit.StorageConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(scons, gc.DeepEquals, expected)
+
+		storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(storageAttachments, gc.HasLen, 1)
+		storageInstance, err := s.State.StorageInstance(storageAttachments[0].StorageInstance())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindFilesystem)
+	}
 }
 
 func (s *FilesystemStateSuite) TestAddFilesystemWithoutBackingVolume(c *gc.C) {
@@ -274,7 +309,7 @@ func (s *FilesystemStateSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("0"))
 }
 
-func (s *FilesystemStateSuite) TestWatchEnvironFilesystems(c *gc.C) {
+func (s *FilesystemStateSuite) TestWatchModelFilesystems(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "filesystem")
 	addUnit := func() {
 		u, err := service.AddUnit()
@@ -284,7 +319,7 @@ func (s *FilesystemStateSuite) TestWatchEnvironFilesystems(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironFilesystems()
+	w := s.State.WatchModelFilesystems()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0") // initial

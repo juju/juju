@@ -20,7 +20,7 @@ var Repo = testing.NewRepo("charm-repo", "quantal")
 // UploadCharm uploads a charm using the given charm store client, and returns
 // the resulting charm URL and charm.
 func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
-	id := charm.MustParseReference(url)
+	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
 		// We still need a user even if we are uploading a promulgated charm.
@@ -38,15 +38,36 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Return the charm and its URL.
-	curl, err := id.URL("")
+	return id, ch
+}
+
+// UploadCharmMultiSeries uploads a charm with revision using the given charm store client,
+// and returns the resulting charm URL and charm. This API caters for new multi-series charms
+// which do not specify a series in the URL.
+func UploadCharmMultiSeries(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+	id := charm.MustParseURL(url)
+	if id.User == "" {
+		// We still need a user even if we are uploading a promulgated charm.
+		id.User = "who"
+	}
+	ch := Repo.CharmArchive(c.MkDir(), name)
+
+	// Upload the charm.
+	curl, err := client.UploadCharm(id, ch)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Allow read permissions to everyone.
+	err = client.Put("/"+curl.Path()+"/meta/perm/read", []string{params.Everyone})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Return the charm and its URL.
 	return curl, ch
 }
 
 // UploadBundle uploads a bundle using the given charm store client, and
 // returns the resulting bundle URL and bundle.
 func UploadBundle(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Bundle) {
-	id := charm.MustParseReference(url)
+	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
 		// We still need a user even if we are uploading a promulgated bundle.
@@ -64,7 +85,5 @@ func UploadBundle(c *gc.C, client *csclient.Client, url, name string) (*charm.UR
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Return the bundle and its URL.
-	burl, err := id.URL("")
-	c.Assert(err, jc.ErrorIsNil)
-	return burl, b
+	return id, b
 }

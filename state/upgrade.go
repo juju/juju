@@ -2,34 +2,34 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 /*
-This file defines infrastructure for synchronising state server tools
+This file defines infrastructure for synchronising controller tools
 upgrades. Synchronisation is handled via a mongo DB document in the
 "upgradeInfo" collection.
 
 The functionality here is intended to be used as follows:
 
-1. When state servers come up running the new tools version, they call
+1. When controllers come up running the new tools version, they call
 EnsureUpgradeInfo before running upgrade steps.
 
-2a. Any secondary state server watches the UpgradeInfo document and
+2a. Any secondary controller watches the UpgradeInfo document and
 waits for the status to change to UpgradeFinishing.
 
-2b. The master state server watches the UpgradeInfo document and waits
-for AllProvisionedStateServersReady to return true. This indicates
-that all provisioned state servers have called EnsureUpgradeInfo and
+2b. The master controller watches the UpgradeInfo document and waits
+for AllProvisionedControllersReady to return true. This indicates
+that all provisioned controllers have called EnsureUpgradeInfo and
 are ready to upgrade.
 
-3. The master state server calls SetStatus with UpgradeRunning and
+3. The master controller calls SetStatus with UpgradeRunning and
 runs its upgrade steps.
 
-4. The master state server calls SetStatus with UpgradeFinishing and
-then calls SetStateServerDone with it's own machine id.
+4. The master controller calls SetStatus with UpgradeFinishing and
+then calls SetControllerDone with it's own machine id.
 
-5. Secondary state servers, seeing that the status has changed to
+5. Secondary controllers, seeing that the status has changed to
 UpgradeFinishing, run their upgrade steps and then call
-SetStateServerDone when complete.
+SetControllerDone when complete.
 
-6. Once the final state server calls SetStateServerDone, the status is
+6. Once the final controller calls SetControllerDone, the status is
 changed to UpgradeComplete and the upgradeInfo document is archived.
 */
 
@@ -54,15 +54,15 @@ const (
 	// UpgradePending indicates that an upgrade is queued but not yet started.
 	UpgradePending UpgradeStatus = "pending"
 
-	// UpgradeRunning indicates that the master state server has started
-	// running upgrade logic, and other state servers are waiting for it.
+	// UpgradeRunning indicates that the master controller has started
+	// running upgrade logic, and other controllers are waiting for it.
 	UpgradeRunning UpgradeStatus = "running"
 
-	// UpgradeFinishing indicates that the master state server has finished
-	// running upgrade logic, and other state servers are catching up.
+	// UpgradeFinishing indicates that the master controller has finished
+	// running upgrade logic, and other controllers are catching up.
 	UpgradeFinishing UpgradeStatus = "finishing"
 
-	// UpgradeComplete indicates that all state servers have finished running
+	// UpgradeComplete indicates that all controllers have finished running
 	// upgrade logic.
 	UpgradeComplete UpgradeStatus = "complete"
 
@@ -75,16 +75,16 @@ const (
 )
 
 type upgradeInfoDoc struct {
-	Id                string         `bson:"_id"`
-	PreviousVersion   version.Number `bson:"previousVersion"`
-	TargetVersion     version.Number `bson:"targetVersion"`
-	Status            UpgradeStatus  `bson:"status"`
-	Started           time.Time      `bson:"started"`
-	StateServersReady []string       `bson:"stateServersReady"`
-	StateServersDone  []string       `bson:"stateServersDone"`
+	Id               string         `bson:"_id"`
+	PreviousVersion  version.Number `bson:"previousVersion"`
+	TargetVersion    version.Number `bson:"targetVersion"`
+	Status           UpgradeStatus  `bson:"status"`
+	Started          time.Time      `bson:"started"`
+	ControllersReady []string       `bson:"controllersReady"`
+	ControllersDone  []string       `bson:"controllersDone"`
 }
 
-// UpgradeInfo is used to synchronise state server upgrades.
+// UpgradeInfo is used to synchronise controller upgrades.
 type UpgradeInfo struct {
 	st  *State
 	doc upgradeInfoDoc
@@ -110,19 +110,19 @@ func (info *UpgradeInfo) Started() time.Time {
 	return info.doc.Started
 }
 
-// StateServersReady returns the machine ids for state servers that
+// ControllersReady returns the machine ids for controllers that
 // have signalled that they are ready for upgrade.
-func (info *UpgradeInfo) StateServersReady() []string {
-	result := make([]string, len(info.doc.StateServersReady))
-	copy(result, info.doc.StateServersReady)
+func (info *UpgradeInfo) ControllersReady() []string {
+	result := make([]string, len(info.doc.ControllersReady))
+	copy(result, info.doc.ControllersReady)
 	return result
 }
 
-// StateServersDone returns the machine ids for state servers that
+// ControllersDone returns the machine ids for controllers that
 // have completed their upgrades.
-func (info *UpgradeInfo) StateServersDone() []string {
-	result := make([]string, len(info.doc.StateServersDone))
-	copy(result, info.doc.StateServersDone)
+func (info *UpgradeInfo) ControllersDone() []string {
+	result := make([]string, len(info.doc.ControllersDone))
+	copy(result, info.doc.ControllersDone)
 	return result
 }
 
@@ -136,42 +136,42 @@ func (info *UpgradeInfo) Refresh() error {
 	return nil
 }
 
-// Watcher returns a watcher for the state underlying the current
+// Watch returns a watcher for the state underlying the current
 // UpgradeInfo instance. This is provided purely for convenience.
 func (info *UpgradeInfo) Watch() NotifyWatcher {
 	return info.st.WatchUpgradeInfo()
 }
 
-// AllProvisionedStateServersReady returns true if and only if all state servers
+// AllProvisionedControllersReady returns true if and only if all controllers
 // that have been started by the provisioner have called EnsureUpgradeInfo with
 // matching versions.
 //
-// When this returns true the master state state server can begin it's
+// When this returns true the master state controller can begin it's
 // own upgrade.
-func (info *UpgradeInfo) AllProvisionedStateServersReady() (bool, error) {
-	provisioned, err := info.getProvisionedStateServers()
+func (info *UpgradeInfo) AllProvisionedControllersReady() (bool, error) {
+	provisioned, err := info.getProvisionedControllers()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	ready := set.NewStrings(info.doc.StateServersReady...)
+	ready := set.NewStrings(info.doc.ControllersReady...)
 	missing := set.NewStrings(provisioned...).Difference(ready)
 	return missing.IsEmpty(), nil
 }
 
-func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
+func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 	var provisioned []string
 
-	stateServerInfo, err := info.st.StateServerInfo()
+	controllerInfo, err := info.st.ControllerInfo()
 	if err != nil {
-		return provisioned, errors.Annotate(err, "cannot read state servers")
+		return provisioned, errors.Annotate(err, "cannot read controllers")
 	}
 
-	upgradeDone, err := info.isEnvUUIDUpgradeDone()
+	upgradeDone, err := info.isModelUUIDUpgradeDone()
 	if err != nil {
 		return provisioned, errors.Trace(err)
 	}
 
-	// Extract current and provisioned state servers.
+	// Extract current and provisioned controllers.
 	instanceData, closer := info.st.getRawCollection(instanceDataC)
 	defer closer()
 
@@ -180,12 +180,12 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	var sel bson.D
 	var field string
 	if upgradeDone {
-		sel = bson.D{{"env-uuid", info.st.EnvironUUID()}}
+		sel = bson.D{{"model-uuid", info.st.ModelUUID()}}
 		field = "machineid"
 	} else {
 		field = "_id"
 	}
-	sel = append(sel, bson.DocElem{field, bson.D{{"$in", stateServerInfo.MachineIds}}})
+	sel = append(sel, bson.DocElem{field, bson.D{{"$in", controllerInfo.MachineIds}}})
 	iter := instanceData.Find(sel).Select(bson.D{{field, true}}).Iter()
 
 	var doc bson.M
@@ -198,11 +198,11 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	return provisioned, nil
 }
 
-func (info *UpgradeInfo) isEnvUUIDUpgradeDone() (bool, error) {
+func (info *UpgradeInfo) isModelUUIDUpgradeDone() (bool, error) {
 	instanceData, closer := info.st.getRawCollection(instanceDataC)
 	defer closer()
 
-	query := instanceData.Find(bson.D{{"env-uuid", bson.D{{"$exists", true}}}})
+	query := instanceData.Find(bson.D{{"model-uuid", bson.D{{"$exists", true}}}})
 	n, err := query.Count()
 	if err != nil {
 		return false, errors.Annotatef(err, "couldn't query instance upgrade status")
@@ -253,7 +253,7 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 // EnsureUpgradeInfo returns an UpgradeInfo describing a current upgrade between the
 // supplied versions. If a matching upgrade is in progress, that upgrade is returned;
 // if there's a mismatch, an error is returned. The supplied machine id must correspond
-// to a current state server.
+// to a current controller.
 func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVersion version.Number) (*UpgradeInfo, error) {
 
 	assertSanity, err := checkUpgradeInfoSanity(st, machineId, previousVersion, targetVersion)
@@ -262,12 +262,12 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 	}
 
 	doc := upgradeInfoDoc{
-		Id:                currentUpgradeId,
-		PreviousVersion:   previousVersion,
-		TargetVersion:     targetVersion,
-		Status:            UpgradePending,
-		Started:           time.Now().UTC(),
-		StateServersReady: []string{machineId},
+		Id:               currentUpgradeId,
+		PreviousVersion:  previousVersion,
+		TargetVersion:    targetVersion,
+		Status:           UpgradePending,
+		Started:          time.Now().UTC(),
+		ControllersReady: []string{machineId},
 	}
 
 	machine, err := st.Machine(machineId)
@@ -310,7 +310,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Id:     currentUpgradeId,
 		Assert: assertSanity,
 		Update: bson.D{{
-			"$addToSet", bson.D{{"stateServersReady", machineId}},
+			"$addToSet", bson.D{{"controllersReady", machineId}},
 		}},
 	}}
 	switch err := st.runTransaction(ops); err {
@@ -359,18 +359,18 @@ func ensureUpgradeInfoUpdated(st *State, machineId string, previousVersion, targ
 			targetVersion, doc.TargetVersion)
 	}
 
-	stateServersReady := set.NewStrings(doc.StateServersReady...)
-	if !stateServersReady.Contains(machineId) {
+	controllersReady := set.NewStrings(doc.ControllersReady...)
+	if !controllersReady.Contains(machineId) {
 		return nil, errors.Trace(errUpgradeInfoNotUpdated)
 	}
 	return &UpgradeInfo{st: st, doc: doc}, nil
 }
 
-// SetStateServerDone marks the supplied state machineId as having
-// completed its upgrades. When SetStateServerDone is called by the
-// last provisioned state server, the current upgrade info document
+// SetControllerDone marks the supplied state machineId as having
+// completed its upgrades. When SetControllerDone is called by the
+// last provisioned controller, the current upgrade info document
 // will be archived with a status of UpgradeComplete.
-func (info *UpgradeInfo) SetStateServerDone(machineId string) error {
+func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 	assertSanity, err := checkUpgradeInfoSanity(info.st, machineId,
 		info.doc.PreviousVersion, info.doc.TargetVersion)
 	if err != nil {
@@ -389,30 +389,30 @@ func (info *UpgradeInfo) SetStateServerDone(machineId string) error {
 			return nil, errors.New("upgrade has not yet run")
 		}
 
-		stateServersDone := set.NewStrings(doc.StateServersDone...)
-		if stateServersDone.Contains(machineId) {
+		controllersDone := set.NewStrings(doc.ControllersDone...)
+		if controllersDone.Contains(machineId) {
 			return nil, jujutxn.ErrNoOperations
 		}
-		stateServersDone.Add(machineId)
+		controllersDone.Add(machineId)
 
-		stateServersReady := set.NewStrings(doc.StateServersReady...)
-		stateServersNotDone := stateServersReady.Difference(stateServersDone)
-		if stateServersNotDone.IsEmpty() {
-			// This is the last state server. Archive the current
+		controllersReady := set.NewStrings(doc.ControllersReady...)
+		controllersNotDone := controllersReady.Difference(controllersDone)
+		if controllersNotDone.IsEmpty() {
+			// This is the last controller. Archive the current
 			// upgradeInfo document.
-			doc.StateServersDone = stateServersDone.SortedValues()
+			doc.ControllersDone = controllersDone.SortedValues()
 			return info.makeArchiveOps(doc, UpgradeComplete), nil
 		}
 
 		return []txn.Op{{
 			C:  upgradeInfoC,
 			Id: currentUpgradeId,
-			// This is not the last state server, but we need to be
+			// This is not the last controller, but we need to be
 			// sure it still isn't when we run this.
 			Assert: append(assertSanity, bson.D{{
-				"stateServersDone", bson.D{{"$nin", stateServersNotDone.Values()}},
+				"controllersDone", bson.D{{"$nin", controllersNotDone.Values()}},
 			}}...),
-			Update: bson.D{{"$addToSet", bson.D{{"stateServersDone", machineId}}}},
+			Update: bson.D{{"$addToSet", bson.D{{"controllersDone", machineId}}}},
 		}}, nil
 	}
 	err = info.st.run(buildTxn)
@@ -495,13 +495,13 @@ func checkUpgradeInfoSanity(st *State, machineId string, previousVersion, target
 	if previousVersion.Compare(targetVersion) != -1 {
 		return nil, errors.Errorf("cannot sanely upgrade from %s to %s", previousVersion, targetVersion)
 	}
-	stateServerInfo, err := st.StateServerInfo()
+	controllerInfo, err := st.ControllerInfo()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read state servers")
+		return nil, errors.Annotate(err, "cannot read controllers")
 	}
-	validIds := set.NewStrings(stateServerInfo.MachineIds...)
+	validIds := set.NewStrings(controllerInfo.MachineIds...)
 	if !validIds.Contains(machineId) {
-		return nil, errors.Errorf("machine %q is not a state server", machineId)
+		return nil, errors.Errorf("machine %q is not a controller", machineId)
 	}
 	return assertExpectedVersions(previousVersion, targetVersion), nil
 }

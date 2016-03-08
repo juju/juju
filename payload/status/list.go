@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 )
 
@@ -23,7 +23,7 @@ type ListAPI interface {
 
 // ListCommand implements the list-payloads command.
 type ListCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	patterns []string
 
@@ -80,9 +80,9 @@ func (c *ListCommand) Init(args []string) error {
 	return nil
 }
 
-// TODO(ericsnow) Move this to a common place, like cmd/envcmd?
-const connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
+// TODO(ericsnow) Move this to a common place, like cmd/modelcmd?
+const connectionError = `Unable to connect to model %q.
+Please check your credentials or use 'juju bootstrap' to create a new model.
 
 Error details:
 %v

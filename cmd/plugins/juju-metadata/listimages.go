@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -11,15 +12,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newListImagesCommand() cmd.Command {
-	return envcmd.Wrap(&listImagesCommand{})
+	return modelcmd.Wrap(&listImagesCommand{})
 }
 
 const listCommandDoc = `
-List information about image metadata stored in Juju environment.
+List information about image metadata stored in Juju model.
 This list can be filtered using various filters as described below.
 
 More than one filter can be specified. Result will contain metadata that matches all filters in combination.
@@ -27,8 +28,8 @@ More than one filter can be specified. Result will contain metadata that matches
 If no filters are supplied, all stored image metadata will be listed.
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= tabular)
@@ -125,7 +126,12 @@ func (c *listImagesCommand) Run(ctx *cmd.Context) (err error) {
 		return nil
 	}
 
-	info := convertDetailsToInfo(found)
+	info, errs := convertDetailsToInfo(found)
+	if len(errs) > 0 {
+		// display individual error
+		fmt.Fprintf(ctx.Stderr, strings.Join(errs, "\n"))
+	}
+
 	var output interface{}
 	switch c.out.Name() {
 	case "yaml", "json":
@@ -153,12 +159,14 @@ func (c *listImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
 
 // convertDetailsToInfo converts cloud image metadata received from api to
 // structure native to CLI.
-func convertDetailsToInfo(details []params.CloudImageMetadata) []MetadataInfo {
+// We also return a list of errors for versions we could not convert to series for user friendly read.
+func convertDetailsToInfo(details []params.CloudImageMetadata) ([]MetadataInfo, []string) {
 	if len(details) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	info := make([]MetadataInfo, len(details))
+	errs := []string{}
 	for i, one := range details {
 		info[i] = MetadataInfo{
 			Source:          one.Source,
@@ -171,7 +179,7 @@ func convertDetailsToInfo(details []params.CloudImageMetadata) []MetadataInfo {
 			RootStorageType: one.RootStorageType,
 		}
 	}
-	return info
+	return info, errs
 }
 
 // metadataInfos is a convenience type enabling to sort

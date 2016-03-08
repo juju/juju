@@ -16,19 +16,19 @@ import (
 )
 
 type RemoveMachineSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeRemoveMachineAPI
 }
 
 var _ = gc.Suite(&RemoveMachineSuite{})
 
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeRemoveMachineAPI{}
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	remove, _ := machine.NewRemoveCommand(s.fake)
+	remove, _ := machine.NewRemoveCommandForTest(s.fake)
 	return testing.RunCommand(c, remove, args...)
 }
 
@@ -64,7 +64,7 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, removeCmd := machine.NewRemoveCommand(s.fake)
+		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.fake)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)

@@ -11,7 +11,7 @@ import (
 var (
 	GetZone = &getZone
 
-	_ meterstatus.MeterStatus = (*uniterBaseAPI)(nil)
+	_ meterstatus.MeterStatus = (*UniterAPIV3)(nil)
 )
 
 type StorageStateInterface storageStateInterface

@@ -65,11 +65,9 @@ func (s *metricsAdderSuite) TestAddMetricBatches(c *gc.C) {
 
 func (s *metricsAdderSuite) TestAddMetricBatchesFails(c *gc.C) {
 	var called bool
-	var callParams params.MetricBatchParams
 	metricsadder.PatchFacadeCall(s, s.adder, func(request string, args, response interface{}) error {
-		p, ok := args.(params.MetricBatchParams)
+		_, ok := args.(params.MetricBatchParams)
 		c.Assert(ok, jc.IsTrue)
-		callParams = p
 		called = true
 		c.Assert(request, gc.Equals, "AddMetricBatches")
 		result := response.(*params.ErrorResults)
@@ -149,11 +147,11 @@ func (s *metricsAdderIntegrationSuite) TestAddMetricBatches(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(result, gc.IsNil)
 
-	stateBatches, err := s.State.MetricBatches()
+	stateBatches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateBatches, gc.HasLen, 1)
 	c.Assert(stateBatches[0].CharmURL(), gc.Equals, batches[0].Batch.CharmURL)
 	c.Assert(stateBatches[0].UUID(), gc.Equals, batches[0].Batch.UUID)
-	c.Assert(stateBatches[0].EnvUUID(), gc.Equals, s.State.EnvironUUID())
+	c.Assert(stateBatches[0].ModelUUID(), gc.Equals, s.State.ModelUUID())
 	c.Assert(stateBatches[0].Unit(), gc.Equals, s.unitTag.Id())
 }

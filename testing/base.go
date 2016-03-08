@@ -27,12 +27,12 @@ var logger = loggo.GetLogger("juju.testing")
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
-// BaseSuite and in FakeJujuHomeSuite. Eventually the tests relying on
+// BaseSuite and in FakeJujuXDGDataHomeSuite. Eventually the tests relying on
 // JujuOSEnvSuite will be converted to use the IsolationSuite in
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
-	oldJujuHome         string
+	oldJujuXDGDataHome  string
 	oldHomeEnv          string
 	oldEnvironment      map[string]string
 	initialFeatureFlags string
@@ -44,16 +44,17 @@ type JujuOSEnvSuite struct {
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
-		osenv.JujuHomeEnvKey,
-		osenv.JujuEnvEnvKey,
+		osenv.JujuXDGDataHomeEnvKey,
+		osenv.JujuModelEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
 		osenv.JujuFeatureFlagEnvKey,
+		osenv.XDGDataHome,
 	} {
 		s.oldEnvironment[name] = os.Getenv(name)
 		os.Setenv(name, "")
 	}
 	s.oldHomeEnv = utils.Home()
-	s.oldJujuHome = osenv.SetJujuHome("")
+	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome("")
 	utils.SetHome("")
 
 	// Update the feature flag set to be the requested initial set.
@@ -71,7 +72,7 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 		os.Setenv(name, value)
 	}
 	utils.SetHome(s.oldHomeEnv)
-	osenv.SetJujuHome(s.oldJujuHome)
+	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 }
 
 // SkipIfPPC64EL skips the test if the arch is PPC64EL and the
@@ -151,7 +152,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// We can't always just use IsolationSuite because we still need
 	// PATH and possibly a couple other envars.
 	s.PatchEnvironment("BASH_ENV", "")
-	network.ResetGlobalPreferIPv6()
+	network.SetPreferIPv6(false)
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {

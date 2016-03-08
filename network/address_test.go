@@ -116,6 +116,44 @@ func (s *AddressSuite) TestNewScopedAddressIPv6(c *gc.C) {
 	}
 }
 
+func (s *AddressSuite) TestNewAddressOnSpace(c *gc.C) {
+	addr1 := network.NewAddressOnSpace("foo", "0.1.2.3")
+	addr2 := network.NewAddressOnSpace("", "2001:db8::123")
+	c.Check(addr1, jc.DeepEquals, network.Address{
+		Value:       "0.1.2.3",
+		Type:        "ipv4",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "foo",
+	})
+	c.Check(addr2, jc.DeepEquals, network.Address{
+		Value:       "2001:db8::123",
+		Type:        "ipv6",
+		Scope:       "public",
+		NetworkName: "",
+		SpaceName:   "",
+	})
+}
+
+func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
+	addrs := network.NewAddressesOnSpace("bar", "0.2.3.4", "fc00::1")
+	c.Check(addrs, jc.DeepEquals, []network.Address{{
+		Value:           "0.2.3.4",
+		Type:            "ipv4",
+		Scope:           "public",
+		NetworkName:     "",
+		SpaceName:       "bar",
+		SpaceProviderId: network.Id(""),
+	}, {
+		Value:           "fc00::1",
+		Type:            "ipv6",
+		Scope:           "local-cloud",
+		NetworkName:     "",
+		SpaceName:       "bar",
+		SpaceProviderId: network.Id(""),
+	}})
+}
+
 func (s *AddressSuite) TestNewAddressIPv4(c *gc.C) {
 	value := "0.1.2.3"
 	addr1 := network.NewScopedAddress(value, network.ScopeUnknown)
@@ -233,116 +271,116 @@ var selectPublicTests = []selectTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"a public IPv6 address is selected",
 	[]network.Address{
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"first public address is selected",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"the first public address is selected when cloud local fallbacks exist",
 	[]network.Address{
-		{"172.16.1.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"fc00:1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"172.16.1.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"fc00:1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	1,
 	false,
 }, {
 	"IPv6 public address is preferred to a cloud local one when preferIPv6 is true",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"172.16.1.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
-		{"fc00:1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"172.16.1.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"fc00:1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	3,
 	true,
 }, {
 	"a machine IPv4 local address is not selected",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal},
+		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	-1,
 	false,
 }, {
 	"a machine IPv6 local address is not selected",
 	[]network.Address{
-		{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal},
+		{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	-1,
 	false,
 }, {
 	"a link-local IPv4 address is not selected",
 	[]network.Address{
-		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
 	},
 	-1,
 	false,
 }, {
 	"a link-local (multicast or not) IPv6 address is not selected",
 	[]network.Address{
-		{"fe80::1", network.IPv6Address, "link", network.ScopeLinkLocal},
-		{"ff01::2", network.IPv6Address, "link", network.ScopeLinkLocal},
-		{"ff02::1:1", network.IPv6Address, "link", network.ScopeLinkLocal},
+		{"fe80::1", network.IPv6Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"ff01::2", network.IPv6Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"ff02::1:1", network.IPv6Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
 	},
 	-1,
 	false,
 }, {
 	"a public name is preferred to an unknown or cloud local address",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "local", network.ScopeUnknown},
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"public.invalid.testing", network.HostName, "public", network.ScopePublic},
+		{"127.0.0.1", network.IPv4Address, "local", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"public.invalid.testing", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	3,
 	false,
 }, {
 	"first unknown address selected",
 	[]network.Address{
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown},
-		{"8.8.8.8", network.IPv4Address, "floating", network.ScopeUnknown},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "floating", network.ScopeUnknown, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"first public address is picked when both public IPs and public hostnames exist",
 	[]network.Address{
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown},
-		{"example.com", network.HostName, "public", network.ScopePublic},
-		{"8.8.8.8", network.IPv4Address, "floating", network.ScopePublic},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "floating", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	1,
 	false,
 }, {
 	"first public IPv6 address is picked when both public IPs and public hostnames exist when preferIPv6 is true",
 	[]network.Address{
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown},
-		{"8.8.8.8", network.IPv4Address, "floating", network.ScopePublic},
-		{"example.com", network.HostName, "public", network.ScopePublic},
-		{"2001:db8::1", network.IPv6Address, "other", network.ScopePublic},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "floating", network.ScopePublic, network.DefaultSpace, ""},
+		{"example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "other", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	3,
 	true,
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -364,84 +402,84 @@ var selectInternalTests = []selectTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"a public IPv6 address is selected",
 	[]network.Address{
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"a public IPv6 address is selected when both IPv4 and IPv6 addresses exist and preferIPv6 is true",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	1,
 	true,
 }, {
 	"the first public IPv4 address is selected when preferIPv6 is true and no IPv6 addresses",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
-		{"8.8.4.4", network.IPv4Address, "public", network.ScopePublic},
+		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"8.8.4.4", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	1,
 	true,
 }, {
 	"a cloud local IPv4 address is selected",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"10.0.0.1", network.IPv4Address, "private", network.ScopeCloudLocal},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"10.0.0.1", network.IPv4Address, "private", network.ScopeCloudLocal, network.DefaultSpace, ""},
 	},
 	1,
 	false,
 }, {
 	"a cloud local IPv6 address is selected",
 	[]network.Address{
-		{"fc00::1", network.IPv6Address, "private", network.ScopeCloudLocal},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"fc00::1", network.IPv6Address, "private", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal},
-		{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal},
-		{"fe80::1", network.IPv6Address, "machine", network.ScopeLinkLocal},
+		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"fe80::1", network.IPv6Address, "machine", network.ScopeLinkLocal, network.DefaultSpace, ""},
 	},
 	-1,
 	false,
 }, {
 	"a cloud local address is preferred to a public address",
 	[]network.Address{
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
 	},
 	1,
 	false,
 }, {
 	"an IPv6 cloud local address is preferred to a public address when preferIPv6 is true",
 	[]network.Address{
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
 	},
 	2,
 	false,
 }}
 
 func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -458,142 +496,142 @@ func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
 var selectInternalMachineTests = []selectTest{{
 	"first cloud local address is selected",
 	[]network.Address{
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"first cloud local hostname is selected when preferIPv6 is false",
 	[]network.Address{
-		{"example.com", network.HostName, "public", network.ScopePublic},
-		{"cloud1.internal", network.HostName, "cloud", network.ScopeCloudLocal},
-		{"cloud2.internal", network.HostName, "cloud", network.ScopeCloudLocal},
-		{"example.org", network.HostName, "public", network.ScopePublic},
+		{"example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"cloud1.internal", network.HostName, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"cloud2.internal", network.HostName, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"example.org", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	1,
 	false,
 }, {
 	"first cloud local hostname is selected when preferIPv6 is true (public first)",
 	[]network.Address{
-		{"example.org", network.HostName, "public", network.ScopePublic},
-		{"example.com", network.HostName, "public", network.ScopePublic},
-		{"cloud1.internal", network.HostName, "cloud", network.ScopeCloudLocal},
-		{"cloud2.internal", network.HostName, "cloud", network.ScopeCloudLocal},
+		{"example.org", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"cloud1.internal", network.HostName, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"cloud2.internal", network.HostName, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
 	},
 	2,
 	true,
 }, {
 	"first cloud local hostname is selected when preferIPv6 is true (public last)",
 	[]network.Address{
-		{"cloud1.internal", network.HostName, "cloud", network.ScopeCloudLocal},
-		{"cloud2.internal", network.HostName, "cloud", network.ScopeCloudLocal},
-		{"example.org", network.HostName, "public", network.ScopePublic},
-		{"example.com", network.HostName, "public", network.ScopePublic},
+		{"cloud1.internal", network.HostName, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"cloud2.internal", network.HostName, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"example.org", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	0,
 	true,
 }, {
 	"first IPv6 cloud local address is selected when preferIPv6 is true",
 	[]network.Address{
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""},
 	},
 	2,
 	true,
 }, {
 	"first IPv4 cloud local address is selected when preferIPv6 is true and no IPv6 addresses",
 	[]network.Address{
-		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
-		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
-		{"172.16.1.1", network.IPv4Address, "cloud", network.ScopeCloudLocal},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"172.16.1.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
 	},
 	1,
 	true,
 }, {
 	"first machine local address is selected",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	0,
 	false,
 }, {
 	"first IPv6 machine local address is selected when preferIPv6 is true",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal},
-		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal, network.DefaultSpace, ""},
 	},
 	1,
 	true,
 }, {
 	"first IPv4 machine local address is selected when preferIPv6 is true and no IPv6 addresses",
 	[]network.Address{
-		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	1,
 	true,
 }, {
 	"first machine local address is selected when preferIPv6 is false even with public/cloud hostnames",
 	[]network.Address{
-		{"public.example.com", network.HostName, "public", network.ScopePublic},
-		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal},
-		{"unknown.example.com", network.HostName, "public", network.ScopeUnknown},
-		{"cloud.internal", network.HostName, "public", network.ScopeCloudLocal},
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal},
-		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"public.example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"unknown.example.com", network.HostName, "public", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"cloud.internal", network.HostName, "public", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	1,
 	false,
 }, {
 	"first cloud local hostname is selected when preferIPv6 is false even with other machine/cloud addresses",
 	[]network.Address{
-		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
-		{"cloud-unknown.internal", network.HostName, "container", network.ScopeUnknown},
-		{"cloud-local.internal", network.HostName, "container", network.ScopeCloudLocal},
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"cloud-unknown.internal", network.HostName, "container", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"cloud-local.internal", network.HostName, "container", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	2,
 	false,
 }, {
 	"first IPv6 machine local address is selected when preferIPv6 is true even with public/cloud hostnames",
 	[]network.Address{
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"public.example.com", network.HostName, "public", network.ScopePublic},
-		{"unknown.example.com", network.HostName, "public", network.ScopeUnknown},
-		{"cloud.internal", network.HostName, "public", network.ScopeCloudLocal},
-		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal},
-		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"public.example.com", network.HostName, "public", network.ScopePublic, network.DefaultSpace, ""},
+		{"unknown.example.com", network.HostName, "public", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"cloud.internal", network.HostName, "public", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal, network.DefaultSpace, ""},
 	},
 	4,
 	true,
 }, {
 	"first IPv6 cloud local address is selected when preferIPv6 is true even with cloud local hostnames",
 	[]network.Address{
-		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
-		{"cloud-unknown.internal", network.HostName, "container", network.ScopeUnknown},
-		{"cloud-local.internal", network.HostName, "container", network.ScopeCloudLocal},
-		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
-		{"fc00::2", network.IPv6Address, "cloud", network.ScopeCloudLocal},
-		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal, network.DefaultSpace, ""},
+		{"cloud-unknown.internal", network.HostName, "container", network.ScopeUnknown, network.DefaultSpace, ""},
+		{"cloud-local.internal", network.HostName, "container", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
+		{"fc00::2", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal, network.DefaultSpace, ""},
 	},
 	3,
 	true,
 }}
 
 func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -622,59 +660,59 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 }, {
 	"a public IPv4 address is selected",
 	[]network.HostPort{
-		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 9999},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 9999},
 	},
 	[]string{"8.8.8.8:9999"},
 	false,
 }, {
 	"public IPv6 addresses selected when both IPv4 and IPv6 addresses exist and preferIPv6 is true",
 	[]network.HostPort{
-		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 9999},
-		{network.Address{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic}, 8888},
-		{network.Address{"2002:db8::1", network.IPv6Address, "public", network.ScopePublic}, 9999},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 9999},
+		{network.Address{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 8888},
+		{network.Address{"2002:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 9999},
 	},
 	[]string{"[2001:db8::1]:8888", "[2002:db8::1]:9999"},
 	true,
 }, {
 	"a cloud local IPv4 addresses are selected",
 	[]network.HostPort{
-		{network.Address{"10.1.0.1", network.IPv4Address, "private", network.ScopeCloudLocal}, 8888},
-		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 123},
-		{network.Address{"10.0.0.1", network.IPv4Address, "private", network.ScopeCloudLocal}, 1234},
+		{network.Address{"10.1.0.1", network.IPv4Address, "private", network.ScopeCloudLocal, network.DefaultSpace, ""}, 8888},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 123},
+		{network.Address{"10.0.0.1", network.IPv4Address, "private", network.ScopeCloudLocal, network.DefaultSpace, ""}, 1234},
 	},
 	[]string{"10.1.0.1:8888", "10.0.0.1:1234"},
 	false,
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.HostPort{
-		{network.Address{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal}, 111},
-		{network.Address{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal}, 222},
-		{network.Address{"fe80::1", network.IPv6Address, "machine", network.ScopeLinkLocal}, 333},
+		{network.Address{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""}, 111},
+		{network.Address{"::1", network.IPv6Address, "machine", network.ScopeMachineLocal, network.DefaultSpace, ""}, 222},
+		{network.Address{"fe80::1", network.IPv6Address, "machine", network.ScopeLinkLocal, network.DefaultSpace, ""}, 333},
 	},
 	[]string{},
 	false,
 }, {
 	"cloud local addresses are preferred to a public addresses",
 	[]network.HostPort{
-		{network.Address{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic}, 123},
-		{network.Address{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal}, 123},
-		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 123},
-		{network.Address{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal}, 4444},
+		{network.Address{"2001:db8::1", network.IPv6Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 123},
+		{network.Address{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""}, 123},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 123},
+		{network.Address{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""}, 4444},
 	},
 	[]string{"[fc00::1]:123", "10.0.0.1:4444"},
 	false,
 }, {
 	"IPv4 addresses are used when prefer-IPv6 is set but no IPv6 addresses are available",
 	[]network.HostPort{
-		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic}, 123},
-		{network.Address{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal}, 4444},
+		{network.Address{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic, network.DefaultSpace, ""}, 123},
+		{network.Address{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeCloudLocal, network.DefaultSpace, ""}, 4444},
 	},
 	[]string{"10.0.0.1:4444"},
 	true,
 }}
 
 func (s *AddressSuite) TestSelectInternalHostPorts(c *gc.C) {
-	oldValue := network.GetPreferIPv6()
+	oldValue := network.PreferIPv6()
 	defer func() {
 		network.SetPreferIPv6(oldValue)
 	}()
@@ -694,6 +732,13 @@ var stringTests = []struct {
 		Value: "127.0.0.1",
 	},
 	str: "127.0.0.1",
+}, {
+	addr: network.Address{
+		Type:      network.IPv4Address,
+		Value:     "127.0.0.1",
+		SpaceName: "storage-data",
+	},
+	str: "127.0.0.1@storage-data",
 }, {
 	addr: network.Address{
 		Type:  network.IPv6Address,
@@ -716,19 +761,39 @@ var stringTests = []struct {
 	str: "foo.com",
 }, {
 	addr: network.Address{
-		Type:  network.HostName,
-		Value: "foo.com",
-		Scope: network.ScopePublic,
+		Type:            network.HostName,
+		Value:           "foo.com",
+		Scope:           network.ScopePublic,
+		SpaceProviderId: network.Id("3"),
 	},
-	str: "public:foo.com",
+	str: "public:foo.com@(id:3)",
 }, {
 	addr: network.Address{
-		Type:        network.HostName,
-		Value:       "foo.com",
-		Scope:       network.ScopePublic,
-		NetworkName: "netname",
+		Type:      network.HostName,
+		Value:     "foo.com",
+		Scope:     network.ScopePublic,
+		SpaceName: "default",
 	},
-	str: "public:foo.com(netname)",
+	str: "public:foo.com@default",
+}, {
+	addr: network.Address{
+		Type:            network.HostName,
+		Value:           "foo.com",
+		Scope:           network.ScopePublic,
+		NetworkName:     "netname",
+		SpaceProviderId: network.Id("3"),
+	},
+	str: "public:foo.com(netname)@(id:3)",
+}, {
+	addr: network.Address{
+		Type:            network.HostName,
+		Value:           "foo.com",
+		Scope:           network.ScopePublic,
+		NetworkName:     "netname",
+		SpaceName:       "badlands",
+		SpaceProviderId: network.Id("3"),
+	},
+	str: "public:foo.com(netname)@badlands(id:3)",
 }}
 
 func (s *AddressSuite) TestString(c *gc.C) {

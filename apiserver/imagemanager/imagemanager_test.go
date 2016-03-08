@@ -67,7 +67,7 @@ func (s *imageManagerSuite) TestNewImageManagerAPIRefusesNonClient(c *gc.C) {
 func (s *imageManagerSuite) addImage(c *gc.C, content string) {
 	var r io.Reader = bytes.NewReader([]byte(content))
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID:   s.State.EnvironUUID(),
+		ModelUUID: s.State.ModelUUID(),
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",

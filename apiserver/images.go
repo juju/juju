@@ -55,10 +55,10 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	kind := r.URL.Query().Get(":kind")
 	series := r.URL.Query().Get(":series")
 	arch := r.URL.Query().Get(":arch")
-	envuuid := r.URL.Query().Get(":envuuid")
+	modelUUID := r.URL.Query().Get(":modeluuid")
 
 	// Get the image details from storage.
-	metadata, imageReader, err := h.loadImage(st, envuuid, kind, series, arch)
+	metadata, imageReader, err := h.loadImage(st, modelUUID, kind, series, arch)
 	if err != nil {
 		return errors.Annotate(err, "error getting image from storage")
 	}
@@ -78,14 +78,14 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 
 // loadImage loads an os image from the blobstore,
 // downloading and caching it if necessary.
-func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series, arch string) (
+func (h *imagesDownloadHandler) loadImage(st *state.State, modeluuid, kind, series, arch string) (
 	*imagestorage.Metadata, io.ReadCloser, error,
 ) {
 	// We want to ensure that if an image needs to be downloaded and cached,
 	// this only happens once.
-	imageIdent := fmt.Sprintf("image-%s-%s-%s-%s", envuuid, kind, series, arch)
+	imageIdent := fmt.Sprintf("image-%s-%s-%s-%s", modeluuid, kind, series, arch)
 	lockDir := filepath.Join(h.dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, imageIdent)
+	lock, err := fslock.NewLock(lockDir, imageIdent, fslock.Defaults())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -95,7 +95,7 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 	metadata, imageReader, err := storage.Image(kind, series, arch)
 	// Not in storage, so go fetch it.
 	if errors.IsNotFound(err) {
-		if err := h.fetchAndCacheLxcImage(storage, envuuid, series, arch); err != nil {
+		if err := h.fetchAndCacheLxcImage(storage, modeluuid, series, arch); err != nil {
 			return nil, nil, errors.Annotate(err, "error fetching and caching image")
 		}
 		err = networkOperationWitDefaultRetries(func() error {
@@ -111,12 +111,12 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 
 // fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
 // and caches it in the state blobstore.
-func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) error {
-	cfg, err := h.state.EnvironConfig()
+func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, modeluuid, series, arch string) error {
+	cfg, err := h.state.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch, cfg.CloudImageBaseURL())
+	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch, cfg.ImageStream(), cfg.CloudImageBaseURL())
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}
@@ -165,7 +165,7 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	rdr := io.TeeReader(resp.Body, hash)
 
 	metadata := &imagestorage.Metadata{
-		EnvUUID:   envuuid,
+		ModelUUID: modeluuid,
 		Kind:      string(instance.LXC),
 		Series:    series,
 		Arch:      arch,

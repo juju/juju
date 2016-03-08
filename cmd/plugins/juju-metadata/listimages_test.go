@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -14,52 +13,42 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
-type BaseClouImageMetadataSuite struct {
-	testing.BaseSuite
+type BaseCloudImageMetadataSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
+	store *jujuclienttesting.MemStore
 }
 
-func (s *BaseClouImageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.setupBaseSuite(c)
 }
 
-func (s *BaseClouImageMetadataSuite) setupBaseSuite(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	memstore := configstore.NewMem()
-	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
-		return memstore, nil
-	})
-	os.Setenv(osenv.JujuEnvEnvKey, "testing")
-	info := memstore.CreateInfo("testing")
-	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"127.0.0.1:12345"},
-		Hostnames:   []string{"localhost:12345"},
-		CACert:      testing.CACert,
-		EnvironUUID: "env-uuid",
-	})
-	info.SetAPICredentials(configstore.APICredentials{
-		User:     "user-test",
-		Password: "password",
-	})
-	err := info.Write()
+	err := modelcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 }
 
 type ListSuite struct {
-	BaseClouImageMetadataSuite
+	BaseCloudImageMetadataSuite
 	mockAPI *mockListAPI
 }
 
 var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
-	s.BaseClouImageMetadataSuite.SetUpTest(c)
+	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 
 	s.mockAPI = &mockListAPI{}
 	s.mockAPI.list = func(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {

@@ -8,8 +8,8 @@ import (
 	"github.com/juju/loggo"
 
 	apiaddresser "github.com/juju/juju/api/addresser"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -32,16 +32,18 @@ func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
 		logger.Debugf("address deallocation not supported; not starting worker")
 		return worker.FinishedWorker{}, nil
 	}
-	ah := &addresserHandler{
-		api: api,
+	handler := &addresserHandler{api: api}
+	aw, err := watcher.NewStringsWorker(watcher.StringsConfig{
+		Handler: handler,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	aw := worker.NewStringsWorker(ah)
 	return aw, nil
 }
 
 // SetUp is part of the StringsWorker interface.
 func (a *addresserHandler) SetUp() (watcher.StringsWatcher, error) {
-	// WatchIPAddresses returns an EntityWatcher which is a StringsWatcher.
 	return a.api.WatchIPAddresses()
 }
 
@@ -50,8 +52,8 @@ func (a *addresserHandler) TearDown() error {
 	return nil
 }
 
-// Handle is part of the Worker interface.
-func (a *addresserHandler) Handle(watcherTags []string) error {
+// Handle is part of the StringsWorker interface.
+func (a *addresserHandler) Handle(_ <-chan struct{}, watcherTags []string) error {
 	// Changed IP address lifes are reported, clean them up.
 	err := a.api.CleanupIPAddresses()
 	if err != nil {

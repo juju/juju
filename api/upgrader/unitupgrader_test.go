@@ -18,8 +18,8 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type unitUpgraderSuite struct {
@@ -123,21 +123,21 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	// Initial event
 	wc.AssertOneChange()
 	vers := version.MustParseBinary("10.20.34-quantal-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
+
 	// One change noticing the new version
 	wc.AssertOneChange()
 	vers = version.MustParseBinary("10.20.35-quantal-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitUpgraderSuite) TestWatchAPIVersionWrongUnit(c *gc.C) {

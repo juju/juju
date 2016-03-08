@@ -47,7 +47,7 @@ type UnitAgent struct {
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
 	// Channel used as a selectable bool (closed means true).
-	initialAgentUpgradeCheckComplete chan struct{}
+	initialUpgradeCheckComplete chan struct{}
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
@@ -55,8 +55,8 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAge
 	return &UnitAgent{
 		AgentConf: NewAgentConf(""),
 		ctx:       ctx,
-		initialAgentUpgradeCheckComplete: make(chan struct{}),
-		bufferedLogs:                     bufferedLogs,
+		initialUpgradeCheckComplete: make(chan struct{}),
+		bufferedLogs:                bufferedLogs,
 	}
 }
 
@@ -85,7 +85,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
+	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay)
 
 	if !a.logToStdErr {
 		if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -123,7 +123,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-	network.InitializeFromConfig(agentConfig)
+	network.SetPreferIPv6(agentConfig.PreferIPv6())
 
 	// Sometimes there are upgrade steps that are needed for each unit.
 	// There are plans afoot to unify the unit and machine agents. When

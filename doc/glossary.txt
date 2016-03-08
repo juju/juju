@@ -50,7 +50,7 @@ A `charm URL` is a string that identifies the provenance and the intended
 deployment target of a charm, and may also specify the charm's revision.
 Charms are identified by their charm URLs.
 
-Environments
+Models
 ------------
 
 A `machine` is a computing resource on which components of juju, and of the
@@ -59,78 +59,51 @@ manipulate machines directly.
 
   * juju terminate-machine (soon to alias destroy-machine) [TODO: not implemented]
 
-An `environment` is a deployment of juju. It always includes at least one
+A `model` is a deployment of juju. It always includes at least one
 machine responsible for maintaining the system's state, and potentially
 provisioning additional machines in response to state changes. The following
-commands are used to manipulate and inspect the environment.
+commands are used to manipulate and inspect the model.
 
   * juju bootstrap
   * juju status [TODO: somewhat incomplete]
   * juju upgrade-juju
-  * juju destroy-environment
+  * juju destroy-model
 
 An `environment provider` mediates between juju and the substrate on which an
-environment runs. Each provider allows juju to run against a different backend:
+model runs. Each provider allows juju to run against a different backend:
 
   * ec2 (Amazon EC2 and S3)
   * maas (bare metal) [TODO: work in progress]
   * local (LXC containers on client machine) [TODO: work in progress]
   * openstack (many public and private clouds) [TODO: work in progress]
 
-An `environment configuration` describes how to create and connect to an
-environment from a specific provider. An environment configuration must
+An `model configuration` describes how to create and connect to an
+model from a specific provider. A model configuration must
 always specify at least the following information:
 
-  * name (to identify the environment)
+  * name (to identify the model)
   * type (to specify the provider)
   * admin-secret (a "password" identifying an client with administrative-
     level access to system state)
   * authorized-keys (SSH public keys identifying users allowed to connect to
-    machines in the environment)
+    machines in the model)
 
 ...and may accept or even require additional keys depending on the provider
-type; but the full details of environment configuration are outside the scope
+type; but the full details of model configuration are outside the scope
 of this document.
 
 [TODO: there should/will be commands for inspecting and manipulating the
-configuration of an environment while it's running; the names "env-get" and
-"env-set" have been mooted, but I'm not sure that's sane: I can't see any
+configuration of a model while it's running; the names "model-get" and
+"model-set" have been mooted, but I'm not sure that's sane: I can't see any
 reason not to use the existing "get" and "set", which currently only work
 for services. But I could just be missing something obvious. Note that certain
 settings, such as "name" and "type", and "region" in the ec2 provider, will
 need to be immutable, and I'm not sure whether that's implemented yet.]
 
-An `environments file` is a YAML file containing environment configurations.
-Juju cannot operate without a valid environments file, which must be saved at
-`~/.juju/environments.yaml` on the client machine.
-
-The simplest functional environments file looks like this:
-
-  environments:
-    aws:
-      type: ec2
-      admin-secret: <password string>
-      control-bucket: <globally unique S3 bucket name>
-
-The "name" of the single defined environment is determined by its key in the
-environments map ("aws"), and the "authorized-keys" can be safely omitted so
-long as the client machine has a public key with a standard name saved in
-`~/.ssh`. Because it's using the "ec2" provider type, it also has to specify
-a "control-bucket" key; the "access-key" and "secret-key" settings are also
-required, but can be omitted if the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-environment variables are set in the client process. The "region" setting
-defaults to "us-east-1"; there are other possible settings but they're not
-relevant here.
-
-[NOTE: there is much more to environment configuration than has been discussed
-here. "authorized-keys-path" and "default-series" both apply to every provider,
-the ec2 provider offers many not mentioned here, and it will only get worse with
-each new provider...]
-
 Services
 --------
 
-A `service` is a deployment of a charm in an environment. The following commands
+A `service` is a deployment of a charm in a model. The following commands
 are used to manipulate services:
 
   * juju deploy
@@ -144,7 +117,7 @@ inspect and tune the service's operation using the following commands:
 
 A `unit` is the fundamental component of a service; services are composed of
 units. Each unit represents an instance of the charm's software, deployed to
-some machine in the service's environment. The following commands are used to
+some machine in the service's model. The following commands are used to
 manipulate units:
 
   * juju add-unit
@@ -156,7 +129,7 @@ with one another (except when each attempts to open the same port; we haven't
 worked out how to deal with that yet).]
 
 A service is `exposed` if it is theoretically accessible from the public
-internet (or, at least, from outside its environment). The fact of a service's
+internet (or, at least, from outside its model). The fact of a service's
 exposure does not necessarily imply that any units of that service are actually
 accessible; actual access is mediated by the service's units, which are
 responsible for specifying the ports that should actually be opened when the
@@ -165,7 +138,7 @@ service is exposed. Service exposure is controlled with the following commands:
   * juju expose
   * juju unexpose
 
-[NOTE: the "firewall-mode" environment configuration setting comes into play
+[NOTE: the "firewall-mode" model configuration setting comes into play
 here, but that may be a topic for a more detailed document, along with the
 varying levels of firewalling support in the various providers.]
 
@@ -210,7 +183,7 @@ re-run the failed hook. The following commands are useful in error recovery:
 
 A `forced upgrade` is a form of upgrade that ignores unit error states, and
 upgrades them anyway. Forced upgrades are subtle and quick to anger; they
-are only recommended if you have sole control of your environment and a clear
+are only recommended if you have sole control of your model and a clear
 understanding of the upgrade process as it applies to your specific charm.
 
 Relations
@@ -251,7 +224,7 @@ is a "provider" over the "http" interface.
 
 An `endpoint` is the combination of a service with one of its charm's relations.
 The set of a service's endpoints define the possible connections involving that
-service. Within an environment, an endpoint is uniquely identifiable when
+service. Within a model, an endpoint is uniquely identifiable when
 expressed in the form `<service-name>:<charm-relation-name>`.
 
 A "normal" `relation` is a connection between the endpoints of two services.
@@ -349,9 +322,9 @@ Constraints
 needs to be done]
 
 Some environment providers offer the ability to provision machines with varying
-characteristics. An environment provider defines a vocabulary of `constraints`
+characteristics. A environment provider defines a vocabulary of `constraints`
 to control the computing resources that are available from the provider; by
-specifying global environment constraints and overriding them where necessary
+specifying global model constraints and overriding them where necessary
 at the service level, a user can ensure that her workloads are only run on
 machines with appropriate characteristics.
 
@@ -371,7 +344,7 @@ Entity lifecycles
 -----------------
 
 When services, relations, units and machines are added and destroyed by the
-client, changes to the environment will take some time to occur: in particular,
+client, changes to the model will take some time to occur: in particular,
 destruction is rarely instantaneous. Destroyed entities will continue to be
 displayed in juju status output but marked as "dying" [TODO: they are not] until
 the underlying resources have been removed.

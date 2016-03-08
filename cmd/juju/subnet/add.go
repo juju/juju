@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newAddCommand() cmd.Command {
-	return envcmd.Wrap(&addCommand{})
+	return modelcmd.Wrap(&addCommand{})
 }
 
 // addCommand calls the API to add an existing subnet to Juju.

@@ -6,7 +6,6 @@ package manual
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"path"
 	"strings"
 	"sync"
@@ -22,15 +21,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/environs/sshstorage"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/terminationworker"
 )
 
@@ -38,15 +33,6 @@ const (
 	// BootstrapInstanceId is the instance ID used
 	// for the manual provider's bootstrap instance.
 	BootstrapInstanceId instance.Id = "manual:"
-
-	// storageSubdir is the subdirectory of
-	// dataDir in which storage will be located.
-	storageSubdir = "storage"
-
-	// storageTmpSubdir is the subdirectory of
-	// dataDir in which temporary storage will
-	// be located.
-	storageTmpSubdir = "storage-tmp"
 )
 
 var (
@@ -60,7 +46,6 @@ type manualEnviron struct {
 
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex
-	storage             storage.Storage
 	ubuntuUserInited    bool
 	ubuntuUserInitMutex sync.Mutex
 }
@@ -101,32 +86,28 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
 
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	if err := e.SetConfig(cfg); err != nil {
-		return "", "", nil, err
-	}
-	agentEnv, err := localstorage.StoreConfig(e)
-	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	envConfig := e.envConfig()
 	// TODO(axw) consider how we can use placement to override bootstrap-host.
 	host := envConfig.bootstrapHost()
 	provisioned, err := manualCheckProvisioned(host)
 	if err != nil {
-		return "", "", nil, errors.Annotate(err, "failed to check provisioned status")
+		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
-		return "", "", nil, manual.ErrProvisioned
+		return nil, manual.ErrProvisioned
 	}
 	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		icfg.InstanceId = BootstrapInstanceId
@@ -134,16 +115,19 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		for k, v := range agentEnv {
-			icfg.AgentEnvironment[k] = v
-		}
 		return common.ConfigureMachine(ctx, ssh.DefaultClient, host, icfg)
 	}
-	return *hc.Arch, series, finalize, nil
+
+	result := &environs.BootstrapResult{
+		Arch:     *hc.Arch,
+		Series:   series,
+		Finalize: finalize,
+	}
+	return result, nil
 }
 
-// StateServerInstances is specified in the Environ interface.
-func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances is specified in the Environ interface.
+func (e *manualEnviron) ControllerInstances() ([]instance.Id, error) {
 	// If we're running from the bootstrap host, then
 	// useSSHStorage will be false; in that case, we
 	// do not need or want to verify the bootstrap host.
@@ -193,37 +177,7 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
-	// Set storage. If "use-sshstorage" is true then use the SSH storage.
-	// Otherwise, use HTTP storage.
-	//
-	// We don't change storage once it's been set. Storage parameters
-	// are fixed at bootstrap time, and it is not possible to change
-	// them.
-	if e.storage == nil {
-		var stor storage.Storage
-		if envConfig.useSSHStorage() {
-			storageDir := e.StorageDir()
-			storageTmpdir := path.Join(agent.DefaultPaths.DataDir, storageTmpSubdir)
-			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
-			if err != nil {
-				return fmt.Errorf("initialising SSH storage failed: %v", err)
-			}
-		} else {
-			caCertPEM, ok := envConfig.CACert()
-			if !ok {
-				// should not be possible to validate base config
-				return fmt.Errorf("ca-cert not set")
-			}
-			authkey := envConfig.storageAuthKey()
-			stor, err = httpstorage.ClientTLS(envConfig.storageAddr(), caCertPEM, authkey)
-			if err != nil {
-				return fmt.Errorf("initialising HTTPS storage failed: %v", err)
-			}
-		}
-		e.storage = stor
-	}
-	e.cfg = envConfig
+	e.cfg = newModelConfig(cfg, cfg.UnknownAttrs())
 	return nil
 }
 
@@ -247,21 +201,6 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 		err = environs.ErrNoInstances
 	}
 	return instances, err
-}
-
-var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
-	logger.Debugf("using ssh storage at host %q dir %q", sshHost, storageDir)
-	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
-		Host:       sshHost,
-		StorageDir: storageDir,
-		TmpDir:     storageTmpdir,
-	})
-}
-
-func (e *manualEnviron) Storage() storage.Storage {
-	e.cfgmutex.Lock()
-	defer e.cfgmutex.Unlock()
-	return e.storage
 }
 
 var runSSHCommand = func(host string, command []string, stdin string) (stdout string, err error) {
@@ -297,7 +236,7 @@ exit 0
 			agent.UninstallAgentFile,
 		)),
 		terminationworker.TerminationSignal,
-		mongo.ServiceName(""),
+		mongo.ServiceName,
 		utils.ShQuote(agent.DefaultPaths.DataDir),
 		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
@@ -340,50 +279,3 @@ func (e *manualEnviron) Ports() ([]network.PortRange, error) {
 func (*manualEnviron) Provider() environs.EnvironProvider {
 	return manualProvider{}
 }
-
-func (e *manualEnviron) StorageAddr() string {
-	return e.envConfig().storageListenAddr()
-}
-
-func (e *manualEnviron) StorageDir() string {
-	return path.Join(agent.DefaultPaths.DataDir, storageSubdir)
-}
-
-func (e *manualEnviron) SharedStorageAddr() string {
-	return ""
-}
-
-func (e *manualEnviron) SharedStorageDir() string {
-	return ""
-}
-
-func (e *manualEnviron) StorageCACert() string {
-	if cert, ok := e.envConfig().CACert(); ok {
-		return cert
-	}
-	return ""
-}
-
-func (e *manualEnviron) StorageCAKey() string {
-	if key, ok := e.envConfig().CAPrivateKey(); ok {
-		return key
-	}
-	return ""
-}
-
-func (e *manualEnviron) StorageHostnames() []string {
-	cfg := e.envConfig()
-	hostnames := []string{cfg.bootstrapHost()}
-	if ip := net.ParseIP(cfg.storageListenIPAddress()); ip != nil {
-		if !ip.IsUnspecified() {
-			hostnames = append(hostnames, ip.String())
-		}
-	}
-	return hostnames
-}
-
-func (e *manualEnviron) StorageAuthKey() string {
-	return e.envConfig().storageAuthKey()
-}
-
-var _ localstorage.LocalTLSStorageConfig = (*manualEnviron)(nil)

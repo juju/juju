@@ -231,11 +231,11 @@ func (d *GitDir) statuses() ([]string, error) {
 
 // ReadCharmURL reads the charm identity file from the GitDir.
 func (d *GitDir) ReadCharmURL() (*charm.URL, error) {
-	path := filepath.Join(d.path, charmURLPath)
+	path := filepath.Join(d.path, CharmURLPath)
 	return ReadCharmURL(path)
 }
 
 // WriteCharmURL writes the charm identity file into the GitDir.
 func (d *GitDir) WriteCharmURL(url *charm.URL) error {
-	return WriteCharmURL(filepath.Join(d.path, charmURLPath), url)
+	return WriteCharmURL(filepath.Join(d.path, CharmURLPath), url)
 }

@@ -6,22 +6,17 @@ package user
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	RandomPasswordNotify = &randomPasswordNotify
 	ReadPassword         = &readPassword
-	ServerFileNotify     = &serverFileNotify
-	WriteServerFile      = writeServerFile
 )
 
 type AddCommand struct {
 	*addCommand
-}
-
-type CredentialsCommand struct {
-	*credentialsCommand
 }
 
 type ChangePasswordCommand struct {
@@ -32,61 +27,58 @@ type DisenableUserBase struct {
 	*disenableUserBase
 }
 
-func NewAddCommand(api AddUserAPI) (cmd.Command, *AddCommand) {
+type SwitchUserCommand struct {
+	*switchUserCommand
+}
+
+func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
-	return envcmd.WrapSystem(c), &AddCommand{c}
+	c.SetClientStore(store)
+	c.SetModelApi(modelApi)
+	return modelcmd.WrapController(c), &AddCommand{c}
 }
 
-func NewInfoCommand(api UserInfoAPI) cmd.Command {
-	return envcmd.WrapSystem(&infoCommand{
-		infoCommandBase: infoCommandBase{
-			api: api,
-		}})
-}
-
-func NewCredentialsCommand() (cmd.Command, *CredentialsCommand) {
-	c := &credentialsCommand{}
-	return envcmd.WrapSystem(c), &CredentialsCommand{c}
+func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &infoCommand{infoCommandBase: infoCommandBase{api: api}}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd)
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWriter) (cmd.Command, *ChangePasswordCommand) {
-	c := &changePasswordCommand{
-		api:    api,
-		writer: writer,
-	}
-	return envcmd.WrapSystem(c), &ChangePasswordCommand{c}
+func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.ClientStore) (cmd.Command, *ChangePasswordCommand) {
+	c := &changePasswordCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
+}
+
+// NewSwitchUserCommand returns a SwitchUserCommand using the
+// specified client store.
+func NewSwitchUserCommandForTest(store jujuclient.ClientStore) (cmd.Command, *SwitchUserCommand) {
+	cmd := &switchUserCommand{}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &SwitchUserCommand{cmd}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as
 // specified.
-func NewDisableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
-	c := &disableCommand{
-		disenableUserBase{
-			api: api,
-		},
-	}
-	return envcmd.WrapSystem(c), &DisenableUserBase{&c.disenableUserBase}
+func NewDisableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore) (cmd.Command, *DisenableUserBase) {
+	c := &disableCommand{disenableUserBase{api: api}}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewEnableCommand returns a EnableCommand with the api provided as
 // specified.
-func NewEnableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
-	c := &enableCommand{
-		disenableUserBase{
-			api: api,
-		},
-	}
-	return envcmd.WrapSystem(c), &DisenableUserBase{&c.disenableUserBase}
+func NewEnableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore) (cmd.Command, *DisenableUserBase) {
+	c := &enableCommand{disenableUserBase{api: api}}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommand(api UserInfoAPI) cmd.Command {
-	c := &listCommand{
-		infoCommandBase: infoCommandBase{
-			api: api,
-		},
-	}
-	return envcmd.WrapSystem(c)
+func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &listCommand{infoCommandBase: infoCommandBase{api: api}}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c)
 }

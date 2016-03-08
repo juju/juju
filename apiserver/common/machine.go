@@ -28,14 +28,59 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	switch job {
 	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageEnviron:
-		return state.JobManageEnviron, nil
+	case multiwatcher.JobManageModel:
+		return state.JobManageModel, nil
 	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case multiwatcher.JobManageStateDeprecated:
-		// Deprecated in 1.18.
-		return state.JobManageStateDeprecated, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}
+}
+
+type origStateInterface interface {
+	Machine(string) (*state.Machine, error)
+}
+
+type stateInterface interface {
+	Machine(string) (Machine, error)
+}
+
+type stateShim struct {
+	origStateInterface
+}
+
+func (st *stateShim) Machine(id string) (Machine, error) {
+	return st.origStateInterface.Machine(id)
+}
+
+type Machine interface {
+	Life() state.Life
+	ForceDestroy() error
+	Destroy() error
+}
+
+func DestroyMachines(st origStateInterface, force bool, ids ...string) error {
+	return destroyMachines(&stateShim{st}, force, ids...)
+}
+
+func destroyMachines(st stateInterface, force bool, ids ...string) error {
+	var errs []string
+	for _, id := range ids {
+		machine, err := st.Machine(id)
+		switch {
+		case errors.IsNotFound(err):
+			err = errors.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case force:
+			err = machine.ForceDestroy()
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return DestroyErr("machines", ids, errs)
 }

@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 const (
@@ -96,13 +97,17 @@ func (c *client) CreateInstance(ecfg *environConfig, spec *instanceSpec) (*mo.Vi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// We assign public ip address for all instances.
+	// We can't assign public ip only when OpenPort is called, as assigning
+	// an ip address via reconfiguring the VM makes it inaccessible to the
+	// controller.
 	if ecfg.externalNetwork() != "" {
 		ip, err := vm.WaitForIP(context.TODO())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		client := newSshClient(ip)
-		err = client.configureExternalIpAddress(spec.apiPort)
+		client := common.NewSshInstanceConfigurator(ip)
+		err = client.ConfigureExternalIpAddress(spec.apiPort)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

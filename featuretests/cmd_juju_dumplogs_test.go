@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -29,13 +28,12 @@ type dumpLogsCommandSuite struct {
 
 func (s *dumpLogsCommandSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 }
 
 func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	// Create a controller machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	err := m.SetMongoPassword(password)
@@ -44,9 +42,9 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	s.PrimeStateAgent(c, m.Tag(), password)
 
 	//  Create multiple environments and add some logs for each.
-	st1 := s.Factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	st2 := s.Factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	states := []*state.State{s.State, st1, st2}
 
@@ -68,7 +66,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 	// Check the log file for each environment
 	expectedLog := "machine-42: 2015-11-04 03:02:01 INFO module %d"
 	for _, st := range states {
-		logName := context.AbsPath(fmt.Sprintf("%s.log", st.EnvironUUID()))
+		logName := context.AbsPath(fmt.Sprintf("%s.log", st.ModelUUID()))
 		logFile, err := os.Open(logName)
 		c.Assert(err, jc.ErrorIsNil)
 		scanner := bufio.NewScanner(logFile)

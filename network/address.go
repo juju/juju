@@ -6,10 +6,12 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // Private network ranges for IPv4 and IPv6.
@@ -21,20 +23,6 @@ var (
 	classCPrivate   = mustParseCIDR("192.168.0.0/16")
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
 )
-
-// globalPreferIPv6 determines whether IPv6 addresses will be
-// preferred when selecting a public or internal addresses, using the
-// Select*() methods below. InitializeFromConfig() needs to be called
-// to set this flag globally at the earliest time possible (e.g. at
-// bootstrap, agent startup, before any CLI command).
-var globalPreferIPv6 bool = false
-
-// ResetGlobalPreferIPv6 resets the global variable back to the default,
-// and is called only from the isolation test suite to make sure we have
-// a clean environment.
-func ResetGlobalPreferIPv6() {
-	globalPreferIPv6 = false
-}
 
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
@@ -61,6 +49,9 @@ const (
 // containers.
 type Scope string
 
+// SpaceName holds the Juju space name of an address.
+type SpaceName string
+
 const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
@@ -76,17 +67,18 @@ type Address struct {
 	Type        AddressType
 	NetworkName string
 	Scope
+	SpaceName
+	SpaceProviderId Id
 }
 
-// String returns a string representation of the address,
-// in the form: scope:address(network name);
-// for example:
+// String returns a string representation of the address, in the form:
+// ""scope:address(network name)@space""; for example:
 //
-//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)
+//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)@public-api
 //
-// If the scope is NetworkUnknown, the initial scope: prefix will
-// be omitted. If the NetworkName is blank, the (network name) suffix
-// will be omitted.
+// If the scope is NetworkUnknown, the initial scope: prefix will be omitted. If
+// the NetworkName is blank, the (network name) suffix will be omitted. Finally,
+// if the SpaceName is empty the last '@space' part will be omitted as well.
 func (a Address) String() string {
 	var buf bytes.Buffer
 	if a.Scope != ScopeUnknown {
@@ -94,10 +86,24 @@ func (a Address) String() string {
 		buf.WriteByte(':')
 	}
 	buf.WriteString(a.Value)
+
 	if a.NetworkName != "" {
 		buf.WriteByte('(')
 		buf.WriteString(a.NetworkName)
 		buf.WriteByte(')')
+	}
+
+	var spaceFound bool
+	if a.SpaceName != "" {
+		spaceFound = true
+		buf.WriteByte('@')
+		buf.WriteString(string(a.SpaceName))
+	}
+	if a.SpaceProviderId != Id("") {
+		if !spaceFound {
+			buf.WriteByte('@')
+		}
+		buf.WriteString(fmt.Sprintf("(id:%v)", string(a.SpaceProviderId)))
 	}
 	return buf.String()
 }
@@ -133,11 +139,30 @@ func NewScopedAddress(value string, scope Scope) Address {
 	return addr
 }
 
-// NewAddresses is a convenience function to create addresses from a
-// string slice.
+// NewAddressOnSpace creates a new Address, deriving its type and scope from the
+// value and associating it with the given spaceName.
+func NewAddressOnSpace(spaceName string, value string) Address {
+	addr := NewAddress(value)
+	addr.SpaceName = SpaceName(spaceName)
+	return addr
+}
+
+// NewAddresses is a convenience function to create addresses from a a variable
+// number of string arguments.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
-	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address))
+	outAddresses = make([]Address, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewAddress(address)
+	}
+	return outAddresses
+}
+
+// NewAddressesOnSpace is a convenience function to create addresses on the same
+// space, from a a variable number of string arguments.
+func NewAddressesOnSpace(spaceName string, inAddresses ...string) (outAddresses []Address) {
+	outAddresses = make([]Address, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewAddressOnSpace(spaceName, address)
 	}
 	return outAddresses
 }
@@ -207,7 +232,7 @@ func deriveScope(addr Address) Scope {
 // scopes. An address will not match if globalPreferIPv6 is set and it isn't an
 // IPv6 address.
 func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
-	if globalPreferIPv6 && addr.Type != IPv6Address {
+	if PreferIPv6() && addr.Type != IPv6Address {
 		return false
 	}
 	for _, scope := range addrScopes {
@@ -218,12 +243,99 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
+// SelectAddressBySpace picks the first address from the given slice that has
+// the given space name associated.
+func SelectAddressBySpace(addresses []Address, spaceName string) (Address, bool) {
+	for _, addr := range addresses {
+		if addr.SpaceName == SpaceName(spaceName) {
+			logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
+			return addr, true
+		}
+	}
+	logger.Warningf("no addresses found in space %q", spaceName)
+	return Address{}, false
+}
+
+// SelectHostPortBySpace picks the first HostPort from the given slice that has
+// the given space name associated.
+func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
+	for _, hp := range hps {
+		if hp.SpaceName == SpaceName(spaceName) {
+			logger.Debugf("selected %q as first hostPort in space %q", hp.Value, spaceName)
+			return hp, true
+		}
+	}
+	logger.Warningf("no hostPorts found in space %q", spaceName)
+	return HostPort{}, false
+}
+
+// SelectControllerAddress returns the most suitable address to use as a Juju
+// Controller (API/state server) endpoint given the list of addresses. It first
+// tries to find the first address bound to the DefaultSpace, failing that uses
+// the older address selection method based on scope. The second return is false
+// when no address can be returned. When machineLocal is true and an address
+// can't be selected by space both ScopeCloudLocal and ScopeMachineLocal
+// addresses are considered during the selection, otherwise just ScopeCloudLocal
+// are.
+//
+// TODO(dimitern): This needs to change to not assume the default space name is
+// always "default", once we can determine this. Also, in case we're using
+// IPv6-only deployments on MAAS, it's still possible to get a node provisioned
+// with an IPv6 address not part of the default space (which should be possible
+// to detect early and/or prevent by using stricter node selection constraints).
+//
+// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119282343
+func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
+	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, DefaultSpace)
+	if ok {
+		logger.Debugf(
+			"selected %q as controller address, using space %q",
+			defaultSpaceAddress.Value, DefaultSpace,
+		)
+		return defaultSpaceAddress, true
+	}
+	// Fallback to using the legacy and error-prone approach using scope
+	// selection instead.
+	internalAddress, ok := SelectInternalAddress(addresses, machineLocal)
+	logger.Debugf(
+		"selected %q as controller address, using scope %q",
+		internalAddress.Value, internalAddress.Scope,
+	)
+	return internalAddress, ok
+}
+
+// SelectControllerHostPort returns the most suitable HostPort (as string) to
+// use as a Juju Controller (API/state server) endpoint given the list of
+// hostPorts. It first tries to find the first HostPort bound to the
+// DefaultSpace, failing that uses the older selection method based on scope.
+// When machineLocal is true and an address can't be selected by space both
+// ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
+// selection, otherwise just ScopeCloudLocal are.
+func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool) string {
+	defaultSpaceHP, ok := SelectHostPortBySpace(hostPorts, DefaultSpace)
+	if ok {
+		logger.Debugf(
+			"selected %q as controller host:port, using space %q",
+			defaultSpaceHP.Value, DefaultSpace,
+		)
+		return defaultSpaceHP.NetAddr()
+	}
+	// Fallback to using the legacy and error-prone approach using scope
+	// selection instead.
+	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
+	logger.Debugf(
+		"selected %q as controller host:port, using scope selection",
+		internalHP,
+	)
+	return internalHP
+}
+
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address is then ok is true.
 func SelectPublicAddress(addresses []Address) (Address, bool) {
-	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), PreferIPv6(), func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
@@ -236,7 +348,7 @@ func SelectPublicAddress(addresses []Address) (Address, bool) {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
 func SelectPublicHostPort(hps []HostPort) string {
-	index := bestAddressIndex(len(hps), globalPreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), PreferIPv6(), func(i int) Address {
 		return hps[i].Address
 	}, publicMatch)
 	if index < 0 {
@@ -250,7 +362,7 @@ func SelectPublicHostPort(hps []HostPort) string {
 // are no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address was found then ok is true.
 func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), PreferIPv6(), func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -264,7 +376,7 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, boo
 // in its NetAddr form. If there are no suitable addresses, the empty
 // string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := bestAddressIndex(len(hps), globalPreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), PreferIPv6(), func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -278,7 +390,7 @@ func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
 // communication and returns them in NetAddr form. If there are no
 // suitable addresses, an empty slice is returned.
 func SelectInternalHostPorts(hps []HostPort, machineLocal bool) []string {
-	indexes := bestAddressIndexes(len(hps), globalPreferIPv6, func(i int) Address {
+	indexes := bestAddressIndexes(len(hps), PreferIPv6(), func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 
@@ -507,4 +619,26 @@ func ResolvableHostnames(addrs []Address) []Address {
 		resolveableAddrs = append(resolveableAddrs, addr)
 	}
 	return resolveableAddrs
+}
+
+// MergedAddresses provides a single list of addresses without duplicates
+// suitable for returning as an address list for a machine.
+// TODO (cherylj) Add explicit unit tests - tracked with bug #1544158
+func MergedAddresses(machineAddresses, providerAddresses []Address) []Address {
+	merged := make([]Address, 0, len(providerAddresses)+len(machineAddresses))
+	providerValues := set.NewStrings()
+	for _, address := range providerAddresses {
+		// Older versions of Juju may have stored an empty address so ignore it here.
+		if address.Value == "" || providerValues.Contains(address.Value) {
+			continue
+		}
+		providerValues.Add(address.Value)
+		merged = append(merged, address)
+	}
+	for _, address := range machineAddresses {
+		if !providerValues.Contains(address.Value) {
+			merged = append(merged, address)
+		}
+	}
+	return merged
 }

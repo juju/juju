@@ -8,11 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	jujuutils "github.com/juju/utils"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
-
-	"github.com/juju/juju/utils"
 )
 
 const (
@@ -78,7 +76,7 @@ func (d *manifestDeployer) Deploy() (err error) {
 	}
 
 	// Detect and resolve state of charm directory.
-	baseURL, baseManifest, err := d.loadManifest(charmURLPath)
+	baseURL, baseManifest, err := d.loadManifest(CharmURLPath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -148,8 +146,8 @@ func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) erro
 func (d *manifestDeployer) finishDeploy() error {
 	logger.Debugf("finishing deploy of charm %q", d.staged.url)
 	oldPath := d.CharmPath(deployingURLPath)
-	newPath := d.CharmPath(charmURLPath)
-	return jujuutils.ReplaceFile(oldPath, newPath)
+	newPath := d.CharmPath(CharmURLPath)
+	return utils.ReplaceFile(oldPath, newPath)
 }
 
 // ensureBaseFiles checks for an interrupted deploy operation and, if it finds

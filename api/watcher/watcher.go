@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.api.watcher")
@@ -119,13 +119,14 @@ func (w *commonWatcher) commonLoop() {
 	wg.Wait()
 }
 
-func (w *commonWatcher) Stop() error {
+// Kill is part of the worker.Worker interface.
+func (w *commonWatcher) Kill() {
 	w.tomb.Kill(nil)
-	return w.tomb.Wait()
 }
 
-func (w *commonWatcher) Err() error {
-	return w.tomb.Err()
+// Wait is part of the worker.Worker interface.
+func (w *commonWatcher) Wait() error {
+	return w.tomb.Wait()
 }
 
 // notifyWatcher will send events when something changes.
@@ -139,7 +140,7 @@ type notifyWatcher struct {
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) NotifyWatcher {
+func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -147,7 +148,6 @@ func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) No
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
 	return w
@@ -178,7 +178,7 @@ func (w *notifyWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *notifyWatcher) Changes() <-chan struct{} {
+func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 	return w.out
 }
 
@@ -191,7 +191,7 @@ type stringsWatcher struct {
 	out              chan []string
 }
 
-func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) StringsWatcher {
+func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) watcher.StringsWatcher {
 	w := &stringsWatcher{
 		caller:           caller,
 		stringsWatcherId: result.StringsWatcherId,
@@ -199,7 +199,6 @@ func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) 
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.out)
 		w.tomb.Kill(w.loop(result.Changes))
 	}()
 	return w
@@ -232,7 +231,7 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 
 // Changes returns a channel that receives a list of strings of watched
 // entites with changes.
-func (w *stringsWatcher) Changes() <-chan []string {
+func (w *stringsWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }
 
@@ -243,25 +242,39 @@ type relationUnitsWatcher struct {
 	commonWatcher
 	caller                 base.APICaller
 	relationUnitsWatcherId string
-	out                    chan multiwatcher.RelationUnitsChange
+	out                    chan watcher.RelationUnitsChange
 }
 
-func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
+func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsWatchResult) watcher.RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		caller:                 caller,
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
-		out: make(chan multiwatcher.RelationUnitsChange),
+		out: make(chan watcher.RelationUnitsChange),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.out)
 		w.tomb.Kill(w.loop(result.Changes))
 	}()
 	return w
 }
 
-func (w *relationUnitsWatcher) loop(initialChanges multiwatcher.RelationUnitsChange) error {
-	changes := initialChanges
+func copyRelationUnitsChanged(src params.RelationUnitsChange) watcher.RelationUnitsChange {
+	dst := watcher.RelationUnitsChange{
+		Departed: src.Departed,
+	}
+	if src.Changed != nil {
+		dst.Changed = make(map[string]watcher.UnitSettings)
+		for name, unitSettings := range src.Changed {
+			dst.Changed[name] = watcher.UnitSettings{
+				Version: unitSettings.Version,
+			}
+		}
+	}
+	return dst
+}
+
+func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) error {
+	changes := copyRelationUnitsChanged(initialChanges)
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
 	w.commonWatcher.init()
@@ -281,14 +294,14 @@ func (w *relationUnitsWatcher) loop(initialChanges multiwatcher.RelationUnitsCha
 			// at this point, so just return.
 			return nil
 		}
-		changes = data.(*params.RelationUnitsWatchResult).Changes
+		changes = copyRelationUnitsChanged(data.(*params.RelationUnitsWatchResult).Changes)
 	}
 }
 
 // Changes returns a channel that will receive the changes to
 // counterpart units in a relation. The first event on the channel
 // holds the initial state of the relation in its Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.out
 }
 
@@ -299,39 +312,49 @@ type machineAttachmentsWatcher struct {
 	commonWatcher
 	caller                      base.APICaller
 	machineAttachmentsWatcherId string
-	out                         chan []params.MachineStorageId
+	out                         chan []watcher.MachineStorageId
 }
 
 // NewVolumeAttachmentsWatcher returns a MachineStorageIdsWatcher which
 // communicates with the VolumeAttachmentsWatcher API facade to watch
 // volume attachments.
-func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) MachineStorageIdsWatcher {
+func NewVolumeAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
 	return newMachineStorageIdsWatcher("VolumeAttachmentsWatcher", caller, result)
 }
 
 // NewFilesystemAttachmentsWatcher returns a MachineStorageIdsWatcher which
 // communicates with the FilesystemAttachmentsWatcher API facade to watch
 // filesystem attachments.
-func NewFilesystemAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) MachineStorageIdsWatcher {
+func NewFilesystemAttachmentsWatcher(caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
 	return newMachineStorageIdsWatcher("FilesystemAttachmentsWatcher", caller, result)
 }
 
-func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) MachineStorageIdsWatcher {
+func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result params.MachineStorageIdsWatchResult) watcher.MachineStorageIdsWatcher {
 	w := &machineAttachmentsWatcher{
 		caller: caller,
 		machineAttachmentsWatcherId: result.MachineStorageIdsWatcherId,
-		out: make(chan []params.MachineStorageId),
+		out: make(chan []watcher.MachineStorageId),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.out)
 		w.tomb.Kill(w.loop(facade, result.Changes))
 	}()
 	return w
 }
 
+func copyMachineStorageIds(src []params.MachineStorageId) []watcher.MachineStorageId {
+	dst := make([]watcher.MachineStorageId, len(src))
+	for i, msi := range src {
+		dst[i] = watcher.MachineStorageId{
+			MachineTag:    msi.MachineTag,
+			AttachmentTag: msi.AttachmentTag,
+		}
+	}
+	return dst
+}
+
 func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.MachineStorageId) error {
-	changes := initialChanges
+	changes := copyMachineStorageIds(initialChanges)
 	w.newResult = func() interface{} { return new(params.MachineStorageIdsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, facade, w.machineAttachmentsWatcherId)
 	w.commonWatcher.init()
@@ -351,43 +374,42 @@ func (w *machineAttachmentsWatcher) loop(facade string, initialChanges []params.
 			// at this point, so just return.
 			return nil
 		}
-		changes = data.(*params.MachineStorageIdsWatchResult).Changes
+		changes = copyMachineStorageIds(data.(*params.MachineStorageIdsWatchResult).Changes)
 	}
 }
 
 // Changes returns a channel that will receive the IDs of machine
 // storage entity attachments which have changed.
-func (w *machineAttachmentsWatcher) Changes() <-chan []params.MachineStorageId {
+func (w *machineAttachmentsWatcher) Changes() watcher.MachineStorageIdsChannel {
 	return w.out
 }
 
-// EntityWatcher will send events when something changes.
+// EntitiesWatcher will send events when something changes.
 // The content for the changes is a list of tag strings.
-type entityWatcher struct {
+type entitiesWatcher struct {
 	commonWatcher
-	caller          base.APICaller
-	entityWatcherId string
-	out             chan []string
+	caller            base.APICaller
+	entitiesWatcherId string
+	out               chan []string
 }
 
-func NewEntityWatcher(caller base.APICaller, result params.EntityWatchResult) EntityWatcher {
-	w := &entityWatcher{
-		caller:          caller,
-		entityWatcherId: result.EntityWatcherId,
-		out:             make(chan []string),
+func NewEntitiesWatcher(caller base.APICaller, result params.EntitiesWatchResult) watcher.EntitiesWatcher {
+	w := &entitiesWatcher{
+		caller:            caller,
+		entitiesWatcherId: result.EntitiesWatcherId,
+		out:               make(chan []string),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.out)
 		w.tomb.Kill(w.loop(result.Changes))
 	}()
 	return w
 }
 
-func (w *entityWatcher) loop(initialChanges []string) error {
+func (w *entitiesWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
-	w.newResult = func() interface{} { return new(params.EntityWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "EntityWatcher", w.entityWatcherId)
+	w.newResult = func() interface{} { return new(params.EntitiesWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "EntityWatcher", w.entitiesWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -406,13 +428,13 @@ func (w *entityWatcher) loop(initialChanges []string) error {
 			return nil
 		}
 		// Changes have been transformed at the server side already.
-		changes = data.(*params.EntityWatchResult).Changes
+		changes = data.(*params.EntitiesWatchResult).Changes
 	}
 }
 
 // Changes returns a channel that receives a list of changes
 // as tags (converted to strings) of the watched entities
 // with changes.
-func (w *entityWatcher) Changes() <-chan []string {
+func (w *entitiesWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }

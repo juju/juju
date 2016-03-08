@@ -25,7 +25,7 @@ var _ = gc.Suite(&StatusSuite{})
 
 func (s *StatusSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.subcommand = action.NewStatusCommand()
+	s.subcommand, _ = action.NewStatusCommand(s.store)
 }
 
 func (s *StatusSuite) TestHelp(c *gc.C) {
@@ -71,30 +71,32 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 }
 
 func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
-	fakeClient := makeFakeClient(
-		0*time.Second, // No API delay
-		5*time.Second, // 5 second test timeout
-		tc.tags,
-		tc.results,
-		"", // No API error
-	)
+	for _, modelFlag := range s.modelFlags {
+		fakeClient := makeFakeClient(
+			0*time.Second, // No API delay
+			5*time.Second, // 5 second test timeout
+			tc.tags,
+			tc.results,
+			"", // No API error
+		)
 
-	restore := s.patchAPIClient(fakeClient)
-	defer restore()
+		restore := s.patchAPIClient(fakeClient)
+		defer restore()
 
-	s.subcommand = action.NewStatusCommand()
-	args := append([]string{"-e", "dummyenv"}, tc.args...)
-	ctx, err := testing.RunCommand(c, s.subcommand, args...)
-	if tc.expectError == "" {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, gc.ErrorMatches, tc.expectError)
-	}
-	if len(tc.results) > 0 {
-		buf, err := cmd.DefaultFormatters["yaml"](action.ActionResultsToMap(tc.results))
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, string(buf)+"\n")
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+		s.subcommand, _ = action.NewStatusCommand(s.store)
+		args := append([]string{modelFlag, "dummymodel"}, tc.args...)
+		ctx, err := testing.RunCommand(c, s.subcommand, args...)
+		if tc.expectError == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, tc.expectError)
+		}
+		if len(tc.results) > 0 {
+			buf, err := cmd.DefaultFormatters["yaml"](action.ActionResultsToMap(tc.results))
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, string(buf)+"\n")
+			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+		}
 	}
 }
 

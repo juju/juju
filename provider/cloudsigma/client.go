@@ -38,7 +38,7 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
 	// create connection to CloudSigma
-	conn, err := gosigma.NewClient(cfg.region(), cfg.username(), cfg.password(), nil)
+	conn, err := gosigma.NewClient(cfg.endpoint(), cfg.username(), cfg.password(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -58,11 +58,11 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 }
 
 const (
-	jujuMetaInstance            = "juju-instance"
-	jujuMetaInstanceStateServer = "state-server"
-	jujuMetaInstanceServer      = "server"
+	jujuMetaInstance           = "juju-instance"
+	jujuMetaInstanceController = "controller"
+	jujuMetaInstanceServer     = "server"
 
-	jujuMetaEnvironment = "juju-environment"
+	jujuMetaEnvironment = "juju-model"
 	jujuMetaCoudInit    = "cloudinit-user-data"
 	jujuMetaBase64      = "base64_fields"
 )
@@ -81,9 +81,9 @@ func (c *environClient) isMyServer(s gosigma.Server) bool {
 	return false
 }
 
-// isMyStateServer is used to filter servers in the CloudSigma account
-func (c environClient) isMyStateServer(s gosigma.Server) bool {
-	if v, ok := s.Get(jujuMetaInstance); ok && v == jujuMetaInstanceStateServer {
+// isMyController is used to filter servers in the CloudSigma account
+func (c environClient) isMyController(s gosigma.Server) bool {
+	if v, ok := s.Get(jujuMetaInstance); ok && v == jujuMetaInstanceController {
 		return c.isMyEnvironment(s)
 	}
 	return false
@@ -109,11 +109,11 @@ func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	return m, nil
 }
 
-//getStateServerIds get list of ids for all state server instances
-func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
+//getControllerIds get list of ids for all controller instances
+func (c *environClient) getControllerIds() (ids []instance.Id, err error) {
 	logger.Tracef("query state...")
 
-	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyStateServer)
+	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyController)
 	if err != nil {
 		return []instance.Id{}, errors.Trace(err)
 	}
@@ -125,7 +125,7 @@ func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
 	ids = make([]instance.Id, len(servers))
 
 	for i, server := range servers {
-		logger.Tracef("State server id: %s", server.UUID())
+		logger.Tracef("controller id: %s", server.UUID())
 		ids[i] = instance.Id(server.UUID())
 	}
 
@@ -250,7 +250,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceStateServer)
+		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceController)
 	} else {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceServer)
 	}

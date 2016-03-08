@@ -13,12 +13,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -95,7 +96,7 @@ func (s *AddresserSuite) TestCanDeallocateAddressesConfigGetFailure(c *gc.C) {
 	s.st.stub.SetErrors(errors.New("ouch"))
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, "getting environment config: ouch")
+	c.Assert(result.Error, gc.ErrorMatches, "getting model config: ouch")
 	c.Assert(result.Result, jc.IsFalse)
 }
 
@@ -104,7 +105,7 @@ func (s *AddresserSuite) TestCanDeallocateAddressesEnvironmentNewFailure(c *gc.C
 	s.st.setConfig(c, config)
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+	c.Assert(result.Error, gc.ErrorMatches, `validating model config: no registered provider for "nonex"`)
 	c.Assert(result.Result, jc.IsFalse)
 }
 
@@ -153,13 +154,19 @@ func (s *AddresserSuite) TestReleaseAddress(c *gc.C) {
 
 	// Prepare tests.
 	called := 0
-	s.PatchValue(addresser.NetEnvReleaseAddress, func(env environs.NetworkingEnviron,
-		instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+	s.PatchValue(addresser.NetEnvReleaseAddress, func(
+		env environs.NetworkingEnviron,
+		instId instance.Id,
+		subnetId network.Id,
+		addr network.Address,
+		macAddress, hostname string,
+	) error {
 		called++
 		c.Assert(instId, gc.Equals, instance.Id("a3"))
 		c.Assert(subnetId, gc.Equals, network.Id("a"))
 		c.Assert(addr, gc.Equals, network.NewAddress("0.1.2.3"))
 		c.Assert(macAddress, gc.Equals, "fff3")
+		c.Assert(hostname, gc.Equals, "")
 		return nil
 	})
 
@@ -192,7 +199,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
 	// First action is getting the environment configuration,
 	// so the injected error is returned here.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, "getting environment config: ouch")
+	c.Assert(apiErr.Error, gc.ErrorMatches, "getting model config: ouch")
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
@@ -210,7 +217,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
 
 	// Validation of configuration fails due to illegal provider.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating model config: no registered provider for "nonex"`)
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
@@ -243,8 +250,8 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 
 	result, err := s.api.WatchIPAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.EntityWatchResult{
-		EntityWatcherId: "1",
+	c.Assert(result, gc.DeepEquals, params.EntitiesWatchResult{
+		EntitiesWatcherId: "1",
 		Changes: []string{
 			"ipaddress-00000000-1111-2222-3333-0123456789ab",
 			"ipaddress-00000000-1111-2222-4444-0123456789ab",
@@ -269,7 +276,11 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem(),
+		jujuclienttesting.NewMemStore(),
+		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }
@@ -290,7 +301,11 @@ func nonexTestingEnvConfig(c *gc.C) *config.Config {
 func mockTestingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, mockConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem(),
+		jujuclienttesting.NewMemStore(),
+		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

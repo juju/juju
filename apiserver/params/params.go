@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -163,8 +166,7 @@ type AddMachineParams struct {
 	Addrs                   []Address                        `json:"Addrs"`
 }
 
-// AddMachines holds the parameters for making the
-// AddMachinesWithPlacement call.
+// AddMachines holds the parameters for making the AddMachines call.
 type AddMachines struct {
 	MachineParams []AddMachineParams `json:"MachineParams"`
 }
@@ -192,25 +194,28 @@ type ServicesDeploy struct {
 	Services []ServiceDeploy
 }
 
-// ServiceDeploy holds the parameters for making the ServiceDeploy call.
+// ServiceDeploy holds the parameters for making the service Deploy call.
 type ServiceDeploy struct {
-	ServiceName   string
-	CharmUrl      string
-	NumUnits      int
-	Config        map[string]string
-	ConfigYAML    string // Takes precedence over config if both are present.
-	Constraints   constraints.Value
-	ToMachineSpec string
-	Placement     []*instance.Placement
-	Networks      []string
-	Storage       map[string]storage.Constraints
+	ServiceName      string
+	Series           string
+	CharmUrl         string
+	NumUnits         int
+	Config           map[string]string
+	ConfigYAML       string // Takes precedence over config if both are present.
+	Constraints      constraints.Value
+	Placement        []*instance.Placement
+	Networks         []string
+	Storage          map[string]storage.Constraints
+	EndpointBindings map[string]string
+	Resources        map[string]string
 }
 
-// ServiceUpdate holds the parameters for making the ServiceUpdate call.
+// ServiceUpdate holds the parameters for making the service Update call.
 type ServiceUpdate struct {
 	ServiceName     string
 	CharmUrl        string
 	ForceCharmUrl   bool
+	ForceSeries     bool
 	MinUnits        *int
 	SettingsStrings map[string]string
 	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
@@ -219,32 +224,33 @@ type ServiceUpdate struct {
 
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
-	ServiceName string
-	CharmUrl    string
-	Force       bool
+	// ServiceName is the name of the service to set the charm on.
+	ServiceName string `json:"servicename"`
+	// CharmUrl is the new url for the charm.
+	CharmUrl string `json:"charmurl"`
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"forceunits"`
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"forceseries"`
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resourceids"`
 }
 
-// ServiceExpose holds the parameters for making the ServiceExpose call.
+// ServiceExpose holds the parameters for making the service Expose call.
 type ServiceExpose struct {
 	ServiceName string
 }
 
-// ServiceSet holds the parameters for a ServiceSet
+// ServiceSet holds the parameters for a service Set
 // command. Options contains the configuration data.
 type ServiceSet struct {
 	ServiceName string
 	Options     map[string]string
 }
 
-// ServiceSetYAML holds the parameters for
-// a ServiceSetYAML command. Config contains the
-// configuration data in YAML format.
-type ServiceSetYAML struct {
-	ServiceName string
-	Config      string
-}
-
-// ServiceUnset holds the parameters for a ServiceUnset
+// ServiceUnset holds the parameters for a service Unset
 // command. Options contains the option attribute names
 // to unset.
 type ServiceUnset struct {
@@ -252,13 +258,13 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet or
-// ServiceGetCharmURL calls.
+// ServiceGet holds parameters for making the Get or
+// GetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
 
-// ServiceGetResults holds results of the ServiceGet call.
+// ServiceGetResults holds results of the service Get call.
 type ServiceGetResults struct {
 	Service     string
 	Charm       string
@@ -266,17 +272,17 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
-// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+// ServiceCharmRelations holds parameters for making the service CharmRelations call.
 type ServiceCharmRelations struct {
 	ServiceName string
 }
 
-// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+// ServiceCharmRelationsResults holds the results of the service CharmRelations call.
 type ServiceCharmRelationsResults struct {
 	CharmRelations []string
 }
 
-// ServiceUnexpose holds parameters for the ServiceUnexpose call.
+// ServiceUnexpose holds parameters for the service Unexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
 }
@@ -326,17 +332,16 @@ type ResolvedResults struct {
 }
 
 // AddServiceUnitsResults holds the names of the units added by the
-// AddServiceUnits call.
+// AddUnits call.
 type AddServiceUnitsResults struct {
 	Units []string
 }
 
 // AddServiceUnits holds parameters for the AddUnits call.
 type AddServiceUnits struct {
-	ServiceName   string
-	NumUnits      int
-	ToMachineSpec string
-	Placement     []*instance.Placement
+	ServiceName string
+	NumUnits    int
+	Placement   []*instance.Placement
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.
@@ -344,7 +349,7 @@ type DestroyServiceUnits struct {
 	UnitNames []string
 }
 
-// ServiceDestroy holds the parameters for making the ServiceDestroy call.
+// ServiceDestroy holds the parameters for making the service Destroy call.
 type ServiceDestroy struct {
 	ServiceName string
 }
@@ -405,13 +410,13 @@ type GetConstraintsResults struct {
 
 // SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
-	ServiceName string //optional, if empty, environment constraints are set.
+	ServiceName string //optional, if empty, model constraints are set.
 	Constraints constraints.Value
 }
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.Reference
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
@@ -452,10 +457,10 @@ type ModifyUserSSHKeys struct {
 type StateServingInfo struct {
 	APIPort   int
 	StatePort int
-	// The state server cert and corresponding private key.
+	// The controller cert and corresponding private key.
 	Cert       string
 	PrivateKey string
-	// The private key for the CA cert so that a new state server
+	// The private key for the CA cert so that a new controller
 	// cert can be generated when needed.
 	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
@@ -477,7 +482,7 @@ type ContainerManagerConfigParams struct {
 	Type instance.ContainerType
 }
 
-// ContainerManagerConfig contains information from the environment config
+// ContainerManagerConfig contains information from the model config
 // that is needed for configuring the container manager.
 type ContainerManagerConfig struct {
 	ManagerConfig map[string]string
@@ -490,7 +495,7 @@ type UpdateBehavior struct {
 	EnableOSUpgrade       bool
 }
 
-// ContainerConfig contains information from the environment config that is
+// ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
 	ProviderType            string
@@ -533,30 +538,6 @@ type DeployerConnectionValues struct {
 	APIAddresses   []string
 }
 
-// SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
-type SetRsyslogCertParams struct {
-	CACert []byte
-	CAKey  []byte
-}
-
-// RsyslogConfigResult holds the result of a GetRsyslogConfig call.
-type RsyslogConfigResult struct {
-	Error  *Error `json:"Error"`
-	CACert string `json:"CACert"`
-	CAKey  string `json:"CAKey"`
-	// Port is only used by state servers as the port to listen on.
-	// Clients should use HostPorts for the rsyslog addresses to forward
-	// logs to.
-	Port int `json:"Port"`
-
-	HostPorts []HostPort `json:"HostPorts"`
-}
-
-// RsyslogConfigResults is the bulk form of RyslogConfigResult
-type RsyslogConfigResults struct {
-	Results []RsyslogConfigResult
-}
-
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
 type JobsResult struct {
 	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
@@ -591,7 +572,7 @@ type FacadeVersions struct {
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
 	Servers        [][]HostPort     `json:"Servers"`
-	EnvironTag     string           `json:"EnvironTag"`
+	ModelTag       string           `json:"ModelTag"`
 	LastConnection *time.Time       `json:"LastConnection"`
 	Facades        []FacadeVersions `json:"Facades"`
 }
@@ -633,11 +614,11 @@ type LoginResultV1 struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
 
-	// EnvironTag is the tag for the environment that is being connected to.
-	EnvironTag string `json:"environ-tag,omitempty"`
+	// ModelTag is the tag for the model that is being connected to.
+	ModelTag string `json:"model-tag,omitempty"`
 
-	// ControllerTag is the tag for the environment that holds the API servers.
-	// This is the initial environment created when bootstrapping juju.
+	// ControllerTag is the tag for the model that holds the API servers.
+	// This is the initial model created when bootstrapping juju.
 	ControllerTag string `json:"server-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
@@ -652,43 +633,43 @@ type LoginResultV1 struct {
 	ServerVersion string `json:"server-version,omitempty"`
 }
 
-// StateServersSpec contains arguments for
-// the EnsureAvailability client API call.
-type StateServersSpec struct {
-	EnvironTag      string
-	NumStateServers int               `json:"num-state-servers"`
-	Constraints     constraints.Value `json:"constraints,omitempty"`
-	// Series is the series to associate with new state server machines.
-	// If this is empty, then the environment's default series is used.
+// ControllersServersSpec contains arguments for
+// the EnableHA client API call.
+type ControllersSpec struct {
+	ModelTag       string
+	NumControllers int               `json:"num-controllers"`
+	Constraints    constraints.Value `json:"constraints,omitempty"`
+	// Series is the series to associate with new controller machines.
+	// If this is empty, then the model's default series is used.
 	Series string `json:"series,omitempty"`
-	// Placement defines specific machines to become new state server machines.
+	// Placement defines specific machines to become new controller machines.
 	Placement []string `json:"placement,omitempty"`
 }
 
-// StateServersSpecs contains all the arguments
-// for the EnsureAvailability API call.
-type StateServersSpecs struct {
-	Specs []StateServersSpec
+// ControllersServersSpecs contains all the arguments
+// for the EnableHA API call.
+type ControllersSpecs struct {
+	Specs []ControllersSpec
 }
 
-// StateServersChangeResult contains the results
-// of a single EnsureAvailability API call or
+// ControllersChangeResult contains the results
+// of a single EnableHA API call or
 // an error.
-type StateServersChangeResult struct {
-	Result StateServersChanges
+type ControllersChangeResult struct {
+	Result ControllersChanges
 	Error  *Error
 }
 
-// StateServersChangeResults contains the results
-// of the EnsureAvailability API call.
-type StateServersChangeResults struct {
-	Results []StateServersChangeResult
+// ControllersChangeResults contains the results
+// of the EnableHA API call.
+type ControllersChangeResults struct {
+	Results []ControllersChangeResult
 }
 
-// StateServersChanges lists the servers
+// ControllersChanges lists the servers
 // that have been added, removed or maintained in the
-// pool as a result of an ensure-availability operation.
-type StateServersChanges struct {
+// pool as a result of an enable-ha operation.
+type ControllersChanges struct {
 	Added      []string `json:"added,omitempty"`
 	Maintained []string `json:"maintained,omitempty"`
 	Removed    []string `json:"removed,omitempty"`
@@ -799,4 +780,56 @@ type BundleChangesChange struct {
 	// is represented by the corresponding change id, and must be applied
 	// before this change is applied.
 	Requires []string `json:"requires"`
+}
+
+// UpgradeMongoParams holds the arguments required to
+// enter upgrade mongo mode.
+type UpgradeMongoParams struct {
+	Target mongo.Version
+}
+
+// HAMember holds information that identifies one member
+// of HA.
+type HAMember struct {
+	Tag           string
+	PublicAddress network.Address
+	Series        string
+}
+
+// MongoUpgradeResults holds the results of an attempt
+// to enter upgrade mongo mode.
+type MongoUpgradeResults struct {
+	RsMembers []replicaset.Member
+	Master    HAMember
+	Members   []HAMember
+}
+
+// ResumeReplicationParams holds the members of a HA that
+// must be resumed.
+type ResumeReplicationParams struct {
+	Members []replicaset.Member
+}
+
+// ModelInfo holds information about the Juju model.
+type ModelInfo struct {
+	DefaultSeries string `json:"DefaultSeries"`
+	ProviderType  string `json:"ProviderType"`
+	Name          string `json:"Name"`
+	UUID          string `json:"UUID"`
+	// The json name here is as per the older field name and is required
+	// for backward compatability. The other fields also have explicit
+	// matching serialization directives for the benefit of being explicit.
+	ControllerUUID string `json:"ServerUUID"`
+}
+
+// MeterStatusParam holds meter status information to be set for the specified tag.
+type MeterStatusParam struct {
+	Tag  string `json:"tag"`
+	Code string `json:"code"`
+	Info string `json:"info, omitempty"`
+}
+
+// MeterStatusParams holds parameters for making SetMeterStatus calls.
+type MeterStatusParams struct {
+	Statuses []MeterStatusParam `json:"statues"`
 }

@@ -7,12 +7,12 @@ const Basics = `
 Juju -- devops distilled
 https://juju.ubuntu.com/
 
-Juju provides easy, intelligent service orchestration on top of environments
+Juju provides easy, intelligent service orchestration on top of models
 such as Amazon EC2, HP Cloud, OpenStack, MaaS, or your own local machine.
 
 Basic commands:
-  juju init             generate boilerplate configuration for juju environments
-  juju bootstrap        start up an environment from scratch
+  juju init             generate boilerplate configuration for juju models
+  juju bootstrap        start up a model from scratch
 
   juju deploy           deploy a new service
   juju add-relation     add a relation between two services

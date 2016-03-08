@@ -18,20 +18,14 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/diskmanager"
-	"github.com/juju/juju/api/environment"
+	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/api/networker"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -44,18 +38,20 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *state) Login(tag names.Tag, password, nonce string) error {
-	err := st.loginV2(tag, password, nonce)
-	if params.IsCodeNotImplemented(err) {
-		err = st.loginV1(tag, password, nonce)
-		if params.IsCodeNotImplemented(err) {
-			// TODO (cmars): remove fallback once we can drop v0 compatibility
-			return errors.Trace(st.loginV0(tag, password, nonce))
-		}
-	}
+	err := st.loginV3(tag, password, nonce)
 	return errors.Trace(err)
 }
 
+// loginV2 is retained for testing logins from older clients.
 func (st *state) loginV2(tag names.Tag, password, nonce string) error {
+	return st.loginForVersion(tag, password, nonce, 2)
+}
+
+func (st *state) loginV3(tag names.Tag, password, nonce string) error {
+	return st.loginForVersion(tag, password, nonce, 3)
+}
+
+func (st *state) loginForVersion(tag names.Tag, password, nonce string, vers int) error {
 	var result params.LoginResultV1
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
@@ -66,22 +62,8 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		// Add any macaroons that might work for authenticating the login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
 	}
-	err := st.APICall("Admin", 2, "", "Login", request, &result)
+	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
-		// If the server complains about an empty tag it may be that we are
-		// talking to an older server version that does not understand facades and
-		// expects a params.Creds request instead of a params.LoginRequest. We
-		// return a CodeNotImplemented error to force login down to V1, which
-		// supports older server logins. This may mask an actual empty tag in
-		// params.LoginRequest, but that would be picked up in loginV1. V1 will
-		// also produce a warning that we are ignoring an invalid API, so we do not
-		// need to add one here.
-		if err.Error() == `"" is not a valid tag` {
-			return &params.Error{
-				Message: err.Error(),
-				Code:    params.CodeNotImplemented,
-			}
-		}
 		return errors.Trace(err)
 	}
 	if result.DischargeRequired != nil {
@@ -105,7 +87,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
 		result = params.LoginResultV1{} // zero result
-		err = st.APICall("Admin", 2, "", "Login", request, &result)
+		err = st.APICall("Admin", vers, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -115,7 +97,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	}
 
 	servers := params.NetworkHostsPorts(result.Servers)
-	err = st.setLoginResult(tag, result.EnvironTag, result.ControllerTag, servers, result.Facades)
+	err = st.setLoginResult(tag, result.ModelTag, result.ControllerTag, servers, result.Facades)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -126,63 +108,9 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	return nil
 }
 
-func (st *state) loginV1(tag names.Tag, password, nonce string) error {
-	var result struct {
-		// TODO (cmars): remove once we can drop 1.18 login compatibility
-		params.LoginResult
-
-		params.LoginResultV1
-	}
-	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
-		LoginRequest: params.LoginRequest{
-			AuthTag:     tagToString(tag),
-			Credentials: password,
-			Nonce:       nonce,
-		},
-		// TODO (cmars): remove once we can drop 1.18 login compatibility
-		Creds: params.Creds{
-			AuthTag:  tagToString(tag),
-			Password: password,
-			Nonce:    nonce,
-		},
-	}, &result)
-	if err != nil {
-		return err
-	}
-
-	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
-	// server.  The JSON field names between the structures are disjoint, so only
-	// one should have an environ tag set.
-
-	var environTag string
-	var controllerTag string
-	var servers [][]network.HostPort
-	var facades []params.FacadeVersions
-	// For quite old servers, it is possible that they don't send down
-	// the environTag.
-	if result.LoginResult.EnvironTag != "" {
-		environTag = result.LoginResult.EnvironTag
-		// If the server doesn't support login v1, it doesn't support
-		// multiple environments, so don't store a server tag.
-		servers = params.NetworkHostsPorts(result.LoginResult.Servers)
-		facades = result.LoginResult.Facades
-	} else if result.LoginResultV1.EnvironTag != "" {
-		environTag = result.LoginResultV1.EnvironTag
-		controllerTag = result.LoginResultV1.ControllerTag
-		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
-		facades = result.LoginResultV1.Facades
-	}
-
-	err = st.setLoginResult(tag, environTag, controllerTag, servers, facades)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
-	st.environTag = environTag
+	st.modelTag = modelTag
 	st.controllerTag = controllerTag
 
 	hostPorts, err := addAddress(servers, st.addr)
@@ -198,25 +126,8 @@ func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string,
 	for _, facade := range facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
-	st.loggedIn = true
-	return nil
-}
 
-func (st *state) loginV0(tag names.Tag, password, nonce string) error {
-	var result params.LoginResult
-	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
-		AuthTag:  tagToString(tag),
-		Password: password,
-		Nonce:    nonce,
-	}, &result)
-	if err != nil {
-		return err
-	}
-	servers := params.NetworkHostsPorts(result.Servers)
-	// Don't set a server tag.
-	if err = st.setLoginResult(tag, result.EnvironTag, "", servers, result.Facades); err != nil {
-		return err
-	}
+	st.setLoggedIn()
 	return nil
 }
 
@@ -281,18 +192,6 @@ func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
 }
 
-// Resumer returns a version of the state that provides functionality
-// required by the resumer worker.
-func (st *state) Resumer() *resumer.API {
-	return resumer.NewAPI(st)
-}
-
-// Networker returns a version of the state that provides functionality
-// required by the networker worker.
-func (st *state) Networker() networker.State {
-	return networker.NewState(st)
-}
-
 // Provisioner returns a version of the state that provides functionality
 // required by the provisioner worker.
 func (st *state) Provisioner() *provisioner.State {
@@ -307,26 +206,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-// DiskManager returns a version of the state that provides functionality
-// required by the diskmanager worker.
-func (st *state) DiskManager() (*diskmanager.State, error) {
-	machineTag, ok := st.authTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
-	}
-	return diskmanager.NewState(st, machineTag), nil
-}
-
-// StorageProvisioner returns a version of the state that provides
-// functionality required by the storageprovisioner worker.
-// The scope tag defines the type of storage that is provisioned, either
-// either attached directly to a specified machine (machine scoped),
-// or provisioned on the underlying cloud for use by any machine in a
-// specified environment (environ scoped).
-func (st *state) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
-	return storageprovisioner.NewState(st, scope)
 }
 
 // Firewaller returns a version of the state that provides functionality
@@ -347,7 +226,7 @@ func (st *state) Upgrader() *upgrader.State {
 }
 
 // Reboot returns access to the Reboot API
-func (st *state) Reboot() (*reboot.State, error) {
+func (st *state) Reboot() (reboot.State, error) {
 	switch tag := st.authTag.(type) {
 	case names.MachineTag:
 		return reboot.NewState(st, tag), nil
@@ -366,14 +245,9 @@ func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
 }
 
-// Environment returns access to the Environment API
-func (st *state) Environment() *environment.Facade {
-	return environment.NewFacade(st)
-}
-
-// Logger returns access to the Logger API
-func (st *state) Logger() *apilogger.State {
-	return apilogger.NewState(st)
+// DiscoverSpaces returns access to the DiscoverSpacesAPI.
+func (st *state) DiscoverSpaces() *discoverspaces.API {
+	return discoverspaces.NewAPI(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API
@@ -394,11 +268,6 @@ func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
 // Cleaner returns a version of the state that provides access to the cleaner API
 func (st *state) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
-}
-
-// Rsyslog returns access to the Rsyslog API
-func (st *state) Rsyslog() *rsyslog.State {
-	return rsyslog.NewState(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.

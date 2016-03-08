@@ -108,7 +108,8 @@ func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	dialInfo.Addrs = []string{mgoAddr}
 	err = resetReplicaSet(dialInfo, mgoAddr)
 
-	session := server.MustDial()
+	session, err := server.Dial()
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 	cfg, err = replicaset.CurrentConfig(session)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,12 +136,12 @@ var yamlLines = []string{
 
 func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {
 	testServerAddresses := []string{
-		"FirstNewStateServerAddress:30303",
-		"SecondNewStateServerAddress:30304",
-		"ThirdNewStateServerAddress:30305",
-		"FourthNewStateServerAddress:30306",
-		"FiftNewStateServerAddress:30307",
-		"SixtNewStateServerAddress:30308",
+		"FirstNewControllerAddress:30303",
+		"SecondNewControllerAddress:30304",
+		"ThirdNewControllerAddress:30305",
+		"FourthNewControllerAddress:30306",
+		"FiftNewControllerAddress:30307",
+		"SixtNewControllerAddress:30308",
 	}
 	for _, address := range testServerAddresses {
 		template := setAgentAddressScript(address)
@@ -208,7 +209,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			},
 			UpgradedToVersion: jujuversion.Current,
 			Tag:               machineTag,
-			Environment:       coretesting.EnvironmentTag,
+			Model:             coretesting.ModelTag,
 			Password:          "placeholder",
 			Nonce:             "dummyNonce",
 			StateAddresses:    []string{"fakeStateAddress:1234"},
@@ -240,7 +241,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			c.Assert(dialInfo.Username, gc.Equals, testCase.expectedUser)
 			c.Assert(dialInfo.Password, gc.Equals, testCase.expectedPassword)
 			c.Assert(dialInfo.Direct, gc.Equals, true)
-			c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
+			c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{net.JoinHostPort(privateAddress, strconv.Itoa(statePort))})
 		}
 	}
 }
@@ -258,7 +259,8 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	err = updateMongoEntries("1234", "0", "0", dialInfo)
 	c.Assert(err, gc.ErrorMatches, "cannot update machine 0 instance information: not found")
 
-	session := server.MustDial()
+	session, err := server.Dial()
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
 	err = session.DB("juju").C("machines").Insert(bson.M{"machineid": "0", "instanceid": "0"})
@@ -289,7 +291,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 
 	r.PatchValue(&mongoDefaultDialOpts, statetesting.NewDialOpts)
 	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return nil })
-	st, err = newStateConnection(st.EnvironTag(), statetesting.NewMongoInfo())
+	st, err = newStateConnection(st.ModelTag(), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }

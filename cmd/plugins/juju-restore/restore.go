@@ -4,18 +4,15 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju"
 )
@@ -30,7 +27,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
-	if err := juju.InitJujuHome(); err != nil {
+	if err := juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
@@ -40,13 +37,13 @@ func Main(args []string) {
 var logger = loggo.GetLogger("juju.plugins.restore")
 
 func newRestoreCommand() cmd.Command {
-	return envcmd.Wrap(&restoreCommand{})
+	return modelcmd.Wrap(&restoreCommand{})
 }
 
 const restoreDoc = `
 Restore restores a backup created with juju backup
 by creating a new juju bootstrap instance and arranging
-it so that the existing instances in the environment
+it so that the existing instances in the model
 talk to it.
 
 It verifies that the existing bootstrap instance is
@@ -55,7 +52,7 @@ to choose the new instance.
 `
 
 type restoreCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	Log             cmd.Log
 	Constraints     constraints.Value
 	backupFile      string
@@ -72,7 +69,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 }
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set model constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
@@ -96,10 +93,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err := c.Log.Start(ctx); err != nil {
 		return err
 	}
-	if c.supportsNewRestore(ctx) {
-		return c.runRestore(ctx)
-	}
-	return c.runLegacyRestore(ctx)
+	return c.runRestore(ctx)
 }
 
 func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
@@ -128,33 +122,4 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-func (c *restoreCommand) supportsNewRestore(ctx *cmd.Context) bool {
-	cmd := exec.Command("juju", "--version")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		logger.Errorf("cannot run juju version: %vr", err)
-		return false
-	}
-	output := out.String()
-	output = strings.TrimSpace(output)
-	ver, err := version.ParseBinary(output)
-	if err != nil {
-		logger.Errorf("cannot parse juju version: %v", err)
-		// if we cant parse the version number the version might
-		// as well not be compatible.
-		return false
-	}
-	// 1.25.0 is the minor version that will work certainly with
-	// the new restore.
-	restoreAvailableVersion := version.Number{
-		Major: 1,
-		Minor: 25,
-		Patch: 0,
-	}
-	logger.Infof("current juju version is %q", output)
-	return ver.Number.Compare(restoreAvailableVersion) >= 0
 }

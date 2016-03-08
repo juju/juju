@@ -9,17 +9,18 @@ import (
 	"github.com/juju/utils"
 	jujuos "github.com/juju/utils/os"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 type MAASRenderer struct{}
 
-func (MAASRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+func (MAASRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
-		return renderers.ToBase64(utils.Gzip(udata)), nil
+		return renderers.RenderYAML(cfg, utils.Gzip, renderers.ToBase64)
 	case jujuos.Windows:
-		return renderers.ToBase64(renderers.WinEmbedInScript(udata)), nil
+		return renderers.RenderYAML(cfg, renderers.WinEmbedInScript, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

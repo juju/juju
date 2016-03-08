@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// Volume describes a volume (disk, logical volume, etc.) in the environment.
+// Volume describes a volume (disk, logical volume, etc.) in the model.
 type Volume interface {
 	GlobalEntity
 	LifeBinder
@@ -79,11 +79,11 @@ type volumeAttachment struct {
 	doc volumeAttachmentDoc
 }
 
-// volumeDoc records information about a volume in the environment.
+// volumeDoc records information about a volume in the model.
 type volumeDoc struct {
 	DocID           string        `bson:"_id"`
 	Name            string        `bson:"name"`
-	EnvUUID         string        `bson:"env-uuid"`
+	ModelUUID       string        `bson:"model-uuid"`
 	Life            Life          `bson:"life"`
 	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
@@ -95,13 +95,13 @@ type volumeDoc struct {
 // volumeAttachmentDoc records information about a volume attachment.
 type volumeAttachmentDoc struct {
 	// DocID is the machine global key followed by the volume name.
-	DocID   string                  `bson:"_id"`
-	EnvUUID string                  `bson:"env-uuid"`
-	Volume  string                  `bson:"volumeid"`
-	Machine string                  `bson:"machineid"`
-	Life    Life                    `bson:"life"`
-	Info    *VolumeAttachmentInfo   `bson:"info,omitempty"`
-	Params  *VolumeAttachmentParams `bson:"params,omitempty"`
+	DocID     string                  `bson:"_id"`
+	ModelUUID string                  `bson:"model-uuid"`
+	Volume    string                  `bson:"volumeid"`
+	Machine   string                  `bson:"machineid"`
+	Life      Life                    `bson:"life"`
+	Info      *VolumeAttachmentInfo   `bson:"info,omitempty"`
+	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
 }
 
 // VolumeParams records parameters for provisioning a new volume.
@@ -149,9 +149,9 @@ func (v *volume) validate() error {
 			return errors.Annotate(err, "parsing binding")
 		}
 		switch tag.(type) {
-		case names.EnvironTag:
-			// TODO(axw) support binding to environment
-			return errors.NotSupportedf("binding to environment")
+		case names.ModelTag:
+			// TODO(axw) support binding to model
+			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:
 		case names.FilesystemTag:
 		case names.StorageTag:
@@ -198,8 +198,8 @@ func (v *volume) Life() Life {
 //   Filesystem:  If the volume is bound to a filesystem, i.e. the
 //                volume backs that filesystem, then it will be
 //                destroyed when the filesystem is removed from state.
-//   Environment: If the volume is bound to the environment, then the
-//                volume must be destroyed prior to the environment
+//   Model: If the volume is bound to the model, then the
+//                volume must be destroyed prior to the model
 //                being destroyed.
 func (v *volume) LifeBinding() names.Tag {
 	if v.doc.Binding == "" {
@@ -771,7 +771,7 @@ func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, er
 	if params.Pool != "" {
 		return params, nil
 	}
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return VolumeParams{}, errors.Trace(err)
 	}
@@ -1012,7 +1012,7 @@ func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []
 	}}
 }
 
-// AllVolumes returns all Volumes scoped to the environment.
+// AllVolumes returns all Volumes scoped to the model.
 func (st *State) AllVolumes() ([]Volume, error) {
 	volumes, err := st.volumes(nil)
 	if err != nil {

@@ -15,15 +15,15 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newPublishCommand() cmd.Command {
-	return envcmd.Wrap(&publishCommand{})
+	return modelcmd.Wrap(&publishCommand{})
 }
 
 type publishCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	URL       string
 	CharmPath string
 
@@ -92,22 +92,16 @@ func (c *publishCommand) Run(ctx *cmd.Context) (err error) {
 
 	var curl *charm.URL
 	if c.URL == "" {
-		if err == nil {
-			loc, err := branch.PushLocation()
-			if err != nil {
-				return fmt.Errorf("no charm URL provided and cannot infer from current directory (no push location)")
-			}
-			curl, err = charmrepo.LegacyStore.CharmURL(loc)
-			if err != nil {
-				return fmt.Errorf("cannot infer charm URL from branch location: %q", loc)
-			}
+		loc, err := branch.PushLocation()
+		if err != nil {
+			return fmt.Errorf("no charm URL provided and cannot infer from current directory (no push location)")
+		}
+		curl, err = charmrepo.LegacyStore.CharmURL(loc)
+		if err != nil {
+			return fmt.Errorf("cannot infer charm URL from branch location: %q", loc)
 		}
 	} else {
-		ref, err := charm.ParseReference(c.URL)
-		if err != nil {
-			return err
-		}
-		curl, err = ref.URL("")
+		curl, err = charm.ParseURL(c.URL)
 		if err != nil {
 			return err
 		}
@@ -118,7 +112,7 @@ func (c *publishCommand) Run(ctx *cmd.Context) (err error) {
 		pushLocation = c.changePushLocation(pushLocation)
 	}
 
-	repo, err := charmrepo.LegacyInferRepository(curl.Reference(), "/not/important")
+	repo, err := charmrepo.LegacyInferRepository(curl, "/not/important")
 	if err != nil {
 		return err
 	}

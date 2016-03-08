@@ -5,21 +5,17 @@ package cleaner_test
 
 import (
 	"errors"
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/cleaner"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type CleanerSuite struct {
 	coretesting.BaseSuite
@@ -28,14 +24,12 @@ type CleanerSuite struct {
 
 var _ = gc.Suite(&CleanerSuite{})
 
-var _ worker.NotifyWatchHandler = (*cleaner.Cleaner)(nil)
-
 func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockState = &cleanerMock{
 		calls: make(chan string),
 	}
-	s.mockState.watcher = newMockNotifyWatcher(nil)
+	s.mockState.watcher = s.newMockNotifyWatcher(nil)
 }
 
 func (s *CleanerSuite) AssertReceived(c *gc.C, expect string) {
@@ -56,7 +50,8 @@ func (s *CleanerSuite) AssertEmpty(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestCleaner(c *gc.C) {
-	cln := cleaner.NewCleaner(s.mockState)
+	cln, err := cleaner.NewCleaner(s.mockState)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
 
 	s.AssertReceived(c, "WatchCleanups")
@@ -68,29 +63,74 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 
 func (s *CleanerSuite) TestWatchCleanupsError(c *gc.C) {
 	s.mockState.err = []error{errors.New("hello")}
-	cln := cleaner.NewCleaner(s.mockState)
+	cln, err := cleaner.NewCleaner(s.mockState)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.AssertReceived(c, "WatchCleanups")
 	s.AssertEmpty(c)
-	err := worker.Stop(cln)
+	err = worker.Stop(cln)
 	c.Assert(err, gc.ErrorMatches, "hello")
 }
 
 func (s *CleanerSuite) TestCleanupError(c *gc.C) {
 	s.mockState.err = []error{nil, errors.New("hello")}
-	cln := cleaner.NewCleaner(s.mockState)
+	cln, err := cleaner.NewCleaner(s.mockState)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.AssertReceived(c, "WatchCleanups")
 	s.AssertReceived(c, "Cleanup")
-	err := worker.Stop(cln)
+	err = worker.Stop(cln)
 	c.Assert(err, jc.ErrorIsNil)
 	log := c.GetTestLog()
 	c.Assert(log, jc.Contains, "ERROR juju.worker.cleaner cannot cleanup state: hello")
 }
 
+func (s *CleanerSuite) newMockNotifyWatcher(err error) *mockNotifyWatcher {
+	m := &mockNotifyWatcher{
+		changes: make(chan struct{}, 1),
+		err:     err,
+	}
+	go func() {
+		defer m.tomb.Done()
+		defer m.tomb.Kill(m.err)
+		<-m.tomb.Dying()
+	}()
+	s.AddCleanup(func(c *gc.C) {
+		err := worker.Stop(m)
+		c.Check(err, jc.ErrorIsNil)
+	})
+	m.Change()
+	return m
+}
+
+type mockNotifyWatcher struct {
+	watcher.NotifyWatcher
+
+	tomb    tomb.Tomb
+	err     error
+	changes chan struct{}
+}
+
+func (m *mockNotifyWatcher) Kill() {
+	m.tomb.Kill(nil)
+}
+
+func (m *mockNotifyWatcher) Wait() error {
+	return m.tomb.Wait()
+}
+
+func (m *mockNotifyWatcher) Changes() watcher.NotifyChannel {
+	return m.changes
+}
+
+func (m *mockNotifyWatcher) Change() {
+	m.changes <- struct{}{}
+}
+
 // cleanerMock is used to check the
 // calls of Cleanup() and WatchCleanups()
 type cleanerMock struct {
+	cleaner.StateCleaner
 	watcher *mockNotifyWatcher
 	calls   chan string
 	err     []error
@@ -112,41 +152,4 @@ func (m *cleanerMock) Cleanup() error {
 func (m *cleanerMock) WatchCleanups() (watcher.NotifyWatcher, error) {
 	m.calls <- "WatchCleanups"
 	return m.watcher, m.getError()
-}
-
-var _ cleaner.StateCleaner = (*cleanerMock)(nil)
-
-type mockNotifyWatcher struct {
-	watcher.NotifyWatcher
-
-	err     error
-	changes chan struct{}
-}
-
-func newMockNotifyWatcher(err error) *mockNotifyWatcher {
-	m := &mockNotifyWatcher{
-		changes: make(chan struct{}, 1),
-		err:     err,
-	}
-	m.Change()
-	return m
-}
-
-func (m *mockNotifyWatcher) Err() error {
-	return m.err
-}
-
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	if m.err != nil {
-		close(m.changes)
-	}
-	return m.changes
-}
-
-func (m *mockNotifyWatcher) Stop() error {
-	return m.err
-}
-
-func (m *mockNotifyWatcher) Change() {
-	m.changes <- struct{}{}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -43,7 +44,7 @@ func validAttrs() coretesting.Attrs {
 }
 
 type ConfigSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	originalValues map[string]testing.Restorer
 	privateKeyData string
 }
@@ -51,7 +52,7 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
@@ -77,7 +78,7 @@ func generatePrivateKey(c *gc.C) string {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.AddCleanup(CreateTestKey(c))
 	for _, envVar := range jp.EnvironmentVariables {
 		s.PatchEnvironment(envVar, "")
@@ -96,20 +97,20 @@ type configtest struct {
 var newConfigTests = []configtest{{
 	info:   "sdc-user is required",
 	remove: []string{"sdc-user"},
-	err:    ".* cannot get sdc-user value from environment variable .*",
+	err:    ".* cannot get sdc-user value from model variable .*",
 }, {
 	info:   "sdc-user cannot be empty",
 	insert: coretesting.Attrs{"sdc-user": ""},
-	err:    ".* cannot get sdc-user value from environment variable .*",
+	err:    ".* cannot get sdc-user value from model variable .*",
 }, {
-	info:   "can get sdc-user from env variable",
+	info:   "can get sdc-user from model variable",
 	insert: coretesting.Attrs{"sdc-user": ""},
 	expect: coretesting.Attrs{"sdc-user": "tester"},
 	envVars: map[string]string{
 		"SDC_ACCOUNT": "tester",
 	},
 }, {
-	info:   "can get sdc-user from env variable, missing from config",
+	info:   "can get sdc-user from model variable, missing from config",
 	remove: []string{"sdc-user"},
 	expect: coretesting.Attrs{"sdc-user": "tester"},
 	envVars: map[string]string{
@@ -118,20 +119,20 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "sdc-key-id is required",
 	remove: []string{"sdc-key-id"},
-	err:    ".* cannot get sdc-key-id value from environment variable .*",
+	err:    ".* cannot get sdc-key-id value from model variable .*",
 }, {
 	info:   "sdc-key-id cannot be empty",
 	insert: coretesting.Attrs{"sdc-key-id": ""},
-	err:    ".* cannot get sdc-key-id value from environment variable .*",
+	err:    ".* cannot get sdc-key-id value from model variable .*",
 }, {
-	info:   "can get sdc-key-id from env variable",
+	info:   "can get sdc-key-id from model variable",
 	insert: coretesting.Attrs{"sdc-key-id": ""},
 	expect: coretesting.Attrs{"sdc-key-id": "key"},
 	envVars: map[string]string{
 		"SDC_KEY_ID": "key",
 	},
 }, {
-	info:   "can get sdc-key-id from env variable, missing from config",
+	info:   "can get sdc-key-id from model variable, missing from config",
 	remove: []string{"sdc-key-id"},
 	expect: coretesting.Attrs{"sdc-key-id": "key"},
 	envVars: map[string]string{
@@ -143,7 +144,7 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "sdc-url cannot be empty",
 	insert: coretesting.Attrs{"sdc-url": ""},
-	err:    ".* cannot get sdc-url value from environment variable .*",
+	err:    ".* cannot get sdc-url value from model variable .*",
 }, {
 	info:   "sdc-url is untouched if present",
 	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
@@ -151,20 +152,20 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
-	err:    ".* cannot get manta-user value from environment variable .*",
+	err:    ".* cannot get manta-user value from model variable .*",
 }, {
 	info:   "manta-user cannot be empty",
 	insert: coretesting.Attrs{"manta-user": ""},
-	err:    ".* cannot get manta-user value from environment variable .*",
+	err:    ".* cannot get manta-user value from model variable .*",
 }, {
-	info:   "can get manta-user from env variable",
+	info:   "can get manta-user from model variable",
 	insert: coretesting.Attrs{"manta-user": ""},
 	expect: coretesting.Attrs{"manta-user": "tester"},
 	envVars: map[string]string{
 		"MANTA_USER": "tester",
 	},
 }, {
-	info:   "can get manta-user from env variable, missing from config",
+	info:   "can get manta-user from model variable, missing from config",
 	remove: []string{"manta-user"},
 	expect: coretesting.Attrs{"manta-user": "tester"},
 	envVars: map[string]string{
@@ -173,11 +174,11 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "manta-key-id is required",
 	remove: []string{"manta-key-id"},
-	err:    ".* cannot get manta-key-id value from environment variable .*",
+	err:    ".* cannot get manta-key-id value from model variable .*",
 }, {
 	info:   "manta-key-id cannot be empty",
 	insert: coretesting.Attrs{"manta-key-id": ""},
-	err:    ".* cannot get manta-key-id value from environment variable .*",
+	err:    ".* cannot get manta-key-id value from model variable .*",
 }, {
 	info:   "can get manta-key-id from env variable",
 	insert: coretesting.Attrs{"manta-key-id": ""},
@@ -186,7 +187,7 @@ var newConfigTests = []configtest{{
 		"MANTA_KEY_ID": "key",
 	},
 }, {
-	info:   "can get manta-key-id from env variable, missing from config",
+	info:   "can get manta-key-id from model variable, missing from config",
 	remove: []string{"manta-key-id"},
 	expect: coretesting.Attrs{"manta-key-id": "key"},
 	envVars: map[string]string{
@@ -198,7 +199,7 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "manta-url cannot be empty",
 	insert: coretesting.Attrs{"manta-url": ""},
-	err:    ".* cannot get manta-url value from environment variable .*",
+	err:    ".* cannot get manta-url value from model variable .*",
 }, {
 	info:   "manta-url is untouched if present",
 	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
@@ -211,7 +212,7 @@ var newConfigTests = []configtest{{
 		"MANTA_PRIVATE_KEY_FILE": "some-file",
 	},
 }, {
-	info:   "can get private-key-path from env variable, missing from config",
+	info:   "can get private-key-path from model variable, missing from config",
 	remove: []string{"private-key-path"},
 	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
@@ -234,7 +235,7 @@ var newConfigTests = []configtest{{
 	insert: coretesting.Attrs{"private-key": "foo"},
 }}
 
-func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		doTest(s, i, test, c)
 	}
@@ -358,6 +359,7 @@ func validPrepareAttrs() coretesting.Attrs {
 	return validAttrs().Delete("private-key")
 }
 
+// TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
 var prepareConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
@@ -382,8 +384,18 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
+		credentialAttrs := make(map[string]string, len(attrs))
+		for k, v := range attrs.Delete("type", "control-dir") {
+			credentialAttrs[k] = fmt.Sprintf("%v", v)
+		}
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
+		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+			Config: testConfig,
+			Credentials: cloud.NewCredential(
+				cloud.UserPassAuthType,
+				credentialAttrs,
+			),
+		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()

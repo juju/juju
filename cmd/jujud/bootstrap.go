@@ -51,23 +51,25 @@ import (
 )
 
 var (
-	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
-	agentInitializeState     = agent.InitializeState
-	sshGenerateKey           = ssh.GenerateKey
-	newStateStorage          = storage.NewStorage
-	minSocketTimeout         = 1 * time.Minute
-	logger                   = loggo.GetLogger("juju.cmd.jujud")
+	initiateMongoServer  = peergrouper.InitiateMongoServer
+	agentInitializeState = agent.InitializeState
+	sshGenerateKey       = ssh.GenerateKey
+	newStateStorage      = storage.NewStorage
+	minSocketTimeout     = 1 * time.Minute
+	logger               = loggo.GetLogger("juju.cmd.jujud")
 )
 
+// BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
-	EnvConfig        map[string]interface{}
-	Constraints      constraints.Value
-	Hardware         instance.HardwareCharacteristics
-	InstanceId       string
-	AdminUsername    string
-	ImageMetadataDir string
+	EnvConfig            map[string]interface{}
+	BootstrapConstraints constraints.Value
+	EnvironConstraints   constraints.Value
+	Hardware             instance.HardwareCharacteristics
+	InstanceId           string
+	AdminUsername        string
+	ImageMetadataDir     string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -85,10 +87,12 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
+	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
+	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "constraints", "initial constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -98,7 +102,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
-		return cmdutil.RequiredError("env-config")
+		return cmdutil.RequiredError("model-config")
 	}
 	if c.InstanceId == "" {
 		return cmdutil.RequiredError("instance-id")
@@ -120,7 +124,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	agentConfig := c.CurrentConfig()
-	network.InitializeFromConfig(agentConfig)
+	network.SetPreferIPv6(agentConfig.PreferIPv6())
 
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on
@@ -128,7 +132,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	jobs := agentConfig.Jobs()
 	if len(jobs) == 0 {
 		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
+			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
 			multiwatcher.JobManageNetworking,
 		}
@@ -179,7 +183,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Generate a private SSH key for the state servers, and add
+	// When machine addresses are reported from state, they have
+	// duplicates removed.  We should do the same here so that
+	// there is not unnecessary churn in the mongo replicaset.
+	// TODO (cherylj) Add explicit unit tests for this - tracked
+	// by bug #1544158.
+	addrs = network.MergedAddresses([]network.Address{}, addrs)
+
+	// Generate a private SSH key for the controllers, and add
 	// the public key to the environment config. We'll add the
 	// private key to StateServingInfo below.
 	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
@@ -207,6 +218,21 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
+
+	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
+		// We cannot set wired tiger as the storage because mongo
+		// shipped with ubuntu lacks js.
+		if mongo.BinariesAvailable(mongo.Mongo30wt) {
+			config.SetMongoVersion(mongo.Mongo30wt)
+		} else {
+			config.SetMongoVersion(mongo.Mongo24)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Annotate(err, "cannot set mongo version")
+	}
+
 	agentConfig = c.CurrentConfig()
 
 	// Create system-identity file
@@ -222,7 +248,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Initialise state, and store any agent config (e.g. password) changes.
 	envCfg, err = env.Config().Apply(newConfigAttrs)
 	if err != nil {
-		return errors.Annotate(err, "failed to update environment config")
+		return errors.Annotate(err, "failed to update model config")
 	}
 	var st *state.State
 	var m *state.Machine
@@ -248,12 +274,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
-				Addresses:       addrs,
-				Constraints:     c.Constraints,
-				Jobs:            jobs,
-				InstanceId:      instanceId,
-				Characteristics: c.Hardware,
-				SharedSecret:    sharedSecret,
+				Addresses:            addrs,
+				BootstrapConstraints: c.BootstrapConstraints,
+				ModelConstraints:     c.EnvironConstraints,
+				Jobs:                 jobs,
+				InstanceId:           instanceId,
+				Characteristics:      c.Hardware,
+				SharedSecret:         sharedSecret,
 			},
 			dialOpts,
 			environs.NewStatePolicy(),
@@ -272,19 +299,18 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if c.ImageMetadataDir != "" {
-		if err := c.saveCustomImageMetadata(st); err != nil {
+		if err := c.saveCustomImageMetadata(st, env); err != nil {
 			return err
 		}
 
-		// TODO (anastasiamac 2015-09-24) Remove this once search path is updated..
-		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
+		stor := newStateStorage(st.ModelUUID(), st.MongoSession())
 		if err := c.storeCustomImageMetadata(stor); err != nil {
 			return err
 		}
 	}
 
 	// Populate the storage pools.
-	if err := c.populateDefaultStoragePools(st); err != nil {
+	if err = c.populateDefaultStoragePools(st); err != nil {
 		return err
 	}
 
@@ -334,10 +360,10 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	return initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	})
+	}, true)
 }
 
 // populateDefaultStoragePools creates the default storage pools.
@@ -429,7 +455,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 		}
 		defer f.Close()
 		relpath = filepath.ToSlash(relpath)
-		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
+		logger.Debugf("storing %q in model storage (%d bytes)", relpath, info.Size())
 		return stor.Put(relpath, f, info.Size())
 	})
 }
@@ -438,26 +464,44 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata reads the custom image metadata from disk,
-// and saves it in state server.
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
+// and saves it in controller.
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
-
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames)
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	datasource := simplestreams.NewURLSignedDataSource("custom", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	return storeImageMetadataFromFiles(st, env, datasource)
+}
 
+// storeImageMetadataFromFiles puts image metadata found in sources into state.
+// Declared as var to facilitate tests.
+var storeImageMetadataFromFiles = func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{datasource}, imageConstraint, false)
+	if inst, ok := env.(simplestreams.HasRegion); ok {
+		// If we can determine current region,
+		// we want only metadata specific to this region.
+		cloud, err := inst.Region()
+		if err != nil {
+			return err
+		}
+		imageConstraint.CloudSpec = cloud
+	}
+
+	existingMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot read image metadata")
 	}
+	return storeImageMetadataInState(st, info.Source, source.Priority(), existingMetadata)
+}
 
+// storeImageMetadataInState writes image metadata into state store.
+func storeImageMetadataInState(st *state.State, source string, priority int, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
-	msg := ""
-	for _, one := range existingMetadata {
+	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
+	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				Stream:          one.Stream,
@@ -465,8 +509,9 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
-				Source:          "custom",
+				Source:          source,
 			},
+			priority,
 			one.Id,
 		}
 		s, err := seriesFromVersion(one.Version)
@@ -474,13 +519,10 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
-		err = st.CloudImageMetadataStorage.SaveMetadata(m)
-		if err != nil {
-			return errors.Annotatef(err, "cannot cache image metadata %v", m)
-		}
+		metadataState[i] = m
 	}
-	if len(msg) > 0 {
-		return errors.New(msg)
+	if err := st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
+		return errors.Annotatef(err, "cannot cache image metadata")
 	}
 	return nil
 }

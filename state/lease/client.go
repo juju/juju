@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 )
 
@@ -26,8 +27,8 @@ import (
 // to use.
 // Clients do not need to be cleaned up themselves, but they will not function
 // past the lifetime of their configured Mongo.
-func NewClient(config ClientConfig) (Client, error) {
-	if err := config.Validate(); err != nil {
+func NewClient(config ClientConfig) (lease.Client, error) {
+	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	loggerName := fmt.Sprintf("state.lease.%s.%s", config.Namespace, config.Id)
@@ -45,7 +46,7 @@ func NewClient(config ClientConfig) (Client, error) {
 	return client, nil
 }
 
-// client implements the Client interface.
+// client implements the lease.Client interface.
 type client struct {
 
 	// config holds resources and configuration necessary to store leases.
@@ -61,36 +62,36 @@ type client struct {
 	skews map[string]Skew
 }
 
-// Leases is part of the Client interface.
-func (client *client) Leases() map[string]Info {
-	leases := make(map[string]Info)
+// Leases is part of the lease.Client interface.
+func (client *client) Leases() map[string]lease.Info {
+	leases := make(map[string]lease.Info)
 	for name, entry := range client.entries {
 		skew := client.skews[entry.writer]
-		leases[name] = Info{
+		leases[name] = lease.Info{
 			Holder:   entry.holder,
 			Expiry:   skew.Latest(entry.expiry),
-			AssertOp: client.assertOp(name, entry.holder),
+			Trapdoor: client.assertOpTrapdoor(name, entry.holder),
 		}
 	}
 	return leases
 }
 
-// ClaimLease is part of the Client interface.
-func (client *client) ClaimLease(name string, request Request) error {
+// ClaimLease is part of the lease.Client interface.
+func (client *client) ClaimLease(name string, request lease.Request) error {
 	return client.request(name, request, client.claimLeaseOps, "claiming")
 }
 
-// ExtendLease is part of the Client interface.
-func (client *client) ExtendLease(name string, request Request) error {
+// ExtendLease is part of the lease.Client interface.
+func (client *client) ExtendLease(name string, request lease.Request) error {
 	return client.request(name, request, client.extendLeaseOps, "extending")
 }
 
 // opsFunc is used to make the signature of the request method somewhat readable.
-type opsFunc func(name string, request Request) ([]txn.Op, entry, error)
+type opsFunc func(name string, request lease.Request) ([]txn.Op, entry, error)
 
 // request implements ClaimLease and ExtendLease.
-func (client *client) request(name string, request Request, getOps opsFunc, verb string) error {
-	if err := validateString(name); err != nil {
+func (client *client) request(name string, request lease.Request, getOps opsFunc, verb string) error {
+	if err := lease.ValidateString(name); err != nil {
 		return errors.Annotatef(err, "invalid name")
 	}
 	if err := request.Validate(); err != nil {
@@ -123,12 +124,11 @@ func (client *client) request(name string, request Request, getOps opsFunc, verb
 		return ops, nil
 	})
 
-	// Unwrap ErrInvalid if necessary.
-	if errors.Cause(err) == ErrInvalid {
-		return ErrInvalid
-	}
 	if err != nil {
-		return errors.Trace(err)
+		if errors.Cause(err) == lease.ErrInvalid {
+			return lease.ErrInvalid
+		}
+		return errors.Annotate(err, "cannot satisfy request")
 	}
 
 	// Update the cache for this lease only.
@@ -138,7 +138,7 @@ func (client *client) request(name string, request Request, getOps opsFunc, verb
 
 // ExpireLease is part of the Client interface.
 func (client *client) ExpireLease(name string) error {
-	if err := validateString(name); err != nil {
+	if err := lease.ValidateString(name); err != nil {
 		return errors.Annotatef(err, "invalid name")
 	}
 
@@ -161,11 +161,10 @@ func (client *client) ExpireLease(name string) error {
 		return ops, nil
 	})
 
-	// Unwrap ErrInvalid if necessary.
-	if errors.Cause(err) == ErrInvalid {
-		return ErrInvalid
-	}
 	if err != nil {
+		if errors.Cause(err) == lease.ErrInvalid {
+			return lease.ErrInvalid
+		}
 		return errors.Trace(err)
 	}
 
@@ -216,27 +215,28 @@ func (client *client) ensureClockDoc() error {
 		client.logger.Tracef("checking clock %q (attempt %d)", clockDocId, attempt)
 		var clockDoc clockDoc
 		err := collection.FindId(clockDocId).One(&clockDoc)
-		if err == nil {
+		switch err {
+		case nil:
 			client.logger.Tracef("clock already exists")
 			if err := clockDoc.validate(); err != nil {
 				return nil, errors.Annotatef(err, "corrupt clock document")
 			}
 			return nil, jujutxn.ErrNoOperations
-		}
-		if err != mgo.ErrNotFound {
+		case mgo.ErrNotFound:
+			client.logger.Tracef("creating clock")
+			newClockDoc, err := newClockDoc(client.config.Namespace)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return []txn.Op{{
+				C:      client.config.Collection,
+				Id:     clockDocId,
+				Assert: txn.DocMissing,
+				Insert: newClockDoc,
+			}}, nil
+		default:
 			return nil, errors.Trace(err)
 		}
-		client.logger.Tracef("creating clock")
-		newClockDoc, err := newClockDoc(client.config.Namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return []txn.Op{{
-			C:      client.config.Collection,
-			Id:     clockDocId,
-			Assert: txn.DocMissing,
-			Insert: newClockDoc,
-		}}, nil
 	})
 	return errors.Trace(err)
 }
@@ -271,18 +271,18 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 func (client *client) readSkews(collection mongo.Collection) (map[string]Skew, error) {
 
 	// Read the clock document, recording the time before and after completion.
-	readBefore := client.config.Clock.Now()
+	beginning := client.config.Clock.Now()
 	var clockDoc clockDoc
 	if err := collection.FindId(client.clockDocId()).One(&clockDoc); err != nil {
 		return nil, errors.Trace(err)
 	}
-	readAfter := client.config.Clock.Now()
+	end := client.config.Clock.Now()
 	if err := clockDoc.validate(); err != nil {
 		return nil, errors.Annotatef(err, "corrupt clock document")
 	}
 
 	// Create skew entries for each known writer...
-	skews, err := clockDoc.skews(readBefore, readAfter)
+	skews, err := clockDoc.skews(beginning, end)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -305,12 +305,12 @@ func (client *client) readSkews(collection mongo.Collection) (map[string]Skew, e
 // claimLeaseOps returns the []txn.Op necessary to claim the supplied lease
 // until duration in the future, and a cache entry corresponding to the values
 // that will be written if the transaction succeeds. If the claim would conflict
-// with cached state, it returns ErrInvalid.
-func (client *client) claimLeaseOps(name string, request Request) ([]txn.Op, entry, error) {
+// with cached state, it returns lease.ErrInvalid.
+func (client *client) claimLeaseOps(name string, request lease.Request) ([]txn.Op, entry, error) {
 
 	// We can't claim a lease that's already held.
 	if _, found := client.entries[name]; found {
-		return nil, entry{}, ErrInvalid
+		return nil, entry{}, lease.ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
@@ -346,16 +346,16 @@ func (client *client) claimLeaseOps(name string, request Request) ([]txn.Op, ent
 // that will be written if the transaction succeeds. If the supplied lease
 // already extends far enough that no operations are required, it will return
 // errNoExtension. If the extension would conflict with cached state, it will
-// return ErrInvalid.
-func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, entry, error) {
+// return lease.ErrInvalid.
+func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.Op, entry, error) {
 
 	// Reject extensions when there's no lease, or the holder doesn't match.
 	lastEntry, found := client.entries[name]
 	if !found {
-		return nil, entry{}, ErrInvalid
+		return nil, entry{}, lease.ErrInvalid
 	}
 	if lastEntry.holder != request.Holder {
-		return nil, entry{}, ErrInvalid
+		return nil, entry{}, lease.ErrInvalid
 	}
 
 	// According to the local clock, we want the lease to extend until
@@ -413,13 +413,14 @@ func (client *client) extendLeaseOps(name string, request Request) ([]txn.Op, en
 }
 
 // expireLeaseOps returns the []txn.Op necessary to vacate the lease. If the
-// expiration would conflict with cached state, it will return ErrInvalid.
+// expiration would conflict with cached state, it will return an error with
+// a Cause of ErrInvalid.
 func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 
 	// We can't expire a lease that doesn't exist.
 	lastEntry, found := client.entries[name]
 	if !found {
-		return nil, ErrInvalid
+		return nil, lease.ErrInvalid
 	}
 
 	// We also can't expire a lease whose expiry time may be in the future.
@@ -427,8 +428,7 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 	latestExpiry := skew.Latest(lastEntry.expiry)
 	now := client.config.Clock.Now()
 	if !now.After(latestExpiry) {
-		client.logger.Tracef("lease %q expires in the future", name)
-		return nil, ErrInvalid
+		return nil, errors.Annotatef(lease.ErrInvalid, "lease %q expires in the future", name)
 	}
 
 	// The database change is simple, and depends on the lease doc being
@@ -473,15 +473,23 @@ func (client *client) writeClockOp(now time.Time) txn.Op {
 	}
 }
 
-// assertOp returns a txn.Op which will succeed only if holder holds the
-// named lease.
-func (client *client) assertOp(name, holder string) txn.Op {
-	return txn.Op{
+// assertOpTrapdoor returns a lease.Trapdoor that will replace a supplied
+// *[]txn.Op with one that asserts that the holder still holds the named lease.
+func (client *client) assertOpTrapdoor(name, holder string) lease.Trapdoor {
+	op := txn.Op{
 		C:  client.config.Collection,
 		Id: client.leaseDocId(name),
 		Assert: bson.M{
 			fieldLeaseHolder: holder,
 		},
+	}
+	return func(out interface{}) error {
+		outPtr, ok := out.(*[]txn.Op)
+		if !ok {
+			return errors.NotValidf("expected *[]txn.Op; %T", out)
+		}
+		*outPtr = []txn.Op{op}
+		return nil
 	}
 }
 

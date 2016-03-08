@@ -132,6 +132,60 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	c.Assert(len(testGetter.ids), gc.DeepEquals, 2)
 }
 
+// notifyingInstanceGetter wraps testInstanceGetter, notifying via
+// a channel when Instances() is called.
+type notifyingInstanceGetter struct {
+	testInstanceGetter
+	instancesc chan bool
+}
+
+func (g *notifyingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	g.instancesc <- true
+	return g.testInstanceGetter.Instances(ids)
+}
+
+func (s *aggregateSuite) TestDyingWhileHandlingRequest(c *gc.C) {
+	// This tests a regression where the aggregator couldn't shut down
+	// if the the tomb was killed while a request was being handled,
+	// leaving the reply channel unread.
+
+	s.PatchValue(&gatherTime, 30*time.Millisecond)
+
+	// Set up the aggregator with the instance getter.
+	testGetter := &notifyingInstanceGetter{instancesc: make(chan bool)}
+	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
+	aggregator := newAggregator(testGetter)
+
+	// Make a request with a reply channel that will never be read.
+	req := instanceInfoReq{
+		reply:  make(chan instanceInfoReply),
+		instId: instance.Id("foo"),
+	}
+	aggregator.reqc <- req
+
+	// Wait for Instances to be called.
+	select {
+	case <-testGetter.instancesc:
+	case <-time.After(testing.LongWait):
+		c.Fatal("Instances() not called")
+	}
+
+	// Now we know the request is being handled - kill the aggregator.
+	aggregator.Kill()
+	done := make(chan error)
+	go func() {
+		done <- aggregator.Wait()
+	}()
+
+	// The aggregator should stop.
+	select {
+	case err := <-done:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("aggregator didn't stop")
+	}
+}
+
 type batchingInstanceGetter struct {
 	testInstanceGetter
 	wg         sync.WaitGroup

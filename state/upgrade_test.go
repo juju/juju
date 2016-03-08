@@ -43,8 +43,8 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 	}
 }
 
-func (s *UpgradeSuite) addStateServers(c *gc.C) (machineId1, machineId2 string) {
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+func (s *UpgradeSuite) addControllers(c *gc.C) (machineId1, machineId2 string) {
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return changes.Added[0], changes.Added[1]
 }
@@ -57,15 +57,15 @@ func (s *UpgradeSuite) assertUpgrading(c *gc.C, expect bool) {
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	stateServer, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	controller, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	pinger, err := stateServer.SetAgentPresence()
+	pinger, err := controller.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		err := pinger.Stop()
 		c.Check(err, jc.ErrorIsNil)
 	})
-	s.serverIdA = stateServer.Id()
+	s.serverIdA = controller.Id()
 	s.provision(c, s.serverIdA)
 }
 
@@ -81,8 +81,8 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfo(c *gc.C) {
 	c.Assert(info.TargetVersion(), gc.DeepEquals, vTarget)
 	c.Assert(info.Status(), gc.Equals, state.UpgradePending)
 	c.Assert(info.Started().IsZero(), jc.IsFalse)
-	c.Assert(info.StateServersReady(), gc.DeepEquals, []string{s.serverIdA})
-	c.Assert(info.StateServersDone(), gc.HasLen, 0)
+	c.Assert(info.ControllersReady(), gc.DeepEquals, []string{s.serverIdA})
+	c.Assert(info.ControllersDone(), gc.HasLen, 0)
 
 	// retrieve existing
 	info, err = s.State.EnsureUpgradeInfo(s.serverIdA, vPrevious, vTarget)
@@ -101,29 +101,29 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfo(c *gc.C) {
 	c.Assert(info, gc.IsNil)
 }
 
-func (s *UpgradeSuite) TestStateServersReadyCopies(c *gc.C) {
+func (s *UpgradeSuite) TestControllersReadyCopies(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
-	stateServersReady := info.StateServersReady()
-	c.Assert(stateServersReady, gc.DeepEquals, []string{"0"})
-	stateServersReady[0] = "lol"
-	stateServersReady = info.StateServersReady()
-	c.Assert(stateServersReady, gc.DeepEquals, []string{"0"})
+	controllersReady := info.ControllersReady()
+	c.Assert(controllersReady, gc.DeepEquals, []string{"0"})
+	controllersReady[0] = "lol"
+	controllersReady = info.ControllersReady()
+	c.Assert(controllersReady, gc.DeepEquals, []string{"0"})
 }
 
-func (s *UpgradeSuite) TestStateServersDoneCopies(c *gc.C) {
+func (s *UpgradeSuite) TestControllersDoneCopies(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.setToFinishing(c, info)
-	err = info.SetStateServerDone("0")
+	err = info.SetControllerDone("0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	info = s.getOneUpgradeInfo(c)
-	stateServersDone := info.StateServersDone()
-	c.Assert(stateServersDone, gc.DeepEquals, []string{"0"})
-	stateServersDone[0] = "lol"
-	stateServersDone = info.StateServersReady()
-	c.Assert(stateServersDone, gc.DeepEquals, []string{"0"})
+	controllersDone := info.ControllersDone()
+	c.Assert(controllersDone, gc.DeepEquals, []string{"0"})
+	controllersDone[0] = "lol"
+	controllersDone = info.ControllersReady()
+	c.Assert(controllersDone, gc.DeepEquals, []string{"0"})
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoDowngrade(c *gc.C) {
@@ -139,21 +139,21 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoDowngrade(c *gc.C) {
 	c.Assert(info, gc.IsNil)
 }
 
-func (s *UpgradeSuite) TestEnsureUpgradeInfoNonStateServer(c *gc.C) {
+func (s *UpgradeSuite) TestEnsureUpgradeInfoNonController(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo("2345678", vers("1.2.3"), vers("2.3.4"))
-	c.Assert(err, gc.ErrorMatches, `machine "2345678" is not a state server`)
+	c.Assert(err, gc.ErrorMatches, `machine "2345678" is not a controller`)
 	c.Assert(info, gc.IsNil)
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoNotProvisioned(c *gc.C) {
-	serverIdB, _ := s.addStateServers(c)
+	serverIdB, _ := s.addControllers(c)
 	_, err := s.State.EnsureUpgradeInfo(serverIdB, vers("1.1.1"), vers("1.2.3"))
 	expectErr := fmt.Sprintf("machine %s is not provisioned and should not be participating in upgrades", serverIdB)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServers(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	v111 := vers("1.1.1")
@@ -161,27 +161,27 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServers(c *gc.C) {
 	_, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// add first new state server with bad version
+	// add first new controller with bad version
 	info, err := s.State.EnsureUpgradeInfo(serverIdB, v111, vers("1.2.4"))
 	c.Assert(err, gc.ErrorMatches, "current upgrade info mismatch: expected target version 1.2.4, got 1.2.3")
 	c.Assert(info, gc.IsNil)
 
-	// add first new state server properly
+	// add first new controller properly
 	info, err = s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	expectReady := []string{s.serverIdA, serverIdB}
-	c.Assert(info.StateServersReady(), jc.SameContents, expectReady)
+	c.Assert(info.ControllersReady(), jc.SameContents, expectReady)
 
-	// add second new state server
+	// add second new controller
 	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	expectReady = append(expectReady, serverIdC)
-	c.Assert(info.StateServersReady(), jc.SameContents, expectReady)
+	c.Assert(info.ControllersReady(), jc.SameContents, expectReady)
 
-	// add second new state server again
+	// add second new controller again
 	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.StateServersReady(), jc.SameContents, expectReady)
+	c.Assert(info.ControllersReady(), jc.SameContents, expectReady)
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoRace(c *gc.C) {
@@ -203,7 +203,7 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoRace(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace1(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	v111 := vers("1.1.1")
@@ -216,11 +216,11 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace1(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	expectReady := []string{serverIdB, serverIdC}
-	c.Assert(info.StateServersReady(), jc.SameContents, expectReady)
+	c.Assert(info.ControllersReady(), jc.SameContents, expectReady)
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace2(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	v111 := vers("1.1.1")
@@ -236,11 +236,11 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace2(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	expectReady := []string{s.serverIdA, serverIdB, serverIdC}
-	c.Assert(info.StateServersReady(), jc.SameContents, expectReady)
+	c.Assert(info.ControllersReady(), jc.SameContents, expectReady)
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace3(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	v111 := vers("1.1.1")
@@ -261,7 +261,7 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace3(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace4(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	v111 := vers("1.1.1")
@@ -284,7 +284,7 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoMultipleServersRace4(c *gc.C) {
 func (s *UpgradeSuite) TestRefresh(c *gc.C) {
 	v111 := vers("1.1.1")
 	v123 := vers("1.2.3")
-	serverIdB, _ := s.addStateServers(c)
+	serverIdB, _ := s.addControllers(c)
 	s.provision(c, serverIdB)
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
@@ -293,20 +293,20 @@ func (s *UpgradeSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info2.SetStatus(state.UpgradeRunning)
 
-	c.Assert(info.StateServersReady(), jc.SameContents, []string{s.serverIdA})
+	c.Assert(info.ControllersReady(), jc.SameContents, []string{s.serverIdA})
 	c.Assert(info.Status(), gc.Equals, state.UpgradePending)
 
 	err = info.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(info.StateServersReady(), jc.SameContents, []string{s.serverIdA, serverIdB})
+	c.Assert(info.ControllersReady(), jc.SameContents, []string{s.serverIdA, serverIdB})
 	c.Assert(info.Status(), gc.Equals, state.UpgradeRunning)
 }
 
 func (s *UpgradeSuite) TestWatch(c *gc.C) {
 	v111 := vers("1.1.1")
 	v123 := vers("1.2.3")
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	w := s.State.WatchUpgradeInfo()
@@ -341,7 +341,7 @@ func (s *UpgradeSuite) TestWatch(c *gc.C) {
 func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	v111 := vers("1.1.1")
 	v123 := vers("1.2.3")
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
@@ -376,8 +376,8 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+func (s *UpgradeSuite) TestAllProvisionedControllersReady(c *gc.C) {
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB)
 
 	v111 := vers("1.1.1")
@@ -386,7 +386,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertReady := func(expect bool) {
-		ok, err := info.AllProvisionedStateServersReady()
+		ok, err := info.AllProvisionedControllersReady()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ok, gc.Equals, expect)
 	}
@@ -404,16 +404,16 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 	assertReady(true)
 }
 
-func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c *gc.C) {
-	serverIdB, serverIdC := s.addStateServers(c)
+func (s *UpgradeSuite) TestAllProvisionedControllersReadyWithPreModelUUIDSchema(c *gc.C) {
+	serverIdB, serverIdC := s.addControllers(c)
 
 	machines, closer := state.GetRawCollection(s.State, state.MachinesC)
 	defer closer()
 	instanceData, closer := state.GetRawCollection(s.State, state.InstanceDataC)
 	defer closer()
 
-	// Add minimal machine and instanceData docs for the state servers
-	// that look how these documents did before the environment UUID
+	// Add minimal machine and instanceData docs for the controllers
+	// that look how these documents did before the model UUID
 	// migration.
 	_, err := instanceData.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -441,7 +441,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertReady := func(expect bool) {
-		ok, err := info.AllProvisionedStateServersReady()
+		ok, err := info.AllProvisionedControllersReady()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ok, gc.Equals, expect)
 	}
@@ -510,31 +510,31 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 	assertStatus(state.UpgradeFinishing)
 }
 
-func (s *UpgradeSuite) TestSetStateServerDone(c *gc.C) {
+func (s *UpgradeSuite) TestSetControllerDone(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.3.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = info.SetStateServerDone(s.serverIdA)
+	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, gc.ErrorMatches, "cannot complete upgrade: upgrade has not yet run")
 
 	err = info.SetStatus(state.UpgradeRunning)
 	c.Assert(err, jc.ErrorIsNil)
-	err = info.SetStateServerDone(s.serverIdA)
+	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, gc.ErrorMatches, "cannot complete upgrade: upgrade has not yet run")
 
 	err = info.SetStatus(state.UpgradeFinishing)
 	c.Assert(err, jc.ErrorIsNil)
-	err = info.SetStateServerDone(s.serverIdA)
+	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, false)
 
 	s.checkUpgradeInfoArchived(c, info, state.UpgradeComplete, 1)
 }
 
-func (s *UpgradeSuite) TestSetStateServerDoneMultipleServers(c *gc.C) {
+func (s *UpgradeSuite) TestSetControllerDoneMultipleServers(c *gc.C) {
 	v111 := vers("1.1.1")
 	v123 := vers("1.2.3")
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 	for _, id := range []string{serverIdB, serverIdC} {
 		_, err := s.State.EnsureUpgradeInfo(id, v111, v123)
@@ -545,29 +545,29 @@ func (s *UpgradeSuite) TestSetStateServerDoneMultipleServers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.setToFinishing(c, info)
 
-	err = info.SetStateServerDone(s.serverIdA)
+	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, true)
 
-	err = info.SetStateServerDone(s.serverIdA)
+	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, true)
 
-	err = info.SetStateServerDone(serverIdB)
+	err = info.SetControllerDone(serverIdB)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, true)
 
-	err = info.SetStateServerDone(serverIdC)
+	err = info.SetControllerDone(serverIdC)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, false)
 
 	s.checkUpgradeInfoArchived(c, info, state.UpgradeComplete, 3)
 }
 
-func (s *UpgradeSuite) TestSetStateServerDoneMultipleServersRace(c *gc.C) {
+func (s *UpgradeSuite) TestSetControllerDoneMultipleServersRace(c *gc.C) {
 	v100 := vers("1.0.0")
 	v200 := vers("2.0.0")
-	serverIdB, serverIdC := s.addStateServers(c)
+	serverIdB, serverIdC := s.addControllers(c)
 	s.provision(c, serverIdB, serverIdC)
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v100, v200)
@@ -578,22 +578,22 @@ func (s *UpgradeSuite) TestSetStateServerDoneMultipleServersRace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.setToFinishing(c, info)
 
-	// Interrupt the transaction for state server A twice with calls
+	// Interrupt the transaction for controller A twice with calls
 	// from the other machines.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err = info.SetStateServerDone(serverIdB)
+		err = info.SetControllerDone(serverIdB)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
-		err = info.SetStateServerDone(serverIdC)
+		err = info.SetControllerDone(serverIdC)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	err = info.SetStateServerDone(s.serverIdA)
+	err = info.SetControllerDone(s.serverIdA)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgrading(c, false)
 
 	info = s.getOneUpgradeInfo(c)
 	c.Assert(info.Status(), gc.Equals, state.UpgradeComplete)
-	c.Assert(info.StateServersDone(), jc.SameContents, []string{"0", "1", "2"})
+	c.Assert(info.ControllersDone(), jc.SameContents, []string{"0", "1", "2"})
 }
 
 func (s *UpgradeSuite) TestAbort(c *gc.C) {
@@ -624,7 +624,7 @@ func (s *UpgradeSuite) checkUpgradeInfoArchived(
 	c *gc.C,
 	initialInfo *state.UpgradeInfo,
 	expectedStatus state.UpgradeStatus,
-	expectedStateServers int,
+	expectedControllers int,
 ) {
 	info := s.getOneUpgradeInfo(c)
 	c.Assert(info.Status(), gc.Equals, expectedStatus)
@@ -632,9 +632,9 @@ func (s *UpgradeSuite) checkUpgradeInfoArchived(
 	c.Assert(info.TargetVersion(), gc.Equals, initialInfo.TargetVersion())
 	// Truncate because mongo only stores times down to millisecond resolution.
 	c.Assert(info.Started().Equal(initialInfo.Started().Truncate(time.Millisecond)), jc.IsTrue)
-	c.Assert(len(info.StateServersDone()), gc.Equals, expectedStateServers)
-	if expectedStateServers > 0 {
-		c.Assert(info.StateServersDone(), jc.SameContents, info.StateServersReady())
+	c.Assert(len(info.ControllersDone()), gc.Equals, expectedControllers)
+	if expectedControllers > 0 {
+		c.Assert(info.ControllersDone(), jc.SameContents, info.ControllersReady())
 	}
 }
 

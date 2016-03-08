@@ -218,12 +218,12 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	}
 	uuid, ok := environConfig.UUID()
 	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
+		return nil, errors.NotFoundf("model UUID")
 	}
 	source := &ebsVolumeSource{
-		ec2:     ec2,
-		envName: environConfig.Name(),
-		envUUID: uuid,
+		ec2:       ec2,
+		envName:   environConfig.Name(),
+		modelUUID: uuid,
 	}
 	return source, nil
 }
@@ -234,9 +234,9 @@ func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerCon
 }
 
 type ebsVolumeSource struct {
-	ec2     *ec2.EC2
-	envName string // non-unique, informational only
-	envUUID string
+	ec2       *ec2.EC2
+	envName   string // non-unique, informational only
+	modelUUID string
 }
 
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
@@ -367,7 +367,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
 	filter := ec2.NewFilter()
-	filter.Add("tag:"+tags.JujuEnv, v.envUUID)
+	filter.Add("tag:"+tags.JujuModel, v.modelUUID)
 	resp, err := v.ec2.Volumes(nil, filter)
 	if err != nil {
 		return nil, err

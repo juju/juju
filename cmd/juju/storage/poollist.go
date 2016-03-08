@@ -8,7 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const poolListCommandDoc = `
@@ -22,11 +22,11 @@ If only names are specified, only mentioned pools will be listed.
 If only types are specified, all pools of the specified types will be listed.
 
 Both pool types and names must be valid.
-Valid pool types are pool types that are registered for Juju environment.
+Valid pool types are pool types that are registered for Juju model.
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= yaml)
@@ -43,7 +43,7 @@ func newPoolListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (PoolListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // poolListCommand lists storage pools.

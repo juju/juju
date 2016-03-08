@@ -50,8 +50,8 @@ type storageAccess interface {
 	// BlockDevices is required for storage functionality.
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
-	// EnvName is required for pool functionality.
-	EnvName() (string, error)
+	// ModelName is required for pool functionality.
+	ModelName() (string, error)
 
 	// AllVolumes is required for volume functionality.
 	AllVolumes() ([]state.Volume, error)
@@ -107,10 +107,10 @@ func (s stateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, err
 	return names.NewMachineTag(mid), nil
 }
 
-// EnvName returns the name of Juju environment,
+// ModelName returns the name of Juju environment,
 // or an error if environment configuration is not retrievable.
-func (s stateShim) EnvName() (string, error) {
-	cfg, err := s.State.EnvironConfig()
+func (s stateShim) ModelName() (string, error) {
+	cfg, err := s.State.ModelConfig()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

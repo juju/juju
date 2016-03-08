@@ -65,7 +65,6 @@ var (
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "gce",
-		"auth-file":      "",
 		"private-key":    PrivateKey,
 		"client-id":      ClientID,
 		"client-email":   ClientEmail,
@@ -125,7 +124,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceConfig.Tools = tools[0]
@@ -165,13 +164,17 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+
 	// Storage
+	eUUID, ok := s.Env.Config().UUID()
+	c.Check(ok, jc.IsTrue)
 	s.BaseDisk = &google.Disk{
-		Id:     1234567,
-		Name:   "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Zone:   "home-zone",
-		Status: google.StatusReady,
-		Size:   1024,
+		Id:          1234567,
+		Name:        "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: eUUID,
 	}
 }
 
@@ -196,7 +199,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 	var err error
-	cfg := testing.EnvironConfig(c)
+	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)
@@ -250,7 +253,6 @@ type BaseSuite struct {
 	FakeConn    *fakeConn
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
-	FakeImages  *fakeImages
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -259,7 +261,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeConn = &fakeConn{}
 	s.FakeCommon = &fakeCommon{}
 	s.FakeEnviron = &fakeEnviron{}
-	s.FakeImages = &fakeImages{}
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
@@ -275,7 +276,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
-	s.PatchValue(&imageMetadataFetch, s.FakeImages.ImageMetadataFetch)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -328,32 +328,38 @@ type fakeCommon struct {
 
 func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
 	fc.addCall("SupportedArchitectures", FakeCallArgs{
-		"env":  env,
-		"cons": cons,
+		"switch": env,
+		"cons":   cons,
 	})
 	return fc.Arches, fc.err()
 }
 
-func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
-		"env":    env,
+		"switch": env,
 		"params": params,
 	})
-	return fc.Arch, fc.Series, fc.BSFinalizer, fc.err()
+
+	result := &environs.BootstrapResult{
+		Arch:     fc.Arch,
+		Series:   fc.Series,
+		Finalize: fc.BSFinalizer,
+	}
+	return result, fc.err()
 }
 
 func (fc *fakeCommon) Destroy(env environs.Environ) error {
 	fc.addCall("Destroy", FakeCallArgs{
-		"env": env,
+		"switch": env,
 	})
 	return fc.err()
 }
 
 func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
-		"env":   env,
-		"group": group,
+		"switch": env,
+		"group":  group,
 	})
 	return fc.AZInstances, fc.err()
 }
@@ -369,55 +375,48 @@ type fakeEnviron struct {
 
 func (fe *fakeEnviron) GetInstances(env *environ) ([]instance.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
-		"env": env,
+		"switch": env,
 	})
 	return fe.Insts, fe.err()
 }
 
 func (fe *fakeEnviron) BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	fe.addCall("BuildInstanceSpec", FakeCallArgs{
-		"env":  env,
-		"args": args,
+		"switch": env,
+		"args":   args,
 	})
 	return fe.Spec, fe.err()
 }
 
 func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	fe.addCall("GetHardwareCharacteristics", FakeCallArgs{
-		"env":  env,
-		"spec": spec,
-		"inst": inst,
+		"switch": env,
+		"spec":   spec,
+		"inst":   inst,
 	})
 	return fe.Hwc
 }
 
 func (fe *fakeEnviron) NewRawInstance(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
-		"env":  env,
-		"args": args,
-		"spec": spec,
+		"switch": env,
+		"args":   args,
+		"spec":   spec,
 	})
 	return fe.Inst, fe.err()
 }
 
-func (fe *fakeEnviron) FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (fe *fakeEnviron) FindInstanceSpec(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
 	fe.addCall("FindInstanceSpec", FakeCallArgs{
-		"env":    env,
-		"stream": stream,
-		"ic":     ic,
+		"switch":        env,
+		"ic":            ic,
+		"imageMetadata": imageMetadata,
 	})
 	return fe.Spec, fe.err()
-}
-
-type fakeImages struct {
-	fake
-
-	Metadata    []*imagemetadata.ImageMetadata
-	ResolveInfo *simplestreams.ResolveInfo
-}
-
-func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint, onlySigned bool) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
-	return fi.Metadata, fi.ResolveInfo, fi.err()
 }
 
 // TODO(ericsnow) Refactor fakeConnCall and fakeConn to embed fakeCall and fake.

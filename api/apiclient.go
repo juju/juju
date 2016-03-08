@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -33,9 +34,17 @@ import (
 
 var logger = loggo.GetLogger("juju.api")
 
-// PingPeriod defines how often the internal connection health check
-// will run. It's a variable so it can be changed in tests.
-var PingPeriod = 1 * time.Minute
+// TODO(fwereade): we should be injecting a Clock; and injecting these values;
+// across the board, instead of using these global variables.
+var (
+	// PingPeriod defines how often the internal connection health check
+	// will run.
+	PingPeriod = 1 * time.Minute
+
+	// PingTimeout defines how long a health check can take before we
+	// consider it to have failed.
+	PingTimeout = 30 * time.Second
+)
 
 // state is the internal implementation of the Connection interface.
 type state struct {
@@ -49,8 +58,8 @@ type state struct {
 	// will be associated with (specifically macaroon auth cookies).
 	cookieURL *url.URL
 
-	// environTag holds the environment tag once we're connected
-	environTag string
+	// modelTag holds the model tag once we're connected
+	modelTag string
 
 	// controllerTag holds the controller tag once we're connected.
 	// This is only set with newer apiservers where they are using
@@ -80,11 +89,13 @@ type state struct {
 	// closed is a channel that gets closed when State.Close is called.
 	closed chan struct{}
 
-	// loggedIn holds whether the client has successfully logged in.
-	loggedIn bool
+	// loggedIn holds whether the client has successfully logged
+	// in. It's a int32 so that the atomic package can be used to
+	// access it safely.
+	loggedIn int32
 
 	// tag and password and nonce hold the cached login credentials.
-	// These are only valid if loggedIn is true.
+	// These are only valid if loggedIn is 1.
 	tag      string
 	password string
 	nonce    string
@@ -210,12 +221,10 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
 	var loginFunc func(st *state, tag names.Tag, pwd, nonce string) error
 	switch loginVersion {
-	case 0:
-		loginFunc = (*state).loginV0
-	case 1:
-		loginFunc = (*state).loginV1
 	case 2:
 		loginFunc = (*state).loginV2
+	case 3:
+		loginFunc = (*state).loginV3
 	default:
 		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}
@@ -236,33 +245,15 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot make TLS configuration")
 	}
+	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
 	path := "/"
-	if info.EnvironTag.Id() != "" {
-		path = apiPath(info.EnvironTag, "/api")
+	if info.ModelTag.Id() != "" {
+		path = apiPath(info.ModelTag, "/api")
 	}
-
-	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
-	for _, addr := range info.Addrs {
-		err := dialWebsocket(addr, path, opts, tlsConfig, try)
-		if err == parallel.ErrStopped {
-			break
-		}
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		select {
-		case <-time.After(opts.DialAddressInterval):
-		case <-try.Dead():
-		}
-	}
-	try.Close()
-	result, err := try.Result()
+	conn, err := dialWebSocket(info.Addrs, path, tlsConfig, opts)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
 	return conn, tlsConfig, nil
 }
@@ -280,9 +271,38 @@ func tlsConfigForCACert(caCert string) (*tls.Config, error) {
 	}, nil
 }
 
+// dialWebSocket dials a websocket with one of the provided addresses, the
+// specified URL path, TLS configuration, and dial options. Each of the
+// specified addresses will be attempted concurrently, and the first
+// successful connection will be returned.
+func dialWebSocket(addrs []string, path string, tlsConfig *tls.Config, opts DialOpts) (*websocket.Conn, error) {
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+	for _, addr := range addrs {
+		err := dialWebsocket(addr, path, opts, tlsConfig, try)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+	try.Close()
+	result, err := try.Result()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.(*websocket.Conn), nil
+}
+
 // ConnectStream implements Connection.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
-	if !st.loggedIn {
+	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
 	// We use the standard "macaraq" macaroon authentication dance here.
@@ -318,13 +338,13 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 	}
 	if _, ok := st.ServerVersion(); ok {
 		// If the server version is set, then we know the server is capable of
-		// serving streams at the environment path. We also fully expect
-		// that the server has returned a valid environment tag.
-		envTag, err := st.EnvironTag()
+		// serving streams at the model path. We also fully expect
+		// that the server has returned a valid model tag.
+		modelTag, err := st.ModelTag()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment tag, perhaps connected to system not environment")
+			return nil, errors.Annotate(err, "cannot get model tag, perhaps connected to system not model")
 		}
-		path = apiPath(envTag, path)
+		path = apiPath(modelTag, path)
 	}
 	target := url.URL{
 		Scheme:   "wss",
@@ -401,12 +421,12 @@ func (st *state) addCookiesToHeader(h http.Header) {
 func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	if _, err := st.ControllerTag(); err == nil {
 		// The controller tag is set, so the agent version is >= 1.23,
-		// so we can use the environment endpoint.
-		envTag, err := st.EnvironTag()
+		// so we can use the model endpoint.
+		modelTag, err := st.ModelTag()
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot get API endpoint address")
 		}
-		path = apiPath(envTag, path)
+		path = apiPath(modelTag, path)
 	}
 	return &url.URL{
 		Scheme:   st.serverScheme,
@@ -417,18 +437,18 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 }
 
 // apiPath returns the given API endpoint path relative
-// to the given environment tag. The caller is responsible
-// for ensuring that the environment tag is valid and
+// to the given model tag. The caller is responsible
+// for ensuring that the model tag is valid and
 // that the path is slash-prefixed.
-func apiPath(envTag names.EnvironTag, path string) string {
+func apiPath(modelTag names.ModelTag, path string) string {
 	if !strings.HasPrefix(path, "/") {
 		panic(fmt.Sprintf("apiPath called with non-slash-prefixed path %q", path))
 	}
-	if envTag.Id() == "" {
-		panic("apiPath called with empty environment tag")
+	if modelTag.Id() == "" {
+		panic("apiPath called with empty model tag")
 	}
-	if envUUID := envTag.Id(); envUUID != "" {
-		return "/environment/" + envUUID + path
+	if modelUUID := modelTag.Id(); modelUUID != "" {
+		return "/model/" + modelUUID + path
 	}
 	return path
 }
@@ -486,9 +506,28 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 	}
 }
 
+func callWithTimeout(f func() error, timeout time.Duration) bool {
+	result := make(chan error, 1)
+	go func() {
+		// Note that result is buffered so that we don't leak this
+		// goroutine when a timeout happens.
+		result <- f()
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			logger.Debugf("health ping failed: %v", err)
+		}
+		return err == nil
+	case <-time.After(timeout):
+		logger.Errorf("health ping timed out after %s", timeout)
+		return false
+	}
+}
+
 func (s *state) heartbeatMonitor() {
 	for {
-		if err := s.Ping(); err != nil {
+		if !callWithTimeout(s.Ping, PingTimeout) {
 			close(s.broken)
 			return
 		}
@@ -515,7 +554,7 @@ func (s *state) APICall(facade string, version int, id, method string, args, res
 		Id:      id,
 		Action:  method,
 	}, args, response)
-	return params.ClientError(err)
+	return errors.Trace(err)
 }
 
 func (s *state) Close() error {
@@ -546,14 +585,14 @@ func (s *state) Addr() string {
 	return s.addr
 }
 
-// EnvironTag returns the tag of the environment we are connected to.
-func (s *state) EnvironTag() (names.EnvironTag, error) {
-	return names.ParseEnvironTag(s.environTag)
+// ModelTag returns the tag of the model we are connected to.
+func (s *state) ModelTag() (names.ModelTag, error) {
+	return names.ParseModelTag(s.modelTag)
 }
 
 // ControllerTag returns the tag of the server we are connected to.
-func (s *state) ControllerTag() (names.EnvironTag, error) {
-	return names.ParseEnvironTag(s.controllerTag)
+func (s *state) ControllerTag() (names.ModelTag, error) {
+	return names.ParseModelTag(s.controllerTag)
 }
 
 // APIHostPorts returns addresses that may be used to connect
@@ -562,7 +601,7 @@ func (s *state) ControllerTag() (names.EnvironTag, error) {
 // The addresses are scoped (public, cloud-internal, etc.), so
 // the client may choose which addresses to attempt. For the
 // Juju CLI, all addresses must be attempted, as the CLI may
-// be invoked both within and outside the environment (think
+// be invoked both within and outside the model (think
 // private clouds).
 func (s *state) APIHostPorts() [][]network.HostPort {
 	// NOTE: We're making a copy of s.hostPorts before returning it,
@@ -597,4 +636,12 @@ func (s *state) BestFacadeVersion(facade string) int {
 // to login, prefixed with "<URI scheme>://" (usually https).
 func (s *state) serverRoot() string {
 	return s.serverScheme + "://" + s.serverRootAddress
+}
+
+func (s *state) isLoggedIn() bool {
+	return atomic.LoadInt32(&s.loggedIn) == 1
+}
+
+func (s *state) setLoggedIn() {
+	atomic.StoreInt32(&s.loggedIn, 1)
 }

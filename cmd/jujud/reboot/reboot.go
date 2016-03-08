@@ -45,7 +45,7 @@ type Reboot struct {
 	acfg     agent.Config
 	apistate api.Connection
 	tag      names.MachineTag
-	st       *reboot.State
+	st       reboot.State
 }
 
 func NewRebootWaiter(apistate api.Connection, acfg agent.Config) (*Reboot, error) {

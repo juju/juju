@@ -9,16 +9,16 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/testing"
 )
 
 type suite struct {
-	testing.BaseSuite
+	testing.LoggingSuite
 }
 
 var _ = gc.Suite(&suite{})

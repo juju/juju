@@ -13,16 +13,15 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
 func newValidateImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&validateImageMetadataCommand{})
+	return modelcmd.Wrap(&validateImageMetadataCommand{})
 }
 
 // validateImageMetadataCommand
@@ -41,20 +40,20 @@ var validateImagesMetadataDoc = `
 validate-images loads simplestreams metadata and validates the contents by
 looking for images belonging to the specified cloud.
 
-The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
-Series, Region, and Endpoint are the key attributes.
+The cloud specification comes from the current Juju model, as specified in
+the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+Endpoint are the key attributes.
 
-The key environment attributes may be overridden using command arguments, so
+The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
 
 Examples:
 
- - validate using the current environment settings but with series raring
+ - validate using the current model settings but with series raring
 
   juju metadata validate-images -s raring
 
- - validate using the current environment settings but with series raring and
+ - validate using the current model settings but with series raring and
  using metadata from local directory (the directory is expected to have an
  "images" subdirectory containing the metadata, and corresponds to the parameter
  passed to the image metadata generatation command).
@@ -79,7 +78,7 @@ RETVAL=$?
 func (c *validateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-images",
-		Purpose: "validate image metadata and ensure image(s) exist for an environment",
+		Purpose: "validate image metadata and ensure image(s) exist for a model",
 		Doc:     validateImagesMetadataDoc,
 	}
 }
@@ -91,7 +90,7 @@ func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
-	f.StringVar(&c.stream, "m", "", "the images stream (defaults to released)")
+	f.StringVar(&c.stream, "stream", "", "the images stream (defaults to released)")
 }
 
 func (c *validateImageMetadataCommand) Init(args []string) error {
@@ -134,65 +133,10 @@ func (oes *overrideEnvStream) Config() *config.Config {
 }
 
 func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
-	var params *simplestreams.MetadataLookupParams
-
-	if c.providerType == "" {
-		store, err := configstore.Default()
-		if err != nil {
-			return err
-		}
-		environ, err := c.prepare(context, store)
-		if err != nil {
-			return err
-		}
-		mdLookup, ok := environ.(simplestreams.MetadataValidator)
-		if !ok {
-			return fmt.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
-		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
-		if err != nil {
-			return err
-		}
-		oes := &overrideEnvStream{environ, c.stream}
-		params.Sources, err = environs.ImageMetadataSources(oes)
-		if err != nil {
-			return err
-		}
-	} else {
-		prov, err := environs.Provider(c.providerType)
-		if err != nil {
-			return err
-		}
-		mdLookup, ok := prov.(simplestreams.MetadataValidator)
-		if !ok {
-			return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
-		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
-		if err != nil {
-			return err
-		}
+	params, err := c.createLookupParams(context)
+	if err != nil {
+		return err
 	}
-
-	if c.series != "" {
-		params.Series = c.series
-	}
-	if c.region != "" {
-		params.Region = c.region
-	}
-	if c.endpoint != "" {
-		params.Endpoint = c.endpoint
-	}
-	if c.metadataDir != "" {
-		dir := filepath.Join(c.metadataDir, "images")
-		if _, err := os.Stat(dir); err != nil {
-			return err
-		}
-		params.Sources = []simplestreams.DataSource{
-			simplestreams.NewURLDataSource(
-				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
-		}
-	}
-	params.Stream = c.stream
 
 	image_ids, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
@@ -226,4 +170,69 @@ func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 			params.Region, strings.Join(sources, "\n"))
 	}
 	return nil
+}
+
+func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) (*simplestreams.MetadataLookupParams, error) {
+	params := &simplestreams.MetadataLookupParams{Stream: c.stream}
+
+	if c.providerType == "" {
+		environ, err := c.prepare(context)
+		if err != nil {
+			return nil, err
+		}
+		mdLookup, ok := environ.(simplestreams.MetadataValidator)
+		if !ok {
+			return nil, fmt.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
+		}
+		params, err = mdLookup.MetadataLookupParams(c.region)
+		if err != nil {
+			return nil, err
+		}
+		oes := &overrideEnvStream{environ, c.stream}
+		params.Sources, err = environs.ImageMetadataSources(oes)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		prov, err := environs.Provider(c.providerType)
+		if err != nil {
+			return nil, err
+		}
+		mdLookup, ok := prov.(simplestreams.MetadataValidator)
+		if !ok {
+			return nil, fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
+		}
+		params, err = mdLookup.MetadataLookupParams(c.region)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if c.series != "" {
+		params.Series = c.series
+	}
+	if c.region != "" {
+		params.Region = c.region
+	}
+	if c.endpoint != "" {
+		params.Endpoint = c.endpoint
+	}
+	if c.metadataDir != "" {
+		dir := filepath.Join(c.metadataDir, "images")
+		if _, err := os.Stat(dir); err != nil {
+			return nil, err
+		}
+		params.Sources = imagesDataSources(dir)
+	}
+	return params, nil
+}
+
+var imagesDataSources = func(urls ...string) []simplestreams.DataSource {
+	dataSources := make([]simplestreams.DataSource, len(urls))
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	for i, url := range urls {
+		dataSources[i] = simplestreams.NewURLSignedDataSource(
+			"local metadata directory", "file://"+url, publicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	}
+	return dataSources
 }

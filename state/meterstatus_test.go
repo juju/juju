@@ -45,14 +45,14 @@ func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
-func (s *MeterStateSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
+func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	meterStatus := jujuDB.C("meterStatus")
 	var docs []bson.M
 	err := meterStatus.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["env-uuid"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[0]["model-uuid"], gc.Equals, s.State.ModelUUID())
 }
 
 func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {

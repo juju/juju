@@ -16,7 +16,7 @@ import (
 var logger = loggo.GetLogger("juju.api.logger")
 
 func init() {
-	common.RegisterStandardFacade("Logger", 0, NewLoggerAPI)
+	common.RegisterStandardFacade("Logger", 1, NewLoggerAPI)
 }
 
 // Logger defines the methods on the logger API end point.  Unfortunately, the
@@ -64,7 +64,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 		}
 		err = common.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
-			watch := api.state.WatchForEnvironConfigChanges()
+			watch := api.state.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
@@ -86,7 +86,7 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		return params.StringResults{}
 	}
 	results := make([]params.StringResult, len(arg.Entities))
-	config, configErr := api.state.EnvironConfig()
+	config, configErr := api.state.ModelConfig()
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {

@@ -11,12 +11,12 @@ import (
 	"net/http/httptest"
 	"time"
 
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
 	"github.com/juju/juju/cert"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -50,16 +50,11 @@ func (s *SenderSuite) SetUpTest(c *gc.C) {
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
 }
 
-// startServer starts a server with TLS and the specified handler, returning a
-// function that should be run at the end of the test to clean up.
+// startServer starts a test HTTP server, returning a function that should be
+// run at the end of the test to clean up.
 func (s *SenderSuite) startServer(c *gc.C, handler http.Handler) func() {
-	ts := httptest.NewUnstartedServer(handler)
-	certPool, cert := createCerts(c, "127.0.0.1")
-	ts.TLS = &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-	ts.StartTLS()
-	cleanup := metricsender.PatchHostAndCertPool(ts.URL, certPool)
+	ts := httptest.NewServer(handler)
+	cleanup := metricsender.PatchHost(ts.URL)
 	return func() {
 		ts.Close()
 		cleanup()
@@ -122,11 +117,11 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 		for _, batch := range incoming {
 			c.Logf("received metrics batch: %+v", batch)
 
-			resp.Ack(batch.EnvUUID, batch.UUID)
+			resp.Ack(batch.ModelUUID, batch.UUID)
 
 			if statusMap != nil {
 				unitName, status, info := statusMap(batch.UnitName)
-				resp.SetStatus(batch.EnvUUID, unitName, status, info)
+				resp.SetStatus(batch.ModelUUID, unitName, status, info)
 			}
 
 			select {

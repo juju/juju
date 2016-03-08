@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/mongo"
 )
 
@@ -21,7 +21,7 @@ import (
 // entity in the document's creation transaction, but omitted to allow
 // direct use of the document in both create and update transactions.
 type statusDoc struct {
-	EnvUUID    string                 `bson:"env-uuid"`
+	ModelUUID  string                 `bson:"model-uuid"`
 	Status     Status                 `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
@@ -189,7 +189,7 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 }
 
 type historicalStatusDoc struct {
-	EnvUUID    string                 `bson:"env-uuid"`
+	ModelUUID  string                 `bson:"model-uuid"`
 	GlobalKey  string                 `bson:"globalkey"`
 	Status     Status                 `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`

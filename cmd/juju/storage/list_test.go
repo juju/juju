@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"errors"
+
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,7 +30,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI), args...)
+	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI, s.store), args...)
 }
 
 func (s *ListSuite) TestList(c *gc.C) {
@@ -40,13 +42,11 @@ func (s *ListSuite) TestList(c *gc.C) {
 \[Storage\]    
 UNIT         ID          LOCATION STATUS   MESSAGE 
 postgresql/0 db-dir/1100 hither   attached         
-transcode/0  db-dir/1000          pending          
+transcode/0  db-dir/1000 thither  pending          
 transcode/0  shared-fs/0 there    attached         
 transcode/1  shared-fs/0 here     attached         
 
-`[1:],
-		"",
-	)
+`[1:])
 }
 
 func (s *ListSuite) TestListYAML(c *gc.C) {
@@ -63,7 +63,8 @@ storage:
     persistent: false
     attachments:
       units:
-        transcode/0: {}
+        transcode/0:
+          location: thither
   db-dir/1100:
     kind: block
     status:
@@ -86,13 +87,10 @@ storage:
           location: there
         transcode/1:
           location: here
-`[1:],
-		"",
-	)
+`[1:])
 }
 
 func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
-	s.mockAPI.includeErrors = true
 	s.assertValidList(
 		c,
 		nil,
@@ -101,91 +99,97 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 \[Storage\]    
 UNIT         ID          LOCATION STATUS   MESSAGE 
 postgresql/0 db-dir/1100 hither   attached         
-transcode/0  db-dir/1000          pending          
+transcode/0  db-dir/1000 thither  pending          
 transcode/0  shared-fs/0 there    attached         
 transcode/1  shared-fs/0 here     attached         
 
-`[1:],
-		"error for storage-db-dir-1010\n",
-	)
+`[1:])
 }
 
-func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {
+func (s *ListSuite) TestListError(c *gc.C) {
+	s.mockAPI.listErrors = true
+	context, err := s.runList(c, nil)
+	c.Assert(err, gc.ErrorMatches, "list fails")
+	stderr := testing.Stderr(context)
+	c.Assert(stderr, gc.Equals, "")
+	stdout := testing.Stdout(context)
+	c.Assert(stdout, gc.Equals, "")
+}
+
+func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string) {
 	context, err := s.runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedErr := testing.Stderr(context)
-	c.Assert(obtainedErr, gc.Matches, expectedErr)
+	c.Assert(obtainedErr, gc.Equals, "")
 
 	obtainedValid := testing.Stdout(context)
 	c.Assert(obtainedValid, gc.Matches, expectedValid)
 }
 
 type mockListAPI struct {
-	includeErrors bool
+	listErrors bool
 }
 
 func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List() ([]params.StorageDetailsResult, error) {
+func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+	if s.listErrors {
+		return nil, errors.New("list fails")
+	}
+
 	// postgresql/0 has "db-dir/1100"
 	// transcode/1 has "db-dir/1000"
 	// transcode/0 and transcode/1 share "shared-fs/0"
 	//
 	// there is also a storage instance "db-dir/1010" which
 	// returns an error when listed.
-	results := []params.StorageDetailsResult{{
-		Legacy: params.LegacyStorageDetails{
-			StorageTag: "storage-db-dir-1000",
-			OwnerTag:   "unit-transcode-0",
-			UnitTag:    "unit-transcode-0",
-			Kind:       params.StorageKindBlock,
-			Status:     "pending",
+	results := []params.StorageDetails{{
+		StorageTag: "storage-db-dir-1000",
+		OwnerTag:   "unit-transcode-0",
+		Kind:       params.StorageKindBlock,
+		Status: params.EntityStatus{
+			Status: params.StatusPending,
+			Since:  &epoch,
 		},
-	}, {
-		Result: &params.StorageDetails{
-			StorageTag: "storage-db-dir-1100",
-			OwnerTag:   "unit-postgresql-0",
-			Kind:       params.StorageKindBlock,
-			Status: params.EntityStatus{
-				Status: params.StatusAttached,
-				Since:  &epoch,
-			},
-			Persistent: true,
-			Attachments: map[string]params.StorageAttachmentDetails{
-				"unit-postgresql-0": params.StorageAttachmentDetails{
-					Location: "hither",
-				},
+		Attachments: map[string]params.StorageAttachmentDetails{
+			"unit-transcode-0": params.StorageAttachmentDetails{
+				Location: "thither",
 			},
 		},
 	}, {
-		Result: &params.StorageDetails{
-			StorageTag: "storage-shared-fs-0",
-			OwnerTag:   "service-transcode",
-			Kind:       params.StorageKindFilesystem,
-			Status: params.EntityStatus{
-				Status: params.StatusAttached,
-				Since:  &epoch,
+		StorageTag: "storage-db-dir-1100",
+		OwnerTag:   "unit-postgresql-0",
+		Kind:       params.StorageKindBlock,
+		Status: params.EntityStatus{
+			Status: params.StatusAttached,
+			Since:  &epoch,
+		},
+		Persistent: true,
+		Attachments: map[string]params.StorageAttachmentDetails{
+			"unit-postgresql-0": params.StorageAttachmentDetails{
+				Location: "hither",
 			},
-			Persistent: true,
-			Attachments: map[string]params.StorageAttachmentDetails{
-				"unit-transcode-0": params.StorageAttachmentDetails{
-					Location: "there",
-				},
-				"unit-transcode-1": params.StorageAttachmentDetails{
-					Location: "here",
-				},
+		},
+	}, {
+		StorageTag: "storage-shared-fs-0",
+		OwnerTag:   "service-transcode",
+		Kind:       params.StorageKindFilesystem,
+		Status: params.EntityStatus{
+			Status: params.StatusAttached,
+			Since:  &epoch,
+		},
+		Persistent: true,
+		Attachments: map[string]params.StorageAttachmentDetails{
+			"unit-transcode-0": params.StorageAttachmentDetails{
+				Location: "there",
+			},
+			"unit-transcode-1": params.StorageAttachmentDetails{
+				Location: "here",
 			},
 		},
 	}}
-	if s.includeErrors {
-		results = append(results, params.StorageDetailsResult{
-			Error: &params.Error{
-				Message: "error for storage-db-dir-1010",
-			},
-		})
-	}
 	return results, nil
 }

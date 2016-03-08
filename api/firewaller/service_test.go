@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type serviceSuite struct {
@@ -47,8 +47,8 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiService.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -62,9 +62,6 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	err = s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *serviceSuite) TestRefresh(c *gc.C) {

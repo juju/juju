@@ -34,6 +34,7 @@ func (l Life) String() string {
 }
 
 var isAliveDoc = bson.D{{"life", Alive}}
+var isDyingDoc = bson.D{{"life", Dying}}
 var isDeadDoc = bson.D{{"life", Dead}}
 var notDeadDoc = bson.D{{"life", bson.D{{"$ne", Dead}}}}
 

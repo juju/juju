@@ -29,7 +29,7 @@ type fakeContext struct {
 	deployed    set.Strings
 	st          *state.State
 	agentConfig agent.Config
-	inited      chan struct{}
+	inited      *signal
 }
 
 func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
@@ -61,7 +61,7 @@ func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 	select {
 	case <-timeout:
 		c.Fatalf("manager never initialized")
-	case <-ctx.inited:
+	case <-ctx.inited.triggered():
 		for {
 			ctx.st.StartSync()
 			select {

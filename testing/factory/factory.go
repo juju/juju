@@ -13,16 +13,21 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"github.com/juju/version"
 )
 
 const (
@@ -45,15 +50,16 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     names.Tag
-	NoEnvUser   bool
+	NoModelUser bool
 	Disabled    bool
 }
 
-// EnvUserParams defines the parameters for creating an environment user.
-type EnvUserParams struct {
+// ModelUserParams defines the parameters for creating an environment user.
+type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
+	ReadOnly    bool
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -79,10 +85,11 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name    string
-	Charm   *state.Charm
-	Creator names.Tag
-	Status  *state.StatusInfo
+	Name     string
+	Charm    *state.Charm
+	Creator  names.Tag
+	Status   *state.StatusInfo
+	Settings map[string]interface{}
 }
 
 // UnitParams are used to create units.
@@ -100,17 +107,23 @@ type RelationParams struct {
 }
 
 type MetricParams struct {
-	Unit    *state.Unit
-	Time    *time.Time
-	Metrics []state.Metric
-	Sent    bool
+	Unit       *state.Unit
+	Time       *time.Time
+	Metrics    []state.Metric
+	Sent       bool
+	DeleteTime *time.Time
 }
 
-type EnvParams struct {
+type ModelParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
-	Prepare     bool
+
+	// If Prepare is true, the environment will be "prepared for bootstrap".
+	Prepare       bool
+	Credential    *cloud.Credential
+	CloudEndpoint string
+	CloudRegion   string
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -137,8 +150,8 @@ func uniqueString(prefix string) string {
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used.
-// If params.NoEnvUser is false, the user will also be created
-// in the current environment.
+// If params.NoModelUser is false, the user will also be created
+// in the current model.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
 		params = &UserParams{}
@@ -153,7 +166,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Password = "password"
 	}
 	if params.Creator == nil {
-		env, err := factory.st.Environment()
+		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
@@ -161,8 +174,12 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	if !params.NoEnvUser {
-		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()), params.DisplayName)
+	if !params.NoModelUser {
+		_, err := factory.st.AddModelUser(state.ModelUserSpec{
+			User:        user.UserTag(),
+			CreatedBy:   names.NewUserTag(user.CreatedBy()),
+			DisplayName: params.DisplayName,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Disabled {
@@ -172,30 +189,35 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	return user
 }
 
-// MakeEnvUser will create a envUser with values defined by the params. For
-// attributes of EnvUserParams that are the default empty values, some
+// MakeModelUser will create a modelUser with values defined by the params. For
+// attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.EnvironmentUser {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.ModelUser {
 	if params == nil {
-		params = &EnvUserParams{}
+		params = &ModelUserParams{}
 	}
 	if params.User == "" {
-		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
+		user := factory.MakeUser(c, &UserParams{NoModelUser: true})
 		params.User = user.UserTag().Canonical()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
 	if params.CreatedBy == nil {
-		env, err := factory.st.Environment()
+		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.CreatedBy = env.Owner()
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
-	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag, params.DisplayName)
+	modelUser, err := factory.st.AddModelUser(state.ModelUserSpec{
+		User:        names.NewUserTag(params.User),
+		CreatedBy:   createdByUserTag,
+		DisplayName: params.DisplayName,
+		ReadOnly:    params.ReadOnly,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	return envUser
+	return modelUser
 }
 
 func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {
@@ -219,32 +241,43 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return params
-}
-
-func machineParamsToTemplate(p *MachineParams) state.MachineTemplate {
-	return state.MachineTemplate{
-		Series:     p.Series,
-		Nonce:      p.Nonce,
-		Jobs:       p.Jobs,
-		InstanceId: p.InstanceId,
+	if params.Characteristics == nil {
+		arch := "amd64"
+		mem := uint64(64 * 1024 * 1024 * 1024)
+		hardware := instance.HardwareCharacteristics{
+			Arch: &arch,
+			Mem:  &mem,
+		}
+		params.Characteristics = &hardware
 	}
+
+	return params
 }
 
 // MakeMachineNested will make a machine nested in the machine with ID given.
 func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
-	mTmpl := machineParamsToTemplate(params)
-	// Cannot specify an instance id for a new container.
-	mTmpl.InstanceId = ""
-	// Cannot specify a nonce without an instance ID.
-	mTmpl.Nonce = ""
+	machineTemplate := state.MachineTemplate{
+		Series:      params.Series,
+		Jobs:        params.Jobs,
+		Volumes:     params.Volumes,
+		Filesystems: params.Filesystems,
+	}
 
 	m, err := factory.st.AddMachineInsideMachine(
-		mTmpl,
+		machineTemplate,
 		parentId,
 		instance.LXC,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+	c.Assert(err, jc.ErrorIsNil)
+	current := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
 }
@@ -280,6 +313,13 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	current := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = machine.SetAgentVersion(current)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password
 }
 
@@ -335,7 +375,12 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(state.AddServiceArgs{Name: params.Name, Owner: params.Creator.String(), Charm: params.Charm})
+	service, err := factory.st.AddService(state.AddServiceArgs{
+		Name:     params.Name,
+		Owner:    params.Creator.String(),
+		Charm:    params.Charm,
+		Settings: charm.Settings(params.Settings),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -375,6 +420,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	unit, err := params.Service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentTools := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: params.Service.Series(),
+	}
+	err = unit.SetAgentVersion(agentTools)
 	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
 		serviceCharmURL, _ := params.Service.CharmURL()
@@ -425,7 +478,11 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
-		err := metric.SetSent()
+		t := now
+		if params.DeleteTime != nil {
+			t = *params.DeleteTime
+		}
+		err := metric.SetSent(t)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return metric
@@ -464,48 +521,58 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 	return relation
 }
 
-// MakeEnvironment creates an environment with specified params,
+// MakeModel creates an model with specified params,
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
 //
-// By default the new enviroment shares the same owner as the calling
-// Factory's environment.
-func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State {
+// By default the new model shares the same owner as the calling
+// Factory's model.
+func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
-		params = new(EnvParams)
+		params = new(ModelParams)
 	}
 	if params.Name == "" {
 		params.Name = uniqueString("testenv")
 	}
 	if params.Owner == nil {
-		origEnv, err := factory.st.Environment()
+		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
-	// It only makes sense to make an environment with the same provider
-	// as the initial environment, or things will break elsewhere.
-	currentCfg, err := factory.st.EnvironConfig()
+	// It only makes sense to make an model with the same provider
+	// as the initial model, or things will break elsewhere.
+	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name":       params.Name,
 		"uuid":       uuid.String(),
 		"type":       currentCfg.Type(),
 		"state-port": currentCfg.StatePort(),
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
+	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Prepare {
+		if params.Credential == nil {
+			emptyCredential := cloud.NewEmptyCredential()
+			params.Credential = &emptyCredential
+		}
+		args := environs.PrepareForBootstrapParams{
+			Config:        cfg,
+			Credentials:   *params.Credential,
+			CloudEndpoint: params.CloudEndpoint,
+			CloudRegion:   params.CloudRegion,
+		}
 		// Prepare the environment.
 		provider, err := environs.Provider(cfg.Type())
 		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), args)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
-		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
+		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return st

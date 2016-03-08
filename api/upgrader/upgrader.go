@@ -9,9 +9,10 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an upgrader worker's view of the state.
@@ -111,6 +112,6 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

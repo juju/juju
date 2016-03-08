@@ -3,36 +3,46 @@
 
 package params
 
-// DestroySystemArgs holds the arguments for destroying a system.
-type DestroySystemArgs struct {
-	// DestroyEnvironments specifies whether or not the hosted environments
+// DestroyControllerArgs holds the arguments for destroying a controller.
+type DestroyControllerArgs struct {
+	// DestroyModels specifies whether or not the hosted models
 	// should be destroyed as well. If this is not specified, and there are
-	// other hosted environments, the destruction of the system will fail.
-	DestroyEnvironments bool `json:"destroy-environments"`
-
-	// IgnoreBlocks specifies whether or not to ignore blocks
-	// on hosted environments.
-	IgnoreBlocks bool `json:"ignore-blocks"`
+	// other hosted models, the destruction of the controller will fail.
+	DestroyModels bool `json:"destroy-models"`
 }
 
-// EnvironmentBlockInfo holds information about an environment and its
+// ModelBlockInfo holds information about an model and its
 // current blocks.
-type EnvironmentBlockInfo struct {
+type ModelBlockInfo struct {
 	Name     string   `json:"name"`
-	UUID     string   `json:"env-uuid"`
+	UUID     string   `json:"model-uuid"`
 	OwnerTag string   `json:"owner-tag"`
 	Blocks   []string `json:"blocks"`
 }
 
-// EnvironmentBlockInfoList holds information about the blocked environments
-// for a system.
-type EnvironmentBlockInfoList struct {
-	Environments []EnvironmentBlockInfo `json:"environments,omitempty"`
+// ModelBlockInfoList holds information about the blocked models
+// for a controller.
+type ModelBlockInfoList struct {
+	Models []ModelBlockInfo `json:"models,omitempty"`
 }
 
 // RemoveBlocksArgs holds the arguments for the RemoveBlocks command. It is a
 // struct to facilitate the easy addition of being able to remove blocks for
-// individual environments at a later date.
+// individual models at a later date.
 type RemoveBlocksArgs struct {
 	All bool `json:"all"`
+}
+
+// ModelStatus holds information about the status of a juju model.
+type ModelStatus struct {
+	ModelTag           string `json:"model-tag"`
+	Life               Life   `json:"life"`
+	HostedMachineCount int    `json:"hosted-machine-count"`
+	ServiceCount       int    `json:"service-count"`
+	OwnerTag           string `json:"owner-tag"`
+}
+
+// ModelStatusResults holds status information about a group of models.
+type ModelStatusResults struct {
+	Results []ModelStatus `json:"models"`
 }

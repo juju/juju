@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -35,44 +34,17 @@ type dblogSuite struct {
 }
 
 func (s *dblogSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.AgentSuite.SetUpTest(c)
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
-	s.SetFeatureFlags("db-log")
 	foundLogs := s.runMachineAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestMachineAgentLogsGoToDBWithJES(c *gc.C) {
-	s.SetFeatureFlags(feature.JES)
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestMachineAgentWithoutFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsFalse)
 }
 
 func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
-	s.SetFeatureFlags("db-log")
 	foundLogs := s.runUnitAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentLogsGoToDBWithJES(c *gc.C) {
-	s.SetFeatureFlags(feature.JES)
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentWithoutFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsFalse)
 }
 
 func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
@@ -146,8 +118,6 @@ type debugLogDbSuite struct {
 var _ = gc.Suite(&debugLogDbSuite{})
 
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
-
 	// Restart mongod with a the replicaset enabled.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{"--replSet", "juju"}

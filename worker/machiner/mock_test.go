@@ -7,30 +7,24 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/machiner"
 )
 
 type mockWatcher struct {
-	gitjujutesting.Stub
 	changes chan struct{}
 }
 
-func (w *mockWatcher) Changes() <-chan struct{} {
-	w.MethodCall(w, "Changes")
+func (w *mockWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 
-func (w *mockWatcher) Stop() error {
-	w.MethodCall(w, "Stop")
-	return w.NextErr()
-}
+func (w *mockWatcher) Kill() {}
 
-func (w *mockWatcher) Err() error {
-	w.MethodCall(w, "Err")
-	return w.NextErr()
+func (w *mockWatcher) Wait() error {
+	return nil
 }
 
 type mockMachine struct {

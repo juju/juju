@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
@@ -36,7 +35,7 @@ type Client struct {
 	st     *state
 }
 
-// Status returns the status of the juju environment.
+// Status returns the status of the juju model.
 func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	var result params.FullStatus
 	p := params.StatusParams{Patterns: patterns}
@@ -57,9 +56,6 @@ func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, siz
 	}
 	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return &params.UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
-		}
 		return &params.UnitStatusHistory{}, errors.Trace(err)
 	}
 	return &results, nil
@@ -73,26 +69,6 @@ func (c *Client) LegacyStatus() (*params.LegacyStatus, error) {
 		return nil, err
 	}
 	return &result, nil
-}
-
-// ServiceSet sets configuration options on a service.
-func (c *Client) ServiceSet(service string, options map[string]string) error {
-	p := params.ServiceSet{
-		ServiceName: service,
-		Options:     options,
-	}
-	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
-	// ServiceSet to unset values set to an empty string.
-	return c.facade.FacadeCall("NewServiceSetForClientAPI", p, nil)
-}
-
-// ServiceUnset resets configuration options on a service.
-func (c *Client) ServiceUnset(service string, options []string) error {
-	p := params.ServiceUnset{
-		ServiceName: service,
-		Options:     options,
-	}
-	return c.facade.FacadeCall("ServiceUnset", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -135,61 +111,6 @@ func (c *Client) PrivateAddress(target string) (string, error) {
 	return results.PrivateAddress, err
 }
 
-// ServiceSetYAML sets configuration options on a service
-// given options in YAML format.
-func (c *Client) ServiceSetYAML(service string, yaml string) error {
-	p := params.ServiceSetYAML{
-		ServiceName: service,
-		Config:      yaml,
-	}
-	return c.facade.FacadeCall("ServiceSetYAML", p, nil)
-}
-
-// ServiceGet returns the configuration for the named service.
-func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
-	var results params.ServiceGetResults
-	params := params.ServiceGet{ServiceName: service}
-	err := c.facade.FacadeCall("ServiceGet", params, &results)
-	return &results, err
-}
-
-// AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	var addRelRes params.AddRelationResults
-	params := params.AddRelation{Endpoints: endpoints}
-	err := c.facade.FacadeCall("AddRelation", params, &addRelRes)
-	return &addRelRes, err
-}
-
-// DestroyRelation removes the relation between the specified endpoints.
-func (c *Client) DestroyRelation(endpoints ...string) error {
-	params := params.DestroyRelation{Endpoints: endpoints}
-	return c.facade.FacadeCall("DestroyRelation", params, nil)
-}
-
-// ServiceCharmRelations returns the service's charms relation names.
-func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
-	var results params.ServiceCharmRelationsResults
-	params := params.ServiceCharmRelations{ServiceName: service}
-	err := c.facade.FacadeCall("ServiceCharmRelations", params, &results)
-	return results.CharmRelations, err
-}
-
-// AddMachines1dot18 adds new machines with the supplied parameters.
-//
-// TODO(axw) 2014-04-11 #XXX
-// This exists for backwards compatibility;
-// We cannot remove this code while clients > 1.20 need to talk to 1.18
-// servers (which is something we need for an undetermined amount of time).
-func (c *Client) AddMachines1dot18(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	args := params.AddMachines{
-		MachineParams: machineParams,
-	}
-	results := new(params.AddMachinesResults)
-	err := c.facade.FacadeCall("AddMachines", args, results)
-	return results.Machines, err
-}
-
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
@@ -222,156 +143,19 @@ func (c *Client) ForceDestroyMachines(machines ...string) error {
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
 }
 
-// ServiceExpose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceExpose(service string) error {
-	params := params.ServiceExpose{ServiceName: service}
-	return c.facade.FacadeCall("ServiceExpose", params, nil)
-}
-
-// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceUnexpose(service string) error {
-	params := params.ServiceUnexpose{ServiceName: service}
-	return c.facade.FacadeCall("ServiceUnexpose", params, nil)
-}
-
-// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows the specification of requested networks that must be present
-// on the machines where the service is deployed. Another way to specify
-// networks to include/exclude is using constraints.
-func (c *Client) ServiceDeployWithNetworks(
-	charmURL string,
-	serviceName string,
-	numUnits int,
-	configYAML string,
-	cons constraints.Value,
-	toMachineSpec string,
-	networks []string,
-) error {
-	params := params.ServiceDeploy{
-		ServiceName:   serviceName,
-		CharmUrl:      charmURL,
-		NumUnits:      numUnits,
-		ConfigYAML:    configYAML,
-		Constraints:   cons,
-		ToMachineSpec: toMachineSpec,
-		Networks:      networks,
-	}
-	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
-}
-
-// ServiceDeploy obtains the charm, either locally or from the charm store,
-// and deploys it.
-func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
-	params := params.ServiceDeploy{
-		ServiceName:   serviceName,
-		CharmUrl:      charmURL,
-		NumUnits:      numUnits,
-		ConfigYAML:    configYAML,
-		Constraints:   cons,
-		ToMachineSpec: toMachineSpec,
-	}
-	return c.facade.FacadeCall("ServiceDeploy", params, nil)
-}
-
-// ServiceUpdate updates the service attributes, including charm URL,
-// minimum number of units, settings and constraints.
-// TODO(frankban) deprecate redundant API calls that this supercedes.
-func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	return c.facade.FacadeCall("ServiceUpdate", args, nil)
-}
-
-// ServiceSetCharm sets the charm for a given service.
-func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
-	args := params.ServiceSetCharm{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		Force:       force,
-	}
-	return c.facade.FacadeCall("ServiceSetCharm", args, nil)
-}
-
-// ServiceGetCharmURL returns the charm URL the given service is
-// running at present.
-func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
-	result := new(params.StringResult)
-	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.facade.FacadeCall("ServiceGetCharmURL", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	return charm.ParseURL(result.Result)
-}
-
-// AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
-	args := params.AddServiceUnits{
-		ServiceName:   service,
-		NumUnits:      numUnits,
-		ToMachineSpec: machineSpec,
-	}
-	results := new(params.AddServiceUnitsResults)
-	err := c.facade.FacadeCall("AddServiceUnits", args, results)
-	return results.Units, err
-}
-
-// AddServiceUnitsWithPlacement adds a given number of units to a service using the specified
-// placement directives to assign units to machines.
-func (c *Client) AddServiceUnitsWithPlacement(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
-		Placement:   placement,
-	}
-	results := new(params.AddServiceUnitsResults)
-	err := c.facade.FacadeCall("AddServiceUnitsWithPlacement", args, results)
-	return results.Units, err
-}
-
-// DestroyServiceUnits decreases the number of units dedicated to a service.
-func (c *Client) DestroyServiceUnits(unitNames ...string) error {
-	params := params.DestroyServiceUnits{unitNames}
-	return c.facade.FacadeCall("DestroyServiceUnits", params, nil)
-}
-
-// ServiceDestroy destroys a given service.
-func (c *Client) ServiceDestroy(service string) error {
-	params := params.ServiceDestroy{
-		ServiceName: service,
-	}
-	return c.facade.FacadeCall("ServiceDestroy", params, nil)
-}
-
-// GetServiceConstraints returns the constraints for the given service.
-func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
+// GetModelConstraints returns the constraints for the model.
+func (c *Client) GetModelConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	err := c.facade.FacadeCall("GetModelConstraints", nil, results)
 	return results.Constraints, err
 }
 
-// GetEnvironmentConstraints returns the constraints for the environment.
-func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
-	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetEnvironmentConstraints", nil, results)
-	return results.Constraints, err
-}
-
-// SetServiceConstraints specifies the constraints for the given service.
-func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetConstraints{
-		ServiceName: service,
-		Constraints: constraints,
-	}
-	return c.facade.FacadeCall("SetServiceConstraints", params, nil)
-}
-
-// SetEnvironmentConstraints specifies the constraints for the environment.
-func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error {
+// SetModelConstraints specifies the constraints for the model.
+func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	params := params.SetConstraints{
 		Constraints: constraints,
 	}
-	return c.facade.FacadeCall("SetEnvironmentConstraints", params, nil)
+	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -393,68 +177,59 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
-// EnvironmentInfo holds information about the Juju environment.
-type EnvironmentInfo struct {
-	DefaultSeries string
-	ProviderType  string
-	Name          string
-	UUID          string
-	ServerUUID    string
-}
-
-// EnvironmentInfo returns details about the Juju environment.
-func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
-	info := new(EnvironmentInfo)
-	err := c.facade.FacadeCall("EnvironmentInfo", nil, info)
+// ModelInfo returns details about the Juju model.
+func (c *Client) ModelInfo() (params.ModelInfo, error) {
+	var info params.ModelInfo
+	err := c.facade.FacadeCall("ModelInfo", nil, &info)
 	return info, err
 }
 
-// EnvironmentUUID returns the environment UUID from the client connection.
-func (c *Client) EnvironmentUUID() string {
-	tag, err := c.st.EnvironTag()
+// ModelUUID returns the model UUID from the client connection.
+func (c *Client) ModelUUID() string {
+	tag, err := c.st.ModelTag()
 	if err != nil {
-		logger.Warningf("environ tag not an environ: %v", err)
+		logger.Warningf("model tag not an model: %v", err)
 		return ""
 	}
 	return tag.Id()
 }
 
-// ShareEnvironment allows the given users access to the environment.
-func (c *Client) ShareEnvironment(users ...names.UserTag) error {
-	var args params.ModifyEnvironUsers
+// ShareModel allows the given users access to the model.
+func (c *Client) ShareModel(users ...names.UserTag) error {
+	var args params.ModifyModelUsers
 	for _, user := range users {
 		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+			args.Changes = append(args.Changes, params.ModifyModelUser{
 				UserTag: user.String(),
-				Action:  params.AddEnvUser,
+				Action:  params.AddModelUser,
 			})
 		}
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	err := c.facade.FacadeCall("ShareModel", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("environment is already shared with %s", users[i].Canonical())
+			logger.Warningf("model is already shared with %s", users[i].Canonical())
 			result.Results[i].Error = nil
 		}
 	}
 	return result.Combine()
 }
 
-// EnvironmentUserInfo returns information on all users in the environment.
-func (c *Client) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
-	var results params.EnvUserInfoResults
-	err := c.facade.FacadeCall("EnvUserInfo", nil, &results)
+// ModelUserInfo returns information on all users in the model.
+func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
+	var results params.ModelUserInfoResults
+	err := c.facade.FacadeCall("ModelUserInfo", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info := []params.EnvUserInfo{}
+	info := []params.ModelUserInfo{}
 	for i, result := range results.Results {
 		if result.Result == nil {
 			return nil, errors.Errorf("unexpected nil result at position %d", i)
@@ -464,34 +239,34 @@ func (c *Client) EnvironmentUserInfo() ([]params.EnvUserInfo, error) {
 	return info, nil
 }
 
-// UnshareEnvironment removes access to the environment for the given users.
-func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
-	var args params.ModifyEnvironUsers
+// UnshareModel removes access to the model for the given users.
+func (c *Client) UnshareModel(users ...names.UserTag) error {
+	var args params.ModifyModelUsers
 	for _, user := range users {
 		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+			args.Changes = append(args.Changes, params.ModifyModelUser{
 				UserTag: user.String(),
-				Action:  params.RemoveEnvUser,
+				Action:  params.RemoveModelUser,
 			})
 		}
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	err := c.facade.FacadeCall("ShareModel", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeNotFound {
-			logger.Warningf("environment was not previously shared with user %s", users[i].Canonical())
+			logger.Warningf("model was not previously shared with user %s", users[i].Canonical())
 			result.Results[i].Error = nil
 		}
 	}
 	return result.Combine()
 }
 
-// WatchAll holds the id of the newly-created AllWatcher/AllEnvWatcher.
+// WatchAll holds the id of the newly-created AllWatcher/AllModelWatcher.
 type WatchAll struct {
 	AllWatcherId string
 }
@@ -506,26 +281,6 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 	return NewAllWatcher(c.st, &info.AllWatcherId), nil
 }
 
-// GetAnnotations returns annotations that have been set on the given entity.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
-	args := params.GetAnnotations{tag}
-	ann := new(params.GetAnnotationsResults)
-	err := c.facade.FacadeCall("GetAnnotations", args, ann)
-	return ann.Annotations, err
-}
-
-// SetAnnotations sets the annotation pairs on the given entity.
-// Currently annotations are supported on machines, services,
-// units and the environment itself.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
-	args := params.SetAnnotations{tag, pairs}
-	return c.facade.FacadeCall("SetAnnotations", args, nil)
-}
-
 // Close closes the Client's underlying State connection
 // Client is unique among the api.State facades in closing its own State
 // connection, but it is conventional to use a Client object without any access
@@ -534,30 +289,30 @@ func (c *Client) Close() error {
 	return c.st.Close()
 }
 
-// EnvironmentGet returns all environment settings.
-func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
-	result := params.EnvironmentConfigResults{}
-	err := c.facade.FacadeCall("EnvironmentGet", nil, &result)
+// ModelGet returns all model settings.
+func (c *Client) ModelGet() (map[string]interface{}, error) {
+	result := params.ModelConfigResults{}
+	err := c.facade.FacadeCall("ModelGet", nil, &result)
 	return result.Config, err
 }
 
-// EnvironmentSet sets the given key-value pairs in the environment.
-func (c *Client) EnvironmentSet(config map[string]interface{}) error {
-	args := params.EnvironmentSet{Config: config}
-	return c.facade.FacadeCall("EnvironmentSet", args, nil)
+// ModelSet sets the given key-value pairs in the model.
+func (c *Client) ModelSet(config map[string]interface{}) error {
+	args := params.ModelSet{Config: config}
+	return c.facade.FacadeCall("ModelSet", args, nil)
 }
 
-// EnvironmentUnset sets the given key-value pairs in the environment.
-func (c *Client) EnvironmentUnset(keys ...string) error {
-	args := params.EnvironmentUnset{Keys: keys}
-	return c.facade.FacadeCall("EnvironmentUnset", args, nil)
+// ModelUnset sets the given key-value pairs in the model.
+func (c *Client) ModelUnset(keys ...string) error {
+	args := params.ModelUnset{Keys: keys}
+	return c.facade.FacadeCall("ModelUnset", args, nil)
 }
 
-// SetEnvironAgentVersion sets the environment agent-version setting
+// SetModelAgentVersion sets the model agent-version setting
 // to the given value.
-func (c *Client) SetEnvironAgentVersion(version version.Number) error {
-	args := params.SetEnvironAgentVersion{Version: version}
-	return c.facade.FacadeCall("SetEnvironAgentVersion", args, nil)
+func (c *Client) SetModelAgentVersion(version version.Number) error {
+	args := params.SetModelAgentVersion{Version: version}
+	return c.facade.FacadeCall("SetModelAgentVersion", args, nil)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -595,18 +350,17 @@ func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
 	return results.Results, err
 }
 
-// DestroyEnvironment puts the environment into a "dying" state,
-// and removes all non-manager machine instances. DestroyEnvironment
+// DestroyModel puts the model into a "dying" state,
+// and removes all non-manager machine instances. DestroyModel
 // will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroyEnvironment() error {
-	return c.facade.FacadeCall("DestroyEnvironment", nil, nil)
+func (c *Client) DestroyModel() error {
+	return c.facade.FacadeCall("DestroyModel", nil, nil)
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
-// charm URL. If the API server does not support charm uploads, an
-// error satisfying params.IsCodeNotImplemented() is returned.
+// charm URL.
 func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
@@ -676,21 +430,21 @@ func minVersionError(minver, jujuver version.Number) error {
 
 func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
-	if minver != nil {
+	if minver != version.Zero {
 		agentver, err := c.AgentVersion()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		if minver.Compare(agentver) > 0 {
-			return minVersionError(*minver, agentver)
+			return minVersionError(minver, agentver)
 		}
 	}
 	return nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
-// the environment, if it does not exist yet. Local charms are not
+// the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
 // client-side API.
 //
@@ -723,8 +477,8 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Maca
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.Reference{*ref}}
+func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
+	args := params.ResolveCharms{References: []charm.URL{*ref}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
@@ -778,36 +532,6 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 		return nil, err
 	}
 	return result.NetworkHostsPorts(), nil
-}
-
-// EnsureAvailability ensures the availability of Juju state servers.
-// DEPRECATED: remove when we stop supporting 1.20 and earlier servers.
-// This API is now on the HighAvailability facade.
-func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
-	var results params.StateServersChangeResults
-	envTag, err := c.st.EnvironTag()
-	if err != nil {
-		return params.StateServersChanges{}, errors.Trace(err)
-	}
-	arg := params.StateServersSpecs{
-		Specs: []params.StateServersSpec{{
-			EnvironTag:      envTag.String(),
-			NumStateServers: numStateServers,
-			Constraints:     cons,
-			Series:          series,
-		}}}
-	err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
-	if err != nil {
-		return params.StateServersChanges{}, err
-	}
-	if len(results.Results) != 1 {
-		return params.StateServersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return params.StateServersChanges{}, result.Error
-	}
-	return result.Result, nil
 }
 
 // AgentVersion reports the version number of the api server.
@@ -873,6 +597,9 @@ type DebugLogParams struct {
 	// Replay tells the server to start at the start of the log file rather
 	// than the end. If replay is true, backlog is ignored.
 	Replay bool
+	// NoTail tells the server to only return the logs it has now, and not
+	// to wait for new logs to arrive.
+	NoTail bool
 }
 
 // WatchDebugLog returns a ReadCloser that the caller can read the log
@@ -900,6 +627,9 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	if args.Replay {
 		attrs.Set("replay", fmt.Sprint(args.Replay))
+	}
+	if args.NoTail {
+		attrs.Set("noTail", fmt.Sprint(args.NoTail))
 	}
 	if args.Limit > 0 {
 		attrs.Set("maxLines", fmt.Sprint(args.Limit))

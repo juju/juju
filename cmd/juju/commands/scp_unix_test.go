@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -41,39 +41,39 @@ var scpTests = []struct {
 	{
 		about:  "scp from machine 0 to current dir",
 		args:   []string{"0:foo", "."},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-0.dns:foo .\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo .\n",
 	}, {
 		about:  "scp from machine 0 to current dir with extra args",
 		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-0.dns:foo . -rv -o SomeOption\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo . -rv -o SomeOption\n",
 	}, {
 		about:  "scp from current dir to machine 0",
 		args:   []string{"foo", "0:"},
-		result: commonArgsNoProxy + "foo ubuntu@dummyenv-0.dns:\n",
+		result: commonArgsNoProxy + "foo ubuntu@dummymodel-0.dns:\n",
 	}, {
 		about:  "scp from current dir to machine 0 with extra args",
 		args:   []string{"foo", "0:", "-r", "-v"},
-		result: commonArgsNoProxy + "foo ubuntu@dummyenv-0.dns: -r -v\n",
+		result: commonArgsNoProxy + "foo ubuntu@dummymodel-0.dns: -r -v\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0",
 		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo ubuntu@dummymodel-0.dns:/foo\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 and extra args",
 		args:   []string{"0:foo", "mysql/0:/foo", "-q"},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo -q\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo ubuntu@dummymodel-0.dns:/foo -q\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 and extra args before",
 		args:   []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
-		result: commonArgsNoProxy + "-q -r ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
+		result: commonArgsNoProxy + "-q -r ubuntu@dummymodel-0.dns:foo ubuntu@dummymodel-0.dns:/foo\n",
 	}, {
 		about:  "scp two local files to unit mysql/0",
 		args:   []string{"file1", "file2", "mysql/0:/foo/"},
-		result: commonArgsNoProxy + "file1 file2 ubuntu@dummyenv-0.dns:/foo/\n",
+		result: commonArgsNoProxy + "file1 file2 ubuntu@dummymodel-0.dns:/foo/\n",
 	}, {
 		about:  "scp from unit mongodb/1 to unit mongodb/0 and multiple extra args",
 		args:   []string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns: -r -v -q -l5\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-2.dns:foo ubuntu@dummymodel-1.dns: -r -v -q -l5\n",
 	}, {
 		about:  "scp works with IPv6 addresses",
 		args:   []string{"ipv6-svc/0:foo", "bar"},
@@ -81,29 +81,29 @@ var scpTests = []struct {
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 with proxy",
 		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgs + "ubuntu@dummyenv-0.internal:foo ubuntu@dummyenv-0.internal:/foo\n",
+		result: commonArgs + "ubuntu@dummymodel-0.internal:foo ubuntu@dummymodel-0.internal:/foo\n",
 		proxy:  true,
 	}, {
 		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-0.dns:foo . -rv -o SomeOption\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo . -rv -o SomeOption\n",
 	}, {
 		args:   []string{"foo", "0:", "-r", "-v"},
-		result: commonArgsNoProxy + "foo ubuntu@dummyenv-0.dns: -r -v\n",
+		result: commonArgsNoProxy + "foo ubuntu@dummymodel-0.dns: -r -v\n",
 	}, {
 		args:   []string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
-		result: commonArgsNoProxy + "ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns: -r -v -q -l5\n",
+		result: commonArgsNoProxy + "ubuntu@dummymodel-2.dns:foo ubuntu@dummymodel-1.dns: -r -v -q -l5\n",
 	}, {
 		about:  "scp from unit mongodb/1 to unit mongodb/0 with a --",
 		args:   []string{"--", "-r", "-v", "mongodb/1:foo", "mongodb/0:", "-q", "-l5"},
-		result: commonArgsNoProxy + "-- -r -v ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns: -q -l5\n",
+		result: commonArgsNoProxy + "-- -r -v ubuntu@dummymodel-2.dns:foo ubuntu@dummymodel-1.dns: -q -l5\n",
 	}, {
 		about:  "scp from unit mongodb/1 to current dir as 'mongo' user",
 		args:   []string{"mongo@mongodb/1:foo", "."},
-		result: commonArgsNoProxy + "mongo@dummyenv-2.dns:foo .\n",
+		result: commonArgsNoProxy + "mongo@dummymodel-2.dns:foo .\n",
 	}, {
 		about: "scp with no such machine",
 		args:  []string{"5:foo", "bar"},
-		error: "machine 5 not found",
+		error: `machine 5 not found \(not found\)`,
 	},
 }
 
@@ -134,9 +134,9 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd := &scpCommand{}
 		scpcmd.proxy = t.proxy
 
-		err := envcmd.Wrap(scpcmd).Init(t.args)
+		err := modelcmd.Wrap(scpcmd).Init(t.args)
 		c.Check(err, jc.ErrorIsNil)
-		err = envcmd.Wrap(scpcmd).Run(ctx)
+		err = modelcmd.Wrap(scpcmd).Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")
@@ -162,11 +162,11 @@ type userHost struct {
 }
 
 var userHostsFromTargets = map[string]userHost{
-	"0":               {"ubuntu", "dummyenv-0.dns"},
-	"mysql/0":         {"ubuntu", "dummyenv-0.dns"},
-	"mongodb/0":       {"ubuntu", "dummyenv-1.dns"},
-	"mongodb/1":       {"ubuntu", "dummyenv-2.dns"},
-	"mongo@mongodb/1": {"mongo", "dummyenv-2.dns"},
+	"0":               {"ubuntu", "dummymodel-0.dns"},
+	"mysql/0":         {"ubuntu", "dummymodel-0.dns"},
+	"mongodb/0":       {"ubuntu", "dummymodel-1.dns"},
+	"mongodb/1":       {"ubuntu", "dummymodel-2.dns"},
+	"mongo@mongodb/1": {"mongo", "dummymodel-2.dns"},
 	"ipv6-svc/0":      {"ubuntu", "2001:db8::1"},
 }
 
@@ -221,7 +221,7 @@ var expandTests = []struct {
 	{
 		"don't expand params that start with '-'",
 		[]string{"-0:stuff", "0:foo", "."},
-		[]string{"-0:stuff", "ubuntu@dummyenv-0.dns:foo", "."},
+		[]string{"-0:stuff", "ubuntu@dummymodel-0.dns:foo", "."},
 	},
 }
 

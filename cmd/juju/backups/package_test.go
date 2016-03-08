@@ -33,7 +33,7 @@ stored:          0001-01-01 00:00:00 +0000 UTC
 started:         0001-01-01 00:00:00 +0000 UTC
 finished:        0001-01-01 00:00:00 +0000 UTC
 notes:           ""
-environment ID:  ""
+model ID:        ""
 machine ID:      ""
 created on host: ""
 juju version:    0.0.0
@@ -44,9 +44,9 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseBackupsSuite struct {
-	jujutesting.FakeJujuHomeSuite
+	jujutesting.FakeJujuXDGDataHomeSuite
 
-	command    *backups.Command
+	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
 
@@ -54,9 +54,9 @@ type BaseBackupsSuite struct {
 }
 
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.command = backups.NewSuperCommand().(*backups.Command)
+	s.command = backups.NewSuperCommand()
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
@@ -71,7 +71,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 		}
 	}
 
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *BaseBackupsSuite) checkHelp(c *gc.C, subcmd cmd.Command) {

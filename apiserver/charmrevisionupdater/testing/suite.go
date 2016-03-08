@@ -137,7 +137,7 @@ func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 }
 
 // SetupScenario adds some machines and services to state.
-// It assumes a state server machine has already been created.
+// It assumes a controller machine has already been created.
 func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddMachine(c, "1", state.JobHostUnits)
 	s.AddMachine(c, "2", state.JobHostUnits)

@@ -310,8 +310,7 @@ type RenderConfig interface {
 	RenderYAML() ([]byte, error)
 
 	// Renders a script that will execute the cloud config
-	// It is eiher used over ssh for bootstrapping and manual or locally by
-	// the local provider
+	// It is used over ssh for bootstrapping with the manual provider.
 	RenderScript() (string, error)
 
 	// ShellRenderer renturns the shell renderer of this particular instance.

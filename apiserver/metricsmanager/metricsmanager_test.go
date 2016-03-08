@@ -77,10 +77,10 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
 	metric := state.Metric{"pings", "5", newTime}
-	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &oldTime, Metrics: []state.Metric{metric}})
-	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &newTime, Metrics: []state.Metric{metric}})
+	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &oldTime, Metrics: []state.Metric{metric}})
+	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &newTime, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +106,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"invalid"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
@@ -124,7 +124,7 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
 	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +150,7 @@ func (s *metricsManagerSuite) TestSendOldMetricsInvalidArg(c *gc.C) {
 func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"invalid"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
@@ -168,7 +168,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	metricsmanager.PatchSender(&sender)
 	args := params.Entities{Entities: []params.Entity{
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +186,7 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
 	metricsmanager.PatchSender(&sender)
 	args := params.Entities{Entities: []params.Entity{
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +200,7 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 	var sender testing.MockSender
 	metricsmanager.PatchSender(&sender)
 	args := params.Entities{Entities: []params.Entity{
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)

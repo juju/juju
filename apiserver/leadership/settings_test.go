@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 )
 
 // TODO(fwereade): this is *severely* undertested.

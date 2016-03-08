@@ -117,7 +117,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 // in simplestreams and GETting it, caching the result in toolstorage before returning
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage, st *state.State) (io.ReadCloser, error) {
-	envcfg, err := st.EnvironConfig()
+	envcfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -223,15 +223,15 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 }
 
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
-	uuid := query.Get(":envuuid")
+	uuid := query.Get(":modeluuid")
 	if uuid == "" {
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			return "", err
 		}
 		uuid = env.UUID()
 	}
-	return fmt.Sprintf("https://%s/environment/%s", r.Host, uuid), nil
+	return fmt.Sprintf("https://%s/model/%s", r.Host, uuid), nil
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.

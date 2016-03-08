@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/cinder"
+	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/tags"
@@ -215,12 +216,12 @@ func (s *cinderVolumeSourceSuite) TestListVolumes(c *gc.C) {
 			}, {
 				ID: "volume-2",
 				Metadata: map[string]string{
-					tags.JujuEnv: "something-else",
+					tags.JujuModel: "something-else",
 				},
 			}, {
 				ID: "volume-3",
 				Metadata: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuModel: testing.ModelTag.Id(),
 				},
 			}}, nil
 		},
@@ -497,4 +498,58 @@ func (ma *mockAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAtta
 		return ma.listVolumeAttachments(serverId)
 	}
 	return nil, nil
+}
+
+type testEndpointResolver struct {
+	regionEndpoints map[string]identity.ServiceURLs
+}
+
+func (r testEndpointResolver) EndpointsForRegion(region string) identity.ServiceURLs {
+	return r.regionEndpoints[region]
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolume(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"west": map[string]string{"volume": "http://cinder.testing/v1"},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "west")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v1")
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolumeV2(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"west": map[string]string{"volumev2": "http://cinder.testing/v2"},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "west")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v2")
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV2(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"south": map[string]string{
+			"volume":   "http://cinder.testing/v1",
+			"volumev2": "http://cinder.testing/v2",
+		},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "south")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v2")
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *gc.C) {
+	client := testEndpointResolver{}
+	url, err := openstack.GetVolumeEndpointURL(client, "east")
+	c.Assert(err, gc.ErrorMatches, `endpoint "volume" not found for "east" region`)
+	c.Assert(url, gc.IsNil)
+}
+
+func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
+	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+		"north": map[string]string{"volumev2": "some %4"},
+	}}
+	url, err := openstack.GetVolumeEndpointURL(client, "north")
+	c.Assert(err, gc.ErrorMatches, `parse some %4: .*`)
+	c.Assert(url, gc.IsNil)
 }

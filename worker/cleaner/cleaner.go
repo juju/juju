@@ -4,9 +4,10 @@
 package cleaner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -24,8 +25,14 @@ type Cleaner struct {
 
 // NewCleaner returns a worker.Worker that runs state.Cleanup()
 // if the CleanupWatcher signals documents marked for deletion.
-func NewCleaner(st StateCleaner) worker.Worker {
-	return worker.NewNotifyWorker(&Cleaner{st})
+func NewCleaner(st StateCleaner) (worker.Worker, error) {
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: &Cleaner{st: st},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (c *Cleaner) SetUp() (watcher.NotifyWatcher, error) {

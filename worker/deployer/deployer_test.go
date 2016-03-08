@@ -4,10 +4,8 @@
 package deployer_test
 
 import (
-	"runtime"
 	"sort"
 	"strings"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,14 +21,6 @@ import (
 	"github.com/juju/juju/worker/deployer"
 )
 
-func TestPackage(t *stdtesting.T) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		t.Skip("bug 1403084: Currently does not work under windows")
-	}
-	coretesting.MgoTestPackage(t)
-}
-
 type deployerSuite struct {
 	jujutesting.JujuConnSuite
 	SimpleToolsFixture
@@ -41,8 +31,6 @@ type deployerSuite struct {
 }
 
 var _ = gc.Suite(&deployerSuite{})
-
-var _ worker.StringsWatchHandler = (*deployer.Deployer)(nil)
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -61,7 +49,9 @@ func (s *deployerSuite) TearDownTest(c *gc.C) {
 func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer.Context) {
 	// Create a deployer acting on behalf of the machine.
 	ctx := s.getContextForMachine(c, s.machine.Tag())
-	return deployer.NewDeployer(s.deployerState, ctx), ctx
+	deployer, err := deployer.NewDeployer(s.deployerState, ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	return deployer, ctx
 }
 
 func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {

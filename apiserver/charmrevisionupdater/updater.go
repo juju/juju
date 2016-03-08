@@ -17,7 +17,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
 
 func init() {
-	common.RegisterStandardFacade("CharmRevisionUpdater", 0, NewCharmRevisionUpdaterAPI)
+	common.RegisterStandardFacade("CharmRevisionUpdater", 1, NewCharmRevisionUpdaterAPI)
 }
 
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
@@ -41,7 +41,7 @@ func NewCharmRevisionUpdaterAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &CharmRevisionUpdaterAPI{
@@ -52,7 +52,7 @@ func NewCharmRevisionUpdaterAPI(
 // and records this information in state.
 func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult, error) {
 	// First get the uuid for the environment to use when querying the charm store.
-	env, err := api.state.Environment()
+	env, err := api.state.Model()
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}

@@ -63,7 +63,7 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	}
 
 	// Get the charm and its information from the store.
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
@@ -130,8 +130,8 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 
 func checkMinVersion(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
-	if minver != nil && minver.Compare(jujuversion.Current) > 0 {
-		return minVersionError(*minver, jujuversion.Current)
+	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
+		return minVersionError(minver, jujuversion.Current)
 	}
 	return nil
 }
@@ -149,7 +149,7 @@ func minVersionError(minver, jujuver version.Number) error {
 
 // StoreCharmArchive stores a charm archive in environment storage.
 func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
-	storage := newStateStorage(st.EnvironUUID(), st.MongoSession())
+	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
@@ -196,7 +196,7 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
@@ -217,19 +217,18 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 	return results, nil
 }
 
-func resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, error) {
+func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the repository.
-	refWithSeries, _, err := repo.Resolve(ref)
+	resolved, _, err := repo.Resolve(ref)
 	if err != nil {
 		return nil, err
 	}
-	curl, err := refWithSeries.URL("")
-	if err != nil {
-		return nil, err
+	if resolved.Series == "" {
+		return nil, errors.Errorf("no series found in charm URL %q", resolved)
 	}
-	return curl.WithRevision(ref.Revision), nil
+	return resolved.WithRevision(ref.Revision), nil
 }

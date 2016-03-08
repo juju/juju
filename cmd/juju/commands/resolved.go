@@ -10,17 +10,17 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newResolvedCommand() cmd.Command {
-	return envcmd.Wrap(&resolvedCommand{})
+	return modelcmd.Wrap(&resolvedCommand{})
 }
 
 // resolvedCommand marks a unit in an error state as ready to continue.
 type resolvedCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	UnitName string
 	Retry    bool
 }
