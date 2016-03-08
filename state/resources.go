@@ -47,6 +47,8 @@ type Resources interface {
 	// service to the provided values.
 	SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error
 
+	// TODO(ericsnow) Move this down to ResourcesPersistence.
+
 	// NewResolvePendingResourcesOps generates mongo transaction operations
 	// to set the identified resources as active.
 	NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error)
@@ -69,4 +71,36 @@ func (st *State) Resources() (Resources, error) {
 	persist := st.newPersistence()
 	resources := newResources(persist, st)
 	return resources, nil
+}
+
+// ResourcesPersistence exposes the resources persistence functionality
+// needed by state.
+type ResourcesPersistence interface {
+	// NewRemoveUnitResourcesOps returns mgo transaction operations
+	// that remove resource information specific to the unit from state.
+	NewRemoveUnitResourcesOps(unitID string) ([]txn.Op, error)
+
+	// NewRemoveResourcesOps returns mgo transaction operations that
+	// remove all the service's resources from state.
+	NewRemoveResourcesOps(serviceID string) ([]txn.Op, error)
+}
+
+var newResourcesPersistence func(Persistence, *State) ResourcesPersistence
+
+// SetResourcesPersistence registers the function that provides the
+// state persistence functionality related to resources.
+func SetResourcesPersistence(fn func(Persistence, *State) ResourcesPersistence) {
+	newResourcesPersistence = fn
+}
+
+// ResourcesPersistence returns the resources persistence functionality
+// for the current state.
+func (st *State) ResourcesPersistence() (ResourcesPersistence, error) {
+	if newResourcesPersistence == nil {
+		return nil, errors.NotSupportedf("resources")
+	}
+
+	base := st.newPersistence()
+	persist := newResourcesPersistence(base, st)
+	return persist, nil
 }
