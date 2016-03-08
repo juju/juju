@@ -246,6 +246,15 @@ func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) 
 	return docs, nil
 }
 
+func (p ResourcePersistence) unitResources(unitID string) ([]resourceDoc, error) {
+	var docs []resourceDoc
+	query := bson.D{{"unit-id", unitID}}
+	if err := p.base.All(resourcesC, query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 // getOne returns the resource that matches the provided model ID.
 func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q", resID)
