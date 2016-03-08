@@ -29,12 +29,12 @@ import (
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type UpgradeJujuSuite struct {

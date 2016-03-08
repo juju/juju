@@ -27,9 +27,9 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ToolsMetadataSuite struct {

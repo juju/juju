@@ -20,8 +20,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuversion"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {

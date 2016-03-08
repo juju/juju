@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuversion"
+	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )

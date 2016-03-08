@@ -44,7 +44,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -56,6 +55,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us

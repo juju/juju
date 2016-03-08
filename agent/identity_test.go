@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type identitySuite struct {

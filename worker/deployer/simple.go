@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO(ericsnow) Use errors.Trace, etc. in this file.

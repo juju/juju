@@ -38,13 +38,13 @@ import (
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 

@@ -24,10 +24,10 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type storageSuite struct {

@@ -36,11 +36,11 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type environSuite struct {

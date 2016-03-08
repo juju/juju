@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")

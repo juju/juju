@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality

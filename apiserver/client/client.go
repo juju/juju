@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {

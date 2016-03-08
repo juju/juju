@@ -15,8 +15,8 @@ import (
 	// "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func TestAll(t *stdtesting.T) {

@@ -33,9 +33,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func TestPackage(t *testing.T) {

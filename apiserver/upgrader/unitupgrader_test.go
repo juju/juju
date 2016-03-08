@@ -17,10 +17,10 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/upgrader"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type unitUpgraderSuite struct {

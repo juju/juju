@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")

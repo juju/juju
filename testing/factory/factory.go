@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/version"
 )
 

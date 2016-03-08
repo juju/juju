@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {

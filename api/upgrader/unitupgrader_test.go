@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher/watchertest"
 )
 

@@ -19,11 +19,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {

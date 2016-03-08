@@ -44,11 +44,11 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {

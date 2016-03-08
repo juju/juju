@@ -38,7 +38,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -46,6 +45,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // LiveTests contains tests that are designed to run against a live server

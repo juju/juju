@@ -33,8 +33,8 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind

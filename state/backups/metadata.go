@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/jujuversion"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
 )

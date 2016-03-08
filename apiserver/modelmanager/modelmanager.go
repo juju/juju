@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")

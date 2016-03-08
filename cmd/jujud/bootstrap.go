@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -47,6 +46,7 @@ import (
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 

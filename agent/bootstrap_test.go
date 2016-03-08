@@ -21,13 +21,13 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {

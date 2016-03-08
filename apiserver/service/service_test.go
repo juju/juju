@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type serviceSuite struct {

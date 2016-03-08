@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type LiveSuite struct {

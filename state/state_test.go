@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -44,6 +43,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var goodPassword = "foo-12345678901234567890"

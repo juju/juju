@@ -22,9 +22,9 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type providerSuite struct {

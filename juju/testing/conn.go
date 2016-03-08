@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn

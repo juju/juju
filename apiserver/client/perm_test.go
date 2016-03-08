@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type permSuite struct {

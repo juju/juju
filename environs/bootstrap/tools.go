@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var (

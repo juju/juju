@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
-	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {

@@ -20,9 +20,9 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type OpenSuite struct {

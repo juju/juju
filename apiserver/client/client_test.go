@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type Killer interface {

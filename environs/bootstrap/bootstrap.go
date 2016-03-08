@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your model.

@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {

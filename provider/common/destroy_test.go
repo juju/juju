@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type DestroySuite struct {

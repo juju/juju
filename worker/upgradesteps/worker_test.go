@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -30,6 +29,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/version"
 )

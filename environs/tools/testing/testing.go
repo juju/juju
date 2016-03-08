@@ -32,9 +32,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/jujuversion"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {

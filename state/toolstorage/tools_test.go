@@ -22,9 +22,9 @@ import (
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&ToolsSuite{})

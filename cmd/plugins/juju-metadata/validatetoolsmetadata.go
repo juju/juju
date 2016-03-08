@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuversion"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {

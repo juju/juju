@@ -27,9 +27,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuversion"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type MainSuite struct {

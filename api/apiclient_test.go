@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/rpc"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type apiclientSuite struct {
