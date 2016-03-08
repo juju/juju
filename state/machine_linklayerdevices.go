@@ -205,10 +205,14 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	return m.rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesArgs)
 }
 
-func (st *State) allProviderIDsForModelLinkLayerDevices() (_ set.Strings, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot get ProviderIDs for all link-layer devices")
+func (st *State) allProviderIDsForModelLinkLayerDevices() (set.Strings, error) {
+	return st.allProviderIDsForModelCollection(linkLayerDevicesC, "link-layer devices")
+}
 
-	linkLayerDevices, closer := st.getCollection(linkLayerDevicesC)
+func (st *State) allProviderIDsForModelCollection(collectionName, entityLabelPlural string) (_ set.Strings, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot get ProviderIDs for all %s", entityLabelPlural)
+
+	entities, closer := st.getCollection(collectionName)
 	defer closer()
 
 	allProviderIDs := set.NewStrings()
@@ -220,7 +224,7 @@ func (st *State) allProviderIDsForModelLinkLayerDevices() (_ set.Strings, err er
 	modelProviderIDs := bson.D{{"providerid", bson.D{{"$regex", pattern}}}}
 	onlyProviderIDField := bson.D{{"providerid", 1}}
 
-	iter := linkLayerDevices.Find(modelProviderIDs).Select(onlyProviderIDField).Iter()
+	iter := entities.Find(modelProviderIDs).Select(onlyProviderIDField).Iter()
 	for iter.Next(&doc) {
 		localProviderID := st.localID(doc.ProviderID)
 		allProviderIDs.Add(localProviderID)
@@ -516,4 +520,141 @@ func (m *Machine) rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesAr
 		return newProviderIDNotUniqueErrorFromStrings(usedProviderIDs.SortedValues())
 	}
 	return errors.Trace(err)
+}
+
+// LinkLayerDeviceAddress contains an IP address assigned to a link-layer
+// device.
+type LinkLayerDeviceAddress struct {
+	// DeviceName is the name of the link-layer device that has this address.
+	DeviceName string
+
+	// ConfigMethod is the method used to configure this address.
+	ConfigMethod AddressConfigMethod
+
+	// ProviderID is the provider-specific ID of the address. Empty when not
+	// supported.
+	ProviderID string
+
+	// Address is the IP address assigned to the device.
+	Address string
+
+	// DNSServers contains a list of DNS nameservers to use, which can be empty.
+	DNSServers []string
+
+	// DNSSearchDomains contains a list of DNS domain names to qualify
+	// hostnames, and can be empty.
+	DNSSearchDomains []string
+
+	// GatewayAddress is the address of the gateway to use, which can be empty.
+	GatewayAddress string
+}
+
+// TODO: Temporary helper used to test the addresses methods apart from
+// SetDevicesAddresses. Remove once the later is implemented.
+func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address, error) {
+	addressID, err := dev.st.sequence("ipaddress")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	stringID := string(addressID)
+
+	providerID := address.ProviderID
+	if providerID != "" {
+		providerID = dev.st.docID(providerID)
+	}
+
+	newDoc := &ipAddressDoc{
+		DocID:      dev.st.docID(stringID),
+		ID:         stringID,
+		ModelUUID:  dev.st.ModelUUID(),
+		ProviderID: providerID,
+		DeviceName: address.DeviceName,
+		MachineID:  dev.doc.MachineID,
+		// TODO: Infer SubnetID from Address
+		ConfigMethod:     address.ConfigMethod,
+		Value:            address.Address,
+		DNSServers:       address.DNSServers,
+		DNSSearchDomains: address.DNSSearchDomains,
+		GatewayAddress:   address.GatewayAddress,
+	}
+
+	ops := []txn.Op{
+		insertIPAddressDocOp(newDoc),
+	}
+
+	newAddress := newIPAddress(dev.st, *newDoc)
+	err = onAbort(dev.st.runTransaction(ops), errors.AlreadyExistsf("%s", newAddress))
+	if err == nil {
+		return newAddress, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
+// replacing existing assignments as needed, in a single transaction. ProviderID
+// field can be empty if not supported by the provider, but when set must be
+// unique within the model. Errors are returned and no changes are applied, in
+// the following cases:
+// - Zero arguments given;
+// - Machine is no longer alive or missing;
+// - Model no longer alive;
+// - errors.NotValidError, when any of the fields in args contain invalid values;
+// - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
+func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
+
+	if len(devicesAddresses) == 0 {
+		return errors.Errorf("no addresses to add")
+	}
+
+	// TODO: Not finished.
+	return nil
+}
+
+func (st *State) allProviderIDsForModelIPAddresses() (set.Strings, error) {
+	return st.allProviderIDsForModelCollection(ipAddressesC, "IP addresses")
+}
+
+// RemoveAllAddresses removes all assigned addresses to all devices of the
+// machine, in a single transaction.
+func (m *Machine) RemoveAllAddresses() error {
+	ops, err := m.removeAllAddressesOps()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return m.st.runTransaction(ops)
+}
+
+func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {
+	var ops []txn.Op
+	callbackFunc := func(resultDoc *ipAddressDoc) {
+		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
+	}
+
+	selectDocIDOnly := bson.D{{"_id", 1}}
+	if err := m.forEachIPAddressDoc(selectDocIDOnly, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ops, nil
+}
+
+func (m *Machine) forEachIPAddressDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
+	findQuery := bson.D{{"machine-id", m.doc.Id}}
+	return m.st.forEachIPAddressDoc(findQuery, docFieldsToSelect, callbackFunc)
+}
+
+// AllAddresses returns the all addresses assigned to all devices of the
+// machine.
+func (m *Machine) AllAddresses() ([]*Address, error) {
+	var allAddresses []*Address
+	callbackFunc := func(resultDoc *ipAddressDoc) {
+		allAddresses = append(allAddresses, newIPAddress(m.st, *resultDoc))
+	}
+
+	if err := m.forEachIPAddressDoc(nil, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allAddresses, nil
 }

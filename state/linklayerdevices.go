@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -383,4 +384,64 @@ var whitespaceReplacer = strings.NewReplacer(
 func stringLengthBetween(value string, minLength, maxLength uint) bool {
 	length := uint(len(value))
 	return length >= minLength && length <= maxLength
+}
+
+// Addresses returns all IP addresses assigned to the device.
+func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
+	var allAddresses []*Address
+	callbackFunc := func(resultDoc *ipAddressDoc) {
+		allAddresses = append(allAddresses, newIPAddress(dev.st, *resultDoc))
+	}
+
+	if err := dev.forEachIPAddressDoc(nil, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allAddresses, nil
+}
+
+func (dev *LinkLayerDevice) forEachIPAddressDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
+	findQuery := bson.D{{"machine-id", dev.doc.MachineID}, {"device-name", dev.doc.Name}}
+	return dev.st.forEachIPAddressDoc(findQuery, docFieldsToSelect, callbackFunc)
+}
+
+func (st *State) forEachIPAddressDoc(findQuery, docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
+	addresses, closer := st.getCollection(ipAddressesC)
+	defer closer()
+
+	query := addresses.Find(findQuery)
+	if docFieldsToSelect != nil {
+		query = query.Select(docFieldsToSelect)
+	}
+	iter := query.Iter()
+
+	var resultDoc ipAddressDoc
+	for iter.Next(&resultDoc) {
+		callbackFunc(&resultDoc)
+	}
+
+	return errors.Trace(iter.Close())
+}
+
+// RemoveAddresses removes all IP addresses assigned to the device.
+func (dev *LinkLayerDevice) RemoveAddresses() error {
+	ops, err := dev.removeAllAddressesOps()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return dev.st.runTransaction(ops)
+}
+
+func (dev *LinkLayerDevice) removeAllAddressesOps() ([]txn.Op, error) {
+	var ops []txn.Op
+	callbackFunc := func(resultDoc *ipAddressDoc) {
+		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
+	}
+
+	selectDocIDOnly := bson.D{{"_id", 1}}
+	if err := dev.forEachIPAddressDoc(selectDocIDOnly, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ops, nil
 }
