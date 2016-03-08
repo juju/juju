@@ -53,7 +53,7 @@ func Connect(cfg Config) (*Client, error) {
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
 var lxdLoadConfig = lxd.LoadConfig
 
-// TODO(jam) 
+// newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(cfg Config) (*lxd.Client, error) {
 	logger.Debugf("using LXD remote %q", cfg.Remote.ID())
 	remote := cfg.Remote.ID()
@@ -79,13 +79,13 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name:          cfg.Remote.ID(),
-		RemoteConfig:  lxd.RemoteConfig{
-			Addr: host,
-			Static: false,
-			Public: false,
+		Name: cfg.Remote.ID(),
+		RemoteConfig: lxd.RemoteConfig{
+			Addr:     host,
+			Static:   false,
+			Public:   false,
 			Protocol: "",
-			},
+		},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
 		ServerPEMCert: cfg.Remote.ServerPEMCert,
@@ -99,11 +99,9 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	return client, nil
 }
 
-// newRawClientToDefault connects to one of the known DefaultRemotes that are
-// pre-set inside of the lxd bindings.
-func newRawClientToDefault(cfg Config, remote string) (*lxd.Client, error) {
-	logger.Debugf("connecting to LXD static remote: %q", remote)
-
+// lxdClientForCloudImages creates a lxd.Client that you can use to get images
+// from cloud-images.ubuntu.com using the LXD mechanisms.
+func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
 	clientCert := ""
 	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
 		clientCert = string(cfg.Remote.Cert.CertPEM)
@@ -114,18 +112,14 @@ func newRawClientToDefault(cfg Config, remote string) (*lxd.Client, error) {
 		clientKey = string(cfg.Remote.Cert.KeyPEM)
 	}
 
-	remoteConf, ok := lxd.DefaultRemotes[remote]
-	if !ok {
-		knownRemotes := make([]string, 0, len(lxd.DefaultRemotes))
-		for name, _ := range lxd.DefaultRemotes {
-			knownRemotes = append(knownRemotes, name)
-		}
-		return nil, errors.Errorf("remote %q is not a known DefaultRemote: %v", knownRemotes)
+	remote := lxd.UbuntuRemote
+	if cfg.ImageStream == StreamDaily {
+		remote = lxd.UbuntuDailyRemote
 	}
-
+	// No ServerPEMCert for static hosts
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
 		Name:          cfg.Remote.ID(),
-		RemoteConfig:  remoteConf,
+		RemoteConfig:  remote,
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
 	})
@@ -133,8 +127,4 @@ func newRawClientToDefault(cfg Config, remote string) (*lxd.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	return client, nil
-}
-
-func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
-	return newRawClientToDefault(cfg, "ubuntu")
 }
