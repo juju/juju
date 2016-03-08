@@ -77,6 +77,15 @@ func (st rawState) Storage() state.Storage {
 	return st.persist.NewStorage()
 }
 
+// VerifyService implements resource/state.RawState.
+func (st rawState) VerifyService(id string) error {
+	_, err := st.base.Service(id)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 type resourcePersistence struct {
 	*corestate.ResourcePersistence
 }

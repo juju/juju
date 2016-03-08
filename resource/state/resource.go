@@ -70,6 +70,11 @@ type StagedResource interface {
 	Activate() error
 }
 
+type rawState interface {
+	// VerifyService ensures that the service is in state.
+	VerifyService(id string) error
+}
+
 type resourceStorage interface {
 	// PutAndCheckHash stores the content of the reader into the storage.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
@@ -84,6 +89,7 @@ type resourceStorage interface {
 
 type resourceState struct {
 	persist resourcePersistence
+	raw     rawState
 	storage resourceStorage
 
 	newPendingID     func() (string, error)
