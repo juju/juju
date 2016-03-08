@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {

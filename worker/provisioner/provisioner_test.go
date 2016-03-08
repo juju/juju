@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/worker"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/version"
 )
 
 type CommonProvisionerSuite struct {

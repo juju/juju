@@ -244,7 +244,7 @@ func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 		CharmUrl:    curl.String(),
 		NumUnits:    1,
 	}
-	res, err := s.serviceApi.ServicesDeploy(params.ServicesDeploy{
+	res, err := s.serviceApi.Deploy(params.ServicesDeploy{
 		Services: []params.ServiceDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
