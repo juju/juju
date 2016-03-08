@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -528,7 +529,7 @@ type LinkLayerDeviceAddress struct {
 
 	// ProviderID is the provider-specific ID of the address. Empty when not
 	// supported.
-	ProviderID string
+	ProviderID network.Id
 
 	// Address is the IP address assigned to the device.
 	Address string
@@ -553,7 +554,7 @@ func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address
 	}
 	stringID := string(addressID)
 
-	providerID := address.ProviderID
+	providerID := string(address.ProviderID)
 	if providerID != "" {
 		providerID = dev.st.docID(providerID)
 	}
@@ -602,12 +603,133 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		return errors.Errorf("no addresses to add")
 	}
 
-	// TODO: Not finished.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		existingProviderIDs, err := m.st.allProviderIDsForModelIPAddresses()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		newDocs, err := m.prepareToSetDevicesAddresses(devicesAddresses, existingProviderIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if attempt > 0 {
+			if err := checkModeLife(m.st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := m.isStillAlive(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			//if err := m.areIPAddressDocsStillValid(newDocs); err != nil {
+			//	return nil, errors.Trace(err)
+			//}
+		}
+
+		ops := []txn.Op{
+			assertModelAliveOp(m.st.ModelUUID()),
+			m.assertAliveOp(),
+		}
+
+		for _, newDoc := range newDocs {
+			ops = append(ops, insertIPAddressDocOp(&newDoc))
+		}
+		return ops, nil
+	}
+	if err := m.st.run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
+	// Even without an error, we still need to verify if any of the newDocs was
+	// not inserted due to ProviderID unique index violation.
+	//return m.rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesArgs)
 }
 
 func (st *State) allProviderIDsForModelIPAddresses() (set.Strings, error) {
 	return st.allProviderIDsForModelCollection(ipAddressesC, "IP addresses")
+}
+
+func (m *Machine) prepareToSetDevicesAddresses(devicesAddresses []LinkLayerDeviceAddress, existingProviderIDs set.Strings) ([]ipAddressDoc, error) {
+	var pendingDocs []ipAddressDoc
+	allProviderIDs := set.NewStrings(existingProviderIDs.Values()...)
+
+	for _, args := range devicesAddresses {
+		newDoc, err := m.prepareOneSetDevicesAddresses(&args, allProviderIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		pendingDocs = append(pendingDocs, *newDoc)
+		if args.ProviderID != "" {
+			allProviderIDs.Add(string(args.ProviderID))
+		}
+	}
+	return pendingDocs, nil
+}
+
+func (m *Machine) prepareOneSetDevicesAddresses(args *LinkLayerDeviceAddress, allProviderIDs set.Strings) (_ *ipAddressDoc, err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid address %q", args.Address)
+
+	if err := m.validateSetDevicesAddressesArgs(args); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if allProviderIDs.Contains(string(args.ProviderID)) {
+		return nil, NewProviderIDNotUniqueError(args.ProviderID)
+	}
+
+	return m.newIPAddressDocFromArgs(args)
+}
+
+func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) error {
+	if args.Address == "" {
+		return errors.NotValidf("empty Address")
+	}
+
+	if args.DeviceName == "" {
+		return errors.NotValidf("empty DeviceName")
+	}
+	if !IsValidLinkLayerDeviceName(args.DeviceName) {
+		return errors.NotValidf("DeviceName %q", args.DeviceName)
+	}
+
+	if !IsValidAddressConfigMethod(string(args.ConfigMethod)) {
+		return errors.NotValidf("ConfigMethod %q", args.ConfigMethod)
+	}
+
+	return nil
+}
+
+func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddressDoc, error) {
+	addressSeq, err := m.st.sequence("ipaddress")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addressID := strconv.Itoa(addressSeq)
+	ipAddressDocID := m.st.docID(addressID)
+
+	providerID := string(args.ProviderID)
+	if providerID != "" {
+		providerID = m.st.docID(providerID)
+	}
+	modelUUID := m.st.ModelUUID()
+
+	// TODO: lookup subnet ID from the address.
+	subnetID := ""
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ID:               addressID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       args.DeviceName,
+		MachineID:        m.doc.Id,
+		SubnetID:         subnetID,
+		ConfigMethod:     args.ConfigMethod,
+		Value:            args.Address,
+		DNSServers:       args.DNSServers,
+		DNSSearchDomains: args.DNSSearchDomains,
+		GatewayAddress:   args.GatewayAddress,
+	}
+	return newDoc, nil
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the
