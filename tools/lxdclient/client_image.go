@@ -7,10 +7,18 @@ package lxdclient
 
 import (
 	"github.com/lxc/lxd"
+	"github.com/lxc/lxd/shared"
+
+	"github.com/juju/errors"
 )
 
+type rawImageClient interface {
+	ListAliases() (shared.ImageAliases, error)
+	CopyImage(string, *lxd.Client, bool, []string, bool, bool, func(string)) error
+}
+
 type imageClient struct {
-	raw *lxd.Client
+	raw rawImageClient
 }
 
 func (i imageClient) EnsureImageExists(series string) error {
@@ -30,12 +38,17 @@ func (i imageClient) EnsureImageExists(series string) error {
 	/* "ubuntu" here is cloud-images.ubuntu.com's "releases" stream;
 	 * "ubuntu-daily" would be the daily stream
 	 */
-	ubuntu, err := lxd.NewClient(&lxd.DefaultConfig, "ubuntu")
+	ubuntu, err := lxdNewClient(&lxd.DefaultConfig, "ubuntu")
 	if err != nil {
 		return err
 	}
 
-	return ubuntu.CopyImage(series, i.raw, false, []string{name}, false, true, nil)
+	client, ok := i.raw.(*lxd.Client)
+	if !ok {
+		return errors.Errorf("can't use a fake client as target")
+	}
+
+	return ubuntu.CopyImage(series, client, false, []string{name}, false, true, nil)
 }
 
 // A common place to compute image names (alises) based on the series
