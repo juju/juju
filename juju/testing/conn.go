@@ -209,7 +209,7 @@ func PreferredDefaultVersions(conf *config.Config, template version.Binary) []ve
 
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
-		panic("JujuConnSuite.setUpConn without teardown")
+		c.Fatal("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
 	s.oldHome = utils.Home()
@@ -575,7 +575,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		s.State = nil
 	}
 
-	dummy.Reset()
+	err := dummy.Reset()
+	c.Assert(err, jc.ErrorIsNil)
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""

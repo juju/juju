@@ -797,6 +797,26 @@ func (s *MachineSuite) TestManageModelRunsStatusHistoryPruner(c *gc.C) {
 	runner.waitForWorker(c, "statushistorypruner")
 }
 
+func (s *MachineSuite) TestManageModelRunsRegisteredWorkers(c *gc.C) {
+	stub := &gitjujutesting.Stub{}
+	factory := newStubWorkerFactory(stub)
+	err := RegisterModelWorker("testing-spam", factory.NewModelWorker)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { delete(registeredModelWorkers, "testing-spam") }()
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
+	_ = s.singularRecord.nextRunner(c)
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "testing-spam")
+
+	stub.CheckCallNames(c, "NewModelWorker")
+	expectedState := stub.Calls()[0].Args[0] // yuck
+	stub.CheckCall(c, 0, "NewModelWorker", expectedState)
+}
+
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageModel agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Binary{
@@ -1566,7 +1586,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	// Start the machine agent.
 	a := s.newAgent(c, m)
@@ -1597,7 +1617,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		}
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	// Start the machine agent.
 	a := s.newAgent(c, m)
@@ -1914,7 +1934,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		}
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	_, closer = s.setUpAgent(c)
 	defer closer()

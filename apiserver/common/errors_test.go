@@ -129,11 +129,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeTryAgain,
 }, {
-	err:        state.UpgradeInProgressError,
-	code:       params.CodeUpgradeInProgress,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeUpgradeInProgress,
-}, {
 	err:        leadership.ErrClaimDenied,
 	code:       params.CodeLeadershipClaimDenied,
 	status:     http.StatusInternalServerError,
@@ -249,15 +244,12 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 		}
 
 		c.Logf("  checking restore (%#v)", err1)
-		restored, ok := common.RestoreError(err1)
+		restored := common.RestoreError(err1)
 		if t.err == nil {
-			c.Check(ok, jc.IsTrue)
 			c.Check(restored, jc.ErrorIsNil)
 		} else if t.code == "" {
-			c.Check(ok, jc.IsFalse)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		} else {
-			c.Check(ok, jc.IsTrue)
 			// TODO(ericsnow) Use a stricter DeepEquals check.
 			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())

@@ -92,7 +92,7 @@ music    1
 		"ListResources",
 		"Close",
 	)
-	s.stub.CheckCall(c, 1, "ListResources", []charm.URL{{
+	s.stub.CheckCall(c, 1, "ListResources", []*charm.URL{{
 		Schema:   "cs",
 		User:     "",
 		Name:     "a-charm",

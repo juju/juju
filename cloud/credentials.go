@@ -29,6 +29,10 @@ type CloudCredential struct {
 type Credential struct {
 	authType   AuthType
 	attributes map[string]string
+
+	// Label is optionally set to describe the credentials
+	// to a user.
+	Label string
 }
 
 // AuthType returns the authentication type.
@@ -60,13 +64,19 @@ func (c Credential) MarshalYAML() (interface{}, error) {
 // NewCredential returns a new, immutable, Credential with the supplied
 // auth-type and attributes.
 func NewCredential(authType AuthType, attributes map[string]string) Credential {
-	return Credential{authType, copyStringMap(attributes)}
+	return Credential{authType: authType, attributes: copyStringMap(attributes)}
 }
 
 // NewEmptyCredential returns a new Credential with the EmptyAuthType
 // auth-type.
 func NewEmptyCredential() Credential {
-	return Credential{EmptyAuthType, nil}
+	return Credential{authType: EmptyAuthType, attributes: nil}
+}
+
+// NewEmptyCloudCredential returns a new CloudCredential with an empty
+// default credential.
+func NewEmptyCloudCredential() *CloudCredential {
+	return &CloudCredential{AuthCredentials: map[string]Credential{"default": NewEmptyCredential()}}
 }
 
 // CredentialSchema describes the schema of a credential. Credential schemas
@@ -92,7 +102,7 @@ func FinalizeCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Credential{credential.authType, attrs}, nil
+	return &Credential{authType: credential.authType, attributes: attrs}, nil
 }
 
 // Finalize finalizes the given credential attributes against the credential
@@ -254,7 +264,7 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	for k, v := range mapv {
 		attrs[k] = v.(string)
 	}
-	return Credential{AuthType(authType), attrs}, nil
+	return Credential{authType: AuthType(authType), attributes: attrs}, nil
 }
 
 // ParseCredentials parses the given yaml bytes into Credentials, but does
@@ -278,4 +288,22 @@ func ParseCredentials(data []byte) (map[string]CloudCredential, error) {
 		credentials[cloud] = v.(CloudCredential)
 	}
 	return credentials, nil
+}
+
+// RemoveSecrets returns a copy of the given credential with secret fields removed.
+func RemoveSecrets(
+	credential Credential,
+	schemas map[AuthType]CredentialSchema,
+) (*Credential, error) {
+	schema, ok := schemas[credential.authType]
+	if !ok {
+		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
+	}
+	redactedAttrs := credential.Attributes()
+	for attrName, attr := range schema {
+		if attr.Hidden {
+			delete(redactedAttrs, attrName)
+		}
+	}
+	return &Credential{authType: credential.authType, attributes: redactedAttrs}, nil
 }
