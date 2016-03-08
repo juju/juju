@@ -24,9 +24,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var (
+	jsMimeType = mime.TypeByExtension(".js")
+	spritePath = filepath.FromSlash("static/gui/build/app/assets/stack/svg/sprite.css.svg")
+)
+
 // guiRouter serves the Juju GUI routes.
 // Serving the Juju GUI is done with the following assumptions:
-// - at least one Juju GUI archive is present in the GUI storage;
 // - the archive is compressed in tar.bz2 format;
 // - the archive includes a top directory named "jujugui-{version}" where
 //   version is semver (like "2.0.1"). This directory includes another
@@ -54,6 +58,7 @@ type guiRouter struct {
 func (rt *guiRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	rootDir, err := rt.ensureFiles(req)
 	if err != nil {
+		// Note that ensureFiles also checks that the model UUID is valid.
 		sendError(w, err)
 		return
 	}
@@ -73,6 +78,8 @@ func (rt *guiRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	mux.HandleFunc("/config.js", h.serveConfig)
 	mux.HandleFunc("/combo", h.serveCombo)
+	// The index is served when all remaining URLs are requested, so that
+	// the single page JavaScript application can properly handles its routes.
 	mux.HandleFunc("/", h.serveIndex)
 	mux.ServeHTTP(w, req)
 }
@@ -98,8 +105,11 @@ func (rt *guiRouter) ensureFiles(req *http.Request) (string, error) {
 	}
 	logger.Debugf("serving Juju GUI version %s", vers)
 
-	// Check if the Juju GUI archive has been already expanded on disk.
+	// Check if the current Juju GUI archive has been already expanded on disk.
 	baseDir := agenttools.SharedGUIDir(rt.dataDir)
+	// Note that we include the hash in the root directory so that when the GUI
+	// archive changes we can be sure that clients will not use files from
+	// mixed versions.
 	rootDir := filepath.Join(baseDir, hash)
 	info, err := os.Stat(rootDir)
 	if err == nil {
@@ -137,7 +147,7 @@ func guiVersionAndHash(storage binarystorage.Storage) (vers, hash string, err er
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot retrieve GUI metadata")
 	}
-	if len(allMeta) != 1 {
+	if len(allMeta) == 0 {
 		return "", "", errors.New("GUI metadata not found")
 	}
 	return allMeta[0].Version, allMeta[0].SHA256, nil
@@ -196,6 +206,7 @@ type guiHandler struct {
 // serveCombo serves the GUI JavaScript and CSS files, dynamically combined.
 func (h *guiHandler) serveCombo(w http.ResponseWriter, req *http.Request) {
 	ctype := ""
+	// The combo query is like /combo/?path/to/file1&path/to/file2 ...
 	parts := strings.Split(req.URL.RawQuery, "&")
 	paths := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -232,15 +243,11 @@ func getGUIComboPath(rootDir, query string) (string, error) {
 	}
 	// The Juju GUI references its combined files starting from the
 	// "static/gui/build" directory.
-	fpath := filepath.Join(rootDir, "static", "gui", "build", fname)
-	rel, err := filepath.Rel(rootDir, fpath)
-	if err != nil {
-		return "", errors.NewBadRequest(err, fmt.Sprintf("invalid file path %q", k))
-	}
-	if strings.HasPrefix(rel, "..") {
+	fname = filepath.Clean(fname)
+	if fname == ".." || strings.HasPrefix(fname, "../") {
 		return "", errors.BadRequestf("forbidden file path %q", k)
 	}
-	return fpath, nil
+	return filepath.Join(rootDir, "static", "gui", "build", fname), nil
 }
 
 func sendGUIComboFile(w io.Writer, fpath string) {
@@ -251,15 +258,14 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 	}
 	defer f.Close()
 	if _, err := io.Copy(w, f); err != nil {
-		logger.Infof("cannot copy combo file %q: %s", fpath, err)
 		return
 	}
-	fmt.Fprintf(w, "\n/* %s */\n", filepath.Base(f.Name()))
+	fmt.Fprintf(w, "\n/* %s */\n", filepath.Base(fpath))
 }
 
 // serveIndex serves the GUI index file.
 func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
-	spriteFile := filepath.Join(h.rootDir, "static", "gui", "build", "app", "assets", "stack", "svg", "sprite.css.svg")
+	spriteFile := filepath.Join(h.rootDir, spritePath)
 	spriteContent, err := ioutil.ReadFile(spriteFile)
 	if err != nil {
 		sendError(w, errors.Annotate(err, "cannot read sprite file"))
@@ -277,7 +283,7 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 
 // serveConfig serves the Juju GUI JavaScript configuration file.
 func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", mime.TypeByExtension(".js"))
+	w.Header().Set("Content-Type", jsMimeType)
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
 		"base":    h.baseURLPath,
@@ -289,6 +295,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 }
 
 func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) {
+	// TODO frankban: cache parsed template.
 	t, err := template.ParseFiles(tmpl)
 	if err != nil {
 		sendError(w, errors.Annotate(err, "cannot parse template"))

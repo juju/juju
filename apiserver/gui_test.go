@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"archive/tar"
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
@@ -319,12 +320,12 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 <!DOCTYPE html>
 <html>
 <body>
-    comboURL: /gui/%s/combo
-    configURL: /gui/%s/config.js
+    comboURL: /gui/%[1]s/combo
+    configURL: /gui/%[1]s/config.js
     debug: false
     spriteContent: sprite content
 </body>
-</html>`, s.modelUUID, s.modelUUID)
+</html>`, s.modelUUID)
 	c.Assert(string(body), gc.Equals, expectedIndexContent)
 }
 
