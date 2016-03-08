@@ -804,13 +804,13 @@ func (s *lxcBrokerSuite) checkDiscoverIPv4InterfaceAddressesFails(c *gc.C, iface
 	c.Assert(addr, gc.IsNil)
 }
 
-func (s *lxcBrokerSuite) checkDiscoverIPv4InterfaceAddress(c *gc.C, ifaceName string, expectedAddress network.Address, fakeAddrs ...string) {
+func (s *lxcBrokerSuite) checkDiscoverIPv4InterfaceAddress(c *gc.C, ifaceName, expectedAddress string, fakeAddrs ...string) {
 	s.patchNetInterfaceByName(c, ifaceName)
 	s.patchNetInterfaceByNameAddrs(c, ifaceName, fakeAddrs...)
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress(ifaceName)
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Not(gc.IsNil))
-	c.Assert(*addr, gc.Equals, expectedAddress)
+	c.Assert(*addr, gc.Equals, network.NewAddress(expectedAddress))
 }
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameUnknownInterfaceNameError(c *gc.C) {
@@ -852,15 +852,15 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv4CIDRAddrError(c *gc.
 }
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccessWithCIDRAddress(c *gc.C) {
-	s.checkDiscoverIPv4InterfaceAddress(c, "fake", network.NewAddress("192.168.1.42"), "192.168.1.42/24")
+	s.checkDiscoverIPv4InterfaceAddress(c, "fake", "192.168.1.42", "192.168.1.42/24")
 }
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccess(c *gc.C) {
-	s.checkDiscoverIPv4InterfaceAddress(c, "fake", network.NewAddress("192.168.1.42"), "192.168.1.42")
+	s.checkDiscoverIPv4InterfaceAddress(c, "fake", "192.168.1.42", "192.168.1.42")
 }
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameMixtureOfIPv6AndIPv4Success(c *gc.C) {
-	s.checkDiscoverIPv4InterfaceAddress(c, "fake", network.NewAddress("192.168.1.42"), "::1", "f000::1", "192.168.1.42")
+	s.checkDiscoverIPv4InterfaceAddress(c, "fake", "192.168.1.42", "::1", "f000::1", "192.168.1.42")
 }
 
 func (s *lxcBrokerSuite) TestDiscoverPrimaryNICNetInterfacesError(c *gc.C) {
