@@ -141,7 +141,6 @@ def make_client_from_args(args):
 
 def main(argv):
     args = parse_args(argv)
-    # configure_logging(args.verbose)
     client = make_client_from_args(args)
     jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
