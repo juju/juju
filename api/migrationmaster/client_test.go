@@ -27,7 +27,7 @@ var _ = gc.Suite(&ClientSuite{})
 func (s *ClientSuite) TestWatch(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		stub.AddCall("call", objType, version, id, request, arg)
+		stub.AddCall("call", objType, id, request, arg)
 		switch request {
 		case "Watch":
 			*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
@@ -55,9 +55,9 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	case err := <-errC:
 		c.Assert(err, gc.ErrorMatches, "boom")
 		stub.CheckCalls(c, []jujutesting.StubCall{
-			{"call", []interface{}{"MigrationMaster", 0, "", "Watch", nil}},
-			{"call", []interface{}{"MigrationMasterWatcher", 0, "abc", "Next", nil}},
-			{"call", []interface{}{"MigrationMasterWatcher", 0, "abc", "Stop", nil}},
+			{"call", []interface{}{"MigrationMaster", "", "Watch", nil}},
+			{"call", []interface{}{"MigrationMasterWatcher", "abc", "Next", nil}},
+			{"call", []interface{}{"MigrationMasterWatcher", "abc", "Stop", nil}},
 		})
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for watcher to die")
