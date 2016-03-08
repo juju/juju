@@ -13,4 +13,5 @@ var getBackend = func(st *state.State) Backend {
 // migrationmaster facade.
 type Backend interface {
 	WatchForModelMigration() (state.NotifyWatcher, error)
+	GetModelMigration() (state.ModelMigration, error)
 }
