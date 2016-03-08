@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -548,11 +547,8 @@ type LinkLayerDeviceAddress struct {
 // TODO: Temporary helper used to test the addresses methods apart from
 // SetDevicesAddresses. Remove once the later is implemented.
 func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address, error) {
-	addressID, err := dev.st.sequence("ipaddress")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	stringID := string(addressID)
+	globalKey := ipAddressGlobalKey(dev.doc.MachineID, address.DeviceName, address.Address)
+	ipAddressDocID := dev.st.docID(globalKey)
 
 	providerID := string(address.ProviderID)
 	if providerID != "" {
@@ -560,8 +556,7 @@ func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address
 	}
 
 	newDoc := &ipAddressDoc{
-		DocID:      dev.st.docID(stringID),
-		ID:         stringID,
+		DocID:      ipAddressDocID,
 		ModelUUID:  dev.st.ModelUUID(),
 		ProviderID: providerID,
 		DeviceName: address.DeviceName,
@@ -579,7 +574,7 @@ func (dev *LinkLayerDevice) AddAddress(address LinkLayerDeviceAddress) (*Address
 	}
 
 	newAddress := newIPAddress(dev.st, *newDoc)
-	err = onAbort(dev.st.runTransaction(ops), errors.AlreadyExistsf("%s", newAddress))
+	err := onAbort(dev.st.runTransaction(ops), errors.AlreadyExistsf("%s", newAddress))
 	if err == nil {
 		return newAddress, nil
 	}
@@ -699,12 +694,8 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 }
 
 func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddressDoc, error) {
-	addressSeq, err := m.st.sequence("ipaddress")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	addressID := strconv.Itoa(addressSeq)
-	ipAddressDocID := m.st.docID(addressID)
+	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, args.Address)
+	ipAddressDocID := m.st.docID(globalKey)
 
 	providerID := string(args.ProviderID)
 	if providerID != "" {
@@ -717,7 +708,6 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 
 	newDoc := &ipAddressDoc{
 		DocID:            ipAddressDocID,
-		ID:               addressID,
 		ModelUUID:        modelUUID,
 		ProviderID:       providerID,
 		DeviceName:       args.DeviceName,

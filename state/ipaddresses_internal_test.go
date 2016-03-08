@@ -29,7 +29,7 @@ func (s *ipAddressesInternalSuite) TestNewIPAddressCreatesAddress(c *gc.C) {
 }
 
 func (s *ipAddressesInternalSuite) TestDocIDIncludesModelUUID(c *gc.C) {
-	const localDocID = "42"
+	const localDocID = "foo"
 	globalDocID := coretesting.ModelTag.Id() + ":" + localDocID
 
 	result := s.newIPAddressWithDummyState(ipAddressDoc{DocID: localDocID})
@@ -72,17 +72,30 @@ func (s *ipAddressesInternalSuite) TestSubnetReturnsNoErrorWhenSubnetIDNotSet(c 
 }
 
 func (s *ipAddressesInternalSuite) TestIPAddressGlobalKeyHelper(c *gc.C) {
-	result := ipAddressGlobalKey("42")
-	c.Assert(result, gc.Equals, "ip#42")
+	result := ipAddressGlobalKey("42", "eth0", "0.1.2.3")
+	c.Assert(result, gc.Equals, "m#42#d#eth0#ip#0.1.2.3")
 
-	result = ipAddressGlobalKey("")
+	result = ipAddressGlobalKey("", "ignored", "anything")
+	c.Assert(result, gc.Equals, "")
+
+	result = ipAddressGlobalKey("ignored", "", "anything")
+	c.Assert(result, gc.Equals, "")
+
+	result = ipAddressGlobalKey("", "", "anything")
+	c.Assert(result, gc.Equals, "")
+
+	result = ipAddressGlobalKey("", "", "")
 	c.Assert(result, gc.Equals, "")
 }
 
 func (s *ipAddressesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
-	doc := ipAddressDoc{ID: "99"}
+	doc := ipAddressDoc{
+		MachineID:  "99",
+		DeviceName: "br-eth1.250",
+		Value:      "fc00:1234::/64",
+	}
 	address := s.newIPAddressWithDummyState(doc)
-	c.Check(address.globalKey(), gc.Equals, "ip#99")
+	c.Check(address.globalKey(), gc.Equals, "m#99#d#br-eth1.250#ip#fc00:1234::/64")
 
 	address = s.newIPAddressWithDummyState(ipAddressDoc{})
 	c.Check(address.globalKey(), gc.Equals, "")
@@ -92,16 +105,20 @@ func (s *ipAddressesInternalSuite) TestStringIncludesConfigMethodAndValue(c *gc.
 	doc := ipAddressDoc{
 		ConfigMethod: ManualAddress,
 		Value:        "0.1.2.3",
+		MachineID:    "42",
+		DeviceName:   "eno1",
 	}
 	result := s.newIPAddressWithDummyState(doc)
-	expectedString := `manual address "0.1.2.3"`
+	expectedString := `manual address "0.1.2.3" of device "eno1" on machine "42"`
 
 	c.Assert(result.String(), gc.Equals, expectedString)
+
+	result = s.newIPAddressWithDummyState(ipAddressDoc{})
+	c.Assert(result.String(), gc.Equals, ` address "" of device "" on machine ""`)
 }
 
 func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	doc := ipAddressDoc{
-		ID:               "99",
 		DeviceName:       "eth0",
 		MachineID:        "42",
 		SubnetID:         "10.20.30.0/24",
@@ -113,7 +130,6 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	}
 	result := s.newIPAddressWithDummyState(doc)
 
-	c.Check(result.ID(), gc.Equals, "99")
 	c.Check(result.DeviceName(), gc.Equals, "eth0")
 	c.Check(result.MachineID(), gc.Equals, "42")
 	c.Check(result.SubnetID(), gc.Equals, "10.20.30.0/24")

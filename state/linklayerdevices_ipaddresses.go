@@ -16,12 +16,8 @@ import (
 // ipAddressDoc describes the persistent state of an IP address assigned to a
 // link-layer network device (a.k.a network interface card - NIC).
 type ipAddressDoc struct {
-	// DocID is the IP address ID, prefixed by ModelUUID.
+	// DocID is the IP address global key, prefixed by ModelUUID.
 	DocID string `bson:"_id"`
-
-	// ID is the ID of the IP address, which is generated from a sequence like
-	// for machines and units.
-	ID string `bson:"id"`
 
 	// ModelUUID is the UUID of the model this IP address belongs to.
 	ModelUUID string `bson:"model-uuid"`
@@ -109,11 +105,6 @@ func (addr *Address) DocID() string {
 	return addr.st.docID(addr.doc.DocID)
 }
 
-// ID returns the Juju-generated unique ID of the IP address.
-func (addr *Address) ID() string {
-	return addr.doc.ID
-}
-
 // ProviderID returns the provider-specific IP address ID, if set.
 func (addr *Address) ProviderID() network.Id {
 	return network.Id(addr.localProviderID())
@@ -194,18 +185,23 @@ func (addr *Address) GatewayAddress() string {
 
 // String returns a human-readable representation of the IP address.
 func (addr *Address) String() string {
-	return fmt.Sprintf("%s address %q", addr.doc.ConfigMethod, addr.doc.Value)
+	return fmt.Sprintf(
+		"%s address %q of device %q on machine %q",
+		addr.doc.ConfigMethod, addr.doc.Value,
+		addr.doc.DeviceName, addr.doc.MachineID,
+	)
 }
 
 func (addr *Address) globalKey() string {
-	return ipAddressGlobalKey(addr.doc.ID)
+	return ipAddressGlobalKey(addr.doc.MachineID, addr.doc.DeviceName, addr.doc.Value)
 }
 
-func ipAddressGlobalKey(addressID string) string {
-	if addressID == "" {
+func ipAddressGlobalKey(machineID, deviceName, address string) string {
+	deviceGlobalKey := linkLayerDeviceGlobalKey(machineID, deviceName)
+	if deviceGlobalKey == "" || address == "" {
 		return ""
 	}
-	return "ip#" + addressID
+	return deviceGlobalKey + "#ip#" + address
 }
 
 // Remove removes the IP address, if it exists. No error is returned when the
