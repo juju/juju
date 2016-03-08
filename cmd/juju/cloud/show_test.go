@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/cloud"
+	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 

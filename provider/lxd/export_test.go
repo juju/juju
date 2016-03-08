@@ -7,7 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 var (

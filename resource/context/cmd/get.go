@@ -58,10 +58,16 @@ cached copy *may* be out of date at any time after you call
 "resource-get". Consequently, the command should be run at every
 point where it is critical that the resource be up to date.
 
-The "update-status" hook is particularly suited to keeping a resource
-up to date. This hook runs on a regular interval (e.g. 5 min). Thus,
-in the hook the charm may call "resource-get", forcing an update if
-the resource has changed.
+The "upgrade-charm" hook is useful for keeping your charm's resources
+on a unit up to date.  Run "resource-get" there for each of your
+charm's resources to do so. The hook fires whenever the the file for
+one of the service's resources changes on the controller (in addition
+to when the charm itself changes). That means it happens in response
+to "juju upgrade-charm" as well as to "juju push-resource".
+
+Note that the "upgrade-charm" hook does not run when the unit is
+started up. So be sure to run "resource-get" for your resources in the
+"install" hook (or "config-changed", etc.).
 
 Note that "resource-get" only provides an FS path to the resource file.
 It does not provide any information about the resource (e.g. revision).

@@ -27,7 +27,6 @@ var _ = gc.Suite(&volumeListSuite{})
 
 func (s *volumeListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
-
 	s.mockAPI = &mockVolumeListAPI{}
 }
 
@@ -169,7 +168,7 @@ func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut st
 
 func (s *volumeListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		storage.NewVolumeListCommand(s.mockAPI),
+		storage.NewVolumeListCommand(s.mockAPI, s.store),
 		args...)
 }
 

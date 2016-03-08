@@ -5,24 +5,13 @@ package cloud
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/juju/osenv"
 )
-
-// credentials is a struct containing cloud credential information,
-// used marshalling and unmarshalling.
-type credentials struct {
-	// Credentials is a map of cloud credentials, keyed on cloud name.
-	Credentials map[string]CloudCredential `yaml:"credentials"`
-}
 
 // CloudCredential contains attributes used to define credentials for a cloud.
 type CloudCredential struct {
@@ -40,11 +29,23 @@ type CloudCredential struct {
 type Credential struct {
 	authType   AuthType
 	attributes map[string]string
+
+	// Label is optionally set to describe the credentials
+	// to a user.
+	Label string
 }
 
 // AuthType returns the authentication type.
 func (c Credential) AuthType() AuthType {
 	return c.authType
+}
+
+func copyStringMap(in map[string]string) map[string]string {
+	out := make(map[string]string)
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 // Attributes returns the credential attributes.
@@ -63,13 +64,19 @@ func (c Credential) MarshalYAML() (interface{}, error) {
 // NewCredential returns a new, immutable, Credential with the supplied
 // auth-type and attributes.
 func NewCredential(authType AuthType, attributes map[string]string) Credential {
-	return Credential{authType, copyStringMap(attributes)}
+	return Credential{authType: authType, attributes: copyStringMap(attributes)}
 }
 
 // NewEmptyCredential returns a new Credential with the EmptyAuthType
 // auth-type.
 func NewEmptyCredential() Credential {
-	return Credential{EmptyAuthType, nil}
+	return Credential{authType: EmptyAuthType, attributes: nil}
+}
+
+// NewEmptyCloudCredential returns a new CloudCredential with an empty
+// default credential.
+func NewEmptyCloudCredential() *CloudCredential {
+	return &CloudCredential{AuthCredentials: map[string]Credential{"default": NewEmptyCredential()}}
 }
 
 // CredentialSchema describes the schema of a credential. Credential schemas
@@ -95,7 +102,7 @@ func FinalizeCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Credential{credential.authType, attrs}, nil
+	return &Credential{authType: credential.authType, attributes: attrs}, nil
 }
 
 // Finalize finalizes the given credential attributes against the credential
@@ -257,65 +264,7 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	for k, v := range mapv {
 		attrs[k] = v.(string)
 	}
-	return Credential{AuthType(authType), attrs}, nil
-}
-
-// CredentialByName returns the credential and default region to use for the
-// specified cloud, optionally specifying a credential name. If no credential
-// name is specified, then use the default credential for the cloud if one has
-// been specified. The credential name is returned also, in case the default
-// credential is used. If there is only one credential, it is implicitly the
-// default.
-//
-// If there exists no matching credentials, an error satisfying
-// errors.IsNotFound will be returned.
-//
-// NOTE: the credential returned is not validated. The caller must validate
-//       the credential with the cloud provider.
-//
-// TODO(axw) write unit tests for this.
-func CredentialByName(
-	cloudName, credentialName string,
-) (_ *Credential, credentialNameUsed string, defaultRegion string, _ error) {
-
-	// Parse the credentials, and extract the credentials for the specified
-	// cloud.
-	credentialsData, err := ioutil.ReadFile(JujuCredentials())
-	if os.IsNotExist(err) {
-		return nil, "", "", errors.NotFoundf("credentials file")
-	} else if err != nil {
-		return nil, "", "", errors.Trace(err)
-	}
-	credentials, err := ParseCredentials(credentialsData)
-	if err != nil {
-		return nil, "", "", errors.Annotate(err, "parsing credentials")
-	}
-	cloudCredentials, ok := credentials[cloudName]
-	if !ok {
-		return nil, "", "", errors.NotFoundf("credentials for cloud %q", cloudName)
-	}
-
-	if credentialName == "" {
-		// No credential specified, so use the default for the cloud.
-		credentialName = cloudCredentials.DefaultCredential
-		if credentialName == "" && len(cloudCredentials.AuthCredentials) == 1 {
-			for credentialName = range cloudCredentials.AuthCredentials {
-			}
-		}
-	}
-	credential, ok := cloudCredentials.AuthCredentials[credentialName]
-	if !ok {
-		return nil, "", "", errors.NotFoundf(
-			"%q credential for cloud %q", credentialName, cloudName,
-		)
-	}
-	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
-}
-
-// JujuCredentials is the location where credentials are
-// expected to be found. Requires JUJU_HOME to be set.
-func JujuCredentials() string {
-	return osenv.JujuXDGDataHomePath("credentials.yaml")
+	return Credential{authType: AuthType(authType), attributes: attrs}, nil
 }
 
 // ParseCredentials parses the given yaml bytes into Credentials, but does
@@ -341,19 +290,20 @@ func ParseCredentials(data []byte) (map[string]CloudCredential, error) {
 	return credentials, nil
 }
 
-// MarshalCredentials marshals the given credentials to YAML
-func MarshalCredentials(credentialsMap map[string]CloudCredential) ([]byte, error) {
-	data, err := yaml.Marshal(credentials{credentialsMap})
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot marshal credentials")
+// RemoveSecrets returns a copy of the given credential with secret fields removed.
+func RemoveSecrets(
+	credential Credential,
+	schemas map[AuthType]CredentialSchema,
+) (*Credential, error) {
+	schema, ok := schemas[credential.authType]
+	if !ok {
+		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
 	}
-	return data, nil
-}
-
-func copyStringMap(in map[string]string) map[string]string {
-	out := make(map[string]string)
-	for k, v := range in {
-		out[k] = v
+	redactedAttrs := credential.Attributes()
+	for attrName, attr := range schema {
+		if attr.Hidden {
+			delete(redactedAttrs, attrName)
+		}
 	}
-	return out
+	return &Credential{authType: credential.authType, attributes: redactedAttrs}, nil
 }

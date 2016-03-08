@@ -29,25 +29,10 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockChangePasswordAPI{}
 	s.randomPassword = ""
+	s.store = s.BaseSuite.store
 	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
 		s.randomPassword = pwd
 	})
-
-	store := jujuclienttesting.NewMemStore()
-	store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"current-user@local": {
-				User:     "current-user@local",
-				Password: "old-password",
-			},
-			"other@local": {
-				User:     "other@local",
-				Password: "old-password",
-			},
-		},
-		CurrentAccount: "current-user@local",
-	}
-	s.store = store
 }
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -84,7 +69,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := user.NewChangePasswordCommandForTest(nil, nil)
+		wrappedCommand, command := user.NewChangePasswordCommandForTest(nil, s.store)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)
@@ -149,6 +134,9 @@ func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C)
 	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
 		return &jujuclient.AccountDetails{"user", "old-password"}, nil
 	}
+	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
+		return &jujuclient.ControllerDetails{}, nil
+	}
 	s.store = store
 	store.SetErrors(errors.New("failed to write"))
 
@@ -167,6 +155,9 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 	}
 	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
 		return &jujuclient.AccountDetails{"user", "old-password"}, nil
+	}
+	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
+		return &jujuclient.ControllerDetails{}, nil
 	}
 	s.store = store
 	store.SetErrors(errors.New("failed to write"))

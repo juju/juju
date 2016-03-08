@@ -37,6 +37,7 @@ type RegisterSuite struct {
 	store                 jujuclient.ClientStore
 	apiOpenError          error
 	apiOpenControllerName string
+	apiOpenAccountName    string
 	apiOpenModelName      string
 	server                *httptest.Server
 	httpHandler           http.Handler
@@ -60,6 +61,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		addr:          serverURL.Host,
 	}
 	s.apiOpenControllerName = ""
+	s.apiOpenAccountName = ""
 	s.apiOpenModelName = ""
 
 	s.legacystore = configstore.NewMem()
@@ -83,11 +85,12 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 	return s.apiConnection, nil
 }
 
-func (s *RegisterSuite) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+func (s *RegisterSuite) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 	if s.apiOpenError != nil {
 		return nil, s.apiOpenError
 	}
 	s.apiOpenControllerName = controllerName
+	s.apiOpenAccountName = accountName
 	s.apiOpenModelName = modelName
 	return s.apiConnection, nil
 }
@@ -184,33 +187,28 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	expectedCiphertext := s.seal(c, requestPayloadPlaintext, secretKey, request.Nonce)
 	c.Assert(request.PayloadCiphertext, jc.DeepEquals, expectedCiphertext)
 
-	// The controller information should be recorded with
-	// the specified controller name ("controller-name").
-	info, err := s.legacystore.ReadInfo("controller-name:controller-name")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.APICredentials(), jc.DeepEquals, configstore.APICredentials{
-		User:     "bob",
-		Password: "hunter2",
-	})
-	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{
-		ServerUUID: controllerUUID,
-		Hostnames:  []string{s.apiConnection.addr},
-		Addresses:  []string{s.apiConnection.addr},
-		CACert:     testing.CACert,
-	})
+	// The controller and account details should be recorded with
+	// the specified controller name ("controller-name") and user
+	// name from the registration string.
 
 	controller, err := s.store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller, jc.DeepEquals, &jujuclient.ControllerDetails{
 		ControllerUUID: controllerUUID,
-		Servers:        []string{s.apiConnection.addr},
 		APIEndpoints:   []string{s.apiConnection.addr},
 		CACert:         testing.CACert,
+	})
+	account, err := s.store.AccountByName("controller-name", "bob@local")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
+		User:     "bob@local",
+		Password: "hunter2",
 	})
 
 	// The command should have logged into the controller with the
 	// information we checked above.
 	c.Assert(s.apiOpenControllerName, gc.Equals, "controller-name")
+	c.Assert(s.apiOpenAccountName, gc.Equals, "bob@local")
 	c.Assert(s.apiOpenModelName, gc.Equals, "")
 }
 

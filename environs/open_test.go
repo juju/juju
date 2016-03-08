@@ -97,7 +97,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 		ControllerUUID: info.APIEndpoint().ServerUUID,
 		CACert:         info.APIEndpoint().CACert,
 	})
-	foundModel, err := cache.ModelByName("controller-name", "admin-model")
+	foundModel, err := cache.ModelByName("controller-name", "admin@local", "admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: foundController.ControllerUUID,

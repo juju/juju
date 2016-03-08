@@ -118,10 +118,10 @@ func decorateAndWriteInfo(
 	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.UpdateModel(controllerName, modelName, modelDetails); err != nil {
+	if err := store.UpdateModel(controllerName, accountName, modelName, modelDetails); err != nil {
 		return errors.Trace(err)
 	}
-	if err := store.SetCurrentModel(controllerName, modelName); err != nil {
+	if err := store.SetCurrentModel(controllerName, accountName, modelName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

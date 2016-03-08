@@ -2477,7 +2477,8 @@ func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Service(ssc.name)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.SetCharm(ch, false, false)
+	cfg := state.SetCharmConfig{Charm: ch}
+	err = s.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3151,6 +3152,10 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		setMachineStatus{"0", state.StatusStarted, ""},
 		// And the machine's address is "dummymodel-0.dns"
 		setAddresses{"0", network.NewAddresses("dummymodel-0.dns")},
+		// And a container is started
+		// And the container's ID is "0/lxc/0"
+		addContainer{"0", "0/lxc/0", state.JobHostUnits},
+
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
 		addService{name: "wordpress", charm: "wordpress"},
@@ -3159,6 +3164,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addService{name: "mysql", charm: "mysql"},
 		// And the "logging" charm is available
 		addCharm{"logging"},
+
 		// And a machine is started
 		// And the machine's ID is "1"
 		// And the machine's job is to host units
@@ -3228,6 +3234,65 @@ func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
 
 - wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
   - logging/0: dummymodel-1.dns (agent:idle, workload:active)
+`
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: user filters to a single machine
+func (s *StatusSuite) TestFilterToMachine(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// When I run juju status --format oneline 1
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "1")
+	c.Assert(string(stderr), gc.Equals, "")
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: dummymodel-1.dns (agent:idle, workload:active)
+  - logging/0: dummymodel-1.dns (agent:idle, workload:active)
+`
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: user filters to a machine, shows containers
+func (s *StatusSuite) TestFilterToMachineShowsContainer(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// When I run juju status --format yaml 0
+	_, stdout, stderr := runStatus(c, "--format", "yaml", "0")
+	c.Assert(string(stderr), gc.Equals, "")
+	// Then I should receive output matching:
+	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxc/0(.|\n)*"
+	c.Assert(string(stdout), gc.Matches, expected)
+}
+
+// Scenario: user filters to a container
+func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// When I run juju status --format yaml 0/lxc/0
+	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxc/0")
+	c.Assert(string(stderr), gc.Equals, "")
+	// Then I should receive output equal to:
+	const expected = `
+model: dummymodel
+machines:
+  "0":
+    agent-state: started
+    dns-name: dummymodel-0.dns
+    instance-id: dummymodel-0
+    series: quantal
+    containers:
+      0/lxc/0:
+        agent-state: pending
+        instance-id: pending
+        series: quantal
+    hardware: arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M
+    controller-member-status: adding-vote
+services: {}
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3316,7 +3381,7 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given the address for machine "1" is "localhost"
-	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
+	setAddresses{"1", network.NewAddresses("localhost", "127.0.0.1")}.step(c, ctx)
 	// And the address for machine "2" is "10.0.0.1"
 	setAddresses{"2", network.NewAddresses("10.0.0.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1

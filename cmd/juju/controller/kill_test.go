@@ -38,7 +38,7 @@ func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error
 
 func (s *KillSuite) newKillCommand() cmd.Command {
 	return controller.NewKillCommandForTest(
-		s.api, s.clientapi, s.apierror, &mockClock{}, nil)
+		s.api, s.clientapi, s.store, s.apierror, &mockClock{}, nil)
 }
 
 func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
@@ -58,12 +58,12 @@ func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
 
 func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 	_, err := s.runKillCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read controller info: model "foo:foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
 func (s *KillSuite) TestKillNonControllerEnvFails(c *gc.C) {
 	_, err := s.runKillCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju model destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju destroy-model to destroy it")
 }
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
@@ -71,7 +71,7 @@ func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	ctx, err := s.runKillCommand(c, "local.test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
-	checkControllerRemovedFromStore(c, "local.test1:test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
@@ -79,7 +79,7 @@ func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkControllerRemovedFromStore(c, "local.test1:test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
@@ -87,14 +87,14 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 	s.api.err = errors.NotFoundf(`controller "test3"`)
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: unable to get bootstrap information from API")
-	checkControllerExistsInStore(c, "test3:test3", s.store)
+	checkControllerExistsInStore(c, "test3:test3", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 	s.api.err = errors.NotFoundf(`controller "test3"`)
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
-	checkControllerExistsInStore(c, "test3:test3", s.store)
+	checkControllerExistsInStore(c, "test3:test3", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
@@ -103,7 +103,7 @@ func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
 	c.Assert(s.api.destroyAll, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "local.test1:test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
@@ -123,17 +123,23 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+}
+
+func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
+	_, err := testing.RunCommand(c, s.newKillCommand(), "local.test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	checkControllerRemovedFromStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
-	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
 	_, err := testing.RunCommand(c, cmd, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
-	checkControllerExistsInStore(c, "local.test1:test1", s.store)
+	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
 }
 
 func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
@@ -141,16 +147,16 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
+	testDialer := func(_ jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
 		<-stop
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, nil, clock, modelcmd.OpenFunc(testDialer))
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, modelcmd.OpenFunc(testDialer))
 	ctx, err := testing.RunCommand(c, cmd, "local.test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
-	checkControllerRemovedFromStore(c, "local.test1:test1", s.store)
+	checkControllerRemovedFromStore(c, "local.test1:test1", s.legacyStore)
 	// Check that we were actually told to wait for 10s.
 	c.Assert(clock.wait, gc.Equals, 10*time.Second)
 }

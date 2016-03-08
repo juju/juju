@@ -27,9 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 )
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
@@ -159,7 +157,6 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	endpoint.ServerUUID = responsePayload.ControllerUUID
 	endpoint.CACert = responsePayload.CACert
 	controllerInfo.SetAPIEndpoint(endpoint)
-	// TODO(wallyworld) - update accounts.yaml
 	controllerInfo.SetAPICredentials(configstore.APICredentials{
 		User:     registrationParams.userTag.Id(),
 		Password: registrationParams.newPassword,
@@ -168,27 +165,34 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Store the controller information.
+	// Store the controller and account details.
 	controllerDetails := jujuclient.ControllerDetails{
+		APIEndpoints:   registrationParams.controllerAddrs,
 		ControllerUUID: responsePayload.ControllerUUID,
 		CACert:         responsePayload.CACert,
 	}
 	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
-	hostPorts, err := network.ParseHostPorts(registrationParams.controllerAddrs...)
-	if err != nil {
+	accountDetails := jujuclient.AccountDetails{
+		User:     registrationParams.userTag.Canonical(),
+		Password: registrationParams.newPassword,
+	}
+	accountName := accountDetails.User
+	if err := c.store.UpdateAccount(
+		registrationParams.controllerName, accountName, accountDetails,
+	); err != nil {
 		return errors.Trace(err)
 	}
-	if err := juju.UpdateControllerAddresses(
-		c.store, legacyStore, registrationParams.controllerName, nil, hostPorts...,
+	if err := c.store.SetCurrentAccount(
+		registrationParams.controllerName, accountName,
 	); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, "")
+	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, accountName, "")
 	if err != nil {
 		return errors.Trace(err)
 	}

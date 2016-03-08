@@ -186,7 +186,7 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}
-	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), false)
+	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), false)
 	ops := []txn.Op{
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),

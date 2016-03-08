@@ -57,7 +57,7 @@ func (s *providerSuite) TestSecretAttrs(c *gc.C) {
 	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(obtainedAttrs, gc.HasLen, 0)
+	c.Check(obtainedAttrs, gc.DeepEquals, map[string]string{"client-key": ""})
 }
 
 type ProviderFunctionalSuite struct {

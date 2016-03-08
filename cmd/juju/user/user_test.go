@@ -13,12 +13,15 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	configstore configstore.Storage
+	store       *jujuclienttesting.MemStore
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -48,4 +51,19 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	})
 	err = modelcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
+		Accounts: map[string]jujuclient.AccountDetails{
+			"current-user@local": {
+				User:     "current-user@local",
+				Password: "old-password",
+			},
+			"other@local": {
+				User:     "other@local",
+				Password: "old-password",
+			},
+		},
+		CurrentAccount: "current-user@local",
+	}
 }
