@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -257,4 +259,88 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemoveAllAddresses(c *gc.C)
 	s.ensureMachineDeadAndRemove(c, s.machine)
 
 	s.assertNoAddressesOnMachine(c, s.machine)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyArgs(c *gc.C) {
+	err := s.machine.SetDevicesAddresses() // takes varargs, which includes none.
+	c.Assert(err, gc.ErrorMatches, `.*no addresses to set`)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyCIDRAddress(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, "empty CIDRAddress not valid")
+}
+
+func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsValidationForArgs(c *gc.C, args state.LinkLayerDeviceAddress, errorCauseMatches string) {
+	invalidAddressPrefix := fmt.Sprintf("invalid address %q: ", args.CIDRAddress)
+	err := s.assertSetDevicesAddressesFailsForArgs(c, args, invalidAddressPrefix+errorCauseMatches)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsForArgs(c *gc.C, args state.LinkLayerDeviceAddress, errorCauseMatches string) error {
+	err := s.machine.SetDevicesAddresses(args)
+	expectedError := fmt.Sprintf("cannot set link-layer device addresses of machine %q: %s", s.machine.Id(), errorCauseMatches)
+	c.Assert(err, gc.ErrorMatches, expectedError)
+	return err
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidCIDRAddress(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress: "bad CIDR",
+	}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, "CIDRAddress: invalid CIDR address: bad CIDR")
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithCIDRAddressWithoutMask(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress: "10.10.10.10",
+	}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, "CIDRAddress: invalid CIDR address: 10.10.10.10")
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyDeviceName(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress: "0.1.2.3/24",
+	}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, "empty DeviceName not valid")
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidDeviceName(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress: "0.1.2.3/24",
+		DeviceName:  "bad#name",
+	}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `DeviceName "bad#name" not valid`)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidConfigMethod(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:  "0.1.2.3/24",
+		DeviceName:   "eth0",
+		ConfigMethod: "something else",
+	}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `ConfigMethod "something else" not valid`)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAddress(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:    "0.1.2.3/24",
+		DeviceName:     "eth0",
+		ConfigMethod:   state.StaticAddress,
+		GatewayAddress: "boo hoo",
+	}
+	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `GatewayAddress "boo hoo" not valid`)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressDoesNotMatchKnownSubnet(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:  "192.168.123.42/16",
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+	}
+	inferredSubnetCIDR := "192.168.0.0/16"
+	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found", args.CIDRAddress, inferredSubnetCIDR)
+
+	err := s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -564,7 +564,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
 
 	if len(devicesAddresses) == 0 {
-		return errors.Errorf("no addresses to add")
+		return errors.Errorf("no addresses to set")
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
