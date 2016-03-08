@@ -783,10 +783,23 @@ func (s *lxcBrokerSuite) patchNetInterfaceByName(c *gc.C, interfaceName string) 
 	})
 }
 
+func (s *lxcBrokerSuite) patchNetInterfaceByNameAddrs(c *gc.C, interfaceName string, fakeAddrs ...string) {
+	addrs := make([]net.Addr, 0)
+
+	for _, a := range fakeAddrs {
+		addrs = append(addrs, &fakeAddr{a})
+	}
+
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		c.Assert(i.Name, gc.Matches, interfaceName)
+		return addrs, nil
+	})
+}
+
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameUnknownInterfaceNameError(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake2")
-	c.Assert(err, gc.ErrorMatches, `cannot get interface "fake2": no such network interface`)
+	addr, err := provisioner.DiscoverIPv4InterfaceAddress("missing")
+	c.Assert(err, gc.ErrorMatches, `cannot get interface "missing": no such network interface`)
 	c.Assert(addr, gc.IsNil)
 }
 
@@ -803,10 +816,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameAddressError(c *gc.C) {
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameInvalidAddr(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{&fakeAddr{}}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.ErrorMatches, `cannot parse address "fakeAddr": invalid CIDR address: fakeAddr`)
 	c.Assert(addr, gc.IsNil)
@@ -814,11 +824,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameInvalidAddr(c *gc.C) {
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameZeroAddresses(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.ErrorMatches, `no addresses found for "fake"`)
 	c.Assert(addr, gc.IsNil)
@@ -826,11 +832,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameZeroAddresses(c *gc.C) {
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv6CIDRAddrError(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{&fakeAddr{"f000::/"}}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "f000::/")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.ErrorMatches, `cannot parse address "f000::/": invalid CIDR address: f000::/`)
 	c.Assert(addr, gc.IsNil)
@@ -838,13 +840,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv6CIDRAddrError(c *gc.
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameOnlyHasIPv6AddrError(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{
-			&fakeAddr{"::1"},
-			&fakeAddr{"f000::1/1"}}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "::1", "f000::1/1")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.ErrorMatches, `no addresses found for "fake"`)
 	c.Assert(addr, gc.IsNil)
@@ -852,11 +848,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameOnlyHasIPv6AddrError(c *
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv4CIDRAddrError(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{&fakeAddr{"192.168.1.42/42"}}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "192.168.1.42/42")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.ErrorMatches, `cannot parse address "192.168.1.42/42": invalid CIDR address: 192.168.1.42/42`)
 	c.Assert(addr, gc.IsNil)
@@ -864,11 +856,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv4CIDRAddrError(c *gc.
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccessWithCIDRAddress(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{&fakeAddr{"192.168.1.42/24"}}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "192.168.1.42/24")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Not(gc.IsNil))
@@ -877,11 +865,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccessWithCIDRAddress(c
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccess(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{&fakeAddr{"192.168.1.42"}}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "192.168.1.42")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.NotNil)
@@ -890,15 +874,7 @@ func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccess(c *gc.C) {
 
 func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameMixtureOfIPv6AndIPv4Success(c *gc.C) {
 	s.patchNetInterfaceByName(c, "fake")
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		c.Assert(i.Name, gc.Matches, "fake")
-		return []net.Addr{
-			&fakeAddr{"::1"},
-			&fakeAddr{"f000::1"},
-			&fakeAddr{"192.168.1.42"},
-		}, nil
-	})
+	s.patchNetInterfaceByNameAddrs(c, "fake", "::1", "f000::1", "192.168.1.42")
 	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.NotNil)
