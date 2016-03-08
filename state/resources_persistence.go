@@ -180,8 +180,6 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 	// so then the following line is unnecessary.
 	stored.Resource = res
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
@@ -213,8 +211,6 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
-
-	// TODO(ericsnow) Ensure that the service is still there?
 
 	csRes := charmStoreResource{
 		Resource:   res,
@@ -254,8 +250,6 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
 	// so then the following line is unnecessary.
 	stored.Resource = res
-
-	// TODO(ericsnow) Ensure that the service is still there?
 
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
