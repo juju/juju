@@ -437,10 +437,8 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
-		interfaces: []interfaceBinding{{"shared-db", "6"}},
-		// TODO: (mfoord) we would really prefer to report "bar" rather
-		// than 6 here.
-		expectedError: `negative space "6" from constraints clashes with interface bindings`,
+		interfaces:    []interfaceBinding{{"shared-db", "6"}},
+		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
 	}, {
 		interfaces: []interfaceBinding{
 			{"shared-db", "1"},

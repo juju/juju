@@ -672,10 +672,10 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 
 var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
 
-func spaceNamesToIds(spaces []string, spaceMap map[string]string) ([]string, error) {
-	spaceIds := []string{}
+func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInfo) ([]network.SpaceInfo, error) {
+	spaceInfos := []network.SpaceInfo{}
 	for _, name := range spaces {
-		id, ok := spaceMap[name]
+		info, ok := spaceMap[name]
 		if !ok {
 			matches := dashSuffix.FindAllStringSubmatch(name, 1)
 			if matches == nil {
@@ -683,32 +683,32 @@ func spaceNamesToIds(spaces []string, spaceMap map[string]string) ([]string, err
 			}
 			// A -number was added to the space name when we
 			// converted to a juju name, we found
-			id, ok = spaceMap[matches[0][1]]
+			info, ok = spaceMap[matches[0][1]]
 			if !ok {
 				return nil, errors.Errorf("unrecognised space in constraint %q", name)
 			}
 		}
-		spaceIds = append(spaceIds, id)
+		spaceInfos = append(spaceInfos, info)
 	}
-	return spaceIds, nil
+	return spaceInfos, nil
 }
 
-func (environ *maasEnviron) spaceNamesToIds(positiveSpaces, negativeSpaces []string) ([]string, []string, error) {
+func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
 	spaces, err := environ.Spaces()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	spaceMap := make(map[string]string)
+	spaceMap := make(map[string]network.SpaceInfo)
 	empty := set.Strings{}
 	for _, space := range spaces {
 		jujuName := network.ConvertSpaceName(space.Name, empty)
-		spaceMap[jujuName] = string(space.ProviderId)
+		spaceMap[jujuName] = space
 	}
-	positiveSpaceIds, err := spaceNamesToIds(positiveSpaces, spaceMap)
+	positiveSpaceIds, err := spaceNamesToSpaceInfo(positiveSpaces, spaceMap)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	negativeSpaceIds, err := spaceNamesToIds(negativeSpaces, spaceMap)
+	negativeSpaceIds, err := spaceNamesToSpaceInfo(negativeSpaces, spaceMap)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -724,8 +724,8 @@ func (environ *maasEnviron) acquireNode(
 ) (gomaasapi.MAASObject, error) {
 
 	acquireParams := convertConstraints(cons)
-	positiveSpaces, negativeSpaces := convertSpacesFromConstraints(cons.Spaces)
-	positiveSpaceIds, negativeSpaceIds, err := environ.spaceNamesToIds(positiveSpaces, negativeSpaces)
+	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
+	positiveSpaces, negativeSpaces, err := environ.spaceNamesToSpaceInfo(positiveSpaceNames, negativeSpaceNames)
 	// If spaces aren't supported the constraints should be empty anyway.
 	if err != nil && !errors.IsNotSupported(err) {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
@@ -733,7 +733,7 @@ func (environ *maasEnviron) acquireNode(
 	// TODO: (mfoord) for better error reporting (names rather than ids) it
 	// would be better to pass network.SpaceInfo rather than just space ids.
 	// The same is true of interfaceBinding.
-	err = addInterfaces(acquireParams, interfaces, positiveSpaceIds, negativeSpaceIds)
+	err = addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
