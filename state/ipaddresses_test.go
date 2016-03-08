@@ -338,9 +338,24 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressDoesN
 		DeviceName:   "eth0",
 		ConfigMethod: state.StaticAddress,
 	}
-	inferredSubnetCIDR := "192.168.0.0/16"
-	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found", args.CIDRAddress, inferredSubnetCIDR)
 
-	err := s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	inferredSubnetCIDR := "192.168.0.0/16"
+	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found or not alive", args.CIDRAddress, inferredSubnetCIDR)
+	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatchesDeadSubnet(c *gc.C) {
+	subnetCIDR := "10.20.0.0/16"
+	subnet, err := s.State.Subnet(subnetCIDR)
+	c.Assert(err, jc.ErrorIsNil)
+	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:  "10.20.30.40/16",
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+	}
+	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found or not alive", args.CIDRAddress, subnetCIDR)
+	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }

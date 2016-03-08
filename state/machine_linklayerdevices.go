@@ -144,7 +144,7 @@ type LinkLayerDeviceArgs struct {
 // provider, but when set must be unique within the model. Errors are returned
 // and no changes are applied, in the following cases:
 // - Zero arguments given;
-// - Machine is no longer alive or missing;
+// - Machine is no longer alive or is missing;
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - errors.NotFoundError, when ParentName is set but cannot be found on the
@@ -556,7 +556,9 @@ const (
 // but when set must be unique within the model. Errors are returned and no
 // changes are applied, in the following cases:
 // - Zero arguments given;
-// - Machine is no longer alive or missing;
+// - Machine is no longer alive or is missing;
+// - Subnet inferred from any CIDRAddress field in args is no longer alive or
+//   is missing, except if that CIDRAddress matches IPv4 or IPv6 loopback range;
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
@@ -584,9 +586,9 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			//if err := m.areIPAddressDocsStillValid(newDocs); err != nil {
-			//	return nil, errors.Trace(err)
-			//}
+			if err := m.areIPAddressDocsStillValid(newDocs); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 
 		ops := []txn.Op{
@@ -596,6 +598,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 
 		for _, newDoc := range newDocs {
 			ops = append(ops, insertIPAddressDocOp(&newDoc))
+			ops = m.assertSubnetAliveWhenSetOps(&newDoc, ops)
 		}
 		return ops, nil
 	}
@@ -680,7 +683,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	if subnetID == loopbackIPv4CIDR || subnetID == loopbackIPv6CIDR {
 		// Loopback addresses are not linked to a subnet.
 		subnetID = ""
-	} else if _, err := m.st.Subnet(subnetID); err != nil {
+	} else if err := m.verifySubnetStillAliveWhenSet(subnetID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -707,6 +710,42 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		GatewayAddress:   args.GatewayAddress,
 	}
 	return newDoc, nil
+}
+
+func (m *Machine) verifySubnetStillAliveWhenSet(subnetID string) error {
+	if subnetID == "" {
+		return nil
+	}
+	if subnetAlive, err := isAlive(m.st, subnetsC, subnetID); err != nil {
+		return errors.Trace(err)
+	} else if !subnetAlive {
+		return errors.Errorf("subnet %q not found or not alive", subnetID)
+	}
+	return nil
+}
+
+func (m *Machine) areIPAddressDocsStillValid(newDocs []ipAddressDoc) error {
+	for _, newDoc := range newDocs {
+		if err := m.verifySubnetStillAliveWhenSet(newDoc.SubnetID); err != nil {
+			return errors.Trace(err)
+		}
+		// if err := m.verifyDeviceDoesNotExistYet(newDoc.Name); err != nil {
+		// 	return errors.Trace(err)
+		// }
+	}
+	return nil
+}
+
+func (m *Machine) assertSubnetAliveWhenSetOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) []txn.Op {
+	if newDoc.SubnetID != "" {
+		subnetDocID := m.st.docID(newDoc.SubnetID)
+		return append(opsSoFar, txn.Op{
+			C:      subnetsC,
+			Id:     subnetDocID,
+			Assert: isAliveDoc,
+		})
+	}
+	return opsSoFar
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the
