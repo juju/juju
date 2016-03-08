@@ -30,6 +30,10 @@ type ResourcePersistenceBase interface {
 	// function. It may be retried several times.
 	Run(transactions jujutxn.TransactionSource) error
 
+	// ServiceExistsOps returns the operations that verify that the
+	// identified service exists.
+	ServiceExistsOps(serviceID string) []txn.Op
+
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given service.
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
@@ -194,6 +198,7 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -230,6 +235,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, p.base.ServiceExistsOps(serviceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -267,6 +273,7 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
