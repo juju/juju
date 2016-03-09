@@ -51,14 +51,7 @@ func (s *ipAddressesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
 }
 
 func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string, addresses ...string) (*state.LinkLayerDevice, []*state.Address) {
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: name,
-		Type: state.EthernetDevice,
-	}
-	err := s.machine.AddLinkLayerDevices(deviceArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	device, err := s.machine.LinkLayerDevice(name)
-	c.Assert(err, jc.ErrorIsNil)
+	device := s.addNamedDevice(c, name)
 
 	addressesArgs := make([]state.LinkLayerDeviceAddress, len(addresses))
 	for i, address := range addresses {
@@ -68,12 +61,24 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string
 			CIDRAddress:  address,
 		}
 	}
-	err = s.machine.SetDevicesAddresses(addressesArgs...)
+	err := s.machine.SetDevicesAddresses(addressesArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 	deviceAddresses, err := device.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deviceAddresses, gc.HasLen, len(addresses))
 	return device, deviceAddresses
+}
+
+func (s *ipAddressesStateSuite) addNamedDevice(c *gc.C, name string) *state.LinkLayerDevice {
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: name,
+		Type: state.EthernetDevice,
+	}
+	err := s.machine.AddLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	device, err := s.machine.LinkLayerDevice(name)
+	c.Assert(err, jc.ErrorIsNil)
+	return device
 }
 
 func (s *ipAddressesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
@@ -313,7 +318,19 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidDeviceNam
 	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `DeviceName "bad#name" not valid`)
 }
 
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithUnknownDeviceName(c *gc.C) {
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:  "0.1.2.3/24",
+		ConfigMethod: state.StaticAddress,
+		DeviceName:   "missing",
+	}
+	expectedError := `invalid address "0.1.2.3/24": DeviceName "missing" on machine "0" not found`
+	err := s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidConfigMethod(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "0.1.2.3/24",
 		DeviceName:   "eth0",
@@ -323,6 +340,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidConfigMet
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAddress(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:    "0.1.2.3/24",
 		DeviceName:     "eth0",
@@ -333,6 +351,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAd
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressDoesNotMatchKnownSubnet(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "192.168.123.42/16",
 		DeviceName:   "eth0",
@@ -345,6 +364,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressDoesN
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatchesDeadSubnet(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
 	subnetCIDR := "10.20.0.0/16"
 	subnet, err := s.State.Subnet(subnetCIDR)
 	c.Assert(err, jc.ErrorIsNil)
@@ -358,4 +378,93 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	}
 	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found or not alive", args.CIDRAddress, subnetCIDR)
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc.C) {
+	device, initialAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24", "10.20.30.42/16")
+
+	setArgs := []state.LinkLayerDeviceAddress{{
+		// All set-able fields included below.
+		DeviceName:       "eth0",
+		ConfigMethod:     state.ManualAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "id-0123",
+		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
+		DNSSearchDomains: []string{"example.com", "example.org"},
+		GatewayAddress:   "0.1.2.1",
+	}, {
+		// No changed fields at all.
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+		CIDRAddress:  "10.20.30.42/16",
+	}}
+	err := s.machine.SetDevicesAddresses(setArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+	updatedAddresses, err := device.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedAddresses, gc.HasLen, len(initialAddresses))
+	if updatedAddresses[0].Value() != "0.1.2.3" {
+		// Swap the results if they arrive in different order.
+		updatedAddresses[1], updatedAddresses[0] = updatedAddresses[0], updatedAddresses[1]
+	}
+
+	for i, address := range updatedAddresses {
+		s.checkAddressMatchesArgs(c, address, setArgs[i])
+	}
+}
+
+func (s *ipAddressesStateSuite) checkAddressMatchesArgs(c *gc.C, address *state.Address, args state.LinkLayerDeviceAddress) {
+	c.Check(address.DeviceName(), gc.Equals, args.DeviceName)
+	c.Check(address.MachineID(), gc.Equals, s.machine.Id())
+	c.Check(args.CIDRAddress, jc.HasPrefix, address.Value())
+	c.Check(address.ConfigMethod(), gc.Equals, args.ConfigMethod)
+	c.Check(address.ProviderID(), gc.Equals, args.ProviderID)
+	c.Check(address.DNSServers(), jc.DeepEquals, args.DNSServers)
+	c.Check(address.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
+	c.Check(address.GatewayAddress(), gc.Equals, args.GatewayAddress)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSameDocLastUpdateWins(c *gc.C) {
+	device, initialAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
+
+	setArgs := []state.LinkLayerDeviceAddress{{
+		// No changed fields at all.
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+		CIDRAddress:  "0.1.2.3/24",
+	}, {
+		// Change all fields that can change.
+		DeviceName:       "eth0",
+		ConfigMethod:     state.ManualAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "id-0123",
+		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
+		DNSSearchDomains: []string{"example.com", "example.org"},
+		GatewayAddress:   "0.1.2.1",
+	}, {
+		// Test deletes work for DNS settings, also change method, provider id, and gateway.
+		DeviceName:       "eth0",
+		ConfigMethod:     state.DynamicAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "id-xxxx", // last change wins
+		DNSServers:       nil,
+		DNSSearchDomains: nil,
+		GatewayAddress:   "0.1.2.2",
+	}}
+	err := s.machine.SetDevicesAddresses(setArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+	updatedAddresses, err := device.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedAddresses, gc.HasLen, len(initialAddresses))
+
+	const lastArgsIndex = 2
+	s.checkAddressMatchesArgs(c, updatedAddresses[0], state.LinkLayerDeviceAddress{
+		DeviceName:       setArgs[lastArgsIndex].DeviceName,
+		ConfigMethod:     setArgs[lastArgsIndex].ConfigMethod,
+		CIDRAddress:      setArgs[lastArgsIndex].CIDRAddress,
+		ProviderID:       setArgs[lastArgsIndex].ProviderID,
+		DNSServers:       setArgs[lastArgsIndex].DNSServers,
+		DNSSearchDomains: setArgs[lastArgsIndex].DNSSearchDomains,
+		GatewayAddress:   setArgs[lastArgsIndex].GatewayAddress,
+	})
 }

@@ -234,6 +234,54 @@ func insertIPAddressDocOp(newDoc *ipAddressDoc) txn.Op {
 	}
 }
 
+// updateIPAddressDocOp returns an operation updating the fields of existingDoc
+// with the respective values of those fields in newDoc. DocID, ModelUUID,
+// Value, SubnetID, MachineID, and DeviceName cannot be changed. ProviderID
+// cannot be changed once set. DNSServers and DNSSearchDomains are deleted when
+// nil. In all other cases newDoc values overwrites existingDoc values.
+func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
+	changes := make(bson.M)
+	deletes := make(bson.M)
+	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
+		// Only allow changing the ProviderID if it was empty.
+		changes["providerid"] = newDoc.ProviderID
+	}
+	if existingDoc.ConfigMethod != newDoc.ConfigMethod {
+		changes["config-method"] = newDoc.ConfigMethod
+	}
+
+	if newDoc.DNSServers == nil {
+		deletes["dns-servers"] = 1
+	} else {
+		changes["dns-servers"] = newDoc.DNSServers
+	}
+
+	if newDoc.DNSSearchDomains == nil {
+		deletes["dns-search-domains"] = 1
+	} else {
+		changes["dns-search-domains"] = newDoc.DNSSearchDomains
+	}
+
+	if existingDoc.GatewayAddress != newDoc.GatewayAddress {
+		changes["gateway-address"] = newDoc.GatewayAddress
+	}
+
+	var updates bson.D
+	if len(changes) > 0 {
+		updates = append(updates, bson.DocElem{Name: "$set", Value: changes})
+	}
+	if len(deletes) > 0 {
+		updates = append(updates, bson.DocElem{Name: "$unset", Value: deletes})
+	}
+
+	return txn.Op{
+		C:      ipAddressesC,
+		Id:     existingDoc.DocID,
+		Assert: txn.DocExists,
+		Update: updates,
+	}
+}
+
 func findAddressesQuery(machineID, deviceName string) bson.D {
 	var query bson.D
 	if machineID != "" {
