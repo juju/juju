@@ -55,6 +55,7 @@ var (
 	CombineMeterStatus     = combineMeterStatus
 	ServiceGlobalKey       = serviceGlobalKey
 	MergeBindings          = mergeBindings
+	UpgradeInProgressError = errUpgradeInProgress
 )
 
 type (

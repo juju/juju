@@ -18,6 +18,9 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -41,6 +44,7 @@ type BaseActionSuite struct {
 	command cmd.Command
 
 	modelFlags []string
+	store      *jujuclienttesting.MemStore
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
@@ -48,6 +52,13 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 	s.command = action.NewSuperCommand()
 
 	s.modelFlags = []string{"-m", "--model"}
+
+	err := modelcmd.WriteCurrentController("ctrl")
+	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {

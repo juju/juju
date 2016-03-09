@@ -39,36 +39,24 @@ type apiStateCachedInfo struct {
 
 var errAborted = fmt.Errorf("aborted")
 
-// NewAPIState creates an api.State object from an Environ
-// This is almost certainly the wrong thing to do as it assumes
-// the old admin password (stored as admin-secret in the config).
-func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts) (api.Connection, error) {
-	info, err := environAPIInfo(environ, user)
-	if err != nil {
-		return nil, err
-	}
-
-	st, err := api.Open(info, dialOpts)
-	if err != nil {
-		return nil, err
-	}
-	return st, nil
-}
-
 var defaultAPIOpen = api.Open
 
 // NewAPIConnection returns an api.Connection to the specified Juju controller,
-// optionally scoped to the specified model name.
+// with specified account credentials, optionally scoped to the specified model
+// name.
 func NewAPIConnection(
 	store jujuclient.ClientStore,
-	controllerName, modelName string,
+	controllerName, accountName, modelName string,
 	bClient *httpbakery.Client,
 ) (api.Connection, error) {
 	legacyStore, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := newAPIFromStore(controllerName, modelName, legacyStore, store, defaultAPIOpen, bClient)
+	st, err := newAPIFromStore(
+		controllerName, accountName, modelName,
+		legacyStore, store, defaultAPIOpen, bClient,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -87,17 +75,35 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 
 // newAPIFromStore implements the bulk of NewAPIConnection but is separate for
 // testing purposes.
-func newAPIFromStore(controllerName, modelName string, legacyStore configstore.Storage, store jujuclient.ControllerStore, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
+func newAPIFromStore(
+	controllerName, accountName, modelName string,
+	legacyStore configstore.Storage,
+	store jujuclient.ClientStore,
+	apiOpen api.OpenFunc,
+	bClient *httpbakery.Client,
+) (api.Connection, error) {
 
-	// TODO(axw) this should be unnecessary once we've removed the legacy
-	// configstore code. If no model name is specified, then we should
-	// use the controller UUID in the login instead.
-	if modelName == "" {
-		modelName = configstore.AdminModelName(controllerName)
-	}
-	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
+	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting controller details")
+	}
+
+	// There may be no current account, in which case we'll use macaroons.
+	// TODO(axw) store macaroons in the account details, and require the
+	// account name to be specified.
+	var accountDetails *jujuclient.AccountDetails
+	if accountName != "" {
+		accountDetails, err = store.AccountByName(controllerName, accountName)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting account details")
+		}
+	}
+	var modelDetails *jujuclient.ModelDetails
+	if modelName != "" {
+		modelDetails, err = store.ModelByName(controllerName, accountName, modelName)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting model details")
+		}
 	}
 
 	// Try to connect to the API concurrently using two different
@@ -124,13 +130,12 @@ func newAPIFromStore(controllerName, modelName string, legacyStore configstore.S
 	try := parallel.NewTry(0, chooseError)
 
 	var delay time.Duration
-	if len(info.APIEndpoint().Addresses) > 0 {
-		logger.Debugf(
-			"trying cached API connection settings - endpoints %v",
-			info.APIEndpoint().Addresses,
-		)
+	if len(controllerDetails.APIEndpoints) > 0 {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			return apiInfoConnect(info, apiOpen, stop, bClient)
+			return apiInfoConnect(
+				controllerDetails, accountDetails, modelDetails,
+				apiOpen, stop, bClient,
+			)
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
@@ -139,11 +144,14 @@ func newAPIFromStore(controllerName, modelName string, legacyStore configstore.S
 		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getConfig(info)
+		cfg, err := getBootstrapConfig(legacyStore, controllerName, modelName)
 		if err != nil {
 			return nil, err
 		}
-		return apiConfigConnect(cfg, apiOpen, stop, delay, environInfoUserTag(info))
+		return apiConfigConnect(
+			cfg, accountDetails, modelDetails,
+			apiOpen, stop, delay, bClient,
+		)
 	})
 	try.Close()
 	val0, err := try.Result()
@@ -190,44 +198,33 @@ type infoConnectError struct {
 	error
 }
 
-func environInfoUserTag(info configstore.EnvironInfo) names.Tag {
-	var username string
-	if info != nil {
-		username = info.APICredentials().User
-	}
-	if username == "" {
-		return nil
-	}
-	return names.NewUserTag(username)
-}
-
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-chan struct{}, bClient *httpbakery.Client) (api.Connection, error) {
-	endpoint := info.APIEndpoint()
-	if info == nil || len(endpoint.Addresses) == 0 {
-		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
-	}
-	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	var modelTag names.ModelTag
-	if names.IsValidModel(endpoint.ModelUUID) {
-		modelTag = names.NewModelTag(endpoint.ModelUUID)
-	}
+func apiInfoConnect(
+	controller *jujuclient.ControllerDetails,
+	account *jujuclient.AccountDetails,
+	model *jujuclient.ModelDetails,
+	apiOpen api.OpenFunc,
+	stop <-chan struct{},
+	bClient *httpbakery.Client,
+) (api.Connection, error) {
 
+	logger.Infof("connecting to API addresses: %v", controller.APIEndpoints)
 	apiInfo := &api.Info{
-		Addrs:    endpoint.Addresses,
-		CACert:   endpoint.CACert,
-		Tag:      environInfoUserTag(info),
-		Password: info.APICredentials().Password,
-		ModelTag: modelTag,
+		Addrs:  controller.APIEndpoints,
+		CACert: controller.CACert,
 	}
-	if apiInfo.Tag == nil {
+	if account != nil && account.Password != "" {
+		apiInfo.Tag = names.NewUserTag(account.User)
+		apiInfo.Password = account.Password
+	} else {
 		apiInfo.UseMacaroons = true
 	}
-
+	if model != nil {
+		apiInfo.ModelTag = names.NewModelTag(model.ModelUUID)
+	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bClient
-
 	st, err := apiOpen(apiInfo, dialOpts)
 	if err != nil {
 		return nil, &infoConnectError{err}
@@ -240,7 +237,15 @@ func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-c
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan struct{}, delay time.Duration, user names.Tag) (api.Connection, error) {
+func apiConfigConnect(
+	cfg *config.Config,
+	accountDetails *jujuclient.AccountDetails,
+	modelDetails *jujuclient.ModelDetails,
+	apiOpen api.OpenFunc,
+	stop <-chan struct{},
+	delay time.Duration,
+	bClient *httpbakery.Client,
+) (api.Connection, error) {
 	select {
 	case <-time.After(delay):
 	case <-stop:
@@ -250,21 +255,38 @@ func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan stru
 	if err != nil {
 		return nil, err
 	}
-	apiInfo, err := environAPIInfo(environ, user)
+	apiInfo, err := environs.APIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
-
-	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
-	// TODO(rog): handle errUnauthorized when the API handles passwords.
+	if accountDetails != nil && accountDetails.Password != "" {
+		apiInfo.Tag = names.NewUserTag(accountDetails.User)
+		apiInfo.Password = accountDetails.Password
+	} else {
+		apiInfo.UseMacaroons = true
+	}
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.BakeryClient = bClient
+	st, err := apiOpen(apiInfo, dialOpts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return apiStateCachedInfo{st, apiInfo}, nil
 }
 
-// getConfig looks for configuration info on the given environment
-func getConfig(info configstore.EnvironInfo) (*config.Config, error) {
+// getBootstrapConfig looks for configuration info on the given environment
+func getBootstrapConfig(legacyStore configstore.Storage, controllerName, modelName string) (*config.Config, error) {
+	// TODO(axw) model name will be unnecessary when we stop using
+	// configstore.
+	if modelName == "" {
+		modelName = configstore.AdminModelName(controllerName)
+	}
+	// TODO(axw) we need to store bootstrap config, or enough information
+	// to derive it, in jujuclient.
+	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller info")
+	}
 	if len(info.BootstrapConfig()) == 0 {
 		return nil, errors.NotFoundf("bootstrap config")
 	}
@@ -273,21 +295,6 @@ func getConfig(info configstore.EnvironInfo) (*config.Config, error) {
 		logger.Warningf("failed to parse bootstrap-config: %v", err)
 	}
 	return cfg, err
-}
-
-func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error) {
-	config := environ.Config()
-	password := config.AdminSecret()
-	info, err := environs.APIInfo(environ)
-	if err != nil {
-		return nil, err
-	}
-	info.Tag = user
-	info.Password = password
-	if info.Tag == nil {
-		info.UseMacaroons = true
-	}
-	return info, nil
 }
 
 var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {

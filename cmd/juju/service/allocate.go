@@ -28,6 +28,8 @@ type AllocateBudget struct {
 	AllocationSpec string
 	APIClient      apiClient
 	allocated      bool
+	Budget         string
+	Limit          string
 }
 
 // SetFlags is part of the DeployStep interface.
@@ -58,6 +60,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	if err != nil {
 		return errors.Trace(err)
 	}
+	a.Budget, a.Limit = allocBudget, allocLimit
 	a.APIClient, err = getApiClient(client)
 	if err != nil {
 		return errors.Annotate(err, "could not create API client")
@@ -65,7 +68,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
 		if wireformat.IsNotAvail(err) {
-			fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not created - %s.\n", err.Error())
+			fmt.Fprintf(ctx.Stdout, "WARNING: Budget allocation not created - %s.\n", err.Error())
 			return nil
 		}
 		return errors.Annotate(err, "could not create budget allocation")
@@ -96,7 +99,7 @@ func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd
 
 func parseBudgetWithLimit(bl string) (string, string, error) {
 	if !budgetWithLimitRe.MatchString(bl) {
-		return "", "", errors.New("invalid budget specification, expecting <budget>:<limit>")
+		return "", "", errors.New("invalid allocation, expecting <budget>:<limit>")
 	}
 	parts := strings.Split(bl, ":")
 	return parts[0], parts[1], nil

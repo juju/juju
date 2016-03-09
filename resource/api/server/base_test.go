@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -67,6 +68,7 @@ type stubDataStore struct {
 	ReturnGetPendingResource    resource.Resource
 	ReturnSetResource           resource.Resource
 	ReturnUpdatePendingResource resource.Resource
+	ReturnUnits                 []names.UnitTag
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
@@ -121,4 +123,13 @@ func (s *stubDataStore) UpdatePendingResource(serviceID, pendingID, userID strin
 	}
 
 	return s.ReturnUpdatePendingResource, nil
+}
+
+func (s *stubDataStore) Units(serviceID string) ([]names.UnitTag, error) {
+	s.stub.AddCall("Units", serviceID)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnUnits, nil
 }

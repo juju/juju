@@ -287,7 +287,9 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset()
+	if err := Reset(); err != nil {
+		panic(err)
+	}
 
 	// parse errors are ignored
 	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
@@ -296,7 +298,7 @@ func init() {
 // Reset resets the entire dummy environment and forgets any registered
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
-func Reset() {
+func Reset() error {
 	logger.Infof("reset model")
 	p := &providerInstance
 	p.mu.Lock()
@@ -310,11 +312,14 @@ func Reset() {
 	}
 	providerInstance.state = make(map[int]*environState)
 	if mongoAlive() {
-		gitjujutesting.MgoServer.Reset()
+		if err := gitjujutesting.MgoServer.Reset(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 	providerInstance.supportsSpaces = true
 	providerInstance.supportsSpaceDiscovery = false
+	return nil
 }
 
 func (state *environState) destroy() {
@@ -514,8 +519,8 @@ func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credentia
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
-func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
-	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
+func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return cloud.NewEmptyCloudCredential(), nil
 }
 
 func (*environProvider) DetectRegions() ([]cloud.Region, error) {

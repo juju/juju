@@ -40,7 +40,7 @@ func NewDeployCommand() cmd.Command {
 				RegisterURL: planURL + "/plan/authorize",
 				QueryURL:    planURL + "/charm",
 			},
-			&AllocateBudget{}}})
+		}})
 }
 
 type DeployCommand struct {
@@ -563,7 +563,12 @@ func (c *DeployCommand) deployCharm(
 		}
 	}()
 
-	ids, err := c.handleResources(serviceName, charmInfo.Meta.Resources)
+	if len(charmInfo.Meta.Terms) > 0 {
+		ctx.Infof("Deployment under prior agreement to terms: %s",
+			strings.Join(charmInfo.Meta.Terms, " "))
+	}
+
+	ids, err := handleResources(c, c.Resources, serviceName, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -597,8 +602,12 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
-func (c *DeployCommand) handleResources(serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
-	if len(c.Resources) == 0 && len(metaResources) == 0 {
+type APICmd interface {
+	NewAPIRoot() (api.Connection, error)
+}
+
+func handleResources(c APICmd, resources map[string]string, serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+	if len(resources) == 0 && len(metaResources) == 0 {
 		return nil, nil
 	}
 
@@ -607,7 +616,7 @@ func (c *DeployCommand) handleResources(serviceName string, metaResources map[st
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourceadapters.DeployResources(serviceName, c.Resources, metaResources, api)
+	ids, err := resourceadapters.DeployResources(serviceName, resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

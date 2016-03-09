@@ -710,6 +710,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	expectedOutput := `
 Added charm "cs:trusty/terms1-1" to the model.
 Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
+Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:trusty/terms1-1")
@@ -829,6 +830,8 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 
 	// Point the Juju API server to the charm store testing server.
 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
+
+	s.PatchValue(&getApiClient, func(*http.Client) (apiClient, error) { return &mockBudgetAPIClient{&jujutesting.Stub{}}, nil })
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
@@ -993,6 +996,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			CharmURL:    "cs:quantal/metered-1",
 			ServiceName: "metered",
 			PlanURL:     "someplan",
+			Budget:      "personal",
+			Limit:       "0",
 		}},
 	}})
 }
@@ -1040,6 +1045,8 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			CharmURL:    "cs:quantal/metered-1",
 			ServiceName: "metered",
 			PlanURL:     "thisplan",
+			Budget:      "personal",
+			Limit:       "0",
 		}},
 	}})
 }

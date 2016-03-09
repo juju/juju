@@ -3,20 +3,21 @@
 
 package modelcmd
 
+import "github.com/juju/juju/jujuclient"
+
 var (
 	GetCurrentControllerFilePath = getCurrentControllerFilePath
 	GetConfigStore               = &getConfigStore
 	EndpointRefresher            = &endpointRefresher
 )
 
-// NewModelCommandBase returns a new ModelCommandBase with the model name, client,
-// and error as specified for testing purposes.
-// If getterErr != nil then the NewModelGetter returns the specified error.
-func NewModelCommandBase(controller, model string, client ModelGetter, getterErr error) *ModelCommandBase {
+// NewModelCommandBase returns a new ModelCommandBase with the given client
+// store, controller name, and model name.
+func NewModelCommandBase(store jujuclient.ClientStore, controller, account, model string) *ModelCommandBase {
 	return &ModelCommandBase{
-		controllerName:  controller,
-		modelName:       model,
-		envGetterClient: client,
-		envGetterErr:    getterErr,
+		store:          store,
+		controllerName: controller,
+		accountName:    account,
+		modelName:      model,
 	}
 }

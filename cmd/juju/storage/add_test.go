@@ -61,7 +61,7 @@ func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string) {
 }
 
 func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewAddCommand(s.mockAPI), args...)
+	return testing.RunCommand(c, storage.NewAddCommand(s.mockAPI, s.store), args...)
 }
 
 func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
