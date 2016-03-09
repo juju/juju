@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 	"unicode"
 	"unicode/utf8"
 )
@@ -420,20 +419,8 @@ func fromHex(b byte) (byte, error) {
 	return 0, fmt.Errorf("mime: invalid hex byte %#02x", b)
 }
 
-var bufPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
-
 func getBuffer() *bytes.Buffer {
-	return bufPool.Get().(*bytes.Buffer)
+	return &bytes.Buffer{}
 }
 
-func putBuffer(buf *bytes.Buffer) {
-	if buf.Len() > 1024 {
-		return
-	}
-	buf.Reset()
-	bufPool.Put(buf)
-}
+func putBuffer(buf *bytes.Buffer) {}
