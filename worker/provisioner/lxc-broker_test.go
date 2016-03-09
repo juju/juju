@@ -770,6 +770,99 @@ func (s *lxcBrokerSuite) TestSetupRoutesAndIPTablesAddsRuleIfMissing(c *gc.C) {
 	gitjujutesting.AssertEchoArgs(c, "ip", "route", "add", "0.1.2.3", "dev", "bridge")
 }
 
+func (s *lxcBrokerSuite) patchNetInterfaceByName(c *gc.C, interfaceName string) {
+	s.PatchValue(provisioner.NetInterfaceByName, func(name string) (*net.Interface, error) {
+		if interfaceName != name {
+			return nil, errors.New("no such network interface")
+		}
+		return &net.Interface{
+			Index: 0,
+			Name:  name,
+			Flags: net.FlagUp,
+		}, nil
+	})
+}
+
+func (s *lxcBrokerSuite) patchNetInterfaceByNameAddrs(c *gc.C, interfaceName string, fakeAddrs ...string) {
+	addrs := make([]net.Addr, len(fakeAddrs))
+
+	for i, a := range fakeAddrs {
+		addrs[i] = &fakeAddr{a}
+	}
+
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		c.Assert(i.Name, gc.Matches, interfaceName)
+		return addrs, nil
+	})
+}
+
+func (s *lxcBrokerSuite) checkDiscoverIPv4InterfaceAddressesFails(c *gc.C, ifaceName, expectedError string, fakeAddrs ...string) {
+	s.patchNetInterfaceByName(c, ifaceName)
+	s.patchNetInterfaceByNameAddrs(c, ifaceName, fakeAddrs...)
+	addr, err := provisioner.DiscoverIPv4InterfaceAddress(ifaceName)
+	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(addr, gc.IsNil)
+}
+
+func (s *lxcBrokerSuite) checkDiscoverIPv4InterfaceAddress(c *gc.C, ifaceName, expectedAddress string, fakeAddrs ...string) {
+	s.patchNetInterfaceByName(c, ifaceName)
+	s.patchNetInterfaceByNameAddrs(c, ifaceName, fakeAddrs...)
+	addr, err := provisioner.DiscoverIPv4InterfaceAddress(ifaceName)
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Not(gc.IsNil))
+	c.Assert(*addr, gc.Equals, network.NewAddress(expectedAddress))
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameUnknownInterfaceNameError(c *gc.C) {
+	s.patchNetInterfaceByName(c, "fake")
+	addr, err := provisioner.DiscoverIPv4InterfaceAddress("missing")
+	c.Assert(err, gc.ErrorMatches, `cannot get interface "missing": no such network interface`)
+	c.Assert(addr, gc.IsNil)
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameAddressError(c *gc.C) {
+	s.patchNetInterfaceByName(c, "fake")
+	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
+		c.Assert(i.Name, gc.Matches, "fake")
+		return nil, errors.New("boom!")
+	})
+	addr, err := provisioner.DiscoverIPv4InterfaceAddress("fake")
+	c.Assert(err, gc.ErrorMatches, `cannot get network addresses for interface "fake": boom!`)
+	c.Assert(addr, gc.IsNil)
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameInvalidAddr(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddressesFails(c, "fake", `cannot parse address "fakeAddr": invalid CIDR address: fakeAddr`, "")
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameZeroAddresses(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddressesFails(c, "fake", `no addresses found for "fake"`)
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv6CIDRAddrError(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddressesFails(c, "fake", `cannot parse address "f000::/": invalid CIDR address: f000::/`, "f000::/")
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameOnlyHasIPv6AddrError(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddressesFails(c, "fake", `no addresses found for "fake"`, "::1", "f000::1/1")
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameIPv4CIDRAddrError(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddressesFails(c, "fake", `cannot parse address "192.168.1.42/42": invalid CIDR address: 192.168.1.42/42`, "192.168.1.42/42")
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccessWithCIDRAddress(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddress(c, "fake", "192.168.1.42", "192.168.1.42/24")
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameSuccess(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddress(c, "fake", "192.168.1.42", "192.168.1.42")
+}
+
+func (s *lxcBrokerSuite) TestDiscoverIPv4InterfaceByNameMixtureOfIPv6AndIPv4Success(c *gc.C) {
+	s.checkDiscoverIPv4InterfaceAddress(c, "fake", "192.168.1.42", "::1", "f000::1", "192.168.1.42")
+}
+
 func (s *lxcBrokerSuite) TestDiscoverPrimaryNICNetInterfacesError(c *gc.C) {
 	s.PatchValue(provisioner.NetInterfaces, func() ([]net.Interface, error) {
 		return nil, errors.New("boom!")
