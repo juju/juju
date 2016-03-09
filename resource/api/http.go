@@ -39,6 +39,34 @@ const (
 	ContentTypeJSON = "application/json"
 )
 
+const (
+	// HeaderContentType is the header name for the type of a file upload.
+	HeaderContentType = "Content-Type"
+	// HeaderContentSha384 is the header name for the sha hash of a file upload.
+	HeaderContentSha384 = "Content-Sha384"
+	// HeaderContentLength is the header name for the length of a file upload.
+	HeaderContentLength = "Content-Length"
+	// HeaderContentDisposition is the header name for value that holds the filename.
+	// The params are formatted according to  RFC 2045 and RFC 2616 (see
+	// mime.ParseMediaType and mime.FormatMediaType).
+	HeaderContentDisposition = "Content-Disposition"
+)
+
+const (
+	// MediaTypeFormData is the media type for file uploads (see
+	// mime.FormatMediaType).
+	MediaTypeFormData = "form-data"
+	// QueryParamPendingID is the query parameter we use to send up the pending id.
+	QueryParamPendingID = "pendingid"
+)
+
+const (
+	// TODO(natefinch): remove this and use http.MethodPut when we upgrade to go1.5+.
+
+	// MethodPut is the common HTTP PUT method.
+	MethodPut = "PUT"
+)
+
 // NewEndpointPath returns the API URL path for the identified resource.
 func NewEndpointPath(service, name string) string {
 	return fmt.Sprintf(HTTPEndpointPath, service, name)

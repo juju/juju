@@ -85,8 +85,8 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 }
 
 // Upload sends the provided resource blob up to Juju.
-func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
-	uReq, err := api.NewUploadRequest(service, name, reader)
+func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) error {
+	uReq, err := api.NewUploadRequest(service, name, filename, reader)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -136,7 +136,7 @@ func (c Client) AddPendingResources(serviceID string, resources []charmresource.
 // AddPendingResource sends the provided resource blob up to Juju
 // without making it available yet. For example, AddPendingResource()
 // is used before the service is deployed.
-func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, reader io.ReadSeeker) (pendingID string, err error) {
+func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	ids, err := c.AddPendingResources(serviceID, []charmresource.Resource{res})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -144,7 +144,7 @@ func (c Client) AddPendingResource(serviceID string, res charmresource.Resource,
 	pendingID = ids[0]
 
 	if reader != nil {
-		uReq, err := api.NewUploadRequest(serviceID, res.Name, reader)
+		uReq, err := api.NewUploadRequest(serviceID, res.Name, filename, reader)
 		if err != nil {
 			return "", errors.Trace(err)
 		}

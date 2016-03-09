@@ -73,7 +73,7 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 		Meta:   du.resources["upload"],
 		Origin: charmresource.OriginUpload,
 	}
-	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, deps.ReadSeekCloser)
+	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
 }
 
 func (s DeploySuite) TestUploadUnexpectedResource(c *gc.C) {
@@ -141,8 +141,8 @@ func (s uploadDeps) AddPendingResources(serviceID string, resources []charmresou
 	return ids, nil
 }
 
-func (s uploadDeps) AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error) {
-	s.stub.AddCall("AddPendingResource", serviceID, resource, r)
+func (s uploadDeps) AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
+	s.stub.AddCall("AddPendingResource", serviceID, resource, filename, r)
 	if err := s.stub.NextErr(); err != nil {
 		return "", err
 	}
