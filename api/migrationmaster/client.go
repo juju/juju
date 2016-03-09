@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
 
@@ -16,6 +17,10 @@ type Client interface {
 	// Watch returns a watcher which reports when a migration is
 	// active for the model associated with the API connection.
 	Watch() (watcher.MigrationMasterWatcher, error)
+
+	// SetPhase updates the phase of the currently active model
+	// migration.
+	SetPhase(migration.Phase) error
 }
 
 // NewClient returns a new Client based on an existing API connection.
@@ -40,4 +45,12 @@ func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
 	}
 	w := apiwatcher.NewMigrationMasterWatcher(c.caller.RawAPICaller(), result.NotifyWatcherId)
 	return w, nil
+}
+
+// SetPhase implements Client.
+func (c *client) SetPhase(phase migration.Phase) error {
+	args := params.SetMigrationPhaseArgs{
+		Phase: phase.String(),
+	}
+	return c.caller.FacadeCall("SetPhase", args, nil)
 }

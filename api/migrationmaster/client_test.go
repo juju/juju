@@ -14,6 +14,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -67,6 +68,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 				return
 			}
 		}
+
 		c.Assert(stub.Calls(), jc.DeepEquals, expectedCalls)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for watcher to die")
@@ -80,5 +82,32 @@ func (s *ClientSuite) TestWatchErr(c *gc.C) {
 
 	client := migrationmaster.NewClient(apiCaller)
 	_, err := client.Watch()
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestSetPhase(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller)
+
+	err := client.SetPhase(migration.QUIESCE)
+
+	c.Assert(err, jc.ErrorIsNil)
+	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.SetPhase", []interface{}{"", expectedArg}},
+	})
+}
+
+func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("boom")
+	})
+	client := migrationmaster.NewClient(apiCaller)
+
+	err := client.SetPhase(migration.QUIESCE)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
