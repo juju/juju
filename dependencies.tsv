@@ -24,7 +24,7 @@ github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-0
 github.com/juju/gomaasapi	git	e173bc8d8d3304ff11b0ded5f6d4eea0cb560a40	2016-01-19T00:14:25Z
 github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
-github.com/juju/httprequest	git	1015665b66c26101695f2f51407b3b1e000176fd	2015-10-07T14:02:54Z
+github.com/juju/httprequest	git	273244b6479b0c06c7bcf342eccefc55f3760653	2015-11-18T14:02:22Z
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
 github.com/juju/names	git	0fa6e46604f432b3064b02b2160fc5e6056131b8	2016-01-22T05:59:08Z
 github.com/juju/persistent-cookiejar	git	fa866b33e350f6357a566d1b4f1c09c5493cfbdb	2016-02-22T17:00:27Z
@@ -35,9 +35,10 @@ github.com/juju/romulus	git	90860c5f2f755a1d36f4382112a78d8cd65ffae4	2016-02-24T
 github.com/juju/schema	git	47d9b102199f4c67e5bfb28eb07bbe39411754fe	2016-01-19T21:19:26Z
 github.com/juju/testing	git	321edad6b2d1ccac4af9ee05c25b8ad734d40546	2016-02-01T15:50:06Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	6a56fe5cf0ae360cb6bf19f287289eaf9e28aea9	2015-12-11T00:56:23Z
+github.com/juju/utils	git	0cac78a34dd1c42d2f2dc718c345fd13e3a264fc	2016-01-29T15:50:19Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
-github.com/julienschmidt/httprouter	git	109e267447e95ad1bb48b758e40dd7453eb7b039	2015-09-05T17:25:33Z
+github.com/juju/zip	git	f6b1e93fa2e29a1d7d49b566b2b51efb060c982a	2016-02-05T10:52:21Z
+github.com/julienschmidt/httprouter	git	77a895ad01ebc98a4dc95d8355bc825ce80a56f6	2015-10-13T22:55:20Z
 github.com/lxc/lxd	git	e471e1b8d18d1477f5c421e5de3ba2cfa0684290	2016-02-18T03:41:21Z
 github.com/mattn/go-colorable	git	40e4aedc8fabf8c23e040057540867186712faa5	2015-06-25T15:46:42Z
 github.com/mattn/go-runewidth	git	d96d1bd051f2bd9e7e43d602782b37b93b1b5666	2015-11-18T07:21:59Z
@@ -48,7 +49,7 @@ golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:0
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	eeb872b6f9d1da6e1ab7bcffe3ffc33e20c3b213	2016-01-25T18:30:43Z
-gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
+gopkg.in/check.v1	git	4f90aeace3a26ad7021961c297b22c42160c7b25	2016-01-05T16:49:36Z
 gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
 gopkg.in/goose.v1	git	33121bddecedb2c9f9053c5c84ee729c379ab5ac	2015-11-13T22:25:24Z
 gopkg.in/inconshreveable/log15.v2	git	b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f	2015-09-21T21:38:54Z
@@ -56,10 +57,10 @@ gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41
 gopkg.in/juju/charm.v6-unstable	git	a53382ef6e1940abf20f1150bd203d0d57ac1a44	2016-02-09T19:49:50Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
 gopkg.in/juju/charmrepo.v2-unstable	git	e92eb5c71c77c8d580b9abd9c22c68bd8e4457ea	2016-02-24T15:47:14Z
-gopkg.in/juju/charmstore.v5-unstable	git	c727ba087ec577cd0f9d0eca475279992e7a626f	2015-12-16T15:38:24Z
+gopkg.in/juju/charmstore.v5-unstable	git	1f2f057fa5bc2a9a511e120375c0d5fb1cacfcf7	2016-03-01T18:15:12Z
 gopkg.in/juju/environschema.v1	git	7bea6a9a531586600a7741e9bdd5e3c978ffda15	2015-10-20T16:12:31Z
-gopkg.in/juju/jujusvg.v1	git	2c97ff517dee12dc48bb3c2d2b113e5045a75b71	2015-11-19T14:54:17Z
-gopkg.in/macaroon-bakery.v1	git	7b63aca524cc3f7b1ad0171e54cb78b33ce1e747	2015-12-01T10:11:23Z
+gopkg.in/juju/jujusvg.v1	git	a60359df348ef2ca40ec3bcd58a01de54f05658e	2016-02-11T10:02:50Z
+gopkg.in/macaroon-bakery.v1	git	a165ebf9a2ce170e430ee2360dab11c70c22062c	2016-01-19T15:40:20Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	4d04138ffef2791c479c0c8bbffc30b34081b8d9	2015-10-26T16:34:53Z
 gopkg.in/natefinch/lumberjack.v2	git	588a21fb0fa0ebdfde42670fa214576b6f0f22df	2015-05-21T01:59:18Z
