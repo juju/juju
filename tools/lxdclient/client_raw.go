@@ -62,10 +62,8 @@ type rawImageMethods interface {
 	//PutImageProperties(name string, p shared.ImageProperties) error
 
 	// image data (create, upload, download, destroy)
-	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool, progressHandler func(string)) error
+	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool, autoUpdate bool, progresHandler func(string)) error
 	ImageFromContainer(cname string, public bool, aliases []string, properties map[string]string) (string, error)
-	PostImage(imageFile string, rootfsFile string, properties []string, public bool, aliases []string) (string, error)
-	ExportImage(image string, target string) (*lxd.Response, string, error)
 	DeleteImage(image string) error
 }
 
@@ -90,7 +88,7 @@ type rawContainerMethods interface {
 	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	LocalCopy(source string, name string, config map[string]string, profiles []string, ephemeral bool) (*lxd.Response, error)
 	MigrateFrom(name string, operation string, certificate string, secrets map[string]string, architecture string, config map[string]string, devices shared.Devices, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
-	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
+	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
 	// exec
