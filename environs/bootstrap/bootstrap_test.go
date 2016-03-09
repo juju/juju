@@ -293,7 +293,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot open Juju GUI archive: open /no/such/file: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot open Juju GUI archive: .*")
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {

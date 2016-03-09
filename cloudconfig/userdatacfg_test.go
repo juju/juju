@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -164,7 +165,7 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 // setGUI populates the configuration with the Juju GUI tools.
 func (cfg *testInstanceConfig) setGUI(path string) *testInstanceConfig {
 	cfg.GUI = &tools.GUIArchive{
-		URL:     "file://" + path,
+		URL:     "file://" + filepath.ToSlash(path),
 		Version: version.MustParse("1.2.3"),
 		Size:    42,
 		SHA256:  "1234",
@@ -681,7 +682,7 @@ func (*cloudinitSuite) TestCloudInitWithGUIError(c *gc.C) {
 	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, "cannot fetch Juju GUI: cannot read Juju GUI archive: open /path/to/gui.tar.bz2: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "cannot fetch Juju GUI: cannot read Juju GUI archive: .*")
 }
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
