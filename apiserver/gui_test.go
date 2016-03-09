@@ -151,7 +151,7 @@ var guiHandlerTests = []struct {
 		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
-	expectedError:  `cannot parse template: template: index.html.go:1: unexpected ".47" in operand`,
+	expectedError:  `cannot parse template: template: index.html.go:1: unexpected ".47" .*`,
 }, {
 	about: "index: invalid template and context",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
@@ -180,7 +180,7 @@ var guiHandlerTests = []struct {
 	},
 	pathAndquery:   "/config.js",
 	expectedStatus: http.StatusInternalServerError,
-	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" in operand`,
+	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" .*`,
 }, {
 	about: "config: invalid hash",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {

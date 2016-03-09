@@ -70,10 +70,10 @@ func handleGUI(mux *pat.PatternServeMux, pattern string, dataDir string, ctxt ht
 	guiHandleAll := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
 		handleAll(mux, pattern, gr.ensureFileHandler(h))
 	}
-	hashedPattern := pattern + ":hash/"
-	guiHandleAll(hashedPattern+"config.js", (*guiHandler).serveConfig)
-	guiHandleAll(hashedPattern+"combo", (*guiHandler).serveCombo)
-	guiHandleAll(hashedPattern+"static/", (*guiHandler).serveStatic)
+	hashedPattern := pattern + ":hash"
+	guiHandleAll(hashedPattern+"/config.js", (*guiHandler).serveConfig)
+	guiHandleAll(hashedPattern+"/combo", (*guiHandler).serveCombo)
+	guiHandleAll(hashedPattern+"/static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
 	guiHandleAll(pattern, (*guiHandler).serveIndex)
@@ -163,8 +163,8 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 // guiVersionAndHash returns the version and the SHA256 hash of the current
 // Juju GUI archive.
 func guiVersionAndHash(storage binarystorage.Storage) (vers, hash string, err error) {
-	// TODO frankban: retrieve current GUI version from somewhere. For now
-	// just assume we have a single version in the storage.
+	// TODO frankban: retrieve current GUI version from somewhere.
+	// For now, just return an arbitrary version from the storage.
 	allMeta, err := storage.AllMetadata()
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot retrieve GUI metadata")
