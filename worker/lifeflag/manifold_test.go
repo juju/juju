@@ -8,12 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type WorkerSuite struct {
+type ManifoldSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+var _ = gc.Suite(&ManifoldSuite{})
 
-func (*WorkerSuite) TestFatal(c *gc.C) {
+func (*ManifoldSuite) TestFatal(c *gc.C) {
 	c.Fatalf("xxx")
 }
