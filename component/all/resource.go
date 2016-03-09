@@ -97,6 +97,7 @@ func (resources) registerState() {
 
 	corestate.SetResourcesComponent(resourceadapters.NewResourceState)
 	corestate.SetResourcesPersistence(resourceadapters.NewResourcePersistence)
+	corestate.RegisterCleanupHandler(corestate.CleanupKindResourceBlob, resourceadapters.CleanUpBlob)
 }
 
 // registerPublicCommands adds the resources-related commands
