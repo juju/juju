@@ -7,7 +7,7 @@
 // TODO(natefinch) remove this once we support building on go 1.6 for all platforms.
 // This code was copied from the Go 1.6 sourcecode.
 
-package api
+package mime
 
 import (
 	"strings"

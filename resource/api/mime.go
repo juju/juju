@@ -28,3 +28,11 @@ func formatMediaType(t string, param map[string]string) string {
 func parseMediaType(v string) (mediatype string, params map[string]string, err error) {
 	return mime.ParseMediaType(v)
 }
+
+func getEncoder() encoder {
+	return mime.BEncoding
+}
+
+func getDecoder() decoder {
+	return &mime.WordDecoder{}
+}

@@ -7,7 +7,7 @@
 // TODO(natefinch) remove this once we support building on go 1.6 for all platforms.
 // This code was copied from the Go 1.6 sourcecode.
 
-package api
+package mime
 
 import (
 	"bytes"
@@ -18,12 +18,12 @@ import (
 	"unicode"
 )
 
-// formatMediaType serializes mediatype t and the parameters
+// FormatMediaType serializes mediatype t and the parameters
 // param as a media type conforming to RFC 2045 and RFC 2616.
 // The type and parameter names are written in lower-case.
 // When any of the arguments result in a standard violation then
-// formatMediaType returns the empty string.
-func formatMediaType(t string, param map[string]string) string {
+// FormatMediaType returns the empty string.
+func FormatMediaType(t string, param map[string]string) string {
 	var b bytes.Buffer
 	if slash := strings.Index(t, "/"); slash == -1 {
 		if !isToken(t) {
@@ -99,14 +99,14 @@ func checkMediaTypeDisposition(s string) error {
 	return nil
 }
 
-// parseMediaType parses a media type value and any optional
+// ParseMediaType parses a media type value and any optional
 // parameters, per RFC 1521.  Media types are the values in
 // Content-Type and Content-Disposition headers (RFC 2183).
-// On success, parseMediaType returns the media type converted
+// On success, ParseMediaType returns the media type converted
 // to lowercase and trimmed of white space and a non-nil map.
 // The returned map, params, maps from the lowercase
 // attribute to the attribute value with its case preserved.
-func parseMediaType(v string) (mediatype string, params map[string]string, err error) {
+func ParseMediaType(v string) (mediatype string, params map[string]string, err error) {
 	i := strings.Index(v, ";")
 	if i == -1 {
 		i = len(v)

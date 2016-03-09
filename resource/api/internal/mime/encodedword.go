@@ -7,7 +7,7 @@
 // TODO(natefinch) remove this once we support building on go 1.6 for all platforms.
 // This code was copied from the Go 1.6 sourcecode.
 
-package api
+package mime
 
 import (
 	"bytes"
@@ -21,14 +21,14 @@ import (
 	"unicode/utf8"
 )
 
-// A wordEncoder is a RFC 2047 encoded-word encoder.
-type wordEncoder byte
+// A WordEncoder is a RFC 2047 encoded-word encoder.
+type WordEncoder byte
 
 const (
 	// BEncoding represents Base64 encoding scheme as defined by RFC 2045.
-	bEncoding = wordEncoder('b')
+	BEncoding = WordEncoder('b')
 	// QEncoding represents the Q-encoding scheme as defined by RFC 2047.
-	qEncoding = wordEncoder('q')
+	QEncoding = WordEncoder('q')
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 // Encode returns the encoded-word form of s. If s is ASCII without special
 // characters, it is returned unchanged. The provided charset is the IANA
 // charset name of s. It is case insensitive.
-func (e wordEncoder) Encode(charset, s string) string {
+func (e WordEncoder) Encode(charset, s string) string {
 	if !needsEncoding(s) {
 		return s
 	}
@@ -55,12 +55,12 @@ func needsEncoding(s string) bool {
 }
 
 // encodeWord encodes a string into an encoded-word.
-func (e wordEncoder) encodeWord(charset, s string) string {
+func (e WordEncoder) encodeWord(charset, s string) string {
 	buf := getBuffer()
 	defer putBuffer(buf)
 
 	e.openWord(buf, charset)
-	if e == bEncoding {
+	if e == BEncoding {
 		e.bEncode(buf, charset, s)
 	} else {
 		e.qEncode(buf, charset, s)
@@ -82,7 +82,7 @@ const (
 var maxBase64Len = base64.StdEncoding.DecodedLen(maxContentLen)
 
 // bEncode encodes s using base64 encoding and writes it to buf.
-func (e wordEncoder) bEncode(buf *bytes.Buffer, charset, s string) {
+func (e WordEncoder) bEncode(buf *bytes.Buffer, charset, s string) {
 	w := base64.NewEncoder(base64.StdEncoding, buf)
 	// If the charset is not UTF-8 or if the content is short, do not bother
 	// splitting the encoded-word.
@@ -114,7 +114,7 @@ func (e wordEncoder) bEncode(buf *bytes.Buffer, charset, s string) {
 
 // qEncode encodes s using Q encoding and writes it to buf. It splits the
 // encoded-words when necessary.
-func (e wordEncoder) qEncode(buf *bytes.Buffer, charset, s string) {
+func (e WordEncoder) qEncode(buf *bytes.Buffer, charset, s string) {
 	// We only split encoded-words when the charset is UTF-8.
 	if !isUTF8(charset) {
 		writeQString(buf, s)
@@ -160,7 +160,7 @@ func writeQString(buf *bytes.Buffer, s string) {
 }
 
 // openWord writes the beginning of an encoded-word into buf.
-func (e wordEncoder) openWord(buf *bytes.Buffer, charset string) {
+func (e WordEncoder) openWord(buf *bytes.Buffer, charset string) {
 	buf.WriteString("=?")
 	buf.WriteString(charset)
 	buf.WriteByte('?')
@@ -174,7 +174,7 @@ func closeWord(buf *bytes.Buffer) {
 }
 
 // splitWord closes the current encoded-word and opens a new one.
-func (e wordEncoder) splitWord(buf *bytes.Buffer, charset string) {
+func (e WordEncoder) splitWord(buf *bytes.Buffer, charset string) {
 	closeWord(buf)
 	buf.WriteByte(' ')
 	e.openWord(buf, charset)
@@ -186,8 +186,8 @@ func isUTF8(charset string) bool {
 
 const upperhex = "0123456789ABCDEF"
 
-// A wordDecoder decodes MIME headers containing RFC 2047 encoded-words.
-type wordDecoder struct {
+// A WordDecoder decodes MIME headers containing RFC 2047 encoded-words.
+type WordDecoder struct {
 	// CharsetReader, if non-nil, defines a function to generate
 	// charset-conversion readers, converting from the provided
 	// charset into UTF-8.
@@ -198,7 +198,7 @@ type wordDecoder struct {
 }
 
 // Decode decodes an RFC 2047 encoded-word.
-func (d *wordDecoder) Decode(word string) (string, error) {
+func (d *WordDecoder) Decode(word string) (string, error) {
 	if !strings.HasPrefix(word, "=?") || !strings.HasSuffix(word, "?=") || strings.Count(word, "?") != 4 {
 		return "", errInvalidWord
 	}
@@ -233,7 +233,7 @@ func (d *wordDecoder) Decode(word string) (string, error) {
 
 // DecodeHeader decodes all encoded-words of the given string. It returns an
 // error if and only if CharsetReader of d returns an error.
-func (d *wordDecoder) DecodeHeader(header string) (string, error) {
+func (d *WordDecoder) DecodeHeader(header string) (string, error) {
 	// If there is no encoded-word, returns before creating a buffer.
 	i := strings.Index(header, "=?")
 	if i == -1 {
@@ -319,7 +319,7 @@ func decode(encoding byte, text string) ([]byte, error) {
 	}
 }
 
-func (d *wordDecoder) convert(buf *bytes.Buffer, charset string, content []byte) error {
+func (d *WordDecoder) convert(buf *bytes.Buffer, charset string, content []byte) error {
 	switch {
 	case strings.EqualFold("utf-8", charset):
 		buf.Write(content)
