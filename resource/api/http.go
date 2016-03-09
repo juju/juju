@@ -40,26 +40,22 @@ const (
 )
 
 const (
-	// ContentType is the header name for the type of a file upload.
-	ContentType = "Content-Type"
-	// ContentSha384 is the header name for the sha hash of a file upload.
-	ContentSha384 = "Content-Sha384"
-	// ContentLength is the header name for the length of a file upload.
-	ContentLength = "Content-Length"
-	// ContentDisposition is the header name for value that holds the filename.
+	// HeaderContentType is the header name for the type of a file upload.
+	HeaderContentType = "Content-Type"
+	// HeaderContentSha384 is the header name for the sha hash of a file upload.
+	HeaderContentSha384 = "Content-Sha384"
+	// HeaderContentLength is the header name for the length of a file upload.
+	HeaderContentLength = "Content-Length"
+	// HeaderContentDisposition is the header name for value that holds the filename.
 	// The params are formatted according to  RFC 2045 and RFC 2616 (see
 	// mime.ParseMediaType and mime.FormatMediaType).
-	ContentDisposition = "Content-Disposition"
+	HeaderContentDisposition = "Content-Disposition"
 )
 
 const (
 	// MediaTypeFormData is the media type for file uploads (see
 	// mime.FormatMediaType).
 	MediaTypeFormData = "form-data"
-	// MediaTypeParamFilename is the name of the parameter that contains the
-	// name of the file being uploaded (see mime.FormatMediaType).
-	MediaTypeParamFilename = "filename"
-
 	// QueryParamPendingID is the query parameter we use to send up the pending id.
 	QueryParamPendingID = "pendingid"
 )

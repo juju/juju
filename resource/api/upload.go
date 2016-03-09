@@ -62,21 +62,21 @@ func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRe
 func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	var ur UploadRequest
 
-	if req.Header.Get(ContentLength) == "" {
-		req.Header.Set(ContentLength, fmt.Sprint(req.ContentLength))
+	if req.Header.Get(HeaderContentLength) == "" {
+		req.Header.Set(HeaderContentLength, fmt.Sprint(req.ContentLength))
 	}
 
-	ctype := req.Header.Get(ContentType)
+	ctype := req.Header.Get(HeaderContentType)
 	if ctype != ContentTypeRaw {
 		return ur, errors.Errorf("unsupported content type %q", ctype)
 	}
 
 	service, name := ExtractEndpointDetails(req.URL)
-	fingerprint := req.Header.Get(ContentSha384) // This parallels "Content-MD5".
-	sizeRaw := req.Header.Get(ContentLength)
+	fingerprint := req.Header.Get(HeaderContentSha384) // This parallels "Content-MD5".
+	sizeRaw := req.Header.Get(HeaderContentLength)
 	pendingID := req.URL.Query().Get(QueryParamPendingID)
 
-	disp := req.Header.Get(ContentDisposition)
+	disp := req.Header.Get(HeaderContentDisposition)
 
 	// the first value is the media type name (e.g. "form-data"), but we don't
 	// really care.
@@ -84,7 +84,8 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	if err != nil {
 		return ur, errors.Annotate(err, "badly formatted Content-Disposition")
 	}
-	param, ok := vals[MediaTypeParamFilename]
+
+	param, ok := vals[filenameParamForContentDispositionHeader]
 	if !ok {
 		return ur, errors.Errorf("missing filename in resource upload request")
 	}
@@ -127,6 +128,16 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	return ur, nil
 }
 
+// filenameParamForContentDispositionHeader is the name of the parameter that
+// contains the name of the file being uploaded, see mime.FormatMediaType and
+// RFC 1867 (http://tools.ietf.org/html/rfc1867):
+//
+//   The original local file name may be supplied as well, either as a
+//  'filename' parameter either of the 'content-disposition: form-data'
+//   header or in the case of multiple files in a 'content-disposition:
+//   file' header of the subpart.
+const filenameParamForContentDispositionHeader = "filename"
+
 // HTTPRequest generates a new HTTP request.
 func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
@@ -138,15 +149,18 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 		return nil, errors.Trace(err)
 	}
 
-	req.Header.Set(ContentType, ContentTypeRaw)
-	req.Header.Set(ContentSha384, ur.Fingerprint.String())
-	req.Header.Set(ContentLength, fmt.Sprint(ur.Size))
+	req.Header.Set(HeaderContentType, ContentTypeRaw)
+	req.Header.Set(HeaderContentSha384, ur.Fingerprint.String())
+	req.Header.Set(HeaderContentLength, fmt.Sprint(ur.Size))
 
 	filename := encodeParam(ur.Filename)
 
-	disp := formatMediaType(MediaTypeFormData, map[string]string{MediaTypeParamFilename: filename})
+	disp := formatMediaType(
+		MediaTypeFormData,
+		map[string]string{filenameParamForContentDispositionHeader: filename},
+	)
 
-	req.Header.Set(ContentDisposition, disp)
+	req.Header.Set(HeaderContentDisposition, disp)
 	req.ContentLength = ur.Size
 
 	if ur.PendingID != "" {
