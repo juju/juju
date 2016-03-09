@@ -18,10 +18,12 @@ type services struct {
 }
 
 type service struct {
-	Name_        string `yaml:"name"`
-	Series_      string `yaml:"series"`
-	Subordinate_ bool   `yaml:"subordinate,omitempty"`
-	CharmURL_    string `yaml:"charm-url"`
+	Name_                 string `yaml:"name"`
+	Series_               string `yaml:"series"`
+	Subordinate_          bool   `yaml:"subordinate,omitempty"`
+	CharmURL_             string `yaml:"charm-url"`
+	CharmModifiedVersion_ int    `yaml:"charm-mod-version"`
+
 	// ForceCharm is true if an upgrade charm is forced.
 	// It means upgrade even if the charm is in an error state.
 	ForceCharm_ bool `yaml:"force-charm,omitempty"`
@@ -50,34 +52,36 @@ type service struct {
 
 // ServiceArgs is an argument struct used to add a service to the Model.
 type ServiceArgs struct {
-	Tag                names.ServiceTag
-	Series             string
-	Subordinate        bool
-	CharmURL           string
-	ForceCharm         bool
-	Exposed            bool
-	MinUnits           int
-	Settings           map[string]interface{}
-	SettingsRefCount   int
-	LeadershipSettings map[string]interface{}
-	MetricsCredentials []byte
+	Tag                  names.ServiceTag
+	Series               string
+	Subordinate          bool
+	CharmURL             string
+	CharmModifiedVersion int
+	ForceCharm           bool
+	Exposed              bool
+	MinUnits             int
+	Settings             map[string]interface{}
+	SettingsRefCount     int
+	LeadershipSettings   map[string]interface{}
+	MetricsCredentials   []byte
 }
 
 func newService(args ServiceArgs) *service {
 	creds := base64.StdEncoding.EncodeToString(args.MetricsCredentials)
 	svc := &service{
-		Name_:               args.Tag.Id(),
-		Series_:             args.Series,
-		Subordinate_:        args.Subordinate,
-		CharmURL_:           args.CharmURL,
-		ForceCharm_:         args.ForceCharm,
-		Exposed_:            args.Exposed,
-		MinUnits_:           args.MinUnits,
-		Settings_:           args.Settings,
-		SettingsRefCount_:   args.SettingsRefCount,
-		LeadershipSettings_: args.LeadershipSettings,
-		MetricsCredentials_: creds,
-		statusHistory:       newStatusHistory(),
+		Name_:                 args.Tag.Id(),
+		Series_:               args.Series,
+		Subordinate_:          args.Subordinate,
+		CharmURL_:             args.CharmURL,
+		CharmModifiedVersion_: args.CharmModifiedVersion,
+		ForceCharm_:           args.ForceCharm,
+		Exposed_:              args.Exposed,
+		MinUnits_:             args.MinUnits,
+		Settings_:             args.Settings,
+		SettingsRefCount_:     args.SettingsRefCount,
+		LeadershipSettings_:   args.LeadershipSettings,
+		MetricsCredentials_:   creds,
+		statusHistory:         newStatusHistory(),
 	}
 	svc.setUnits(nil)
 	return svc
@@ -106,6 +110,11 @@ func (s *service) Subordinate() bool {
 // CharmURL implements Service.
 func (s *service) CharmURL() string {
 	return s.CharmURL_
+}
+
+// CharmModifiedVersion implements Service.
+func (s *service) CharmModifiedVersion() int {
+	return s.CharmModifiedVersion_
 }
 
 // ForceCharm implements Service.
@@ -268,6 +277,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"series":              schema.String(),
 		"subordinate":         schema.Bool(),
 		"charm-url":           schema.String(),
+		"charm-mod-version":   schema.Int(),
 		"force-charm":         schema.Bool(),
 		"exposed":             schema.Bool(),
 		"min-units":           schema.Int(),
@@ -299,17 +309,18 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 	result := &service{
-		Name_:               valid["name"].(string),
-		Series_:             valid["series"].(string),
-		Subordinate_:        valid["subordinate"].(bool),
-		CharmURL_:           valid["charm-url"].(string),
-		ForceCharm_:         valid["force-charm"].(bool),
-		Exposed_:            valid["exposed"].(bool),
-		MinUnits_:           int(valid["min-units"].(int64)),
-		Settings_:           valid["settings"].(map[string]interface{}),
-		SettingsRefCount_:   int(valid["settings-refcount"].(int64)),
-		LeadershipSettings_: valid["leadership-settings"].(map[string]interface{}),
-		statusHistory:       newStatusHistory(),
+		Name_:                 valid["name"].(string),
+		Series_:               valid["series"].(string),
+		Subordinate_:          valid["subordinate"].(bool),
+		CharmURL_:             valid["charm-url"].(string),
+		CharmModifiedVersion_: int(valid["charm-mod-version"].(int64)),
+		ForceCharm_:           valid["force-charm"].(bool),
+		Exposed_:              valid["exposed"].(bool),
+		MinUnits_:             int(valid["min-units"].(int64)),
+		Settings_:             valid["settings"].(map[string]interface{}),
+		SettingsRefCount_:     int(valid["settings-refcount"].(int64)),
+		LeadershipSettings_:   valid["leadership-settings"].(map[string]interface{}),
+		statusHistory:         newStatusHistory(),
 	}
 	result.importAnnotations(valid)
 	if err := result.importStatusHistory(valid); err != nil {
