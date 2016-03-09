@@ -27,7 +27,7 @@ var _ = gc.Suite(&ClientSuite{})
 func (s *ClientSuite) TestWatch(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		stub.AddCall("call", objType, id, request, arg)
+		stub.AddCall(objType+"."+request, id, arg)
 		switch request {
 		case "Watch":
 			*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
@@ -54,11 +54,20 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	select {
 	case err := <-errC:
 		c.Assert(err, gc.ErrorMatches, "boom")
-		stub.CheckCalls(c, []jujutesting.StubCall{
-			{"call", []interface{}{"MigrationMaster", "", "Watch", nil}},
-			{"call", []interface{}{"MigrationMasterWatcher", "abc", "Next", nil}},
-			{"call", []interface{}{"MigrationMasterWatcher", "abc", "Stop", nil}},
-		})
+		expectedCalls := []jujutesting.StubCall{
+			{"MigrationMaster.Watch", []interface{}{"", nil}},
+			{"MigrationMasterWatcher.Next", []interface{}{"abc", nil}},
+			{"MigrationMasterWatcher.Stop", []interface{}{"abc", nil}},
+		}
+		// The Stop API call happens in a separate goroutine which
+		// might execute after the worker has exited so wait for the
+		// expected calls to arrive.
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			if len(stub.Calls()) >= len(expectedCalls) {
+				return
+			}
+		}
+		c.Assert(stub.Calls(), jc.DeepEquals, expectedCalls)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for watcher to die")
 	}
