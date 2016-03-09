@@ -424,17 +424,18 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	}
 
 	args := description.ServiceArgs{
-		Tag:                service.ServiceTag(),
-		Series:             service.doc.Series,
-		Subordinate:        service.doc.Subordinate,
-		CharmURL:           service.doc.CharmURL.String(),
-		ForceCharm:         service.doc.ForceCharm,
-		Exposed:            service.doc.Exposed,
-		MinUnits:           service.doc.MinUnits,
-		Settings:           serviceSettingsDoc.Settings,
-		SettingsRefCount:   refCount,
-		LeadershipSettings: leadershipSettingsDoc.Settings,
-		MetricsCredentials: service.doc.MetricCredentials,
+		Tag:                  service.ServiceTag(),
+		Series:               service.doc.Series,
+		Subordinate:          service.doc.Subordinate,
+		CharmURL:             service.doc.CharmURL.String(),
+		CharmModifiedVersion: service.doc.CharmModifiedVersion,
+		ForceCharm:           service.doc.ForceCharm,
+		Exposed:              service.doc.Exposed,
+		MinUnits:             service.doc.MinUnits,
+		Settings:             serviceSettingsDoc.Settings,
+		SettingsRefCount:     refCount,
+		LeadershipSettings:   leadershipSettingsDoc.Settings,
+		MetricsCredentials:   service.doc.MetricCredentials,
 	}
 	exService := e.model.AddService(args)
 	// Find the current service status.
