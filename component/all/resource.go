@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
