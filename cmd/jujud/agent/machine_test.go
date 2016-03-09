@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/cmd"
@@ -40,11 +39,8 @@ import (
 	"github.com/juju/juju/api"
 	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
-	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
-	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
-	apiundertaker "github.com/juju/juju/api/undertaker"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -73,7 +69,6 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
@@ -84,7 +79,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var (
@@ -544,9 +538,6 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "txnpruner")
 
-	r1 := s.singularRecord.nextRunner(c)
-	r1.waitForWorkers(c, perEnvSingularWorkers)
-
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
 
@@ -560,28 +551,15 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 
-	// Wait for the instance id to show up in the state.
+	// Wait for the instance id to show up in the state, then induce
+	// the firewaller to do something as well.
 	s.waitProvisioned(c, units[0])
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), gc.NotNil)
-
-	// Check that the metrics workers have started by adding metrics
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for metric cleanup API to be called")
-	case <-s.metricAPI.CleanupCalled():
-	}
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for metric sender API to be called")
-	case <-s.metricAPI.SendCalled():
-	}
 
 	err = a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
@@ -603,83 +581,10 @@ func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	go func() {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
-
-	// Wait for the worker that starts before the resumer to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
 	started.assertTriggered(c, "resumer worker to start")
 }
 
-func (s *MachineSuite) TestManageModelStartsInstancePoller(c *gc.C) {
-	started := newSignal()
-	s.AgentSuite.PatchValue(&newInstancePoller, func(st *apiinstancepoller.API) (worker.Worker, error) {
-		started.trigger()
-		return instancepoller.NewWorker(st)
-	})
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-
-	// Wait for the worker that starts before the instancepoller to
-	// start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "instancepoller")
-	started.assertTriggered(c, "instancepoller worker to start")
-}
-
-func (s *MachineSuite) TestManageModelStartsSpaceDiscovery(c *gc.C) {
-	started := newSignal()
-	s.AgentSuite.PatchValue(&newDiscoverSpaces, func(config discoverspaces.Config) (worker.Worker, error) {
-		started.trigger()
-		return workertest.NewErrorWorker(nil), nil
-	})
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-
-	// Wait for the worker that starts before the instancepoller to
-	// start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "discoverspaces")
-	started.assertTriggered(c, "discoverspaces worker to start")
-}
-
 const startWorkerWait = 250 * time.Millisecond
-
-func (s *MachineSuite) TestManageModelDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
-	s.PatchValue(&getFirewallMode, func(api.Connection) (string, error) {
-		return config.FwNone, nil
-	})
-	started := newSignal()
-	s.AgentSuite.PatchValue(&newFirewaller, func(st *apifirewaller.State) (worker.Worker, error) {
-		started.trigger()
-		return newDummyWorker(), nil
-	})
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-
-	// Wait for the worker that starts before the firewaller to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
-	started.assertNotTriggered(c, startWorkerWait, "firewaller started")
-}
 
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
@@ -796,17 +701,6 @@ func (s *MachineSuite) TestManageModelRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.
 
 	runner := s.singularRecord.nextRunner(c)
 	runner.waitForWorker(c, "dblogpruner")
-}
-
-func (s *MachineSuite) TestManageModelRunsStatusHistoryPruner(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	_ = s.singularRecord.nextRunner(c)
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "statushistorypruner")
 }
 
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
@@ -1427,44 +1321,6 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	started.assertTriggered(c, "storage worker to start")
 }
 
-func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-
-	var numWorkers, machineWorkers, environWorkers uint32
-	started := newSignal()
-	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
-		c.Check(config.Validate(), jc.ErrorIsNil)
-		switch config.Scope {
-		case s.State.ModelTag():
-			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
-			atomic.AddUint32(&numWorkers, 1)
-		case m.Tag():
-			c.Check(atomic.AddUint32(&machineWorkers, 1), gc.Equals, uint32(1))
-			atomic.AddUint32(&numWorkers, 1)
-		default:
-			c.Errorf("unexpected scope %v", config.Scope)
-		}
-		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
-			started.trigger()
-		}
-		return worker.NewNoOpWorker(), nil
-	}
-	s.PatchValue(&newStorageWorker, newWorker)
-
-	// Start the machine agent.
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for worker to be started.
-	select {
-	case <-started.triggered():
-		c.Assert(atomic.LoadUint32(&numWorkers), gc.Equals, uint32(2))
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for storage worker to start")
-	}
-}
-
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(c *gc.C) {
 	started := newSignal()
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
@@ -1741,36 +1597,12 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
-func (s *MachineSuite) TestNewModelStartsNewWorkers(c *gc.C) {
-	_, closer := s.setUpNewModel(c)
-	defer closer()
-	expectedWorkers, closer := s.setUpAgent(c)
-	defer closer()
-
-	r1 := s.singularRecord.nextRunner(c)
-	workers := r1.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.SameContents, expectedWorkers)
+func (s *MachineSuite) TestNewModelRunsWorkers(c *gc.C) {
+	c.Fatalf("write me")
 }
 
-func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
-	st, closer := s.setUpNewModel(c)
-	defer closer()
-
-	// Check that newStorageWorker is called and the model tag is scoped to
-	// that of the new environment tag.
-	started := newSignal()
-	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
-		c.Check(config.Validate(), jc.ErrorIsNil)
-		if config.Scope == st.ModelTag() {
-			started.trigger()
-		}
-		return worker.NewNoOpWorker(), nil
-	}
-	s.PatchValue(&newStorageWorker, newWorker)
-
-	_, closer = s.setUpAgent(c)
-	defer closer()
-	started.assertTriggered(c, "storage worker to start")
+func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
+	c.Fatalf("write me")
 }
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
@@ -1802,11 +1634,7 @@ func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer fun
 
 	_ = s.singularRecord.nextRunner(c) // Don't care about this one for this test.
 
-	// Wait for the workers for the initial env to start. The
-	// firewaller is the last worker started for a new environment.
-	r0 := s.singularRecord.nextRunner(c)
-	workers := r0.waitForWorker(c, "firewaller")
-	c.Assert(workers, jc.SameContents, expectedWorkers)
+	// XXX worth waiting for all workers here?
 
 	return expectedWorkers, func() {
 		c.Check(a.Stop(), jc.ErrorIsNil)
@@ -1866,40 +1694,6 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
-}
-
-func (s *MachineSuite) TestManageModelRunsUndertaker(c *gc.C) {
-	started := make(chan struct{})
-	s.AgentSuite.PatchValue(&getUndertakerAPI, func(st api.Connection) apiundertaker.UndertakerClient {
-		close(started)
-		return apiundertaker.NewClient(st)
-	})
-
-	st, closer := s.setUpNewModel(c)
-	defer closer()
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-
-	// controller workers.
-	_ = s.singularRecord.nextRunner(c)
-	// new environ workers.
-	_ = s.singularRecord.nextRunner(c)
-
-	env, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
-
-	// controller workers.
-	_ = s.singularRecord.nextRunner(c)
-	// new environ workers.
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "undertaker")
-	s.assertChannelActive(c, started, "undertaker worker to start")
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
