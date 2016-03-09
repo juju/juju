@@ -43,7 +43,7 @@ func (s *apiEnvironmentSuite) TearDownTest(c *gc.C) {
 func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 	user := names.NewUserTag("foo@ubuntuone")
 
-	err := s.client.ShareModel(user)
+	err := s.client.ShareModel("", user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := s.State.ModelUser(user)
@@ -58,7 +58,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
 	// Firt share an environment with a user.
 	user := names.NewUserTag("foo@ubuntuone")
-	err := s.client.ShareModel(user)
+	err := s.client.ShareModel("", user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := s.State.ModelUser(user)

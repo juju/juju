@@ -232,7 +232,34 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
+func (s *clientSuite) TestShareModelReadOnlyUser(c *gc.C) {
+	client := s.APIState.Client()
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 1)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddModelUser))
+				c.Logf(string(users.Changes[0].Access), gc.Equals, string(params.ModelAdminAccess))
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	err := client.ShareModel("", s.Factory.MakeModelUser(c, nil).UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = client.ShareModel("read", s.Factory.MakeModelUser(c, nil).UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) TestShareModelExistingUser(c *gc.C) {
 	client := s.APIState.Client()
 	user := s.Factory.MakeModelUser(c, nil)
 	cleanup := api.PatchClientFacadeCall(client,
@@ -240,6 +267,7 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 1)
 				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddModelUser))
+				c.Logf(string(users.Changes[0].Access), gc.Equals, string(params.ModelReadAccess))
 				c.Logf(users.Changes[0].UserTag, gc.Equals, user.UserTag().String())
 			} else {
 				c.Fatalf("wrong input structure")
@@ -258,10 +286,37 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.ShareModel(user.UserTag())
+	err := client.ShareModel("", user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	logMsg := fmt.Sprintf("WARNING juju.api model is already shared with %s", user.UserName())
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
+}
+
+func (s *clientSuite) TestShareModelAdminUser(c *gc.C) {
+	client := s.APIState.Client()
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 1)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddModelUser))
+				c.Logf(string(users.Changes[0].Access), gc.Equals, string(params.ModelAdminAccess))
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	err := client.ShareModel("admin", s.Factory.MakeModelUser(c, nil).UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = client.ShareModel("write", s.Factory.MakeModelUser(c, nil).UserTag())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
@@ -280,7 +335,7 @@ func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
+func (s *clientSuite) TestShareModelThreeUsers(c *gc.C) {
 	client := s.APIState.Client()
 	existingUser := s.Factory.MakeModelUser(c, nil)
 	localUser := s.Factory.MakeUser(c, nil)
@@ -289,11 +344,12 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 		func(request string, paramsIn interface{}, response interface{}) error {
 			if users, ok := paramsIn.(params.ModifyModelUsers); ok {
 				c.Assert(users.Changes, gc.HasLen, 3)
-				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.AddModelUser))
+				for i := range users.Changes {
+					c.Assert(string(users.Changes[i].Action), gc.Equals, string(params.AddModelUser))
+					c.Assert(string(users.Changes[i].Access), gc.Equals, string(params.ModelReadAccess))
+				}
 				c.Assert(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
-				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.AddModelUser))
 				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
-				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.AddModelUser))
 				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
 			} else {
 				c.Log("wrong input structure")
@@ -311,7 +367,7 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := client.ShareModel(existingUser.UserTag(), localUser.UserTag(), newUserTag)
+	err := client.ShareModel("", existingUser.UserTag(), localUser.UserTag(), newUserTag)
 	c.Assert(err, gc.ErrorMatches, `existing user`)
 }
 

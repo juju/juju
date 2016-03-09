@@ -99,6 +99,23 @@ func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	c.Assert(s.mockAPI.access, gc.Equals, "write")
+	c.Assert(s.mockAPI.models, gc.HasLen, 0)
+	expected := `
+User "foobar" added
+Please send this command to foobar:
+    juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
+func (s *UserAddCommandSuite) TestAddUserWithUsernameAndACL(c *gc.C) {
+	context, err := s.run(c, "--acl", "amazing", "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	c.Assert(s.mockAPI.access, gc.Equals, "amazing")
 	c.Assert(s.mockAPI.models, gc.HasLen, 0)
 	expected := `
 User "foobar" added
@@ -114,6 +131,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
+	c.Assert(s.mockAPI.access, gc.Equals, "write")
 	c.Assert(s.mockAPI.models, gc.HasLen, 0)
 	expected := `
 User "Foo Bar (foobar)" added
@@ -139,6 +157,7 @@ func (s *UserAddCommandSuite) TestAddUserWithSharedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	c.Assert(s.mockAPI.access, gc.Equals, "write")
 	c.Assert(s.mockAPI.models, gc.DeepEquals, []string{"modeluuid"})
 	expected := `
 User "foobar" added
@@ -174,16 +193,18 @@ type mockAddUserAPI struct {
 	username    string
 	displayname string
 	password    string
+	access      string
 	models      []string
 }
 
-func (m *mockAddUserAPI) AddUser(username, displayname, password string, models ...string) (names.UserTag, []byte, error) {
+func (m *mockAddUserAPI) AddUser(username, displayname, password, access string, models ...string) (names.UserTag, []byte, error) {
 	if m.blocked {
 		return names.UserTag{}, nil, common.OperationBlockedError("the operation has been blocked")
 	}
 	m.username = username
 	m.displayname = displayname
 	m.password = password
+	m.access = access
 	m.models = models
 	if m.failMessage != "" {
 		return names.UserTag{}, nil, errors.New(m.failMessage)

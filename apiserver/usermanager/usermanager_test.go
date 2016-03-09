@@ -56,7 +56,7 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
+func (s *userManagerSuite) assertAddUser(c *gc.C, access params.ModelAccessPermission, sharedModelTags []string) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
@@ -66,6 +66,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
 			DisplayName:     "Foo Bar",
 			Password:        "password",
 			SharedModelTags: sharedModelTags,
+			ModelAccess:     access,
 		}}}
 
 	result, err := s.usermanager.AddUser(args)
@@ -84,7 +85,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	s.assertAddUser(c, nil)
+	s.assertAddUser(c, params.ModelReadAccess, nil)
 }
 
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
@@ -118,11 +119,19 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
+func (s *userManagerSuite) TestAddReadOnlyUserWithSharedModel(c *gc.C) {
+	s.addUserWithSharedModel(c, params.ModelReadAccess)
+}
+
+func (s *userManagerSuite) TestAddAdminUserWithSharedModel(c *gc.C) {
+	s.addUserWithSharedModel(c, params.ModelAdminAccess)
+}
+
+func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.ModelAccessPermission) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
-	s.assertAddUser(c, []string{sharedModelState.ModelTag().String()})
+	s.assertAddUser(c, access, []string{sharedModelState.ModelTag().String()})
 
 	// Check that the model has been shared.
 	sharedModel, err := sharedModelState.Model()
@@ -132,6 +141,11 @@ func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()
+		if u.UserName() == "foobar" {
+			c.Assert(u.ReadOnly(), gc.Equals, access == params.ModelReadAccess)
+		} else if u.UserName() == "admin" {
+			c.Assert(u.ReadOnly(), gc.Equals, false)
+		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
 		names.NewLocalUserTag("foobar"),

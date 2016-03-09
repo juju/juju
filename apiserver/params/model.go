@@ -32,7 +32,7 @@ type ModifyModelUsers struct {
 	Changes []ModifyModelUser
 }
 
-// ModelAction is an action that can be preformed on a model.
+// ModelAction is an action that can be performed on a model.
 type ModelAction string
 
 // Actions that can be preformed on a model.
@@ -43,9 +43,20 @@ const (
 
 // ModifyModelUser stores the parameters used for a Client.ShareModel call.
 type ModifyModelUser struct {
-	UserTag string      `json:"user-tag"`
-	Action  ModelAction `json:"action"`
+	UserTag string                `json:"user-tag"`
+	Action  ModelAction           `json:"action"`
+	Access  ModelAccessPermission `json:"access-permission,omitempty"`
 }
+
+// ModelAccessPermission is the type of permission that a user has to access a
+// model.
+type ModelAccessPermission string
+
+// Model access permissions that may be set on a user.
+const (
+	ModelReadAccess  ModelAccessPermission = "read"
+	ModelAdminAccess ModelAccessPermission = "admin"
+)
 
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.

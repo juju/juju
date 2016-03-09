@@ -32,6 +32,7 @@ type fakeEnvAPI struct {
 	keys        []string
 	addUsers    []names.UserTag
 	removeUsers []names.UserTag
+	access      string
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -52,7 +53,8 @@ func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
 	return f.err
 }
 
-func (f *fakeEnvAPI) ShareModel(users ...names.UserTag) error {
+func (f *fakeEnvAPI) ShareModel(access string, users ...names.UserTag) error {
+	f.access = access
 	f.addUsers = users
 	return f.err
 }

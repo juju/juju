@@ -233,6 +233,7 @@ func (s *serverSuite) TestShareModelAddLocalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
 	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn, gc.Equals, time.Time{})
@@ -256,9 +257,35 @@ func (s *serverSuite) TestShareModelAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
 	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
+}
+
+func (s *serverSuite) TestShareModelAddAdminUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
+	args := params.ModifyModelUsers{
+		Changes: []params.ModifyModelUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddModelUser,
+			Access:  params.ModelAdminAccess,
+		}}}
+
+	result, err := s.client.ShareModel(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	modelUser, err := s.State.ModelUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
+	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	lastConn, err := modelUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn, gc.Equals, time.Time{})
 }
 
 func (s *serverSuite) TestShareModelAddUserTwice(c *gc.C) {

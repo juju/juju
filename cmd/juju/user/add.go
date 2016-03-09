@@ -30,9 +30,12 @@ setting the user's initial password.
 Examples:
     # Add user "foobar"
     juju add-user foobar
-    
-    # Add user and share model.
+
+    # Add user and share model with default (write) access.
     juju add-user foobar --share somemodel
+
+    # Add user and share model with read-only access.
+    juju add-user foobar --share somemodel --acl read
 
 
 See Also:
@@ -42,7 +45,7 @@ See Also:
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
-	AddUser(username, displayName, password string, modelUUIDs ...string) (names.UserTag, []byte, error)
+	AddUser(username, displayName, password, access string, modelUUIDs ...string) (names.UserTag, []byte, error)
 	Close() error
 }
 
@@ -57,17 +60,19 @@ type addCommand struct {
 	User        string
 	DisplayName string
 	ModelName   string
+	ModelAccess string
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ModelName, "share", "", "share a model with the new user")
+	f.StringVar(&c.ModelAccess, "acl", "write", "model access permissions")
 }
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-user",
-		Args:    "<username> [<display name>] [--share <model name>]",
+		Args:    "<username> [<display name>] [--share <model name>] [--acl <read|write>]",
 		Purpose: "adds a user to a controller and optionally shares a model",
 		Doc:     useraddCommandDoc,
 	}
@@ -121,7 +126,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Add a user without a password. This will generate a temporary
 	// secret key, which we'll print out for the user to supply to
 	// "juju register".
-	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", modelUUIDs...)
+	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", c.ModelAccess, modelUUIDs...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

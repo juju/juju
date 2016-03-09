@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -19,13 +20,16 @@ Share the current model with another user.
 
 Examples:
  juju share-model joe
-     Give local user "joe" access to the current model
+     Give local user "joe" default (write) access to the current model
+
+ juju share-model --acl read joe
+     Give local user "joe" read access to the current model
 
  juju share-model user1 user2 user3@ubuntuone
-     Give two local users and one remote user access to the current model
+     Give two local users and one remote user admin access to the current model
 
- juju share-model sam --model myenv
-     Give local user "sam" access to the model named "myenv"
+ juju share-model sam --model myenv --acl write
+     Give local user "sam" write access to the model named "myenv"
  `
 
 func NewShareCommand() cmd.Command {
@@ -38,8 +42,15 @@ type shareCommand struct {
 	envName string
 	api     ShareEnvironmentAPI
 
-	// Users to share the environment with.
+	// Users to share the model with.
 	Users []names.UserTag
+
+	// Permission users have when accessing the model.
+	ModelAccess string
+}
+
+func (c *shareCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.ModelAccess, "acl", "write", "model access permissions")
 }
 
 // Info implements Command.Info.
@@ -77,7 +88,7 @@ func (c *shareCommand) getAPI() (ShareEnvironmentAPI, error) {
 // ShareEnvironmentAPI defines the API functions used by the environment share command.
 type ShareEnvironmentAPI interface {
 	Close() error
-	ShareModel(...names.UserTag) error
+	ShareModel(access string, users ...names.UserTag) error
 }
 
 func (c *shareCommand) Run(ctx *cmd.Context) error {
@@ -87,5 +98,5 @@ func (c *shareCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.ShareModel(c.Users...), block.BlockChange)
+	return block.ProcessBlockedError(client.ShareModel(c.ModelAccess, c.Users...), block.BlockChange)
 }
