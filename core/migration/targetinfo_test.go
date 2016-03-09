@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmigration_test
+package migration_test
 
 import (
 	"github.com/juju/errors"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	migration "github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 )
 

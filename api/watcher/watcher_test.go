@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -303,7 +303,7 @@ func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
 	}
 
 	// Now create a migration.
-	targetInfo := modelmigration.TargetInfo{
+	targetInfo := migration.TargetInfo{
 		ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
 		Addrs:         []string{"1.2.3.4:5"},
 		CACert:        "trust me I'm an authority",

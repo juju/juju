@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -77,7 +77,7 @@ func (s *Suite) TestSetPhase(c *gc.C) {
 	err := api.SetPhase(params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.backend.migration.phaseSet, gc.Equals, modelmigration.ABORT)
+	c.Assert(s.backend.migration.phaseSet, gc.Equals, migration.ABORT)
 }
 
 func (s *Suite) TestSetPhaseNoMigration(c *gc.C) {
@@ -136,10 +136,10 @@ func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {
 type stubMigration struct {
 	state.ModelMigration
 	setPhaseErr error
-	phaseSet    modelmigration.Phase
+	phaseSet    migration.Phase
 }
 
-func (m *stubMigration) SetPhase(phase modelmigration.Phase) error {
+func (m *stubMigration) SetPhase(phase migration.Phase) error {
 	if m.setPhaseErr != nil {
 		return m.setPhaseErr
 	}

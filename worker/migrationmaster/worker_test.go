@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	masterapi "github.com/juju/juju/api/migrationmaster"
-	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/migrationmaster"
@@ -52,7 +52,7 @@ func (s *Suite) TestWatchesForMigration(c *gc.C) {
 	}
 
 	// Trigger migration.
-	client.watcher.changes <- modelmigration.TargetInfo{}
+	client.watcher.changes <- migration.TargetInfo{}
 
 	// Worker should exit for now (TEMPORARY)
 	select {
@@ -105,13 +105,13 @@ func (c *mockClient) Watch() (watcher.MigrationMasterWatcher, error) {
 
 func newMockWatcher() *mockWatcher {
 	return &mockWatcher{
-		changes: make(chan modelmigration.TargetInfo, 1),
+		changes: make(chan migration.TargetInfo, 1),
 	}
 }
 
 type mockWatcher struct {
 	tomb    tomb.Tomb
-	changes chan modelmigration.TargetInfo
+	changes chan migration.TargetInfo
 }
 
 func (w *mockWatcher) Kill() {
@@ -123,6 +123,6 @@ func (w *mockWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *mockWatcher) Changes() <-chan modelmigration.TargetInfo {
+func (w *mockWatcher) Changes() <-chan migration.TargetInfo {
 	return w.changes
 }

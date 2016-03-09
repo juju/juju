@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
 
@@ -449,7 +449,7 @@ func NewMigrationMasterWatcher(caller base.APICaller, watcherId string) watcher.
 	w := &migrationMasterWatcher{
 		caller: caller,
 		id:     watcherId,
-		out:    make(chan modelmigration.TargetInfo),
+		out:    make(chan migration.TargetInfo),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -462,7 +462,7 @@ type migrationMasterWatcher struct {
 	commonWatcher
 	caller base.APICaller
 	id     string
-	out    chan modelmigration.TargetInfo
+	out    chan migration.TargetInfo
 }
 
 func (w *migrationMasterWatcher) loop() error {
@@ -495,7 +495,7 @@ func (w *migrationMasterWatcher) loop() error {
 		if err != nil {
 			return errors.Annotatef(err, "unable to parse %q", info.AuthTag)
 		}
-		outInfo := modelmigration.TargetInfo{
+		outInfo := migration.TargetInfo{
 			ControllerTag: controllerTag,
 			Addrs:         info.Addrs,
 			CACert:        info.CACert,
@@ -512,6 +512,6 @@ func (w *migrationMasterWatcher) loop() error {
 
 // Changes returns a channel that reports the details of an active
 // migration for the model associated with the API connection.
-func (w *migrationMasterWatcher) Changes() <-chan modelmigration.TargetInfo {
+func (w *migrationMasterWatcher) Changes() <-chan migration.TargetInfo {
 	return w.out
 }

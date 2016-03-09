@@ -3,11 +3,11 @@
 
 package watcher
 
-import "github.com/juju/juju/core/modelmigration"
+import "github.com/juju/juju/core/migration"
 
 // MigrationMasterWatcher describes a watcher that reports the target
 // controller details for an active model migration.
 type MigrationMasterWatcher interface {
 	CoreWatcher
-	Changes() <-chan modelmigration.TargetInfo
+	Changes() <-chan migration.TargetInfo
 }
