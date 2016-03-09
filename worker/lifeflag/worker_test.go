@@ -8,11 +8,11 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type WorkerTest struct {
+type WorkerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerTest{})
+var _ = gc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestFatal(c *gc.C) {
 	c.Fatalf("xxx")
