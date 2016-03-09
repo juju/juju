@@ -398,6 +398,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	return curl, nil
 }
 
+// UploadCharm sends the content to the API server using an HTTP post.
 func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
 	endpoint := "/charms?series=" + curl.Series
 	contentType := "application/zip"

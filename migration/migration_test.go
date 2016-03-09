@@ -95,7 +95,7 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	c.Assert(attrs["controller-uuid"], gc.Equals, uuid)
 }
 
-func (s *ImportSuite) TestStreamBinariesTools(c *gc.C) {
+func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
 	// Create a model that has three different tools versions:
 	// one for a machine, one for a container, and one for a unit agent.
 	// We don't care about the actual validity of the model (it isn't).
@@ -126,7 +126,7 @@ func (s *ImportSuite) TestStreamBinariesTools(c *gc.C) {
 	})
 
 	uploader := &fakeUploader{tools: make(map[version.Binary]string)}
-	config := migration.StreamBinariesConfig{
+	config := migration.UploadBinariesConfig{
 		State:            &fakeStateStorage{},
 		Model:            model,
 		Target:           &fakeAPIConnection{},
@@ -134,10 +134,10 @@ func (s *ImportSuite) TestStreamBinariesTools(c *gc.C) {
 		GetToolsUploader: func(target api.Connection) migration.ToolsUploader {
 			return uploader
 		},
-		GetStateStorage:     func(migration.Backend) storage.Storage { return &fakeCharmsStorage{} },
-		GetCharmStoragePath: func(migration.Backend, *charm.URL) (string, error) { return "", nil },
+		GetStateStorage:     func(migration.UploadBackend) storage.Storage { return &fakeCharmsStorage{} },
+		GetCharmStoragePath: func(migration.UploadBackend, *charm.URL) (string, error) { return "", nil },
 	}
-	err := migration.StreamBinaries(config)
+	err := migration.UploadBinaries(config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(uploader.tools, jc.DeepEquals, map[version.Binary]string{
@@ -161,18 +161,18 @@ func (s *ImportSuite) TestStreamCharmsTools(c *gc.C) {
 	})
 
 	uploader := &fakeUploader{charms: make(map[string]string)}
-	config := migration.StreamBinariesConfig{
+	config := migration.UploadBinariesConfig{
 		State:            &fakeStateStorage{},
 		Model:            model,
 		Target:           &fakeAPIConnection{},
 		GetCharmUploader: func(api.Connection) migration.CharmUploader { return uploader },
 		GetToolsUploader: func(target api.Connection) migration.ToolsUploader { return &noOpUploader{} },
-		GetStateStorage:  func(migration.Backend) storage.Storage { return &fakeCharmsStorage{} },
-		GetCharmStoragePath: func(_ migration.Backend, u *charm.URL) (string, error) {
+		GetStateStorage:  func(migration.UploadBackend) storage.Storage { return &fakeCharmsStorage{} },
+		GetCharmStoragePath: func(_ migration.UploadBackend, u *charm.URL) (string, error) {
 			return "/path/for/" + u.String(), nil
 		},
 	}
-	err := migration.StreamBinaries(config)
+	err := migration.UploadBinaries(config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(uploader.charms, jc.DeepEquals, map[string]string{

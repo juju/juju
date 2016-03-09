@@ -92,9 +92,10 @@ func updateConfigFromProvider(model description.Model, controllerConfig *config.
 	return nil
 }
 
-// Backend define the methods on *state.State that are needed for streaming
-// the binaries.
-type Backend interface {
+// UploadBackend define the methods on *state.State that are needed for
+// uploading the tools and charms from the current controller to a different
+// controller.
+type UploadBackend interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	ModelUUID() string
 	MongoSession() *mgo.Session
@@ -113,27 +114,27 @@ type ToolsUploader interface {
 	UploadTools(io.ReadSeeker, version.Binary, ...string) (*tools.Tools, error)
 }
 
-// StreamBinariesConfig provides all the configuration that the StreamBinaries
+// UploadBinariesConfig provides all the configuration that the UploadBinaries
 // function needs to operate. The functions are configurable for testing
 // purposes. To construct the config with the default functions, use
-// `NewStreamBinariesConfig`.
-type StreamBinariesConfig struct {
-	State  Backend
+// `NewUploadBinariesConfig`.
+type UploadBinariesConfig struct {
+	State  UploadBackend
 	Model  description.Model
 	Target api.Connection
 
 	GetCharmUploader func(api.Connection) CharmUploader
 	GetToolsUploader func(api.Connection) ToolsUploader
 
-	GetStateStorage     func(Backend) storage.Storage
-	GetCharmStoragePath func(Backend, *charm.URL) (string, error)
+	GetStateStorage     func(UploadBackend) storage.Storage
+	GetCharmStoragePath func(UploadBackend, *charm.URL) (string, error)
 }
 
-// NewStreamBinariesConfig constructs a `StreamBinariesConfig` with the default
+// NewUploadBinariesConfig constructs a `UploadBinariesConfig` with the default
 // functions to get the uploaders for the target api connection, and functions
 // used to get the charm data out of the database.
-func NewStreamBinariesConfig(backend Backend, model description.Model, target api.Connection) StreamBinariesConfig {
-	return StreamBinariesConfig{
+func NewUploadBinariesConfig(backend UploadBackend, model description.Model, target api.Connection) UploadBinariesConfig {
+	return UploadBinariesConfig{
 		State:  backend,
 		Model:  model,
 		Target: target,
@@ -146,9 +147,9 @@ func NewStreamBinariesConfig(backend Backend, model description.Model, target ap
 }
 
 // Validate makes sure that all the config values are non-nil.
-func (c *StreamBinariesConfig) Validate() error {
+func (c *UploadBinariesConfig) Validate() error {
 	if c.State == nil {
-		return errors.NotValidf("missing Backend")
+		return errors.NotValidf("missing UploadBackend")
 	}
 	if c.Model == nil {
 		return errors.NotValidf("missing Model")
@@ -171,9 +172,9 @@ func (c *StreamBinariesConfig) Validate() error {
 	return nil
 }
 
-// StreamBinaries will send binaries stored in the source blobstore to
+// UploadBinaries will send binaries stored in the source blobstore to
 // the target controller.
-func StreamBinaries(config StreamBinariesConfig) error {
+func UploadBinaries(config UploadBinariesConfig) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -188,7 +189,7 @@ func StreamBinaries(config StreamBinariesConfig) error {
 	return nil
 }
 
-func getStateStorage(backend Backend) storage.Storage {
+func getStateStorage(backend UploadBackend) storage.Storage {
 	return storage.NewStorage(backend.ModelUUID(), backend.MongoSession())
 }
 
@@ -200,7 +201,7 @@ func getCharmUploader(target api.Connection) CharmUploader {
 	return target.Client()
 }
 
-func streamTools(config StreamBinariesConfig) error {
+func streamTools(config UploadBinariesConfig) error {
 	storage, err := config.State.ToolsStorage()
 	if err != nil {
 		return errors.Trace(err)
@@ -223,8 +224,6 @@ func streamTools(config StreamBinariesConfig) error {
 			return errors.Trace(err)
 		}
 		defer cleanup()
-
-		// NOTE: email Rog, && juju-dev re io.ReadSeeker optionality, and expect just io.Reader.
 
 		// UploadTools encapsulates the HTTP POST necessary to send the tools
 		// to the target API server.
@@ -264,7 +263,7 @@ func getUsedToolsVersions(model description.Model) map[version.Binary]bool {
 	// Iterate through the model for all tools, and make a map of them.
 	usedVersions := make(map[version.Binary]bool)
 	// It is most likely that the preconditions will limit the number of
-	// tools versions in fly, but that is not depended on here.
+	// tools versions in use, but that is not depended on here.
 	for _, machine := range model.Machines() {
 		addToolsVersionForMachine(machine, usedVersions)
 	}
@@ -286,7 +285,7 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	}
 }
 
-func streamCharms(config StreamBinariesConfig) error {
+func streamCharms(config UploadBinariesConfig) error {
 	storage := config.GetStateStorage(config.State)
 	usedCharms := getUsedCharms(config.Model)
 	charmUploader := config.GetCharmUploader(config.Target)
@@ -331,7 +330,7 @@ func getUsedCharms(model description.Model) set.Strings {
 	return result
 }
 
-func getCharmStoragePath(st Backend, curl *charm.URL) (string, error) {
+func getCharmStoragePath(st UploadBackend, curl *charm.URL) (string, error) {
 	ch, err := st.Charm(curl)
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get charm from state")
