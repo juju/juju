@@ -28,7 +28,7 @@ type Facade struct {
 // NewFacade returns a new Facade using the supplied caller.
 func NewFacade(caller base.APICaller, newWatcher NewWatcherFunc) *Facade {
 	return &Facade{
-		caller:     base.NewFacadeCaller(caller, "ServiceScaler"),
+		caller:     base.NewFacadeCaller(caller, "LifeFlag"),
 		newWatcher: newWatcher,
 	}
 }
@@ -48,7 +48,7 @@ func (facade *Facade) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	if count := len(results.Results); count != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", count)
+		return nil, errors.Errorf("expected 1 Watch result, got %d", count)
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
@@ -66,12 +66,12 @@ func (facade *Facade) Life(entity names.Tag) (life.Value, error) {
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.LifeResults
-	err := facade.caller.FacadeCall("Watch", args, &results)
+	err := facade.caller.FacadeCall("Life", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if count := len(results.Results); count != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", count)
+		return "", errors.Errorf("expected 1 Life result, got %d", count)
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
