@@ -159,3 +159,28 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 
 	return req, nil
 }
+
+type encoder interface {
+	Encode(charset, s string) string
+}
+
+type decoder interface {
+	Decode(s string) (string, error)
+}
+
+func encodeParam(s string) string {
+	return getEncoder().Encode("utf-8", s)
+}
+
+func decodeParam(s string) (string, error) {
+	decoded, err := getDecoder().Decode(s)
+
+	// If encoding is not required, the encoder will return the original string.
+	// However, the decoder doesn't expect that, so it barfs on non-encoded
+	// strings. To detect if a string was not encoded, we simply try encoding
+	// again, if it returns the same string, we know it wasn't encoded.
+	if err != nil && s == encodeParam(s) {
+		return s, nil
+	}
+	return decoded, err
+}
