@@ -45,8 +45,15 @@ func (w *migrationMaster) run() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// For now just abort the migration (this is a work in progress)
+	err = w.client.SetPhase(migration.ABORT)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var _ = targetInfo
-	return errors.New("migration seen")
+	return errors.New("migration seen and aborted")
 }
 
 func (w *migrationMaster) waitForMigration() (*migration.TargetInfo, error) {

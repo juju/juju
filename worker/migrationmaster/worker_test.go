@@ -57,10 +57,13 @@ func (s *Suite) TestWatchesForMigration(c *gc.C) {
 	// Worker should exit for now (TEMPORARY)
 	select {
 	case err := <-doneC:
-		c.Assert(err, gc.ErrorMatches, "migration seen")
+		c.Assert(err, gc.ErrorMatches, "migration seen and aborted")
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for worker to stop")
 	}
+
+	// The migration should have been aborted.
+	c.Assert(client.phaseSet, gc.Equals, migration.ABORT)
 }
 
 func (s *Suite) TestWatchFailure(c *gc.C) {
@@ -93,6 +96,7 @@ type mockClient struct {
 	watchCalled chan bool
 	watchErr    error
 	watcher     *mockWatcher
+	phaseSet    migration.Phase
 }
 
 func (c *mockClient) Watch() (watcher.MigrationMasterWatcher, error) {
@@ -101,6 +105,11 @@ func (c *mockClient) Watch() (watcher.MigrationMasterWatcher, error) {
 		return nil, c.watchErr
 	}
 	return c.watcher, nil
+}
+
+func (c *mockClient) SetPhase(phase migration.Phase) error {
+	c.phaseSet = phase
+	return nil
 }
 
 func newMockWatcher() *mockWatcher {
