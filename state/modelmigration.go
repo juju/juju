@@ -21,7 +21,58 @@ import (
 
 // ModelMigration represents the state of an migration attempt for a
 // model.
-type ModelMigration struct {
+type ModelMigration interface {
+	// Id returns a unique identifier for the model migration.
+	Id() string
+
+	// ModelUUID returns the UUID for the model being migrated.
+	ModelUUID() string
+
+	// StartTime returns the time when the migration was started.
+	StartTime() time.Time
+
+	// SuccessTime returns the time when the migration reached
+	// SUCCESS.
+	SuccessTime() time.Time
+
+	// EndTime returns the time when the migration reached DONE or
+	// REAPFAILED.
+	EndTime() time.Time
+
+	// Phase returns the migration's phase.
+	Phase() (migration.Phase, error)
+
+	// PhaseChangedTime returns the time when the migration's phase
+	// last changed.
+	PhaseChangedTime() time.Time
+
+	// StatusMessage returns human readable text about the current
+	// progress of the migration.
+	StatusMessage() string
+
+	// InitiatedBy returns username the initiated the migration.
+	InitiatedBy() string
+
+	// TargetInfo returns the details required to connect to the
+	// migration's target controller.
+	TargetInfo() (*migration.TargetInfo, error)
+
+	// SetPhase sets the phase of the migration. An error will be
+	// returned if the new phase does not follow the current phase or
+	// if the migration is no longer active.
+	SetPhase(nextPhase migration.Phase) error
+
+	// SetStatusMessage sets some human readable text about the
+	// current progress of the migration.
+	SetStatusMessage(text string) error
+
+	// Refresh updates the contents of the ModelMigration from the
+	// underlying state.
+	Refresh() error
+}
+
+// modelMigration is an implementation of ModelMigration.
+type modelMigration struct {
 	st        *State
 	doc       modelMigDoc
 	statusDoc modelMigStatusDoc
@@ -52,11 +103,11 @@ type modelMigDoc struct {
 	// server's TLS certificate.
 	TargetCACert string `bson:"target-cacert"`
 
-	// TargetEntityTag holds a string representation of the tag to
+	// TargetAuthTag holds a string representation of the tag to
 	// authenticate to the target controller with.
-	TargetEntityTag string `bson:"target-entity"`
+	TargetAuthTag string `bson:"target-entity"`
 
-	// TargetPassword holds the password to use with TargetEntityTag
+	// TargetPassword holds the password to use with TargetAuthTag
 	// when authenticating.
 	TargetPassword string `bson:"target-password"`
 }
@@ -99,35 +150,33 @@ type modelMigStatusDoc struct {
 	StatusMessage string `bson:"status-message"`
 }
 
-// Id returns a unique identifier for the model migration.
-func (mig *ModelMigration) Id() string {
+// Id implements ModelMigration.
+func (mig *modelMigration) Id() string {
 	return mig.doc.Id
 }
 
-// ModelUUID returns the UUID for the model being migrated.
-func (mig *ModelMigration) ModelUUID() string {
+// ModelUUID implements ModelMigration.
+func (mig *modelMigration) ModelUUID() string {
 	return mig.doc.ModelUUID
 }
 
-// StartTime returns the time when the migration was started.
-func (mig *ModelMigration) StartTime() time.Time {
+// StartTime implements ModelMigration.
+func (mig *modelMigration) StartTime() time.Time {
 	return unixNanoToTime0(mig.statusDoc.StartTime)
 }
 
-// SuccessTime returns the time when the migration reached
-// SUCCESS.
-func (mig *ModelMigration) SuccessTime() time.Time {
+// SuccessTime implements ModelMigration.
+func (mig *modelMigration) SuccessTime() time.Time {
 	return unixNanoToTime0(mig.statusDoc.SuccessTime)
 }
 
-// EndTime returns the time when the migration reached DONE or
-// REAPFAILED.
-func (mig *ModelMigration) EndTime() time.Time {
+// EndTime implements ModelMigration.
+func (mig *modelMigration) EndTime() time.Time {
 	return unixNanoToTime0(mig.statusDoc.EndTime)
 }
 
-// Phase returns the migration's phase.
-func (mig *ModelMigration) Phase() (migration.Phase, error) {
+// Phase implements ModelMigration.
+func (mig *modelMigration) Phase() (migration.Phase, error) {
 	phase, ok := migration.ParsePhase(mig.statusDoc.Phase)
 	if !ok {
 		return phase, errors.Errorf("invalid phase in DB: %v", mig.statusDoc.Phase)
@@ -135,27 +184,24 @@ func (mig *ModelMigration) Phase() (migration.Phase, error) {
 	return phase, nil
 }
 
-// PhaseChangedTime returns the time when the migration's phase last
-// changed.
-func (mig *ModelMigration) PhaseChangedTime() time.Time {
+// PhaseChangedTime implements ModelMigration.
+func (mig *modelMigration) PhaseChangedTime() time.Time {
 	return unixNanoToTime0(mig.statusDoc.PhaseChangedTime)
 }
 
-// StatusMessage returns human readable text about the current
-// progress of the migration.
-func (mig *ModelMigration) StatusMessage() string {
+// StatusMessage implements ModelMigration.
+func (mig *modelMigration) StatusMessage() string {
 	return mig.statusDoc.StatusMessage
 }
 
-// InitiatedBy returns username the initiated the migration.
-func (mig *ModelMigration) InitiatedBy() string {
+// InitiatedBy implements ModelMigration.
+func (mig *modelMigration) InitiatedBy() string {
 	return mig.doc.InitiatedBy
 }
 
-// TargetInfo returns the details required to connect to the
-// migration's target controller.
-func (mig *ModelMigration) TargetInfo() (*migration.TargetInfo, error) {
-	entityTag, err := names.ParseTag(mig.doc.TargetEntityTag)
+// TargetInfo implements ModelMigration.
+func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
+	authTag, err := names.ParseUserTag(mig.doc.TargetAuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -163,15 +209,13 @@ func (mig *ModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		ControllerTag: names.NewModelTag(mig.doc.TargetController),
 		Addrs:         mig.doc.TargetAddrs,
 		CACert:        mig.doc.TargetCACert,
-		EntityTag:     entityTag,
+		AuthTag:       authTag,
 		Password:      mig.doc.TargetPassword,
 	}, nil
 }
 
-// SetPhase sets the phase of the migration. An error will be returned
-// if the new phase does not follow the current phase or if the
-// migration is no longer active.
-func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
+// SetPhase implements ModelMigration.
+func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 	now := GetClock().Now().UnixNano()
 
 	phase, err := mig.Phase()
@@ -227,9 +271,8 @@ func (mig *ModelMigration) SetPhase(nextPhase migration.Phase) error {
 	return nil
 }
 
-// SetStatusMessage sets some human readable text about the current
-// progress of the migration.
-func (mig *ModelMigration) SetStatusMessage(text string) error {
+// SetStatusMessage implements ModelMigration.
+func (mig *modelMigration) SetStatusMessage(text string) error {
 	ops := []txn.Op{{
 		C:      modelMigrationStatusC,
 		Id:     mig.statusDoc.Id,
@@ -243,9 +286,8 @@ func (mig *ModelMigration) SetStatusMessage(text string) error {
 	return nil
 }
 
-// Refresh updates the contents of the ModelMigration from the underlying
-// state.
-func (mig *ModelMigration) Refresh() error {
+// Refresh implements ModelMigration.
+func (mig *modelMigration) Refresh() error {
 	// Only the status document is updated. The modelMigDoc is static
 	// after creation.
 	statusColl, closer := mig.st.getCollection(modelMigrationStatusC)
@@ -262,17 +304,17 @@ func (mig *ModelMigration) Refresh() error {
 	return nil
 }
 
-// ModelMigrationSpec holds the information required to create an
+// ModelMigrationSpec holds the information required to create a
 // ModelMigration instance.
 type ModelMigrationSpec struct {
-	InitiatedBy string
+	InitiatedBy names.UserTag
 	TargetInfo  migration.TargetInfo
 }
 
 // Validate returns an error if the ModelMigrationSpec contains bad
 // data. Nil is returned otherwise.
 func (spec *ModelMigrationSpec) Validate() error {
-	if !names.IsValidUser(spec.InitiatedBy) {
+	if !names.IsValidUser(spec.InitiatedBy.Id()) {
 		return errors.NotValidf("InitiatedBy")
 	}
 	return spec.TargetInfo.Validate()
@@ -281,11 +323,14 @@ func (spec *ModelMigrationSpec) Validate() error {
 // CreateModelMigration initialises state that tracks a model
 // migration. It will return an error if there is already a
 // model migration in progress.
-func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, error) {
+func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, error) {
 	if st.IsController() {
 		return nil, errors.New("controllers can't be migrated")
 	}
 	if err := spec.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkTargetController(st, spec.TargetInfo.ControllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -294,7 +339,15 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
 	buildTxn := func(int) ([]txn.Op, error) {
-		if isActive, err := IsModelMigrationActive(st, modelUUID); err != nil {
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to load model")
+		}
+		if model.Life() != Alive {
+			return nil, errors.New("model is not alive")
+		}
+
+		if isActive, err := st.IsModelMigrationActive(); err != nil {
 			return nil, errors.Trace(err)
 		} else if isActive {
 			return nil, errors.New("already in progress")
@@ -309,11 +362,11 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 		doc = modelMigDoc{
 			Id:               id,
 			ModelUUID:        modelUUID,
-			InitiatedBy:      spec.InitiatedBy,
+			InitiatedBy:      spec.InitiatedBy.Id(),
 			TargetController: spec.TargetInfo.ControllerTag.Id(),
 			TargetAddrs:      spec.TargetInfo.Addrs,
 			TargetCACert:     spec.TargetInfo.CACert,
-			TargetEntityTag:  spec.TargetInfo.EntityTag.String(),
+			TargetAuthTag:    spec.TargetInfo.AuthTag.String(),
 			TargetPassword:   spec.TargetInfo.Password,
 		}
 		statusDoc = modelMigStatusDoc{
@@ -337,22 +390,34 @@ func CreateModelMigration(st *State, spec ModelMigrationSpec) (*ModelMigration, 
 			Id:     modelUUID,
 			Assert: txn.DocMissing,
 			Insert: bson.M{"id": doc.Id},
-		}}, nil
+		}, model.assertAliveOp(),
+		}, nil
 	}
 	if err := st.run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to create migration")
 	}
 
-	return &ModelMigration{
+	return &modelMigration{
 		doc:       doc,
 		statusDoc: statusDoc,
 		st:        st,
 	}, nil
 }
 
+func checkTargetController(st *State, targetControllerTag names.ModelTag) error {
+	currentController, err := st.ControllerModel()
+	if err != nil {
+		return errors.Annotate(err, "failed to load existing controller model")
+	}
+	if targetControllerTag == currentController.ModelTag() {
+		return errors.New("model already attached to target controller")
+	}
+	return nil
+}
+
 // GetModelMigration returns the most recent ModelMigration for a
 // model (if any).
-func GetModelMigration(st *State) (*ModelMigration, error) {
+func (st *State) GetModelMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(modelMigrationsC)
 	defer closer()
 
@@ -374,7 +439,7 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 		return nil, errors.Annotate(err, "failed to find status document")
 	}
 
-	return &ModelMigration{
+	return &modelMigration{
 		doc:       doc,
 		statusDoc: statusDoc,
 		st:        st,
@@ -382,11 +447,11 @@ func GetModelMigration(st *State) (*ModelMigration, error) {
 }
 
 // IsModelMigrationActive return true if a migration is in progress for
-// the given model.
-func IsModelMigrationActive(st *State, modelUUID string) (bool, error) {
+// the model associated with the State.
+func (st *State) IsModelMigrationActive() (bool, error) {
 	active, closer := st.getCollection(modelMigrationsActiveC)
 	defer closer()
-	n, err := active.FindId(modelUUID).Count()
+	n, err := active.FindId(st.ModelUUID()).Count()
 	if err != nil {
 		return false, errors.Trace(err)
 	}

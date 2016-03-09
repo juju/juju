@@ -6,11 +6,14 @@ package watcher
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/watcher"
 )
 
@@ -436,5 +439,79 @@ func (w *entitiesWatcher) loop(initialChanges []string) error {
 // as tags (converted to strings) of the watched entities
 // with changes.
 func (w *entitiesWatcher) Changes() watcher.StringsChannel {
+	return w.out
+}
+
+// NewMigrationMasterWatcher takes the NotifyWatcherId returns by the
+// MigrationMaster.Watch API and returns a watcher which will report
+// details about a model migration (if and when it exists).
+func NewMigrationMasterWatcher(caller base.APICaller, watcherId string) watcher.MigrationMasterWatcher {
+	w := &migrationMasterWatcher{
+		caller: caller,
+		id:     watcherId,
+		out:    make(chan modelmigration.TargetInfo),
+	}
+	go func() {
+		defer w.tomb.Done()
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+type migrationMasterWatcher struct {
+	commonWatcher
+	caller base.APICaller
+	id     string
+	out    chan modelmigration.TargetInfo
+}
+
+func (w *migrationMasterWatcher) loop() error {
+	w.newResult = func() interface{} { return new(params.ModelMigrationTargetInfo) }
+	w.call = makeWatcherAPICaller(w.caller, "MigrationMasterWatcher", w.id)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		var data interface{}
+		var ok bool
+
+		select {
+		case data, ok = <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+		case <-w.tomb.Dying():
+			return nil
+		}
+
+		info := data.(*params.ModelMigrationTargetInfo)
+		controllerTag, err := names.ParseModelTag(info.ControllerTag)
+		if err != nil {
+			return errors.Annotatef(err, "unable to parse %q", info.ControllerTag)
+		}
+		authTag, err := names.ParseUserTag(info.AuthTag)
+		if err != nil {
+			return errors.Annotatef(err, "unable to parse %q", info.AuthTag)
+		}
+		outInfo := modelmigration.TargetInfo{
+			ControllerTag: controllerTag,
+			Addrs:         info.Addrs,
+			CACert:        info.CACert,
+			AuthTag:       authTag,
+			Password:      info.Password,
+		}
+		select {
+		case w.out <- outInfo:
+		case <-w.tomb.Dying():
+			return nil
+		}
+	}
+}
+
+// Changes returns a channel that reports the details of an active
+// migration for the model associated with the API connection.
+func (w *migrationMasterWatcher) Changes() <-chan modelmigration.TargetInfo {
 	return w.out
 }

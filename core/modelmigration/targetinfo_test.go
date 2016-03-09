@@ -56,11 +56,11 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"empty CACert not valid",
 	}, {
-		"EntityTag",
+		"AuthTag",
 		func(info *migration.TargetInfo) {
-			info.EntityTag = names.NewMachineTag("")
+			info.AuthTag = names.UserTag{}
 		},
-		"empty EntityTag not valid",
+		"empty AuthTag not valid",
 	}, {
 		"Password",
 		func(info *migration.TargetInfo) {
@@ -81,7 +81,7 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 			ControllerTag: modelTag,
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
-			EntityTag:     names.NewUserTag("user"),
+			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
 		}
 		test.tweakInfo(&info)

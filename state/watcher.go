@@ -2646,3 +2646,78 @@ func (w *blockDevicesWatcher) loop() error {
 		}
 	}
 }
+
+// WatchForModelMigration returns a notify watcher which which report
+// when a migration is in progress for the model associated with the
+// State. Only in-progress and newly created migrations are reported.
+func (st *State) WatchForModelMigration() (NotifyWatcher, error) {
+	return newModelMigrationWatcher(st), nil
+}
+
+type modelMigrationWatcher struct {
+	commonWatcher
+	collName string
+	sink     chan struct{}
+}
+
+func newModelMigrationWatcher(st *State) NotifyWatcher {
+	w := &modelMigrationWatcher{
+		commonWatcher: commonWatcher{st: st},
+		collName:      modelMigrationsActiveC,
+		sink:          make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.sink)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for this watcher.
+func (w *modelMigrationWatcher) Changes() <-chan struct{} {
+	return w.sink
+}
+
+func (w *modelMigrationWatcher) loop() error {
+	in := make(chan watcher.Change)
+	filter := func(id interface{}) bool {
+		// Only report migrations for the requested model.
+		if id, ok := id.(string); ok {
+			return id == w.st.ModelUUID()
+		}
+		return false
+	}
+	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
+	defer w.st.watcher.UnwatchCollection(w.collName, in)
+
+	var out chan<- struct{}
+
+	// Check if a migration is already in progress and if so, report it immediately.
+	if active, err := w.st.IsModelMigrationActive(); err != nil {
+		return errors.Trace(err)
+	} else if active {
+		out = w.sink
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case change := <-in:
+			// Ignore removals from the collection.
+			if change.Revno == -1 {
+				continue
+			}
+
+			if _, ok := collect(change, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			out = w.sink
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}

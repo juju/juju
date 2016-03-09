@@ -202,6 +202,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUnshareCommand())
 	r.Register(model.NewUsersCommand())
 
+	r.Register(newMigrateCommand())
+
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
 	r.RegisterSuperAlias("run-action", "action", "do", nil)

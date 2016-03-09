@@ -186,3 +186,17 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 func (srv *Server) Addr() *net.TCPAddr {
 	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }
+
+// PatchMigrationGetter overrides the migrationGetter function to
+// support testing.
+func PatchMigrationGetter(p Patcher, st modelMigrationGetter) {
+	p.PatchValue(&migrationGetter, func(*state.State) modelMigrationGetter {
+		return st
+	})
+}
+
+// Patcher defines an interface that matches the PatchValue method on
+// CleanupSuite
+type Patcher interface {
+	PatchValue(ptr, value interface{})
+}
