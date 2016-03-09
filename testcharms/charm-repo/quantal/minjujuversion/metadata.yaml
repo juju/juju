@@ -1,4 +1,4 @@
 name: minjujuversion
 summary: "A charm with a high min juju version"
 description: ""
-minjujuversion: "999.999.999"
+min-juju-version: "999.999.999"
