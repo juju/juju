@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/description"
 	_ "github.com/juju/juju/provider/dummy"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -51,4 +52,18 @@ func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {
 	controllerUUID, ok := controllerConfig.UUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(modelConfig["controller-uuid"], gc.Equals, controllerUUID)
+}
+
+type CharmInternalSuite struct {
+	statetesting.StateSuite
+}
+
+var _ = gc.Suite(&CharmInternalSuite{})
+
+func (s *CharmInternalSuite) TestCharmStoragePath(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, nil)
+
+	path, err := getCharmStoragePath(s.State, charm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "fake-storage-path")
 }
