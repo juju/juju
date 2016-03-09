@@ -95,8 +95,6 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-const bootstrapMachineId = "0"
-
 var (
 	logger       = loggo.GetLogger("juju.cmd.jujud")
 	retryDelay   = 3 * time.Second

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/state"
@@ -21,17 +20,23 @@ var logger = loggo.GetLogger("juju.worker.modelworkermanager")
 // Backend defines the State functionality used by the manager worker.
 type Backend interface {
 	WatchModels() state.StringsWatcher
-	GetModel(names.ModelTag) (*state.Model, error)
 }
 
+// NewWorkerFunc should return a worker responsible for running
+// all a model's required workers; and for returning nil when
+// there's no more model to manage.
 type NewWorkerFunc func(modelUUID string) (worker.Worker, error)
 
+// Config holds the dependencies and configuration necessary to run
+// a model worker manager.
 type Config struct {
 	Backend    Backend
 	NewWorker  NewWorkerFunc
 	ErrorDelay time.Duration
 }
 
+// Validate returns an error if config cannot be expected to drive
+// a functional model worker manager.
 func (config Config) Validate() error {
 	if config.Backend == nil {
 		return errors.NotValidf("nil Backend")
@@ -50,7 +55,8 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	m := &modelWorkerManager{
-		config: config,
+		config:  config,
+		started: set.NewStrings(),
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
