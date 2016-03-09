@@ -76,40 +76,14 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	sizeRaw := req.Header.Get(HeaderContentLength)
 	pendingID := req.URL.Query().Get(QueryParamPendingID)
 
-	disp := req.Header.Get(HeaderContentDisposition)
-
-	// the first value is the media type name (e.g. "form-data"), but we don't
-	// really care.
-	_, vals, err := parseMediaType(disp)
-	if err != nil {
-		return ur, errors.Annotate(err, "badly formatted Content-Disposition")
-	}
-
-	param, ok := vals[filenameParamForContentDispositionHeader]
-	if !ok {
-		return ur, errors.Errorf("missing filename in resource upload request")
-	}
-
-	filename, err := decodeParam(param)
-	switch {
-	case err == errInvalidWord:
-		if encodeParam(param) == param {
-			// The decode function doesn't differentiate between an invalid
-			// string and a string that just didn't need to be encoded in the
-			// first place.  So we run it through encode again to see if it's
-			// just one of those "doesn't need to be encoded" strings.  This is
-			// terrible, but I don't see a way around it.
-			filename = param
-			break
-		}
-		fallthrough
-	case err != nil:
-		return ur, errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
-	}
-
 	fp, err := charmresource.ParseFingerprint(fingerprint)
 	if err != nil {
 		return ur, errors.Annotate(err, "invalid fingerprint")
+	}
+
+	filename, err := extractFilename(req)
+	if err != nil {
+		return ur, errors.Trace(err)
 	}
 
 	size, err := strconv.ParseInt(sizeRaw, 10, 64)
@@ -126,6 +100,39 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 		PendingID:   pendingID,
 	}
 	return ur, nil
+}
+
+func extractFilename(req *http.Request) (string, error) {
+	disp := req.Header.Get(HeaderContentDisposition)
+
+	// the first value returned here is the media type name (e.g. "form-data"),
+	// but we don't really care.
+	_, vals, err := parseMediaType(disp)
+	if err != nil {
+		return "", errors.Annotate(err, "badly formatted Content-Disposition")
+	}
+
+	param, ok := vals[filenameParamForContentDispositionHeader]
+	if !ok {
+		return "", errors.Errorf("missing filename in resource upload request")
+	}
+
+	filename, err := decodeParam(param)
+	if err != nil {
+		return "", errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
+	}
+	return filename, nil
+}
+
+func setFilename(filename string, req *http.Request) {
+	filename = encodeParam(filename)
+
+	disp := formatMediaType(
+		MediaTypeFormData,
+		map[string]string{filenameParamForContentDispositionHeader: filename},
+	)
+
+	req.Header.Set(HeaderContentDisposition, disp)
 }
 
 // filenameParamForContentDispositionHeader is the name of the parameter that
@@ -152,15 +159,8 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	req.Header.Set(HeaderContentType, ContentTypeRaw)
 	req.Header.Set(HeaderContentSha384, ur.Fingerprint.String())
 	req.Header.Set(HeaderContentLength, fmt.Sprint(ur.Size))
+	setFilename(ur.Filename, req)
 
-	filename := encodeParam(ur.Filename)
-
-	disp := formatMediaType(
-		MediaTypeFormData,
-		map[string]string{filenameParamForContentDispositionHeader: filename},
-	)
-
-	req.Header.Set(HeaderContentDisposition, disp)
 	req.ContentLength = ur.Size
 
 	if ur.PendingID != "" {
