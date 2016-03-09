@@ -193,7 +193,7 @@ func (s *ipAddressesStateSuite) assertNoAddressesOnMachine(c *gc.C, machine *sta
 func (s *ipAddressesStateSuite) assertAllAddressesOnMachineMatchCount(c *gc.C, machine *state.Machine, expectedCount int) {
 	results, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, expectedCount)
+	c.Assert(results, gc.HasLen, expectedCount, gc.Commentf("expected %d, got %d: %+v", expectedCount, len(results), results))
 }
 
 func (s *ipAddressesStateSuite) TestRemoveTwiceStillSucceeds(c *gc.C) {
@@ -394,6 +394,44 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	}
 	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found or not alive", args.CIDRAddress, subnetCIDR)
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenModelNotAlive(c *gc.C) {
+	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
+	otherModel, err := s.otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = otherModel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:  "10.20.30.40/16",
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+	}
+	err = s.otherStateMachine.SetDevicesAddresses(args)
+	c.Assert(err, gc.ErrorMatches, `.*: model "other-model" is no longer alive`)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveOrGone(c *gc.C) {
+	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
+	err := s.otherStateMachine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := state.LinkLayerDeviceAddress{
+		CIDRAddress:  "10.20.30.40/16",
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+	}
+	err = s.otherStateMachine.SetDevicesAddresses(args)
+	c.Assert(err, gc.ErrorMatches, `.*: machine not found or not alive`)
+
+	err = s.otherStateMachine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check it fails with a different error, as eth0 was removed along with
+	// otherStateMachine above.
+	err = s.otherStateMachine.SetDevicesAddresses(args)
+	c.Assert(err, gc.ErrorMatches, `.*: DeviceName "eth0" on machine "0" not found`)
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc.C) {

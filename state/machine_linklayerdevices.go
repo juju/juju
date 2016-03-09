@@ -587,9 +587,6 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if err := m.areIPAddressDocsStillValid(newDocs); err != nil {
-				return nil, errors.Trace(err)
-			}
 		}
 
 		ops := []txn.Op{
@@ -607,9 +604,6 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		return errors.Trace(err)
 	}
 	return nil
-	// Even without an error, we still need to verify if any of the newDocs was
-	// not inserted due to ProviderID unique index violation.
-	//return m.rollbackUnlessAllLinkLayerDevicesWithProviderIDAdded(devicesArgs)
 }
 
 func (st *State) allProviderIDsForModelIPAddresses() (set.Strings, error) {
@@ -774,18 +768,6 @@ func (m *Machine) assertSubnetAliveWhenSetOps(newDoc *ipAddressDoc, opsSoFar []t
 		})
 	}
 	return opsSoFar
-}
-
-func (m *Machine) areIPAddressDocsStillValid(newDocs []ipAddressDoc) error {
-	for _, newDoc := range newDocs {
-		if err := m.verifySubnetStillAliveWhenSet(newDoc.SubnetID); err != nil {
-			return errors.Trace(err)
-		}
-		if err := m.verifyDeviceAlreadyExists(newDoc.DeviceName); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the
